@@ -65,7 +65,7 @@ class Prefi:
     
     def deploy_prediction_market(self, oracle_address: str, asset_address: str, 
                                 epoch_duration: int, network: str = "ganache") -> Dict[str, Any]:
-        """Deploy the EpochPredictionMarket contract
+        """Deploy the PredictionMarket contract
         
         Args:
             oracle_address: Address of the price oracle
@@ -77,7 +77,7 @@ class Prefi:
             Deployment info for the prediction market
         """
         deployment_info = {
-            "contract": "EpochPredictionMarket",
+            "contract": "PredictionMarket",
             "oracle": oracle_address,
             "asset": asset_address,
             "epoch_duration": epoch_duration,
@@ -345,9 +345,9 @@ class Prefi:
             Gas estimation
         """
         gas_estimates = {
-            "ganache": {"PriceOracle": 0, "EpochPredictionMarket": 0},
-            "base": {"PriceOracle": 500000, "EpochPredictionMarket": 1000000},
-            "baseSepolia": {"PriceOracle": 500000, "EpochPredictionMarket": 1000000}
+            "ganache": {"PriceOracle": 0, "PredictionMarket": 0},
+            "base": {"PriceOracle": 500000, "PredictionMarket": 1000000},
+            "baseSepolia": {"PriceOracle": 500000, "PredictionMarket": 1000000}
         }
         return {
             "network": network,

@@ -20,7 +20,7 @@ A robust, zero-sum prediction market protocol enabling users to bet on future as
 prefi/
 ├── contracts/
 │   ├── PredictionMarket.sol          # Main prediction market logic
-│   ├── EpochPredictionMarket.sol     # Epoch-based competition variant
+│   ├── PredictionMarket.sol     # Epoch-based competition variant
 │   ├── Oracle.sol                    # Aggregator oracle with consensus
 │   └── oracles/
 │       ├── PriceOracle.sol           # Modular oracle base
@@ -203,7 +203,7 @@ await market.placePrediction(
 ### Epoch Competition
 
 ```javascript
-const epochMarket = await ethers.getContractAt("EpochPredictionMarket", EPOCH_MARKET_ADDRESS);
+const epochMarket = await ethers.getContractAt("PredictionMarket", EPOCH_MARKET_ADDRESS);
 
 // Check current epoch
 const currentEpoch = await epochMarket.currentEpochId();
@@ -265,7 +265,7 @@ npx hardhat test test/PredictionMarket.test.js
 | PriceOracle | Free | ~0.0008 ETH | ~0.02 ETH |
 | Adapters (6x) | Free | ~0.0036 ETH | ~0.09 ETH |
 | PredictionMarket | Free | ~0.0015 ETH | ~0.05 ETH |
-| EpochPredictionMarket | Free | ~0.0012 ETH | ~0.04 ETH |
+| PredictionMarket | Free | ~0.0012 ETH | ~0.04 ETH |
 | **Total** | **Free** | **~0.007 ETH** | **~0.20 ETH** |
 
 *Estimates vary with gas prices*

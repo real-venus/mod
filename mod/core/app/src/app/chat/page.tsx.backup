@@ -255,7 +255,7 @@ export default function ChatPage() {
           
           {!isConfigCollapsed && (
             <div className="space-y-4 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="flex flex-col gap-2">
                   <label className="text-green-400 font-semibold text-sm" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>Module</label>
                   <select
@@ -290,6 +290,24 @@ export default function ChatPage() {
                     {functions.map(fn => (
                       <option key={fn} value={fn}>{fn}</option>
                     ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-green-400 font-semibold text-sm" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>Chat Input → Param</label>
+                  <select
+                    value={selectedInputParam}
+                    onChange={(e) => setSelectedInputParam(e.target.value)}
+                    disabled={inputParamOptions.length === 0}
+                    className="bg-gray-900/80 border-2 border-gray-700/60 text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all shadow-lg"
+                    style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+                  >
+                    {inputParamOptions.length === 0 ? (
+                      <option value="">No params</option>
+                    ) : (
+                      inputParamOptions.map(param => (
+                        <option key={param} value={param}>{param}</option>
+                      ))
+                    )}
                   </select>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -360,34 +378,34 @@ export default function ChatPage() {
         <div className="px-4 pb-4">
           <form onSubmit={handleSubmit} className="relative">
             <div className="flex gap-3">
-                <div className="relative flex-1">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-                    <select
-                      value={selectedInputParam}
-                      onChange={(e) => setSelectedInputParam(e.target.value)}
-                      disabled={inputParamOptions.length === 0}
-                      className="bg-gray-800/90 border border-gray-600/60 text-white px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all text-sm"
-                      style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                    >
-                      {inputParamOptions.length === 0 ? (
-                        <option value="">No params</option>
-                      ) : (
-                        inputParamOptions.map(param => (
-                          <option key={param} value={param}>{param}</option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={selectedInputParam ? `Enter ${selectedInputParam}...` : "Type your message or leave empty to use default params..."}
-                    disabled={isLoading || !selectedModule || !selectedFunction}
-                    className="w-full bg-gray-900/80 border-2 border-gray-700/60 text-white pl-40 pr-5 py-4 rounded-3xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all shadow-lg"
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={selectedInputParam ? `Enter ${selectedInputParam}...` : "Type your message or leave empty to use default params..."}
+                  disabled={isLoading || !selectedModule || !selectedFunction}
+                  className="w-full bg-gray-900/80 border-2 border-gray-700/60 text-white px-5 py-4 pr-48 rounded-3xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all shadow-lg"
+                  style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <select
+                    value={selectedInputParam}
+                    onChange={(e) => setSelectedInputParam(e.target.value)}
+                    disabled={inputParamOptions.length === 0}
+                    className="bg-gray-800/90 border border-gray-600/60 text-white px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all text-sm"
                     style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                  />
+                  >
+                    {inputParamOptions.length === 0 ? (
+                      <option value="">No params</option>
+                    ) : (
+                      inputParamOptions.map(param => (
+                        <option key={param} value={param}>{param}</option>
+                      ))
+                    )}
+                  </select>
                 </div>
+              </div>
               <button
                 type="submit"
                 disabled={isLoading || !selectedModule || !selectedFunction}

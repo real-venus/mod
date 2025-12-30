@@ -17,7 +17,7 @@ export class Client {
     this.auth = new Auth(key);
   }
 
-  public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, cost = 0, headers: any = {}): Promise<any> {
+  public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, cost = 0, headers: any = {}, timeout: number = 30000, onCancel?: () => void): Promise<any> {
     let body: string | FormData;    
     headers = this.auth.generate('');
     body = JSON.stringify(params);
@@ -26,13 +26,25 @@ export class Client {
     headers['Access-Control-Request-Method']
     const url: string = `${this.url}/${fn}`;
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    if (onCancel) {
+      onCancel = () => {
+        controller.abort();
+        clearTimeout(timeoutId);
+      };
+    }
+    
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: headers,
         body: body,
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -59,7 +71,11 @@ export class Client {
         return result;
       }
       return await response.text();
-    } catch (error) {
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request cancelled or timed out');
+      }
       console.error('Request failed:', error);
       throw error;
     }

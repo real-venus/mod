@@ -33,22 +33,8 @@ export default function ModCard({ mod}: ModCardProps) {
   const updatedTimeStr = mod.updated ? time2str(mod.updated) : time2str(Date.now())
   
   const { user } = useUserContext()
-  const networkColor = mod.network === 'local' ? '#7b740dff' : '#0eafb2ff'
 
-  const network2logocomponent = {
-    'local': <HomeIcon className="h-6 w-6" style={{ color: networkColor }} />,
-    'mainnet': <GlobeAltIcon className="h-6 w-6" style={{ color: networkColor }} />,
-    'testnet': <GlobeAltIcon className="h-6 w-6" style={{ color: networkColor }} />,
-    'devnet': <GlobeAltIcon className="h-6 w-6" style={{ color: networkColor }} />
-  }
-  const networkLogo = network2logocomponent[mod.network] || <GlobeAltIcon className="h-6 w-6" style={{ color: networkColor }} />
-  const buttonColors = {
-    module: { bg: 'rgba(139, 92, 246, 0.2)', border: 'rgba(139, 92, 246, 0.6)' },
-    network: mod.network === 'local' ? { bg: '#978e097d', border:  '#7b740dff'} : { bg: 'rgba(0, 128, 128, 0.2)', border: 'rgba(0, 128, 128, 0.6)' },
-    cid: { bg: 'rgba(251, 191, 36, 0.2)', border: 'rgba(251, 191, 36, 0.6)' } ,
-    updated: { bg: 'rgba(59, 130, 246, 0.2)', border: 'rgba(59, 130, 246, 0.6)' },
-    author: { bg: 'rgba(236, 72, 153, 0.2)', border: 'rgba(236, 72, 153, 0.6)' }
-  }
+
   const myMod :boolean = user && user.key === mod.key
   const hexToRgb = (hex: string) => {
     const result = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex)
@@ -82,8 +68,6 @@ export default function ModCard({ mod}: ModCardProps) {
   const getFieldValue = (field: string): string => {
     switch(field) {
       case 'name': return mod.name
-      case 'network': return mod.network
-      case 'cid': return mod.cid || ''
       case 'updated': return updatedTimeStr
       case 'author': return mod.key
       default: return ''
@@ -143,29 +127,7 @@ export default function ModCard({ mod}: ModCardProps) {
                       </div>
                     
                     <div className="flex flex-wrap items-center gap-3">
-                    <div 
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-md border" 
-                      style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.12)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)` }}
-                      onMouseEnter={(e) => handleFieldHover('network', mod.network, e)}
-                      onMouseMove={handleFieldMove}
-                      onMouseLeave={handleFieldLeave}
-                    >
-                      {networkLogo}
-                      <CopyButton text={mod.network} size="sm" />
-                    </div>
-
-                    { mod.cid && (
-                      <div 
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-md border" 
-                        style={{ backgroundColor: 'rgba(251, 191, 36, 0.12)', borderColor: 'rgba(251, 191, 36, 0.4)' }}
-                        onMouseEnter={(e) => handleFieldHover('cid', mod.cid, e)}
-                        onMouseMove={handleFieldMove}
-                        onMouseLeave={handleFieldLeave}
-                      >
-                        <Hash size={20} style={{ color: '#fbbf24' }} />
-                        <CopyButton text={mod.cid} size="sm" />
-                      </div>
-                    )}
+ 
 
                     <div 
                       className="flex items-center gap-2 px-4 py-2.5 rounded-md border" 
@@ -204,7 +166,6 @@ export default function ModCard({ mod}: ModCardProps) {
               left: `${tooltipPosition.x + 15}px`, 
               top: `${tooltipPosition.y + 15}px`,
               borderColor: hoveredField === 'network' ? `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.6)` :
-                          hoveredField === 'cid' ? 'rgba(251, 191, 36, 0.6)' :
                           hoveredField === 'updated' ? 'rgba(59, 130, 246, 0.6)' :
                           hoveredField === 'author' ? 'rgba(236, 72, 153, 0.6)' : 'rgba(139, 92, 246, 0.6)',
               maxWidth: '400px',
@@ -213,7 +174,6 @@ export default function ModCard({ mod}: ModCardProps) {
           >
             <div className="font-bold mb-1 uppercase text-xs" style={{
               color: hoveredField === 'network' ? userColor :
-                     hoveredField === 'cid' ? '#fbbf24' :
                      hoveredField === 'updated' ? '#3b82f6' :
                      hoveredField === 'author' ? '#ec4899' : modColor
             }}>

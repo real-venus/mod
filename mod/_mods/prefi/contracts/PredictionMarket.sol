@@ -7,155 +7,257 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title PredictionMarket
- * @dev Zero-sum prediction market for asset prices with weekly settlements
+ * @dev Epoch-based prediction market where players predict oracle prices and compete based on accuracy
  */
 contract PredictionMarket is Ownable, ReentrancyGuard {
     
     struct Prediction {
-        address user;
-        address asset;
+        address player;
         uint256 predictedPrice;
-        uint256 collateralAmount;
-        address collateralToken;
-        uint256 lockTimestamp;
-        uint256 unlockTimestamp;
+        uint256 lockedAmount;
+        uint256 timestamp;
+    }
+    
+    struct Epoch {
+        uint256 epochId;
+        uint256 startTime;
+        uint256 endTime;
         bool settled;
-        int256 pnl;
+        uint256 actualPrice;
+        uint256 totalLocked;
+        mapping(address => Prediction) predictions;
+        address[] players;
     }
     
-    struct Asset {
-        bool enabled;
-        uint256 minLiquidity;
+    struct PlayerResult {
+        address player;
+        uint256 predictedPrice;
+        uint256 lockedAmount;
+        uint256 l1Distance;
+        uint256 score;
+        uint256 reward;
     }
-    
-    // Mappings
-    mapping(uint256 => Prediction) public predictions;
-    mapping(address => bool) public approvedCollateral;
-    mapping(address => Asset) public assets;
-    mapping(address => uint256) public userPoints;
-    mapping(uint256 => uint256) public weeklyPools;
     
     // State variables
-    uint256 public predictionCounter;
-    uint256 public currentWeek;
+    mapping(uint256 => Epoch) public epochs;
+    mapping(address => bool) public approvedAssets;
+    
+    uint256 public currentEpochId;
+    uint256 public epochDuration;
     address public priceOracle;
-    uint256 public constant WEEK = 7 days;
-    uint256 public constant MAX_LOCK_PERIOD = 30 days;
-    uint256 public lastSettlementTime;
+    address public assetAddress;
     
     // Events
-    event PredictionPlaced(uint256 indexed predictionId, address indexed user, address asset, uint256 predictedPrice);
-    event PredictionSettled(uint256 indexed predictionId, int256 pnl, uint256 points);
-    event CollateralApproved(address indexed token);
-    event AssetEnabled(address indexed asset, uint256 minLiquidity);
-    event WeeklySettlement(uint256 week, uint256 totalPool);
+    event EpochStarted(uint256 indexed epochId, uint256 startTime, uint256 endTime);
+    event PredictionPlaced(uint256 indexed epochId, address indexed player, uint256 predictedPrice, uint256 lockedAmount);
+    event EpochSettled(uint256 indexed epochId, uint256 actualPrice, uint256 totalRewards);
+    event RewardClaimed(uint256 indexed epochId, address indexed player, uint256 reward, uint256 l1Distance);
+    event AssetApproved(address indexed asset);
     
-    constructor(address _priceOracle) {
+    constructor(address _priceOracle, address _assetAddress, uint256 _epochDuration) {
         priceOracle = _priceOracle;
-        lastSettlementTime = block.timestamp;
-        currentWeek = 1;
+        assetAddress = _assetAddress;
+        epochDuration = _epochDuration;
+        currentEpochId = 1;
+        
+        // Start first epoch
+        _startNewEpoch();
     }
     
     /**
-     * @dev Place a prediction on future asset price
+     * @dev Place prediction for current epoch
      */
     function placePrediction(
-        address _asset,
         uint256 _predictedPrice,
-        uint256 _collateralAmount,
-        address _collateralToken,
-        uint256 _lockDuration
+        uint256 _lockedAmount
     ) external nonReentrant {
-        require(assets[_asset].enabled, "Asset not enabled");
-        require(approvedCollateral[_collateralToken], "Collateral not approved");
-        require(_lockDuration <= MAX_LOCK_PERIOD, "Lock period too long");
-        require(_lockDuration >= 1 days, "Lock period too short");
+        Epoch storage epoch = epochs[currentEpochId];
         
-        // Transfer collateral
-        IERC20(_collateralToken).transferFrom(msg.sender, address(this), _collateralAmount);
+        require(block.timestamp < epoch.endTime, "Epoch ended");
+        require(_predictedPrice > 0, "Invalid price prediction");
+        require(_lockedAmount > 0, "Must lock tokens");
+        require(epoch.predictions[msg.sender].player == address(0), "Already predicted");
         
-        // Create prediction
-        predictions[predictionCounter] = Prediction({
-            user: msg.sender,
-            asset: _asset,
+        // Transfer locked tokens
+        IERC20(assetAddress).transferFrom(msg.sender, address(this), _lockedAmount);
+        
+        // Record prediction
+        epoch.predictions[msg.sender] = Prediction({
+            player: msg.sender,
             predictedPrice: _predictedPrice,
-            collateralAmount: _collateralAmount,
-            collateralToken: _collateralToken,
-            lockTimestamp: block.timestamp,
-            unlockTimestamp: block.timestamp + _lockDuration,
-            settled: false,
-            pnl: 0
+            lockedAmount: _lockedAmount,
+            timestamp: block.timestamp
         });
         
-        emit PredictionPlaced(predictionCounter, msg.sender, _asset, _predictedPrice);
-        predictionCounter++;
+        epoch.players.push(msg.sender);
+        epoch.totalLocked += _lockedAmount;
+        
+        emit PredictionPlaced(currentEpochId, msg.sender, _predictedPrice, _lockedAmount);
     }
     
     /**
-     * @dev Settle a prediction after unlock time
+     * @dev Settle epoch and calculate rewards based on L1 distance with pot distribution
      */
-    function settlePrediction(uint256 _predictionId) external nonReentrant {
-        Prediction storage pred = predictions[_predictionId];
-        require(!pred.settled, "Already settled");
-        require(block.timestamp >= pred.unlockTimestamp, "Still locked");
+    function settleEpoch(uint256 _epochId) external nonReentrant {
+        Epoch storage epoch = epochs[_epochId];
+        
+        require(block.timestamp >= epoch.endTime, "Epoch not ended");
+        require(!epoch.settled, "Already settled");
+        require(epoch.players.length > 0, "No predictions");
         
         // Get actual price from oracle
-        uint256 actualPrice = IPriceOracle(priceOracle).getPrice(pred.asset);
+        uint256 actualPrice = IPriceOracle(priceOracle).getPrice(assetAddress);
+        epoch.actualPrice = actualPrice;
         
-        // Calculate PnL
-        int256 priceDiff = int256(actualPrice) - int256(pred.predictedPrice);
-        int256 pnl = (priceDiff * int256(pred.collateralAmount)) / int256(pred.predictedPrice);
+        // Calculate L1 distances and scores
+        PlayerResult[] memory results = new PlayerResult[](epoch.players.length);
+        uint256 totalInverseDistance = 0;
         
-        pred.pnl = pnl;
-        pred.settled = true;
+        for (uint256 i = 0; i < epoch.players.length; i++) {
+            address player = epoch.players[i];
+            Prediction memory pred = epoch.predictions[player];
+            
+            // Calculate L1 distance: |predicted - actual|
+            uint256 l1Distance = pred.predictedPrice > actualPrice 
+                ? pred.predictedPrice - actualPrice 
+                : actualPrice - pred.predictedPrice;
+            
+            // Score = lockedAmount / (1 + l1Distance)
+            // Better predictions (lower distance) get higher scores
+            uint256 score = (pred.lockedAmount * 1e18) / (1e18 + l1Distance);
+            
+            results[i] = PlayerResult({
+                player: player,
+                predictedPrice: pred.predictedPrice,
+                lockedAmount: pred.lockedAmount,
+                l1Distance: l1Distance,
+                score: score,
+                reward: 0
+            });
+            
+            totalInverseDistance += score;
+        }
         
-        // Award points based on USD won/lost
-        uint256 points = pnl > 0 ? uint256(pnl) : 0;
-        userPoints[pred.user] += points;
+        // Distribute rewards proportionally to scores from the total pot
+        // The pot contains all locked tokens from all players
+        uint256 totalRewards = epoch.totalLocked;
         
-        // Add to weekly pool
-        weeklyPools[currentWeek] += pred.collateralAmount;
+        for (uint256 i = 0; i < results.length; i++) {
+            if (totalInverseDistance > 0) {
+                // Reward = (playerScore / totalScores) × totalPot
+                // This means better predictions get larger share of the pot
+                results[i].reward = (results[i].score * totalRewards) / totalInverseDistance;
+                
+                // Transfer reward
+                if (results[i].reward > 0) {
+                    IERC20(assetAddress).transfer(results[i].player, results[i].reward);
+                    
+                    emit RewardClaimed(
+                        _epochId,
+                        results[i].player,
+                        results[i].reward,
+                        results[i].l1Distance
+                    );
+                }
+            }
+        }
         
-        emit PredictionSettled(_predictionId, pnl, points);
+        epoch.settled = true;
+        emit EpochSettled(_epochId, actualPrice, totalRewards);
+        
+        // Start new epoch if this was current
+        if (_epochId == currentEpochId) {
+            currentEpochId++;
+            _startNewEpoch();
+        }
     }
     
     /**
-     * @dev Weekly settlement - distribute pool based on performance
+     * @dev Start new epoch
      */
-    function weeklySettlement() external onlyOwner {
-        require(block.timestamp >= lastSettlementTime + WEEK, "Too early");
+    function _startNewEpoch() internal {
+        Epoch storage newEpoch = epochs[currentEpochId];
+        newEpoch.epochId = currentEpochId;
+        newEpoch.startTime = block.timestamp;
+        newEpoch.endTime = block.timestamp + epochDuration;
+        newEpoch.settled = false;
         
-        uint256 totalPool = weeklyPools[currentWeek];
-        emit WeeklySettlement(currentWeek, totalPool);
-        
-        currentWeek++;
-        lastSettlementTime = block.timestamp;
+        emit EpochStarted(currentEpochId, newEpoch.startTime, newEpoch.endTime);
     }
     
     /**
-     * @dev Approve collateral token
+     * @dev Get epoch info
      */
-    function approveCollateral(address _token) external onlyOwner {
-        approvedCollateral[_token] = true;
-        emit CollateralApproved(_token);
+    function getEpochInfo(uint256 _epochId) external view returns (
+        uint256 epochId,
+        uint256 startTime,
+        uint256 endTime,
+        bool settled,
+        uint256 actualPrice,
+        uint256 totalLocked,
+        uint256 playerCount
+    ) {
+        Epoch storage epoch = epochs[_epochId];
+        return (
+            epoch.epochId,
+            epoch.startTime,
+            epoch.endTime,
+            epoch.settled,
+            epoch.actualPrice,
+            epoch.totalLocked,
+            epoch.players.length
+        );
     }
     
     /**
-     * @dev Enable asset for predictions
+     * @dev Get player prediction for epoch
      */
-    function enableAsset(address _asset, uint256 _minLiquidity) external onlyOwner {
-        assets[_asset] = Asset({
-            enabled: true,
-            minLiquidity: _minLiquidity
-        });
-        emit AssetEnabled(_asset, _minLiquidity);
+    function getPlayerPrediction(uint256 _epochId, address _player) external view returns (
+        uint256 predictedPrice,
+        uint256 lockedAmount,
+        uint256 timestamp
+    ) {
+        Prediction memory pred = epochs[_epochId].predictions[_player];
+        return (pred.predictedPrice, pred.lockedAmount, pred.timestamp);
     }
     
     /**
-     * @dev Update price oracle
+     * @dev Get all players in epoch
+     */
+    function getEpochPlayers(uint256 _epochId) external view returns (address[] memory) {
+        return epochs[_epochId].players;
+    }
+    
+    /**
+     * @dev Update epoch duration (owner only)
+     */
+    function updateEpochDuration(uint256 _newDuration) external onlyOwner {
+        require(_newDuration >= 1 hours, "Duration too short");
+        epochDuration = _newDuration;
+    }
+    
+    /**
+     * @dev Update oracle address (owner only)
      */
     function updateOracle(address _newOracle) external onlyOwner {
+        require(_newOracle != address(0), "Invalid oracle");
         priceOracle = _newOracle;
+    }
+    
+    /**
+     * @dev Update asset address (owner only)
+     */
+    function updateAsset(address _newAsset) external onlyOwner {
+        require(_newAsset != address(0), "Invalid asset");
+        assetAddress = _newAsset;
+    }
+    
+    /**
+     * @dev Approve asset for predictions (owner only)
+     */
+    function approveAsset(address _asset) external onlyOwner {
+        approvedAssets[_asset] = true;
+        emit AssetApproved(_asset);
     }
 }
 

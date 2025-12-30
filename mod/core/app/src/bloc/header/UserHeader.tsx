@@ -13,7 +13,6 @@ import { useState } from 'react'
 export function UserHeader() {
   const {  user, authLoading, signOut} = useUserContext()
   const router = useRouter()
-  const [isHovered, setIsHovered] = useState(false)
 
   const handleSignOut = () => {
     signOut()
@@ -43,6 +42,8 @@ export function UserHeader() {
     }
 
     const userColor = text2color(user.key)
+    const walletMode = localStorage.getItem('wallet_mode') || 'local'
+    const walletAddress = localStorage.getItem('wallet_address') || user.key
 
     const hexToRgb = (hex: string) => {
       const result = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex)
@@ -57,12 +58,14 @@ export function UserHeader() {
       const borderColor = `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)`
       const glowColor = `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.2)`
 
+      const getTooltipContent = () => {
+        return `Address: ${shorten(user.key)}\nWallet: ${walletMode.toUpperCase()}\nConnected: ${shorten(walletAddress)}\nType: ${user.crypto_type}`
+      }
+
       return (
 
       <div
         onClick={handleUserClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         className={`group relative flex items-center gap-3 transition-all duration-300 backdrop-blur-xl rounded-xl border-2 overflow-hidden hover:shadow-2xl cursor-pointer`}
           style={{
             borderColor: borderColor,
@@ -76,26 +79,25 @@ export function UserHeader() {
             paddingBottom: '0px',
             backgroundColor: 'rgba(0, 0, 0, 0.7)'
         }}
+        title={getTooltipContent()}
       >
         <div className="absolute -inset-1 bg-gradient-to-r opacity-0 group-hover:opacity-5 blur-lg transition-all duration-500 rounded-xl" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})` }} />
     
           <div 
-            className="relative z-10 rounded-l-xl border-r-2 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+            className="relative z-10 rounded-l-xl transition-all hover:scale-105 active:scale-95 flex-shrink-0"
             style={{
               height: '60px',
               width: '60px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderColor: borderColor,
               backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.12)`,
               boxShadow: `inset 0 0 15px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.15)`
             }}
-            title={user.key}
           >
               <KeyIcon className="w-10 h-10" style={{ color: userColor }} />
           </div>
-          <div className="relative z-10">
+          <div className="relative z-10 flex flex-col gap-1">
             <CopyButton text={user.key} size="md" style={{ color: 'white' }} />
           </div>
               <button
@@ -104,11 +106,7 @@ export function UserHeader() {
                 style={{
                   borderColor: borderColor,
                   backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.1)`,
-                  color: 'white',
-                  opacity: isHovered ? 1 : 0,
-                  transform: isHovered ? 'translateX(0)' : 'translateX(-10px)',
-                  pointerEvents: isHovered ? 'auto' : 'none',
-                  transition: 'opacity 0.3s ease, transform 0.3s ease'
+                  color: 'white'
                 }}
                 title="Sign Out"
               >

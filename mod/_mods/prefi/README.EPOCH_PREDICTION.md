@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **EpochPredictionMarket** contract enables players to compete by predicting oracle prices within fixed time epochs. Players lock tokens with their predictions, and rewards are distributed based on prediction accuracy using L1 distance scoring.
+The **PredictionMarket** contract enables players to compete by predicting oracle prices within fixed time epochs. Players lock tokens with their predictions, and rewards are distributed based on prediction accuracy using L1 distance scoring.
 
 ## Key Features
 
@@ -172,7 +172,7 @@ await oracle.addAdapter(uniswap.address);
 await oracle.addAdapter(binance.address);
 
 // 4. Deploy prediction market
-const market = await EpochPredictionMarket.deploy(
+const market = await PredictionMarket.deploy(
     oracle.address,
     assetAddress,
     epochDuration // e.g., 1 day
@@ -284,7 +284,7 @@ event RewardClaimed(uint256 indexed epochId, address indexed player, uint256 rew
 
 ```javascript
 // Complete flow
-const market = await EpochPredictionMarket.at(marketAddress);
+const market = await PredictionMarket.at(marketAddress);
 
 // 1. Check current epoch
 const currentEpoch = await market.currentEpochId();
