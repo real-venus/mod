@@ -6,7 +6,7 @@ The BlocTime protocol consists of independently deployable contracts that work t
 
 ### Core Contracts
 
-1. **PaymentTokenWhitelist.sol** - Manages whitelisted payment tokens
+1. **PayMod.sol** - Manages whitelisted payment tokens
 2. **Registry.sol** - Module registration and metadata
 3. **Staking.sol** - Staking system with BlocTimeToken
 4. **BidSystem.sol** - Bidding system for rental slots
@@ -15,17 +15,17 @@ The BlocTime protocol consists of independently deployable contracts that work t
 
 ## Deployment Order
 
-### 1. Deploy PaymentTokenWhitelist
+### 1. Deploy PayMod
 ```javascript
-const PaymentTokenWhitelist = await ethers.getContractFactory('PaymentTokenWhitelist');
-const whitelist = await PaymentTokenWhitelist.deploy();
+const PayMod = await ethers.getContractFactory('PayMod');
+const whitelist = await PayMod.deploy();
 await whitelist.waitForDeployment();
 ```
 
 ### 2. Deploy Native Token (or use existing)
 ```javascript
-const MockERC20 = await ethers.getContractFactory('MockERC20');
-const nativeToken = await MockERC20.deploy('Native Token', 'NAT', ethers.parseEther('1000000'));
+const BaseERC20 = await ethers.getContractFactory('BaseERC20');
+const nativeToken = await BaseERC20.deploy('Native Token', 'NAT', ethers.parseEther('1000000'));
 await nativeToken.waitForDeployment();
 ```
 
@@ -53,8 +53,8 @@ await staking.setPoints(points);
 
 ### 4. Deploy Registry
 ```javascript
-const BlocTimeRegistry = await ethers.getContractFactory('BlocTimeRegistry');
-const registry = await BlocTimeRegistry.deploy();
+const Registry = await ethers.getContractFactory('Registry');
+const registry = await Registry.deploy();
 await registry.waitForDeployment();
 ```
 

@@ -11,8 +11,8 @@ describe('BlocTimeStaking Tests', function () {
   beforeEach(async function () {
     [owner, user1, user2, user3] = await ethers.getSigners();
 
-    const MockERC20 = await ethers.getContractFactory('MockERC20');
-    nativeToken = await MockERC20.deploy('Native Token', 'NAT', INITIAL_SUPPLY);
+    const BaseERC20 = await ethers.getContractFactory('BaseERC20');
+    nativeToken = await BaseERC20.deploy('Native Token', 'NAT', INITIAL_SUPPLY);
     await nativeToken.waitForDeployment();
 
     const BlocTimeStaking = await ethers.getContractFactory('BlocTimeStaking');

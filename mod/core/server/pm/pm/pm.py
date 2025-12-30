@@ -406,6 +406,7 @@ class PM:
                 self.kill(container)
             return {'status': 'all_containers_killed'}
         except Exception as e:
+            print('fam')
             return {'status': 'error', 'error': str(e), 'servers': self.servers()}
     killall = kill_all
 

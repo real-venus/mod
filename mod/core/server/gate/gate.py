@@ -27,26 +27,6 @@ class Gate:
         self.auth = m.mod(auth)()
         self.set_mod(mod=mod)
 
-    def is_generator(self, obj):
-        """
-        Is this shiz a generator dawg?
-        """
-        if not callable(obj):
-            result = inspect.isgenerator(obj)
-        else:
-            result =  inspect.isgeneratorfunction(obj)
-        return result
-
-    def set_mod(self, mod:Any=None):
-        if isinstance(mod, str):
-            mod = m.mod(mod)()
-        elif mod is None:
-            mod = m.mod('mod')()
-        elif not hasattr(mod, 'info'):
-            mod = m.mod('mod')(mod)
-        self.mod = mod 
-        return self.mod
-
     def forward(self, fn:str, request, mod:Any=None) -> dict:
         """
         process the request
@@ -70,6 +50,27 @@ class Gate:
             return  EventSourceResponse(generator_wrapper(result))
         else:
             return result
+
+
+    def is_generator(self, obj):
+        """
+        Is this shiz a generator dawg?
+        """
+        if not callable(obj):
+            result = inspect.isgenerator(obj)
+        else:
+            result =  inspect.isgeneratorfunction(obj)
+        return result
+
+    def set_mod(self, mod:Any=None):
+        if isinstance(mod, str):
+            mod = m.mod(mod)()
+        elif mod is None:
+            mod = m.mod('mod')()
+        elif not hasattr(mod, 'info'):
+            mod = m.mod('mod')(mod)
+        self.mod = mod 
+        return self.mod
 
 
     def print_request(self, request: dict):
@@ -111,7 +112,6 @@ class Gate:
         else:
             fn_obj = getattr(self.mod, fn) # get the function object from the mod
         return fn_obj
-
 
     def add_user_max(self, mod:str, max_users:int):
         """
@@ -193,6 +193,16 @@ class Gate:
         role2data[role] = data
         self.store.put(self.role2data_path, role2data)
         return role2data
+
+    def rm_role(self, role:str):
+        """
+        remove a role
+        """
+        role2data = self.role2data()
+        if role in role2data:
+            del role2data[role]
+        self.store.put(self.role2data_path, role2data)
+        return role2data
     
     def reset_roles(self):
         """
@@ -200,20 +210,163 @@ class Gate:
         """
         self.store.put(self.role2data_path, {})
 
-    role_registry_path = 'role_registry'
+    user2role_path = 'user2role'
 
     def set_user_role(self, role:str, user:str):
         """
         set the user role
         """
-        registry = self.store.get(self.role_registry_path, {})
+        user2role = self.store.get(self.user2role_path, {})
+        user2role[user] = role
+        self.store.put(self.user2role_path, user2role)
+        return user2role
 
-    def role_registry(self):
+    def rm_user_role(self, user:str):
         """
-        get the role registry
+        remove the user role
         """
-        path = 'role_registry'
+        user2role = self.store.get(self.user2role_path, {})
+        if user in user2role:
+            del user2role[user]
+        self.store.put(self.user2role_path, user2role)
+        return user2role
+
+
+    def test_user_role(self) -> bool:
+        user = m.key('test').ss58_address
+        user2role = self.user2role()
+        role = user2role.get(user, None)
+        self.rm_user_role(user)
+        user2role = self.user2role()
+        assert user not in user2role, f'Failed to remove user role for {user}'
+        self.set_user_role(role or 'tester', user)
+        user2role = self.user2role()
+        assert user2role.get(user, None) == (role or 'tester'), f'Failed to set user role for {user}'
+        return True
+        
+        
+
+    def user2role(self):
+        """
+        get the role user2role
+        """
+        path = 'user2role'
         return  self.store.get(path, {})
+
+
+    def add_permission(self, role:str, fn:str):
+        """
+        add a permission to a role
+        """
+        role2data = self.role2data()
+        if role not in role2data:
+            role2data[role] = {'fns': []}
+        if 'fns' not in role2data[role]:
+            role2data[role]['fns'] = []
+        if fn not in role2data[role]['fns']:
+            role2data[role]['fns'].append(fn)
+        self.store.put(self.role2data_path, role2data)
+        return role2data
+    
+    def rm_permission(self, role:str, fn:str):
+        """
+        remove a permission from a role
+        """
+        role2data = self.role2data()
+        if role in role2data and 'fns' in role2data[role] and fn in role2data[role]['fns']:
+            role2data[role]['fns'].remove(fn)
+        self.store.put(self.role2data_path, role2data)
+        return role2data
+    
+    def add_permissions(self, role:str, fns:List[str]):
+        """
+        add multiple permissions to a role
+        """
+        for fn in fns:
+            self.add_permission(role, fn)
+        return self.role2data()
+    
+    def rm_permissions(self, role:str, fns:List[str]):
+        """
+        remove multiple permissions from a role
+        """
+        for fn in fns:
+            self.rm_permission(role, fn)
+        return self.role2data()
+
+    def test_permissions(self):
+        """
+        test the permissions system
+        """
+        self.reset_roles()
+        self.ensure_role_map()
+        self.add_permission('admin', 'read')
+        self.add_permission('admin', 'write')
+        self.add_role('user', {'fns': ['read']})
+        user2role = self.user2role()
+        user2role['alice'] = 'admin'
+        user2role['bob'] = 'user'
+        self.store.put(self.user2role_path, user2role)
+        return {'role2data': self.role2data(), 'user2role': self.user2role()}
+
+
+    def delegations(self):
+        """
+        get the delegations
+        """
+        return self.store.get('delegations', {})
+
+    def update_delegations(self, delegations:dict):
+        """
+        update the delegations
+        """
+        self.store.put('delegations', delegations)
+        return delegations
+
+    def set_delegations(self, delegator:str, delegatees:List[str]):
+        """
+        set a delegation
+        """
+        delegations = self.delegations()
+        delegations[delegator] = delegatees
+        self.store.put('delegations', delegations)
+        return delegations
+
+    def rm_delegation(self, delegator:str):
+        """
+        remove a delegation
+        """
+        delegations = self.delegations()
+        if delegator in delegations:
+            del delegations[delegator]
+        self.store.put('delegations', delegations)
+        return delegations
+
+    def test_delegations(self):
+        """
+        test the delegations system
+        """
+        self.update_delegations({})
+        self.set_delegations('alice', ['bob'])
+        self.set_delegations('charlie', ['dave'])
+        delegations = self.delegations()
+        assert delegations.get('alice', None) == ['bob'], 'Failed to set delegation for alice'
+        assert delegations.get('charlie', None) == ['dave'], 'Failed to set delegation for charlie'
+        self.rm_delegation('alice')
+        delegations = self.delegations()
+        assert 'alice' not in delegations, 'Failed to remove delegation for alice'
+        return delegations
+
+    def test_roles(self):
+        """
+        test the roles system
+        """
+        self.reset_roles()
+        self.ensure_role_map()
+        self.add_role('test', {'fns': ['*']})
+        self.rm_role('test')
+        assert 'test' not in self.role2data()
+        return self.role2data()
 
     def ensure_role_map(self):
         """

@@ -6,10 +6,10 @@ services:
   secretshare:
     container_name: secretshare
     deploy: {}
-    entrypoint: bash -c "m serve port=50067 key=secretshare remote=0 mod=secretshare"
+    entrypoint: bash -c "m serve port=50066 key=secretshare remote=0 mod=secretshare"
     image: mod:latest
     ports:
-    - 50067:50067
+    - 50066:50066
     restart: unless-stopped
     shm_size: 100g
     volumes:

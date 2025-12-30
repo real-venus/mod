@@ -13,9 +13,10 @@ BlocTime Protocol is a comprehensive DeFi system combining:
 
 1. **BlocTimeStaking**: Lock tokens → Earn BlocTime tokens (multiplier-based) → Claim treasury rewards
 2. **BlocTimeMarketplace**: Rent compute/AI/assets → Automatic treasury funding → Secondary market
-3. **BlocTimeRegistry**: Modular module management → Ownership tracking → Availability control
-4. **PaymentTokenWhitelist**: Multi-token support → Flexible payment options
-5. **BidSystem**: Competitive bidding → Price discovery → Market efficiency
+3. **Registry**: Modular module management → Ownership tracking → Availability control
+4. **BlocTimeTracker**: Session tracking with signature-based start/stop → Automatic bloctime deduction
+5. **PayMod**: Multi-token support → Flexible payment options
+6. **BidSystem**: Competitive bidding → Price discovery → Market efficiency
 
 ### 💎 Key Innovation
 
@@ -32,58 +33,75 @@ BlocTime Protocol is a comprehensive DeFi system combining:
 - **[Whitepaper](./docs/BLOCTIME_WHITEPAPER.tex)**: Complete whitepaper
 - **[One-Pager](./docs/BLOCTIME_ONEPAGER.tex)**: Quick overview
 
-## 🏗️ Architecture
+## 🧪 Testing
 
-### Smart Contracts
+```bash
+# Run all tests
+npm test
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    BlocTime Ecosystem                    │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  ┌──────────────┐      ┌──────────────┐               │
-│  │   Registry   │◄─────┤ Marketplace  │               │
-│  │              │      │              │               │
-│  │ - Modules    │      │ - Rentals    │               │
-│  │ - Ownership  │      │ - Listings   │               │
-│  │ - Metadata   │      │ - Fees ──────┼──┐            │
-│  └──────────────┘      └──────────────┘  │            │
-│                                           │            │
-│  ┌──────────────┐      ┌──────────────┐  │            │
-│  │  Whitelist   │◄─────┤  BidSystem   │  │            │
-│  │              │      │              │  │            │
-│  │ - Tokens     │      │ - Bids       │  │            │
-│  │ - Validation │      │ - Escrow     │  │            │
-│  └──────────────┘      └──────────────┘  │            │
-│                                           │            │
-│                        ┌──────────────┐   │            │
-│                        │   Staking    │◄──┘            │
-│                        │              │                │
-│                        │ - Lock/Earn  │                │
-│                        │ - Multiplier │                │
-│                        │ - Treasury   │                │
-│                        │ - Rewards    │                │
-│                        └──────────────┘                │
-│                               │                         │
-│                        ┌──────▼───────┐                │
-│                        │  BlocToken   │                │
-│                        │   (ERC20)    │                │
-│                        └──────────────┘                │
-└─────────────────────────────────────────────────────────┘
+# Run specific test suites
+npx hardhat test test/Staking.test.js
+npx hardhat test test/Marketplace.test.js
+npx hardhat test test/Registry.test.js
+npx hardhat test test/Tracker.test.js
+npx hardhat test test/Integration.test.js
+
+# Run with gas reporting
+npx hardhat test --gas-reporter
+
+# Run with coverage
+npx hardhat coverage
 ```
 
-### Revenue Flow
+### Test Coverage
 
+✅ **BlocTimeStaking**: Multiplier points, staking/unstaking, treasury rewards, proportional distribution
+✅ **BlocTimeMarketplace**: Rental flow, fractional listings, secondary market, fee calculation
+✅ **Registry**: Module registration, updates, deactivation, user count management
+✅ **BlocTimeTracker**: Session management, signature verification, bloctime deduction, epoch clearing
+✅ **Integration**: Health checks, system statistics, user info aggregation
+
+## 🛠️ Setup & Deployment
+
+### Prerequisites
+
+- Docker & Docker Compose
+- Node.js 18+
+- Hardhat
+
+### Quick Start
+
+```bash
+# Clone and navigate
+cd /root/mod/mod/_mods/bloctime
+
+# Environment setup
+cp .env.example .env
+
+# Start services
+docker-compose up -d
+
+# Install dependencies
+docker-compose exec hardhat npm install
+
+# Compile contracts
+docker-compose exec hardhat npm run compile
+
+# Run comprehensive tests
+docker-compose exec hardhat npm test
+
+# Deploy to Ganache (local)
+docker-compose exec hardhat npx hardhat run scripts/deploy.js --network ganache
+
+# Setup local test environment
+docker-compose exec hardhat npx hardhat run scripts/setup-local.js --network ganache
+
+# Deploy to Base Mainnet
+echo "PRIVATE_KEY=your_key" >> .env
+docker-compose exec hardhat npx hardhat run scripts/deploy.js --network base
 ```
-Marketplace Revenue (100%)
-    ├─> Treasury Fee (2.5%) ──┐
-    │                          ├──> BlocTimeStaking Treasury
-    │                          │         │
-    └─> Owner/Seller (97.5%)  │         └──> Distributed to Stakers
-                               │              (Proportional to BlocTime)
-    Secondary Market ──────────┘
-    Bid Acceptance ────────────┘
-```
+
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 ## 📐 Mathematical Framework
 
@@ -121,155 +139,6 @@ Bid Acceptance:
   Slot_Owner_Receives = Bid_Amount - Treasury_Fee
 ```
 
-## 🛠️ Setup & Deployment
-
-### Prerequisites
-
-- Docker & Docker Compose
-- Node.js 18+
-- Hardhat
-
-### Quick Start
-
-```bash
-# Clone and navigate
-cd /root/mod/mod/_mods/bloctime
-
-# Environment setup
-cp .env.example .env
-
-# Start services
-docker-compose up -d
-
-# Install dependencies
-docker-compose exec hardhat npm install
-
-# Compile contracts
-docker-compose exec hardhat npm run compile
-
-# Run comprehensive tests
-docker-compose exec hardhat npm test
-
-# Deploy to Ganache (local)
-docker-compose exec hardhat npx hardhat run scripts/deploy.js --network ganache
-
-# Deploy to Base Mainnet
-echo "PRIVATE_KEY=your_key" >> .env
-docker-compose exec hardhat npx hardhat run scripts/deploy.js --network base
-```
-
-For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
-
-## 💻 Usage Examples
-
-### Staking Flow
-
-```javascript
-// 1. Approve tokens
-await nativeToken.approve(stakingAddress, amount);
-
-// 2. Stake with lock period (50k blocks = 2x multiplier)
-await staking.stake(amount, 50000);
-// → Receive BlocTime tokens = amount × 2.0
-
-// 3. Claim treasury rewards anytime
-await staking.claimRewards();
-
-// 4. After lock period, unstake
-await staking.unstake();
-// → BlocTime burned, native tokens returned
-```
-
-### Marketplace Flow
-
-```javascript
-// Module Owner: Register
-await registry.registerModule(pricePerBlock, maxUsers, ipfsHash);
-
-// Renter: Rent bloctime
-await paymentToken.approve(marketplaceAddress, cost);
-await marketplace.rent(moduleId, blocks, paymentToken);
-// → Treasury automatically receives fee
-// → Owner receives payment
-
-// Renter: List unused time
-await marketplace.listFractionalForSale(rentalId, fromBlock, toBlock, price, paymentToken);
-
-// Buyer: Purchase from secondary market
-await paymentToken.approve(marketplaceAddress, price);
-await marketplace.buy(listingId);
-// → Treasury automatically receives fee
-// → Seller receives payment
-```
-
-### Bidding Flow
-
-```javascript
-// Bidder: Create bid
-await paymentToken.approve(bidSystemAddress, bidAmount);
-await bidSystem.createBid(rentalId, fromBlock, toBlock, bidAmount, paymentToken);
-// → Bid amount locked in escrow
-
-// Slot Owner: Accept bid
-await marketplace.acceptBid(bidId);
-// → Bidder gets rental slot
-// → Owner receives payment
-// → Treasury receives fee
-
-// OR Reject bid
-await marketplace.rejectBid(bidId);
-// → Bidder gets refund
-```
-
-For complete API documentation, see [API_REFERENCE.md](./docs/API_REFERENCE.md).
-
-## ⚙️ Configuration
-
-### Staking Parameters
-
-```javascript
-// Set multiplier curve (owner only)
-const points = [
-  { blocks: 0, multiplier: 10000 },      // 1.0x
-  { blocks: 10000, multiplier: 15000 },  // 1.5x
-  { blocks: 50000, multiplier: 20000 },  // 2.0x
-  { blocks: 100000, multiplier: 30000 }  // 3.0x
-];
-await staking.setPoints(points);
-
-// Set distribution percentage (owner only)
-await staking.setDistributionPercentage(5000); // 50%
-
-// Set max lock blocks (owner only)
-await staking.setMaxLockBlocks(100000);
-```
-
-### Marketplace Parameters
-
-```javascript
-// Treasury fee set at deployment (2.5%)
-const treasuryFeeBps = 250;
-
-// Whitelist payment tokens
-await whitelist.whitelistToken(tokenAddress);
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run specific test suite
-npx hardhat test test/BlocTimeStaking.test.js
-
-# Run with gas reporting
-npx hardhat test --gas-reporter
-
-# Run with coverage
-npx hardhat coverage
-```
-
 ## 🔒 Security Features
 
 ### Smart Contract Security
@@ -278,6 +147,7 @@ npx hardhat coverage
 ✅ **ReentrancyGuard**: Protection on all state-changing functions
 ✅ **SafeERC20**: Safe token transfer operations
 ✅ **Access Control**: Owner-only administrative functions
+✅ **Signature Verification**: ECDSA signature validation for tracker
 ✅ **Monotonic Multipliers**: Prevents gaming the system
 ✅ **Overflow Protection**: Solidity 0.8+ built-in checks
 
@@ -289,35 +159,7 @@ npx hardhat coverage
 ✅ **No Inflation**: Rewards from real revenue only
 ✅ **Lock Enforcement**: Cannot unstake before period ends
 ✅ **Escrow Protection**: Bid amounts locked until resolution
-
-## 🌐 Network Configuration
-
-### Ganache (Local Development)
-- **RPC**: http://localhost:8545
-- **Chain ID**: 1337
-- **Pre-funded accounts**: 10 with 100 ETH each
-
-### Base Mainnet
-- **RPC**: https://mainnet.base.org
-- **Chain ID**: 8453
-- **Explorer**: https://basescan.org
-
-## 📊 System Guarantees
-
-### Revenue Flow Guarantee
-
-✅ **ALL marketplace revenue** contributes to treasury (primary + secondary + bids)
-✅ **Automatic execution** via smart contract logic (no manual intervention)
-✅ **Transparent fees** visible in all events
-✅ **Proportional distribution** to all BlocTime stakers
-
-### Staker Benefits
-
-✅ Earn from ALL marketplace activity
-✅ Rewards scale with lock commitment (multiplier)
-✅ Claim anytime without unstaking
-✅ No lock-in after initial period
-✅ Transparent, on-chain calculations
+✅ **Signature Replay Protection**: One-time use signatures
 
 ## 🎯 Production Readiness
 
@@ -330,6 +172,7 @@ npx hardhat coverage
 - [x] Marketplace with automatic treasury funding from ALL revenue
 - [x] Multi-token payment support via whitelist
 - [x] Bidding system with escrow protection
+- [x] Session tracker with signature-based verification
 - [x] Primary and secondary market fee consistency
 - [x] Fractional rental listings (from/to block ranges)
 - [x] Comprehensive test suite (100% coverage)

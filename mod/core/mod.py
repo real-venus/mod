@@ -38,7 +38,7 @@ class Mod:
         module_path_options = ['mods', 'modules', '_mods', '_modules', 'locals']
         self.mods_path = list(filter(lambda x: os.path.exists(x), [f'{self.mod_path}/{option}' for option in module_path_options]))[0] # the path to the mods
         self.exp_path = f'{self.mods_path}/_exp' # the path to the external mods
-        self.home_path  = os.path.expanduser('~')
+        self.home_path = self.homepath  = os.path.expanduser('~')
         config =self.config()
         self.name  = config['name']
         self.storage_path = f'{self.home_path}/.{self.name}'
@@ -325,7 +325,16 @@ class Mod:
             files =  [f for f in files if not any(['/'+at in f for at in self.avoid_folders])]
         if search != None:
             files = [f for f in files if search in f]
+        return sorted(files)
+
+    def modfiles(self, mod=None, relative=1, **kwargs) -> List[str]:
+        mod = mod or self.name
+        dirpath = self.dirpath(mod)
+        files =  self.files(path=dirpath, **kwargs)
+        if relative:
+            files = [f.replace(dirpath + '/', '') for f in files]
         return files
+    mf = modfiles
 
     def envs(self, key:str = None, **kwargs) -> None:
         return self.get_key(key, **kwargs).envs()
@@ -619,18 +628,18 @@ class Mod:
         time.sleep(period) 
 
 
-    def fnschema(self, fn:str = '__init__', public=True, avoid_arguments = ['self', 'cls'],**kwargs)->dict:
+    def fnschema(self, fn:str = '__init__', content=True, avoid_arguments = ['self', 'cls'],**kwargs)->dict:
         '''
         Get function schema of function in self
         ''' 
-        public = bool(public)
+        content = bool(content)
         fn_obj = self.fn(fn)
         if not callable(fn_obj):
             return {'fn_type': 'property', 'type': type(fn_obj).__name__}
         
         fn_signature = inspect.signature(fn_obj)
 
-        schema = {'input': {}, 'output': {}, 'docs': '', 'cost': 0, 'name': '', 'content': '' , 'public': public}
+        schema = {'input': {}, 'output': {}, 'docs': '', 'cost': 0, 'name': '', 'content': '' , 'content': content}
 
         for k,v in dict(fn_signature._parameters).items():
             if k  in avoid_arguments:
@@ -649,27 +658,27 @@ class Mod:
         schema['docs'] = fn_obj.__doc__
         schema['cost'] = 0 if not hasattr(fn_obj, '__cost__') else fn_obj.__cost__ # attribute the cost to the function
         schema['name'] = fn_obj.__name__
-        if public:
+        if content:
             schema['content'] = inspect.getsource(fn_obj)
         return schema
 
     fnschema = fnschema
 
-    def args(self, fn:str = '__init__', public=True, avoid_arguments = ['self', 'cls'],**kwargs)->dict:
+    def args(self, fn:str = '__init__', content=True, avoid_arguments = ['self', 'cls'],**kwargs)->dict:
         '''
         Get function schema of function in self
         '''   
-        return self.fnschema(fn, public=public, avoid_arguments=avoid_arguments, **kwargs)['input']
+        return self.fnschema(fn, content=content, avoid_arguments=avoid_arguments, **kwargs)['input']
 
-    def schema(self, obj = None ,  public=False,  verbose=False, **kwargs)->dict:
+    def schema(self, obj = None ,  content=False,  verbose=False, **kwargs)->dict:
         '''
         Get function schema of function in self
         '''   
         schema = {}
         obj = obj or 'mod'
-        public = bool(public)
+        content = bool(content)
         if callable(obj) or (isinstance(obj, str) and '/' in obj):
-            return self.fnschema(obj, public=public, **kwargs)
+            return self.fnschema(obj, content=content, **kwargs)
 
         print(f'Getting schema for mod {obj}')
         fns = self.fns(obj)
@@ -677,7 +686,7 @@ class Mod:
         
         for fn in fns:
             try:
-                schema[fn] = self.fnschema(getattr(obj, fn), public=public,  **kwargs)
+                schema[fn] = self.fnschema(getattr(obj, fn), content=content,  **kwargs)
             except Exception as e:
                 self.print(self.detailed_error(e),verbose=verbose)
         return schema
@@ -693,6 +702,16 @@ class Mod:
         else:
             raise Exception(f'Object {obj} not found')
         return  inspect.getsource(obj)
+    
+    def wait_for_task(self, task, wait_frequency=0.2):
+        task_path = task['path']
+        while task.get('status', '') != 'success':
+            time.sleep(wait_frequency)
+            task = self.get(task_path, default={})
+            print(f'Waiting for task {task_path} status={task.get("status","pending")}')
+            if task.get('status', '') == 'error':
+                raise Exception(f'Task {task_path} failed with error: {task.get("result","unknown error")}   ')
+        return task
         
     def call(self,fn: str = 'api/edit',  params: Dict[str, Any] = {}, wait=True, wait_frequency=0.2,  api='api', **kwargs): 
 
@@ -700,15 +719,9 @@ class Mod:
             return self.serve(api)
         params = {**params , **kwargs}
         task =  self.fn('api/call')(fn=fn, params=params, api=api, **kwargs)
-        task_path = task['path']
-        print(task)
-        while task.get('status', '') != 'success' and wait:
-            time.sleep(wait_frequency)
-            task = self.get(task_path, default={})
-            print(f'Waiting for task {task_path} status={task.get("status","pending")}')
-            if task.get('status', '') == 'error':
-                raise Exception(f'Task {task_path} failed with error: {task.get("result","unknown error")}   ')
-        return task['result']
+        if wait:
+            task = self.wait_for_task(task, wait_frequency=wait_frequency)
+        return task.get('result', None)
 
     def cache(self, path:str, max_age: int = 60, default=None, directory: str = '~/.mod/cache'):
         '''
@@ -1268,7 +1281,7 @@ class Mod:
     def mods_tree(self, search=None,  depth=8,**kwargs): 
         return self.get_tree(self.mods_path, search=search, depth=depth, **kwargs)
 
-    def exp_tree(self, search=None, depth=3, **kwargs):
+    def exp_tree(self, search=None, depth=2, **kwargs):
         return self.get_tree(self.exp_path, depth=depth,  search=search, **kwargs )
 
     def local_tree(self, search=None, depth=1, **kwargs):
@@ -1288,18 +1301,14 @@ class Mod:
         tree_options = list(filter(filter_fn, tree.keys()))
         if len(tree_options) == 1:
             return {k: tree[k] for k in tree_options}
-
-        # 2 endswith match
-        filter_fn = lambda k: k.endswith('.' + search) 
-        tree_options = list(filter(filter_fn, tree.keys()))
-        if len(tree_options) == 1:
-            return {k: tree[k] for k in tree_options}
         
         # 3 startswith match
-        filter_fn = lambda k: k.startswith(search + '.') or k == search
-        tree_options = [k for k in tree.keys() if filter_fn(k)]
-        if len(tree_options) == 1:
-            return {tree_options[0]: tree[tree_options[0]]}
+        filter_fn = lambda k: search in k.split('.')
+        tree_options = list(filter(filter_fn, tree.keys()))
+        if len(tree_options) > 1:
+            optoions_tree =  {k: tree[k] for k in tree_options}
+            tree_options = sorted(optoions_tree.keys(), key=lambda x: len(x))
+            return {k: tree[k] for k in tree_options}
 
         # 4 contains match
         filter_fn = lambda k:  all([part in k for part in search.split('.')])
@@ -1349,6 +1358,8 @@ class Mod:
             else:
                 assert False, f'Mod {mod} not found in tree {list(tree.keys())}'
         dirpath = tree_options[0]
+        if os.path.isfile(dirpath):
+            dirpath = os.path.dirname(dirpath)
         # remove any trailing repeats of the mod name in the dirpath
         if relative:
             dirpath = os.path.relpath(dirpath, self.lib_path)
@@ -1437,8 +1448,13 @@ class Mod:
     def server_exists(self, server:str = 'mod', *args, **kwargs):
         return  self.fn('pm/server_exists')(server, *args, **kwargs)
 
+    def ensure_server(self, server:str = 'mod', *args, **kwargs):
+        if not self.server_exists(server):
+            return self.serve(server, *args, **kwargs)
+        return {'msg': f'Server {server} already running'}
+
     def namespace(self, *args, **kwargs):
-        return self.fn('pm/namespace')(*args, **kwargs)
+        return self.fn('server/namespace')(*args, **kwargs)
 
     def epoch(self, *args, **kwargs):
         return self.fn('vali/epoch')(*args, **kwargs)

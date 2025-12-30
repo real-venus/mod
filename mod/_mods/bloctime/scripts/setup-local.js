@@ -12,8 +12,8 @@ async function main() {
   // Deploy contracts
   console.log('\n📦 Deploying contracts...');
   
-  const MockERC20 = await hre.ethers.getContractFactory('MockERC20');
-  const nativeToken = await MockERC20.deploy(
+  const BaseERC20 = await hre.ethers.getContractFactory('BaseERC20');
+  const nativeToken = await BaseERC20.deploy(
     'Native Token',
     'NAT',
     hre.ethers.parseEther('1000000')
@@ -40,8 +40,8 @@ async function main() {
   ];
   await staking.setPoints(points);
 
-  const BlocTimeRegistry = await hre.ethers.getContractFactory('BlocTimeRegistry');
-  const registry = await BlocTimeRegistry.deploy();
+  const Registry = await hre.ethers.getContractFactory('Registry');
+  const registry = await Registry.deploy();
   await registry.waitForDeployment();
   console.log('Registry:', await registry.getAddress());
 

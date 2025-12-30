@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom'
 import { useUserContext } from '@/bloc/context'
 import { GlobeAltIcon } from '@heroicons/react/24/outline'
 import ModAdminPanel from './ModAdminPanel'
+import { CopyButton } from '@/bloc/ui/CopyButton'
 
 interface ModCardProps {
   mod: ModuleType
@@ -102,25 +103,44 @@ export default function ModCard({ mod}: ModCardProps) {
             
                 <div className="relative z-10">
                   <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <CubeIcon className="w-10 h-10" style={{ color: modColor }} />
-                      <code className="text-lg font-mono font-bold" style={{ color: modColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '120px', display: 'inline-block' }} title={mod.name}>
-                        {mod.name}
-                      </code>
-                      {myMod && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setShowAdminPanel(true)
-                          }}
-                          className="ml-auto p-2 hover:bg-purple-500/20 rounded-lg transition-colors"
-                          title="Admin Settings"
-                        >
-                          <Settings className="w-5 h-5 text-purple-400" />
-                        </button>
-                      )}
-                    </div>
+                      <div className="flex items-center gap-2">
+                        <CubeIcon className="w-10 h-10" style={{ color: modColor }} />
+                          <code 
+                            className="text-lg font-mono font-bold cursor-pointer hover:bg-white/10 px-2 py-1 rounded transition-colors select-all" 
+                            style={{ color: modColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '120px', display: 'inline-block', userSelect: 'all', WebkitUserSelect: 'all', MozUserSelect: 'all' }} 
+                            title={`Click to copy: ${mod.name}`}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              navigator.clipboard.writeText(mod.name)
+                            }}
+                            onDoubleClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              const selection = window.getSelection()
+                              const range = document.createRange()
+                              range.selectNodeContents(e.currentTarget)
+                              selection?.removeAllRanges()
+                              selection?.addRange(range)
+                            }}
+                          >
+                            {mod.name}
+                          </code>
+                          <CopyButton text={mod.name} size="sm" />
+                        {myMod && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setShowAdminPanel(true)
+                            }}
+                            className="ml-auto p-2 hover:bg-purple-500/20 rounded-lg transition-colors"
+                            title="Admin Settings"
+                          >
+                            <Settings className="w-5 h-5 text-purple-400" />
+                          </button>
+                        )}
+                      </div>
                     
                     <div className="flex flex-wrap items-center gap-3">
                     <div 
@@ -131,6 +151,7 @@ export default function ModCard({ mod}: ModCardProps) {
                       onMouseLeave={handleFieldLeave}
                     >
                       {networkLogo}
+                      <CopyButton text={mod.network} size="sm" />
                     </div>
 
                     { mod.cid && (
@@ -142,6 +163,7 @@ export default function ModCard({ mod}: ModCardProps) {
                         onMouseLeave={handleFieldLeave}
                       >
                         <Hash size={20} style={{ color: '#fbbf24' }} />
+                        <CopyButton text={mod.cid} size="sm" />
                       </div>
                     )}
 
@@ -153,6 +175,7 @@ export default function ModCard({ mod}: ModCardProps) {
                       onMouseLeave={handleFieldLeave}
                     >
                       <Clock size={20} style={{ color: '#3b82f6' }} />
+                      <CopyButton text={updatedTimeStr} size="sm" />
                     </div>
 
                     <div 
@@ -166,6 +189,7 @@ export default function ModCard({ mod}: ModCardProps) {
                         <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()} className="hover:scale-110 transition-transform">
                           <KeyIcon className="w-6 h-6" style={{ color: '#ec4899' }} />
                         </Link>
+                        <CopyButton text={mod.key} size="sm" />
                     </div>
                     </div>
                   </div>

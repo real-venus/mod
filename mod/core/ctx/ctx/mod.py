@@ -5,13 +5,13 @@ class Mod:
     Base mod template
     """
     
-    def forward(self,mod = 'mod'): 
+    def forward(self,mod = 'api'): 
         ctx = {
             'code': m.code(mod),
             'readme': self.readme(mod),
             'mod': mod
         }
-        return ctx
+        return m.fn('')ctx
 
     def readme(self, mod = 'mod'):
         dp = m.dp(mod)

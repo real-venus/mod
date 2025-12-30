@@ -1,15 +1,15 @@
 const { expect } = require('chai');
 const { ethers } = require('hardhat');
 
-describe('BlocTimeRegistry Tests', function () {
+describe('Registry Tests', function () {
   let owner, user1, user2;
   let registry;
 
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
 
-    const BlocTimeRegistry = await ethers.getContractFactory('BlocTimeRegistry');
-    registry = await BlocTimeRegistry.deploy();
+    const Registry = await ethers.getContractFactory('Registry');
+    registry = await Registry.deploy();
     await registry.waitForDeployment();
   });
 

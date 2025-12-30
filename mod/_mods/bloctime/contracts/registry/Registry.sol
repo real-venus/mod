@@ -1,112 +1,77 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
 /**
- * @title BlocTimeRegistry
- * @dev Modular registry for managing module metadata and ownership
- * Separated from marketplace logic for better modularity
+ * @title Registry
+ * @dev Minimal registry for managing asset metadata via dataHash (JSON from datahash)
  */
-contract BlocTimeRegistry is ReentrancyGuard {
+contract Registry {
     struct Module {
         address owner;
-        uint256 pricePerBlock;
-        uint256 maxConcurrentUsers;
-        uint256 currentUsers;
-        bool active;
-        string ipfsHash;
+        string dataHash;
     }
 
     uint256 public nextModuleId = 1;
+    
     mapping(uint256 => Module) public modules;
     mapping(address => uint256[]) public userModules;
 
-    event ModuleRegistered(uint256 indexed moduleId, address indexed owner, uint256 pricePerBlock);
-    event ModuleUpdated(uint256 indexed moduleId, uint256 pricePerBlock, uint256 maxUsers);
-    event ModuleDeactivated(uint256 indexed moduleId);
-    event UserCountChanged(uint256 indexed moduleId, uint256 currentUsers);
+    event ModuleRegistered(uint256 indexed moduleId, address indexed owner, string dataHash);
+    event ModuleUpdated(uint256 indexed moduleId, string dataHash);
 
     modifier onlyModuleOwner(uint256 moduleId) {
         require(modules[moduleId].owner == msg.sender, "Not module owner");
         _;
     }
 
+    /**
+     * @dev Register a new module with dataHash (JSON metadata)
+     * @param dataHash IPFS hash or metadata reference describing the asset as JSON
+     */
     function registerModule(
-        uint256 pricePerBlock,
-        uint256 maxUsers,
-        string memory ipfsHash
+        string memory dataHash
     ) external returns (uint256) {
-        require(pricePerBlock > 0, "Invalid price");
-        require(maxUsers > 0, "Invalid max users");
-        require(bytes(ipfsHash).length > 0, "Invalid IPFS hash");
+        require(bytes(dataHash).length > 0, "Invalid dataHash");
         
         uint256 id = nextModuleId++;
         modules[id] = Module({
             owner: msg.sender,
-            pricePerBlock: pricePerBlock,
-            maxConcurrentUsers: maxUsers,
-            currentUsers: 0,
-            active: true,
-            ipfsHash: ipfsHash
+            dataHash: dataHash
         });
         
         userModules[msg.sender].push(id);
-        emit ModuleRegistered(id, msg.sender, pricePerBlock);
+        emit ModuleRegistered(id, msg.sender, dataHash);
         return id;
     }
 
+    /**
+     * @dev Update module dataHash (only owner)
+     * @param moduleId Module ID
+     * @param dataHash New dataHash
+     */
     function updateModule(
         uint256 moduleId,
-        uint256 pricePerBlock,
-        uint256 maxUsers
+        string memory dataHash
     ) external onlyModuleOwner(moduleId) {
-        Module storage m = modules[moduleId];
-        require(m.active, "Module not active");
-        require(maxUsers >= m.currentUsers, "Max users below current");
-        
-        m.pricePerBlock = pricePerBlock;
-        m.maxConcurrentUsers = maxUsers;
-        emit ModuleUpdated(moduleId, pricePerBlock, maxUsers);
+        require(bytes(dataHash).length > 0, "Invalid dataHash");
+        modules[moduleId].dataHash = dataHash;
+        emit ModuleUpdated(moduleId, dataHash);
     }
 
-    function deactivateModule(uint256 moduleId) external onlyModuleOwner(moduleId) {
-        modules[moduleId].active = false;
-        emit ModuleDeactivated(moduleId);
-    }
-
-    function incrementUsers(uint256 moduleId) external {
-        Module storage m = modules[moduleId];
-        require(m.active, "Module not active");
-        require(m.currentUsers < m.maxConcurrentUsers, "Max users reached");
-        m.currentUsers++;
-        emit UserCountChanged(moduleId, m.currentUsers);
-    }
-
-    function decrementUsers(uint256 moduleId) external {
-        Module storage m = modules[moduleId];
-        require(m.currentUsers > 0, "No users to decrement");
-        m.currentUsers--;
-        emit UserCountChanged(moduleId, m.currentUsers);
-    }
-
+    /**
+     * @dev Get module details
+     */
     function getModule(uint256 id) external view returns (
         address owner,
-        uint256 pricePerBlock,
-        uint256 maxConcurrentUsers,
-        uint256 currentUsers,
-        bool active,
-        string memory ipfsHash
+        string memory dataHash
     ) {
         Module storage m = modules[id];
-        return (m.owner, m.pricePerBlock, m.maxConcurrentUsers, m.currentUsers, m.active, m.ipfsHash);
+        return (m.owner, m.dataHash);
     }
 
-    function isModuleAvailable(uint256 moduleId) external view returns (bool) {
-        Module storage m = modules[moduleId];
-        return m.active && m.currentUsers < m.maxConcurrentUsers;
-    }
-
+    /**
+     * @dev Get user's modules
+     */
     function getUserModules(address user) external view returns (uint256[] memory) {
         return userModules[user];
     }

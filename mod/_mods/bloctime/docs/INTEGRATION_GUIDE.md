@@ -20,7 +20,7 @@ import { ethers } from 'ethers';
 // Contract ABIs (import from artifacts)
 import StakingABI from './artifacts/BlocTimeStaking.json';
 import MarketplaceABI from './artifacts/BlocTimeMarketplaceMultiToken.json';
-import RegistryABI from './artifacts/BlocTimeRegistry.json';
+import RegistryABI from './artifacts/Registry.json';
 
 // Contract addresses (from deployment)
 const ADDRESSES = {
@@ -456,8 +456,8 @@ describe('BlocTime Integration', function() {
     [owner, alice, bob] = await ethers.getSigners();
     
     // Deploy contracts
-    const MockERC20 = await ethers.getContractFactory('MockERC20');
-    nativeToken = await MockERC20.deploy('Native', 'NAT', ethers.parseEther('1000000'));
+    const BaseERC20 = await ethers.getContractFactory('BaseERC20');
+    nativeToken = await BaseERC20.deploy('Native', 'NAT', ethers.parseEther('1000000'));
     
     const BlocTimeStaking = await ethers.getContractFactory('BlocTimeStaking');
     staking = await BlocTimeStaking.deploy(
@@ -601,8 +601,8 @@ async function deployBlocTime(config) {
   if (config.nativeTokenAddress) {
     addresses.nativeToken = config.nativeTokenAddress;
   } else {
-    const MockERC20 = await hre.ethers.getContractFactory('MockERC20');
-    const nativeToken = await MockERC20.deploy(
+    const BaseERC20 = await hre.ethers.getContractFactory('BaseERC20');
+    const nativeToken = await BaseERC20.deploy(
       config.tokenName,
       config.tokenSymbol,
       config.tokenSupply
@@ -628,14 +628,14 @@ async function deployBlocTime(config) {
   await staking.setPoints(config.multiplierPoints);
   
   // 3. Registry
-  const BlocTimeRegistry = await hre.ethers.getContractFactory('BlocTimeRegistry');
-  const registry = await BlocTimeRegistry.deploy();
+  const Registry = await hre.ethers.getContractFactory('Registry');
+  const registry = await Registry.deploy();
   await registry.waitForDeployment();
   addresses.registry = await registry.getAddress();
   
   // 4. Whitelist
-  const PaymentTokenWhitelist = await hre.ethers.getContractFactory('PaymentTokenWhitelist');
-  const whitelist = await PaymentTokenWhitelist.deploy();
+  const PayMod = await hre.ethers.getContractFactory('PayMod');
+  const whitelist = await PayMod.deploy();
   await whitelist.waitForDeployment();
   addresses.whitelist = await whitelist.getAddress();
   

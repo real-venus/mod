@@ -56,10 +56,7 @@ export const ModApi = ({ mod }: { mod: any }) => {
   const [selectedFunction, setSelectedFunction] = useState<string>('');
   const [params, setParams] = useState<Record<string, any>>({});
   const [response, setResponse] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
-  const [authHeaders, setAuthHeaders] = useState<any>(null);
-  const [urlParams, setUrlParams] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [activeTab, setActiveTab] = useState<TabType>('run');
   const [paramColumns, setParamColumns] = useState<number>(2);
@@ -99,9 +96,7 @@ export const ModApi = ({ mod }: { mod: any }) => {
 
   const executeFunction = async () => {
     if (!selectedFunction) return;
-    setLoading(true);
     setError('');
-    setAuthHeaders(null);
     setResponse(null);
 
     try {
@@ -113,11 +108,9 @@ export const ModApi = ({ mod }: { mod: any }) => {
           ])
         )
       ).toString();
-      setUrlParams(qs);
 
       if (!client) {
         setError('Client not initialized');
-        setLoading(false);
         return;
       }
         let call_params = {
@@ -126,16 +119,9 @@ export const ModApi = ({ mod }: { mod: any }) => {
         }
         const res = await client.call('call', call_params);
         setResponse(res);
-        setAuthHeaders({
-          'X-Function': selectedFunction,
-          'X-Params': JSON.stringify(params),
-          'X-Timestamp': new Date().toISOString()
-        });
     } catch (err: any) {
       setError(err?.message || 'Failed to execute function');
-    } finally {
-      setLoading(false);
-    }
+    } 
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -222,8 +208,6 @@ export const ModApi = ({ mod }: { mod: any }) => {
                   initializeParams(fn);
                   setResponse(null);
                   setError('');
-                  setAuthHeaders(null);
-                  setUrlParams('');
                   setActiveTab('run');
                 }}
                 className="w-full text-left whitespace-nowrap rounded-md px-5 py-4 text-base"

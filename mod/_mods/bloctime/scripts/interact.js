@@ -19,9 +19,9 @@ async function main() {
   }
 
   // Load contracts
-  const nativeToken = await hre.ethers.getContractAt('MockERC20', NATIVE_TOKEN);
+  const nativeToken = await hre.ethers.getContractAt('BaseERC20', NATIVE_TOKEN);
   const staking = await hre.ethers.getContractAt('BlocTimeStaking', STAKING);
-  const registry = await hre.ethers.getContractAt('BlocTimeRegistry', REGISTRY);
+  const registry = await hre.ethers.getContractAt('Registry', REGISTRY);
   const marketplace = await hre.ethers.getContractAt('BlocTimeMarketplaceV3', MARKETPLACE);
   const integration = await hre.ethers.getContractAt('BlocTimeIntegration', INTEGRATION);
 

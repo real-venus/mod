@@ -33,6 +33,9 @@ class Dev:
         """
         use this to run the agent with a specific text and parameters
         """
+
+
+        # setup the memory and tools
         tools = tools or self.tools
         query = ' '.join(list(map(str, [text] + list(extra_text))))
         path = path or  m.dirpath(mod)

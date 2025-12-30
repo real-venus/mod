@@ -12,7 +12,7 @@ import "./token/BlocktimeToken.sol";
  */
 contract BlocTimeIntegration {
     BlocTimeMarketplaceV3 public marketplace;
-    BlocTimeRegistry public registry;
+    Registry public registry;
     BlocTimeStaking public staking;
     BlocTimeToken public blocTimeToken;
     IERC20 public paymentToken;
@@ -30,7 +30,7 @@ contract BlocTimeIntegration {
         require(_staking != address(0), "Invalid staking");
         
         marketplace = BlocTimeMarketplaceV3(_marketplace);
-        registry = BlocTimeRegistry(_registry);
+        registry = Registry(_registry);
         staking = BlocTimeStaking(_staking);
         blocTimeToken = staking.blocTimeToken();
         paymentToken = marketplace.paymentToken();

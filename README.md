@@ -262,7 +262,7 @@ future = m.submit('module/function', params={'key': 'val'})
 result = future.result()
 
 # Custom executor
-executor = m.executor(mode='thread', max_workers=10)
+executor = m.mod('executor')(mode='thread', max_workers=10)
 # modes: 'thread', 'process', 'async'
 ```
 

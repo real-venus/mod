@@ -45,28 +45,32 @@ export const UserCard = ({ user, mode  = 'explore' }: UserCardProps) => {
       <div className="absolute -inset-1 bg-gradient-to-r opacity-5 group-hover:opacity-10 blur-lg transition-all duration-500 rounded-xl" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})` }} />
       
       <div className="relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-md border" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.1)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)` }}>
-            <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:scale-110 transition-transform">
-              <KeyIcon className="w-10 h-10" style={{ color: userColor }} />
-            </Link>
-            <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                <code className="text-lg font-mono font-bold" style={{ color: userColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '200px', display: 'inline-block' }} title={user.key}>
-                  {user.key.substring(0, 6)}...{user.key.substring(user.key.length - 6)}
-                </code>
-            </Link>
-            <CopyButton text={user.key} size="sm" />
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md border" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.1)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)` }}>
+              <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:scale-110 transition-transform">
+                <KeyIcon className="w-10 h-10" style={{ color: userColor }} />
+              </Link>
+              <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                  <code className="text-lg font-mono font-bold" style={{ color: userColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '200px', display: 'inline-block' }} title={user.key}>
+                    {user.key.substring(0, 6)}...{user.key.substring(user.key.length - 6)}
+                  </code>
+              </Link>
+              <CopyButton text={user.key} size="sm" />
+            </div>
           </div>
           
-          {user.mods && user.mods.length > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md border" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.08)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)` }}>
-              <CubeIcon className="w-5 h-5" style={{ color: userColor }} />
-              <code className="text-xl font-mono font-bold" style={{ color: userColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '90px', display: 'inline-block', textAlign: 'right' }}>
-                {user.mods.length}
-              </code>
-              <CopyButton text={String(user.mods.length)} size="sm" />
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {user.mods && user.mods.length > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-md border" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.08)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)` }}>
+                <CubeIcon className="w-5 h-5" style={{ color: userColor }} />
+                <code className="text-xl font-mono font-bold" style={{ color: userColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '90px', display: 'inline-block', textAlign: 'right' }}>
+                  {user.mods.length}
+                </code>
+                <CopyButton text={String(user.mods.length)} size="sm" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

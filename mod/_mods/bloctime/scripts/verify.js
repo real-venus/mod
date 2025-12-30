@@ -14,7 +14,7 @@ async function main() {
 
   // Verify Native Token
   if (addresses.nativeToken) {
-    console.log('\n📦 Verifying MockERC20...');
+    console.log('\n📦 Verifying BaseERC20...');
     try {
       await hre.run('verify:verify', {
         address: addresses.nativeToken,
@@ -24,9 +24,9 @@ async function main() {
           hre.ethers.parseEther('1000000')
         ]
       });
-      console.log('✅ MockERC20 verified');
+      console.log('✅ BaseERC20 verified');
     } catch (error) {
-      console.log('❌ MockERC20 verification failed:', error.message);
+      console.log('❌ BaseERC20 verification failed:', error.message);
     }
   }
 
@@ -52,15 +52,15 @@ async function main() {
 
   // Verify Registry
   if (addresses.registry) {
-    console.log('\n📦 Verifying BlocTimeRegistry...');
+    console.log('\n📦 Verifying Registry...');
     try {
       await hre.run('verify:verify', {
         address: addresses.registry,
         constructorArguments: []
       });
-      console.log('✅ BlocTimeRegistry verified');
+      console.log('✅ Registry verified');
     } catch (error) {
-      console.log('❌ BlocTimeRegistry verification failed:', error.message);
+      console.log('❌ Registry verification failed:', error.message);
     }
   }
 

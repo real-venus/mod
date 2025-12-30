@@ -18,57 +18,55 @@ class Desc:
                 update=False,
                  **kwargs):
                  
-        # context  = c.content(module)
+
+        self.model = c.mod('model.openrouter')(model)
+        context  = c.content(module)
         dirpath = c.dirpath(module)
-        # cid = c.hash(context)
-        return dirpath
         path  = c.abspath(f'{self.path}/{module}/{model}.json')
         result = c.get(path, max_age=max_age, update=update)
         if result is not None and cache:
             print(f'Using cached description from {path} (use update=True to refresh)')
             return result['data']
-        anchors = ['<JSON_START_DATA>', '</JSON_END_DATA>']
-        output_schema = "{'data': str}"
-        text = f"""
-        --CONTEXT--
-        {context}
-        --TASK--
-        {task}
-        --FORMAT--
-        write a nice about the module in the following format
-        MAKE SURE YOU ONLY OUTPUT WITHIN THE ANCHORS 
-        PLEAASE FOLLOW THE FORMAT EXACTLY AND ALWAYS RESPOND IN DICT FORMAT
-        OUTPUT_SCHEMA
-        DICT(data:str # the description of the module)
-        {anchors[0]}JSON_DATA_HERE{anchors[1]}"""
+        else:
+            anchors = ['<JSON_START_DATA>', '</JSON_END_DATA>']
+            output_schema = '{"name": str, "data": str}'
+            text = f"""
+            --CONTEXT--
+            {context}
+            --TASK--
+            {task}
+            --FORMAT--
+            write a nice about the module in the following format
+            MAKE SURE YOU ONLY OUTPUT WITHIN THE ANCHORS 
+            PLEAASE FOLLOW THE FORMAT EXACTLY AND ALWAYS RESPOND IN DICT FORMAT
+            OUTPUT_SCHEMA
+            {output_schema}
+            {anchors[0]}JSON_DATA_HERE{anchors[1]}"""
 
-        output = ''
-        for ch in c.ask(text, stream=1, model=model, **kwargs):
-            output += ch
-            print(ch, end='')
+            output = ''
+            for ch in self.model.forward(text, stream=1, model=model,  **kwargs):
+                output += ch
+                print(ch, end='')
 
-        # if not anchors take the first { and last } and parse that
-        if anchors[0] not in output or anchors[1] not in output:
-            print(f'\n\nNo anchors found, trying to parse first and last curly braces')
-            first = output.find('{')
-            last = output.rfind('}')
-            if first == -1 or last == -1 or first >= last:
-                raise ValueError('No valid JSON found in output')
-            output = output[first:last+1]
-        output =  json.loads(output.split(anchors[0])[-1].split(anchors[1])[0])
-        output['context'] = context
-        output['cid'] = cid
-        output['module'] = module
-        output['model'] = model
-        output['time'] = c.time()
-        output['size'] = len(context)
-        output['files'] = [f.replace(dirpath+'/', '') for f in c.files(module)]
-        output['key'] = self.key.address
-        signature_data = c.copy(output)
-        output['signature'] = self.key.sign(output, mode='str')
-        assert self.key.verify(signature_data, output['signature'] ), 'Signature verification failed'
-        c.put(path, output)
-        return output['data']
+            # if not anchors take the first { and last } and parse that
+            if anchors[0] not in output or anchors[1] not in output:
+                print(f'\n\nNo anchors found, trying to parse first and last curly braces')
+                first = output.find('{')
+                last = output.rfind('}')
+                if first == -1 or last == -1 or first >= last:
+                    raise ValueError('No valid JSON found in output')
+                output = output[first:last+1]
+            try:
+                output =  json.loads(output.split(anchors[0])[-1].split(anchors[1])[0])
+            except Exception as e:
+                if """```json""" in output:
+                    print(f'\n\nTrying to parse json code block')
+                    output = output.split('```json')[-1].split('```')[0]
+                    output = json.loads(output)
+                else:
+                    raise e
+            c.put(path, output)
+            return output
 
 
     def run(self, mods=None, batch_size=16, timeout=32, trials=3, **kwargs): 

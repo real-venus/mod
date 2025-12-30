@@ -197,7 +197,7 @@ Check if block range overlaps existing listings.
 
 ---
 
-### BlocTimeRegistry
+### Registry
 
 #### Core Functions
 
@@ -246,7 +246,7 @@ Get all module IDs owned by user.
 
 ---
 
-### PaymentTokenWhitelist
+### PayMod
 
 #### Admin Functions
 
@@ -262,7 +262,7 @@ Remove token from whitelist (owner only).
 
 #### View Functions
 
-##### `isTokenWhitelisted(address token)`
+##### `isTokenModed(address token)`
 Check if token is whitelisted.
 
 ##### `getWhitelistedTokens()`
@@ -350,7 +350,7 @@ const { ethers } = require('hardhat');
 // Load contracts
 const staking = await ethers.getContractAt('BlocTimeStaking', STAKING_ADDRESS);
 const marketplace = await ethers.getContractAt('BlocTimeMarketplaceMultiToken', MARKETPLACE_ADDRESS);
-const registry = await ethers.getContractAt('BlocTimeRegistry', REGISTRY_ADDRESS);
+const registry = await ethers.getContractAt('Registry', REGISTRY_ADDRESS);
 ```
 
 ### Complete Staking Flow

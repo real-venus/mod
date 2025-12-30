@@ -8,8 +8,8 @@ async function main() {
 
   // Deploy Mock Token (for testing)
   console.log('\n📦 Deploying Mock Native Token...');
-  const MockERC20 = await hre.ethers.getContractFactory('MockERC20');
-  const nativeToken = await MockERC20.deploy(
+  const BaseERC20 = await hre.ethers.getContractFactory('BaseERC20');
+  const nativeToken = await BaseERC20.deploy(
     'Native Token',
     'NAT',
     hre.ethers.parseEther('1000000')
@@ -45,11 +45,11 @@ async function main() {
   console.log('Multiplier points set successfully');
 
   // Deploy Registry
-  console.log('\n📦 Deploying BlocTimeRegistry...');
-  const BlocTimeRegistry = await hre.ethers.getContractFactory('BlocTimeRegistry');
-  const registry = await BlocTimeRegistry.deploy();
+  console.log('\n📦 Deploying Registry...');
+  const Registry = await hre.ethers.getContractFactory('Registry');
+  const registry = await Registry.deploy();
   await registry.waitForDeployment();
-  console.log('BlocTimeRegistry deployed to:', await registry.getAddress());
+  console.log('Registry deployed to:', await registry.getAddress());
 
   // Deploy Marketplace
   console.log('\n📦 Deploying BlocTimeMarketplaceV3...');
@@ -88,7 +88,7 @@ async function main() {
   console.log('Native Token:', await nativeToken.getAddress());
   console.log('BlocTimeStaking:', await staking.getAddress());
   console.log('BlocTimeToken:', blocTimeToken);
-  console.log('BlocTimeRegistry:', await registry.getAddress());
+  console.log('Registry:', await registry.getAddress());
   console.log('BlocTimeMarketplaceV3:', await marketplace.getAddress());
   console.log('BlocTimeIntegration:', await integration.getAddress());
   console.log('========================');

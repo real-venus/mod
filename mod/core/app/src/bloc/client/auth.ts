@@ -1,5 +1,7 @@
 import { createHash } from 'crypto';
 import {Key} from '@/bloc/key';
+import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
+import { stringToU8a, u8aToHex } from '@polkadot/util'
 
 export interface AuthData {
   data: string;
@@ -25,7 +27,7 @@ export class Auth {
   constructor(
     key: Key | undefined,
     maxAge: number = 3600,
-    signatureKeys: string[] = ['data', 'time', 'cost']
+    signatureKeys: string[] = ['data', 'time']
   ) {
     if (!key) {
       throw new Error('Key is required for Auth');
@@ -75,6 +77,11 @@ public base64urlDecode(data: string): Uint8Array {
 
   return new Uint8Array(Buffer.from(base64, "base64"));
 }
+
+  public hash(data: string): string {
+    return createHash('sha256').update(data).digest('hex');
+  }
+
   public signatureData(data: any): string {
     let signatureData: Record<string, string> = {};
     this.signatureKeys.forEach(k => {
@@ -86,56 +93,75 @@ public base64urlDecode(data: string): Uint8Array {
 
   }
 
+  public async signWithInjector(signMessage: string, walletAddress: string): Promise<string> {
+          const extensions = await web3Enable('MOD')
+          if (extensions.length === 0) {
+            throw new Error('No wallet extension found')
+          }
+          
+          const injector = await web3FromAddress(walletAddress)
+          if (!injector.signer.signRaw) {
+            throw new Error('Wallet does not support signing')
+          }
+          
+          const signRaw = injector.signer.signRaw
+          const { signature: sig } = await signRaw({
+            address: walletAddress,
+            data: u8aToHex(stringToU8a(signMessage)),
+            type: 'bytes'
+          })
+          return sig;
+        }
+          
+  public token(data: any = '', walletAddress?: any): string {
 
-  public token(data: any): string {
     const authData: AuthData = {
-      data: '',
+      data: data,
       time: String(this.time()), // Unix timestamp in seconds
-      key: this.key.address,
+      key: walletAddress || this.key.address,
       signature: '',
     };
 
     // Create signature data object with only the specified keys
     let signatureData: string = this.signatureData(authData);
-    authData.signature = this.key.sign(signatureData)
+    if (walletAddress) {
+      authData.signature = this.signWithInjector(signatureData, walletAddress) as unknown as string;
+    } else {
+      authData.signature = this.key.sign(signatureData);
+    }
     const verified = this.key.verify( signatureData, authData.signature, authData.key);
     if (!verified) {
       throw new Error('Signature verification failed');
     }
-    let token = this.base64urlEncode(JSON.stringify( authData));
-    return token;
+    return this.base64urlEncode(JSON.stringify( authData));
   }
 
-  public generate(data: any): AuthHeaders {
-    return {token: this.token(data)};
+  public generate(data: any, walletAddress?: any): AuthHeaders {
+    return {token: this.token(data, walletAddress)};
   }
 
-  /**
-   * Verify and decode authentication headers
-   * @param headers - The headers to verify
-   * @param data - Optional data to verify against the hash
-   * @returns The verified headers
-   * @throws Error if verification fails
-   */
   public time(): number {
     return Date.now() / 1000; // Returns current timestamp in seconds
   }
 
+  public token2data(token: string): AuthData {
+    const decoded = this.base64urlDecode(token);
+    const jsonString = new TextDecoder().decode(decoded);
+    return JSON.parse(jsonString) as AuthData;
+  }
+
   public verify(headers: AuthHeaders, data?: any): boolean {
     // Check staleness
-    const authData = JSON.parse(this.base64urlDecode(headers.token)) as AuthData;
-    const currentTime = this.time()
-    const headerTime = parseFloat(authData.time);
-    const staleness = Math.abs(currentTime - headerTime);
-    
-    if (staleness > this.maxAge) {
-      throw new Error(`Token is stale: ${staleness}s > ${this.maxAge}s`);
-    }
+    const authData = this.token2data(headers.token);
 
     if (!authData.signature) {
       throw new Error('Missing signature');
     }
-
+    const staleness = Math.abs(this.time() - parseFloat(authData.time));
+    if (staleness > this.maxAge) {
+      throw new Error(`Token is stale: ${staleness}s > ${this.maxAge}s`);
+    }
+    
     // Create signature data object for verification
     const signatureData: Record<string, string> = {};
     this.signatureKeys.forEach(k => {
@@ -145,7 +171,6 @@ public base64urlDecode(data: string): Uint8Array {
     });
 
     const signatureDataString = JSON.stringify(signatureData); // Ensure it's a plain object
-
 
     let params = {
       message: signatureDataString,
@@ -157,29 +182,8 @@ public base64urlDecode(data: string): Uint8Array {
 
     // get boolean value of verified
     verified = Boolean(verified);
-
-    // Verify data hash if provided
-    if (data) {
-      const rehashData = this.hash(data);
-      if (authData.data !== rehashData) {
-        throw new Error(`Invalid data hash: ${authData.data} !== ${rehashData}`);
-      }
-    }
-
     return verified;
   }
-
-  /**
-   * Hash the data using the specified hash type
-   * @param data - The data to hash
-   * @returns The hash string
-   */
-  private hash(data: any): string {
-    let dataToHash = JSON.stringify(data);
-    let hash =  createHash('sha256').update(dataToHash).digest('hex');
-    return hash;
-  }
-
 
   /**
    * Test the authentication flow
@@ -199,7 +203,7 @@ public base64urlDecode(data: string): Uint8Array {
     auth.verify(headers);
     
     // Verify headers with data
-    const verifiedHeaders = auth.verify(headers, data);
+    const verifiedHeaders = auth.verify(headers);
     
     return { 
       headers: verifiedHeaders,

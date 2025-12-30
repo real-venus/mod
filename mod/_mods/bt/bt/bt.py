@@ -99,7 +99,7 @@ class Bt:
         """
         return self.subtensor.get_all_subnets_info(block=block)
 
-    def subnets(self, search=None, block: Optional = None, neurons=False, max_age=6000, update=False, n=10) -> List[Dict]:
+    def subnets(self, search=None, block: Optional = None, neurons=False, max_age=None, update=False, n=10) -> List[Dict]:
         """List all subnets
         Args:
             block (Optional): Block number

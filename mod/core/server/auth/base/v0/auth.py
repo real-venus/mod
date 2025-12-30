@@ -39,7 +39,7 @@ class Auth:
         """
         key = self.get_key(key)
         result = {
-            'data': data,
+            'data': self.hash(data),
             'time': str(time.time()),
             'key': key.address,
         }

@@ -11,6 +11,9 @@ export class Client {
     this.url = url || process.env.NEXT_PUBLIC_API_URL || config.api_url || 'http://localhost:8000';
     console.log('Client initialized with URL:', this.url);
     this.key = key;
+    if (!key) {
+      throw new Error('Key is required for Client initialization');
+    }
     this.auth = new Auth(key);
   }
 

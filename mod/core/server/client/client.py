@@ -11,7 +11,7 @@ class Client:
                  url: Optional[str] = None,  # the url of the mod server
                  key : Optional[str]= None,  
                  timeout = 10,
-                 auth = 'auth',
+                 auth = 'auth.v0',
                  mode = 'http',
                  storage_path = '~/.mod/client',
                  fn = 'info',

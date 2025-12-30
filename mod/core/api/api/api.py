@@ -190,8 +190,15 @@ class  Api:
         
     def task_path(self, data): 
 
-        path = f'{self.calls_path}/{data["key"]}/{data["fn"]}/{data["time"]}.json'
+        path = f'{self.calls_path}/{data["fn"]}/{data["time"]}.json'
         return m.relpath(path)
+
+
+    def _clear_calls(self):
+        import shutil
+        shutil.rmtree(self.calls_path) if os.path.exists(self.calls_path) else None
+        assert len(self.call_paths()) == 0, "Failed to clear call paths"
+        return True
 
     def call_paths(self):
         return glob.glob(self.calls_path+'/**/*.json', recursive=True)
@@ -236,7 +243,27 @@ class  Api:
         assert len(self.call_paths()) == 0, "Failed to reset all call paths"
         return True
 
-    def clear_call_paths(self):
+
+    def find_path_with_time(self, timestamp: float) -> Optional[str]:
+        call_paths = self.call_paths()
+        optional_paths = []
+        for path in call_paths:
+            try:
+                call = m.get(path)
+                if abs(call['time'] - timestamp) < 1e-3:
+                    optional_paths.append(path)
+            except:
+                continue
+        if len(optional_paths) > 0:
+            return optional_paths[0]
+        else: 
+            return None
+        return None
+
+        
+
+
+    def _clear_call_paths(self):
         for path in self.path2future.keys():
             print(f'Removing call path: {path}')
             m.rm(path)
@@ -293,7 +320,7 @@ class  Api:
         if expand: 
             for file, cid in content.items():
                 content[file] = self.get(cid)
-        if h: 
+        if h: # heirarichal content
             return self.hc(content)
         return content
 
@@ -587,7 +614,7 @@ class  Api:
         """
         return self.folder_path + '/' + path
 
-    def mods(self, network=None, search=None, key=None, update=False,  **kwargs) -> List[str]:
+    def mods(self, search=None, network=None, key=None, update=False, n=None,  **kwargs) -> List[str]:
         """
         List all registered mods in IPFS.
         Returns:
@@ -608,12 +635,14 @@ class  Api:
                         mods.append(self.mod(mod, key=user_key))  
             m.put(path, mods)
             
+        # mods = [m for m in mods if m is isinstance(m, dict) and 'name' in m]
+        mods = [m for m in mods if isinstance(m, dict) and 'name' in m]
         if search != None:
             mods = [m for m in mods if search in m['name']]
         if network != None:
             mods = [m for m in mods if m.get('network', 'local') == network]
-
-        mods = [m for m in mods if isinstance(m, dict)]
+        if n != None:
+            mods = mods[:n]
         return mods
 
     @property
@@ -670,7 +699,7 @@ class  Api:
             registry = registry.get(self.key_address(key), {})
         return registry
             
-    def clear(self) -> bool:
+    def _clear(self) -> bool:
         m.put(self.registry_path, {})
         self.store._rm_all_pins()
         return {'status': 'registry cleared'}
@@ -847,6 +876,14 @@ class  Api:
 
 
         
+    def namespace(self, *args, **kwargs):
+        mods = self.mods(*args, **kwargs)
+        namespace = {}
+        for mod in mods:
+            url = mod.get('url', None)
+            if url is not None:
+                namespace[mod['name']] = url
+        return namespace
 
 
     def n(self, *args, **kwargs):
