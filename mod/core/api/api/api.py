@@ -106,14 +106,25 @@ class  Api:
         if not '/' in fn:
             fn = 'api/' + fn
         return fn
+
+    def wait_for_task(self, task, wait_frequency=0.2):
+        task_path = task['path']
+        while task.get('status', '') != 'success':
+            time.sleep(wait_frequency)
+            task = self.get(task_path, default={})
+            print(f'Waiting for task {task_path} status={task.get("status","pending")}')
+            if task.get('status', '') == 'error':
+                raise Exception(f'Task {task_path} failed with error: {task.get("result","unknown error")}   ')
+        return task
+
+
     def call(self , 
                 fn: str = 'api/edit',  
                 params: Dict[str, Any] = {}, 
                 key='api', 
                 signature=None, 
                 api=None,
-                sync=False,
-                wait_for_running =False,
+                wait=False,
                 timeout=1000, **extra_params) -> Any:
         """
         Call a function from a mod Mod in IPFS.
@@ -125,6 +136,16 @@ class  Api:
         Returns:
             Result of the function call
         """
+        
+        if isinstance(params, dict) and 'args' in params:
+            args = params['args']
+            params = {}
+            schema = self.schema(fn.split('/')[0])
+            fn_name = fn.split('/')[-1]
+            schema_keys = list(schema[fn_name]['input'].keys())
+            for _i, _arg in enumerate(args):
+                params[schema_keys[_i]] = args[_i]
+
         if not '/' in fn:
             fn = fn +'/info'
         fn = self.resolve_fn(fn)
@@ -151,7 +172,7 @@ class  Api:
         m.put(task['path'], task)
         future =  m.submit(self.run_task, task ,  timeout=timeout)
         self.path2future[task['path']] = future
-        if sync:
+        if wait:
             return future.result()
         return task
 

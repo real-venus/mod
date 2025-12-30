@@ -42,8 +42,8 @@ export default function ModTransactions({ mod }: ModTransactionsProps) {
       setLoading(true)
       setError(null)
       try {
-        const txs = await client.call('txs', { key: mod.key })
-        setTransactions(txs || [])
+        const result = await client.call('call', { fn: 'api/h', params: {} })
+        setTransactions(result || [])
       } catch (err: any) {
         console.error('Failed to fetch transactions:', err)
         setError(err?.message || 'Failed to load transactions')

@@ -33,11 +33,11 @@ class App:
                     **kwargs
                     )
 
-    def edit(self, text='now for the edit tab please have a pending transaction until it is finalized as a new version and show the update ', *extra_text, **kwargs):
+    def edit(self, text='so i want you to have the transactions tab be you calling the history by calling the call function with fn=api/h and params={}', *extra_text, **kwargs):
         text += ' '.join(extra_text) 
-        content =  str(m.fn('api/history')()[:2]) + m.code('api/history') + m.code('api/edit') 
+        content =  str(m.fn('api/h')()[:2])
         text += content
-        return m.edit(mod='app', *text, **kwargs)
+        return m.edit('app', *text, **kwargs)
 
 
     def fix(self):

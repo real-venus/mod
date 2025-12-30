@@ -1,168 +1,124 @@
-# Rent Sharing Smart Contract 🏠
+# Wallet Follower Bot 🚀
 
-A decentralized rent-sharing mechanism that tracks USD contributions from members using whitelisted stablecoins (USDT, USDC) on Base network.
+Automated trading bot that follows a specific wallet's trades across:
+- **Ethereum**: Uniswap V3 & V4
+- **Solana**: Raydium & Orca
 
 ## Features ✨
 
-- **Multi-Token Support**: Accept USDT and USDC on Base network
-- **Member Tracking**: Track individual contributions in USD value
-- **Whitelisting**: Owner can add/remove supported tokens
-- **Dual Deployment**: Support for both Ganache (local) and Base network
-- **Docker Integration**: Easy deployment with docker-compose
+- Real-time transaction monitoring
+- Automatic trade copying with configurable slippage
+- Multi-chain support (Ethereum + Solana)
+- Docker containerized deployment
+- Comprehensive logging
+- Position size limits for risk management
 
-## Smart Contract Architecture 🏗️
+## Quick Start 🏃
 
-### RentSharing.sol
-- Tracks member contributions in USD
-- Supports whitelisted ERC20 tokens (USDT, USDC)
-- Owner-controlled member management
-- Reentrancy protection
-- Event emission for all key actions
-
-## Quick Start 🚀
-
-### Prerequisites
-- Docker & Docker Compose
-- Node.js 18+
-- npm or yarn
-
-### Installation
+### 1. Clone and Configure
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd rent-sharing-contract
-
-# Install dependencies
-npm install
-
-# Copy environment file
+git clone <your-repo>
+cd wallet-follower
 cp .env.example .env
-# Edit .env with your configuration
 ```
 
-### Deployment
-
-#### Deploy to Ganache (Local)
+### 2. Edit `.env` with your settings:
 
 ```bash
-# Start Ganache and deploy
-npm run deploy:ganache
-
-# Or run Ganache separately
-npm run ganache
-# Then in another terminal
-npx hardhat run scripts/deploy.js --network ganache
+TARGET_WALLET=0x...  # Wallet to follow
+ETHEREUM_RPC=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
+SOLANA_RPC=https://api.mainnet-beta.solana.com
+PRIVATE_KEY=your_ethereum_private_key
+SOLANA_PRIVATE_KEY=your_solana_private_key_base58
 ```
 
-#### Deploy to Base Network
+### 3. Run with Docker Compose
 
 ```bash
-# Make sure .env has BASE_RPC_URL and PRIVATE_KEY set
-npm run deploy:base
-
-# Or manually
-npx hardhat run scripts/deploy.js --network base
+docker-compose up -d
 ```
 
-## Docker Compose Services 🐳
-
-### Ganache Service
-- Runs local Ethereum blockchain
-- Port: 8545
-- Pre-funded accounts with 1000 ETH each
-
-### Hardhat-Ganache Service
-- Deploys contracts to Ganache
-- Creates mock USDT/USDC tokens
-
-### Hardhat-Base Service
-- Deploys contracts to Base network
-- Uses real USDT/USDC addresses
-
-## Contract Interaction 💻
-
-### Add Member
-```javascript
-await rentSharing.addMember(memberAddress);
-```
-
-### Contribute Rent
-```javascript
-// Approve token first
-await usdt.approve(rentSharingAddress, amount);
-// Make contribution
-await rentSharing.contribute(usdtAddress, amount, usdValue);
-```
-
-### Check Contribution
-```javascript
-const contribution = await rentSharing.getMemberContribution(memberAddress);
-console.log('Total USD contributed:', contribution.toString());
-```
-
-## Network Configuration 🌐
-
-### Base Mainnet
-- Chain ID: 8453
-- RPC: https://mainnet.base.org
-- USDT: 0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2
-- USDC: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
-
-### Ganache (Local)
-- Chain ID: 1337
-- RPC: http://localhost:8545
-- Mock tokens deployed automatically
-
-## Project Structure 📁
-
-```
-.
-├── contracts/
-│   ├── RentSharing.sol      # Main contract
-│   └── MockERC20.sol        # Mock tokens for testing
-├── scripts/
-│   └── deploy.js            # Deployment script
-├── deployments/             # Deployment artifacts
-├── docker-compose.yml       # Docker services
-├── Dockerfile.ganache       # Ganache deployment
-├── Dockerfile.base          # Base deployment
-├── hardhat.config.js        # Hardhat configuration
-└── package.json
-```
-
-## Security Features 🔒
-
-- ReentrancyGuard protection
-- Ownable access control
-- Token whitelist validation
-- Member validation
-- SafeERC20 transfers
-
-## Events 📡
-
-- `MemberAdded(address indexed member)`
-- `ContributionMade(address indexed member, address indexed token, uint256 amount, uint256 usdValue)`
-- `TokenWhitelisted(address indexed token)`
-- `TokenRemoved(address indexed token)`
-
-## Development 🛠️
+### 4. Monitor Logs
 
 ```bash
-# Compile contracts
-npm run compile
-
-# Run tests
-npm run test
-
-# Clean artifacts
-npx hardhat clean
+docker-compose logs -f
+# Or check the logs directory
+tail -f logs/trading.log
 ```
+
+## Configuration ⚙️
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `TARGET_WALLET` | Wallet address to follow | Required |
+| `ETHEREUM_RPC` | Ethereum RPC endpoint | Required |
+| `SOLANA_RPC` | Solana RPC endpoint | Required |
+| `PRIVATE_KEY` | Your Ethereum private key | Required |
+| `SOLANA_PRIVATE_KEY` | Your Solana private key (base58) | Required |
+| `SLIPPAGE_BPS` | Slippage tolerance in basis points | 50 |
+| `MAX_POSITION_SIZE` | Max position size in native token | 0.1 |
+| `GAS_MULTIPLIER` | Gas price multiplier for faster execution | 1.2 |
+
+## Architecture 🏗️
+
+```
+├── main.py                 # Entry point
+├── ethereum_follower.py    # Ethereum monitoring & trading
+├── solana_follower.py      # Solana monitoring & trading
+├── docker-compose.yml      # Docker orchestration
+├── Dockerfile             # Container definition
+└── requirements.txt       # Python dependencies
+```
+
+## Supported DEXs 💱
+
+### Ethereum
+- ✅ Uniswap V3
+- 🔄 Uniswap V4 (ready for launch)
+
+### Solana
+- ✅ Raydium
+- ✅ Orca Whirlpools
+
+## Safety Features 🛡️
+
+- Position size limits
+- Configurable slippage protection
+- Gas price optimization
+- Comprehensive error handling
+- Transaction confirmation waiting
+
+## Development 🔧
+
+### Local Setup
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
+
+### Testing
+
+```bash
+# Test with a small position size first
+MAX_POSITION_SIZE=0.01 python main.py
+```
+
+## Warnings ⚠️
+
+- **NEVER commit your `.env` file**
+- **Start with small position sizes**
+- **Test on testnet first**
+- **Monitor gas costs carefully**
+- **This is for educational purposes**
 
 ## License 📄
 
-MIT License
+MIT License - Use at your own risk
 
 ---
 
-*Built with precision for decentralized rent sharing* 🚀
+*Built with precision and purpose* ⚡

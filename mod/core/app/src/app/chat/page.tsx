@@ -18,10 +18,12 @@ export default function ChatPage() {
   const { client } = useUserContext()
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
-  const [selectedModule, setSelectedModule] = useState('')
-  const [selectedFunction, setSelectedFunction] = useState('')
+  const [selectedModule, setSelectedModule] = useState('store')
+  const [selectedFunction, setSelectedFunction] = useState('ls')
   const [modules, setModules] = useState<any[]>([])
   const [functions, setFunctions] = useState<string[]>([])
+  const [schema, setSchema] = useState<any>(null)
+  const [argname, setArgname] = useState<string>('input')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -50,6 +52,7 @@ export default function ChatPage() {
         promise.then((schema) => {
           const fnNames = Object.keys(schema).filter((fn: string) => fn !== 'self' && fn !== 'cls')
           setFunctions(fnNames)
+          setSchema(schema)
           console.log('Fetched module schema from CID:', schema)
         }).catch((err) => {
           console.error('Failed to fetch module schema:', err)
@@ -96,10 +99,17 @@ export default function ChatPage() {
       if (!client) {
         throw new Error('Client not initialized')
       }
-      
+
+      // get the first arg value so we can do the params 
+      let params = {}
+      // first arg name in the schema which is the keys of the schema object
+    
+      params = { args: [userMessage.content] }
+      console.log('Calling function with params:', params)
       const result = await client.call('call', {
         fn: `${selectedModule}/${selectedFunction}`,
-        params: { args: [userMessage.content] , kwargs: {} },
+        params: params,
+        wait: true
       })
 
       const assistantMessage: Message = {
@@ -141,7 +151,10 @@ export default function ChatPage() {
           </select>
           <select
             value={selectedFunction}
-            onChange={(e) => setSelectedFunction(e.target.value)}
+            onChange={(e) => {
+              setSelectedFunction(e.target.value)
+
+            } }
             disabled={!selectedModule}
             className="bg-gray-900 border border-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 disabled:opacity-50"
           >
