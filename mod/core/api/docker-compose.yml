@@ -1,20 +1,68 @@
+version: '3.8'
+
+services:
+  ipfs:
+    image: ipfs/kubo:latest
+    container_name: ipfs-node
+    ports:
+      - "5001:5001"  # API
+      - "8080:8080"  # Gateway
+      - "4001:4001"  # Swarm
+    volumes:
+      - ./data/ipfs:/data/ipfs
+      - ./data/ipfs-staging:/export
+    environment:
+      - IPFS_PROFILE=server
+    restart: unless-stopped
+
+  zcash:
+    image: electriccoinco/zcashd:latest
+    container_name: zcash-node
+    ports:
+      - "8232:8232"  # RPC
+      - "8233:8233"  # P2P
+    volumes:
+      - ./data/zcash:/root/.zcash
+      - ./zcash.conf:/root/.zcash/zcash.conf
+    command: zcashd -printtoconsole
+    restart: unless-stopped
+
+  l2-bridge:
+    build: ./l2-bridge
+    container_name: zcash-l2-bridge
+    ports:
+      - "3000:3000"
+    environment:
+      - IPFS_API=http://ipfs:5001
+      - ZCASH_RPC=http://zcash:8232
+      - ZCASH_USER=zcashrpc
+      - ZCASH_PASSWORD=changeme
+    depends_on:
+      - ipfs
+      - zcash
+    volumes:
+      - ./data/l2-state:/app/state
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: l2-db
+    environment:
+      - POSTGRES_DB=zcash_l2
+      - POSTGRES_USER=l2user
+      - POSTGRES_PASSWORD=l2pass
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  ipfs-data:
+  zcash-data:
+  l2-state:
+  postgres-data:
+
 networks:
   default:
-    external: true
-    name: modnet
-services:
-  api:
-    container_name: api
-    deploy: {}
-    entrypoint: bash -c "m serve port=8000 key=api remote=0 mod=api"
-    image: api
-    ports:
-    - 8000:8000
-    restart: unless-stopped
-    shm_size: 100g
-    volumes:
-    - ~/mod:/root/mod
-    - ~/.mod:/root/.mod
-    - ~/mod/mod/core/api:/root/mod/mod/core/api
-    working_dir: /root/mod/mod/core/api
-version: '3.8'
+    name: zcash-l2-network

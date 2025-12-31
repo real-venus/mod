@@ -10,11 +10,11 @@ import { useSplitScreenContext } from '@/bloc/context/SplitScreenContext'
 import { Squares2X2Icon } from '@heroicons/react/24/outline'
 
 const navigation = [
+  { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },
   { name: 'Home', href: '/', icon: HomeIcon },
   { name: 'Mods', href: '/mod/explore', icon: CubeIcon },
   { name: 'Users', href: '/user/explore', icon: UsersIcon },
   { name: 'Transactions', href: '/host', icon: TableCellsIcon },
-  { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },
 ]
 
 const FIXED_WIDTH = 80

@@ -337,10 +337,11 @@ class  Api:
         """
         content_cid = self.mod(mod, key=key)['content']
         content = self.get(content_cid)['data']
-        return content
         if expand: 
-            for file, cid in content.items():
-                content[file] = self.get(cid)
+            file2cid = self.get(content)
+            content = {}
+            for file, cid in file2cid.items():
+                content[file] = cid
         if h: # heirarichal content
             return self.hc(content)
         return content

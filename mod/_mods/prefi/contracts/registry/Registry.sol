@@ -175,85 +175,47 @@ contract AssetPredictionMarket is ReentrancyGuard {
 }
 
 /**
- * @title PredictionMarketRegistry
- * @dev Registry for managing multiple asset prediction markets - only registers markets, not oracles
+ * @title MarketRegistry
+ * @dev Simplified registry for prediction markets
  */
-contract PredictionMarketRegistry is Ownable {
+contract MarketRegistry is Ownable {
     
-    struct MarketInfo {
-        address marketAddress;
-        address asset;
-        address collateralToken;
-        uint256 epochDuration;
-        uint256 createdAt;
-        bool active;
-    }
-    
-    mapping(address => MarketInfo) public markets;
+    mapping(address => bool) public markets;
     address[] public marketList;
     
-    event MarketCreated(address indexed marketAddress, address indexed asset);
-    event MarketDeactivated(address indexed marketAddress);
+    event MarketRegistered(address indexed market, address indexed asset);
+    event MarketRemoved(address indexed market);
     
-    function createMarket(
+    function registerMarket(
         address _asset,
-        address _oracleAdapter,
-        address _collateralToken,
-        address _scoreCalculator,
-        uint256 _epochDuration
+        address _oracle,
+        address _collateral,
+        address _calculator,
+        uint256 _duration
     ) external onlyOwner returns (address) {
         AssetPredictionMarket market = new AssetPredictionMarket(
-            _asset,
-            _oracleAdapter,
-            _collateralToken,
-            _scoreCalculator,
-            _epochDuration
+            _asset, _oracle, _collateral, _calculator, _duration
         );
         
-        address marketAddress = address(market);
+        address addr = address(market);
+        markets[addr] = true;
+        marketList.push(addr);
         
-        markets[marketAddress] = MarketInfo({
-            marketAddress: marketAddress,
-            asset: _asset,
-            collateralToken: _collateralToken,
-            epochDuration: _epochDuration,
-            createdAt: block.timestamp,
-            active: true
-        });
-        
-        marketList.push(marketAddress);
-        
-        emit MarketCreated(marketAddress, _asset);
-        return marketAddress;
+        emit MarketRegistered(addr, _asset);
+        return addr;
     }
     
-    function deactivateMarket(address _market) external onlyOwner {
-        require(markets[_market].active, "Market not active");
-        markets[_market].active = false;
-        emit MarketDeactivated(_market);
+    function removeMarket(address _market) external onlyOwner {
+        require(markets[_market], "Not registered");
+        markets[_market] = false;
+        emit MarketRemoved(_market);
     }
     
-    function getMarketCount() external view returns (uint256) {
-        return marketList.length;
+    function getMarkets() external view returns (address[] memory) {
+        return marketList;
     }
     
-    function getActiveMarkets() external view returns (address[] memory) {
-        uint256 activeCount = 0;
-        for (uint256 i = 0; i < marketList.length; i++) {
-            if (markets[marketList[i]].active) {
-                activeCount++;
-            }
-        }
-        
-        address[] memory activeMarkets = new address[](activeCount);
-        uint256 index = 0;
-        for (uint256 i = 0; i < marketList.length; i++) {
-            if (markets[marketList[i]].active) {
-                activeMarkets[index] = marketList[i];
-                index++;
-            }
-        }
-        
-        return activeMarkets;
+    function isActive(address _market) external view returns (bool) {
+        return markets[_market];
     }
 }

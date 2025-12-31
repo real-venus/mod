@@ -81,13 +81,39 @@ export class Client {
     }
   }
 
-  private async handleStream(response: Response): Promise<void> {
+  private createStreamGenerator(response: Response): AsyncGenerator<string, void, unknown> {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
+    
+    return (async function* () {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                yield parsed.content;
+              }
+            } catch (e) {
+              // If not JSON, treat as raw content
+              yield data;
+            }
+          }
+        }
+      }
+    })();
+  }
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-    }
+  private async handleStream(response: Response): Promise<AsyncGenerator<string, void, unknown>> {
+    return this.createStreamGenerator(response);
   }
 }

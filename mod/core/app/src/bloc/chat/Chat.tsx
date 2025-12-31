@@ -13,7 +13,7 @@ interface Message {
   function?: string
 }
 
-export default function ChatPage() {
+export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const { client } = useUserContext()
@@ -176,7 +176,7 @@ export default function ChatPage() {
     : []
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-gray-950 via-black to-gray-900" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+    <div className="flex flex-col h-full bg-gradient-to-br from-gray-950 via-black to-gray-900" style={{ fontFamily: "IBM Plex Mono, Courier New, monospace" }}>
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full">
@@ -238,34 +238,28 @@ export default function ChatPage() {
           <div className="flex justify-between items-center mb-3">
             <button
               onClick={() => setIsConfigCollapsed(!isConfigCollapsed)}
-              className="flex items-center gap-2 text-green-400 hover:text-green-300 transition-all duration-200 font-semibold"
-              style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+              className="px-6 py-3 bg-gradient-to-r from-green-500/20 to-green-600/10 text-green-400 border-2 border-green-500/40 hover:from-green-500/30 hover:to-green-600/20 hover:border-green-500/60 rounded-full transition-all duration-200 font-bold shadow-lg"
+              style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', fontSize: '0.75rem' }}
             >
-              {isConfigCollapsed ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
-              <span>Chat Configuration</span>
+              {isConfigCollapsed ? '▲ expand config' : '▼ collapse config'}
             </button>
             <button
               onClick={handleRefresh}
-              className="px-5 py-2 bg-green-500/20 text-green-400 border-2 border-green-500/40 hover:bg-green-500/30 hover:border-green-500/60 rounded-full transition-all duration-200 font-semibold shadow-lg"
-              style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500/20 to-purple-600/10 text-purple-400 border-2 border-purple-500/40 hover:from-purple-500/30 hover:to-purple-600/20 hover:border-purple-500/60 rounded-full transition-all duration-200 font-bold shadow-lg"
+              style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', fontSize: '0.75rem' }}
             >
-              Refresh
+              🔄 refresh
             </button>
           </div>
-          
+
           {!isConfigCollapsed && (
-            <div className="space-y-4 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-3 mt-4">
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <label className="text-green-400 font-semibold text-sm" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>Module</label>
+                  <label className="text-green-400 text-base font-bold" style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 10px rgba(34, 197, 94, 0.5)' }}>module</label>
                   <select
                     value={selectedModule}
-                    onChange={(e) => {
-                      setSelectedModule(e.target.value)
-                      setSelectedFunction('')
-                      setParams({})
-                      setSelectedInputParam('')
-                    }}
+                    onChange={(e) => setSelectedModule(e.target.value)}
                     className="bg-gray-900/80 border-2 border-gray-700/60 text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 transition-all shadow-lg"
                     style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
                   >
@@ -276,12 +270,10 @@ export default function ChatPage() {
                   </select>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-green-400 font-semibold text-sm" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>Function</label>
+                  <label className="text-green-400 text-base font-bold" style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 10px rgba(34, 197, 94, 0.5)' }}>function</label>
                   <select
                     value={selectedFunction}
-                    onChange={(e) => {
-                      setSelectedFunction(e.target.value)
-                    }}
+                    onChange={(e) => setSelectedFunction(e.target.value)}
                     disabled={!selectedModule}
                     className="bg-gray-900/80 border-2 border-gray-700/60 text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all shadow-lg"
                     style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
@@ -292,139 +284,98 @@ export default function ChatPage() {
                     ))}
                   </select>
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-green-400 font-semibold text-sm" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>Chat Input → Param</label>
-                  <select
-                    value={selectedInputParam}
-                    onChange={(e) => setSelectedInputParam(e.target.value)}
-                    disabled={inputParamOptions.length === 0}
-                    className="bg-gray-900/80 border-2 border-gray-700/60 text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all shadow-lg"
-                    style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                  >
-                    {inputParamOptions.length === 0 ? (
-                      <option value="">No params</option>
-                    ) : (
-                      inputParamOptions.map(param => (
-                        <option key={param} value={param}>{param}</option>
-                      ))
-                    )}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-green-400 font-semibold text-sm" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>Timeout (s)</label>
-                  <input
-                    type="number"
-                    value={timeout}
-                    onChange={(e) => setTimeout(parseFloat(e.target.value))}
-                    step="1"
-                    min="1"
-                    className="bg-gray-900/80 border-2 border-gray-700/60 text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 transition-all shadow-lg"
-                    style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                  />
-                </div>
-              </div>
-
-              {selectedFunction && schema && schema[selectedFunction]?.input && Object.keys(schema[selectedFunction].input).filter(k => k !== 'self' && k !== 'cls').length > 0 && (
-                <div className="border-t border-gray-700/50 pt-4">
-                  <button
-                    onClick={() => setIsParamsCollapsed(!isParamsCollapsed)}
-                    className="flex items-center gap-2 text-green-400 hover:text-green-300 transition-all duration-200 font-semibold mb-3"
-                    style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                  >
-                    {isParamsCollapsed ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronUpIcon className="w-4 h-4" />}
-                    <span className="text-sm">Function Parameters</span>
-                  </button>
-                  {!isParamsCollapsed && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {Object.entries(schema[selectedFunction].input)
-                        .filter(([key]) => key !== 'self' && key !== 'cls')
-                        .map(([key, value]: [string, any]) => (
-                          <div key={key} className="flex flex-col gap-1">
-                            <label className="text-gray-400 text-xs" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-                              {key} <span className="text-gray-600">({value.type})</span>
-                            </label>
-                            <input
-                              type="text"
-                              value={params[key] ?? ''}
-                              onChange={(e) => handleParamChange(key, e.target.value)}
-                              placeholder={value.value !== '_empty' ? String(value.value) : 'Enter value...'}
-                              className="bg-gray-900/80 border border-gray-700/60 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/60 text-sm"
-                              style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                            />
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setWait(!wait)}
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
-                    wait
-                      ? 'bg-green-500/20 text-green-400 border-2 border-green-500/40'
-                      : 'bg-orange-500/20 text-orange-400 border-2 border-orange-500/40'
-                  }`}
-                  style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                >
-                  {wait ? '⏳ Wait for Response' : '🚀 Async Call'}
-                </button>
               </div>
             </div>
           )}
-        </div>
 
-        <div className="px-4 pb-4">
-          <form onSubmit={handleSubmit} className="relative">
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={selectedInputParam ? `Enter ${selectedInputParam}...` : "Type your message or leave empty to use default params..."}
-                  disabled={isLoading || !selectedModule || !selectedFunction}
-                  className="w-full bg-gray-900/80 border-2 border-gray-700/60 text-white px-5 py-4 pr-48 rounded-3xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all shadow-lg"
-                  style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <select
-                    value={selectedInputParam}
-                    onChange={(e) => setSelectedInputParam(e.target.value)}
-                    disabled={inputParamOptions.length === 0}
-                    className="bg-gray-800/90 border border-gray-600/60 text-white px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all text-sm"
-                    style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                  >
-                    {inputParamOptions.length === 0 ? (
-                      <option value="">No params</option>
-                    ) : (
-                      inputParamOptions.map(param => (
-                        <option key={param} value={param}>{param}</option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              </div>
+          {!isConfigCollapsed && selectedFunction && schema && schema[selectedFunction] && (
+            <div className="border-t border-gray-700/50 pt-4 mt-4">
               <button
-                type="submit"
-                disabled={isLoading || !selectedModule || !selectedFunction}
-                className="px-8 py-4 bg-gradient-to-r from-green-500/30 to-green-600/20 text-green-400 border-2 border-green-500/40 hover:from-green-500/40 hover:to-green-600/30 hover:border-green-500/60 rounded-3xl transition-all duration-200 font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-xl"
-                style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+                onClick={() => setIsParamsCollapsed(!isParamsCollapsed)}
+                className="px-5 py-2.5 bg-gradient-to-r from-cyan-500/20 to-cyan-600/10 text-cyan-400 border-2 border-cyan-500/40 hover:from-cyan-500/30 hover:to-cyan-600/20 hover:border-cyan-500/60 rounded-full transition-all duration-200 font-bold shadow-lg mb-3"
+                style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', fontSize: '0.7rem' }}
               >
-                {isLoading ? 'Sending...' : 'Send'}
+                {isParamsCollapsed ? '▼ show params' : '▲ hide params'}
               </button>
-              {isLoading && (
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="px-8 py-4 bg-gradient-to-r from-red-500/30 to-red-600/20 text-red-400 border-2 border-red-500/40 hover:from-red-500/40 hover:to-red-600/30 hover:border-red-500/60 rounded-3xl transition-all duration-200 font-bold shadow-xl"
-                  style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                >
-                  Cancel
-                </button>
+              {!isParamsCollapsed && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {Object.entries(schema[selectedFunction].input)
+                    .filter(([key]) => key !== 'self' && key !== 'cls')
+                    .map(([key, value]: [string, any]) => (
+                      <div key={key} className="flex flex-col gap-1">
+                        <label className="text-green-400 text-sm font-bold" style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 10px rgba(34, 197, 94, 0.5)' }}>
+                          {key} <span className="text-gray-500 text-xs">({value.type})</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={params[key] ?? ''}
+                          onChange={(e) => handleParamChange(key, e.target.value)}
+                          placeholder={value.value !== '_empty' ? String(value.value) : 'enter value...'}
+                          className="bg-gray-900/80 border-2 border-green-500/60 text-green-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm font-bold"
+                          style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 5px rgba(34, 197, 94, 0.3)' }}
+                        />
+                      </div>
+                    ))}
+                </div>
               )}
             </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="flex items-center gap-3 mt-4">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={selectedInputParam ? `Enter ${selectedInputParam}...` : "Type your message or leave empty to use default params..."}
+              disabled={isLoading || !selectedModule || !selectedFunction}
+              className="flex-1 bg-gray-900/80 border-2 border-gray-700/60 text-white px-5 py-4 rounded-3xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all shadow-lg"
+              style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+            />
+            <select
+              value={selectedInputParam}
+              onChange={(e) => setSelectedInputParam(e.target.value)}
+              disabled={inputParamOptions.length === 0}
+              className="bg-gray-900/80 border-2 border-gray-700/60 text-white px-4 py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all shadow-lg"
+              style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+            >
+              {inputParamOptions.length === 0 ? (
+                <option value="">No params</option>
+              ) : (
+                inputParamOptions.map(param => (
+                  <option key={param} value={param}>{param}</option>
+                ))
+              )}
+            </select>
+            <button
+              onClick={() => setWait(!wait)}
+              type="button"
+              className={`px-6 py-4 rounded-3xl font-semibold text-sm transition-all whitespace-nowrap ${
+                wait
+                  ? 'bg-green-500/20 text-green-400 border-2 border-green-500/40'
+                  : 'bg-orange-500/20 text-orange-400 border-2 border-orange-500/40'
+              }`}
+              style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+            >
+              {wait ? '⏳ Wait' : '🚀 Async'}
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading || !selectedModule || !selectedFunction}
+              className="px-8 py-4 bg-gradient-to-r from-green-500/30 to-green-600/20 text-green-400 border-2 border-green-500/40 hover:from-green-500/40 hover:to-green-600/30 hover:border-green-500/60 rounded-3xl transition-all duration-200 font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-xl"
+              style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+            >
+              {isLoading ? 'Sending...' : 'Send'}
+            </button>
+            {isLoading && (
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="px-8 py-4 bg-gradient-to-r from-red-500/30 to-red-600/20 text-red-400 border-2 border-red-500/40 hover:from-red-500/40 hover:to-red-600/30 hover:border-red-500/60 rounded-3xl transition-all duration-200 font-bold shadow-xl"
+                style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+              >
+                Cancel
+              </button>
+            )}
           </form>
         </div>
       </div>
