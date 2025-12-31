@@ -50,10 +50,14 @@ class MCP:
         return [m for m in dir(cls) if not m.startswith('_') and callable(getattr(cls, m))]
     
     def call(self, method: str, *args, **kwargs) -> Any:
-        """Call a method on this module."""
-        if hasattr(self, method):
+        """Call a method on this module with enhanced error handling."""
+        if not hasattr(self, method):
+            raise AttributeError(f"Module {self.name} has no method '{method}'")
+        try:
             return getattr(self, method)(*args, **kwargs)
-        raise AttributeError(f"Module {self.name} has no method {method}")
+        except Exception as e:
+            logger.error(f"Error calling {self.name}.{method}: {e}")
+            raise
     
     def register_tool(self, name: str, func: callable, metadata: Optional[Dict] = None):
         """Register a tool/function that can be called."""

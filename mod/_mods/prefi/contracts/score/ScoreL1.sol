@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 
 /**
- * @title ScoreCalculator
+ * @title ScoreL1
  * @dev Separate contract for calculating prediction scores using L1 distance
  */
-contract ScoreCalculator {
+contract ScoreL1 {
     
     struct PlayerScore {
         address player;

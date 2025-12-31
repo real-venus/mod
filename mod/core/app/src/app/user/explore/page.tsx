@@ -21,12 +21,12 @@ export default function UsersPage() {
     }
     return 'recent'
   })
-  const [columns, setColumns] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('user_explorer_columns') || '1')
-    }
-    return 1
-  })
+    const [columns, setColumns] = useState<number>(() => {
+      if (typeof window !== 'undefined') {
+        return parseInt(localStorage.getItem('user_explorer_columns') || '2')
+      }
+      return 2
+    })
   const [userFilter, setUserFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('user_explorer_user_filter') || ''
@@ -175,7 +175,7 @@ export default function UsersPage() {
           </div>
         )}
 
-        <div className={`mx-auto max-w-7xl grid ${gridColsClass} gap-6`}>
+          <div className={`mx-auto max-w-7xl grid ${gridColsClass} gap-4`}>
           {users.map((user) => (
             <div
               key={user.key}

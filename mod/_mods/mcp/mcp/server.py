@@ -149,7 +149,8 @@ class MCPClassServer:
                     func=member,
                     is_async=is_async,
                 )
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to collect tool {name}: {e}")
                 continue
         return tools
 

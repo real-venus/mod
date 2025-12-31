@@ -78,6 +78,14 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         require(_lockedAmount > 0, "Must lock tokens");
         require(epoch.predictions[msg.sender].player == address(0), "Already predicted");
         
+        // Minimum prediction interval: 10% of epoch duration
+        uint256 minPredictionTime = epoch.startTime + (epochDuration / 10);
+        require(block.timestamp >= minPredictionTime, "Too early to predict");
+        
+        // Maximum prediction interval: 50% of epoch duration for fairness
+        uint256 maxPredictionTime = epoch.startTime + (epochDuration / 2);
+        require(block.timestamp <= maxPredictionTime, "Prediction window closed");
+        
         // Transfer locked tokens
         IERC20(assetAddress).transferFrom(msg.sender, address(this), _lockedAmount);
         

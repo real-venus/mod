@@ -79,6 +79,8 @@ class MCPClient:
             "method": "tools/call",
             "params": {"name": name, "arguments": kwargs},
         })
+        if "result" not in resp or "content" not in resp["result"]:
+            raise RuntimeError(f"Invalid response format: {resp}")
         return resp["result"]["content"]
 
 

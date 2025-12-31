@@ -16,6 +16,7 @@ class  Api:
     sync_delay = 3
     protocal = 'mod'
     folder_path = m.abspath('~/.mod/api')
+    threads = {}
 
     def __init__(self, store = 'ipfs', chain='chain', key=None, auth='auth.v0'):
         self.set_store(store)
@@ -26,6 +27,7 @@ class  Api:
         self.calls_path = self.path('calls')
         self._sync_loop_thread = None
         self.auth = m.mod(auth)()
+        # self.threads['update'] = m.thread(self.update_loop)
 
     @property
     def store(self):
@@ -153,8 +155,8 @@ class  Api:
         if api != None:
             remote_params = {'fn': fn, 'params': params, 'key': key, 'signature': signature, 'api': None}
             return m.fn('client/call')('api/call', params=remote_params, timeout=timeout)
-        if self._sync_loop_thread is None :
-            self._sync_loop_thread = m.thread(self.sync_loop)
+        if 'sync' not in self.threads:
+            self.threads['sync'] = m.thread(self.sync_loop)
         task = self.task_data( fn=fn, params=params, timeout=timeout)
         if self.devmode:
             key = m.key(key)
@@ -583,6 +585,18 @@ class  Api:
             info['prev'] = prev_cid
         info['cid'] = self.update_registry(info) 
         return info
+
+
+    def update_loop(self, sync_interval=10):
+        while True:
+            m.sleep(sync_interval)
+            try:
+                self.update()
+            except Exception as e :
+                print(m.detailed_error(e))
+
+    def update(self): 
+        self.mods(update=1)
     def reg_payload(self, mod: str = 'store', key=None, comment=None, collateral=0.0, protocal='mod') -> Dict[str, Any]:
         """
         Generate registration payload without executing registration.
@@ -879,8 +893,10 @@ class  Api:
         return hardware
 
     def __delete__(self):
-        self._sync_loop_thread.kill()
-        del self._sync_loop_thread
+        for k,thread in self.threads.items():
+            print(f'Killing {k}')
+            thread.kill()
+        del self.threads
 
     def stats(self):
         return m.df(self.mods())[['name', 'key', 'created', 'updated', 'collateral', 'network', 'cid']]

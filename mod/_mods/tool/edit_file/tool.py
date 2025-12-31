@@ -59,7 +59,7 @@ class Tool:
                 return {"success": False, "message": "start_line must be <= end_line", "content": None}
             
             # Convert to 0-indexed
-            start_idx = start_line - 1
+            start_idx = start_line
             end_idx = end_line
             
             # Replace lines with proper newline handling
