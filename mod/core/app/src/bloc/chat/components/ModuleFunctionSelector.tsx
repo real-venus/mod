@@ -1,0 +1,267 @@
+'use client'
+
+import { useState, useRef, useMemo } from 'react'
+
+interface ModuleFunctionSelectorProps {
+  selectedModule: string
+  setSelectedModule: (value: string) => void
+  selectedFunction: string
+  setSelectedFunction: (value: string) => void
+  modules: any[]
+  functions: string[]
+  onEnterPress?: () => void
+}
+
+export function ModuleFunctionSelector({
+  selectedModule,
+  setSelectedModule,
+  selectedFunction,
+  setSelectedFunction,
+  modules,
+  functions,
+  onEnterPress
+}: ModuleFunctionSelectorProps) {
+  const [unifiedInput, setUnifiedInput] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [solidifiedModule, setSolidifiedModule] = useState('')
+  const [solidifiedFunction, setSolidifiedFunction] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleUnifiedInput = (value: string) => {
+    setUnifiedInput(value)
+    setShowSuggestions(true)
+    
+    if (value.includes('/')) {
+      const [modPart, fnPart] = value.split('/')
+      
+      if (!solidifiedModule) {
+        const trimmedMod = modPart.trim()
+        const foundModule = modules.find(m => m.name === trimmedMod)
+        
+        if (foundModule) {
+          setSolidifiedModule(trimmedMod)
+          setSelectedModule(trimmedMod)
+          if (fnPart && fnPart.trim()) {
+            const trimmedFn = fnPart.trim()
+            const foundFunction = functions.find(f => f === trimmedFn)
+            if (foundFunction) {
+              setSolidifiedFunction(trimmedFn)
+              setSelectedFunction(trimmedFn)
+              setUnifiedInput('')
+              setShowSuggestions(false)
+            } else {
+              setUnifiedInput(trimmedFn)
+            }
+          } else {
+            setUnifiedInput('')
+          }
+        } else {
+          alert(`Module "${trimmedMod}" not found`)
+        }
+      }
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      if (getInlineSuggestion) {
+        const fullSuggestion = unifiedInput + getInlineSuggestion
+        if (!solidifiedModule) {
+          handleModuleSelect(fullSuggestion)
+        } else if (!solidifiedFunction) {
+          handleFunctionSelect(fullSuggestion)
+        }
+      } else if (solidifiedModule && solidifiedFunction) {
+        setShowSuggestions(false)
+        if (e.key === 'Enter' && onEnterPress) {
+          onEnterPress()
+        }
+      }
+    } else if (e.key === 'Backspace' && unifiedInput === '') {
+      if (solidifiedFunction) {
+        setUnifiedInput(solidifiedFunction)
+        setSolidifiedFunction('')
+        setSelectedFunction('')
+        e.preventDefault()
+      } else if (solidifiedModule) {
+        setUnifiedInput(solidifiedModule)
+        setSolidifiedModule('')
+        setSelectedModule('')
+        setSolidifiedFunction('')
+        e.preventDefault()
+      }
+    } else if (e.key === 'Delete' && unifiedInput === '') {
+      if (solidifiedFunction) {
+        setSolidifiedFunction('')
+        setSelectedFunction('')
+        e.preventDefault()
+      } else if (solidifiedModule) {
+        setSolidifiedModule('')
+        setSelectedModule('')
+        setSolidifiedFunction('')
+        e.preventDefault()
+      }
+    }
+  }
+
+  const handleModuleSelect = (modName: string) => {
+    setSolidifiedModule(modName)
+    setSelectedModule(modName)
+    setUnifiedInput('')
+    setShowSuggestions(true)
+    inputRef.current?.focus()
+  }
+
+  const handleFunctionSelect = (fn: string) => {
+    setSolidifiedFunction(fn)
+    setSelectedFunction(fn)
+    setUnifiedInput('')
+    setShowSuggestions(false)
+    inputRef.current?.focus()
+  }
+
+  const handleDeleteModule = () => {
+    setSolidifiedModule('')
+    setSelectedModule('')
+    setSolidifiedFunction('')
+    setSelectedFunction('')
+    setUnifiedInput('')
+    inputRef.current?.focus()
+  }
+
+  const handleDeleteFunction = () => {
+    setSolidifiedFunction('')
+    setSelectedFunction('')
+    setUnifiedInput('')
+    inputRef.current?.focus()
+  }
+
+  const getSuggestedModules = () => {
+    if (solidifiedModule) return []
+    const lowerSearch = unifiedInput.toLowerCase()
+    return modules
+      .filter(m => m.name.toLowerCase().includes(lowerSearch))
+      .slice(0, 5)
+  }
+
+  const getSuggestedFunctions = () => {
+    if (!solidifiedModule) return []
+    const lowerSearch = unifiedInput.toLowerCase()
+    return functions
+      .filter(f => f.toLowerCase().includes(lowerSearch))
+      .slice(0, 5)
+  }
+
+  const suggestedModules = getSuggestedModules()
+  const suggestedFunctions = getSuggestedFunctions()
+
+  const getPlaceholder = () => {
+    if (!solidifiedModule) return "Type module (e.g., openrouter)..."
+    if (!solidifiedFunction) return "Type function..."
+    return ""
+  }
+
+  const getInlineSuggestion = useMemo(() => {
+    if (!unifiedInput) return ''
+    const lowerInput = unifiedInput.toLowerCase()
+    
+    if (!solidifiedModule && suggestedModules.length > 0) {
+      const topMatch = suggestedModules[0].name
+      if (topMatch.toLowerCase().startsWith(lowerInput)) {
+        return topMatch.slice(unifiedInput.length)
+      }
+    }
+    
+    if (solidifiedModule && !solidifiedFunction && suggestedFunctions.length > 0) {
+      const topMatch = suggestedFunctions[0]
+      if (topMatch.toLowerCase().startsWith(lowerInput)) {
+        return topMatch.slice(unifiedInput.length)
+      }
+    }
+    
+    return ''
+  }, [unifiedInput, solidifiedModule, solidifiedFunction, suggestedModules, suggestedFunctions])
+
+  return (
+      <div className="p-4 bg-gray-900/80">
+        <div className="flex flex-col gap-3">
+          <div className="relative">
+            <div className="w-full bg-gray-900/80 border-2 border-gray-700/60 px-3 py-2.5 rounded-lg focus-within:ring-2 focus-within:ring-green-500/60 focus-within:border-green-500/60 transition-all shadow-lg text-base flex items-center gap-2 flex-wrap">
+              {solidifiedModule && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-green-500/30 to-emerald-500/20 border border-green-500/50 rounded-full text-green-300 font-bold text-sm" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                  {solidifiedModule}
+                  <button
+                    onClick={handleDeleteModule}
+                    className="ml-1 text-red-400 hover:text-red-300 font-bold text-xs"
+                    title="Delete module"
+                  >
+                    ✕
+                  </button>
+                </span>
+              )}
+              {solidifiedModule && solidifiedFunction && (
+                <span className="text-gray-500 text-base">/</span>
+              )}
+              {solidifiedFunction && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-cyan-500/30 to-blue-500/20 border border-cyan-500/50 rounded-full text-cyan-300 font-bold text-sm" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                  {solidifiedFunction}
+                  <button
+                    onClick={handleDeleteFunction}
+                    className="ml-1 text-red-400 hover:text-red-300 font-bold text-xs"
+                    title="Delete function"
+                  >
+                    ✕
+                  </button>
+                </span>
+              )}
+              <div className="relative flex-1 min-w-[150px]">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={unifiedInput}
+                  onChange={(e) => handleUnifiedInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  placeholder={getPlaceholder()}
+                  className="w-full bg-transparent text-white outline-none placeholder-gray-600 text-base"
+                  style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+                />
+                {getInlineSuggestion && (
+                  <div className="absolute top-0 left-0 pointer-events-none text-base" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+                    <span className="invisible">{unifiedInput}</span>
+                    <span className="text-gray-500/50">{getInlineSuggestion}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {showSuggestions && (suggestedModules.length > 0 || suggestedFunctions.length > 0) && (
+              <div className="absolute w-full mt-1 bg-gray-900 border-2 border-green-500/60 rounded-lg shadow-xl max-h-48 overflow-y-auto" style={{ zIndex: 99999 }}>
+                {suggestedModules.map(mod => (
+                  <button
+                    key={mod.name}
+                    onClick={() => handleModuleSelect(mod.name)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-green-500/20 text-green-300 text-base last:border-b-0 transition-all"
+                    style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+                  >
+                    {mod.name}
+                  </button>
+                ))}
+                {suggestedFunctions.map(fn => (
+                  <button
+                    key={fn}
+                    onClick={() => handleFunctionSelect(fn)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-cyan-500/20 text-cyan-300 text-base last:border-b-0 transition-all"
+                    style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+                  >
+                    {fn}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+  )
+}

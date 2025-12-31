@@ -281,8 +281,8 @@ export default function Chat() {
           </div>
         </div>
 
-      {!configState.isConfigCollapsed && configState.configOrientation === 'vertical' && (
-        <div className="fixed top-0 bottom-0 right-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ width: `${configState.dividerPosition}px`, marginTop: '64px' }}>
+          {!configState.isConfigCollapsed && configState.configOrientation === 'vertical' && (
+            <div className="fixed top-0 bottom-0 right-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ width: `${configState.dividerPosition}px`, marginTop: '80px', zIndex: 40 }}>
           <ConfigPanel
             selectedModule={chatState.selectedModule}
             setSelectedModule={chatState.setSelectedModule}
@@ -309,12 +309,14 @@ export default function Chat() {
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
             onCancel={handleCancel}
+            isCollapsed={configState.isConfigCollapsed}
+            setIsCollapsed={configState.setIsConfigCollapsed}
           />
         </div>
       )}
 
-      {!configState.isConfigCollapsed && configState.configOrientation === 'horizontal' && (
-        <div className="fixed left-0 right-0 bottom-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ height: `${configState.dividerPosition}px`, marginLeft: '80px' }}>
+          {!configState.isConfigCollapsed && configState.configOrientation === 'horizontal' && (
+            <div className="fixed left-0 right-0 bottom-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ height: `${configState.dividerPosition}px`, marginLeft: '80px', zIndex: 40 }}>
           <ConfigPanel
             selectedModule={chatState.selectedModule}
             setSelectedModule={chatState.setSelectedModule}
@@ -341,12 +343,14 @@ export default function Chat() {
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
             onCancel={handleCancel}
+            isCollapsed={configState.isConfigCollapsed}
+            setIsCollapsed={configState.setIsConfigCollapsed}
           />
         </div>
       )}
 
-      {!configState.isConfigCollapsed && configState.configOrientation === 'left' && (
-        <div className="fixed top-0 bottom-0 left-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ width: `${configState.dividerPosition}px`, marginTop: '64px' }}>
+          {!configState.isConfigCollapsed && configState.configOrientation === 'left' && (
+            <div className="fixed top-0 bottom-0 left-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ width: `${configState.dividerPosition}px`, marginTop: '80px', zIndex: 40 }}>
           <ConfigPanel
             selectedModule={chatState.selectedModule}
             setSelectedModule={chatState.setSelectedModule}
@@ -373,12 +377,14 @@ export default function Chat() {
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
             onCancel={handleCancel}
+            isCollapsed={configState.isConfigCollapsed}
+            setIsCollapsed={configState.setIsConfigCollapsed}
           />
         </div>
       )}
 
-      {!configState.isConfigCollapsed && configState.configOrientation === 'top' && (
-        <div className="fixed left-0 right-0 top-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ height: `${configState.dividerPosition}px`, marginLeft: '80px', marginTop: '64px' }}>
+          {!configState.isConfigCollapsed && configState.configOrientation === 'top' && (
+            <div className="fixed left-0 right-0 top-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ height: `${configState.dividerPosition}px`, marginLeft: '80px', marginTop: '80px', zIndex: 40 }}>
           <ConfigPanel
             selectedModule={chatState.selectedModule}
             setSelectedModule={chatState.setSelectedModule}
@@ -405,18 +411,42 @@ export default function Chat() {
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
             onCancel={handleCancel}
+            isCollapsed={configState.isConfigCollapsed}
+            setIsCollapsed={configState.setIsConfigCollapsed}
           />
         </div>
       )}
 
       {configState.isConfigCollapsed && (
-        <button
-          onClick={() => configState.setIsConfigCollapsed(false)}
-          className="fixed bottom-24 right-4 px-6 py-3 bg-gradient-to-r from-green-500/20 to-green-600/10 text-green-400 border-2 border-green-500/40 hover:from-green-500/30 hover:to-green-600/20 hover:border-green-500/60 rounded-full transition-all duration-200 font-bold shadow-lg text-lg z-50"
-          style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}
-        >
-          ▶ expand config
-        </button>
+        <ConfigPanel
+          selectedModule={chatState.selectedModule}
+          setSelectedModule={chatState.setSelectedModule}
+          selectedFunction={chatState.selectedFunction}
+          setSelectedFunction={chatState.setSelectedFunction}
+          modules={chatState.modules}
+          functions={chatState.functions}
+          schema={chatState.schema}
+          params={chatState.params}
+          handleParamChange={handleParamChange}
+          handleResetParams={handleResetParams}
+          handleRefresh={handleRefresh}
+          configOrientation={configState.configOrientation}
+          setConfigOrientation={configState.setConfigOrientation}
+          messages={chatState.messages}
+          messagesEndRef={messagesEndRef}
+          input={chatState.input}
+          setInput={chatState.setInput}
+          selectedInputParam={chatState.selectedInputParam}
+          setSelectedInputParam={chatState.setSelectedInputParam}
+          wait={chatState.wait}
+          setWait={chatState.setWait}
+          isLoading={chatState.isLoading}
+          inputParamOptions={inputParamOptions}
+          handleSubmit={handleSubmit}
+          onCancel={handleCancel}
+          isCollapsed={configState.isConfigCollapsed}
+          setIsCollapsed={configState.setIsConfigCollapsed}
+        />
       )}
     </div>
   )
