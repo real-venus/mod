@@ -117,12 +117,11 @@ export const ModApi = ({ mod }: { mod: any }) => {
         setLoading(false);
         return;
       }
-      let call_params = {
-        'fn': mod.name + '/' + selectedFunction,
-        'params': params,
-        'wait': wait
-      }
-      const res = await client.call('call', call_params, 0, {}, timeout, () => {
+      const res = await client.call('call', {
+        fn: mod.name + '/' + selectedFunction,
+        params: params,
+        wait: wait
+      }, 0, {}, timeout, () => {
         abortFn && abortFn();
       });
       setCancelFn(() => abortFn || null);
