@@ -6,9 +6,34 @@ import { Message } from '../types'
 interface ChatMessagesProps {
   messages: Message[]
   messagesEndRef: React.RefObject<HTMLDivElement>
+  compact?: boolean
 }
 
-export function ChatMessages({ messages, messagesEndRef }: ChatMessagesProps) {
+export function ChatMessages({ messages, messagesEndRef, compact = false }: ChatMessagesProps) {
+  if (compact) {
+    return (
+      <div className="space-y-2">
+        {messages.length === 0 && (
+          <div className="text-gray-500 text-xs text-center py-4">No messages yet</div>
+        )}
+        {messages.map((message, index) => (
+          <div key={index} className="text-xs">
+            <div className="font-bold" style={{ color: message.role === 'user' ? '#22c55e' : '#a78bfa' }}>
+              {message.role === 'user' ? '→ You' : '← Assistant'}
+            </div>
+            <div className="text-gray-300 mt-1 whitespace-pre-wrap">{message.content}</div>
+            {message.params && (
+              <div className="text-xs opacity-60 mt-1">
+                <pre className="text-xs bg-black/30 p-1 rounded">{JSON.stringify(message.params, null, 2)}</pre>
+              </div>
+            )}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-4">
       {messages.length === 0 && (

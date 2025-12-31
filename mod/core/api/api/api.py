@@ -429,6 +429,8 @@ class  Api:
         return  self.registry().get(self.key_address(key), {}).get(mod, default)
     
     def update_registry(self, info:dict):
+        if isinstance(info, str):
+            info = self.get(info)
         if 'cid' in info:
             cid = info['cid']
         else:
@@ -696,7 +698,7 @@ class  Api:
         import datetime
         return datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
-    def versions(self, mod='store' , key=None, df=False, n=None, update=False, max_age=100) -> List[Dict[str, Any]]:
+    def versions(self, mod='store' , key=None, df=False, n=None, update=False, max_age=2) -> List[Dict[str, Any]]:
 
         key_address = self.key_address(key)
         cache_path = self.path(f'versions/{key_address}/{mod}.json')
@@ -722,6 +724,9 @@ class  Api:
                 if not df:
                     result = result.to_dict(orient='records')
             m.put(cache_path, result)
+        if n != None:
+            result = result[:n]
+
         return result
 
     v = versions
@@ -754,7 +759,7 @@ class  Api:
             assert 'schema' in mod, "Mod dictionary must contain 'schema' key"
         return self.get(mod['schema'])
 
-    def setback(self, mod:str, cid:str , key=None ) -> Dict[str, Any]:
+    def setback(self, mod:str, cid:str , key=None , safety=True) -> Dict[str, Any]:
         """
         Setback a mod Mod to a previous CID in IPFS.
         Args:
@@ -762,23 +767,36 @@ class  Api:
             cid: Target CID to setback to
             key: Key object or address string
         """
-        modinfo = self.mod(cid, key=key)
-        versions = self.versions(mod, key=key)
-        assert cid in [h['cid'] for h in versions], "Specified CID not found in mod versions"
-        content = self.content(modinfo)
+        old_cid = self.cid(mod=mod, key=key)
+        old_content = self.content(old_cid, expand=1)
+        new_content = self.content(cid, expand=1)
         dirpath = m.dp(mod)
-        write_files= []
-        m.rm(mod)
-        for file, file_content in content.items():
-            filepath = os.path.join(dirpath, file)
-            write_files.append(filepath)
-            m.put_text(filepath, self.get(file_content))     
-        modinfo = self.update_registry(modinfo)
-        versions = self.versions(mod, key=key)
-        assert cid == versions[0]['cid'], "Setback failed: content CID mismatch"
+        add_dp_to_file = lambda f: os.path.join(dirpath, f)
+        delete_files = [add_dp_to_file(f) for f in old_content.keys() if f not in new_content.keys()]
+        new_content = { add_dp_to_file(k) : v for k, v in new_content.items()}
+        write_files = list(new_content.keys())
+
+        print(f"Setback will overwrite the current mod at {mod} with content from CID {cid}.")
+        m.print(f"old_content: {old_content}")
+        m.print(f"new content: {new_content}")
+        m.print(f"Files to be written: {write_files}")
+        m.print(f"Files to be deleted: {delete_files}")
+
+        if safety:
+            input_prompt = input(f"Setback will overwrite the current mod at {mod}. Press y to continue...")
+            if input_prompt != 'y':
+                raise Exception("Setback aborted by user.")
+
+        for k,v in new_content.items():
+            m.put_text(k, self.get(v))
+
+        for file in delete_files:
+            m.rm(file)
+        self.update_registry(cid)
         return {
-            'mod': mod,
-            'write':write_files,
+            'old_cid': old_cid,
+            'new_cid': cid,
+            'mod': mod
         }  
 
     def rm_mod(self, mod: m.Mod='store', key=None) -> bool:

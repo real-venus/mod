@@ -13,6 +13,7 @@ export default function Chat() {
   const configState = useConfigState()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const [outputMode, setOutputMode] = useState<'chat' | 'transactions'>('chat')
 
   useChatEffects(chatState)
 
@@ -113,7 +114,8 @@ export default function Chat() {
       content: chatState.input.trim() || 'Using default parameters',
       timestamp: Date.now(),
       module: chatState.selectedModule,
-      function: chatState.selectedFunction
+      function: chatState.selectedFunction,
+      params: chatState.params
     }
 
     chatState.setMessages(prev => [...prev, userMessage])
@@ -213,9 +215,71 @@ export default function Chat() {
         />
       )}
 
-      <div className="flex-1 overflow-y-auto" style={getMarginStyle()}>
-        <ChatMessages messages={chatState.messages} messagesEndRef={messagesEndRef} />
-      </div>
+        {/* Output Section - Left Side */}
+        <div className="flex-1 overflow-y-auto" style={getMarginStyle()}>
+          <div className="p-6">
+            <div className="mb-4 flex gap-2">
+              <button
+                onClick={() => setOutputMode('chat')}
+                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+                  outputMode === 'chat'
+                    ? 'bg-green-500/30 text-green-400 border-2 border-green-500/60'
+                    : 'bg-gray-800/30 text-gray-400 border-2 border-gray-700/40 hover:border-gray-600/60'
+                }`}
+                style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+              >
+                💬 chat
+              </button>
+              <button
+                onClick={() => setOutputMode('transactions')}
+                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+                  outputMode === 'transactions'
+                    ? 'bg-purple-500/30 text-purple-400 border-2 border-purple-500/60'
+                    : 'bg-gray-800/30 text-gray-400 border-2 border-gray-700/40 hover:border-gray-600/60'
+                }`}
+                style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+              >
+                📊 transactions
+              </button>
+            </div>
+            {outputMode === 'chat' ? (
+              <ChatMessages messages={chatState.messages} messagesEndRef={messagesEndRef} />
+            ) : (
+              <div className="space-y-2">
+                {chatState.messages
+                  .filter(msg => msg.role === 'assistant')
+                  .reverse()
+                  .map((msg, idx) => {
+                    const userMsg = chatState.messages.find(m => m.role === 'user' && m.timestamp < msg.timestamp && m.module && m.function)
+                    return (
+                      <div key={idx} className="border border-gray-700/40 rounded-lg bg-black/30 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-green-400" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                              {userMsg?.module || 'mod'}
+                            </span>
+                            <span className="text-xs text-gray-500">/</span>
+                            <span className="text-xs font-bold text-cyan-400" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                              {userMsg?.function || 'fn'}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <pre className="text-xs bg-black/50 p-2 rounded border border-gray-700/30 overflow-x-auto">
+                          <code className="text-gray-300">{msg.content}</code>
+                        </pre>
+                      </div>
+                    )
+                  })}
+                {chatState.messages.filter(m => m.role === 'assistant').length === 0 && (
+                  <div className="text-gray-500 text-xs text-center py-4">No transactions yet</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
 
       {!configState.isConfigCollapsed && configState.configOrientation === 'vertical' && (
         <div className="fixed top-0 bottom-0 right-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ width: `${configState.dividerPosition}px`, marginTop: '64px' }}>

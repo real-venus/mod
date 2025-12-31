@@ -5,6 +5,7 @@ export interface Message {
   module?: string
   function?: string
   params?: Record<string, any>
+  isLoading?: boolean
 }
 
 export interface ChatState {

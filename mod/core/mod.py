@@ -1343,7 +1343,7 @@ class Mod:
         tree.update(self.core_tree(search=search, depth=depth, **kwargs))
         return tree
 
-    def dirpath(self, mod=None, relative=False, trials=2) -> str:
+    def dirpath(self, mod=None, relative=False, trials=2, key=None) -> str:
         """
         get the directory path of the mod
         """
@@ -1360,9 +1360,7 @@ class Mod:
         dirpath = tree_options[0]
         if os.path.isfile(dirpath):
             dirpath = os.path.dirname(dirpath)
-        # remove any trailing repeats of the mod name in the dirpath
-        if relative:
-            dirpath = os.path.relpath(dirpath, self.lib_path)
+
         return  dirpath
 
     dp = dirpath

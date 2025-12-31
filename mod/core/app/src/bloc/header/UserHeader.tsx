@@ -6,7 +6,6 @@ import { CopyButton } from '@/bloc/ui/CopyButton'
 import 'react-responsive-modal/styles.css'
 import {text2color, shorten} from "@/bloc/utils"
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
 import WalletAuthButton from '@/bloc/wallet/WalletAuthButton'
 
 
