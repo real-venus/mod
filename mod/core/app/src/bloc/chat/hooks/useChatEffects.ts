@@ -73,6 +73,10 @@ export function useChatEffects({
       } else {
         setSelectedInputParam('')
       }
+    } else {
+      setParams({})
+      setDefaultParams({})
+      setSelectedInputParam('')
     }
   }, [selectedFunction, schema])
 

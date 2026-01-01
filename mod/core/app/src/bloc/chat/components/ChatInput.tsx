@@ -30,7 +30,7 @@ export function ChatInput({
             placeholder={selectedInputParam ? `Enter ${selectedInputParam}...` : "Type your message or leave empty to use default params..."}
             disabled={isLoading || !selectedModule || !selectedFunction}
             rows={3}
-            className="w-full bg-gray-900/80 border-2 border-gray-700/60 text-white px-5 py-3.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500/60 focus:border-green-500/60 disabled:opacity-50 transition-all shadow-lg resize-none"
+            className="w-full bg-transparent border-2 border-purple-500 text-white px-5 py-3.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/60 focus:border-purple-500 disabled:opacity-50 transition-all shadow-lg resize-none"
             style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
           />
           <div className="absolute bottom-3 right-3 flex items-center gap-2">

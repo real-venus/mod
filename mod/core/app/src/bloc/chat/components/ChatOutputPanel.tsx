@@ -10,6 +10,28 @@ interface ChatOutputPanelProps {
 
 export function ChatOutputPanel({ messages, isLoading }: ChatOutputPanelProps) {
   const [expandedTx, setExpandedTx] = useState<number | null>(null)
+  const [collapsedParams, setCollapsedParams] = useState<Set<number>>(new Set())
+  const [collapsedResponse, setCollapsedResponse] = useState<Set<number>>(new Set())
+
+  const toggleParams = (idx: number) => {
+    const newSet = new Set(collapsedParams)
+    if (newSet.has(idx)) {
+      newSet.delete(idx)
+    } else {
+      newSet.add(idx)
+    }
+    setCollapsedParams(newSet)
+  }
+
+  const toggleResponse = (idx: number) => {
+    const newSet = new Set(collapsedResponse)
+    if (newSet.has(idx)) {
+      newSet.delete(idx)
+    } else {
+      newSet.add(idx)
+    }
+    setCollapsedResponse(newSet)
+  }
 
   const lastMessage = messages[messages.length - 1]
   const isPending = isLoading && lastMessage?.role === 'user'
@@ -75,6 +97,8 @@ export function ChatOutputPanel({ messages, isLoading }: ChatOutputPanelProps) {
               const actualIdx = messages.filter(m => m.role === 'assistant').length - 1 - idx
               const userMsg = messages.find(m => m.role === 'user' && m.timestamp < msg.timestamp && m.module && m.function)
               const isExpanded = expandedTx === actualIdx
+              const isParamsCollapsed = collapsedParams.has(actualIdx)
+              const isResponseCollapsed = collapsedResponse.has(actualIdx)
 
               return (
                 <div key={actualIdx} className="border border-gray-700/40 rounded-lg bg-black/30 overflow-hidden">
@@ -107,7 +131,18 @@ export function ChatOutputPanel({ messages, isLoading }: ChatOutputPanelProps) {
                       {userMsg?.params && Object.keys(userMsg.params).length > 0 && (
                         <div>
                           <div className="flex items-center justify-between mb-1">
-                            <div className="text-xs text-yellow-400 font-bold">params:</div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-xs text-yellow-400 font-bold">params:</div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  toggleParams(actualIdx)
+                                }}
+                                className="text-xs text-gray-400 hover:text-white transition-colors"
+                              >
+                                {isParamsCollapsed ? '▼' : '▲'}
+                              </button>
+                            </div>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -118,15 +153,28 @@ export function ChatOutputPanel({ messages, isLoading }: ChatOutputPanelProps) {
                               📋 copy
                             </button>
                           </div>
-                          <pre className="text-xs bg-black/50 p-2 rounded border border-gray-700/30 overflow-x-auto">
-                            <code className="text-yellow-300">{JSON.stringify(userMsg.params, null, 2)}</code>
-                          </pre>
+                          {!isParamsCollapsed && (
+                            <pre className="text-xs bg-black/50 p-2 rounded border border-gray-700/30 overflow-x-auto">
+                              <code className="text-yellow-300">{JSON.stringify(userMsg.params, null, 2)}</code>
+                            </pre>
+                          )}
                         </div>
                       )}
 
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <div className="text-xs text-blue-400 font-bold">response:</div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs text-blue-400 font-bold">response:</div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleResponse(actualIdx)
+                              }}
+                              className="text-xs text-gray-400 hover:text-white transition-colors"
+                            >
+                              {isResponseCollapsed ? '▼' : '▲'}
+                            </button>
+                          </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -137,9 +185,11 @@ export function ChatOutputPanel({ messages, isLoading }: ChatOutputPanelProps) {
                             📋 copy
                           </button>
                         </div>
-                        <pre className="text-xs bg-black/50 p-2 rounded border border-gray-700/30 overflow-x-auto max-h-48">
-                          <code className="text-gray-300">{msg.content}</code>
-                        </pre>
+                        {!isResponseCollapsed && (
+                          <pre className="text-xs bg-black/50 p-2 rounded border border-gray-700/30 overflow-x-auto max-h-48">
+                            <code className="text-gray-300">{msg.content}</code>
+                          </pre>
+                        )}
                       </div>
                     </div>
                   )}

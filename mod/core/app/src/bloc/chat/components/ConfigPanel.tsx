@@ -52,22 +52,24 @@ export function ConfigPanel({
         className="fixed bottom-24 right-4 p-3 bg-gradient-to-r from-green-500/20 to-green-600/10 text-green-400 border-2 border-green-500/40 hover:from-green-500/30 hover:to-green-600/20 hover:border-green-500/60 rounded-full transition-all duration-200 shadow-lg z-50"
         title="Expand Config Panel"
       >
-        <ChevronLeftIcon className="w-6 h-6" />
+        <ChevronRightIcon className="w-6 h-6" />
       </button>
     )
   }
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-gray-900/95 to-black/90 backdrop-blur-md relative">
+    <div className="flex flex-col h-full bg-gradient-to-br from-gray-900/95 to-black/90 backdrop-blur-md relative" style={{ paddingTop: '5%' }}>
       {setIsCollapsed && (
-        <button
-          onClick={() => setIsCollapsed(true)}
-          className="absolute top-2 right-2 p-2 bg-gray-800/50 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg transition-all z-10"
-          title="Collapse Config Panel"
-        >
-          <ChevronRightIcon className="w-5 h-5" />
+      <button
+        onClick={() => setIsCollapsed(true)}
+        className="fixed bottom-24 right-4 p-3 bg-gradient-to-r from-green-500/20 to-green-600/10 text-green-400 border-2 border-green-500/40 hover:from-green-500/30 hover:to-green-600/20 hover:border-green-500/60 rounded-full transition-all duration-200 shadow-lg z-50"
+        title="Expand Config Panel"
+      >
+          <ChevronLeftIcon className="w-5 h-5" />
         </button>
       )}
+
+
 
       <ModuleFunctionSelector
         selectedModule={selectedModule}
@@ -77,7 +79,6 @@ export function ConfigPanel({
         modules={modules}
         functions={functions}
       />
-
       <ChatInput
         input={input}
         setInput={setInput}
@@ -92,6 +93,7 @@ export function ConfigPanel({
         handleSubmit={handleSubmit}
         onCancel={onCancel}
       />
+
 
       <SchemaParamsPanel
         selectedFunction={selectedFunction}
