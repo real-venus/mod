@@ -9,6 +9,7 @@ import { text2color } from '@/bloc/utils'
 import { useState, useEffect } from 'react'
 import { useSearchContext } from '@/bloc/context/SearchContext'
 import { useSplitScreenContext } from '@/bloc/context/SplitScreenContext'
+import { useControlPanelContext } from '@/bloc/context/ControlPanelContext'
 import { useRouter } from 'next/navigation'
 
 export function Header() {
@@ -20,6 +21,7 @@ export function Header() {
   const [searchCollapsed, setSearchCollapsed] = useState(false)
   const { handleSearch } = useSearchContext()
   const { isSplitScreen, toggleSplitScreen, orientation, setOrientation } = useSplitScreenContext()
+  const { isControlPanelCollapsed, setIsControlPanelCollapsed } = useControlPanelContext()
   const router = useRouter()
   const [inputValue, setInputValue] = useState('')
 
@@ -119,6 +121,20 @@ export function Header() {
         </div>
         
         <div className="flex items-center justify-end gap-3">
+          <button
+            onClick={() => setIsControlPanelCollapsed(!isControlPanelCollapsed)}
+            className="p-3 rounded-xl border-2 transition-all active:scale-95 backdrop-blur-xl"
+            style={{
+              height: '60px',
+              width: '60px',
+              backgroundColor: isControlPanelCollapsed ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.2)',
+              borderColor: isControlPanelCollapsed ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.6)',
+              boxShadow: '0 0 12px rgba(249, 115, 22, 0.2)'
+            }}
+            title={isControlPanelCollapsed ? 'Show Control Panel' : 'Hide Control Panel'}
+          >
+            <Bars3Icon className="w-8 h-8" style={{ color: '#fb923c' }} />
+          </button>
           <UserHeader />
         </div>
       </div>

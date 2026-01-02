@@ -2,21 +2,25 @@
 
 import { useRef, useEffect, useState } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
-import { useChatState } from './hooks/useChatState'
-import { useConfigState } from './hooks/useConfigState'
-import { useChatEffects } from './hooks/useChatEffects'
-import { Message } from './types'
-import { ChatMessages } from './components/ChatMessages'
-import { TransactionsPanel } from './components/TransactionsPanel'
-import { ControlPanel } from './components/ControlPanel'
+import { useChatState } from '@/bloc/chat/hooks/useChatState'
+import { useConfigState } from '@/bloc/chat/hooks/useConfigState'
+import { useChatEffects } from '@/bloc/chat/hooks/useChatEffects'
+import { Message } from '@/bloc/chat/types'
+import { ChatMessages } from '@/bloc/chat/components/ChatMessages'
+import { TransactionsPanel } from '@/bloc/chat/components/TransactionsPanel'
+import { ControlPanel } from '@/bloc/chat/components/ControlPanel'
+import { useControlPanelContext } from '@/bloc/context/ControlPanelContext'
+import { usePathname } from 'next/navigation'
 
-export default function Chat() {
+export default function GlobalControlPanel() {
   const chatState = useChatState()
   const configState = useConfigState()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
   const [outputMode, setOutputMode] = useState<'chat' | 'transactions'>('transactions')
   const transactionsPanelRef = useRef<{ handleSync: () => void } | null>(null)
+  const { isControlPanelCollapsed, setIsControlPanelCollapsed } = useControlPanelContext()
+  const pathname = usePathname()
 
   useChatEffects(chatState)
 
@@ -28,7 +32,6 @@ export default function Chat() {
     scrollToBottom()
   }, [chatState.messages, chatState.streamingContent])
 
-  const handleMouseDown = () => configState.setIsDragging(true)
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -173,41 +176,12 @@ export default function Chat() {
     }
   }
 
+  const isChatPage = pathname === '/chat'
+
+  if (!isChatPage) return null
+
   return (
     <div className="flex h-full bg-gradient-to-br from-gray-950 via-black to-gray-900" style={{ fontFamily: "IBM Plex Mono, Courier New, monospace" }}>
-      <div className="flex-1 overflow-y-auto" style={getMarginStyle()}>
-        <div className="p-6">
-          <div className="mb-4 flex gap-2">
-            <button
-              onClick={() => setOutputMode('chat')}
-              className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                outputMode === 'chat'
-                  ? 'bg-green-500/30 text-green-400 border-2 border-green-500/60'
-                  : 'bg-gray-800/30 text-gray-400 border-2 border-gray-700/40 hover:border-gray-600/60'
-              }`}
-              style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}
-            >
-              💬 chat
-            </button>
-            <button
-              onClick={() => setOutputMode('transactions')}
-              className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                outputMode === 'transactions'
-                  ? 'bg-purple-500/30 text-purple-400 border-2 border-purple-500/60'
-                  : 'bg-gray-800/30 text-gray-400 border-2 border-gray-700/40 hover:border-gray-600/60'
-              }`}
-              style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}
-            >
-              📊 transactions
-            </button>
-          </div>
-          {outputMode === 'chat' ? (
-            <ChatMessages messages={chatState.messages} messagesEndRef={messagesEndRef} />
-          ) : (
-            <TransactionsPanel ref={transactionsPanelRef} />
-          )}
-        </div>
-      </div>
 
       <ControlPanel
         selectedModule={chatState.selectedModule}

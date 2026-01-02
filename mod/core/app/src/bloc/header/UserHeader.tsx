@@ -7,12 +7,14 @@ import 'react-responsive-modal/styles.css'
 import {text2color, shorten} from "@/bloc/utils"
 import { useRouter } from 'next/navigation'
 import WalletAuthButton from '@/bloc/wallet/WalletAuthButton'
+import { useState } from 'react'
 
 
 
 export function UserHeader() {
   const {  user, authLoading, signOut} = useUserContext()
   const router = useRouter()
+  const [showTooltip, setShowTooltip] = useState(false)
 
   const handleSignOut = () => {
     signOut()
@@ -26,7 +28,7 @@ export function UserHeader() {
 
     if (authLoading) {
       return (
-        <div className="flex items-center gap-3 px-6 py-3 rounded-full border-2 backdrop-blur-xl shadow-2xl animate-pulse" style={{height: '60px', minWidth: '60px', borderColor: 'rgba(255, 255, 255, 0.8)', backgroundColor: 'rgba(0, 0, 0, 0.9)', boxShadow: '0 0 20px rgba(255, 255, 255, 0.1)'}}>
+        <div className="flex items-center gap-3 px-6 py-3 border-2 backdrop-blur-xl shadow-2xl animate-pulse" style={{height: '60px', minWidth: '60px', borderRadius: '8px', borderColor: 'rgba(255, 255, 255, 0.8)', backgroundColor: 'rgba(0, 0, 0, 0.9)', boxShadow: '0 0 20px rgba(255, 255, 255, 0.1)'}}>
           <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           <span className="text-xl text-white/70 font-bold hidden sm:inline">Loading...</span>
         </div>
@@ -58,15 +60,13 @@ export function UserHeader() {
       const borderColor = 'rgba(255, 255, 255, 0.9)'
       const glowColor = `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)`
 
-      const getTooltipContent = () => {
-        return `Address: ${shorten(user.key)}\nWallet: ${walletMode.toUpperCase()}\nConnected: ${shorten(walletAddress)}\nType: ${user.crypto_type}`
-      }
-
       return (
 
       <div
         onClick={handleUserClick}
-        className={`group relative flex items-center gap-3 transition-all duration-300 backdrop-blur-xl rounded-full border-2 overflow-hidden hover:shadow-2xl cursor-pointer hover:scale-105 active:scale-95`}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className={`group relative flex items-center gap-3 transition-all duration-300 backdrop-blur-xl border-2 overflow-hidden cursor-pointer hover:scale-105 active:scale-95`}
           style={{
             borderColor: borderColor,
             boxShadow: `0 0 20px ${glowColor}, 0 0 40px ${glowColor}`,
@@ -77,14 +77,14 @@ export function UserHeader() {
             paddingLeft: '0px',
             paddingTop: '0px',
             paddingBottom: '0px',
-            backgroundColor: 'rgba(0, 0, 0, 0.95)'
+            backgroundColor: 'rgba(0, 0, 0, 1)',
+            borderRadius: '8px'
         }}
-        title={getTooltipContent()}
       >
-        <div className="absolute -inset-1 bg-gradient-to-r opacity-0 group-hover:opacity-10 blur-xl transition-all duration-500 rounded-full animate-pulse" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})` }} />
+        <div className="absolute -inset-1 bg-gradient-to-r opacity-0 group-hover:opacity-10 blur-xl transition-all duration-500 animate-pulse" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})`, borderRadius: '8px' }} />
     
           <div 
-            className="relative z-10 rounded-full transition-all hover:scale-110 active:scale-95 flex-shrink-0"
+            className="relative z-10 transition-all hover:scale-110 active:scale-95 flex-shrink-0"
             style={{
               height: '60px',
               width: '60px',
@@ -92,7 +92,8 @@ export function UserHeader() {
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.2)`,
-              boxShadow: `inset 0 0 20px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3), 0 0 15px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)`
+              boxShadow: `inset 0 0 20px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3), 0 0 15px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)`,
+              borderRadius: '8px'
             }}
           >
               <KeyIcon className="w-10 h-10" style={{ color: userColor, filter: 'drop-shadow(0 0 8px currentColor)' }} />
@@ -102,17 +103,64 @@ export function UserHeader() {
           </div>
               <button
                 onClick={(e) => { e.stopPropagation(); handleSignOut(); }}
-                className="relative z-10 px-4 py-2 rounded-full border-2 transition-all hover:scale-110 active:scale-95 flex items-center gap-2"
+                className="relative z-10 px-4 py-2 border-2 transition-all hover:scale-110 active:scale-95 flex items-center gap-2"
                 style={{
                   borderColor: borderColor,
                   backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.15)`,
                   color: 'white',
-                  boxShadow: `0 0 10px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)`
+                  boxShadow: `0 0 10px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)`,
+                  borderRadius: '8px'
                 }}
                 title="Sign Out"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
               </button>
+
+        {showTooltip && (
+          <div 
+            className="absolute top-full right-0 mt-2 p-4 border-2 rounded-lg shadow-2xl z-50 min-w-[320px]"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.95)',
+              borderColor: borderColor,
+              boxShadow: `0 0 30px ${glowColor}, 0 0 60px ${glowColor}`,
+            }}
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)` }}>
+                <span className="text-sm font-bold" style={{ color: userColor }}>KEY DETAILS</span>
+              </div>
+              
+              <div className="space-y-2">
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Address</div>
+                  <div className="font-mono text-sm" style={{ color: 'white' }}>{shorten(user.key, 8, 8)}</div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Key Type</div>
+                  <div className="font-mono text-sm uppercase" style={{ color: userColor }}>{user.crypto_type}</div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Wallet Mode</div>
+                  <div className="font-mono text-sm uppercase" style={{ color: userColor }}>{walletMode}</div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Connected Address</div>
+                  <div className="font-mono text-sm" style={{ color: 'white' }}>{shorten(walletAddress, 8, 8)}</div>
+                </div>
+                
+                {user.network && (
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Network Modules</div>
+                    <div className="font-mono text-sm" style={{ color: userColor }}>{user.mods?.length || 0}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         </div>
 
 

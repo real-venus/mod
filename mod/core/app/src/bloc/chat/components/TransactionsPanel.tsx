@@ -23,6 +23,8 @@ export const TransactionsPanel = forwardRef((props, ref) => {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedTx, setExpandedTx] = useState<Set<number>>(new Set())
+  const [expandedParams, setExpandedParams] = useState<Set<number>>(new Set())
+  const [expandedResult, setExpandedResult] = useState<Set<number>>(new Set())
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
@@ -52,10 +54,11 @@ export const TransactionsPanel = forwardRef((props, ref) => {
     fetchTransactions()
   }, [client, page, pageSize])
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term)
-    setPage(0)
-    fetchTransactions()
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      setPage(0)
+      fetchTransactions()
+    }
   }
 
   const handleSync = () => {
@@ -63,7 +66,6 @@ export const TransactionsPanel = forwardRef((props, ref) => {
     fetchTransactions()
   }
 
-  // Expose handleSync to parent via ref
   useImperativeHandle(ref, () => ({
     handleSync
   }))
@@ -76,6 +78,26 @@ export const TransactionsPanel = forwardRef((props, ref) => {
       newExpanded.add(idx)
     }
     setExpandedTx(newExpanded)
+  }
+
+  const toggleParams = (idx: number) => {
+    const newSet = new Set(expandedParams)
+    if (newSet.has(idx)) {
+      newSet.delete(idx)
+    } else {
+      newSet.add(idx)
+    }
+    setExpandedParams(newSet)
+  }
+
+  const toggleResult = (idx: number) => {
+    const newSet = new Set(expandedResult)
+    if (newSet.has(idx)) {
+      newSet.delete(idx)
+    } else {
+      newSet.add(idx)
+    }
+    setExpandedResult(newSet)
   }
 
   const getStatusColor = (status: string) => {
@@ -107,19 +129,22 @@ export const TransactionsPanel = forwardRef((props, ref) => {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="mb-4 flex gap-2">
+    <div className="space-y-2">
+      <div className="mb-3 flex gap-2">
         <input
           type="text"
-          placeholder="Search transactions (fn, client, status, sig, cid)..."
+          placeholder="Search transactions (fn, client, status, sig, cid)... Press Enter to search"
           value={searchTerm}
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyPress={handleSearchKeyPress}
           className="flex-1 px-4 py-2 bg-black/50 border-2 border-green-500/40 rounded-xl text-green-300 placeholder-gray-500 focus:outline-none focus:border-green-400 transition-colors"
+          style={{ fontSize: '0.88em' }}
         />
         <button
           onClick={handleSync}
           className="px-4 py-2 bg-green-500/20 border-2 border-green-500/40 rounded-xl text-green-300 hover:bg-green-500/30 hover:border-green-400 transition-all font-bold"
           title="Sync transactions"
+          style={{ fontSize: '0.88em' }}
         >
           🔄 Sync
         </button>
@@ -127,6 +152,8 @@ export const TransactionsPanel = forwardRef((props, ref) => {
 
       {filteredTransactions.map((tx, idx) => {
         const isExpanded = expandedTx.has(idx)
+        const isParamsExpanded = expandedParams.has(idx)
+        const isResultExpanded = expandedResult.has(idx)
         const statusColors = getStatusColor(tx.status)
         const timestamp = parseInt(tx.time)
         const formattedTime = isNaN(timestamp) ? tx.time : time2utc(timestamp)
@@ -134,163 +161,151 @@ export const TransactionsPanel = forwardRef((props, ref) => {
         return (
           <div key={`${tx.client}-${idx}`} className={`border-2 rounded-2xl overflow-hidden bg-gradient-to-br ${statusColors.bg} ${statusColors.border} shadow-xl transition-all hover:shadow-2xl`}>
             <div
-              className="p-4 cursor-pointer hover:bg-black/20 transition-colors"
+              className="p-3 cursor-pointer hover:bg-black/20 transition-colors"
               onClick={() => toggleTx(idx)}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-wrap">
-                  {(tx.status === 'running' || tx.status === 'pending') ? (
-                    <div className="text-2xl text-yellow-400">⏳</div>
-                  ) : (
-                    <div className={`text-2xl ${statusColors.text}`}>
-                      {tx.status === 'success' || tx.status === 'finished' ? '✅' : '❌'}
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold ${statusColors.text} px-3 py-1 rounded-full bg-black/30`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-                        {tx.fn}
-                      </span>
-                      <CopyButton text={tx.fn} size="sm" />
-                    </div>
-                    {tx.key && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/40 px-3 py-1 rounded-full font-mono text-purple-300">
-                          🔐 {tx.key.slice(0, 8)}...{tx.key.slice(-6)}
-                        </span>
-                        <CopyButton text={tx.key} size="sm" />
-                      </div>
-                    )}
-                    {tx.client && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/40 px-3 py-1 rounded-full font-mono text-green-300">
-                          🔑 {tx.client.slice(0, 8)}...{tx.client.slice(-6)}
-                        </span>
-                        <CopyButton text={tx.client} size="sm" />
-                      </div>
-                    )}
-                    <span className={`text-xs font-bold ${statusColors.text} px-2 py-1 rounded-full bg-black/40`}>
-                      {tx.status.toUpperCase()}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap flex-1">
+                  <span className={`font-bold ${statusColors.text} px-3 py-1 rounded-full bg-black/30`} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '0.88em' }}>
+                    {tx.fn}
+                  </span>
+                  <CopyButton text={tx.fn} size="sm" />
+                  <span className={`px-2 py-1 rounded-full font-bold ${statusColors.text} bg-black/40`} style={{ fontSize: '0.88em' }}>
+                    {tx.status}
+                  </span>
+                  {tx.delta !== undefined && (
+                    <span className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/40 px-2 py-1 rounded-full font-mono text-cyan-300" style={{ fontSize: '0.88em' }}>
+                      ⚡ {tx.delta.toFixed(2)}s
                     </span>
-                  </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`${statusColors.text} text-lg`}>{isExpanded ? '▲' : '▼'}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
-                <span>⏱️ {formattedTime}</span>
-                <CopyButton text={formattedTime} size="sm" />
+                <span className={`${statusColors.text}`} style={{ fontSize: '0.88em' }}>{isExpanded ? '▲' : '▼'}</span>
               </div>
             </div>
 
             {isExpanded && (
-              <div className="px-4 pb-4 space-y-3 border-t border-white/10">
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {tx.key && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-400">🔐 key:</span>
-                      <span className="text-xs font-mono text-purple-300 break-all">{tx.key}</span>
-                      <CopyButton text={tx.key} size="sm" />
-                    </div>
-                  )}
-                  {tx.client && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-400">🔑 client:</span>
-                      <span className="text-xs font-mono text-green-300 break-all">{tx.client}</span>
-                      <CopyButton text={tx.client} size="sm" />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-400">status:</span>
-                    <span className={`text-xs font-bold ${statusColors.text}`}>{tx.status}</span>
-                  </div>
-                </div>
-                {tx.params && Object.keys(tx.params).length > 0 && (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-bold text-yellow-400">📥 params</div>
-                      <CopyButton text={JSON.stringify(tx.params, null, 2)} size="sm" />
-                    </div>
-                    <pre className="text-xs bg-black/50 p-3 rounded-lg border border-gray-700/30 overflow-x-auto max-w-full">
-                      <code className="text-yellow-300 break-all whitespace-pre-wrap">{JSON.stringify(tx.params, null, 2)}</code>
-                    </pre>
-                  </div>
-                )}
-
-                {tx.result && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-bold text-blue-400">📤 result</div>
-                      <CopyButton text={typeof tx.result === 'string' ? tx.result : JSON.stringify(tx.result, null, 2)} size="sm" />
-                    </div>
-                    <pre className="text-xs bg-black/50 p-3 rounded-lg border border-gray-700/30 overflow-x-auto max-h-64 max-w-full">
-                      <code className="text-gray-300 break-all whitespace-pre-wrap">{typeof tx.result === 'string' ? tx.result : JSON.stringify(tx.result, null, 2)}</code>
-                    </pre>
-                  </div>
-                )}
-
-                <div className="text-xs text-gray-500 pt-2 border-t border-white/10 flex flex-wrap gap-3">
-                  <div className="flex items-center gap-1">
-                    <span>⏱️ {formattedTime}</span>
-                    <CopyButton text={formattedTime} size="sm" />
-                  </div>
-                  {tx.delta && (
-                    <div className="flex items-center gap-1">
-                      <span>⚡ {tx.delta.toFixed(2)}s</span>
-                      <CopyButton text={tx.delta.toFixed(2)} size="sm" />
-                    </div>
-                  )}
+              <div className="px-3 pb-3 space-y-2 border-t border-white/10">
+                <div className="mt-2 flex flex-wrap gap-2">
                   {tx.cid && (
-                    <div className="flex items-center gap-1">
-                      <span className="font-mono break-all">🔗 {tx.cid}</span>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                      <span className="text-gray-400" style={{ fontSize: '0.88em' }}>🔗</span>
+                      <span className="font-mono text-blue-300" style={{ fontSize: '0.88em' }}>{tx.cid.slice(0, 8)}...{tx.cid.slice(-6)}</span>
                       <CopyButton text={tx.cid} size="sm" />
                     </div>
                   )}
+                  {tx.key && (
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/10 border border-purple-500/30">
+                      <span className="text-gray-400" style={{ fontSize: '0.88em' }}>🔐</span>
+                      <span className="font-mono text-purple-300" style={{ fontSize: '0.88em' }}>{tx.key.slice(0, 8)}...{tx.key.slice(-6)}</span>
+                      <CopyButton text={tx.key} size="sm" />
+                    </div>
+                  )}
                   {tx.signature && (
-                    <div className="flex items-center gap-1">
-                      <span className="font-mono break-all">✍️ {tx.signature}</span>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30">
+                      <span className="text-gray-400" style={{ fontSize: '0.88em' }}>✍️</span>
+                      <span className="font-mono text-orange-300" style={{ fontSize: '0.88em' }}>{tx.signature.slice(0, 8)}...{tx.signature.slice(-6)}</span>
                       <CopyButton text={tx.signature} size="sm" />
                     </div>
                   )}
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  {tx.client && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400" style={{ fontSize: '0.88em' }}>🔑 client:</span>
+                      <span className="font-mono text-green-300" style={{ fontSize: '0.88em' }}>{tx.client.slice(0, 10)}...</span>
+                      <CopyButton text={tx.client} size="sm" />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-500/10 border border-gray-500/30">
+                    <span className="text-gray-400" style={{ fontSize: '0.88em' }}>⏱️</span>
+                    <span className="text-gray-300" style={{ fontSize: '0.88em' }}>{formattedTime}</span>
+                    <CopyButton text={formattedTime} size="sm" />
+                  </div>
+                </div>
+                {tx.params && Object.keys(tx.params).length > 0 && (
+                  <div className="mt-2">
+                    <div
+                      className="flex items-center justify-between mb-1 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30 cursor-pointer hover:bg-yellow-500/20 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleParams(idx)
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="font-bold text-yellow-400" style={{ fontSize: '0.88em' }}>📥 params</div>
+                        <span className="text-xs text-gray-400">{isParamsExpanded ? '▲' : '▼'}</span>
+                      </div>
+                      <CopyButton text={JSON.stringify(tx.params, null, 2)} size="sm" />
+                    </div>
+                    {isParamsExpanded && (
+                      <pre className="bg-black/50 p-2 rounded-lg border border-gray-700/30 overflow-x-auto max-w-full" style={{ fontSize: '0.88em' }}>
+                        <code className="text-yellow-300 break-all whitespace-pre-wrap">{JSON.stringify(tx.params, null, 2)}</code>
+                      </pre>
+                    )}
+                  </div>
+                )}
+                {tx.result && (
+                  <div>
+                    <div
+                      className="flex items-center justify-between mb-1 p-2 rounded-lg bg-blue-500/10 border border-blue-500/30 cursor-pointer hover:bg-blue-500/20 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleResult(idx)
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="font-bold text-blue-400" style={{ fontSize: '0.88em' }}>📤 result</div>
+                        <span className="text-xs text-gray-400">{isResultExpanded ? '▲' : '▼'}</span>
+                      </div>
+                      <CopyButton text={typeof tx.result === 'string' ? tx.result : JSON.stringify(tx.result, null, 2)} size="sm" />
+                    </div>
+                    {isResultExpanded && (
+                      <pre className="bg-black/50 p-2 rounded-lg border border-gray-700/30 overflow-x-auto max-h-64 max-w-full" style={{ fontSize: '0.88em' }}>
+                        <code className="text-gray-300 break-all whitespace-pre-wrap">{typeof tx.result === 'string' ? tx.result : JSON.stringify(tx.result, null, 2)}</code>
+                      </pre>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
         )
       })}
       {filteredTransactions.length === 0 && (
-        <div className="text-gray-500 text-sm text-center py-8 border-2 border-dashed border-gray-700/40 rounded-2xl">
+        <div className="text-gray-500 text-center py-8 border-2 border-dashed border-gray-700/40 rounded-2xl" style={{ fontSize: '0.88em' }}>
           {searchTerm ? 'No transactions match your search' : 'No transactions yet'}
         </div>
       )}
 
-      <div className="flex items-center justify-between mt-4 gap-2 pb-4">
+      <div className="flex items-center justify-between mt-3 gap-2 pb-3">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPage(Math.max(0, page - 1))}
             disabled={page === 0}
             className="px-4 py-2 bg-green-500/20 border-2 border-green-500/40 rounded-xl text-green-300 hover:bg-green-500/30 hover:border-green-400 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ fontSize: '0.88em' }}
           >
             ← Prev
           </button>
-          <span className="text-green-300 font-mono px-3">
+          <span className="text-green-300 font-mono px-3" style={{ fontSize: '0.88em' }}>
             Page {page + 1} of {totalPages}
           </span>
           <button
             onClick={() => setPage(page + 1)}
             disabled={page >= totalPages - 1}
             className="px-4 py-2 bg-green-500/20 border-2 border-green-500/40 rounded-xl text-green-300 hover:bg-green-500/30 hover:border-green-400 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ fontSize: '0.88em' }}
           >
             Next →
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-green-300 text-sm">Per page:</label>
+          <label className="text-green-300" style={{ fontSize: '0.88em' }}>Per page:</label>
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
             className="px-3 py-2 bg-black/50 border-2 border-green-500/40 rounded-xl text-green-300 focus:outline-none focus:border-green-400 transition-colors"
+            style={{ fontSize: '0.88em' }}
           >
             <option value={5}>5</option>
             <option value={10}>10</option>

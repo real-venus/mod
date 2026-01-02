@@ -6,8 +6,7 @@ import {  UsersIcon, CubeIcon,  HomeIcon, Cog6ToothIcon, TableCellsIcon, ChatBub
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useRef, useEffect } from 'react'
 import { useSidebarContext } from '@/bloc/context/SidebarContext'
-import { useSplitScreenContext } from '@/bloc/context/SplitScreenContext'
-import { Squares2X2Icon } from '@heroicons/react/24/outline'
+import { SidebarSplitScreenButton } from './SidebarSplitScreenButton'
 
 const navigation = [
   { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },
@@ -23,7 +22,6 @@ export function Sidebar() {
   const { isSidebarExpanded, toggleSidebar } = useSidebarContext()
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
   const [showServerSettings, setShowServerSettings] = useState(false)
-  const { orientation, setOrientation } = useSplitScreenContext()
 
   return (
     <>
@@ -94,6 +92,35 @@ export function Sidebar() {
                 </div>
               )
             })}
+
+            <div
+              className="relative"
+              onMouseEnter={() => setHoveredItem('Split Screen')}
+              onMouseLeave={() => setHoveredItem(null)}
+            >
+              <SidebarSplitScreenButton />
+              <AnimatePresence>
+                {hoveredItem === 'Split Screen' && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed pointer-events-none"
+                    style={{ 
+                      zIndex: 99999,
+                      left: `${FIXED_WIDTH + 8}px`,
+                      top: 'auto'
+                    }}
+                  >
+                    <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-green-500/30 whitespace-nowrap text-sm font-medium">
+                      Split Screen
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </nav>
 
 
