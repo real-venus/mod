@@ -26,7 +26,7 @@ export function UserHeader() {
 
     if (authLoading) {
       return (
-        <div className="flex items-center gap-3 px-6 py-3 rounded-xl border-2 backdrop-blur-xl shadow-2xl" style={{height: '60px', minWidth: '60px', borderColor: 'rgba(255, 255, 255, 0.2)', backgroundColor: 'rgba(0, 0, 0, 0.6)', boxShadow: '0 0 15px rgba(255, 255, 255, 0.05)'}}>
+        <div className="flex items-center gap-3 px-6 py-3 rounded-full border-2 backdrop-blur-xl shadow-2xl animate-pulse" style={{height: '60px', minWidth: '60px', borderColor: 'rgba(255, 255, 255, 0.8)', backgroundColor: 'rgba(0, 0, 0, 0.9)', boxShadow: '0 0 20px rgba(255, 255, 255, 0.1)'}}>
           <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           <span className="text-xl text-white/70 font-bold hidden sm:inline">Loading...</span>
         </div>
@@ -55,8 +55,8 @@ export function UserHeader() {
     }
     
       const userRgb = hexToRgb(userColor)
-      const borderColor = `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)`
-      const glowColor = `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.2)`
+      const borderColor = 'rgba(255, 255, 255, 0.9)'
+      const glowColor = `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)`
 
       const getTooltipContent = () => {
         return `Address: ${shorten(user.key)}\nWallet: ${walletMode.toUpperCase()}\nConnected: ${shorten(walletAddress)}\nType: ${user.crypto_type}`
@@ -66,47 +66,48 @@ export function UserHeader() {
 
       <div
         onClick={handleUserClick}
-        className={`group relative flex items-center gap-3 transition-all duration-300 backdrop-blur-xl rounded-xl border-2 overflow-hidden hover:shadow-2xl cursor-pointer`}
+        className={`group relative flex items-center gap-3 transition-all duration-300 backdrop-blur-xl rounded-full border-2 overflow-hidden hover:shadow-2xl cursor-pointer hover:scale-105 active:scale-95`}
           style={{
             borderColor: borderColor,
-            boxShadow: `0 0 12px ${glowColor}`,
+            boxShadow: `0 0 20px ${glowColor}, 0 0 40px ${glowColor}`,
             height: '60px',
             minWidth: '60px',
             width:  'auto' ,
-            paddingRight: '12px',
+            paddingRight: '16px',
             paddingLeft: '0px',
             paddingTop: '0px',
             paddingBottom: '0px',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)'
+            backgroundColor: 'rgba(0, 0, 0, 0.95)'
         }}
         title={getTooltipContent()}
       >
-        <div className="absolute -inset-1 bg-gradient-to-r opacity-0 group-hover:opacity-5 blur-lg transition-all duration-500 rounded-xl" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})` }} />
+        <div className="absolute -inset-1 bg-gradient-to-r opacity-0 group-hover:opacity-10 blur-xl transition-all duration-500 rounded-full animate-pulse" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})` }} />
     
           <div 
-            className="relative z-10 rounded-l-xl transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+            className="relative z-10 rounded-full transition-all hover:scale-110 active:scale-95 flex-shrink-0"
             style={{
               height: '60px',
               width: '60px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.12)`,
-              boxShadow: `inset 0 0 15px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.15)`
+              backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.2)`,
+              boxShadow: `inset 0 0 20px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3), 0 0 15px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)`
             }}
           >
-              <KeyIcon className="w-10 h-10" style={{ color: userColor }} />
+              <KeyIcon className="w-10 h-10" style={{ color: userColor, filter: 'drop-shadow(0 0 8px currentColor)' }} />
           </div>
           <div className="relative z-10 flex flex-col gap-1">
             <CopyButton text={user.key} size="md" style={{ color: 'white' }} />
           </div>
               <button
                 onClick={(e) => { e.stopPropagation(); handleSignOut(); }}
-                className="relative z-10 px-4 py-2 rounded-md border-2 transition-all hover:scale-110 active:scale-95 flex items-center gap-2"
+                className="relative z-10 px-4 py-2 rounded-full border-2 transition-all hover:scale-110 active:scale-95 flex items-center gap-2"
                 style={{
                   borderColor: borderColor,
-                  backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.1)`,
-                  color: 'white'
+                  backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.15)`,
+                  color: 'white',
+                  boxShadow: `0 0 10px rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)`
                 }}
                 title="Sign Out"
               >

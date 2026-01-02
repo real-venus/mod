@@ -40,7 +40,7 @@ class Gate:
         assert fn in info['fns'], f"Function {fn} not in fns={info['fns']}"
         params = self.loop.run_until_complete(request.json())
         params = json.loads(params) if isinstance(params, str) else params
-        self.print_request(request)
+        self.print_request({'fn': fn, 'params': params, 'client': headers.get('key', ''), 'time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())})
         fn_obj = self.get_fn_obj(fn, mod=mod)
         result = fn_obj(**params) if callable(fn_obj) else fn_obj
         if self.is_generator(result):
@@ -73,7 +73,7 @@ class Gate:
         return self.mod
 
 
-    def print_request(self, request: dict):
+    def print_request(self, request: Request):
         """
         print the request nicely
         """

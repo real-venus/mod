@@ -1687,3 +1687,7 @@ class Mod:
     def tool(self, tool_name: str='cmd', *args, **kwargs) -> Any:
         return self.mod(tool_name)(*args, **kwargs).forward
 
+
+    def sand(self):
+        return self.fn('client/call')('api/history', params={"df":1})
+

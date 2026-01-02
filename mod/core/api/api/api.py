@@ -63,6 +63,14 @@ class  Api:
         return bool(self.cid(mod=mod, key=key))
 
 
+    def verify_mod(self, mod: str = 'store', key=None) -> bool:
+        mod =  self.mod(mod=mod, key=key)
+        signature = mod.get('signature', None)
+        assert signature is not None, f'Mod {mod} has no signature'
+        return self.key.verify(mod, signature=signature, address=mod['key'])
+
+
+
     def mod(self, mod: m.Mod='store', key=None, schema=False, content=False,  expand = False, fns=None,**kwargs) -> Dict[str, Any]:
         """
         get the mod Mod from IPFS.
@@ -226,32 +234,47 @@ class  Api:
     def call_paths(self):
         return glob.glob(self.calls_path+'/**/*.json', recursive=True)
 
-    def history(self, key=None, mod=None, df=1, features=['fn', 'status', 'cid' ], n=10) -> List[Dict[str, Any]]:
+    def history(self, key=None, mod=None, df=1, features=['fn', 'status', 'cid' ], n=10, page=0) -> List[Dict[str, Any]]:
         paths = self.call_paths()
         calls = []
+
+        filter_fn = lambda p : (True if mod is None else mod in p) and (True if key is None else key in p)
+        paths = list(filter(filter_fn, paths))
         for path in paths:
-            if key is not None and key not in path:
-                continue
-            if mod is not None and mod not in path:
-                continue
             call = m.get(path)
             if call != None:
                 calls.append(call)
     
         calls = sorted(calls, key=lambda x: x['time'], reverse=True)
-        calls = m.df(calls)
+        
+        if page > 0:
+            start = page * n
+            end = start + n
+            calls = calls[start:end]
+        else: 
+            calls = calls[:n]
+
+        
         if len(calls) == 0:
             return calls
         else:
-            calls.sort_values('time', ascending=False, inplace=True)
-            calls['time'] = calls['time'].apply(lambda x: datetime.datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
-            calls = calls[:n]
-        if df:
-            calls = calls[features]
-            return calls
-        else:
-            return calls.to_dict(orient='records')
-        return calls
+            if df:
+                calls = m.df(calls)
+                calls.sort_values('time', ascending=False, inplace=True)
+                calls['time'] = calls['time'].apply(lambda x: datetime.datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
+                calls = calls[:n]
+                return calls[features]
+            else:
+
+                # remove all of the json non-serializable items
+                history = []
+                for call in calls:
+                    try:
+                        json.loads(json.dumps(call))
+                        history.append(call)
+                    except:
+                        continue    
+                return history
     
     h = history
 
@@ -700,6 +723,10 @@ class  Api:
 
     def versions(self, mod='store' , key=None, df=False, n=None, update=False, max_age=2) -> List[Dict[str, Any]]:
 
+        if self.is_valid_cid(mod):
+            mod_info = self.get(mod)
+            mod = mod_info['name']
+            key = mod_info['key']
         key_address = self.key_address(key)
         cache_path = self.path(f'versions/{key_address}/{mod}.json')
         result = m.get(cache_path, None, update=update, max_age=max_age)
@@ -753,11 +780,19 @@ class  Api:
         Returns:
             Schema dictionary
         """
+        fn = None
         if not isinstance(mod, dict):
+            if '/' in mod:
+                fn = mod.split('/')[-1]
+                mod = mod.replace('/' + fn, '')
             mod  = self.mod(mod, key=key, schema=False)
         else:
             assert 'schema' in mod, "Mod dictionary must contain 'schema' key"
-        return self.get(mod['schema'])
+        
+        schema =  self.get(mod['schema'])
+        if fn is not None:
+            schema = schema.get(fn, {})
+        return schema
 
     def setback(self, mod:str, cid:str , key=None , safety=True) -> Dict[str, Any]:
         """
@@ -884,7 +919,7 @@ class  Api:
         address = self.key_address(address)
         path = self.path('users/' + address)
         mods = self.user_mods(address)
-        user = {
+        user = { 
             'key': address,
             'mods': mods,
             'balance': 0,
@@ -893,10 +928,10 @@ class  Api:
         
     user = user
 
-    def edit(self, mod,  query, *extra_query,  key=None,  api=None, **kwargs) -> Dict[str, Any]:
+    def edit(self, query, *extra_query, mod='app',  key=None,  api=None, **kwargs) -> Dict[str, Any]:
         query = ' '.join(list(map(str,  [query] + list(extra_query))))
         if api != None:
-            return self.call('api/edit', params={'mod': mod, 'query': query}, api=api, key=key)
+            return self.call('api/edit', {'mod': mod, 'query': query}, api=api, key=key)
         m.fn('dev/forward')(mod=mod, text=query, safety=False, **kwargs)
         return self.reg(mod=mod, key=key, comment=query)
 

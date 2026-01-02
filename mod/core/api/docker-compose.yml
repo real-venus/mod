@@ -17,19 +17,4 @@ services:
     - ~/.mod:/root/.mod
     - ~/mod/mod/core/api:/root/mod/mod/core/api
     working_dir: /root/mod/mod/core/api
-  errorfetch:
-    command: "sh -c '\n  pip install -r requirements.txt && \n  playwright install\
-      \ chromium && \n  playwright install-deps && \n  python -m errorfetch.mod\n\
-      '\n"
-    container_name: errorfetch
-    environment:
-    - PYTHONUNBUFFERED=1
-    image: mod:latest
-    ports:
-    - 8000:8000
-    restart: unless-stopped
-    volumes:
-    - ~/mod/errorfetch:/app/errorfetch
-    - ~/mod/requirements.txt:/app/requirements.txt
-    working_dir: /app
 version: '3.8'

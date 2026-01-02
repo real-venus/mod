@@ -1,10 +1,11 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { useChatState } from './hooks/useChatState'
 import { useConfigState } from './hooks/useConfigState'
 import { useChatEffects } from './hooks/useChatEffects'
-import { ConfigPanel } from './components/ConfigPanel'
+import { ControlPanel } from './components/ControlPanel'
 import { Message } from './types'
 import { ChatMessages } from './components/ChatMessages'
 import { TransactionsPanel } from './components/TransactionsPanel'
@@ -14,7 +15,8 @@ export default function Chat() {
   const configState = useConfigState()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
-  const [outputMode, setOutputMode] = useState<'chat' | 'transactions'>('chat')
+  const [outputMode, setOutputMode] = useState<'chat' | 'transactions'>('transactions')
+  const transactionsPanelRef = useRef<{ handleSync: () => void } | null>(null)
 
   useChatEffects(chatState)
 
@@ -153,6 +155,11 @@ export default function Chat() {
       }
 
       chatState.setMessages(prev => [...prev, assistantMessage])
+      
+      // SYNC TRANSACTIONS AFTER SEND
+      if (outputMode === 'transactions' && transactionsPanelRef.current) {
+        transactionsPanelRef.current.handleSync()
+      }
     } catch (error) {
       if (controller.signal.aborted) return
       console.error('Chat error:', error)
@@ -184,13 +191,69 @@ export default function Chat() {
 
   return (
     <div className="flex h-full bg-gradient-to-br from-gray-950 via-black to-gray-900" style={{ fontFamily: "IBM Plex Mono, Courier New, monospace" }}>
-      {!configState.isConfigCollapsed && configState.configOrientation === 'vertical' && (
-        <div
-          className="fixed top-0 bottom-0 w-1 bg-green-500/30 hover:bg-green-500/60 cursor-col-resize z-50 transition-colors"
-          style={{ right: `${configState.dividerPosition}px` }}
-          onMouseDown={handleMouseDown}
-        />
-      )}
+        {!configState.isConfigCollapsed && configState.configOrientation === 'vertical' && (
+          <div
+            className="fixed top-0 bottom-0 w-1 bg-white hover:bg-white cursor-col-resize z-50 transition-colors flex items-center justify-center"
+            style={{ right: `${configState.dividerPosition}px` }}
+            onMouseDown={handleMouseDown}
+          >
+            <button
+              onClick={() => configState.setIsConfigCollapsed(true)}
+              className="absolute bg-green-500/80 hover:bg-green-500 text-white rounded-full p-1 shadow-lg"
+              title="Collapse Panel"
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {!configState.isConfigCollapsed && configState.configOrientation === 'horizontal' && (
+          <div
+            className="fixed left-0 right-0 h-1 bg-white hover:bg-white cursor-row-resize z-50 transition-colors flex items-center justify-center"
+            style={{ bottom: `${configState.dividerPosition}px`, marginLeft: '80px' }}
+            onMouseDown={handleMouseDown}
+          >
+            <button
+              onClick={() => configState.setIsConfigCollapsed(true)}
+              className="absolute bg-green-500/80 hover:bg-green-500 text-white rounded-full p-1 shadow-lg"
+              title="Collapse Panel"
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {!configState.isConfigCollapsed && configState.configOrientation === 'left' && (
+          <div
+            className="fixed top-0 bottom-0 w-1 bg-white hover:bg-white cursor-col-resize z-50 transition-colors flex items-center justify-center"
+            style={{ left: `${configState.dividerPosition}px` }}
+            onMouseDown={handleMouseDown}
+          >
+            <button
+              onClick={() => configState.setIsConfigCollapsed(true)}
+              className="absolute bg-green-500/80 hover:bg-green-500 text-white rounded-full p-1 shadow-lg"
+              title="Collapse Panel"
+            >
+              <ChevronLeftIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {!configState.isConfigCollapsed && configState.configOrientation === 'top' && (
+          <div
+            className="fixed left-0 right-0 h-1 bg-white hover:bg-white cursor-row-resize z-50 transition-colors flex items-center justify-center"
+            style={{ top: `${configState.dividerPosition}px`, marginLeft: '80px' }}
+            onMouseDown={handleMouseDown}
+          >
+            <button
+              onClick={() => configState.setIsConfigCollapsed(true)}
+              className="absolute bg-green-500/80 hover:bg-green-500 text-white rounded-full p-1 shadow-lg"
+              title="Collapse Panel"
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
       {!configState.isConfigCollapsed && configState.configOrientation === 'horizontal' && (
         <div
@@ -246,14 +309,14 @@ export default function Chat() {
           {outputMode === 'chat' ? (
             <ChatMessages messages={chatState.messages} messagesEndRef={messagesEndRef} />
           ) : (
-            <TransactionsPanel messages={chatState.messages} />
+            <TransactionsPanel ref={transactionsPanelRef} />
           )}
         </div>
       </div>
 
       {!configState.isConfigCollapsed && configState.configOrientation === 'vertical' && (
         <div className="fixed top-0 bottom-0 right-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ width: `${configState.dividerPosition}px`, marginTop: '80px', zIndex: 40 }}>
-          <ConfigPanel
+          <ControlPanel
             selectedModule={chatState.selectedModule}
             setSelectedModule={chatState.setSelectedModule}
             selectedFunction={chatState.selectedFunction}
@@ -275,6 +338,8 @@ export default function Chat() {
             setSelectedInputParam={chatState.setSelectedInputParam}
             wait={chatState.wait}
             setWait={chatState.setWait}
+            timeout={chatState.timeout}
+            setTimeout={chatState.setTimeout}
             isLoading={chatState.isLoading}
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
@@ -287,7 +352,7 @@ export default function Chat() {
 
       {!configState.isConfigCollapsed && configState.configOrientation === 'horizontal' && (
         <div className="fixed left-0 right-0 bottom-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ height: `${configState.dividerPosition}px`, marginLeft: '80px', zIndex: 40 }}>
-          <ConfigPanel
+          <ControlPanel
             selectedModule={chatState.selectedModule}
             setSelectedModule={chatState.setSelectedModule}
             selectedFunction={chatState.selectedFunction}
@@ -309,6 +374,8 @@ export default function Chat() {
             setSelectedInputParam={chatState.setSelectedInputParam}
             wait={chatState.wait}
             setWait={chatState.setWait}
+            timeout={chatState.timeout}
+            setTimeout={chatState.setTimeout}
             isLoading={chatState.isLoading}
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
@@ -321,7 +388,7 @@ export default function Chat() {
 
       {!configState.isConfigCollapsed && configState.configOrientation === 'left' && (
         <div className="fixed top-0 bottom-0 left-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ width: `${configState.dividerPosition}px`, marginTop: '80px', zIndex: 40 }}>
-          <ConfigPanel
+          <ControlPanel
             selectedModule={chatState.selectedModule}
             setSelectedModule={chatState.setSelectedModule}
             selectedFunction={chatState.selectedFunction}
@@ -343,6 +410,8 @@ export default function Chat() {
             setSelectedInputParam={chatState.setSelectedInputParam}
             wait={chatState.wait}
             setWait={chatState.setWait}
+            timeout={chatState.timeout}
+            setTimeout={chatState.setTimeout}
             isLoading={chatState.isLoading}
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
@@ -355,7 +424,7 @@ export default function Chat() {
 
       {!configState.isConfigCollapsed && configState.configOrientation === 'top' && (
         <div className="fixed left-0 right-0 top-0 bg-gradient-to-br from-black/90 to-gray-900/70 backdrop-blur-sm overflow-y-auto" style={{ height: `${configState.dividerPosition}px`, marginLeft: '80px', marginTop: '80px', zIndex: 40 }}>
-          <ConfigPanel
+          <ControlPanel
             selectedModule={chatState.selectedModule}
             setSelectedModule={chatState.setSelectedModule}
             selectedFunction={chatState.selectedFunction}
@@ -377,6 +446,8 @@ export default function Chat() {
             setSelectedInputParam={chatState.setSelectedInputParam}
             wait={chatState.wait}
             setWait={chatState.setWait}
+            timeout={chatState.timeout}
+            setTimeout={chatState.setTimeout}
             isLoading={chatState.isLoading}
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
@@ -388,7 +459,7 @@ export default function Chat() {
       )}
 
       {configState.isConfigCollapsed && (
-        <ConfigPanel
+        <ControlPanel
           selectedModule={chatState.selectedModule}
           setSelectedModule={chatState.setSelectedModule}
           selectedFunction={chatState.selectedFunction}
@@ -410,6 +481,8 @@ export default function Chat() {
           setSelectedInputParam={chatState.setSelectedInputParam}
           wait={chatState.wait}
           setWait={chatState.setWait}
+          timeout={chatState.timeout}
+          setTimeout={chatState.setTimeout}
           isLoading={chatState.isLoading}
           inputParamOptions={inputParamOptions}
           handleSubmit={handleSubmit}

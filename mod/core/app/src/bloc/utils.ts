@@ -45,7 +45,17 @@ export const shorten = (str: string, leading: number = 4, trailing: number = 0):
 
 export const time2str = (time: number): string => {
   const d = new Date(time * 1000)
-  return d.toISOString().replace('T', ' ').substring(0, 19) + ' UTC'
+  const now = Date.now()
+  const diffMs = now - (time * 1000)
+  
+  const seconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  const weeks = Math.floor(days / 7)
+  const months = Math.floor(days / 30)
+  
+  return `${seconds}s ${minutes}m ${hours}h ${days}d ${weeks}w ${months}mo`
 }
 
 

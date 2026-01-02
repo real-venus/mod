@@ -36,7 +36,7 @@ interface ConfigPanelProps {
   setIsCollapsed?: (value: boolean) => void
 }
 
-export function ConfigPanel({
+export function ControlPanel({
   selectedModule, setSelectedModule, selectedFunction, setSelectedFunction,
   modules, functions, schema, params, handleParamChange, handleResetParams,
   handleRefresh, configOrientation, setConfigOrientation,
@@ -69,8 +69,6 @@ export function ConfigPanel({
         </button>
       )}
 
-
-
       <ModuleFunctionSelector
         selectedModule={selectedModule}
         setSelectedModule={setSelectedModule}
@@ -79,6 +77,7 @@ export function ConfigPanel({
         modules={modules}
         functions={functions}
       />
+
       <ChatInput
         input={input}
         setInput={setInput}
@@ -102,6 +101,7 @@ export function ConfigPanel({
         handleParamChange={handleParamChange}
         handleResetParams={handleResetParams}
       />
+
 
       <ConfigOrientationControls
         configOrientation={configOrientation}

@@ -61,6 +61,8 @@ export function ChatMessages({ messages, messagesEndRef, compact = false }: Chat
       {messages.map((message, index) => {
         const isExpanded = expandedMessages.has(index)
         const hasParams = message.params && Object.keys(message.params).length > 0
+        const contentLines = message.content.split('\n').length
+        const isLongContent = contentLines > 3 || message.content.length > 200
         
         return (
           <motion.div
@@ -77,7 +79,7 @@ export function ChatMessages({ messages, messagesEndRef, compact = false }: Chat
                   ? 'bg-gradient-to-br from-green-500/30 to-green-600/20 border-2 border-green-500/40 text-green-50'
                   : 'bg-gradient-to-br from-gray-800/60 to-gray-900/40 border-2 border-gray-700/50 text-gray-100'
               }`}
-              style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+              style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', minHeight: isLongContent ? 'auto' : 'fit-content' }}
             >
               <div className="flex justify-between items-center mb-2">
                 <div className="text-sm font-semibold opacity-80">
@@ -93,12 +95,12 @@ export function ChatMessages({ messages, messagesEndRef, compact = false }: Chat
                 )}
               </div>
               
-              <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
+              <div className="whitespace-pre-wrap leading-relaxed" style={{ wordBreak: 'break-word' }}>{message.content}</div>
               
               {hasParams && isExpanded && (
                 <div className="text-xs opacity-60 mt-2 pt-2 border-t border-white/10">
                   <div className="font-semibold mb-1">Parameters:</div>
-                  <pre className="text-xs bg-black/30 p-2 rounded">{JSON.stringify(message.params, null, 2)}</pre>
+                  <pre className="text-xs bg-black/30 p-2 rounded overflow-x-auto">{JSON.stringify(message.params, null, 2)}</pre>
                 </div>
               )}
               

@@ -78,10 +78,21 @@ export function useChatEffects({
       setDefaultParams({})
       setSelectedInputParam('')
     }
-  }, [selectedFunction, schema])
+  }, [selectedFunction, schema, selectedModule])
 
   useEffect(() => {
-    if (input && selectedInputParam) {
+    if (!input && selectedInputParam) {
+      setParams(prev => {
+        const newParams = { ...prev }
+        if (schema && schema[selectedFunction] && schema[selectedFunction].input[selectedInputParam]) {
+          const defaultValue = schema[selectedFunction].input[selectedInputParam].value
+          if (defaultValue !== '_empty' && defaultValue !== undefined) {
+            newParams[selectedInputParam] = defaultValue
+          }
+        }
+        return newParams
+      })
+    } else if (input && selectedInputParam) {
       setParams(prev => ({ ...prev, [selectedInputParam]: input }))
     }
   }, [input, selectedInputParam])

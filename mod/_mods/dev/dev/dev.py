@@ -8,7 +8,7 @@ import mod as m
 print=m.print
 class Dev:
 
-    tools  = ['create_file', 'rm_file', 'edit_file']
+    tools  = ['create_file', 'rm_file']
 
     def __init__(self, model: str = 'model.openrouter',  skill = 'dev.skill', memory = 'dev.memory', **kwargs):
         self.memory = m.mod(memory)()

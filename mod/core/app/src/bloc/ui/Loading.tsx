@@ -70,7 +70,7 @@ export function Loading() {
             rx="6"
             ry="6"
             fill="none"
-            stroke="#00ff00"
+            stroke="#ffff00"
             strokeWidth="6"
             strokeLinecap="square"
             pathLength={100}
@@ -81,7 +81,7 @@ export function Loading() {
             }}
           />
 
-          {/* Snake “head” highlight (shorter, brighter segment slightly offset) */}
+          {/* Snake "head" highlight (shorter, brighter segment slightly offset) */}
           <rect
             x="10"
             y="10"
@@ -90,7 +90,7 @@ export function Loading() {
             rx="6"
             ry="6"
             fill="none"
-            stroke="#b6ffb6"
+            stroke="#ffff99"
             strokeWidth="6"
             strokeLinecap="square"
             pathLength={100}
@@ -102,7 +102,7 @@ export function Loading() {
             }}
           />
 
-          {/* Corner pixels that “blink” as the head passes (timed offsets) */}
+          {/* Corner pixels that "blink" as the head passes (timed offsets) */}
           {[
             { x: 10, y: 10, d: '0s' },     // top-left
             { x: 105, y: 10, d: '-.6s' },  // top-right
@@ -115,7 +115,7 @@ export function Loading() {
               y={c.y - 2}
               width="6"
               height="6"
-              fill="#00ff00"
+              fill="#ffff00"
               style={{ animation: 'blink 2.4s linear infinite', animationDelay: c.d, opacity: 0.25 }}
               shapeRendering="crispEdges"
             />
@@ -125,8 +125,8 @@ export function Loading() {
         {/* Retro terminal text */}
         <div className="absolute bottom-3 left-0 right-0 text-center">
           <span
-            className="text-green-500 font-mono text-xs"
-            style={{ letterSpacing: '2px', textShadow: '0 0 6px #00ff00' }}
+            className="text-yellow-400 font-mono text-xs"
+            style={{ letterSpacing: '2px', textShadow: '0 0 6px #ffff00' }}
           >
             ROUTING SNAKE…
           </span>

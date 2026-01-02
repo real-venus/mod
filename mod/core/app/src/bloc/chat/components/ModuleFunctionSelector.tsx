@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useMemo } from 'react'
+import { text2color } from '@/bloc/utils'
 
 interface ModuleFunctionSelectorProps {
   selectedModule: string
@@ -24,9 +25,17 @@ export function ModuleFunctionSelector({
 }: ModuleFunctionSelectorProps) {
   const [unifiedInput, setUnifiedInput] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [solidifiedModule, setSolidifiedModule] = useState('openrouter')
-  const [solidifiedFunction, setSolidifiedFunction] = useState('forward')
+  const [solidifiedModule, setSolidifiedModule] = useState('api')
+  const [solidifiedFunction, setSolidifiedFunction] = useState('edit')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const moduleColor = useMemo(() => {
+    return solidifiedModule ? text2color(solidifiedModule) : '#8b5cf6'
+  }, [solidifiedModule])
+
+  const functionColor = useMemo(() => {
+    return solidifiedFunction ? text2color(solidifiedFunction) : '#8b5cf6'
+  }, [solidifiedFunction])
 
   const handleUnifiedInput = (value: string) => {
     setUnifiedInput(value)
@@ -86,15 +95,14 @@ export function ModuleFunctionSelector({
       }
     } else if (e.key === 'Backspace' && unifiedInput === '') {
       if (solidifiedFunction) {
-        setUnifiedInput(solidifiedFunction)
         setSolidifiedFunction('')
         setSelectedFunction('')
         e.preventDefault()
       } else if (solidifiedModule) {
-        setUnifiedInput(solidifiedModule)
         setSolidifiedModule('')
         setSelectedModule('')
         setSolidifiedFunction('')
+        setSelectedFunction('')
         e.preventDefault()
       }
     } else if (e.key === 'Delete' && unifiedInput === '') {
@@ -106,6 +114,7 @@ export function ModuleFunctionSelector({
         setSolidifiedModule('')
         setSelectedModule('')
         setSolidifiedFunction('')
+        setSelectedFunction('')
         e.preventDefault()
       }
     }
@@ -114,8 +123,10 @@ export function ModuleFunctionSelector({
   const handleModuleSelect = (modName: string) => {
     setSolidifiedModule(modName)
     setSelectedModule(modName)
+    setSolidifiedFunction('forward')
+    setSelectedFunction('forward')
     setUnifiedInput('')
-    setShowSuggestions(true)
+    setShowSuggestions(false)
     inputRef.current?.focus()
   }
 
@@ -190,10 +201,19 @@ export function ModuleFunctionSelector({
   }, [unifiedInput, solidifiedModule, solidifiedFunction, suggestedModules, suggestedFunctions])
 
     return (
-            <div className="relative mx-3 mt-3">
-              <div className="w-full bg-gray-900/80 border-2 border-gray-700/60 px-3 py-2.5 rounded-lg focus-within:ring-2 focus-within:ring-white/60 focus-within:border-white/60 transition-all shadow-lg text-base flex items-center gap-2 flex-wrap">
+            <div className="relative mx-3 mt-1">
+              <div className="w-full bg-black border-2 border-gray-700/60 px-3 py-2.5 rounded-lg focus-within:ring-2 focus-within:ring-white/60 focus-within:border-white/60 transition-all shadow-lg text-base flex items-center gap-2 flex-wrap">
                 {solidifiedModule && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-white/30 to-gray-300/20 border border-white/50 rounded-full text-white font-bold text-sm" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                  <span 
+                    className="inline-flex items-center gap-1 px-3 py-1 border-2 rounded-full text-white font-bold text-lg shadow-lg" 
+                    style={{ 
+                      fontFamily: 'IBM Plex Mono, monospace',
+                      backgroundColor: `${moduleColor}30`,
+                      borderColor: moduleColor,
+                      boxShadow: `0 0 10px ${moduleColor}40`,
+                      fontSize: '1.125rem'
+                    }}
+                  >
                     {solidifiedModule}
                     <button
                       onClick={handleDeleteModule}
@@ -205,10 +225,19 @@ export function ModuleFunctionSelector({
                   </span>
                 )}
                 {solidifiedModule && solidifiedFunction && (
-                  <span className="text-gray-500 text-base">/</span>
+                  <span className="text-gray-500 text-lg">/</span>
                 )}
                 {solidifiedFunction && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-white/30 to-gray-300/20 border border-white/50 rounded-full text-white font-bold text-sm" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                  <span 
+                    className="inline-flex items-center gap-1 px-3 py-1 border-2 rounded-full text-white font-bold text-lg shadow-lg" 
+                    style={{ 
+                      fontFamily: 'IBM Plex Mono, monospace',
+                      backgroundColor: `${functionColor}30`,
+                      borderColor: functionColor,
+                      boxShadow: `0 0 10px ${functionColor}40`,
+                      fontSize: '1.125rem'
+                    }}
+                  >
                     {solidifiedFunction}
                     <button
                       onClick={handleDeleteFunction}
@@ -242,26 +271,38 @@ export function ModuleFunctionSelector({
               </div>
               {showSuggestions && (suggestedModules.length > 0 || suggestedFunctions.length > 0) && (
                 <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-48 overflow-y-auto" style={{ zIndex: 99999 }}>
-                  {suggestedModules.map(mod => (
-                    <button
-                      key={mod.name}
-                      onClick={() => handleModuleSelect(mod.name)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-white/20 text-white text-base last:border-b-0 transition-all"
-                      style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                    >
-                      {mod.name}
-                    </button>
-                  ))}
-                  {suggestedFunctions.map(fn => (
-                    <button
-                      key={fn}
-                      onClick={() => handleFunctionSelect(fn)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-white/20 text-white text-base last:border-b-0 transition-all"
-                      style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                    >
-                      {fn}
-                    </button>
-                  ))}
+                  {suggestedModules.map(mod => {
+                    const modColor = text2color(mod.name)
+                    return (
+                      <button
+                        key={mod.name}
+                        onClick={() => handleModuleSelect(mod.name)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-white/20 text-white text-base last:border-b-0 transition-all border-l-4"
+                        style={{ 
+                          fontFamily: 'IBM Plex Mono, Courier New, monospace',
+                          borderLeftColor: modColor
+                        }}
+                      >
+                        {mod.name}
+                      </button>
+                    )
+                  })}
+                  {suggestedFunctions.map(fn => {
+                    const fnColor = text2color(fn)
+                    return (
+                      <button
+                        key={fn}
+                        onClick={() => handleFunctionSelect(fn)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-white/20 text-white text-base last:border-b-0 transition-all border-l-4"
+                        style={{ 
+                          fontFamily: 'IBM Plex Mono, Courier New, monospace',
+                          borderLeftColor: fnColor
+                        }}
+                      >
+                        {fn}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
