@@ -1,0 +1,1 @@
+export type { UserType } from '@/mod/types'

@@ -1,6 +1,8 @@
+'use client'
+
 import dynamic from 'next/dynamic';
 
-const ModulePage = dynamic(
+const ModExplorePage = dynamic(
   () => import('@/mod/mod/ModExplorePage'),
   { 
     ssr: false,
@@ -12,6 +14,6 @@ const ModulePage = dynamic(
   }
 );
 
-export default function Page() {
-  return <ModulePage />;
+export default function ModsPage() {
+  return <ModExplorePage />;
 }

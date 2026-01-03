@@ -2,17 +2,17 @@
 
 import './globals.css'
 import { Inter } from 'next/font/google'
-import { Sidebar } from '@/bloc/sidebar/Sidebar'
-import { Header } from '@/bloc/header/Header'
-import { UserProvider } from '@/bloc/context'
-import { SearchProvider } from '@/bloc/context/SearchContext'
-import { SidebarProvider } from '@/bloc/context/SidebarContext'
-import { SplitScreenProvider, useSplitScreenContext } from '@/bloc/context/SplitScreenContext'
-import { ControlPanelProvider } from '@/bloc/context/ControlPanelContext'
+import { Sidebar } from '@/mod/sidebar/Sidebar'
+import { Header } from '@/mod/header/Header'
+import { UserProvider } from '@/mod/context'
+import { SearchProvider } from '@/mod/context/SearchContext'
+import { SidebarProvider } from '@/mod/context/SidebarContext'
+import { SplitScreenProvider, useSplitScreenContext } from '@/mod/context/SplitScreenContext'
+import { ControlPanelProvider } from '@/mod/context/ControlPanelContext'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
-import { SplitScreenControls } from '@/bloc/components/SplitScreenControls'
-import  GlobalControlPanel  from '@/bloc/components/GlobalControlPanel'
+import { SplitScreenControls } from '@/mod/components/SplitScreenControls'
+import  GlobalControlPanel  from '@/mod/components/GlobalControlPanel'
 
 const inter = Inter({ subsets: ['latin'] })
 

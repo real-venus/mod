@@ -2,20 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { useUserContext } from '@/bloc/context'
-import { UserType } from '@/bloc/types'
-import { Loading } from '@/bloc/ui/Loading'
-import { UserCard } from '@/bloc/user/UserCard'
+import { useUserContext } from '@/mod/context'
+import { UserType } from '@/mod/types'
+import { Loading } from '@/mod/ui/Loading'
+import { UserCard } from '@/mod/user/UserCard'
+import Transfer from '@/mod/user/wallet/transfer'
+import RegMod from '@/mod/user/wallet/reg'
+import UpdateMod from '@/mod/user/wallet/update'
+import ClaimMod from '@/mod/user/wallet/claim'
+import { UserModules } from '@/mod/user/wallet/usermods/UserModules'
+import { Admin } from '@/mod/user/wallet/admin/Admin'
 
-// 
-import  Transfer  from '@/bloc/user/wallet/transfer'
-import RegMod from '@/bloc/user/wallet/reg'
-import UpdateMod from '@/bloc/user/wallet/update'
-import ClaimMod from '@/bloc/user/wallet/claim'
-import {UserModules} from '@/bloc/user/wallet/usermods/UserModules'
-
-
-type TabType = 'mods' | 'sign' | 'transfer' | 'register' | 'update' | 'claim'
+type TabType = 'mods' | 'sign' | 'transfer' | 'register' | 'update' | 'claim' | 'admin'
 
 export default function UserPage() {
   const params = useParams()
@@ -27,7 +25,7 @@ export default function UserPage() {
   const [activeTab, setActiveTab] = useState<TabType>('mods')
   const { user: currentUser } = useUserContext()
   const myMod = currentUser && currentUser.key === userKey
-  
+
   useEffect(() => {
     const fetchUser = async () => {
       if (!client || !userKey) return
@@ -71,10 +69,11 @@ export default function UserPage() {
     { id: 'register', label: 'register', color: 'green' },
     { id: 'update', label: 'update', color: 'orange' },
     { id: 'claim', label: 'claim', color: 'pink' },
+    { id: 'admin', label: 'admin', color: 'red' },
   ]
 
   if (!myMod) {
-    tabs = tabs.filter(tab => tab.id === 'mods' )
+    tabs = tabs.filter(tab => tab.id === 'mods')
   }
 
   const getButtonColors = (tabColor: string, isActive: boolean) => {
@@ -98,6 +97,10 @@ export default function UserPage() {
       pink: {
         active: 'bg-gradient-to-r from-pink-500 to-rose-500 text-white border-2 border-pink-300 shadow-2xl shadow-pink-500/50',
         inactive: 'bg-pink-500/20 text-pink-300 border-2 border-pink-500/40 hover:bg-pink-500/30 hover:border-pink-400/60'
+      },
+      red: {
+        active: 'bg-gradient-to-r from-red-500 to-rose-500 text-white border-2 border-red-300 shadow-2xl shadow-red-500/50',
+        inactive: 'bg-red-500/20 text-red-300 border-2 border-red-500/40 hover:bg-red-500/30 hover:border-red-400/60'
       }
     }
     return isActive ? colorMap[tabColor].active : colorMap[tabColor].inactive
@@ -131,7 +134,7 @@ export default function UserPage() {
             {activeTab === 'register' && client?.key && user && <RegMod />}
             {activeTab === 'update' && client?.key && user && <UpdateMod />}
             {activeTab === 'claim' && client?.key && user && <ClaimMod />}
-
+            {activeTab === 'admin' && client?.key && user && <Admin userData={userData} />}
           </div>
         </div>
       </main>

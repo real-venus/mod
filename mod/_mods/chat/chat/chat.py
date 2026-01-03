@@ -1,4 +1,3 @@
-class BaseMod:
     description = """
     ChatGPT Clone - Full-stack chat application with memory
     

@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Loading } from '@/bloc/ui/Loading'
-import { UserCard } from '@/bloc/user/UserCard'
-import { UserCardSettings } from '@/bloc/user/UserCardSettings'
-import { UserType } from '@/bloc/types'
-import { useUserContext } from '@/bloc/context'
+import { Loading } from '@/mod/ui/Loading'
+import { UserCard } from '@/mod/user/UserCard'
+import { UserCardSettings } from '@/mod/user/UserCardSettings'
+import { UserType } from '@/mod/types'
+import { useUserContext } from '@/mod/context'
 import { X, RotateCcw, Users } from 'lucide-react'
 
 type SortKey = 'recent' | 'name' | 'balance' | 'modules'

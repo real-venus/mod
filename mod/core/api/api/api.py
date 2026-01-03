@@ -939,7 +939,7 @@ class  Api:
         m.fn('dev/forward')(mod=mod, text=query, safety=False, **kwargs)
         return self.reg(mod=mod, key=key, comment=query)
     forward = edit
-    def chat(self, text, *extra_texts, mod: str='model.openrouter', stream=False, **kwargs) -> Dict[str, Any]:
+    def chat(self, text, *extra_texts, mod: str='openrouter', stream=False, **kwargs) -> Dict[str, Any]:
         return self.model.forward(' '.join([text] + list(extra_texts)), stream=stream, **kwargs)
     
     def models(self, search=None, mod: str='model.openrouter', **kwargs) -> List[Dict[str, Any]]:
