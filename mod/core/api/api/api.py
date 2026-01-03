@@ -954,7 +954,7 @@ class  Api:
     def stats(self):
         return m.df(self.mods())[['name', 'key', 'created', 'updated', 'collateral', 'network', 'cid']]
 
-    def ensure_env(self):
+    def syncenv(self):
         if not self.server_exists('ipfs'):
             m.serve('ipfs')
             m.print("IPFS node is running", color="green")
@@ -965,8 +965,6 @@ class  Api:
     def server_exists(self, name: str) -> bool:
         return name in self.servers()
 
-
-        
     def namespace(self, *args, **kwargs):
         mods = self.mods(*args, **kwargs)
         namespace = {}
@@ -975,7 +973,6 @@ class  Api:
             if url is not None:
                 namespace[mod['name']] = url
         return namespace
-
 
     def n(self, *args, **kwargs):
         return len(self.mods(*args, **kwargs))

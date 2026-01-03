@@ -269,6 +269,6 @@ class  IpfsClient:
     def __str__(self):
         return f"IpfsClient(url={self.url})"
 
-    # def ensure_env(self):
+    # def syncenv(self):
     #     """Ensure that the IPFS environment is set up."""
     #     m.fn('pm/up')(self.node_name)

@@ -47,8 +47,6 @@ class Tool:
             
             text = self.get_text(path)
             lines = text.splitlines(keepends=True)
-            end_line = min(end_line, len(lines))
-            start_line = min(max(1, start_line), end_line)
             
             # Validate line ranges
             if not (1 <= start_line <= len(lines)):
@@ -58,8 +56,8 @@ class Tool:
             if start_line > end_line:
                 return {"success": False, "message": "start_line must be <= end_line", "content": None}
             
-            # Convert to 0-indexed
-            start_idx = start_line
+            # Convert to 0-indexed (fix the indexing bug)
+            start_idx = start_line - 1
             end_idx = end_line
             
             # Replace lines with proper newline handling

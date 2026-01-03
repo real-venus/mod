@@ -9,6 +9,7 @@ import json
 from datetime import datetime
 import yaml  
 
+print = m.print
 class PM:
     """
     A mod for interacting with Docker.
@@ -381,14 +382,12 @@ class PM:
         if name in servers:
             result =  {'status': 'not_found', 'name': name}
         try:
-            os.system(f'docker kill {name}' )
+            os.system(f'docker kill {name}')
             os.system(f'docker rm {name}')
-            print(f'Kill({name})')
             if update:
                 self.sync()
-            result =  {'status': 'killed', 'name': name}
         except Exception as e:
-            result =  {'status': 'error', 'name': name, 'error': str(e)}
+            print(f'Error killing container {name}: {m.detailed_error(e)}', color='red')
         servers = self.servers(search=name)
         assert name not in servers, f'Failed to kill container {name}'
         children = self.servers(search=name + '.')

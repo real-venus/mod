@@ -1391,7 +1391,7 @@ def determine_type( x):
     return x_type_name
 
 
-def detailed_error(e) -> dict:
+def error(e) -> dict:
     import traceback
     tb = traceback.extract_tb(e.__traceback__)
     file_name = tb[-1].filename
@@ -1406,7 +1406,7 @@ def detailed_error(e) -> dict:
     }   
     return response
 
-error = detailed_error
+detailed_error = err = error
 
 def error(e) -> dict:
     import traceback

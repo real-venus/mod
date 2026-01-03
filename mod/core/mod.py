@@ -662,15 +662,13 @@ class Mod:
             schema['content'] = inspect.getsource(fn_obj)
         return schema
 
-    fnschema = fnschema
-
     def args(self, fn:str = '__init__', content=True, avoid_arguments = ['self', 'cls'],**kwargs)->dict:
         '''
         Get function schema of function in self
         '''   
         return self.fnschema(fn, content=content, avoid_arguments=avoid_arguments, **kwargs)['input']
 
-    def schema(self, obj = None ,  content=False,  verbose=False, **kwargs)->dict:
+    def schema(self, obj = None , search=None , content=False,  verbose=False, **kwargs)->dict:
         '''
         Get function schema of function in self
         '''   
@@ -678,17 +676,18 @@ class Mod:
         obj = obj or 'mod'
         content = bool(content)
         if callable(obj) or (isinstance(obj, str) and '/' in obj):
+
             return self.fnschema(obj, content=content, **kwargs)
 
         print(f'Getting schema for mod {obj}')
-        fns = self.fns(obj)
+        fns = self.fns(obj, search=search, **kwargs)
         obj = self.mod(obj)()
         
         for fn in fns:
             try:
                 schema[fn] = self.fnschema(getattr(obj, fn), content=content,  **kwargs)
             except Exception as e:
-                self.print(self.detailed_error(e),verbose=verbose)
+                print(self.error(e)) if verbose else None
         return schema
 
     def code(self, obj = None, search=None, *args, **kwargs) -> Union[str, Dict[str, str]]:
@@ -1425,7 +1424,7 @@ class Mod:
         return self.fn('pm/urls')(*args, **kwargs)
 
     def servers(self, *args, **kwargs):
-        return list(self.namespace().keys())
+        return self.fn('pm/servers')(*args, **kwargs)
 
     executor_cache = {}
     def executor(self,  max_workers=8, mode='thread', cache=True):
