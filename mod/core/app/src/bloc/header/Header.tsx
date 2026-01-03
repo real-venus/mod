@@ -60,20 +60,6 @@ export function Header() {
     }
   }
 
-  const handleLeftSplit = () => {
-    setOrientation('vertical')
-    if (!isSplitScreen) {
-      toggleSplitScreen()
-    }
-  }
-
-  const handleTopSplit = () => {
-    setOrientation('horizontal')
-    if (!isSplitScreen) {
-      toggleSplitScreen()
-    }
-  }
-
   return (
     <header className="sticky top-0 z-50 w-full bg-black border-b-2" style={{ borderColor: 'rgba(0, 255, 0, 0.25)' }}>
       <div className="flex items-center justify-between px-4 py-2">
@@ -121,20 +107,7 @@ export function Header() {
         </div>
         
         <div className="flex items-center justify-end gap-3">
-          <button
-            onClick={() => setIsControlPanelCollapsed(!isControlPanelCollapsed)}
-            className="p-3 rounded-xl border-2 transition-all active:scale-95 backdrop-blur-xl"
-            style={{
-              height: '60px',
-              width: '60px',
-              backgroundColor: isControlPanelCollapsed ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.2)',
-              borderColor: isControlPanelCollapsed ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.6)',
-              boxShadow: '0 0 12px rgba(249, 115, 22, 0.2)'
-            }}
-            title={isControlPanelCollapsed ? 'Show Control Panel' : 'Hide Control Panel'}
-          >
-            <Bars3Icon className="w-8 h-8" style={{ color: '#fb923c' }} />
-          </button>
+
           <UserHeader />
         </div>
       </div>

@@ -2,9 +2,9 @@
 
 import { ChatInput } from './ChatInput'
 import { ModuleFunctionSelector } from './ModuleFunctionSelector'
-import { SchemaParamsPanel } from './SchemaParamsPanel'
 import { ConfigOrientationControls } from './ConfigOrientationControls'
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { TransactionsPanel } from './TransactionsPanel'
+import { useState, useEffect, useRef } from 'react'
 
 interface ConfigPanelProps {
   selectedModule: string
@@ -44,36 +44,13 @@ export function ControlPanel({
   wait, setWait, isLoading, inputParamOptions, handleSubmit, onCancel,
   isCollapsed, setIsCollapsed
 }: ConfigPanelProps) {
-
-  if (isCollapsed && setIsCollapsed) {
-    return (
-      <button
-        onClick={() => setIsCollapsed(false)}
-        className="fixed top-1/2 right-0 -translate-y-1/2 p-4 bg-gradient-to-l from-orange-500/30 to-orange-600/20 text-orange-400 border-2 border-orange-500/50 hover:from-orange-500/40 hover:to-orange-600/30 hover:border-orange-500/70 rounded-l-xl transition-all duration-200 shadow-lg z-50 hover:scale-110 active:scale-95"
-        title="Expand Control Panel"
-      >
-        <ChevronLeftIcon className="w-8 h-8" />
-      </button>
-    )
-  }
+  const [isTransactionsCollapsed, setIsTransactionsCollapsed] = useState(true)
+  const transactionsPanelRef = useRef<{ handleSync: () => void } | null>(null)
 
   return (
-    <div className="fixed top-0 right-0 h-screen w-96 bg-black/95 backdrop-blur-md border-l-4 border-orange-500/60 shadow-2xl shadow-orange-500/20 z-40 flex flex-col overflow-hidden">
-      {setIsCollapsed && (
-      <button
-        onClick={() => setIsCollapsed(true)}
-        className="absolute top-4 left-4 p-3 bg-gradient-to-r from-orange-500/20 to-orange-600/10 text-orange-400 border-2 border-orange-500/40 hover:from-orange-500/30 hover:to-orange-600/20 hover:border-orange-500/60 rounded-lg transition-all duration-200 shadow-lg z-50 hover:scale-110 active:scale-95"
-        title="Collapse Control Panel"
-      >
-        <ChevronRightIcon className="w-6 h-6" />
-      </button>
-      )}
+    <div className="w-full h-full bg-black/95 backdrop-blur-md flex flex-col overflow-hidden">
 
-      <div className="flex-1 overflow-y-auto px-6 py-8 mt-16 space-y-6">
-        <div className="border-b-2 border-orange-500/40 pb-4">
-          <h2 className="text-2xl font-bold text-orange-400 tracking-wide">CONTROL PANEL</h2>
-        </div>
-
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
         <ModuleFunctionSelector
           selectedModule={selectedModule}
           setSelectedModule={setSelectedModule}
@@ -97,17 +74,23 @@ export function ControlPanel({
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
             onCancel={onCancel}
+            params={params}
+            handleParamChange={handleParamChange}
+            handleResetParams={handleResetParams}
+            schema={schema}
           />
         </div>
 
         <div className="border-t-2 border-orange-500/30 pt-4">
-          <SchemaParamsPanel
-            selectedFunction={selectedFunction}
-            schema={schema}
-            params={params}
-            handleParamChange={handleParamChange}
-            handleResetParams={handleResetParams}
-          />
+          <div className="flex items-center justify-between mb-3 cursor-pointer" onClick={() => setIsTransactionsCollapsed(!isTransactionsCollapsed)}>
+            <h3 className="text-orange-400 text-lg font-bold">TRANSACTIONS</h3>
+            <span className="text-orange-400 text-xl">{isTransactionsCollapsed ? '▼' : '▲'}</span>
+          </div>
+          {!isTransactionsCollapsed && (
+            <div className="max-h-96 overflow-y-auto">
+              <TransactionsPanel ref={transactionsPanelRef} />
+            </div>
+          )}
         </div>
 
         <div className="border-t-2 border-orange-500/30 pt-4">

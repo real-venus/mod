@@ -74,21 +74,21 @@ export function ChatMessages({ messages, messagesEndRef, compact = false }: Chat
             }`}
           >
             <div
-              className={`relative max-w-[80%] rounded-3xl p-5 shadow-2xl ${
+              className={`relative max-w-[80%] rounded-2xl p-5 shadow-2xl backdrop-blur-md ${
                 message.role === 'user'
-                  ? 'bg-gradient-to-br from-green-500/30 to-green-600/20 border-2 border-green-500/40 text-green-50'
-                  : 'bg-gradient-to-br from-gray-800/60 to-gray-900/40 border-2 border-gray-700/50 text-gray-100'
+                  ? 'bg-gradient-to-br from-orange-500/20 to-orange-600/10 border-2 border-orange-500/50 text-orange-50'
+                  : 'bg-gradient-to-br from-purple-500/20 to-purple-600/10 border-2 border-purple-500/50 text-purple-50'
               }`}
               style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', minHeight: isLongContent ? 'auto' : 'fit-content' }}
             >
               <div className="flex justify-between items-center mb-2">
-                <div className="text-sm font-semibold opacity-80">
-                  {message.role === 'user' ? 'You' : `${message.module || 'Module'} > ${message.function || 'Function'}`}
+                <div className="text-sm font-semibold opacity-90">
+                  {message.role === 'user' ? '→ You' : `← ${message.module || 'Assistant'} > ${message.function || ''}`}
                 </div>
                 {hasParams && (
                   <button
                     onClick={() => toggleMessage(index)}
-                    className="text-xs text-gray-400 hover:text-white transition-colors ml-2"
+                    className="text-xs text-gray-300 hover:text-white transition-colors ml-2"
                   >
                     {isExpanded ? '▲' : '▼'}
                   </button>
@@ -98,7 +98,7 @@ export function ChatMessages({ messages, messagesEndRef, compact = false }: Chat
               <div className="whitespace-pre-wrap leading-relaxed" style={{ wordBreak: 'break-word' }}>{message.content}</div>
               
               {hasParams && isExpanded && (
-                <div className="text-xs opacity-60 mt-2 pt-2 border-t border-white/10">
+                <div className="text-xs opacity-70 mt-2 pt-2 border-t border-white/10">
                   <div className="font-semibold mb-1">Parameters:</div>
                   <pre className="text-xs bg-black/30 p-2 rounded overflow-x-auto">{JSON.stringify(message.params, null, 2)}</pre>
                 </div>

@@ -41,36 +41,42 @@ export const UserCard = ({ user, mode  = 'explore' }: UserCardProps) => {
   }, [])
 
   const CardContent = () => (
-      <div className="group relative border-2 rounded-xl px-3 hover:shadow-xl transition-all duration-300 backdrop-blur-sm hover:scale-[1.01] bg-black" style={{ borderColor: borderColor, boxShadow: `0 0 12px ${glowColor}`, paddingTop: '8px', paddingBottom: '8px' }}>
+      <div className="group relative border-2 rounded-xl px-4 py-3 hover:shadow-xl transition-all duration-300 backdrop-blur-sm hover:scale-[1.01] bg-black" style={{ borderColor: borderColor, boxShadow: `0 0 12px ${glowColor}` }}>
       <div className="absolute -inset-1 bg-gradient-to-r opacity-5 group-hover:opacity-10 blur-lg transition-all duration-500 rounded-xl" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})` }} />
       
       <div className="relative z-10">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
+            {/* Key Section */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded-md border" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.1)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)` }}>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border flex-1" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.1)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)` }}>
                 <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:scale-110 transition-transform">
                   <KeyIcon className="w-8 h-8" style={{ color: userColor }} />
                 </Link>
-                <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                    <code className="text-base font-mono font-bold" style={{ color: userColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '160px', display: 'inline-block' }} title={user.key}>
-                      {user.key.substring(0, 6)}...{user.key.substring(user.key.length - 6)}
+                <div className="flex flex-col flex-1 min-w-0">
+                  <div className="text-xs font-bold uppercase tracking-wider opacity-70" style={{ color: userColor }}>
+                    {user.crypto_type || 'sr25519'}
+                  </div>
+                  <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                    <code className="text-sm font-mono font-bold truncate block" style={{ color: userColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }} title={user.key}>
+                      {user.key.substring(0, 8)}...{user.key.substring(user.key.length - 8)}
                     </code>
-                </Link>
+                  </Link>
+                </div>
                 <CopyButton text={user.key} size="sm" />
               </div>
             </div>
           
-            <div className="flex flex-wrap items-center gap-2">
-              {user.mods && user.mods.length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.08)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)` }}>
-                  <CubeIcon className="w-4 h-4" style={{ color: userColor }} />
-                  <code className="text-base font-mono font-bold" style={{ color: userColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '60px', display: 'inline-block', textAlign: 'right' }}>
-                    {user.mods.length}
-                  </code>
-                  <CopyButton text={String(user.mods.length)} size="sm" />
-                </div>
-              )}
-            </div>
+            {/* Modules Count */}
+            {user.mods && user.mods.length > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.08)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)` }}>
+                <CubeIcon className="w-5 h-5" style={{ color: userColor }} />
+                <span className="text-xs font-bold uppercase opacity-70" style={{ color: userColor }}>Modules</span>
+                <code className="text-base font-mono font-bold ml-auto" style={{ color: userColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }}>
+                  {user.mods.length}
+                </code>
+                <CopyButton text={String(user.mods.length)} size="sm" />
+              </div>
+            )}
         </div>
       </div>
     </div>

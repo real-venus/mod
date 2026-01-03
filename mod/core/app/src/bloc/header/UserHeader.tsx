@@ -7,7 +7,7 @@ import 'react-responsive-modal/styles.css'
 import {text2color, shorten} from "@/bloc/utils"
 import { useRouter } from 'next/navigation'
 import WalletAuthButton from '@/bloc/wallet/WalletAuthButton'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 
 
@@ -15,6 +15,15 @@ export function UserHeader() {
   const {  user, authLoading, signOut} = useUserContext()
   const router = useRouter()
   const [showTooltip, setShowTooltip] = useState(false)
+  const [walletMode, setWalletMode] = useState('local')
+  const [walletAddress, setWalletAddress] = useState('')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && user) {
+      setWalletMode(localStorage.getItem('wallet_mode') || 'local')
+      setWalletAddress(localStorage.getItem('wallet_address') || user.key)
+    }
+  }, [user])
 
   const handleSignOut = () => {
     signOut()
@@ -44,8 +53,6 @@ export function UserHeader() {
     }
 
     const userColor = text2color(user.key)
-    const walletMode = localStorage.getItem('wallet_mode') || 'local'
-    const walletAddress = localStorage.getItem('wallet_address') || user.key
 
     const hexToRgb = (hex: string) => {
       const result = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex)

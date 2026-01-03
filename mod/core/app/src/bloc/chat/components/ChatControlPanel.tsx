@@ -59,7 +59,7 @@ export function ChatControlPanel({
   }
 
   return (
-    <div className="fixed top-0 right-0 h-screen w-96 bg-black/95 backdrop-blur-md border-l-4 border-orange-500/60 shadow-2xl shadow-orange-500/20 z-40 flex flex-col overflow-hidden">
+    <div className="fixed top-0 right-0 h-screen w-[500px] bg-black/95 backdrop-blur-md border-l-4 border-orange-500/60 shadow-2xl shadow-orange-500/20 z-40 flex flex-col overflow-hidden">
       {setIsCollapsed && (
       <button
         onClick={() => setIsCollapsed(true)}

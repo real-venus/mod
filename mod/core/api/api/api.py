@@ -874,14 +874,18 @@ class  Api:
         Returns:
             List of user information dictionaries
         """
-        user_keys = self.user_keys()
-        users_info = []
-        for user_key in user_keys:
-            if search and search not in user_key:
-                continue
-            info = self.user(user_key, update=update)
-            users_info.append(info)
-        return users_info
+        path = self.path('users')
+        users = m.get(path,  update=update)
+        if users == None:
+            user_keys = self.user_keys()
+            users = []
+            for user_key in user_keys:
+                if search and search not in user_key:
+                    continue
+                users.append(self.user(user_key, update=update))
+            m.put(path, users)
+        
+        return users
 
     def user_mods(self, key: str = None) -> List[str]:
         """List all mods registered by a specific user in IPFS.
@@ -973,6 +977,7 @@ class  Api:
             if url is not None:
                 namespace[mod['name']] = url
         return namespace
+
 
     def n(self, *args, **kwargs):
         return len(self.mods(*args, **kwargs))
