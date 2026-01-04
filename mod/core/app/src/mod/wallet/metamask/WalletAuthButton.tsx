@@ -4,6 +4,7 @@ import { useUserContext } from '@/mod/context'
 import { cryptoWaitReady } from '@polkadot/util-crypto'
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { KeyIcon, WalletIcon } from '@heroicons/react/24/outline'
+import MetamaskAccountSelector from './MetamaskAccountSelector'
 
 type AuthMode = 'local' | 'subwallet' | 'metamask' | 'phantom'
 
@@ -91,13 +92,12 @@ export function WalletAuthButton() {
         throw new Error('MetaMask is not installed')
       }
 
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-      if (!accounts || accounts.length === 0) {
-        throw new Error('No MetaMask accounts found')
+      const selectedAddress = localStorage.getItem('wallet_address')
+      if (!selectedAddress) {
+        throw new Error('Please select a MetaMask account first')
       }
 
       localStorage.setItem('wallet_mode', 'metamask')
-      localStorage.setItem('wallet_address', accounts[0])
       localStorage.setItem('wallet_type', 'ethereum')
       await signIn()
       setShowAuthModal(false)
@@ -293,9 +293,7 @@ export function WalletAuthButton() {
                   )}
                 </div>
               ) : authMode === 'metamask' ? (
-                <div className="p-5 bg-orange-900/20 border-2 border-orange-500/40 rounded-xl">
-                  <p className="text-orange-400 font-bold text-sm">🦊 Click "SIGN IN" to connect your MetaMask wallet</p>
-                </div>
+                <MetamaskAccountSelector />
               ) : (
                 <div className="p-5 bg-purple-900/20 border-2 border-purple-500/40 rounded-xl">
                   <p className="text-purple-400 font-bold text-sm">👻 Click "SIGN IN" to connect your Phantom wallet</p>

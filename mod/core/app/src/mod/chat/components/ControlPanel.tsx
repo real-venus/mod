@@ -1,12 +1,13 @@
 'use client'
 
-import { ChatInput } from './ChatInput'
 import { ModuleFunctionSelector } from './ModuleFunctionSelector'
-import { ConfigOrientationControls } from './ConfigOrientationControls'
+import { ChatInput } from './ChatInput'
 import { TransactionsPanel } from './TransactionsPanel'
-import { useState, useEffect, useRef } from 'react'
+import { SchemaParamsPanel } from './SchemaParamsPanel'
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { useState } from 'react'
 
-interface ConfigPanelProps {
+interface ControlPanelProps {
   selectedModule: string
   setSelectedModule: (value: string) => void
   selectedFunction: string
@@ -32,25 +33,56 @@ interface ConfigPanelProps {
   inputParamOptions: string[]
   handleSubmit: (e: React.FormEvent) => void
   onCancel: () => void
-  isCollapsed?: boolean
-  setIsCollapsed?: (value: boolean) => void
+  isCollapsed: boolean
+  setIsCollapsed: (value: boolean) => void
+  transactionsPanelRef: any
 }
 
 export function ControlPanel({
-  selectedModule, setSelectedModule, selectedFunction, setSelectedFunction,
-  modules, functions, schema, params, handleParamChange, handleResetParams,
-  handleRefresh, configOrientation, setConfigOrientation,
-  messages, messagesEndRef, input, setInput, selectedInputParam, setSelectedInputParam,
-  wait, setWait, isLoading, inputParamOptions, handleSubmit, onCancel,
-  isCollapsed, setIsCollapsed
-}: ConfigPanelProps) {
-  const [isTransactionsCollapsed, setIsTransactionsCollapsed] = useState(true)
-  const transactionsPanelRef = useRef<{ handleSync: () => void } | null>(null)
+  selectedModule,
+  setSelectedModule,
+  selectedFunction,
+  setSelectedFunction,
+  modules,
+  functions,
+  schema,
+  params,
+  handleParamChange,
+  handleResetParams,
+  handleRefresh,
+  configOrientation,
+  setConfigOrientation,
+  messages,
+  messagesEndRef,
+  input,
+  setInput,
+  selectedInputParam,
+  setSelectedInputParam,
+  wait,
+  setWait,
+  isLoading,
+  inputParamOptions,
+  handleSubmit,
+  onCancel,
+  isCollapsed,
+  setIsCollapsed,
+  transactionsPanelRef
+}: ControlPanelProps) {
+  const [activeTab, setActiveTab] = useState<'chat' | 'params'>('chat')
+  const [isParamsExpanded, setIsParamsExpanded] = useState(false)
+
+  const handleModFnEnterPress = () => {
+    if (selectedModule && selectedFunction) {
+      const inputElement = document.querySelector('textarea[placeholder="enter your message..."]') as HTMLTextAreaElement
+      if (inputElement) {
+        inputElement.focus()
+      }
+    }
+  }
 
   return (
-    <div className="w-full h-full bg-black/95 backdrop-blur-md flex flex-col overflow-hidden">
-
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="border-t-2 border-white/10 bg-black/40 backdrop-blur-sm flex flex-col">
         <ModuleFunctionSelector
           selectedModule={selectedModule}
           setSelectedModule={setSelectedModule}
@@ -58,9 +90,11 @@ export function ControlPanel({
           setSelectedFunction={setSelectedFunction}
           modules={modules}
           functions={functions}
+          onEnterPress={handleModFnEnterPress}
         />
-
-        <div className="border-t-2 border-orange-500/30 pt-4">
+        
+        {/* Chat Input at Top */}
+        <div className="px-3 pt-3">
           <ChatInput
             input={input}
             setInput={setInput}
@@ -81,23 +115,30 @@ export function ControlPanel({
           />
         </div>
 
-        <div className="border-t-2 border-orange-500/30 pt-4">
-          <div className="flex items-center justify-between mb-3 cursor-pointer" onClick={() => setIsTransactionsCollapsed(!isTransactionsCollapsed)}>
-            <h3 className="text-orange-400 text-lg font-bold">TRANSACTIONS</h3>
-            <span className="text-orange-400 text-xl">{isTransactionsCollapsed ? '▼' : '▲'}</span>
-          </div>
-          {!isTransactionsCollapsed && (
-            <div className="max-h-96 overflow-y-auto">
-              <TransactionsPanel ref={transactionsPanelRef} />
-            </div>
-          )}
-        </div>
 
-        <div className="border-t-2 border-orange-500/30 pt-4">
-          <ConfigOrientationControls
-            configOrientation={configOrientation}
-            setConfigOrientation={setConfigOrientation}
-          />
+        {/* Send Button Below Parameters */}
+        <div className="px-3 pb-3">
+          <form onSubmit={handleSubmit}>
+            {isLoading ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-6 py-3 bg-red-500/20 text-red-400 border-2 border-red-500/40 hover:bg-red-500/30 rounded-lg transition-all font-bold text-lg w-full"
+                style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+              >
+                cancel
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="px-6 py-3 bg-orange-500/20 text-orange-400 border-2 border-orange-500/40 hover:bg-orange-500/30 rounded-lg transition-all font-bold text-lg w-full"
+                style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+                disabled={!selectedModule || !selectedFunction}
+              >
+                send
+              </button>
+            )}
+          </form>
         </div>
       </div>
     </div>

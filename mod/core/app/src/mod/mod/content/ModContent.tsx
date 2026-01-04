@@ -21,7 +21,6 @@ import {
 import { ModuleType } from '@/mod/types';
 import { useUserContext } from '@/mod/context';
 
-
 export interface ModContentProps {
   mod: {
     content: Record<string, string> | undefined | string;
@@ -120,7 +119,7 @@ export const buildFileTree = (files: Record<string, string>): FileNode[] => {
 
 export const highlightSearchTerm = (text: string, term: string) => {
   if (!term) return text;
-  const safe = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const safe = term.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
   const parts = text.split(new RegExp(`(${safe})`, 'gi'));
   return (
     <>
@@ -134,7 +133,6 @@ export const highlightSearchTerm = (text: string, term: string) => {
     </>
   );
 };
-
 
 export function FileTreeItem({
   node, level, onSelect, expandedFolders, toggleFolder, selectedPath, onCopy, searchTerm,
@@ -175,13 +173,6 @@ export function FileTreeItem({
         {node.type === 'file' ? (
           <>
             <span className="ml-2 text-xs opacity-60">{node.size}</span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onCopy(node); }}
-              className="ml-2 opacity-0 transition-opacity group-hover:opacity-100"
-              title="Copy file content"
-            >
-              <ClipboardDocumentIcon className="h-3 w-3 text-emerald-400 hover:text-emerald-300" />
-            </button>
           </>
         ) : (
           <button
@@ -214,7 +205,6 @@ export function FileTreeItem({
   );
 }
 
-
 export default function ModContent({ mod }: { mod: ModuleType }) {
   const files = typeof mod.content === 'object' && mod.content !== null ? mod.content : {};
   const { client } = useUserContext();
@@ -227,11 +217,12 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   const [searchResults, setSearchResults] = useState<{ path: string; lineNumbers: number[] }[]>([]);
   const codeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
+  const [dividerPosition, setDividerPosition] = useState(256);
+  const isDragging = useRef(false);
 
   useEffect(() => {
     const tree = buildFileTree(files);
     setFileTree(tree);
-    // if there is no selected file, select the first file in the tree
     if (!selectedFile) {
        for (let n of tree) {
           if (n.type === 'file') {
@@ -341,6 +332,32 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     }
   };
 
+  const handleMouseDown = () => {
+    isDragging.current = true;
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const newPos = e.clientX;
+      if (newPos > 150 && newPos < 600) {
+        setDividerPosition(newPos);
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDragging.current = false;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   const renderLineNumbers = (content: string, startLine: number, path: string) => {
     const lines = content.split('\n');
     const matches = searchResults.find((r) => r.path === path)?.lineNumbers || [];
@@ -410,8 +427,8 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         </div>
       </div>
 
-      <div className="flex">
-        <div className="micro-scroll-y w-64 max-h-[600px] overflow-y-auto border-r p-3" style={{ borderColor: ui.border, backgroundColor: ui.panelAlt2 }}>
+      <div className="flex relative">
+        <div className="micro-scroll-y max-h-[600px] overflow-y-auto border-r p-3" style={{ width: `${dividerPosition}px`, borderColor: ui.border, backgroundColor: ui.panelAlt2 }}>
           <div className="mb-2">
             <h3 className="mb-2 text-sm font-medium" style={{ color: ui.text }}>File Explorer</h3>
             <div className="relative">
@@ -464,6 +481,12 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
           </div>
         </div>
 
+        <div
+          className="absolute top-0 bottom-0 w-1 cursor-col-resize hover:bg-emerald-500/50 transition-colors"
+          style={{ left: `${dividerPosition}px`, zIndex: 10 }}
+          onMouseDown={handleMouseDown}
+        />
+
         <div className="micro-scroll-y max-h-[600px] flex-1 overflow-y-auto">
           {filteredSections.map((section) => {
             const isCollapsed = collapsedFiles.has(section.path);
@@ -488,9 +511,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                     {isCollapsed ? <ChevronRightIcon className="h-4 w-4 text-gray-400" /> : <ChevronDownIcon className="h-4 w-4 text-gray-400" />}
                     <FileIcon className="h-4 w-4 text-gray-400" />
                     <span className="font-mono text-sm text-emerald-400">
-                      {searchTerm && section.path.toLowerCase().includes(searchTerm.toLowerCase())
-                        ? highlightSearchTerm(section.path, searchTerm)
-                        : section.path}
+                      {section.name}
                     </span>
                     <span className={`text-xs ${languageColors[section.language]}`}>{section.language.toUpperCase()}</span>
                     {!!matches && <span className="text-xs text-yellow-400">{matches} matches</span>}
@@ -498,14 +519,6 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                   <div className="flex items-center gap-3 text-xs" style={{ color: ui.textDim }}>
                     <span>{section.size}</span>
                     <span>{section.lineCount} lines</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(section.cid || ''); }}
-                      className="flex items-center gap-1 rounded bg-emerald-900/20 px-2 py-1 text-emerald-400 hover:bg-emerald-900/30"
-                      title="Copy hash"
-                    >
-                      <span className="font-mono">Hash</span>
-                      <ClipboardDocumentIcon className="h-3 w-3" />
-                    </button>
                     <CopyButton content={content} />
                   </div>
                 </div>

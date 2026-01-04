@@ -33,29 +33,29 @@ export function ChatInput({
   return (
     <div className="space-y-3">
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="flex gap-2">
-          <input
-            type="text"
+        <div className="relative flex gap-2">
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="enter your message..."
-            className="flex-1 bg-black/60 border-2 border-orange-500/40 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 placeholder-orange-600/40"
+            className="flex-1 bg-black/60 border-2 border-orange-500/40 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 placeholder-orange-600/40 resize-none"
             style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
             disabled={isLoading}
+            rows={4}
           />
           {inputParamOptions.length > 0 && (
-            <div className="relative">
+            <div className="absolute bottom-2 right-2 z-10">
               <button
                 type="button"
                 onClick={() => setShowParamSelector(!showParamSelector)}
-                className="px-4 py-3 bg-cyan-500/20 text-cyan-400 border-2 border-cyan-500/40 hover:bg-cyan-500/30 rounded-lg transition-all font-bold"
+                className="px-3 py-2 bg-cyan-500/20 text-cyan-400 border-2 border-cyan-500/40 hover:bg-cyan-500/30 rounded-lg transition-all font-bold text-xs"
                 style={{ fontFamily: 'Press Start 2P, monospace', textTransform: 'lowercase' }}
                 disabled={isLoading}
               >
                 {selectedInputParam || 'param'}
               </button>
               {showParamSelector && (
-                <div className="absolute top-full mt-2 right-0 bg-black/95 border-2 border-cyan-500/60 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50">
+                <div className="absolute bottom-full mb-2 right-0 bg-black/95 border-2 border-cyan-500/60 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50">
                   {inputParamOptions.map(param => (
                     <button
                       key={param}
@@ -73,25 +73,6 @@ export function ChatInput({
                 </div>
               )}
             </div>
-          )}
-          {isLoading ? (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-6 py-3 bg-red-500/20 text-red-400 border-2 border-red-500/40 hover:bg-red-500/30 rounded-lg transition-all font-bold"
-              style={{ fontFamily: 'Press Start 2P, monospace', textTransform: 'lowercase' }}
-            >
-              cancel
-            </button>
-          ) : (
-            <button
-              type="submit"
-              className="px-6 py-3 bg-orange-500/20 text-orange-400 border-2 border-orange-500/40 hover:bg-orange-500/30 rounded-lg transition-all font-bold"
-              style={{ fontFamily: 'Press Start 2P, monospace', textTransform: 'lowercase' }}
-              disabled={!selectedModule || !selectedFunction}
-            >
-              send
-            </button>
           )}
         </div>
       </form>

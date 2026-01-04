@@ -74,6 +74,9 @@ export default function ModCard({ mod}: ModCardProps) {
     }
   }
 
+  // Truncate mod name to first 5 letters
+  const displayName = mod.name.substring(0, 5)
+
     return (
       <>
         <Link href={`/mod/${mod.name}/${mod.key}`}>
@@ -86,74 +89,69 @@ export default function ModCard({ mod}: ModCardProps) {
             <div className="absolute -inset-1 bg-gradient-to-r opacity-5 group-hover:opacity-10 blur-lg transition-all duration-500 rounded-xl" style={{ background: `linear-gradient(45deg, ${modColor}, transparent, ${modColor})` }} />
             
                 <div className="relative z-10">
-                  <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-2">
-                        <CubeIcon className="w-10 h-10" style={{ color: modColor }} />
-                          <code 
-                            className="text-lg font-mono font-bold cursor-pointer hover:bg-white/10 px-2 py-1 rounded transition-colors select-all" 
-                            style={{ color: modColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '120px', display: 'inline-block', userSelect: 'all', WebkitUserSelect: 'all', MozUserSelect: 'all' }} 
-                            title={`Click to copy: ${mod.name}`}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              navigator.clipboard.writeText(mod.name)
-                            }}
-                            onDoubleClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              const selection = window.getSelection()
-                              const range = document.createRange()
-                              range.selectNodeContents(e.currentTarget)
-                              selection?.removeAllRanges()
-                              selection?.addRange(range)
-                            }}
-                          >
-                            {mod.name}
-                          </code>
-                          <CopyButton text={mod.name} size="sm" />
-                        {myMod && (
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setShowAdminPanel(true)
-                            }}
-                            className="ml-auto p-2 hover:bg-purple-500/20 rounded-lg transition-colors"
-                            title="Admin Settings"
-                          >
-                            <Settings className="w-5 h-5 text-purple-400" />
-                          </button>
-                        )}
-                      </div>
-                    
-                    <div className="flex flex-wrap items-center gap-3">
- 
+                  <div className="flex items-center gap-3">
+                      <CubeIcon className="w-10 h-10" style={{ color: modColor }} />
+                        <code 
+                          className="text-lg font-mono font-bold cursor-pointer hover:bg-white/10 px-2 py-1 rounded transition-colors select-all" 
+                          style={{ color: modColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace", minWidth: '120px', display: 'inline-block', userSelect: 'all', WebkitUserSelect: 'all', MozUserSelect: 'all' }} 
+                          title={`Click to copy: ${mod.name}`}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            navigator.clipboard.writeText(mod.name)
+                          }}
+                          onDoubleClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            const selection = window.getSelection()
+                            const range = document.createRange()
+                            range.selectNodeContents(e.currentTarget)
+                            selection?.removeAllRanges()
+                            selection?.addRange(range)
+                          }}
+                        >
+                          {displayName}
+                        </code>
+                        <CopyButton text={mod.name} size="sm" />
 
                     <div 
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-md border" 
-                      style={{ backgroundColor: 'rgba(59, 130, 246, 0.12)', borderColor: 'rgba(59, 130, 246, 0.4)' }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-md border backdrop-blur-sm" 
+                      style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', borderColor: 'rgba(59, 130, 246, 0.3)' }}
                       onMouseEnter={(e) => handleFieldHover('updated', updatedTimeStr, e)}
                       onMouseMove={handleFieldMove}
                       onMouseLeave={handleFieldLeave}
                     >
-                      <Clock size={20} style={{ color: '#3b82f6' }} />
+                      <Clock size={16} style={{ color: '#3b82f6' }} />
                       <CopyButton text={updatedTimeStr} size="sm" />
                     </div>
 
                     <div 
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-md border" 
-                      style={{ backgroundColor: 'rgba(236, 72, 153, 0.12)', borderColor: 'rgba(236, 72, 153, 0.4)' }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-md border backdrop-blur-sm" 
+                      style={{ backgroundColor: 'rgba(236, 72, 153, 0.08)', borderColor: 'rgba(236, 72, 153, 0.3)' }}
                          onMouseEnter={(e) => handleFieldHover('author', mod.key, e)}
                         onMouseMove={handleFieldMove}
                         onMouseLeave={handleFieldLeave}
                         title={mod.key}
                       >
                         <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()} className="hover:scale-110 transition-transform">
-                          <KeyIcon className="w-6 h-6" style={{ color: '#ec4899' }} />
+                          <KeyIcon className="w-5 h-5" style={{ color: '#ec4899' }} />
                         </Link>
                         <CopyButton text={mod.key} size="sm" />
                     </div>
-                    </div>
+
+                    {myMod && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setShowAdminPanel(true)
+                        }}
+                        className="ml-auto p-2 hover:bg-purple-500/20 rounded-lg transition-colors backdrop-blur-sm"
+                        title="Admin Settings"
+                      >
+                        <Settings className="w-5 h-5 text-purple-400" />
+                      </button>
+                    )}
                   </div>
                 </div>
           </div>

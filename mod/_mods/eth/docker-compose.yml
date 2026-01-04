@@ -6,10 +6,10 @@ services:
   eth:
     container_name: eth
     deploy: {}
-    entrypoint: bash -c "m serve port=50148 key=eth remote=0 mod=eth"
+    entrypoint: bash -c "m serve port=50055 key=eth remote=0 mod=eth"
     image: eth
     ports:
-    - 50148:50148
+    - 50055:50055
     restart: unless-stopped
     shm_size: 100g
     volumes:

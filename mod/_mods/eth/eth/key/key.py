@@ -13,9 +13,9 @@ import mod as c # import commune
 
 class Key(Account):
     crypto_type = 'eth'
-    key_storage_path = c.abspath('~/.eth/key')
 
-    def __init__(self, private_key: str = None, name=None) -> None:
+    def __init__(self, private_key: str = None, name=None, path = '~/.mod/eth/key') -> None:
+        self.path = os.path.abspath(os.path.expanduser(path))
         self.set_private_key(private_key)
         self.name = name
 
@@ -76,12 +76,11 @@ class Key(Account):
         signable_message = self.resolve_message(message)
         signed_msg =  Account.sign_message(signable_message, key.private_key)
         return {
-            'message': signed_msg.message_hash.hex(),
+            'message': signed_msg.messageHash.hex(),
             'signature': signed_msg.signature.hex(),
             'vrs': [signed_msg.v, signed_msg.r, signed_msg.s],
             'address': key.address
         }
-
 
     @property
     def public_key(self) -> str:
@@ -90,7 +89,6 @@ class Key(Account):
     @property
     def address(self):
         return self.public_key_to_address(self.public_key.to_hex())
-    
     
     def address_to_public_key(self, address:str) -> str:
         '''
@@ -126,33 +124,9 @@ class Key(Account):
         print(recovered_address, address)
         return bool(recovered_address == address)
     
-    
-    def password2private_key(self, password, salt = 'eth'):
-        from Crypto.Protocol.KDF import PBKDF2
-        return  PBKDF2(password.encode(), salt, dkLen=32, count=100000).hex()
-    
-    
     def from_password(self, password:str, salt = 'eth'):
-        return self.from_key(self.password2private_key(password, salt))
-
-    
-    def create(self, extra_entropy=""):
-        r"""
-        Creates a new private key, and returns it as a
-        :class:`~eth_account.local.Key`.
-        :type extra_entropy: str or bytes or int
-        """
-        extra_key_bytes = text_if_str(to_bytes, extra_entropy)
-        key_bytes = keccak(os.urandom(32) + extra_key_bytes)
-        return self.from_key(key_bytes)
-
-
-    
-    def new(self, extra_entropy=""):
-        extra_key_bytes = text_if_str(to_bytes, extra_entropy)
-        key_bytes = keccak(os.urandom(32) + extra_key_bytes)
-        return self.from_key(key_bytes)
-
+        from Crypto.Protocol.KDF import PBKDF2
+        return self.from_key(PBKDF2(password.encode(), salt, dkLen=32, count=100000).hex())
     
     def create_private_key(self, extra_entropy="", return_str=False):
         extra_key_bytes = text_if_str(to_bytes, extra_entropy)
@@ -161,15 +135,6 @@ class Key(Account):
             return private_key.hex()
         return private_key
     
-    
-    def hex2str(self, hex_str):
-        return bytes.fromhex(hex_str).decode()
-    
-    
-    def str2hex(self, string):
-        from hexbytes.main import HexBytes
-        return HexBytes(string).hex()
-
     @combomethod
     def from_mnemonic(
         self,
@@ -197,11 +162,9 @@ class Key(Account):
         key = self._parsePrivateKey(private_key)
         return Key(key)
 
-
     def __str__(self):
         return f'Key(address={self.address} name={self.name}, crypto_type={self.crypto_type})'
     
-
     def __repr__(self):
         return self.__str__()
     
@@ -234,15 +197,6 @@ class Key(Account):
         data =  cipher.decrypt(data[AES.block_size:])
         data = data[:-ord(data[len(data)-1:])].decode('utf-8')
         return data
-
-    
-    def save_key(self, name, private_key=None):
-        if private_key:
-            self.private_key = private_key
-        path = self.get_key_path(name)
-        data = {'private_key': self.private_key}
-        c.put_json(path, data)
-        return self.private_key
     
     def to_dict(self):
         return {
@@ -250,13 +204,10 @@ class Key(Account):
             'private_key': self.private_key_string
         }
     
-    
-    
     def from_key(self, private_key:str):
         key = Key(private_key)
         print(key.address)
         return key
-    
     
     def from_dict(self, data):
         key = Key().from_key(data['private_key'])
@@ -264,9 +215,8 @@ class Key(Account):
         self = key
         return self
     
-    
     def get_key_path(self, name):
-        return  f'{self.key_storage_path}/{name}.json'
+        return  f'{self.path}/{name}.json'
     
     def get_keys(self, password=None):
         key2encrypted = self.key2encrypted()
@@ -282,7 +232,6 @@ class Key(Account):
     def key_info(self, name):
         path = self.get_key_path(name)
         return  c.get_json(path)
-    
     
     def get_key(self, name = None, password=None, create_if_not_found=True):
         name = name or 'mod'
@@ -312,7 +261,6 @@ class Key(Account):
             key.encrypt_key(name, password=password)
         return {'status': 'success', 'message': f'Key {name} added'}
 
-    
     def key_exists(self, name):
         path = self.get_key_path(name)
         return os.path.exists(path)
@@ -323,14 +271,12 @@ class Key(Account):
         self.private_key = data['private_key']
         return {'status': 'success', 'message': f'Key {name} loaded', 'address': self.address}
     
-    
     def key2path(self):
-        self.key_storage_path = c.abspath(self.key_storage_path)
-        paths = c.ls(self.key_storage_path)
+        self.path = c.abspath(self.path)
+        paths = c.ls(self.path)
         key2path = {path.split('/')[-1].split('.')[0]: path for path in paths}
         return key2path
 
-    
     def keys(self, search=None, show_encrypted=False):
         keys = list(self.key2path().keys())
         key2encrypted = self.key2encrypted()
@@ -339,11 +285,9 @@ class Key(Account):
         if search:
             keys = list(filter(lambda k: search in k, keys))
         return keys
-
     
     def remove_key(self, name):
         return os.remove(self.get_key_path(name))
-    
     
     def is_encrypted(self, key):
         if isinstance(key, str):
@@ -356,12 +300,10 @@ class Key(Account):
             data = c.get_json(path)
         return bool(isinstance(data, dict) and data.get('encrypted', False))
     
-    
     def key2encrypted(self ):
         key2path = self.key2path()
         key2path = {key: self.is_encrypted(key) for key, path in key2path.items() }
         return key2path
-    
     
     def encrypted_keys(self):
         return [key for key, encrypted in self.key2encrypted().items() if encrypted]
@@ -388,22 +330,4 @@ class Key(Account):
         if save:
             c.put_json(path, data)
         return {'status': 'success', 'message': f'Key {name} decrypted'}
-                
-    def key2data(self, password=None):
-        key2data = {}
-        for key, path in self.key2path().items():
-            data = c.get_json(path)
-            if data == None:
-                continue
-            if password != None and data.get('encrypted', False) == True:
-                try:
-                    data['private_key'] = self.decrypt(data['private_key'], password=password)
-                    assert Key(data['private_key']).address == data['address']
-                except Exception as e:
-                    data = None
-                    print(e)
-                    pass
-            if data != None:
-                key2data[key] = data
-        return key2data
-    
+     

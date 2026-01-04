@@ -64,7 +64,7 @@ class  Api:
 
 
     def verify_mod(self, mod: str = 'store', key=None) -> bool:
-        mod =  self.mod(mod=mod, key=key)
+        mod =  self.mod(mod=mod, key=key) if isinstance(mod, str) else mod
         signature = mod.get('signature', None)
         assert signature is not None, f'Mod {mod} has no signature'
         return self.key.verify(mod, signature=signature, address=mod['key'])
@@ -85,7 +85,7 @@ class  Api:
             mod['fns'] =fns
         mod['name'] = mod['name'].split('/')[0]
         if content:
-            mod['content'] = self.content(cid, expand=expand)
+            mod['content'] = self.content(mod['content'], expand=1)
         mod['cid'] = cid
         mod['protocal'] = mod.get('protocal', self.protocal)
         if 'version' not in mod:
@@ -351,7 +351,7 @@ class  Api:
         assert self.verify_call_data(payload, signature, key.address), "Payload verification failed"
         return self.call(fn= mod + '/' + fn, params=params, time=time, cost=cost, signature=signature, **kwargs)
 
-    def content(self, mod, key=None, expand=False,  depth=None, h=False) -> Dict[str, Any]:
+    def content(self, mod, key=None, expand=False, depth=None, h=False) -> Dict[str, Any]:
         """Get the content of a mod Mod from IPFS.
         
         Args:
@@ -360,17 +360,15 @@ class  Api:
         Returns:
             Content dictionary
         """
-        content_cid = self.mod(mod, key=key)['content']
-        content = self.get(content_cid)['data']
+        if self.is_valid_cid(mod):
+            content = self.get(self.get(mod)['content'])['data']
+        else:
+            content = self.get(self.mod(mod, key=key)['content'])['data']
         if expand: 
-            file2cid = self.get(content)
-            content = {}
-            for file, cid in file2cid.items():
-                content[file] = cid
+            content = self.get(content)
         if h: # heirarichal content
             return self.hc(content)
         return content
-
 
     def hc(self, content:Dict[str, Any], flatten=False) -> Dict[str, Any]:
         """Get a human-readable version of the content dictionary.
@@ -433,10 +431,7 @@ class  Api:
             d[key] = {}
         d[key] = self.dict_put(k_list[1:], v, d[key])
         return d
-
-    def verify_mod(self, mod: str, key=None) -> bool:
-        return self.mod(mod=mod, key=key)
-
+        
     # Register or update a mod in IPFS
     def key_address(self, key=None):
         key = key or 'mod'
@@ -543,6 +538,8 @@ class  Api:
         return self.reg_from_info(info)
 
     def reg_from_info(self, info: Dict[str, Any]) -> Dict[str, Any]:
+        assert 'signature' in info, "Info must contain a signature for verification"
+        assert self.verify_mod(info), "Mod verification failed"
         self.update_registry(info)
         return info
 
@@ -598,17 +595,16 @@ class  Api:
         """
         if isinstance(mod, dict):
             return self.reg_from_info(mod)
-        # het =wefeererwfwefhuwoefhiuhuihewds wfweferfgr frff frrefeh fff
-        prev_cid = self.cid(mod=mod, key=key)
-        current_time = m.time()
-        key = m.key(key)
-        if prev_cid == None:
-            info = self.get_info(mod=mod, key=key, protocal=protocal, comment=comment)
         else:
-            prev_info = self.mod(prev_cid, key=key)
-            info = self.get_info(mod=mod, key=key, comment=comment, protocal=protocal)
-            info['prev'] = prev_cid
-        info['cid'] = self.update_registry(info) 
+            prev_cid = self.cid(mod=mod, key=key)
+            key = m.key(key)
+            if prev_cid == None:
+                info = self.get_info(mod=mod, key=key, protocal=protocal, comment=comment)
+            else:
+                prev_info = self.mod(prev_cid, key=key)
+                info = self.get_info(mod=mod, key=key, comment=comment, protocal=protocal)
+                info['prev'] = prev_cid
+            info['cid'] = self.update_registry(info) 
         return info
 
 
@@ -721,7 +717,7 @@ class  Api:
         import datetime
         return datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
-    def versions(self, mod='store' , key=None, df=False, n=None, update=False, max_age=2) -> List[Dict[str, Any]]:
+    def versions(self, mod='app' , key=None, df=False, n=4, update=False, max_age=2) -> List[Dict[str, Any]]:
 
         if self.is_valid_cid(mod):
             mod_info = self.get(mod)
@@ -733,9 +729,10 @@ class  Api:
         if result is None:
             cid = self.cid(key=key, mod=mod)
             result = []   
+            current_n = 0
 
             if cid != None:
-                while True:
+                while current_n < n:
                     info = self.mod(cid, key=key)
                     content =  self.get(info['content'])
                     prev_cid = info.get('prev', None)
@@ -744,6 +741,7 @@ class  Api:
                         break
                     else:
                         cid = prev_cid
+                    current_n += 1
             if len(result) > 0:
                 result =  m.df(result)
                 result.sort_values('updated', ascending=False, inplace=True)
@@ -802,13 +800,16 @@ class  Api:
             cid: Target CID to setback to
             key: Key object or address string
         """
-        old_cid = self.cid(mod=mod, key=key)
-        old_content = self.content(old_cid, expand=1)
+        mod = self.mod(mod, key=key)
+        old_content = self.content(mod['cid'], expand=1)
         new_content = self.content(cid, expand=1)
-        dirpath = m.dp(mod)
+        print(cid, new_content)
+        dirpath = m.dp(mod['name'])
         add_dp_to_file = lambda f: os.path.join(dirpath, f)
         delete_files = [add_dp_to_file(f) for f in old_content.keys() if f not in new_content.keys()]
         new_content = { add_dp_to_file(k) : v for k, v in new_content.items()}
+
+        # filter the new content that cant 
         write_files = list(new_content.keys())
 
         print(f"Setback will overwrite the current mod at {mod} with content from CID {cid}.")
@@ -816,11 +817,12 @@ class  Api:
         m.print(f"new content: {new_content}")
         m.print(f"Files to be written: {write_files}")
         m.print(f"Files to be deleted: {delete_files}")
-
         if safety:
             input_prompt = input(f"Setback will overwrite the current mod at {mod}. Press y to continue...")
             if input_prompt != 'y':
-                raise Exception("Setback aborted by user.")
+                return {'status': 'setback aborted by user'}
+            else: 
+                m.print("Proceeding with setback...", color="green")
 
         for k,v in new_content.items():
             m.put_text(k, self.get(v))
@@ -829,7 +831,7 @@ class  Api:
             m.rm(file)
         self.update_registry(cid)
         return {
-            'old_cid': old_cid,
+            'old_cid': mod['cid'],
             'new_cid': cid,
             'mod': mod
         }  

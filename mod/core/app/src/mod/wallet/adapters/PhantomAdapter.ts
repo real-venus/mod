@@ -18,10 +18,16 @@ export class PhantomAdapter implements WalletAdapter {
   }
 
   async signIn(): Promise<void> {
+    if (typeof window.solana === 'undefined' || !window.solana.isPhantom) {
+      throw new Error('Phantom wallet is not installed')
+    }
+    
     const response = await window.solana.connect()
     if (!response.publicKey) throw new Error('Failed to connect')
+    
+    const address = response.publicKey.toString()
     localStorage.setItem('wallet_mode', 'phantom')
-    localStorage.setItem('wallet_address', response.publicKey.toString())
+    localStorage.setItem('wallet_address', address)
     localStorage.setItem('wallet_type', 'solana')
   }
 

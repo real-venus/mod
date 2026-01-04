@@ -28,6 +28,7 @@ class Dev:
                 path=None,
                 safety=True,
                 remote=False,
+                base = None,
                 **kwargs) -> Dict[str, str]:
         
         """

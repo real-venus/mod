@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { Coins } from 'lucide-react'
 import { useUserContext } from '@/mod/context'
 import { useEffect } from 'react'
+import { CopyButton } from '@/mod/ui/CopyButton'
 
 interface UserCardProps {
   user: UserType
@@ -31,7 +32,7 @@ export const UserCard = ({ user, mode  = 'explore' }: UserCardProps) => {
   }
   
   const userRgb = hexToRgb(userColor)
-  const borderColor = `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)`
+  const borderColor = `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.9)`
   const glowColor = `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.2)`
 
   useEffect(() => {
@@ -44,22 +45,23 @@ export const UserCard = ({ user, mode  = 'explore' }: UserCardProps) => {
       <div className="absolute -inset-1 bg-gradient-to-r opacity-5 group-hover:opacity-10 blur-lg transition-all duration-500 rounded-xl" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})` }} />
       
       <div className="relative z-10">
-          <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
             {/* Key Section */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border flex-1" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.1)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)` }}>
-                <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:scale-110 transition-transform">
-                  <KeyIcon className="w-8 h-8" style={{ color: userColor }} />
-                </Link>
-                <div className="flex flex-col flex-1 min-w-0">
-                  <div className="text-xs font-bold uppercase tracking-wider opacity-70" style={{ color: userColor }}>
-                    {user.crypto_type || 'sr25519'}
-                  </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border flex-1" style={{ backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.1)`, borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.4)` }}>
+              <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:scale-110 transition-transform">
+                <KeyIcon className="w-8 h-8" style={{ color: userColor }} />
+              </Link>
+              <div className="flex flex-col flex-1 min-w-0">
+                <div className="text-xs font-bold uppercase tracking-wider opacity-70" style={{ color: userColor }}>
+                  {user.crypto_type || 'sr25519'}
+                </div>
+                <div className="flex items-center gap-2">
                   <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
                     <code className="text-sm font-mono font-bold truncate block" style={{ color: userColor, fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }} title={user.key}>
                       {user.key.substring(0, 8)}...{user.key.substring(user.key.length - 8)}
                     </code>
                   </Link>
+                  <CopyButton text={user.key} size="sm" />
                 </div>
               </div>
             </div>

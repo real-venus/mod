@@ -92,6 +92,8 @@ class  IpfsClient:
         Returns:
             Dictionary with the JSON content
         """
+        if not isinstance(cid, str):
+            return cid
         if cid.startswith(self.prefix + '/'):
             cid = cid[len(self.prefix) + 1 :]
         content = self.get_file(cid)

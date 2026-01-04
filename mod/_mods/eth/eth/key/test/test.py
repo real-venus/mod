@@ -25,6 +25,7 @@ class Test:
                                 signature=signature['signature'], 
                                 vrs=signature['vrs'], 
                                 address=key2.address)
+        return {'status': 'success', 'message': 'Key verify test passed', 'keys': [key, key2]}
         
 
     def test_encrypt(self):

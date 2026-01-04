@@ -1271,7 +1271,6 @@ class Mod:
         tree = {k: self.abspath(v) for k,v in tree.items()}
         if search:
             return self.search(search=search, tree=tree, **kwargs)
-        
         return tree
 
     def core_tree(self, search=None, depth=8,  **kwargs): 
@@ -1519,11 +1518,12 @@ class Mod:
         self._config_cache[str(mod)] = config
         return config
 
+    cfg = config
+
     def config_paths(self, mod=None, 
                 modes=['yaml', 'json'], 
                 search=None, 
-                config_name_options = ['config', 'cfg', 'mod', 'block',  'agent', 'mod', 'bloc', 'server'],
-                names=['config', 'cfg', 'mod', 'block',  'agent', 'mod', 'bloc']):
+                filename_options = ['config', 'cfg', 'mod', 'block',  'agent', 'mod', 'bloc', 'server']):
         """
         Returns a list of config files in the path
         """
@@ -1531,9 +1531,9 @@ class Mod:
             path = '/'.join(__file__.split('/')[:-3])
         else:
             path = self.dirpath(mod)
-        def is_config(f):
-            return any(f.endswith(f'/{name}.{m}') for name in config_name_options for m in modes)
-        configs =  [f for f in  self.files(path) if is_config(f)]
+        def is_config_path(f):
+            return any(f.endswith(f'/{name}.{m}') for name in filename_options for m in modes)
+        configs =  [f for f in  self.files(path) if is_config_path(f)]
         if search != None:
             configs = [f for f in configs if search in f]
         return list(sorted(configs, key=lambda x: len(x)))

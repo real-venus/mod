@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useRef, useEffect } from 'react'
 import { useSidebarContext } from '@/mod/context/SidebarContext'
 import { SidebarSplitScreenButton } from './SidebarSplitScreenButton'
+import { SidebarWalletButton } from './SidebarWalletButton'
 
 const navigation = [
   { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },
@@ -120,6 +121,11 @@ export function Sidebar() {
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+
+            {/* Wallet Sign In Button at Bottom */}
+            <div className="pt-4 border-t border-white/10">
+              <SidebarWalletButton />
             </div>
           </nav>
 

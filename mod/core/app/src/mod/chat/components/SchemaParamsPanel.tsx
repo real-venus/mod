@@ -19,10 +19,7 @@ export function SchemaParamsPanel({
   handleResetParams,
   numColumns = 2
 }: SchemaParamsPanelProps) {
-  const [isParamsCollapsed, setIsParamsCollapsed] = useState(true)
-  const [isHovered, setIsHovered] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
-  const headerRef = useRef<HTMLDivElement>(null)
   const [columns, setColumns] = useState(numColumns)
 
   useEffect(() => {
@@ -37,12 +34,6 @@ export function SchemaParamsPanel({
     window.addEventListener('resize', checkWidth)
     return () => window.removeEventListener('resize', checkWidth)
   }, [numColumns])
-
-  const handleHeaderClick = (e: React.MouseEvent) => {
-    if (headerRef.current && headerRef.current.contains(e.target as Node)) {
-      setIsParamsCollapsed(!isParamsCollapsed)
-    }
-  }
 
   const toggleColumns = () => {
     setColumns(prev => prev === 1 ? 2 : 1)
@@ -62,19 +53,10 @@ export function SchemaParamsPanel({
   return (
     <div 
       ref={panelRef} 
-      className={`border-2 rounded-lg overflow-hidden mt-3 mx-3 backdrop-blur-sm transition-all ${
-        isHovered ? 'border-orange-500/60 bg-orange-500/10' : 'border-orange-500/40 bg-orange-500/5'
-      }`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className="overflow-hidden mt-3 backdrop-blur-sm transition-all"
     >
-      <div className="p-3 space-y-2 bg-black/40">
-        <div 
-          ref={headerRef}
-          className="flex justify-between items-center cursor-pointer"
-          onClick={handleHeaderClick}
-        >
-          <h3 className="text-orange-400 text-xl font-bold" style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 10px rgba(251, 146, 60, 0.5)' }}>parameters</h3>
+      <div className="space-y-2">
+        <div className="flex justify-end items-center">
           <div className="flex gap-2 items-center">
             <button
               onClick={(e) => {
@@ -97,32 +79,25 @@ export function SchemaParamsPanel({
             >
               🔄 reset
             </button>
-            <span className="text-orange-400 hover:text-orange-300 transition-all text-2xl px-1">
-              {isParamsCollapsed ? '▼' : '▲'}
-            </span>
           </div>
         </div>
-        {!isParamsCollapsed && (
-          <>
-            <div className={`grid gap-3 ${getGridCols()}`}>
-              {paramEntries.map(([key, value]: [string, any]) => (
-                <div key={key} className="flex flex-col gap-2">
-                  <label className="text-white text-lg font-bold" style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}>
-                    {key} <span className="text-gray-500 text-base">({value.type})</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={params[key] ?? ''}
-                    onChange={(e) => handleParamChange(key, e.target.value)}
-                    placeholder={value.value !== '_empty' ? String(value.value) : 'enter value...'}
-                    className="bg-black/60 border-2 border-orange-500/40 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 text-lg font-bold backdrop-blur-sm placeholder-orange-600/50"
-                    style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                  />
-                </div>
-              ))}
+        <div className={`grid gap-3 ${getGridCols()}`}>
+          {paramEntries.map(([key, value]: [string, any]) => (
+            <div key={key} className="flex flex-col gap-2">
+              <label className="text-white text-lg font-bold" style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}>
+                {key} <span className="text-gray-500 text-base">({value.type})</span>
+              </label>
+              <input
+                type="text"
+                value={params[key] ?? ''}
+                onChange={(e) => handleParamChange(key, e.target.value)}
+                placeholder={value.value !== '_empty' ? String(value.value) : 'enter value...'}
+                className="bg-black/60 border-2 border-orange-500/40 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 text-lg font-bold backdrop-blur-sm placeholder-orange-600/50"
+                style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+              />
             </div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   )
