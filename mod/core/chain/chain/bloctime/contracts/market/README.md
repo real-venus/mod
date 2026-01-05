@@ -12,7 +12,7 @@ Simplified marketplace for buying bloctime with whitelisted tokens. Tracks user 
 - Start/stop bloctime sessions
 - Automatic deduction of elapsed blocks
 - Transfer bloctime between users
-- Integration with PayMod for multi-token support
+- Integration with TokenGate for multi-token support
 
 **Main Functions:**
 - `buy(address paymentToken, uint256 blocTimeAmount)` - Purchase bloctime
@@ -21,7 +21,7 @@ Simplified marketplace for buying bloctime with whitelisted tokens. Tracks user 
 - `transfer(address to, uint256 amount)` - Transfer bloctime to another user
 - `getUserBlocTime(address user)` - Get user's bloctime status
 
-### PayMod.sol
+### TokenGate.sol
 Payment module that manages whitelisted tokens and their prices for bloctime purchases.
 
 **Key Features:**
@@ -54,7 +54,7 @@ Tracks user bloctime sessions with start/stop mechanism and automatic deduction 
 
 ## Usage Flow
 
-1. **Setup**: Deploy PayMod and set whitelisted tokens with prices
+1. **Setup**: Deploy TokenGate and set whitelisted tokens with prices
 2. **Purchase**: Users buy bloctime using supported payment tokens
 3. **Consume**: Users start sessions to consume bloctime
 4. **Track**: System automatically tracks and deducts elapsed blocks

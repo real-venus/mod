@@ -6,7 +6,7 @@ The BlocTime protocol consists of independently deployable contracts that work t
 
 ### Core Contracts
 
-1. **PayMod.sol** - Manages whitelisted payment tokens
+1. **TokenGate.sol** - Manages whitelisted payment tokens
 2. **Registry.sol** - Module registration and metadata
 3. **Staking.sol** - Staking system with BlocTimeToken
 4. **BidSystem.sol** - Bidding system for rental slots
@@ -15,10 +15,10 @@ The BlocTime protocol consists of independently deployable contracts that work t
 
 ## Deployment Order
 
-### 1. Deploy PayMod
+### 1. Deploy TokenGate
 ```javascript
-const PayMod = await ethers.getContractFactory('PayMod');
-const whitelist = await PayMod.deploy();
+const TokenGate = await ethers.getContractFactory('TokenGate');
+const whitelist = await TokenGate.deploy();
 await whitelist.waitForDeployment();
 ```
 

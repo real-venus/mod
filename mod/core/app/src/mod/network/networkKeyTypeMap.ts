@@ -1,5 +1,6 @@
 // Network to KeyType Mapping
 // This maps each network to its supported key/crypto types
+// # METAMASK USES ECDSA NOT SR25519
 
 export type NetworkId = 'test' | 'mainnet' | 'ethereum' | 'solana'
 export type KeyType = 'sr25519' | 'ecdsa' | 'ed25519'
@@ -26,7 +27,7 @@ export const NETWORK_KEYTYPE_MAP: Record<NetworkId, NetworkKeyTypeConfig> = {
   },
   ethereum: {
     networkId: 'ethereum',
-    supportedKeyTypes: ['ecdsa'],
+    supportedKeyTypes: ['ecdsa'], // METAMASK USES ECDSA
     recommendedWallet: 'metamask',
     chainType: 'evm'
   },

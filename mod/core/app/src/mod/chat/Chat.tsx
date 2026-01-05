@@ -166,10 +166,10 @@ export default function Chat() {
   return (
     <div className="flex h-full bg-gradient-to-br from-gray-950 via-black to-gray-900" style={{ fontFamily: "IBM Plex Mono, Courier New, monospace" }}>
       
-      {/* Split orientation toggle button - moved to bottom right */}
+      {/* Split orientation toggle button - moved to bottom left */}
       <button
         onClick={() => setSplitOrientation(prev => prev === 'vertical' ? 'horizontal' : 'vertical')}
-        className="fixed bottom-4 right-4 z-50 px-4 py-2 bg-blue-500/20 text-blue-400 border-2 border-blue-500/40 hover:bg-blue-500/30 rounded-lg transition-all font-bold"
+        className="fixed bottom-4 left-4 z-50 px-4 py-2 bg-blue-500/20 text-blue-400 border-2 border-blue-500/40 hover:bg-blue-500/30 rounded-lg transition-all font-bold"
         style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
         title={`Switch to ${splitOrientation === 'vertical' ? 'Horizontal' : 'Vertical'} Split`}
       >
@@ -179,7 +179,7 @@ export default function Chat() {
       <div id="split-container" className={`flex ${splitOrientation === 'vertical' ? 'flex-row' : 'flex-col'} w-full h-full gap-0 p-2 relative`}>
         {/* Left/Top Panel: Inputs (ModFn Selector, Chat Input, Params) */}
         <div 
-          className={`flex flex-col overflow-hidden border-2 border-orange-500/40 rounded-lg bg-black/40`}
+          className={`flex flex-col overflow-hidden rounded-lg bg-black/95`}
           style={{
             [splitOrientation === 'vertical' ? 'width' : 'height']: `${splitPosition}%`
           }}
@@ -218,10 +218,10 @@ export default function Chat() {
 
         {/* Draggable Divider */}
         <div
-          className={`${splitOrientation === 'vertical' ? 'w-2 cursor-col-resize hover:bg-orange-500/50' : 'h-2 cursor-row-resize hover:bg-orange-500/50'} bg-orange-500/20 transition-colors z-10 flex items-center justify-center`}
+          className={`${splitOrientation === 'vertical' ? 'w-3 cursor-col-resize hover:bg-white/70' : 'h-3 cursor-row-resize hover:bg-white/70'} bg-white/40 transition-colors z-10 flex items-center justify-center`}
           onMouseDown={handleMouseDown}
         >
-          <div className={`${splitOrientation === 'vertical' ? 'w-1 h-8' : 'h-1 w-8'} bg-orange-500/60 rounded-full`} />
+          <div className={`${splitOrientation === 'vertical' ? 'w-1.5 h-12' : 'h-1.5 w-12'} bg-white/80 rounded-full`} />
         </div>
 
         {/* Right/Bottom Panel: Transactions */}

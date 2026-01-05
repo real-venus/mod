@@ -15,7 +15,7 @@ BlocTime Protocol is a comprehensive DeFi system combining:
 2. **BlocTimeMarketplace**: Rent compute/AI/assets → Automatic treasury funding → Secondary market
 3. **Registry**: Modular module management → Ownership tracking → Availability control
 4. **BlocTimeTracker**: Session tracking with signature-based start/stop → Automatic bloctime deduction
-5. **PayMod**: Multi-token support → Flexible payment options
+5. **TokenGate**: Multi-token support → Flexible payment options
 6. **BidSystem**: Competitive bidding → Price discovery → Market efficiency
 
 ### 💎 Key Innovation

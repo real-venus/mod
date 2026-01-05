@@ -246,7 +246,7 @@ Get all module IDs owned by user.
 
 ---
 
-### PayMod
+### TokenGate
 
 #### Admin Functions
 

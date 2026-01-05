@@ -11,7 +11,7 @@ import { CopyButton } from '@/mod/ui/CopyButton'
 
 
 
-export function UserHeader() {
+export function WalletHeader() {
   const {  user, authLoading, signOut} = useUserContext()
   const router = useRouter()
   const [showTooltip, setShowTooltip] = useState(false)
@@ -136,21 +136,21 @@ export function UserHeader() {
               
               <div className="space-y-2">
                 <div>
+                  <div className="text-xs text-gray-400 mb-1">Wallet Type</div>
+                  <div className="font-mono text-sm uppercase font-bold" style={{ color: userColor, fontSize: '1rem' }}>{walletMode}</div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Key Type</div>
+                  <div className="font-mono text-sm uppercase font-bold" style={{ color: userColor, fontSize: '1rem' }}>{user.crypto_type}</div>
+                </div>
+                
+                <div>
                   <div className="text-xs text-gray-400 mb-1">Address</div>
                   <div className="flex items-center gap-2">
                     <div className="font-mono text-sm" style={{ color: 'white' }}>{shorten(user.key, 8, 8)}</div>
                     <CopyButton text={user.key} size="sm" />
                   </div>
-                </div>
-                
-                <div>
-                  <div className="text-xs text-gray-400 mb-1">Key Type</div>
-                  <div className="font-mono text-sm uppercase" style={{ color: userColor }}>{user.crypto_type}</div>
-                </div>
-                
-                <div>
-                  <div className="text-xs text-gray-400 mb-1">Wallet Mode</div>
-                  <div className="font-mono text-sm uppercase" style={{ color: userColor }}>{walletMode}</div>
                 </div>
                 
                 <div>

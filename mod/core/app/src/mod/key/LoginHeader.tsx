@@ -1,6 +1,6 @@
 'use client'
 
-import { UserHeader } from '@/mod/header/UserHeader'
+import { WalletHeader } from '@/mod/wallet/WalletHeader'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { CubeIcon, UsersIcon, Bars3Icon, MagnifyingGlassIcon, PlusCircleIcon } from '@heroicons/react/24/outline'
@@ -161,7 +161,7 @@ export function LoginHeader() {
             </div>
           )}
           
-          <UserHeader />
+          <WalletHeader />
         </div>
       </div>
     </header>

@@ -1,38 +1,20 @@
 'use client'
 
-import { UserHeader } from './UserHeader'
-import { NodeUrlSettings } from './NodeUrlSettings'
-import { NetworkSelector } from '@/mod/network/Header'
-import { usePathname } from 'next/navigation'
-import Link from 'next/link'
-import { CubeIcon, UsersIcon, Bars3Icon, MagnifyingGlassIcon, Squares2X2Icon, XMarkIcon, ArrowsRightLeftIcon, ArrowsUpDownIcon } from '@heroicons/react/24/outline'
-import { text2color } from '@/mod/utils'
+import { WalletHeader } from '@/mod/wallet/WalletHeader'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 import { useSearchContext } from '@/mod/context/SearchContext'
-import { useSplitScreenContext } from '@/mod/context/SplitScreenContext'
-import { useControlPanelContext } from '@/mod/context/ControlPanelContext'
 import { useRouter } from 'next/navigation'
 
 export function Header() {
-  const pathname = usePathname()
-  const isModsPage = pathname === '/mod/explore'
-  const isUsersPage = pathname === '/user/explore'
-  const [showMenu, setShowMenu] = useState(false)
-  const [isNarrow, setIsNarrow] = useState(false)
   const [searchCollapsed, setSearchCollapsed] = useState(false)
   const { handleSearch } = useSearchContext()
-  const { isSplitScreen, toggleSplitScreen, orientation, setOrientation } = useSplitScreenContext()
-  const { isControlPanelCollapsed, setIsControlPanelCollapsed } = useControlPanelContext()
   const router = useRouter()
   const [inputValue, setInputValue] = useState('')
-
-  const modsColor = '#3b82f6'
-  const usersColor = '#10b981'
 
   useEffect(() => {
     const checkWidth = () => {
       const width = window.innerWidth
-      setIsNarrow(width < 768)
       setSearchCollapsed(width < 1200)
     }
     checkWidth()
@@ -108,8 +90,8 @@ export function Header() {
         </div>
         
         <div className="flex items-center justify-end gap-3">
-          <NetworkSelector />
-          <UserHeader />
+          {/* <NetworkSelector /> */}
+          <WalletHeader />
         </div>
       </div>
     </header>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { text2color } from '@/mod/utils'
 
 interface ModuleFunctionSelectorProps {
@@ -28,6 +28,7 @@ export function ModuleFunctionSelector({
   const [solidifiedModule, setSolidifiedModule] = useState('api')
   const [solidifiedFunction, setSolidifiedFunction] = useState('edit')
   const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const moduleColor = useMemo(() => {
     return solidifiedModule ? text2color(solidifiedModule) : '#8b5cf6'
@@ -36,6 +37,22 @@ export function ModuleFunctionSelector({
   const functionColor = useMemo(() => {
     return solidifiedFunction ? text2color(solidifiedFunction) : '#8b5cf6'
   }, [solidifiedFunction])
+
+  useEffect(() => {
+    if (containerRef.current && solidifiedModule && solidifiedFunction) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      if (rect.top < 0 || rect.bottom > viewportHeight) {
+        containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }
+  }, [solidifiedModule, solidifiedFunction])
+
+  useEffect(() => {
+    if (!solidifiedModule || !solidifiedFunction) {
+      setShowSuggestions(true)
+    }
+  }, [solidifiedModule, solidifiedFunction])
 
   const handleUnifiedInput = (value: string) => {
     setUnifiedInput(value)
@@ -123,10 +140,10 @@ export function ModuleFunctionSelector({
   const handleModuleSelect = (modName: string) => {
     setSolidifiedModule(modName)
     setSelectedModule(modName)
-    setSolidifiedFunction('forward')
-    setSelectedFunction('forward')
+    setSolidifiedFunction('')
+    setSelectedFunction('')
     setUnifiedInput('')
-    setShowSuggestions(false)
+    setShowSuggestions(true)
     inputRef.current?.focus()
   }
 
@@ -144,6 +161,7 @@ export function ModuleFunctionSelector({
     setSolidifiedFunction('')
     setSelectedFunction('')
     setUnifiedInput('')
+    setShowSuggestions(true)
     inputRef.current?.focus()
   }
 
@@ -151,6 +169,7 @@ export function ModuleFunctionSelector({
     setSolidifiedFunction('')
     setSelectedFunction('')
     setUnifiedInput('')
+    setShowSuggestions(true)
     inputRef.current?.focus()
   }
 
@@ -174,8 +193,8 @@ export function ModuleFunctionSelector({
   const suggestedFunctions = getSuggestedFunctions()
 
   const getPlaceholder = () => {
-    if (!solidifiedModule) return "Type module (e.g., openrouter)..."
-    if (!solidifiedFunction) return "Type function..."
+    if (!solidifiedModule) return "Type module or select from list..."
+    if (!solidifiedFunction) return "Type function or select from list..."
     return ""
   }
 
@@ -201,17 +220,17 @@ export function ModuleFunctionSelector({
   }, [unifiedInput, solidifiedModule, solidifiedFunction, suggestedModules, suggestedFunctions])
 
     return (
-            <div className="relative mx-3 mt-1">
+            <div ref={containerRef} className="relative mx-3 mt-1">
               <div className="w-full bg-black border-2 border-gray-700/60 px-3 py-2.5 rounded-lg focus-within:ring-2 focus-within:ring-white/60 focus-within:border-white/60 transition-all shadow-lg text-base flex items-center gap-2 flex-wrap">
                 {solidifiedModule && (
                   <span 
-                    className="inline-flex items-center gap-1 px-3 py-1 border-2 rounded-full text-white font-bold text-lg shadow-lg" 
+                    className="inline-flex items-center gap-1 px-3 py-1 border-2 rounded-full text-white font-bold shadow-lg" 
                     style={{ 
                       fontFamily: 'IBM Plex Mono, monospace',
                       backgroundColor: `${moduleColor}30`,
                       borderColor: moduleColor,
                       boxShadow: `0 0 10px ${moduleColor}40`,
-                      fontSize: '1.125rem'
+                      fontSize: '1.25rem'
                     }}
                   >
                     {solidifiedModule}
@@ -229,13 +248,14 @@ export function ModuleFunctionSelector({
                 )}
                 {solidifiedFunction && (
                   <span 
-                    className="inline-flex items-center gap-1 px-3 py-1 border-2 rounded-full text-white font-bold text-lg shadow-lg" 
+                    className="inline-flex items-center gap-1 px-3 py-1 border-2 rounded-full font-bold shadow-lg" 
                     style={{ 
                       fontFamily: 'IBM Plex Mono, monospace',
-                      backgroundColor: `${functionColor}30`,
-                      borderColor: functionColor,
-                      boxShadow: `0 0 10px ${functionColor}40`,
-                      fontSize: '1.125rem'
+                      backgroundColor: `${functionColor}20`,
+                      borderColor: `${functionColor}60`,
+                      color: `${functionColor}`,
+                      boxShadow: 'none',
+                      fontSize: '1.25rem'
                     }}
                   >
                     {solidifiedFunction}

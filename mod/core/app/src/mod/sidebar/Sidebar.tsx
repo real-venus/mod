@@ -96,7 +96,6 @@ export function Sidebar() {
 
             <div
               className="relative"
-              onMouseEnter={() => setHoveredItem('Split Screen')}
               onMouseLeave={() => setHoveredItem(null)}
             >
               <SidebarSplitScreenButton />
@@ -123,10 +122,6 @@ export function Sidebar() {
               </AnimatePresence>
             </div>
 
-            {/* Wallet Sign In Button at Bottom */}
-            <div className="pt-4 border-t border-white/10">
-              <SidebarWalletButton />
-            </div>
           </nav>
 
 

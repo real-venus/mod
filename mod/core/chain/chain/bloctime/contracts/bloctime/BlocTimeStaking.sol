@@ -163,19 +163,6 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
         return y0 + (yRange * position) / range;
     }
     
-    /**
-     * @dev Get all points
-     */
-    function getAllPoints() external view returns (Point[] memory) {
-        return points;
-    }
-    
-    /**
-     * @dev Get number of points
-     */
-    function getPointCount() external view returns (uint256) {
-        return points.length;
-    }
     
     /**
      * @dev Set params

@@ -3,5 +3,9 @@
 import Chat from '@/mod/chat/Chat'
 
 export default function ChatPage() {
-  return <Chat />
+  return (
+    <div className="bg-black h-full">
+      <Chat />
+    </div>
+  )
 }

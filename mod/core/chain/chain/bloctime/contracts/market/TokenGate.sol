@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
- * @title PayMod
+ * @title TokenGate
  * @dev Simplified payment module - prices set directly via list, no map
  */
-contract PayMod is Ownable {
+contract TokenGate is Ownable {
     struct TokenInfo {
         address token;
         uint256 price; // Manual price in USD (8 decimals)

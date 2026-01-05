@@ -196,15 +196,15 @@ class  Api:
         path = task['path']
         params = params = self.get(task['params']) if isinstance(task['params'], str) else task['params']
         m.put(path, task)
-        server_exists = bool('api' != mod and self.server_exists(mod))
+
+        # avoid recursion
+        assert not task['fn'].endswith('/call'), "Function name cannot end with '/call'"
         try:
-            if server_exists:
-                result = m.fn('client/call')(task['fn'], params=params, timeout=task['timeout'])
-            else:
-                result = m.fn(task['fn'])(**params)
+            result = m.fn('client/call')(task['fn'], params=params, timeout=task['timeout'])
+            task['status'] = 'success'
         except Exception as e:
             result = m.detailed_error(e)
-        task['status'] = 'error' if isinstance(result, dict) and 'error' in result else 'success'
+            task['status'] = 'error'
         if self.is_generator(result):
             task['result'] = []
             for item in result:
@@ -360,14 +360,17 @@ class  Api:
         Returns:
             Content dictionary
         """
-        if self.is_valid_cid(mod):
-            content = self.get(self.get(mod)['content'])['data']
-        else:
-            content = self.get(self.mod(mod, key=key)['content'])['data']
-        if expand: 
-            content = self.get(content)
-        if h: # heirarichal content
-            return self.hc(content)
+        try:
+            if self.is_valid_cid(mod):
+                content = self.get(self.get(mod)['content'])['data']
+            else:
+                content = self.get(self.mod(mod, key=key)['content'])['data']
+            if expand: 
+                content = self.get(content)
+            if h: # heirarichal content
+                return self.hc(content)
+        except Exception as e:
+            return m.detailed_error(e)
         return content
 
     def hc(self, content:Dict[str, Any], flatten=False) -> Dict[str, Any]:
@@ -518,7 +521,7 @@ class  Api:
             mod = url.split('/')[-1].split('.git')[0] 
             # assert not m.mod_exists(mod), f'Mod {mod} already exists. Please choose a different mod name or deregister the existing mod first.'
             mod = mod.lower()
-            dirpath = m.ext_path
+            dirpath = m.exp_path
             modpath = os.path.join(dirpath, mod)
             if not os.path.exists(modpath):
                 git_cmd = f'git clone --single-branch {url} {modpath}'

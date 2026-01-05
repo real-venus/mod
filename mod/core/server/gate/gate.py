@@ -262,14 +262,6 @@ class Gate:
         self.store.put(self.role2data_path, role2data)
         return role2data
     
-    def add_permissions(self, role:str, fns:List[str]):
-        """
-        add multiple permissions to a role
-        """
-        for fn in fns:
-            self.add_permission(role, fn)
-        return self.role2data()
-    
     def rm_permissions(self, role:str, fns:List[str]):
         """
         remove multiple permissions from a role

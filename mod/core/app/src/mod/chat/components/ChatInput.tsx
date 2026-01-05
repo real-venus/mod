@@ -48,14 +48,14 @@ export function ChatInput({
               <button
                 type="button"
                 onClick={() => setShowParamSelector(!showParamSelector)}
-                className="px-3 py-2 bg-cyan-500/20 text-cyan-400 border-2 border-cyan-500/40 hover:bg-cyan-500/30 rounded-lg transition-all font-bold text-xs"
-                style={{ fontFamily: 'Press Start 2P, monospace', textTransform: 'lowercase' }}
+                className="px-16 py-10 bg-cyan-500/30 text-cyan-300 border-4 border-cyan-400/60 hover:bg-cyan-500/40 hover:border-cyan-400/80 rounded-xl transition-all duration-200 font-bold text-4xl shadow-lg backdrop-blur-sm"
+                style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 10px rgba(34, 211, 238, 0.6)' }}
                 disabled={isLoading}
               >
                 {selectedInputParam || 'param'}
               </button>
               {showParamSelector && (
-                <div className="absolute bottom-full mb-2 right-0 bg-black/95 border-2 border-cyan-500/60 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50">
+                <div className="absolute bottom-full mb-2 right-0 bg-black/95 border-4 border-cyan-400/70 rounded-xl shadow-2xl max-h-80 overflow-y-auto z-50 backdrop-blur-md">
                   {inputParamOptions.map(param => (
                     <button
                       key={param}
@@ -64,8 +64,8 @@ export function ChatInput({
                         setSelectedInputParam(param)
                         setShowParamSelector(false)
                       }}
-                      className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 text-cyan-400 border-b border-cyan-500/20 last:border-b-0 transition-all"
-                      style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+                      className="w-full text-left px-16 py-10 hover:bg-cyan-500/30 text-cyan-300 border-b border-cyan-500/30 last:border-b-0 transition-all duration-200 font-bold text-4xl"
+                      style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}
                     >
                       {param}
                     </button>

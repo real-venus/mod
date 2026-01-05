@@ -48,7 +48,7 @@ class Test(m.mod('gate')):
         assert 'alice' not in delegations, 'Failed to remove delegation for alice'
         return delegations
 
-   def test_roles(self):
+    def test_roles(self):
         """
         test the roles system
         """

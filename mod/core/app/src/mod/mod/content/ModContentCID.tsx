@@ -247,7 +247,6 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   useEffect(() => {
     const tree = buildFileTree(files);
     setFileTree(tree);
-    // if there is no selected file, select the first file in the tree
     if (!selectedFile) {
        for (let n of tree) {
           handleFileSelect(n).then(() => {});
@@ -501,9 +500,9 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                     <button
                       onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(section.cid || ''); }}
                       className="flex items-center gap-1 rounded bg-emerald-900/20 px-2 py-1 text-emerald-400 hover:bg-emerald-900/30"
-                      title="Copy hash"
+                      title="Copy CID (longer hash)"
                     >
-                      <span className="font-mono">Hash</span>
+                      <span className="font-mono text-xs">{section.cid ? `${section.cid.slice(0, 16)}...` : 'CID'}</span>
                       <ClipboardDocumentIcon className="h-3 w-3" />
                     </button>
                     <CopyButton content={content} />

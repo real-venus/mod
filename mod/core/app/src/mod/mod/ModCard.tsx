@@ -70,6 +70,7 @@ export default function ModCard({ mod}: ModCardProps) {
       case 'name': return mod.name
       case 'updated': return updatedTimeStr
       case 'author': return mod.key
+      case 'crypto_type': return user?.crypto_type || 'sr25519'
       default: return ''
     }
   }
@@ -115,7 +116,7 @@ export default function ModCard({ mod}: ModCardProps) {
                         <CopyButton text={mod.name} size="sm" />
 
                     <div 
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-md border backdrop-blur-sm" 
+                      className="flex items-center gap-2 px-3 py-2 rounded-md border backdrop-blur-sm h-10" 
                       style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', borderColor: 'rgba(59, 130, 246, 0.3)' }}
                       onMouseEnter={(e) => handleFieldHover('updated', updatedTimeStr, e)}
                       onMouseMove={handleFieldMove}
@@ -126,7 +127,7 @@ export default function ModCard({ mod}: ModCardProps) {
                     </div>
 
                     <div 
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-md border backdrop-blur-sm" 
+                      className="flex items-center gap-2 px-3 py-2 rounded-md border backdrop-blur-sm max-w-[200px] h-10" 
                       style={{ backgroundColor: 'rgba(236, 72, 153, 0.08)', borderColor: 'rgba(236, 72, 153, 0.3)' }}
                          onMouseEnter={(e) => handleFieldHover('author', mod.key, e)}
                         onMouseMove={handleFieldMove}
@@ -136,6 +137,15 @@ export default function ModCard({ mod}: ModCardProps) {
                         <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()} className="hover:scale-110 transition-transform">
                           <KeyIcon className="w-5 h-5" style={{ color: '#ec4899' }} />
                         </Link>
+                        <div className="flex flex-col gap-1 min-w-0 flex-1">
+                          <span 
+                            className="text-xs font-bold uppercase tracking-wider break-words" 
+                            style={{ color: '#ec4899', lineHeight: '1.2' }}
+                            onMouseEnter={(e) => handleFieldHover('crypto_type', user?.crypto_type || 'sr25519', e)}
+                          >
+                            {user?.crypto_type || 'sr25519'}
+                          </span>
+                        </div>
                         <CopyButton text={mod.key} size="sm" />
                     </div>
 
@@ -146,7 +156,7 @@ export default function ModCard({ mod}: ModCardProps) {
                           e.stopPropagation()
                           setShowAdminPanel(true)
                         }}
-                        className="ml-auto p-2 hover:bg-purple-500/20 rounded-lg transition-colors backdrop-blur-sm"
+                        className="ml-auto p-2 hover:bg-purple-500/20 rounded-lg transition-colors backdrop-blur-sm h-10"
                         title="Admin Settings"
                       >
                         <Settings className="w-5 h-5 text-purple-400" />
@@ -165,7 +175,8 @@ export default function ModCard({ mod}: ModCardProps) {
               top: `${tooltipPosition.y + 15}px`,
               borderColor: hoveredField === 'network' ? `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.6)` :
                           hoveredField === 'updated' ? 'rgba(59, 130, 246, 0.6)' :
-                          hoveredField === 'author' ? 'rgba(236, 72, 153, 0.6)' : 'rgba(139, 92, 246, 0.6)',
+                          hoveredField === 'author' ? 'rgba(236, 72, 153, 0.6)' : 
+                          hoveredField === 'crypto_type' ? 'rgba(236, 72, 153, 0.6)' : 'rgba(139, 92, 246, 0.6)',
               maxWidth: '400px',
               wordBreak: 'break-all'
             }}
@@ -173,7 +184,8 @@ export default function ModCard({ mod}: ModCardProps) {
             <div className="font-bold mb-1 uppercase text-xs" style={{
               color: hoveredField === 'network' ? userColor :
                      hoveredField === 'updated' ? '#3b82f6' :
-                     hoveredField === 'author' ? '#ec4899' : modColor
+                     hoveredField === 'author' ? '#ec4899' : 
+                     hoveredField === 'crypto_type' ? '#ec4899' : modColor
             }}>
               {hoveredField}
             </div>

@@ -4,7 +4,7 @@ Provides comprehensive interaction with all BlocTime smart contracts including:
 - Staking (BlocTimeStaking)
 - Registry (Module registration and blocktime purchases)
 - Marketplace (Buying bloctime with whitelisted tokens)
-- PayMod (Payment token whitelist and pricing)
+- TokenGate (Payment token whitelist and pricing)
 - Treasury (Multi-token treasury with proportional withdrawals)
 - Integration (System health checks and validation)
 """
@@ -41,7 +41,7 @@ class Mod:
         """Load a contract interface.
         
         Args:
-            name: Contract identifier (e.g., 'staking', 'marketplace', 'registry', 'paymod', 'treasury', 'integration')
+            name: Contract identifier (e.g., 'staking', 'marketplace', 'registry', 'TokenGate', 'treasury', 'integration')
             address: Contract address
             abi: Contract ABI
         """
@@ -58,7 +58,7 @@ class Mod:
             addresses: Dict mapping contract names to addresses
             abis: Dict mapping contract names to ABIs
         """
-        for name in ['staking', 'marketplace', 'registry', 'paymod', 'treasury', 'integration', 'bloctime_token', 'native_token']:
+        for name in ['staking', 'marketplace', 'registry', 'TokenGate', 'treasury', 'integration', 'bloctime_token', 'native_token']:
             if name in addresses and name in abis:
                 self.load_contract(name, addresses[name], abis[name])
 
@@ -408,10 +408,10 @@ class Mod:
             raise ValueError('Marketplace contract not loaded')
         
         # Calculate payment amount
-        paymod = self.contracts.get('paymod')
-        if paymod:
+        TokenGate = self.contracts.get('TokenGate')
+        if TokenGate:
             bloctime_price = marketplace.functions.blocTimePriceUSD().call()
-            payment_amount = paymod.functions.calculatePayment(
+            payment_amount = TokenGate.functions.calculatePayment(
                 payment_token, bloctime_amount, bloctime_price
             ).call()
             
@@ -518,7 +518,7 @@ class Mod:
             'remaining_bloctime': info[3]
         }
 
-    # ==================== PAYMOD FUNCTIONS ====================
+    # ==================== TokenGate FUNCTIONS ====================
 
     def set_token_prices(self, tokens: List[str], prices: List[int], decimals: List[int]) -> Dict[str, Any]:
         """Set payment token prices (owner only).
@@ -531,11 +531,11 @@ class Mod:
         Returns:
             Transaction receipt
         """
-        paymod = self.contracts.get('paymod')
-        if not paymod:
-            raise ValueError('PayMod contract not loaded')
+        TokenGate = self.contracts.get('TokenGate')
+        if not TokenGate:
+            raise ValueError('TokenGate contract not loaded')
         
-        tx = paymod.functions.setPrices(tokens, prices, decimals).build_transaction({
+        tx = TokenGate.functions.setPrices(tokens, prices, decimals).build_transaction({
             'from': self.account.address,
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
@@ -552,10 +552,10 @@ class Mod:
         Returns:
             True if whitelisted
         """
-        paymod = self.contracts.get('paymod')
-        if not paymod:
-            raise ValueError('PayMod contract not loaded')
-        return paymod.functions.isTokenModed(token_address).call()
+        TokenGate = self.contracts.get('TokenGate')
+        if not TokenGate:
+            raise ValueError('TokenGate contract not loaded')
+        return TokenGate.functions.isTokenModed(token_address).call()
 
     def get_token_price(self, token_address: str) -> Dict[str, Any]:
         """Get token price information.
@@ -566,11 +566,11 @@ class Mod:
         Returns:
             Price information dictionary
         """
-        paymod = self.contracts.get('paymod')
-        if not paymod:
-            raise ValueError('PayMod contract not loaded')
+        TokenGate = self.contracts.get('TokenGate')
+        if not TokenGate:
+            raise ValueError('TokenGate contract not loaded')
         
-        info = paymod.functions.getTokenPrice(token_address).call()
+        info = TokenGate.functions.getTokenPrice(token_address).call()
         return {
             'price': info[0],
             'decimals': info[1],
@@ -583,10 +583,10 @@ class Mod:
         Returns:
             List of token information dictionaries
         """
-        paymod = self.contracts.get('paymod')
-        if not paymod:
-            raise ValueError('PayMod contract not loaded')
-        return paymod.functions.getTokenList().call()
+        TokenGate = self.contracts.get('TokenGate')
+        if not TokenGate:
+            raise ValueError('TokenGate contract not loaded')
+        return TokenGate.functions.getTokenList().call()
 
     # ==================== TREASURY FUNCTIONS ====================
 
@@ -840,37 +840,6 @@ class Mod:
 
     # ==================== DEPLOYMENT & TEST FUNCTIONS ====================
 
-    def test_deploy_ganache(self):
-        """Test deployment on Ganache network."""
-        print("🚀 Testing deployment on Ganache...")
-        result = os.system('cd /root/mod/mod/_mods/bloctime && npm run deploy:ganache')
-        if result == 0:
-            print("✅ Ganache deployment successful!")
-        else:
-            print("❌ Ganache deployment failed!")
-        return result
-
-    def test_deploy_base(self):
-        """Test deployment on Base network."""
-        print("🚀 Testing deployment on Base...")
-        result = os.system('cd /root/mod/mod/_mods/bloctime && npm run deploy:base')
-        if result == 0:
-            print("✅ Base deployment successful!")
-        else:
-            print("❌ Base deployment failed!")
-        return result
-
-    def test_all_deployments(self):
-        """Test deployments on both Ganache and Base."""
-        print("🎯 Running all deployment tests...\n")
-        ganache_result = self.test_deploy_ganache()
-        print("\n" + "="*50 + "\n")
-        base_result = self.test_deploy_base()
-        print("\n" + "="*50)
-        print("\n📊 Deployment Test Summary:")
-        print(f"Ganache: {'✅ PASSED' if ganache_result == 0 else '❌ FAILED'}")
-        print(f"Base: {'✅ PASSED' if base_result == 0 else '❌ FAILED'}")
-        return ganache_result == 0 and base_result == 0
 
     def forward(self, x=1, y=2):
         """Legacy function for backward compatibility."""

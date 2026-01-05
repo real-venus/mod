@@ -634,8 +634,8 @@ async function deployBlocTime(config) {
   addresses.registry = await registry.getAddress();
   
   // 4. Whitelist
-  const PayMod = await hre.ethers.getContractFactory('PayMod');
-  const whitelist = await PayMod.deploy();
+  const TokenGate = await hre.ethers.getContractFactory('TokenGate');
+  const whitelist = await TokenGate.deploy();
   await whitelist.waitForDeployment();
   addresses.whitelist = await whitelist.getAddress();
   
