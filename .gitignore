@@ -7,7 +7,7 @@ __pycache__/
 
 # mods
 **/_exp
-**/_ext
+**/_outer
 # C extensions
 *.so
 **/logs

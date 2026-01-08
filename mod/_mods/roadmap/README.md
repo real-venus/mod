@@ -1,41 +1,69 @@
-# Roadmap
 
-## Overview
-This roadmap outlines the strategic integration priorities for model providers, compute infrastructure, and DeFi protocols to build a robust decentralized AI ecosystem.
 
-## Model Providers
-- **openrouter** (priority) - Multi-model API aggregator for flexible AI access
-- **anthropic** - Claude models for advanced reasoning
-- **openai** - GPT models for general-purpose tasks
-- **chutes** - Specialized model deployment
 
-## Compute Infrastructure
-- **primeintellect** (priority) - Decentralized GPU compute network
-- **akash** - Decentralized cloud computing marketplace
-- **lium** (bittensor) - Incentivized machine learning network
+(p) : progress
+(c) : complete
 
-## DeFi Integration
+foundation
+    registry (c)
+        - register module code and metadata relating to its ownership
+    payment system (p)
+        - charge users a subscription   
+            - can be a credit/debit system that can be topped off with longer subscriptions
+        - track costs on the backend if any (module providers need to calculate this)
 
-### Price Feeds
-- **uniswap** (priority) - DEX liquidity and pricing data
-- **raydium** (priority) - Solana-based AMM pricing
-- **coingecko** (priority) - Comprehensive market data aggregator
-- **coinmarketcap** (priority) - Industry-standard price tracking
-- **binance** - CEX pricing and volume data
+    app (p)
+        - allow for users to upload modules through github 
+        - edit modules through the chat interface
+        - tranfer tokens between users
+        - fork modules
+    
 
-### Oracle Services
-- **chainlink** - Decentralized oracle network for reliable data feeds
-- **pyth** - High-frequency price oracle for DeFi
+model 
+    - openrouter (c)
+    - anthropic (p)
+    - openai (p)
+    - chutes (p)
 
-### Lending Protocols
-- **aave** - Leading decentralized lending platform
-- **gnosis** - Multi-sig and DAO treasury management
+compute
+    - primeintellect (p)
+    - akash (p)
+    - lium (p)
 
-### Low-Risk Stablecoin Yield (1-10% ROI)
-- **aave** - Stable yield through overcollateralized lending
+defi
 
-## Implementation Strategy
-1. Prioritize integrations marked as (priority)
-2. Build modular connectors for each service
-3. Implement robust error handling and fallback mechanisms
-4. Monitor performance and optimize based on usage patterns
+    price: fetching the price
+        - uniswap (p)
+        - raydium (p)
+        - coingecko (p)
+        - coinmarketcap (p)
+        - binance
+    oracle
+        - chainlink
+        - pyth
+    lending
+        - aave
+        - gnosis 
+    lowfi (1-10% ROI for stables)
+        - aave
+
+storage:
+    local : local sstorage
+    ipfs : ipfs storage 
+
+    
+agent: selects tools based on the context of the query
+    - tools
+        - websearch (c)   
+        - edit_file (c)
+        - write_file (c)
+    - memory 
+        - memory of the user query as the agent runs through its plan
+    - skill
+        - the skil of the agent 
+
+dev: an agent that uses agent to write and edit files for changing modules
+
+
+    
+    

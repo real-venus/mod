@@ -217,7 +217,7 @@ class PM:
                 if ':' in vol:
                     host_path, container_path = vol.split(':')
                     # remove the home directory part
-                    rel_host_path = host_path.replace(m.home_path, '~')
+                    rel_host_path = host_path.replace(m.homepath, '~')
                     rel_volumes.append(f"{rel_host_path}:{container_path}")
                 else:
                     rel_volumes.append(vol)
@@ -858,7 +858,7 @@ class PM:
         """
         Convert a local path to a Docker-compatible path.
         """
-        return p.replace('~', '/root').replace(m.home_path, '/root')
+        return p.replace('~', '/root').replace(m.homepath, '/root')
         
     # TEST
     def test_network(self, network='modnet'):

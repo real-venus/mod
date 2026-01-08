@@ -19,9 +19,8 @@ class Mod:
 
     # we are going to avoid these folders when listing files
     avoid_folders = ['__pycache__', '.git', '.ipynb_checkpoints', 'node_modules', 'artifacts', 'egg-info',  'private', 'node_modules', '.venv', 'venv', '.env']
-    file_types = ['py'] # default file types
+    file_types = ['py', 'json', 'sol'] # default file types
     anchor_names = ['agent', 'mod', 'block'] # default anchor names
-    endpoints = ['ask'] # default endpoints
     lib_name = __file__.split('/')[-2] # mod/core/mod.py -> mod 
 
     def __init__(self, 
@@ -32,16 +31,21 @@ class Mod:
         """
         if os.getcwd() in [os.path.expanduser('~'), '/']:
             raise ValueError(f'For your safety we do not allow syncing in the home directory {os.getcwd()}, please cd into a project directory like cd mod or cd mymod')
-        self.mod_path =os.path.dirname(os.path.dirname(__file__))
-        self.lib_path  = self.libpath = self.repo_path  = self.repopath = os.path.dirname(self.mod_path) # the path to the repo
-        self.core_path = '/'.join(__file__.split('/')[:-1])
-        module_path_options = ['mods', 'modules', '_mods', '_modules', 'locals']
-        self.mods_path = list(filter(lambda x: os.path.exists(x), [f'{self.mod_path}/{option}' for option in module_path_options]))[0] # the path to the mods
-        self.exp_path = f'{self.mods_path}/_exp' # the path to the external mods
-        self.home_path = self.homepath  = os.path.expanduser('~')
+        
+        
+        self.paths = {}
+        self.paths["mod"] = self.mod_path =os.path.dirname(os.path.dirname(__file__))
+        self.paths["lib"]  = self.lib_path = os.path.dirname(self.paths["mod"]) # the path to the repo
+        self.paths['orbit'] = {
+            "inner": f'{self.mod_path}/orbit',
+            "outer": f'{self.mod_path}/orbit/_outer',
+            "core": self.mod_path + '/core',
+            "local": os.getcwd()
+        }
+        self.paths['home'] = self.homepath  = os.path.expanduser('~')
         config =self.config()
         self.name  = config['name']
-        self.storage_path = f'{self.home_path}/.{self.name}'
+        self.storage_path = f'{self.homepath}/.{self.name}'
         self.port_range = config['port_range']
         self.expose = self.endpoints = config['expose']
         self.anchor_names.append(self.name)
@@ -85,6 +89,9 @@ class Mod:
         return shortcuts
 
     def app(self):
+        if not self.server_exists('app'):
+            return
+        self.serve('api')
         return self.serve('app')
 
     _mod_cache = {}
@@ -92,30 +99,25 @@ class Mod:
                 mod: str = 'mod', 
                 params: dict = None,  
                 cache=True, 
-                verbose=False, 
+                verbose=False,
                 update=True,
                 **kwargs) -> str:
-
         """
         imports the mod core
         """
         t0 = self.time()
-        # Load the mod
         mod = mod or self.name
         if mod in [self.name]:
             return Mod
         if not isinstance(mod, str):
             return mod
-        # if self.obj_exists(mod):
-        #     return self.obj(mod)
         name = self.get_name(mod)
         if name in self._mod_cache:
             return self._mod_cache[name]
         obj =  self.anchor_object(name)
         self._mod_cache[name] = obj
         delta = self.time() - t0
-        if verbose:
-            self.print(f'mod({name} delta={delta:.2f}s)')
+        self.print(f'mod({name} [{delta:.2f}s])', verbose=verbose)
         return obj
 
     def forward(self, fn:str='info', params:dict=None, auth=None) -> Any:
@@ -184,14 +186,22 @@ class Mod:
         """
         if path == None:
             path = self.pwd()
-        return os.path.abspath(path) == os.path.abspath(self.home_path)
+        return os.path.abspath(path) == os.path.abspath(self.homepath)
 
     def print(self,  *text:str,  **kwargs):
         return self.obj('mod.core.utils.print_console')(*text, **kwargs)
 
-    def time(self, t=None) -> float:
+    def time(self, mode='float') -> float:
         import time
-        return time.time()
+        t = time.time()
+        if mode == 'int':
+            return int(t) * 1000
+        elif mode == 'float':
+            return float(t)
+        elif mode == 'iso':
+            return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(t))
+        elif 'date' in mode:
+            return time.ctime(t)
         
     def pwd(self):
         return os.getcwd()
@@ -303,7 +313,7 @@ class Mod:
               include_hidden:bool = False, 
               relative = False, # relative to the current working directory
               startswith:str = None,
-              depth=3,
+              depth=16,
               **kwargs) -> List[str]:
         """
         Lists all files in the path
@@ -328,7 +338,7 @@ class Mod:
         return sorted(files)
 
     def modfiles(self, mod=None, relative=1, **kwargs) -> List[str]:
-        mod = mod or self.name
+        mod = mod or 'mod'
         dirpath = self.dirpath(mod)
         files =  self.files(path=dirpath, **kwargs)
         if relative:
@@ -355,7 +365,7 @@ class Mod:
         return key.verify(data=data, signature=signature, address=address, **kwargs)
 
     def get_utils(self, search=None):
-        utils = self.path2fns(self.core_path + '/utils.py', tolist=True)
+        utils = self.path2fns(self.paths["orbit"]["core"] + '/utils.py', tolist=True)
         if search != None:
             utils = [u for u in utils if search in u]
         return sorted(utils)
@@ -365,7 +375,7 @@ class Mod:
 
     def relpath(self, path:str = '~') -> str:
         path = os.path.abspath(os.path.expanduser(path))
-        return path.replace(self.home_path, '~')
+        return path.replace(self.homepath, '~')
 
     def routes(self, obj=None):
         obj = obj or self
@@ -502,7 +512,7 @@ class Mod:
             path = path + '.' + extension
         return path
 
-    def put_text(self, path:str, text:str, key=None) -> None:
+    def put_text(self, path:str, text:str, key=None, password=None) -> None:
         # Get the absolute path of the file
         path = self.abspath(path)
         dirpath = os.path.dirname(path)
@@ -511,12 +521,16 @@ class Mod:
         if not isinstance(text, str):
             text = self.python2str(text)
         if key != None:
-            text = self.get_key(key).encrypt(text)
+            text = self.get_key(key).encrypt(text, password=password)
         # Write the text to the file
         with open(path, 'w') as file:
             file.write(text)
         # get size
         return {'success': True, 'path': f'{path}', 'size': len(text)*8}
+
+
+    def save_text(self, path:str, text:str, key=None) -> None:
+        return self.put_text(path, text, key=key)
 
     path = write =  get_path
     
@@ -617,7 +631,7 @@ class Mod:
     def text(self, path: str = './', **kwargs ) -> str:
         # Get the absolute path of the file
         path = self.abspath(path)
-        assert not self.home_path == path, f'Cannot read {path}'
+        assert not self.homepath == path, f'Cannot read {path}'
         if os.path.isdir(path):
             return self.file2text(path)
         with open(path, 'r') as file:
@@ -801,14 +815,14 @@ class Mod:
 
     mods = mods
     def get_mods (self, search=None, **kwargs):
-        return self.mods (search=search, **kwargs)
+        return self.mods(search=search, **kwargs)
 
-    def core_mods(self, *args, **kwargs) -> List[str]:
-        return list(self.core_tree(*args, **kwargs).keys())
+    def core_mods(self, *args,  **kwargs) -> List[str]:
+        return list(self.core_tree(*args,orbid='core', **kwargs).keys())
     cm = cmods = core_mods = core_mods 
 
     def local_mods(self) -> List[str]:
-        return list(self.local_tree().keys())
+        return list(self.orbit('local').keys())
     lm = lmods = local_mods = local_mods
 
     def info(self, 
@@ -960,7 +974,7 @@ class Mod:
         Converts a path to an object path (for instance ./foo/bar.py to foo.bar)
         """
         path = os.path.abspath(path)
-        dir_prefixes  = [os.getcwd(), self.lib_path, self.home_path]
+        dir_prefixes  = [os.getcwd(), self.paths["lib"], self.homepath]
         for dir_prefix in dir_prefixes:
             if path.startswith(dir_prefix):
                 path =   path[len(dir_prefix) + 1:].replace('/', '.')
@@ -1060,15 +1074,15 @@ class Mod:
             return fns
         return path2fns
 
-    ensure_syspath_flag = False
-
     def ensure_syspath(self):
         """
         Ensures that the path is in the sys.path
         """
+        if not hasattr(self, 'ensure_syspath_flag'):
+            self.ensure_syspath_flag = False
         if not self.ensure_syspath_flag:
             import sys
-            paths = [self.pwd(), self.repo_path]
+            paths = [self.pwd(), self.paths["lib"]]
             for path in paths:
                 if path not in sys.path:
                     sys.path.append(path)
@@ -1115,7 +1129,7 @@ class Mod:
         except Exception as e:
             mod_exists =  False
         if not mod_exists:
-            mod_path = os.path.join(self.mods_path, mod)
+            mod_path = os.path.join(self.paths["orbit"]["inner"], mod)
             mod_exists = os.path.exists(mod_path) and os.path.isdir(mod_path)
         return mod_exists
 
@@ -1128,7 +1142,7 @@ class Mod:
     def cwd(self, mod=None):
         return self.dirpath(mod) if mod else os.getcwd() 
 
-    def anchor_file(self, path, file_depth=4):
+    def anchor_file(self, path, depth=4):
 
         """
         desc:
@@ -1150,29 +1164,29 @@ class Mod:
         # IF FOR SOME REASON WE ARE SPECIFYING A PATH THAT IS A FILE (NOT IN THE TREE AS THE TREE ONLY HAS FOLDERS)
         path = self.dirpath(path)
         # this is rather nuanced, but it basically says that the anchor names are the anchor names plus the path chunks
-        # removing the home_path prefix
-        anchor_names =  self.anchor_names.copy() + path[len(self.home_path+'/'):].split('/')
-        files = list(sorted( self.files(path, depth=file_depth), key=lambda x: len(x)))
+        # removing the homepath prefix
+        anchor_names =  self.anchor_names.copy() + path[len(self.homepath+'/'):].split('/')
+        files = self.files(path, depth=depth)
+        # sort the files by length, so that the shortest file is first
+        files = sorted(files, key=lambda x: len(x))
+
         # filter files that are in the file types
         files = [f for f in files if any([f.endswith('.' + ft) for ft in self.file_types])]
 
         result = None
         if len(files) == 1:
             return files[0]
-
-        filegate = lambda f: any([f.endswith('/' + an + '.' + ft) for an in anchor_names for ft in self.file_types])
         
-        for f in files:
-            if filegate(f):
-                result = f
-                break
-        if not result:
-            score_fn = lambda f : 1 if path in f.split('/')[-1] or f.split('/')[-1].split('.')[0]  in path else 0
-            f2score = {f: score_fn(f) for f in files}
-            files = list(sorted(f2score.keys(), key=lambda x: f2score[x], reverse=True))
-            result =  files[0]
+        for file_type in self.file_types:
+            for anchor_name in anchor_names:
+                for f in files:
+                    if f.endswith('/' + anchor_name + '.' + file_type):
+                        return f
+        if result is None:
+            raise Exception(f'No anchor file found in {path} with anchor names {anchor_names} and file types {self.file_types}')
         return result
-
+        
+    af = anchor_file
     def anchor_object(self, path):
         path = self.get_name(path)
         anchor_file = self.anchor_file(path)
@@ -1194,6 +1208,8 @@ class Mod:
         name = name or 'mod'
         if any([name.startswith(p) for p in ['.', '~', '/']]):
             name = self.path2name(name)
+
+        avoid_terms.extend([self.paths["orbit"]['inner'].split('/')[-1], self.paths["orbit"]['outer'].split('/')[-1]])
         name = name.replace('/', '.')
         new_name = []
         for name_chunk in name.split('.'):
@@ -1245,7 +1261,7 @@ class Mod:
         params: 
             
         """
-        path = path or self.core_path
+        path = path or self.paths["core"]
         cache_path = self.abspath(f'~/.mod/tree/{path.split("/")[-1]}/depth_{depth}.json')
         tree = self.get(cache_path, {}, update=update)
         if len(tree) == 0:
@@ -1265,7 +1281,7 @@ class Mod:
             for k,v in self.shortcuts.items():
                 if v in tree:
                     tree[k] = tree[v]
-            # make all the trees relative to the home_path
+            # make all the trees relative to the homepath
             tree = {k: self.relpath(v) for k,v in tree.items()}
             self.put(cache_path, tree)
         tree = {k: self.abspath(v) for k,v in tree.items()}
@@ -1274,16 +1290,18 @@ class Mod:
         return tree
 
     def core_tree(self, search=None, depth=8,  **kwargs): 
-        return self.get_tree(self.core_path, search=search, depth=depth, **kwargs) 
+        return self.get_tree(self.paths["core"], search=search, depth=depth, **kwargs) 
 
-    def mods_tree(self, search=None,  depth=8,**kwargs): 
-        return self.get_tree(self.mods_path, search=search, depth=depth, **kwargs)
-
-    def exp_tree(self, search=None, depth=2, **kwargs):
-        return self.get_tree(self.exp_path, depth=depth,  search=search, **kwargs )
-
-    def local_tree(self, search=None, depth=1, **kwargs):
-        return self.get_tree(os.getcwd(), depth=depth,  search=search, **kwargs )
+    orbit2depth = {
+        'inner': 10,
+        'outer': 2,
+        'core': 10,
+        'local': 1
+    }
+    def orbit(self, orbit='core', search=None, **kwargs): 
+        orbit_path = self.paths["orbit"][orbit]
+        kwargs['depth'] = kwargs.get('depth', self.orbit2depth.get(orbit, 1))
+        return self.get_tree(orbit_path, search=search, **kwargs)
 
     def search(self, search=None, tree=None, depth=1, max_depth=8 ,**kwargs) -> Dict[str, str]:
         """
@@ -1318,8 +1336,6 @@ class Mod:
 
     def tree(self, 
             search=None, 
-            depth=5, 
-            ext=True, 
             **kwargs):
         """
         get the full tree of the mods, local and core
@@ -1334,11 +1350,9 @@ class Mod:
         
         """
         tree = {}
-        if ext: 
-            tree =  self.exp_tree(search=search, depth=1, **kwargs)
-        tree.update(self.mods_tree(search=search, depth=depth,  **kwargs))
-        tree.update(self.local_tree(search=search, depth=depth, **kwargs) if os.getcwd() != self.lib_path else {})
-        tree.update(self.core_tree(search=search, depth=depth, **kwargs))
+        orbits = ['outer', 'inner', 'local', 'core']
+        for orbit in orbits:
+            tree.update(self.orbit(orbit, **kwargs))
         return tree
 
     def dirpath(self, mod=None, relative=False, trials=2, key=None) -> str:
@@ -1346,7 +1360,7 @@ class Mod:
         get the directory path of the mod
         """
         if mod == None or mod == self.name:
-            return self.lib_path
+            return self.paths["lib"]
         tree = self.tree()
         tree_options = list(self.search(search=mod, tree=tree).values())
         if len(tree_options) == 0:
@@ -1367,14 +1381,14 @@ class Mod:
         assert os.path.exists(path), f'Path {path} does not exist'
         path = self.abspath(path)
         name = name or path.split('/')[-1]
-        dirpath = self.mods_path + '/' + name.replace('.', '/')
+        dirpath = self.paths["orbit"]["inner"] + '/' + name.replace('.', '/')
         self.cmd(f'cp -r {path} {dirpath}')
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created from path'}
 
     def addcid(self, name='churn',  cid='QmXUjBQRFa8DbY2GhD1Aq6a44EBYzgejmtwwnYYTfvnFW4'):
         api = c.mod('api')()
         file2text =  api.content(cid, expand=True)
-        path = self.mods_path + '/' + name.replace('.', '/')
+        path = self.paths["orbit"]["inner"] + '/' + name.replace('.', '/')
         for k,v in file2text.items():
             new_path = path + '/' + k
             print(f'Creating {new_path} for mod {name}')
@@ -1383,12 +1397,12 @@ class Mod:
         assert self.mod_exists , f'Mod {name} not found after creation from cid {cid}'
         return {'name': name, 'path': path, 'msg': 'Mod Created from cid', 'cid': cid}
 
-    def addgit(self,  repo , name=None, update=True):
+    def addgit(self,  repo , name=None, update=True, orbit='outer'):
         """
         make a new mod from a git repo
         """
         name = name or repo.split('/')[-1].replace('.git', '')
-        mods_path = self.exp_path
+        mods_path = self.paths["orbit"]["outer"]
         dirpath = mods_path + '/' + name.replace('.', '/')
         mod_name = dirpath.split('/')[-1]
         self.cmd(f'git clone {repo} {dirpath}')
@@ -1396,28 +1410,24 @@ class Mod:
         has_python_files = any([f.endswith('.py') for f in files])
         if not has_python_files:
             self.put_text( dirpath + '/'+ mod_name +'.py', self.code('base'))
-        self.exp_tree(update=True)
+        self.orbit(orbit,update=True)
         return self.files(dirpath)
 
-    def addmod(self,  path  , name=None, base='base', update=True, external=True):
+    def new(self, name='base2', base='base', orbit='inner', update=True):
         """
         make a new mod
         """
         name = name or path.split('/')[-1]
-        mods_path = self.exp_path if external else self.mods_path
-        dirpath = mods_path + '/' + name.replace('.', '/')
-        mod_name = dirpath.split('/')[-1]
+        dirpath = self.paths["orbit"][orbit] + '/' + name.replace('.', '/')
+        print(f'Creating new mod {name} at {dirpath} from base {base}')
         for k,v in self.content(base).items():
-            new_path = dirpath + '/' +  k.replace(base, mod_name)
-            print(f'Creating {new_path} for mod {name}')
+            new_path = dirpath + '/' +  k.replace(base, name)
             self.put_text( new_path, v)
         files = self.files(dirpath)
         self.tree(update=True)
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self.cid(name)}
-
-    add_mod = addmod
     
-    create = new = add = fork = add_mod 
+    create = new = add = fork = new 
 
     def urls(self, *args, **kwargs):
         return self.fn('pm/urls')(*args, **kwargs)
@@ -1481,14 +1491,14 @@ class Mod:
     def help(self, mod='mod', query:str = 'what is this', *extra_query, **kwargs):
         query = ' '.join(list(map(str, [query, *extra_query])))
         mod =  mod or mod
-        context = self.context(path=self.core_path)
+        context = self.context(path=self.paths["core"])
         return self.mod('agent')().ask(f'given the code {self.code(mod)} and CONTEXT OF COMMUNE {context} anster wht following question: {query}', preprocess=False)
     
     def ask(self, *args, **kwargs):
         return self.fn("agent/")(*args, **kwargs) 
 
     def context(self, path=None):
-        path = path or self.core_path
+        path = path or self.paths["core"]
         return self.code()
 
     def import_mod(self, mod:str):
@@ -1523,6 +1533,7 @@ class Mod:
     def config_paths(self, mod=None, 
                 modes=['yaml', 'json'], 
                 search=None, 
+                depth = 3,
                 filename_options = ['config', 'cfg', 'mod', 'block',  'agent', 'mod', 'bloc', 'server']):
         """
         Returns a list of config files in the path
@@ -1533,7 +1544,7 @@ class Mod:
             path = self.dirpath(mod)
         def is_config_path(f):
             return any(f.endswith(f'/{name}.{m}') for name in filename_options for m in modes)
-        configs =  [f for f in  self.files(path) if is_config_path(f)]
+        configs =  [f for f in  self.files(path, depth=depth) if is_config_path(f)]
         if search != None:
             configs = [f for f in configs if search in f]
         return list(sorted(configs, key=lambda x: len(x)))
@@ -1570,7 +1581,7 @@ class Mod:
         return {'msg': f'Pushed to {path} with comment: {comment}'}
 
     def get_mods_path(self, exp=True):
-        return self.mods_path if not exp else self.exp_path
+        return self.paths["orbit"]["inner"] if not exp else self.paths["orbit"]["outer"]
 
     def cpmod(self, from_mod:str = 'dev', to_mod:str = 'dev2', force=True):
         return self.fn('factory/cpmod')(from_mod=from_mod, to_mod=to_mod, force=force)
@@ -1580,7 +1591,7 @@ class Mod:
         Move the mod to the git repository
         """
         from_path = self.dirpath(from_mod)
-        to_path = self.mods_path + '/' + to_mod.replace('.', '/')
+        to_path = self.paths["orbit"]["inner"] + '/' + to_mod.replace('.', '/')
         for f in self.files(from_path):
             print(f'Moving {f} to {to_path + "/" + f[len(from_path)+1:]}')
 
@@ -1607,7 +1618,7 @@ class Mod:
     def clone(self, mod:str = 'dev', name:str = None):
         repo2path = self.repo2path()
         if os.path.exists(mod):
-            to_path =  self.mods_path + '/' + mod.split('/')[-1]
+            to_path =  self.paths["orbit"]["inner"] + '/' + mod.split('/')[-1]
             from_path = mod
             self.rm(to_path)
             self.cp(from_path, to_path)
@@ -1616,9 +1627,9 @@ class Mod:
             code_link = mod
             mod = name or mod.split('/')[-1].replace('.git', '')
             # clone ionto the mods path
-            to_path = self.mods_path + '/' + mod
-            cmd = f'git clone {code_link} {self.mods_path}/{mod}'
-            self.cmd(cmd, cwd=self.mods_path)
+            to_path = self.paths["orbit"]["inner"] + '/' + mod
+            cmd = f'git clone {code_link} {self.paths["orbit"]["inner"]}/{mod}'
+            self.cmd(cmd, cwd=self.paths["orbit"]["inner"])
         else:
             raise Exception(f'Mod {mod} does not exist')
         git_path = to_path + '/.git'

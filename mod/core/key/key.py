@@ -55,7 +55,6 @@ class Key:
     rm = m.rm
     hash = m.hash
     time = m.time
-
     crypto_type_map = {'ed25519': 0, 'sr25519': 1, 'ecdsa': 2}
     crypto_types = list(crypto_type_map.keys())
     reverse_crypto_type_map = {v:k for k,v in crypto_type_map.items()}
@@ -83,10 +82,8 @@ class Key:
         Parameters
         ----------
         private_key: Substrate address
-        public_key: hex string or bytes of public_key key
-        private_key: hex string or bytes of private key
-        seed_hex: hex string of seed
         crypto_type: Use "sr25519" or "ed25519"cryptography for generating the Key
+        mnemonic [optional]: Mnemonic phrase to generate the Key 
         """
         crypto_type = self.get_crypto_type(crypto_type)
         if  mnemonic:
@@ -729,4 +726,4 @@ class Key:
 
     @property
     def multiaddress(self):
-        return self.crypto_type_name + '//' + self.address
+        return self.crypto_type_name + '/' + self.address

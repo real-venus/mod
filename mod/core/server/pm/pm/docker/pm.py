@@ -60,7 +60,7 @@ class PM:
         cmd  = f"m serve {self.params2cmd(params)}" 
         dirpath = m.dirpath(mod)
         if volumes is None:
-            paths =  [m.lib_path, m.storage_path, dirpath]
+            paths =  [m.paths["lib"], m.storage_path, dirpath]
             volumes = [f'{p}:{self.convert_docker_path(p)}' for p in paths]
         cwd = cwd or dirpath
         working_dir = self.convert_docker_path(dirpath)
@@ -210,7 +210,7 @@ class PM:
                 if ':' in vol:
                     host_path, container_path = vol.split(':')
                     # remove the home directory part
-                    rel_host_path = host_path.replace(m.home_path, '~')
+                    rel_host_path = host_path.replace(m.homepath, '~')
                     rel_volumes.append(f"{rel_host_path}:{container_path}")
                 else:
                     rel_volumes.append(vol)
@@ -829,7 +829,7 @@ class PM:
         """
         Convert a local path to a Docker-compatible path.
         """
-        return p.replace('~', '/root').replace(m.home_path, '/root')
+        return p.replace('~', '/root').replace(m.homepath, '/root')
         
     # TEST
     def test_network(self, network='modnet'):

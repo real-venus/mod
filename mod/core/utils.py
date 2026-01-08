@@ -524,7 +524,7 @@ def pip_install(lib:str= None,
         m.print(f'Installing {lib} Module from local directory')
         lib = m.resolve_module(lib).dirpath()
     if lib == None:
-        lib = m.lib_path
+        lib = m.paths["lib"]
 
     if m.path_exists(lib):
         cmd = f'pip install -e'
@@ -1476,7 +1476,6 @@ def listdir(path:str='./'):
 def file2hash(path='./'):
     import mod as m
     file2hash = {}
-    import mod as m
     for k,v in m.file2text(path).items():
         file2hash[k] = m.hash(v)
     return file2hash
@@ -1672,14 +1671,6 @@ def find_lines(text:str, search:str) -> List[str]:
             found_lines += [line]
     
     return found_lines
-def file2lines(path:str='./')-> List[str]:
-    result = file2text(path)
-    return {f: text.split('\n') for f, text in result.items()}
-
-def file2n(path:str='./')-> List[str]:
-    result = file2text(path)
-    return {f: len(text.split('\n')) for f, text in result.items()}
-
 def munch( x:dict, recursive:bool=True)-> 'Munch':
     from munch import Munch
     '''
@@ -1828,12 +1819,12 @@ def file2text(path = './',
         except Exception as e:
             continue
     if relative:
-        home_path = os.path.abspath(os.path.expanduser('~'))
+        homepath = os.path.abspath(os.path.expanduser('~'))
 
         results = {}
         for k,v in file2text.items():
-            if k.startswith(home_path):
-                k = '~'+path[len(home_path):] 
+            if k.startswith(homepath):
+                k = '~'+path[len(homepath):] 
                 results[k] = v
         return results
 

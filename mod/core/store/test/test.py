@@ -87,7 +87,7 @@ class TestStore:
         store = self.store
         if m.mod_exists(mod):
             m.rmmod(mod)
-        m.addmod(mod)
+        m.new(mod)
         folder_path = m.dp(mod)
         store.encrypt_folder(folder_path, password=password)
         path2text =store.decrypt_folder(folder_path, password=password)

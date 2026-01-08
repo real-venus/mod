@@ -36,7 +36,18 @@ class Server:
         self.set_pm(pm)
         self.executor = m.mod(executor)()
         self.timeout = timeout
-        
+
+
+    @property
+    def pm(self):
+        if not hasattr(self, '_pm'):
+            self._pm = m.mod('pm')()
+        return self._pm
+
+    @pm.setter
+    def pm(self, value):
+        self._pm = value
+
     def set_pm(self,  pm: Union[str, 'Module', Any],  fns = ['logs', 'namespace', 'kill', 'kill_all','namespace', 'killall']):
         self.pm = m.mod(pm)()
         m.mergemods(from_mod=self.pm, to_mod=self, fns=fns)
@@ -136,7 +147,7 @@ class Server:
 
               ):
 
-        
+        self.set_pm(pm)
         mod = mod or m.name
         if mod not in [m.name]:
             try:
