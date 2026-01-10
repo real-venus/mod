@@ -896,7 +896,7 @@ def public_ports(timeout=1.0):
     results = list(map(bool, results))
     return results
 
-def free_ports(n=10, random_selection:bool = False, **kwargs ) -> List[int]:
+def free_ports(n=None, random_selection:bool = False, **kwargs ) -> List[int]:
     free_ports = []
     avoid_ports = kwargs.pop('avoid_ports', [])
     for i in range(n):

@@ -28,13 +28,13 @@ class PM:
 
     def forward(self,  
                 mod : str ='api', 
-                port : Optional[int] = None, 
-                params : Optional[dict] = None,
-                key : Optional[str] = None,
+                port : int = None, 
+                params : dict = None,
+                key : str = None,
                 image:str=None, 
                 daemon:bool=True,
-                cwd : Optional[str] = None, # the working directory to run docker-compose in
-                volumes : Optional[dict] = None,
+                cwd : str = None, # the working directory to run docker-compose in
+                volumes : list = None,
                 docker_in_docker:bool = False,
                 env:Optional[dict]=None,
                 call_interval : float = 0.2, # time between calls to check if server is up
@@ -46,18 +46,19 @@ class PM:
         port = port or m.free_port()
         params.update({'port': port, 'key': key or mod, 'remote': False, 'mod': mod})
         dirpath = m.dirpath(mod)
+        cmd = f"m serve {self.params2cmd(params)}"
+        
         volumes = volumes or [f'{p}:{self.convert_docker_path(p)}' for p in  [m.lib_path, m.storage_path, dirpath]]
         result = self.run(name=mod, 
                           image=image, 
                           port=port, 
-                          cmd=f"m serve {self.params2cmd(params)}" , 
+                          cmd=cmd , 
                           daemon=daemon, 
                           env=env, 
                           volumes=volumes, 
                           cwd=cwd or dirpath, 
                           docker_in_docker=docker_in_docker,
                           working_dir=self.convert_docker_path(dirpath))
-       
        
         return result
 
@@ -98,7 +99,6 @@ class PM:
             shm_size: str = '100g',
             network: Optional = None,  # 'host', 'bridge', etc.
             port: int = None,
-            ports: Union[List, Dict[int, int]] = None,
             daemon: bool = True,
             remote: bool = False,
             env: Optional[Dict] = None,
@@ -125,6 +125,7 @@ class PM:
                 'name': network
             }
         }
+        services = compose_config['services']
         image = image or self.ensure_image(name)
 
         if self.server_exists(name):
@@ -135,14 +136,11 @@ class PM:
             'container_name': name,
             'restart': restart,
             'deploy': {'resources': resources} if resources else {},
-            'shm_size': shm_size
+            'shm_size': shm_size,
+            'ports': services[name].get('ports', [])
         }
-
-        # PORTS
-        if port != None:
-            ports = {port: port}
-        if isinstance(ports, dict):
-            serve_config['ports'] = [f"{host_port}:{container_port}" for container_port, host_port in ports.items()] 
+        ports =  [f'{port}:{port}'] 
+        serve_config['ports'] = ports + serve_config['ports'][1:] if len(serve_config['ports']) > 0 else ports
 
         # VOLUMES
         if volumes:
@@ -376,6 +374,8 @@ class PM:
         """
         Kill and remove a container.
         """
+        if name == 'all':
+            return self.kill_all()
         if not self.server_exists(name):
             return {'status': 'not_found', 'name': name}
         servers = self.servers(search=name)
@@ -889,3 +889,15 @@ class PM:
             self.add_network(network)
         assert self.network_exists(network), f"Failed to create network {network}"
         return network
+
+    def rm_orphan_containers(self):
+        """
+        Remove orphan Docker containers that are not managed by this PM.
+        """
+        managed = set(self.servers())
+        all_containers = set(self.ps())
+        orphans = all_containers - managed
+        for orphan in orphans:
+            print(f'Removing orphan container: {orphan}')
+            self.kill(orphan)
+        return {'status': 'removed_orphans', 'orphans': list(orphans)}

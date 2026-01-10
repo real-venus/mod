@@ -10,6 +10,7 @@ services:
     image: eth
     ports:
     - 50055:50055
+    - 8545:8545
     restart: unless-stopped
     shm_size: 100g
     volumes:

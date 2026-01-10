@@ -17,7 +17,7 @@ class Dev:
 
     def forward(self, 
                 query: str = 'make this like the base ', 
-                mod=None,
+                mod='base',
                 model: Optional[str] = 'anthropic/claude-sonnet-4.5',
                 temperature: float = 0.0, 
                 max_tokens: int = 1000000, 

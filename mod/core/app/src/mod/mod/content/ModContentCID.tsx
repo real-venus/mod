@@ -19,7 +19,7 @@ import {
   ArchiveBoxIcon
 } from '@heroicons/react/24/outline';
 import { ModuleType } from '@/mod/types';
-import { useUserContext } from '@/mod/context';
+import { userContext } from '@/mod/context';
 
 
 export interface ModContentProps {
@@ -217,7 +217,7 @@ export function FileTreeItem({
 
 export default function ModContent({ mod }: { mod: ModuleType }) {
   const files = typeof mod.content === 'object' && mod.content !== null ? mod.content : {};
-  const { client } = useUserContext();
+  const { client } = userContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [fileSearchTerm, setFileSearchTerm] = useState('');
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { cryptoWaitReady } from '@polkadot/util-crypto'
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { KeyIcon, WalletIcon } from '@heroicons/react/24/outline'
@@ -9,7 +9,7 @@ import MetamaskAccountSelector from './MetamaskAccountSelector'
 type AuthMode = 'local' | 'subwallet' | 'metamask' | 'phantom'
 
 export function WalletAuthButton() {
-  const { user, signIn, signOut, authLoading } = useUserContext()
+  const { user, signIn, signOut, authLoading } = userContext()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('local')
   const [password, setPassword] = useState('')

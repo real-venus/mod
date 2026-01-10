@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { CopyButton } from '@/mod/ui/CopyButton';
-import { useUserContext } from '@/mod/context';
+import { userContext } from '@/mod/context';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MagnifyingGlassIcon,
@@ -40,7 +40,7 @@ const ui = {
 };
 
 export const ModApi = ({ mod }: { mod: any }) => {
-  const { user, client } = useUserContext();
+  const { user, client } = userContext();
 
   const schema: Record<string, SchemaType> = mod?.schema || {};
 

@@ -8,7 +8,7 @@ import { CubeIcon } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { GlobeAltIcon } from '@heroicons/react/24/outline'
 import ModAdminPanel from './ModAdminPanel'
 import { CopyButton } from '@/mod/ui/CopyButton'
@@ -32,7 +32,7 @@ export default function ModCard({ mod}: ModCardProps) {
   const userColor = text2color(mod.key)
   const updatedTimeStr = mod.updated ? time2str(mod.updated) : time2str(Date.now())
   
-  const { user } = useUserContext()
+  const { user } = userContext()
 
 
   const myMod :boolean = user && user.key === mod.key
@@ -137,15 +137,6 @@ export default function ModCard({ mod}: ModCardProps) {
                         <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()} className="hover:scale-110 transition-transform">
                           <KeyIcon className="w-5 h-5" style={{ color: '#ec4899' }} />
                         </Link>
-                        <div className="flex flex-col gap-1 min-w-0 flex-1">
-                          <span 
-                            className="text-xs font-bold uppercase tracking-wider break-words" 
-                            style={{ color: '#ec4899', lineHeight: '1.2' }}
-                            onMouseEnter={(e) => handleFieldHover('crypto_type', user?.crypto_type || 'sr25519', e)}
-                          >
-                            {user?.crypto_type || 'sr25519'}
-                          </span>
-                        </div>
                         <CopyButton text={mod.key} size="sm" />
                     </div>
 

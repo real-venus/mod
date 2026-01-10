@@ -9,7 +9,7 @@ services:
       dockerfile: Dockerfile
     container_name: ganache
     deploy: {}
-    entrypoint: bash -c "m serve port=50126 key=ganache remote=0 mod=ganache"
+    entrypoint: bash -c "m serve port=50062 key=ganache remote=0 mod=ganache"
     healthcheck:
       interval: 10s
       retries: 5
@@ -21,7 +21,8 @@ services:
       timeout: 5s
     image: ganache
     ports:
-    - 50126:50126
+    - 50062:50062
+    - 8545:8545
     restart: unless-stopped
     shm_size: 100g
     volumes:

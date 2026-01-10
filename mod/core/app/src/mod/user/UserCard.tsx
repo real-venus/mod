@@ -5,7 +5,7 @@ import { UserType } from '@/mod/types'
 import Link from 'next/link'
 import { useState } from 'react'
 import { Coins } from 'lucide-react'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { useEffect } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'
 
@@ -15,11 +15,11 @@ interface UserCardProps {
 }
 
 export const UserCard = ({ user, mode  = 'explore' }: UserCardProps) => {
-  const { client, network } = useUserContext()
+  const { client, network } = userContext()
   const [balance, setBalance] = useState(user.balance)
   const [isLoading, setIsLoading] = useState(true)
   const userColor = text2color(user.key)
-  const { user: currentUser } = useUserContext()
+  const { user: currentUser } = userContext()
   const myMod = currentUser && currentUser.key === user.key
   
   const hexToRgb = (hex: string) => {
@@ -41,7 +41,7 @@ export const UserCard = ({ user, mode  = 'explore' }: UserCardProps) => {
   }, [])
 
   const CardContent = () => (
-      <div className="group relative border-2 rounded-xl px-4 py-3 hover:shadow-xl transition-all duration-300 backdrop-blur-sm hover:scale-[1.01] bg-black" style={{ borderColor: borderColor, boxShadow: `0 0 12px ${glowColor}` }}>
+      <div className="group relative border-2 rounded-xl px-4 py-3 hover:shadow-xl transition-all duration-300 backdrop-blur-sm hover:scale-[1.01] bg-black" style={{ borderColor: borderColor, boxShadow: `0 0 12px ${glowColor}`, marginTop: '0px', paddingTop: '12px' }}>
       <div className="absolute -inset-1 bg-gradient-to-r opacity-5 group-hover:opacity-10 blur-lg transition-all duration-500 rounded-xl" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})` }} />
       
       <div className="relative z-10">

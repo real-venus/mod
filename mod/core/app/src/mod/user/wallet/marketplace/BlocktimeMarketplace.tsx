@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import { DollarSign, ShoppingCart, Tag, CheckCircle, AlertCircle, Zap } from 'lucide-react'
-import { useUserContext } from '@/mod/context/UserContext'
+import { userContext } from '@/mod/context/UserContext'
 
 interface BlocktimeListing {
   id: string
@@ -12,7 +12,7 @@ interface BlocktimeListing {
 }
 
 export const BlocktimeMarketplace: React.FC = () => {
-  const { network, user, client } = useUserContext()
+  const { network, user, client } = userContext()
   const [listings, setListings] = useState<BlocktimeListing[]>([])
   const [myBlocktime, setMyBlocktime] = useState<number>(0)
   const [sellPrice, setSellPrice] = useState<string>('')

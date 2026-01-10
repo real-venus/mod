@@ -4,8 +4,7 @@ import sys
 from typing import Optional, List, Dict, Any
 import json
 
-
-class BaseMod:
+class Mod:
     description = """
     PyEnv - Python Environment Manager
     Manage multiple Python virtual environments with a centralized manager

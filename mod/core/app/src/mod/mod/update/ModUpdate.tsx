@@ -7,7 +7,7 @@ import {
   AlertCircle,
   Save,
 } from 'lucide-react'
-import { useUserContext } from '@/mod/context/UserContext'
+import { userContext } from '@/mod/context/UserContext'
 import { ModuleType } from '@/mod/types'
 
 interface ModUpdateProps {
@@ -15,7 +15,7 @@ interface ModUpdateProps {
 }
 
 export const ModUpdate: React.FC<ModUpdateProps> = ({ mod }) => {
-  const { network, user } = useUserContext()
+  const { network, user } = userContext()
   const [modName, setModName] = useState(mod.name || '')
   const [modData, setModData] = useState(mod.cid || '')
   const [modUrl, setModUrl] = useState(mod.url || '')

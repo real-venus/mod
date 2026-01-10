@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { LoginHeader } from './LoginHeader'
 
 export function LocalKeyManager() {
-  const { signIn, authLoading } = useUserContext()
+  const { signIn, authLoading } = userContext()
   const [mnemonic, setMnemonic] = useState('')
   const [error, setError] = useState('')
 

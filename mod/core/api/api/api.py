@@ -7,6 +7,7 @@ import time
 import glob
 import datetime
 import inspect
+import shutil
 import mod as m
 
 class  Api:
@@ -25,10 +26,10 @@ class  Api:
         self.registry_path = self.path('registry.json')
         self.executor = m.mod('executor')()
         self.calls_path = self.path('calls')
-        self._sync_loop_thread = None
         self.auth = m.mod(auth)()
         # self.threads['update'] = m.thread(self.update_loop)
-
+        if 'sync' not in self.threads:
+            self.threads['sync'] = m.thread(self.sync_loop)
     @property
     def store(self):
         if not hasattr(self, '_store'):
@@ -89,16 +90,29 @@ class  Api:
         mod['cid'] = cid
         mod['protocal'] = mod.get('protocal', self.protocal)
         if 'version' not in mod:
-            # get the history and set the version to the length of the history
-            history = self.history(mod=mod['name'], key=mod['key'], df=0)
-            mod['version'] = len(history) if history is not None else 0
+            # get the txs and set the version to the length of the txs
+            txs = self.txs(mod=mod['name'], key=mod['key'], df=0)
+            mod['version'] = len(txs) if txs is not None else 0
         return mod
 
 
     devmode = True
 
 
-    def task_data(self , fn: str = 'model.openrouter/forward',  params: Dict[str, Any] = {}, timeout=1000) -> Dict[str, Any]:
+    def task_data(self , 
+                fn: str = 'store/ls',  
+                params: Dict[str, Any] = {}, 
+                timeout=1000
+                ) -> Dict[str, Any]:
+
+        if self.is_valid_cid(fn):
+            task = self.get(fn)
+            fn = task['fn']
+            params = task['params']
+        else:
+            fn = fn + '/info' if '/' not in fn else fn
+        if isinstance(params, dict):
+            params = self.put(params)
         return  {
             'fn': fn,
             'params': params,       
@@ -107,26 +121,66 @@ class  Api:
             'time': m.time()
         }
 
+
+
+    pdata_args = ['time', 'cost', 'cid', 'owner', 'key']
+    pdiv = '|'
+    def proof_data(self, data='hey', time_type='int', cost=None, key=None, owner=None):
+        time_stamp = m.time(time_type)
+        if isinstance(data, dict) and 'cost' in data:
+            cost = data['cost']
+        cost = cost or 0
+        key = self.key_address(key)
+        data_cid = self.put(data)
+        proof_data = {
+            'time': time_stamp,
+            'cost': cost,
+            'cid': data_cid,
+            'key': key,
+            'owner': owner or self.key.address
+        }
+        return self.pdiv.join([str(proof_data[k]) for k in self.pdata_args])
+
+    def proof2data(self, proof):
+        proof_data = proof.split(self.pdiv)[2]
+        return self.get(proof_data)
+
+
+        key = m.key(key)
+        proof_data = self.proof_data(data=data, cost=cost)
+        signature = key.sign(proof_data, mode='str')
+        return proof_data + self.pdiv + signature
+    
+    def verify_proof(self, proof):
+        assert  float(proof_chunks[0]) < m.time('int')
+        proof_chunks = proof.split(self.pdiv)
+        proof_sig =  proof_chunks[-1]
+        proof_data = self.pdiv.join(proof_chunks[:-1])
+        proof_address =  proof_chunks[-2]
+        m.verify(proof_data, signature=proof_sig, address=proof_address )
+
+        assert {
+            'time': proof_t, 
+            'sig': proof_sig
+        }
+        
+
+
+
+
+
     def future_paths(self):
         return list(self.path2future.keys())
 
     path2future = {}
 
-    def resolve_fn(self, fn):
-        if not '/' in fn:
-            fn = 'api/' + fn
-        return fn
 
-    def wait_for_task(self, task, wait_frequency=0.2):
-        task_path = task['path']
-        while task.get('status', '') != 'success':
-            time.sleep(wait_frequency)
-            task = self.get(task_path, default={})
-            print(f'Waiting for task {task_path} status={task.get("status","pending")}')
-            if task.get('status', '') == 'error':
-                raise Exception(f'Task {task_path} failed with error: {task.get("result","unknown error")}   ')
-        return task
-
+    def resolve_fn(self, fn: str):
+        fn = self.get_fn(fn)
+        mod_name, fn_name = fn.split('/', 1)
+        mod = self.mod(mod_name)
+        fn_obj = getattr(m.mod(mod), fn_name)
+        return fn_obj
 
     def call(self , 
                 fn: str = 'api/edit',  
@@ -134,7 +188,9 @@ class  Api:
                 key='api', 
                 signature=None, 
                 api=None,
+                cost = 1,
                 wait=False,
+                return_cid = False,
                 timeout=1000, **extra_params) -> Any:
         """
         Call a function from a mod Mod in IPFS.
@@ -146,25 +202,6 @@ class  Api:
         Returns:
             Result of the function call
         """
-        
-        if isinstance(params, dict) and 'args' in params:
-            args = params['args']
-            params = {}
-            schema = self.schema(fn.split('/')[0])
-            fn_name = fn.split('/')[-1]
-            schema_keys = list(schema[fn_name]['input'].keys())
-            for _i, _arg in enumerate(args):
-                params[schema_keys[_i]] = args[_i]
-
-        if not '/' in fn:
-            fn = fn +'/info'
-        fn = self.resolve_fn(fn)
-        params = {**params, **extra_params}
-        if api != None:
-            remote_params = {'fn': fn, 'params': params, 'key': key, 'signature': signature, 'api': None}
-            return m.fn('client/call')('api/call', params=remote_params, timeout=timeout)
-        if 'sync' not in self.threads:
-            self.threads['sync'] = m.thread(self.sync_loop)
         task = self.task_data( fn=fn, params=params, timeout=timeout)
         if self.devmode:
             key = m.key(key)
@@ -174,17 +211,33 @@ class  Api:
             key_address = key
             assert signature is not None, "Signature must be provided in non-devmode"
         assert self.key.verify(task, signature=signature, address=key_address), "Signature verification failed"
-        task['fn'] = fn
         task['key'] = key_address
         task['signature'] = signature
         task['path'] = self.task_path(task)
         task['cid'] = self.put(task)
         m.put(task['path'], task)
-        future =  m.submit(self.run_task, task ,  timeout=timeout)
-        self.path2future[task['path']] = future
+        future =  m.submit(self.run_task, params=task ,  timeout=timeout)
+        self.path2future[task['cid']] = future
         if wait:
-            return future.result()
+            result =  future.result()
+            if return_cid:
+                return result
+            else: 
+                return self.get(self.get(result).get('result'))
+            return result
         return task
+
+    def kill_task(self, cid: str) -> bool:
+        """
+        Kill a running task by its CID.
+        """
+        future = self.path2future.get(cid, None)
+        if future is not None:
+            print(f'Killing task with CID: {cid}')
+            future.cancel()
+            self.path2future.pop(cid, None)
+            return True
+        return False
 
     def run_task(self, **task:dict) -> Any:
         """
@@ -194,7 +247,11 @@ class  Api:
         assert '/' in task['fn'], "Function name must be in the format 'mod/fn'"
         mod, fn =  task['fn'].split('/', 1)
         path = task['path']
-        params = params = self.get(task['params']) if isinstance(task['params'], str) else task['params']
+        if isinstance(task['params'], str):
+            params =  self.get(task['params'])
+        
+        assert isinstance(params, dict)
+        
         m.put(path, task)
 
         # avoid recursion
@@ -213,20 +270,20 @@ class  Api:
                 m.put(path, task)
         else:
             task['result'] = result
+        task['result'] = self.put(result)
         task['delta'] = m.time() - task['time']
-        task['server'] = self.auth.headers(task, key=self.key)
+        task['owner'] = self.key.address
+        task['request_cid'] = m.copy(task['cid'])
+        task['owner_signature'] = self.key.sign(task, mode='str')
         task['cid'] = self.put(task)
         m.put(path, task)
-        return task['result']
+        return task['cid']
         
     def task_path(self, data): 
-
         path = f'{self.calls_path}/{data["fn"]}/{data["time"]}.json'
         return m.relpath(path)
 
-
     def _clear_calls(self):
-        import shutil
         shutil.rmtree(self.calls_path) if os.path.exists(self.calls_path) else None
         assert len(self.call_paths()) == 0, "Failed to clear call paths"
         return True
@@ -234,7 +291,7 @@ class  Api:
     def call_paths(self):
         return glob.glob(self.calls_path+'/**/*.json', recursive=True)
 
-    def history(self, key=None, mod=None, df=1, features=['fn', 'status', 'cid' ], n=10, page=0) -> List[Dict[str, Any]]:
+    def txs(self, key=None, mod=None, df=1, features=['fn', 'status', 'cid' ], n=10, page=0, expand=1) -> List[Dict[str, Any]]:
         paths = self.call_paths()
         calls = []
 
@@ -242,6 +299,17 @@ class  Api:
         paths = list(filter(filter_fn, paths))
         for path in paths:
             call = m.get(path)
+            if expand:
+                if 'result' in call:
+                    try:
+                        call['result'] = self.get(call['result'])
+                    except:
+                        pass
+                if 'params' in call:
+                    try:
+                        call['params'] = self.get(call['params'])
+                    except:
+                        pass
             if call != None:
                 calls.append(call)
     
@@ -267,16 +335,16 @@ class  Api:
             else:
 
                 # remove all of the json non-serializable items
-                history = []
+                txs = []
                 for call in calls:
                     try:
                         json.loads(json.dumps(call))
-                        history.append(call)
+                        txs.append(call)
                     except:
                         continue    
-                return history
+                return txs
     
-    h = history
+    h = txs
 
     def reset_calls(self):
         for path in self.call_paths():
@@ -305,9 +373,6 @@ class  Api:
         else: 
             return None
         return None
-
-        
-
 
     def _clear_call_paths(self):
         for path in self.path2future.keys():
@@ -486,9 +551,9 @@ class  Api:
             file2cid[file] = cid
         return self.add({'data': self.add(file2cid), 'comment': comment})
     
-    def add_schema(self, mod: str='store') -> str:
+    def add_schema(self, mod: str='store', public=False) -> str:
         try:
-            return self.add(m.schema(mod))
+            return self.add(m.schema(mod, public=public))
         except Exception as e:
             return self.add({})
 
@@ -503,6 +568,7 @@ class  Api:
                     key=None, 
                     collateral=0.0,
                     comment=None, 
+                    orbit='outer',
                     payload = False,
                     external = True) -> Dict[str, Any]:
 
@@ -521,13 +587,15 @@ class  Api:
             mod = url.split('/')[-1].split('.git')[0] 
             # assert not m.mod_exists(mod), f'Mod {mod} already exists. Please choose a different mod name or deregister the existing mod first.'
             mod = mod.lower()
-            dirpath = m.exp_path
+            dirpath = m.paths.orbit[orbit]
             modpath = os.path.join(dirpath, mod)
             if not os.path.exists(modpath):
                 git_cmd = f'git clone --single-branch {url} {modpath}'
                 os.makedirs(dirpath, exist_ok=True)
                 os.system(git_cmd)
                 m.print(f"[✓] Cloned repository from {url} to {modpath}", color="green")
+        elif self.is_valid_cid(url):
+            self.get(url)
         else:
             raise ValueError(f'Unsupported URL for reg_from_url: {url}')
         m.ext_tree(update=1)
@@ -547,7 +615,7 @@ class  Api:
         return info
 
 
-    def get_info(self, mod='store', key=None, comment=None, collateral=0.0, protocal='mod') -> Dict[str, Any]:
+    def get_info(self, mod='store', key=None, comment=None, collateral=0.0, public=False, protocal='mod') -> Dict[str, Any]:
         """
         Register mod Mod data in IPFS.
         """
@@ -565,7 +633,7 @@ class  Api:
         else:
             info = {
                 'content': content_cid,
-                'schema': self.add_schema(mod),
+                'schema': self.add_schema(mod, public=public),
                 'prev': prev_cid, # previous state
                 'created':  prev_info.get('created', current_time),  # created timestamp
                 'updated': current_time, 
@@ -582,6 +650,7 @@ class  Api:
                 key=None,  
                 comment=None, 
                 signature=None, 
+                public= False,
                 update=False, 
                 protocal='mod'
                 ) -> Dict[str, Any]:
@@ -599,14 +668,7 @@ class  Api:
         if isinstance(mod, dict):
             return self.reg_from_info(mod)
         else:
-            prev_cid = self.cid(mod=mod, key=key)
-            key = m.key(key)
-            if prev_cid == None:
-                info = self.get_info(mod=mod, key=key, protocal=protocal, comment=comment)
-            else:
-                prev_info = self.mod(prev_cid, key=key)
-                info = self.get_info(mod=mod, key=key, comment=comment, protocal=protocal)
-                info['prev'] = prev_cid
+            info = self.get_info(mod=mod, key=key, protocal=protocal, comment=comment, public=public)
             info['cid'] = self.update_registry(info) 
         return info
 
@@ -647,8 +709,7 @@ class  Api:
     def sync(self):
         n_tasks = len(list(self.path2future.values()))
         if n_tasks == 0:
-            print("No tasks to sync.")
-            return
+            return True
         else:
             print(f"Syncing {n_tasks} tasks...")
             future2path = {future: path for path, future in self.path2future.items()}
@@ -674,7 +735,7 @@ class  Api:
         """
         return self.folder_path + '/' + path
 
-    def mods(self, search=None, network=None, key=None, update=False, n=None,  **kwargs) -> List[str]:
+    def mods(self, search:str=None, network:str=None, key=None, update:bool=False, n:int=None, page:int=None,  **kwargs) -> List[str]:
         """
         List all registered mods in IPFS.
         Returns:
@@ -701,8 +762,10 @@ class  Api:
             mods = [m for m in mods if search in m['name']]
         if network != None:
             mods = [m for m in mods if m.get('network', 'local') == network]
-        if n != None:
-            mods = mods[:n]
+        if page != None and n != None:
+            start = page * n
+            end = start + n
+            mods = mods[start:end]
         return mods
 
     @property
@@ -937,11 +1000,10 @@ class  Api:
         
     user = user
 
-    def edit(self, query, *extra_query, mod='app',  key=None,  api=None, **kwargs) -> Dict[str, Any]:
-        query = ' '.join(list(map(str,  [query] + list(extra_query))))
+    def edit(self, query:str = 'make the readme better', mod='app',  key=None,  api=None, **kwargs) -> Dict[str, Any]:
         if api != None:
             return self.call('api/edit', {'mod': mod, 'query': query}, api=api, key=key)
-        m.fn('dev/forward')(mod=mod, text=query, safety=False, **kwargs)
+        m.fn('dev/forward')( query=query, mod=mod, safety=False, **kwargs)
         return self.reg(mod=mod, key=key, comment=query)
     forward = edit
     def chat(self, text, *extra_texts, mod: str='openrouter', stream=False, **kwargs) -> Dict[str, Any]:
@@ -949,6 +1011,9 @@ class  Api:
     
     def models(self, search=None, mod: str='model.openrouter', **kwargs) -> List[Dict[str, Any]]:
         return self.model.models(search=search, **kwargs)
+
+    def files(self, mod='store', **kwargs):
+        return list(self.content(mod, expand=True, **kwargs).keys())
 
     def hardware(self) -> Dict[str, Any]:
         hardware =  m.hardware() 
@@ -983,6 +1048,46 @@ class  Api:
                 namespace[mod['name']] = url
         return namespace
 
-
     def n(self, *args, **kwargs):
         return len(self.mods(*args, **kwargs))
+
+
+    def new(self, name='base2', base='base', key=None, orbit='outer', update=True):
+        """
+        make a new mod
+        """
+        key = self.key_address(key)
+        name = name or path.split('/')[-1]
+        dirpath = self.paths["orbit"][orbit] + '/'+ key+ '/'+  + name.replace('.', '/')
+        print(f'Creating new mod {name} at {dirpath} from base {base}')
+        for k,v in self.content(base).items():
+            new_path = dirpath + '/' +  k.replace(base, name)
+            self.put_text( new_path, v)
+        files = self.files(dirpath)
+        self.tree(update=True)
+        return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self.cid(name)}
+
+    def is_owner(self, address:str):
+        return m.is_owner(address)
+
+    def setorbit(self, mod='store', orbit='outer'):
+        old_orbit_path = m.dp(mod)
+        new_orbit_path = m.paths['orbit'][orbit] + '/' + old_orbit_path.split('/')[-1]
+        # move the mod directory
+        m.mv(old_orbit_path, new_orbit_path)
+        return {
+            'old_path': old_orbit_path,
+            'new_path': new_orbit_path,
+            # 'msg': f'Mod {mod} moved from {old_orbit_path} to {new_orbit_path}'
+        }
+
+    def wait_for_task(self, task, wait_frequency=0.2):
+        task_path = task['path']
+        print(f'Waiting for task {task_path} status={task.get("status","pending")}')
+        while task.get('status', '') != 'success':
+            time.sleep(wait_frequency)
+            task = self.get(task_path, default={})
+            if task.get('status', '') == 'error':
+                raise Exception(f'Task {task_path} failed with error: {task.get("result","unknown error")}   ')
+        return task
+        

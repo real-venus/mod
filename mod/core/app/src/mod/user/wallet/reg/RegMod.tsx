@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Package, Upload, Database, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
-import {useUserContext} from '@/mod/context'
+import {userContext} from '@/mod/context'
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { stringToU8a, u8aToHex } from '@polkadot/util'
 import ModCard from '@/mod/mod/ModCard'
@@ -9,7 +9,7 @@ import { ModuleType } from '@/mod/types'
 import { UrlTypeSelector, UrlType } from './UrlTypeSelector'
 
 export const RegMod = ( ) => {
-  const { client, localKey, network } = useUserContext()
+  const { client, localKey, network } = userContext()
   const [isSubwalletEnabled, setIsSubwalletEnabled] = useState(false)
   const [modUrl, setModUrl] = useState('')
   const [urlType, setUrlType] = useState<UrlType>('git')

@@ -1,15 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useUserContext } from '@/mod/context'
-import { WalletIcon, KeyIcon } from '@heroicons/react/24/outline'
+import { userContext } from '@/mod/context'
+import { WalletIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import WalletAuthButton from '@/mod/wallet/WalletAuthButton'
 
 const FIXED_WIDTH = 80
 
 export function SidebarWalletButton() {
-  const { user } = useUserContext()
+  const { user } = userContext()
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
 

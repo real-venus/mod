@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { UserType } from '@/mod/types'
 import { Loading } from '@/mod/ui/Loading'
 import { UserCard } from '@/mod/user/UserCard'
@@ -18,12 +18,12 @@ type TabType = 'mods' | 'sign' | 'transfer' | 'register' | 'update' | 'claim' | 
 export default function UserPage() {
   const params = useParams()
   const userKey = params?.user as string
-  const { client, user } = useUserContext()
+  const { client, user } = userContext()
   const [userData, setUserData] = useState<UserType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('mods')
-  const { user: currentUser } = useUserContext()
+  const { user: currentUser } = userContext()
   const myMod = currentUser && currentUser.key === userKey
 
   useEffect(() => {

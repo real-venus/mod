@@ -7,11 +7,11 @@ import {
   AlertCircle,
   Save,
 } from 'lucide-react'
-import { useUserContext } from '@/mod/context/UserContext'
+import { userContext } from '@/mod/context/UserContext'
 import { ModuleType } from '@/mod/types'
 
 export const UpdateMod: React.FC = (defaultMod : string = '') => {
-  const { network, user, client } = useUserContext()
+  const { network, user, client } = userContext()
   const [onchainMods, setOnchainMods] = useState<ModuleType[]>([])
   const [allMods, setAllMods] = useState<ModuleType[]>([])
   const [selectedMod, setSelectedMod] = useState<string>(defaultMod)

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { ChatState } from '../types'
 
 export function useChatState() {
-  const { client } = useUserContext()
+  const { client } = userContext()
   const [messages, setMessages] = useState<ChatState['messages']>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)

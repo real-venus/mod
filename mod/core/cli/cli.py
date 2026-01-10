@@ -86,7 +86,7 @@ class Cli:
                 mod = getattr(mod, part)
         else: 
             raise Exception(f'Function was not extracted from {argv} ')
-        return getattr(mod, fn, None)
+        return getattr(mod, fn)
 
     def get_params(self) -> tuple:
         """

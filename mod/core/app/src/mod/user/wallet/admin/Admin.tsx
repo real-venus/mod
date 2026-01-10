@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { UserType } from '@/mod/types'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { Shield, Users, X, Plus, Trash2, Save } from 'lucide-react'
 
 interface AdminProps {
@@ -19,7 +19,7 @@ interface UserRole {
 }
 
 export function Admin({ userData }: AdminProps) {
-  const { client, user } = useUserContext()
+  const { client, user } = userContext()
   const [userRoles, setUserRoles] = useState<UserRole[]>(userData.user_roles || [])
   const [newUserAddress, setNewUserAddress] = useState('')
   const [selectedRole, setSelectedRole] = useState<Role>('user')

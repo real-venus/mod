@@ -5,13 +5,13 @@ import ModCard from './ModCard'
 import { ModCardSettings } from './ModCardSettings'
 import { ModuleType } from '@/mod/types'
 import { useSearchContext } from '@/mod/context/SearchContext'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { X, RotateCcw, Sparkles, Maximize2, Minimize2 } from 'lucide-react'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 
 export default function Modules() {
-  const { client, user } = useUserContext()
+  const { client, user } = userContext()
   const { searchFilters } = useSearchContext()
 
   const [mods, setMods] = useState<ModuleType[]>([])

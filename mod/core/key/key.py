@@ -523,7 +523,7 @@ class Key:
             public_key = bytes.fromhex(public_key)
         return public_key
 
-    def sign(self, data: Union[ScaleBytes, bytes, str], mode='bytes') -> bytes:
+    def sign(self, data: Union[ScaleBytes, bytes, str], mode='bytes', key=None, crypto_type=None) -> bytes:
         """
         Creates a signature for given data
         Parameters
@@ -535,14 +535,15 @@ class Key:
 
         """
         data = self.encode_signature_data(data)
-        crypto_type = self.get_crypto_type(self.crypto_type)
+        crypto_type = self.get_crypto_type(crypto_type)
+        key =  self.get_key(key, crypto_type=crypto_type) if key else self
 
         if crypto_type == "sr25519":
-            signature = sr25519.sign((self.public_key, self.private_key), data)
+            signature = sr25519.sign((key.public_key, key.private_key), data)
         elif crypto_type == "ed25519":
-            signature = ed25519_zebra.ed_sign(self.private_key, data)
+            signature = ed25519_zebra.ed_sign(key.private_key, data)
         elif crypto_type == "ecdsa":
-            signature = ecdsa_sign(self.private_key, data)
+            signature = ecdsa_sign(key.private_key, data)
         else:
             raise Exception("Crypto type not supported")
 
@@ -553,7 +554,7 @@ class Key:
                     'data':data.decode(),
                     'crypto_type':crypto_type,
                     'signature':signature.hex(),
-                    'address': self.address}
+                    'address': key.address}
         elif mode == 'bytes':
             signature = signature
         else:

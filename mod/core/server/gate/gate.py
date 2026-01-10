@@ -37,7 +37,12 @@ class Gate:
         headers = dict(request.headers)
         headers = self.auth.verify(headers)
         assert self.is_user(info['name'], headers['key']), f"User {headers['key']} for Mod {info['name']} is not a user"
-        assert fn in info['fns'], f"Function {fn} not in fns={info['fns']}"
+        # if is owner dont do a function check let them do anything
+        owner = bool(m.owner() == headers['key'])
+        if owner:
+            print(f'ATTENTION: owner({headers["key"]}) is calling {fn}', color='green')
+        else:
+            assert fn in info['fns'], f"Function {fn} not in fns={info['fns']}"
         params = self.loop.run_until_complete(request.json())
         params = json.loads(params) if isinstance(params, str) else params
         self.print_request({'fn': fn, 'params': params, 'client': headers.get('key', ''), 'time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())})

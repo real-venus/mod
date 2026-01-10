@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ModuleType } from '@/mod/types'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { Settings, Globe, Lock, Users, Save, X } from 'lucide-react'
 
 interface ModAdminPanelProps {
@@ -11,7 +11,7 @@ interface ModAdminPanelProps {
 }
 
 export const ModAdminPanel = ({ mod, onClose }: ModAdminPanelProps) => {
-  const { user, client } = useUserContext()
+  const { user, client } = userContext()
   const [modName, setModName] = useState(mod.name || '')
   const [isPublic, setIsPublic] = useState(mod.public || false)
   const [allowedUsers, setAllowedUsers] = useState<string[]>(mod.allowed_users || [])

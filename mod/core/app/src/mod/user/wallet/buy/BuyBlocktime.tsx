@@ -1,10 +1,10 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import { ShoppingCart, Zap, CheckCircle, AlertCircle, DollarSign } from 'lucide-react'
-import { useUserContext } from '@/mod/context/UserContext'
+import { userContext } from '@/mod/context/UserContext'
 
 export const BuyBlocktime: React.FC = () => {
-  const { network, user } = useUserContext()
+  const { network, user } = userContext()
   const [amount, setAmount] = useState('')
   const [basePrice, setBasePrice] = useState<number>(0.01)
   const [totalCost, setTotalCost] = useState<number>(0)

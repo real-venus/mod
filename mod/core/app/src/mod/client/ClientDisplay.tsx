@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useUserContext } from '@/mod/context/UserContext'
+import { userContext } from '@/mod/context/UserContext'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { shorten } from '@/mod/utils'
 
 export function ClientDisplay() {
-  const { user } = useUserContext()
+  const { user } = userContext()
   const [showGenerator, setShowGenerator] = useState(false)
   const [newMnemonic, setNewMnemonic] = useState('')
 

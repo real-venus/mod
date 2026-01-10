@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { ModuleType } from '@/mod/types'
 import { Clock, GitBranch, Hash, RotateCcw, ArrowUpDown } from 'lucide-react'
 import { CopyButton } from '@/mod/ui/CopyButton'
@@ -28,7 +28,7 @@ const ui = {
 }
 
 export default function ModVersions({ mod }: ModVersionsProps) {
-  const { client } = useUserContext()
+  const { client } = userContext()
   const [versions, setVersions] = useState<Version[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

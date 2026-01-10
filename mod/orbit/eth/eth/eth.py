@@ -56,11 +56,7 @@ class Eth:
 
     @property
     def network_state(self):
-        return c.get_yaml(self.dirpath() + '/networks.yaml')
-
-    @property
-    def networks(self):
-        return list(self.network_state.keys())
+        return c.get_yaml(c.dirpath('eth.network') + '/networks.yaml')
 
 
     def key2balance(self):
@@ -80,7 +76,7 @@ class Eth:
         return urls
 
     def get_url(self, network:str='local' ) -> str:
-        return self.get_urls(network)[0]
+        return 'http://127.0.0.1:8545'
     
     def get_client(self, network: str) -> 'Web3':
         network_url = self.get_url(network)
@@ -189,24 +185,3 @@ class Eth:
         print(f"Starting Ganache with command: {cmd}")
         os.system(cmd)
     localnet = ganache
-
-    def tree(self):
-        dirpath = self.dirpath()
-        modules = c.get_tree(dirpath)
-        return modules
-    
-    def module(self, module:str):
-        return c.module('eth.'+module)
-    
-    def modules(self):
-        return list(c.get_tree(self.dirpath()).keys())
-
-    def broski(self, port:int=8545) -> bool:
-        import subprocess
-        try:
-            result = subprocess.run(["ganache-cli", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return True
-        except Exception as e:
-            return False
-        return False
-    

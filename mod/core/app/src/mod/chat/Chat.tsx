@@ -7,7 +7,7 @@ import { useConfigState } from './hooks/useConfigState'
 import { useChatEffects } from './hooks/useChatEffects'
 import { Message } from './types'
 import { ChatMessages } from './components/ChatMessages'
-import { TransactionsPanel } from './components/TransactionsPanel'
+import { TransactionsPanel } from './transactions/TransactionsPanel'
 import { ControlPanel } from './components/ControlPanel'
 
 export default function Chat() {

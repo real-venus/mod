@@ -6,10 +6,10 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react'
-import {useUserContext} from '@/mod/context/UserContext'
+import {userContext} from '@/mod/context/UserContext'
 export const Transfer: React.FC = () => {
 
-  const { network, user } = useUserContext()
+  const { network, user } = userContext()
   const [toAddress, setToAddress] = useState('')
   const [amount, setAmount] = useState('')
   const [response, setResponse] = useState<any>(null)

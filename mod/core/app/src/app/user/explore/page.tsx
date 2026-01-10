@@ -5,13 +5,13 @@ import { Loading } from '@/mod/ui/Loading'
 import { UserCard } from '@/mod/user/UserCard'
 import { UserCardSettings } from '@/mod/user/UserCardSettings'
 import { UserType } from '@/mod/types'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { X, RotateCcw, Users } from 'lucide-react'
 
 type SortKey = 'recent' | 'name' | 'balance' | 'modules'
 
 export default function UsersPage() {
-  const { client, user } = useUserContext()
+  const { client, user } = userContext()
   const [users, setUsers] = useState<UserType[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

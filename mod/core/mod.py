@@ -17,6 +17,8 @@ nest_asyncio.apply()
 
 class Mod: 
 
+    orbits = [ 'core', 'local',  'inner', 'outer']
+
     # we are going to avoid these folders when listing files
     avoid_folders = ['__pycache__', '.git', '.ipynb_checkpoints', 'node_modules', 'artifacts', 'egg-info',  'private', 'node_modules', '.venv', 'venv', '.env']
     file_types = ['py', 'json', 'sol'] # default file types
@@ -43,6 +45,7 @@ class Mod:
             "local": os.getcwd()
         }
         self.paths['home'] = self.homepath  = os.path.expanduser('~')
+        self.paths = self.munch(self.paths)
         config =self.config()
         self.name  = config['name']
         self.storage_path = f'{self.homepath}/.{self.name}'
@@ -58,6 +61,17 @@ class Mod:
         if len(available_ports) < n:
             raise Exception(f'Not enough available ports in range {port_range}, only {len(available_ports)} available')
         return available_ports[:n]
+
+    def munch(self, d:dict) -> Any:
+        from munch import Munch
+        if isinstance(d, dict):
+            for k,v in d.items():
+                d[k] = self.munch(v)
+            return Munch(d)
+        elif isinstance(d, list):
+            return [self.munch(i) for i in d]
+        else:
+            return d
 
     def get_port_range(port_range: list = None) -> list:
         import mod as m
@@ -195,7 +209,7 @@ class Mod:
         import time
         t = time.time()
         if mode == 'int':
-            return int(t) * 1000
+            return int(t * 1000)
         elif mode == 'float':
             return float(t)
         elif mode == 'iso':
@@ -642,19 +656,19 @@ class Mod:
         time.sleep(period) 
 
 
-    def fnschema(self, fn:str = '__init__', content=True, avoid_arguments = ['self', 'cls'],**kwargs)->dict:
+    def fnschema(self, fn:str = '__init__', public=True, avoid_arguments = ['self', 'cls'],**kwargs)->dict:
         '''
         Get function schema of function in self
         ''' 
-        content = bool(content)
         fn_obj = self.fn(fn)
         if not callable(fn_obj):
             return {'fn_type': 'property', 'type': type(fn_obj).__name__}
         
         fn_signature = inspect.signature(fn_obj)
 
-        schema = {'input': {}, 'output': {}, 'docs': '', 'cost': 0, 'name': '', 'content': '' , 'content': content}
-
+        schema = {'input': {}, 'output': {}, 'docs': '', 'cost': 0, 'name': '',  'content': None}
+        if public:
+            schema['content'] = inspect.getsource(fn_obj)
         for k,v in dict(fn_signature._parameters).items():
             if k  in avoid_arguments:
                 continue
@@ -672,26 +686,24 @@ class Mod:
         schema['docs'] = fn_obj.__doc__
         schema['cost'] = 0 if not hasattr(fn_obj, '__cost__') else fn_obj.__cost__ # attribute the cost to the function
         schema['name'] = fn_obj.__name__
-        if content:
-            schema['content'] = inspect.getsource(fn_obj)
+
         return schema
 
-    def args(self, fn:str = '__init__', content=True, avoid_arguments = ['self', 'cls'],**kwargs)->dict:
+    def args(self, fn:str = '__init__', public=True, avoid_arguments = ['self', 'cls'],**kwargs)->dict:
         '''
         Get function schema of function in self
         '''   
-        return self.fnschema(fn, content=content, avoid_arguments=avoid_arguments, **kwargs)['input']
+        return self.fnschema(fn, public=public, avoid_arguments=avoid_arguments, **kwargs)['input']
 
-    def schema(self, obj = None , search=None , content=False,  verbose=False, **kwargs)->dict:
+    def schema(self, obj = None , search=None , public=True,  verbose=False, **kwargs)->dict:
         '''
         Get function schema of function in self
         '''   
         schema = {}
         obj = obj or 'mod'
-        content = bool(content)
+        public = bool(public)
         if callable(obj) or (isinstance(obj, str) and '/' in obj):
-
-            return self.fnschema(obj, content=content, **kwargs)
+            return self.fnschema(obj, public=public, **kwargs)
 
         print(f'Getting schema for mod {obj}')
         fns = self.fns(obj, search=search, **kwargs)
@@ -699,7 +711,7 @@ class Mod:
         
         for fn in fns:
             try:
-                schema[fn] = self.fnschema(getattr(obj, fn), content=content,  **kwargs)
+                schema[fn] = self.fnschema(getattr(obj, fn), public=public,  **kwargs)
             except Exception as e:
                 print(self.error(e)) if verbose else None
         return schema
@@ -716,25 +728,14 @@ class Mod:
             raise Exception(f'Object {obj} not found')
         return  inspect.getsource(obj)
     
-    def wait_for_task(self, task, wait_frequency=0.2):
-        task_path = task['path']
-        while task.get('status', '') != 'success':
-            time.sleep(wait_frequency)
-            task = self.get(task_path, default={})
-            print(f'Waiting for task {task_path} status={task.get("status","pending")}')
-            if task.get('status', '') == 'error':
-                raise Exception(f'Task {task_path} failed with error: {task.get("result","unknown error")}   ')
-        return task
-        
-    def call(self,fn: str = 'api/edit',  params: Dict[str, Any] = {}, wait=True, wait_frequency=0.2,  api='api', **kwargs): 
+    def call(self,fn: str = 'api/edit',  params: Dict[str, Any] = {}, timeout=30, wait=True, return_cid=False,  **_kwargs): 
+        params = {**params , **_kwargs} if isinstance(params, dict) else params
+        params = {
+            'fn': fn,
+            'params': params,
 
-        if not self.server_exists(api):
-            return self.serve(api)
-        params = {**params , **kwargs}
-        task =  self.fn('api/call')(fn=fn, params=params, api=api, **kwargs)
-        if wait:
-            task = self.wait_for_task(task, wait_frequency=wait_frequency)
-        return task.get('result', None)
+        }
+        return self.fn('client/call')('api/call', params=params, timeout=timeout, wait=True, return_cid=return_cid)
 
     def cache(self, path:str, max_age: int = 60, default=None, directory: str = '~/.mod/cache'):
         '''
@@ -818,7 +819,7 @@ class Mod:
         return self.mods(search=search, **kwargs)
 
     def core_mods(self, *args,  **kwargs) -> List[str]:
-        return list(self.core_tree(*args,orbid='core', **kwargs).keys())
+        return list(self.core_tree(*args,orbit='core', **kwargs).keys())
     cm = cmods = core_mods = core_mods 
 
     def local_mods(self) -> List[str]:
@@ -831,6 +832,7 @@ class Mod:
             url = True, # whether to include the url of the mod
             desc = False, # whether to include the description of the mod
             key = None, # the key to sign the info with
+            public=False,
             fns=None,
             **kwargs):
         """
@@ -838,7 +840,7 @@ class Mod:
         """
         api = self.mod('api')()
         if not api.exists(mod, key=key):
-            api.reg(mod=mod, key=key)
+            api.reg(mod=mod, key=key, public=public)
         return api.mod(mod=mod, schema=schema, url=url, desc=desc, key=key, fns=fns,  **kwargs)
 
     card = info 
@@ -1135,10 +1137,7 @@ class Mod:
 
     def logs(self, *args, **kwargs):
         return self.fn('pm/logs')(*args, **kwargs)
-    
-    def locals(self, **kwargs):
-        return list(self.get_tree(self.pwd(), **kwargs).keys())
-        
+
     def cwd(self, mod=None):
         return self.dirpath(mod) if mod else os.getcwd() 
 
@@ -1290,18 +1289,20 @@ class Mod:
         return tree
 
     def core_tree(self, search=None, depth=8,  **kwargs): 
-        return self.get_tree(self.paths["core"], search=search, depth=depth, **kwargs) 
+        return self.get_tree(self.paths.orbit.core, search=search, depth=depth, **kwargs) 
 
-    orbit2depth = {
-        'inner': 10,
-        'outer': 2,
-        'core': 10,
-        'local': 1
-    }
-    def orbit(self, orbit='core', search=None, **kwargs): 
-        orbit_path = self.paths["orbit"][orbit]
-        kwargs['depth'] = kwargs.get('depth', self.orbit2depth.get(orbit, 1))
-        return self.get_tree(orbit_path, search=search, **kwargs)
+
+    def orbit(self, orbit='core', search=None, depth=None, **kwargs): 
+        if depth == None:
+            orbit2depth = {
+                'inner': 10,
+                'outer': 2,
+                'core': 10,
+                'local': 3
+            }
+            depth = orbit2depth.get(orbit, 1)
+        kwargs['depth'] = depth or kwargs.get('depth', self.orbit2depth.get(orbit, 1))
+        return self.get_tree(self.paths["orbit"][orbit], search=search, **kwargs)
 
     def search(self, search=None, tree=None, depth=1, max_depth=8 ,**kwargs) -> Dict[str, str]:
         """
@@ -1334,6 +1335,7 @@ class Mod:
 
     s = search
 
+
     def tree(self, 
             search=None, 
             **kwargs):
@@ -1350,9 +1352,10 @@ class Mod:
         
         """
         tree = {}
-        orbits = ['outer', 'inner', 'local', 'core']
-        for orbit in orbits:
+        for orbit in self.orbits:
             tree.update(self.orbit(orbit, **kwargs))
+        # 
+        tree = dict(sorted(tree.items(), key=lambda item: item[0]))
         return tree
 
     def dirpath(self, mod=None, relative=False, trials=2, key=None) -> str:
@@ -1475,6 +1478,9 @@ class Mod:
 
     def owner(self):
         return self.get_key().address
+        
+    def is_owner(self, address:str) -> bool:
+        return address == self.owner()
 
     def repo2path(self, search=None):
         repo2path = {}
@@ -1496,6 +1502,7 @@ class Mod:
     
     def ask(self, *args, **kwargs):
         return self.fn("agent/")(*args, **kwargs) 
+    a = ask
 
     def context(self, path=None):
         path = path or self.paths["core"]
@@ -1526,7 +1533,7 @@ class Mod:
             return {}
         config =  self.get_json(configs[0])
         self._config_cache[str(mod)] = config
-        return config
+        return self.munch(config)
 
     cfg = config
 
@@ -1560,9 +1567,6 @@ class Mod:
 
     def exec(self, mod:str = 'mod', *args, **kwargs):
         return self.fn('pm/exec')(mod, *args, **kwargs)
-
-    def a(self, mod=None, **kwargs): 
-        return self.serve('app')
 
     def confirm(self, message:str = 'Are you sure?', suffix = ' (y/n): '):
         confirm = input(message + suffix)
@@ -1677,8 +1681,10 @@ class Mod:
             setattr(to_mod, fn, fn_obj)
         return to_mod
 
-    def edit(self, *args,  **kwargs):
-        return self.fn('api/edit')( *args, api='api', **kwargs)
+    def edit(self, *query,  **kwargs):
+        return self.fn('api/edit')(query=' '.join(list(map(str, query))), 
+                                    api='api', 
+                                    **kwargs)
     e = edit
 
     def reg(self, *args, **kwargs):
@@ -1697,7 +1703,12 @@ class Mod:
     def tool(self, tool_name: str='cmd', *args, **kwargs) -> Any:
         return self.mod(tool_name)(*args, **kwargs).forward
 
-
     def sand(self):
         return self.fn('client/call')('api/history', params={"df":1})
 
+    def setup(self):
+        self.serve('ipfs')
+        self.serve('api')
+        self.serve('app')
+    
+    s = setup

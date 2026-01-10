@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Loading } from '@/mod/ui/Loading'
 import { ModuleType } from '@/mod/types'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { ModContent, ModApi, ModApp } from '@/mod/mod'
 import ModCard from '@/mod/mod/ModCard'
 import { AlertCircle } from 'lucide-react'
@@ -17,7 +17,7 @@ const defaultTab = 'api'
 const availableTabs = ['api', 'app', 'versions', 'content', 'edit']
 export default function ModulePage() {
   const params = useParams()
-  const { client, user } = useUserContext()
+  const { client, user } = userContext()
   const modName = params.mod as string
   const modKey = params.key as string
   const [mod, setMod] = useState<ModuleType | null>(null)

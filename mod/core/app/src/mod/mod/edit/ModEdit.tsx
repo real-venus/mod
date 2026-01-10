@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { ModuleType } from '@/mod/types'
 import { Send, Loader2, MessageSquare, GitBranch, AlertCircle, CheckCircle } from 'lucide-react'
 import ModVersions from '@/mod/mod/versions/ModVersions'
@@ -22,7 +22,7 @@ const ui = {
 }
 
 export default function ModEdit({ mod }: ModEditProps) {
-  const { client } = useUserContext()
+  const { client } = userContext()
   const [message, setMessage] = useState('')
   const [response, setResponse] = useState<any>({})
   const [loading, setLoading] = useState(false)

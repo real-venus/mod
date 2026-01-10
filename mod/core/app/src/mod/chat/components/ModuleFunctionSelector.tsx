@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { text2color } from '@/mod/utils'
+import { HostSelector } from './HostSelector'
 
 interface ModuleFunctionSelectorProps {
   selectedModule: string
@@ -288,6 +289,7 @@ export function ModuleFunctionSelector({
                     </div>
                   )}
                 </div>
+                <HostSelector />
               </div>
               {showSuggestions && (suggestedModules.length > 0 || suggestedFunctions.length > 0) && (
                 <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-48 overflow-y-auto" style={{ zIndex: 99999 }}>

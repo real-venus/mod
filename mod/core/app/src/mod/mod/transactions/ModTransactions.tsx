@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useUserContext } from '@/mod/context'
+import { userContext } from '@/mod/context'
 import { ModuleType } from '@/mod/types'
 import { Clock, ArrowUpRight, ArrowDownLeft, Hash } from 'lucide-react'
 import { CopyButton } from '@/mod/ui/CopyButton'
@@ -31,7 +31,7 @@ const ui = {
 }
 
 export default function ModTransactions({ mod }: ModTransactionsProps) {
-  const { client } = useUserContext()
+  const { client } = userContext()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

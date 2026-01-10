@@ -17,7 +17,7 @@ class Git:
         
     def is_repo(self, path:str ):
         # has the .git folder
-        return c.cmd(f'ls -a {path}').count('.git') > 0
+        return m.cmd(f'ls -a {path}').count('.git') > 0
 
     def push(self, path=None, msg:str='update', safety=False):
         path = self.get_path(path)
@@ -27,7 +27,7 @@ class Git:
             if input(f'Do you want to run these cmds {cmds}?') != 'y':
                 return {'status': 'cancelled', 'cmds': cmds}
         for cmd in cmds:
-            c.cmd(cmd, cwd=cwd)
+            m.cmd(cmd, cwd=cwd)
         return {
             'status': 'success',
             'cmds': cmds,
@@ -47,23 +47,23 @@ class Git:
 
     def repo_url(self, path:str = None) -> str:
         lpath = self.get_path(path)
-        return c.cmd('git remote -v',cwd=path, verbose=False).split('\n')[0].split('\t')[1].split(' ')[0]
+        return m.cmd('git remote -v',cwd=path, verbose=False).split('\n')[0].split('\t')[1].split(' ')[0]
     
     def hash(self, path:str = None):
         path = self.get_path(path)
-        return c.cmd('git rev-parse HEAD', cwd=path, verbose=False).split('\n')[0].strip()
+        return m.cmd('git rev-parse HEAD', cwd=path, verbose=False).split('\n')[0].strip()
 
     def history(self, path:str = None):
         """
         a history ofo the commits and the times
         """
         path = self.get_path(path)
-        result = c.cmd('git log', cwd=path, verbose=False)
+        result = m.cmd('git log', cwd=path, verbose=False)
         return result
 
     def reset_hard(self, path:str = None):
         path = self.get_path(path)
-        return c.cmd('git reset --hard', cwd=path, verbose=False)
+        return m.cmd('git reset --hard', cwd=path, verbose=False)
     
     def get_path(self, path:str = None):
         if path == None:
@@ -73,16 +73,16 @@ class Git:
     def commit_hash(self, lib_path:str = None):
         if lib_path == None:
             lib_path = self.paths["lib"]
-        return c.cmd('git rev-parse HEAD', cwd=lib_path, verbose=False).split('\n')[0].strip()
+        return m.cmd('git rev-parse HEAD', cwd=lib_path, verbose=False).split('\n')[0].strip()
     
     def forward(self, path:str = None, name:str = None, n=10):
-        path = path or c.paths["orbit"]["inner"]
+        path = path or m.paths["orbit"]["inner"]
         git_path = path + '/.git'
-        git_url = c.cmd('git config --get remote.origin.url', cwd=path).strip().split('\n')[0].strip().split(' ')[0].strip()
-        git_branch = c.cmd('git rev-parse --abbrev-ref HEAD', cwd=path).strip().split('\n')[0].strip().split(' ')[0].strip()
-        git_commit = c.cmd('git rev-parse HEAD', cwd=path)
+        git_url = m.cmd('git config --get remote.origin.url', cwd=path).strip().split('\n')[0].strip().split(' ')[0].strip()
+        git_branch = m.cmd('git rev-parse --abbrev-ref HEAD', cwd=path).strip().split('\n')[0].strip().split(' ')[0].strip()
+        git_commit = m.cmd('git rev-parse HEAD', cwd=path)
         git_commit = git_commit.split('\n')[0].strip().split(' ')[0].strip()
-        past_commits = c.cmd('git log --oneline', cwd=path).split('\n')
+        past_commits = m.cmd('git log --oneline', cwd=path).split('\n')
         # get all of the info of each commit
         past_commits = past_commits[:n]
         commit2comment = {}
@@ -118,11 +118,11 @@ class Git:
         # Get commit hashes, authors, dates, and messages
         log_format = "%H|%an|%ad|%s"
         log_cmd = f'git log --pretty=format:"{log_format}" -n {n}'
-        log_result = c.cmd(log_cmd, cwd=path, verbose=False).split('\n')
+        log_result = m.cmd(log_cmd, cwd=path, verbose=False).split('\n')
         
         # Get stats for each commit
         stats_cmd = f'git log --numstat --pretty=format:"%H" -n {n}'
-        stats_result = c.cmd(stats_cmd, cwd=path, verbose=False).split('\n')
+        stats_result = m.cmd(stats_cmd, cwd=path, verbose=False).split('\n')
         
         # Process the results
         commits = []
@@ -171,7 +171,7 @@ class Git:
                 hash_val, author, date, message = line.split('|', 3)
                 # Get stats for this specific commit
                 stat_cmd = f'git show --numstat --format="%h" {hash_val}'
-                stat_output = c.cmd(stat_cmd, cwd=path, verbose=False).split('\n')
+                stat_output = m.cmd(stat_cmd, cwd=path, verbose=False).split('\n')
                 
                 add = 0
                 delete = 0
@@ -238,7 +238,7 @@ class Git:
 
         path = self.get_path(path)
         # get the branches
-        branches = c.cmd('git branch', cwd=path, verbose=False).split('\n')
+        branches = m.cmd('git branch', cwd=path, verbose=False).split('\n')
         # remove the * from the current branch
         branches = [b.replace('*', '').strip() for b in branches]
         # remove empty lines
@@ -251,7 +251,7 @@ class Git:
         
         Args:
         """
-        return c.cmd('git init', cwd=path, verbose=False)
+        return m.cmd('git init', cwd=path, verbose=False)
 
     def giturl(self, url:str='commune-ai/commune'):
         gitprefix = 'https://github.com/'
@@ -278,7 +278,7 @@ class Git:
             path = self.path
         
         # Run git diff command
-        response = c.cmd('git diff', cwd=path, verbose=False)
+        response = m.cmd('git diff', cwd=path, verbose=False)
         return response
     def dff(self, path='./'):
         diff = self.diff(path)
@@ -288,7 +288,7 @@ class Git:
                 'path': k,
                 'additions': len(re.findall(r'\+', v)),
                 'deletions': len(re.findall(r'-', v)),
-                # 'hash': c.hash(v),
+                # 'hash': m.hash(v),
             })
 
         df = pd.DataFrame(df)
@@ -296,7 +296,7 @@ class Git:
             
     def branch(self, path=None):
         path = self.get_path(path)
-        return c.cmd('git rev-parse --abbrev-ref HEAD', cwd=path).strip().split('\n')[0].strip().split(' ')[0].strip()
+        return m.cmd('git rev-parse --abbrev-ref HEAD', cwd=path).strip().split('\n')[0].strip().split(' ')[0].strip()
 
     def init_repo(
         repo_path: str, 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useUserContext } from '@/mod/context/UserContext'
+import { userContext } from '@/mod/context/UserContext'
 import ModCard from '@/mod/mod/ModCard'
 import { ModuleType } from '@/mod/types'
 
@@ -9,7 +9,7 @@ export default function NodeMarketplace() {
   const [apiModules, setApiModules] = useState<ModuleType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { client, connectClient } = useUserContext()
+  const { client, connectClient } = userContext()
 
   useEffect(() => {
     fetchApiModules()
