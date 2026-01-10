@@ -1682,9 +1682,8 @@ class Mod:
         return to_mod
 
     def edit(self, *query,  **kwargs):
-        return self.fn('api/edit')(query=' '.join(list(map(str, query))), 
-                                    api='api', 
-                                    **kwargs)
+        return self.fn('api/edit')(query=' '.join(list(map(str, query))), api='api', **kwargs)
+        
     e = edit
 
     def reg(self, *args, **kwargs):

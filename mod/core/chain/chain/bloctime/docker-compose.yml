@@ -21,7 +21,7 @@ services:
   ganache:
     container_name: bloctime-ganache
     command: '--mnemonic "test test test test test test test test test test test junk"
-      --networkId 1337 --chainId 1337 --accounts 10 --defaultBalanceEther 1000 --gasLimit
+      --networkId 1337 --accounts 10 --defaultBalanceEther 1000 --gasLimit
       12000000 --gasPrice 20000000000 --host 0.0.0.0'
     image: trufflesuite/ganache:latest
     ports:

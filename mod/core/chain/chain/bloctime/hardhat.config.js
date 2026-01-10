@@ -13,7 +13,7 @@ module.exports = {
   },
   networks: {
     ganache: {
-      url: process.env.GANACHE_URL || 'http://ganache:8545',
+      url: process.env.GANACHE_URL || 'http://localhost:8545',
       accounts: {
         mnemonic: process.env.MNEMONIC || 'test test test test test test test test test test test junk',
       },
