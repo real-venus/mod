@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./BlocTimeToken.sol";
 
 /**
- * @title BlocTimeStaking
- * @dev Stake native tokens for blocks, mint bloctime tokens based on duration multiplier
- * Distributes treasury rewards proportionally to bloctime holdings
- * Simple point-wise monotonic multiplier function
+ * @title BlocTime
+ * @dev Unified BlocTime contract - combines token and staking functionality
+ * Stake native tokens for blocks, mint bloctime tokens based on duration multiplier
  */
-contract BlocTimeStaking is ReentrancyGuard, Ownable {
+contract BlocTime is ERC20, ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
     
     struct Stake {
@@ -42,7 +41,6 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
     }
     
     IERC20 public nativeToken;
-    BlocTimeToken public blocTimeToken;
     uint256 public totalBlocTime;
     uint256 public nextStakeId;
     
@@ -60,16 +58,14 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
     
     constructor(
         address _nativeToken,
-        string memory _blocTimeName,
-        string memory _blocTimeSymbol,
+        string memory _name,
+        string memory _symbol,
         uint256 _maxLockBlocks,
         uint256 _distributionPercentage
-    ) {
+    ) ERC20(_name, _symbol) {
         require(_distributionPercentage <= 10000, "Max 100%");
         
         nativeToken = IERC20(_nativeToken);
-        blocTimeToken = new BlocTimeToken(_blocTimeName, _blocTimeSymbol);
-        blocTimeToken.setStakingContract(address(this));
         
         params = Params({
             distributionPercentage: _distributionPercentage,
@@ -85,12 +81,10 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
     
     /**
      * @dev Set all points at once - enforces monotonicity
-     * Points must be sorted by blocks (ascending) and multipliers must be non-decreasing
      */
     function setPoints(Point[] calldata _points) external onlyOwner {
         require(_points.length > 0, "Must provide at least one point");
         
-        // Validate monotonicity
         for (uint256 i = 0; i < _points.length; i++) {
             require(_points[i].multiplier >= 10000, "Multiplier must be >= 1x");
             require(_points[i].blocks <= params.maxLockBlocks, "Exceeds max blocks");
@@ -101,7 +95,6 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
             }
         }
         
-        // Clear existing points and set new ones
         delete points;
         for (uint256 i = 0; i < _points.length; i++) {
             points.push(_points[i]);
@@ -115,20 +108,17 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
      */
     function getMultiplier(uint256 blockCount) public view returns (uint256) {
         if (points.length == 0) {
-            return 10000; // Default 1x
+            return 10000;
         }
         
-        // Before first point
         if (blockCount <= points[0].blocks) {
             return points[0].multiplier;
         }
         
-        // After last point
         if (blockCount >= points[points.length - 1].blocks) {
             return points[points.length - 1].multiplier;
         }
         
-        // Find the two points to interpolate between
         for (uint256 i = 0; i < points.length - 1; i++) {
             if (blockCount >= points[i].blocks && blockCount <= points[i + 1].blocks) {
                 return interpolate(
@@ -163,7 +153,6 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
         return y0 + (yRange * position) / range;
     }
     
-    
     /**
      * @dev Set params
      */
@@ -174,7 +163,7 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @dev Stake tokens for specified number of blocks - supports multiple stakes
+     * @dev Stake tokens for specified number of blocks
      */
     function stake(uint256 amount, uint256 lockBlocks) external nonReentrant {
         require(amount > 0, "Amount must be > 0");
@@ -197,12 +186,11 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
         
         userStakeIds[msg.sender].push(stakeId);
         
-        // Update legacy stake for backward compatibility
         stakes[msg.sender].amount += amount;
         stakes[msg.sender].blocTimeBalance += blocTimeEarned;
         
         totalBlocTime += blocTimeEarned;
-        blocTimeToken.mint(msg.sender, blocTimeEarned);
+        _mint(msg.sender, blocTimeEarned);
         
         emit Staked(msg.sender, stakeId, amount, lockBlocks, blocTimeEarned);
     }
@@ -219,13 +207,11 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
         uint256 blocTimeBalance = position.blocTimeBalance;
         
         totalBlocTime -= blocTimeBalance;
-        blocTimeToken.burn(msg.sender, blocTimeBalance);
+        _burn(msg.sender, blocTimeBalance);
         
-        // Update legacy stake
         stakes[msg.sender].amount -= amount;
         stakes[msg.sender].blocTimeBalance -= blocTimeBalance;
         
-        // Remove from userStakeIds array
         uint256[] storage stakeIds = userStakeIds[msg.sender];
         for (uint256 i = 0; i < stakeIds.length; i++) {
             if (stakeIds[i] == stakeId) {
@@ -273,7 +259,7 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @dev Get stake info for user (legacy - aggregates all stakes)
+     * @dev Get stake info for user (legacy)
      */
     function getStakeInfo(address user) external view returns (
         uint256 amount,
@@ -296,7 +282,7 @@ contract BlocTimeStaking is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @dev Emergency withdraw (owner only, for migrations)
+     * @dev Emergency withdraw (owner only)
      */
     function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(owner(), amount);

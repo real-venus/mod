@@ -93,17 +93,6 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
               <CopyButton text={tx.cid} size="sm" />
             </span>
           )}
-          <span className="bg-emerald-500/25 border border-emerald-400/60 px-2 py-0.5 rounded font-mono text-white text-base font-bold flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-            💵 ${costUsd.toFixed(4)}
-          </span>
-          {tx.delta !== undefined && (
-            <span className="bg-cyan-500/25 border border-cyan-400/60 px-2 py-0.5 rounded font-mono text-white text-base font-bold flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-              ⚡ {tx.delta.toFixed(2)}s
-            </span>
-          )}
-          <span className="text-white text-base px-2 py-0.5 rounded bg-slate-700/40 border border-slate-500/50 flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-            {formattedTime}
-          </span>
         </div>
         {isExpanded && (
           <div className="mt-2 space-y-1.5 pt-2 border-t border-slate-600/40">
@@ -123,6 +112,18 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                 </span>
               )}
 
+          <span className="bg-emerald-500/25 border border-emerald-400/60 px-2 py-0.5 rounded font-mono text-white text-base font-bold flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
+            💵 ${costUsd.toFixed(4)}
+          </span>
+          {tx.delta !== undefined && (
+            <span className="bg-cyan-500/25 border border-cyan-400/60 px-2 py-0.5 rounded font-mono text-white text-base font-bold flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
+              ⚡ {tx.delta.toFixed(2)}s
+            </span>
+          )}
+
+            <span className="text-white text-base px-2 py-0.5 rounded bg-slate-700/40 border border-slate-500/50 flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
+            {formattedTime}
+          </span>
             </div>
             {tx.params && (
               <div className="bg-slate-900/60 border border-slate-700/50 rounded overflow-hidden">

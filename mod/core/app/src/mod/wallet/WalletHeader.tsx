@@ -72,9 +72,8 @@ export function WalletHeader() {
           <div
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
-            className={`group relative flex items-center gap-3 transition-all duration-300 backdrop-blur-xl border-2 overflow-visible cursor-pointer hover:scale-105 active:scale-95`}
+            className={`group relative flex items-center gap-3 transition-all duration-300 backdrop-blur-xl border-2 overflow-visible cursor-pointer hover:scale-105 active:scale-95 bg-gradient-to-br from-slate-900/50 to-slate-800/30 border-slate-700/40 rounded-lg shadow hover:shadow-md`}
               style={{
-                borderColor: borderColor,
                 height: '60px',
                 minWidth: '60px',
                 width:  '60px',
@@ -82,12 +81,11 @@ export function WalletHeader() {
                 paddingLeft: '0px',
                 paddingTop: '0px',
                 paddingBottom: '0px',
-                backgroundColor: 'rgba(0, 0, 0, 1)',
-                borderRadius: '16px'
+                borderRadius: '8px'
             }}
             title="Wallet Details"
           >
-            <div className="absolute -inset-1 bg-gradient-to-r opacity-0 group-hover:opacity-10 blur-xl transition-all duration-500 animate-pulse" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})`, borderRadius: '16px' }} />
+            <div className="absolute -inset-1 bg-gradient-to-r opacity-0 group-hover:opacity-10 blur-xl transition-all duration-500 animate-pulse" style={{ background: `linear-gradient(45deg, ${userColor}, transparent, ${userColor})`, borderRadius: '8px' }} />
         
               <div 
                 onClick={handleUserClick}
@@ -100,7 +98,7 @@ export function WalletHeader() {
                   justifyContent: 'center',
                   backgroundColor: 'transparent',
                   boxShadow: 'none',
-                  borderRadius: '16px'
+                  borderRadius: '8px'
                 }}
               >
                   <WalletIcon className="w-10 h-10" style={{ color: userColor, filter: 'drop-shadow(0 0 8px currentColor)' }} />
@@ -108,10 +106,9 @@ export function WalletHeader() {
 
             {showTooltip && (
               <div 
-                className="absolute top-full right-0 mt-2 p-4 border-2 rounded-lg shadow-2xl z-50 min-w-[320px]"
+                className="absolute top-full right-0 mt-2 p-4 border rounded-lg shadow-2xl z-50 min-w-[320px] bg-gradient-to-br from-slate-900/70 to-slate-800/50 border-slate-700/40"
                 style={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                  borderColor: borderColor,
+                  borderRadius: '8px'
                 }}
               >
                 <div className="space-y-3">
