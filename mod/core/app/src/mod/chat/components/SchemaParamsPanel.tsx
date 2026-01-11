@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { text2color } from '@/mod/utils'
 
 interface SchemaParamsPanelProps {
   selectedFunction: string
@@ -21,6 +22,8 @@ export function SchemaParamsPanel({
 }: SchemaParamsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const [columns, setColumns] = useState(numColumns)
+
+  const panelColor = text2color(selectedFunction || 'params')
 
   useEffect(() => {
     const checkWidth = () => {
@@ -53,18 +56,26 @@ export function SchemaParamsPanel({
   return (
     <div 
       ref={panelRef} 
-      className="overflow-hidden mt-3 backdrop-blur-sm transition-all"
+      className="overflow-hidden mt-3 backdrop-blur-sm transition-all rounded-xl border-2 p-3"
+      style={{ backgroundColor: `${panelColor}15`, borderColor: panelColor }}
     >
       <div className="space-y-2">
-        <div className="flex justify-end items-center">
-          <div className="flex gap-2 items-center">
+        <div className="flex justify-between items-center gap-2 mb-3">
+          <h3 className="text-xl font-black" style={{ color: panelColor, letterSpacing: '0.02em' }}>Parameters</h3>
+          <div className="flex gap-2">
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 toggleColumns()
               }}
-              className="px-3 py-2 bg-blue-500/20 text-blue-400 border-2 border-blue-500/40 hover:bg-blue-500/30 hover:border-blue-500/60 rounded-lg transition-all duration-200 font-bold shadow-lg text-lg backdrop-blur-sm"
-              style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+              className="px-3 py-2 rounded-lg transition-all duration-200 font-bold shadow-lg text-lg backdrop-blur-sm border-2"
+              style={{ 
+                backgroundColor: `${panelColor}20`, 
+                color: panelColor, 
+                borderColor: `${panelColor}40`,
+                fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', 
+                textTransform: 'lowercase' 
+              }}
               title="Toggle columns"
             >
               {columns === 1 ? '⚏' : '⚌'} {columns}col
@@ -74,8 +85,14 @@ export function SchemaParamsPanel({
                 e.stopPropagation()
                 handleResetParams()
               }}
-              className="px-3 py-2 bg-orange-500/20 text-orange-400 border-2 border-orange-500/40 hover:bg-orange-500/30 hover:border-orange-500/60 rounded-lg transition-all duration-200 font-bold shadow-lg text-lg backdrop-blur-sm"
-              style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+              className="px-3 py-2 rounded-lg transition-all duration-200 font-bold shadow-lg text-lg backdrop-blur-sm border-2"
+              style={{ 
+                backgroundColor: '#ff6b3520', 
+                color: '#ff6b35', 
+                borderColor: '#ff6b3540',
+                fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', 
+                textTransform: 'lowercase' 
+              }}
             >
               🔄 reset
             </button>
@@ -85,7 +102,7 @@ export function SchemaParamsPanel({
           <div className={`grid gap-3 ${getGridCols()}`}>
             {paramEntries.map(([key, value]: [string, any]) => (
               <div key={key} className="flex flex-col gap-2">
-                <label className="text-white text-xl font-bold" style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}>
+                <label className="text-xl font-bold" style={{ color: panelColor, fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: `0 0 10px ${panelColor}80` }}>
                   {key} <span className="text-gray-500 text-lg">({value.type})</span>
                 </label>
                 <input
@@ -93,8 +110,13 @@ export function SchemaParamsPanel({
                   value={params[key] ?? ''}
                   onChange={(e) => handleParamChange(key, e.target.value)}
                   placeholder={value.value !== '_empty' ? String(value.value) : 'enter value...'}
-                  className="bg-black border-2 border-orange-500/40 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 text-xl font-bold backdrop-blur-sm placeholder-orange-600/50"
-                  style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+                  className="border-2 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 text-xl font-bold backdrop-blur-sm"
+                  style={{ 
+                    backgroundColor: 'rgba(0,0,0,0.4)', 
+                    borderColor: `${panelColor}40`,
+                    fontFamily: 'IBM Plex Mono, Courier New, monospace',
+                    color: panelColor
+                  }}
                 />
               </div>
             ))}

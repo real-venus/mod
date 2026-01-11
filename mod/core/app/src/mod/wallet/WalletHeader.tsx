@@ -38,9 +38,9 @@ export function WalletHeader() {
 
     if (authLoading) {
       return (
-        <div className="flex items-center gap-3 px-6 py-3 border-2 backdrop-blur-xl shadow-2xl animate-pulse" style={{height: '60px', minWidth: '60px', borderRadius: '16px', borderColor: 'rgba(255, 255, 255, 0.8)', backgroundColor: 'rgba(0, 0, 0, 0.9)', boxShadow: '0 0 20px rgba(255, 255, 255, 0.1)'}}>
+        <div className="flex items-center gap-3 px-6 py-3 border-2 backdrop-blur-xl shadow-2xl animate-pulse" style={{height: '60px', minWidth: '60px', borderRadius: '8px', borderColor: 'rgba(255, 255, 255, 0.8)', backgroundColor: 'rgba(0, 0, 0, 0.9)', boxShadow: '0 0 20px rgba(255, 255, 255, 0.1)'}}>
           <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          <span className="text-xl text-white/70 font-bold hidden sm:inline">Loading...</span>
+          <span className="text-xl text-white/70 font-bold hidden sm:inline" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>Loading...</span>
         </div>
       )
     }
@@ -72,16 +72,19 @@ export function WalletHeader() {
           <div
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
-            className={`group relative flex items-center gap-3 transition-all duration-300 backdrop-blur-xl border-2 overflow-visible cursor-pointer hover:scale-105 active:scale-95 bg-gradient-to-br from-slate-900/50 to-slate-800/30 border-slate-700/40 rounded-lg shadow hover:shadow-md`}
+            className={`group relative flex items-center gap-3 transition-all duration-300 backdrop-blur-xl border-2 overflow-visible cursor-pointer hover:scale-105 active:scale-95 rounded-xl font-mono`}
               style={{
                 height: '60px',
                 minWidth: '60px',
-                width:  '60px',
-                paddingRight: '0px',
+                width: showTooltip ? 'auto' : '60px',
+                paddingRight: showTooltip ? '16px' : '0px',
                 paddingLeft: '0px',
                 paddingTop: '0px',
                 paddingBottom: '0px',
-                borderRadius: '8px'
+                borderRadius: '8px',
+                fontFamily: 'IBM Plex Mono, Courier New, monospace',
+                backgroundColor: `${userColor}15`,
+                borderColor: userColor
             }}
             title="Wallet Details"
           >
@@ -106,22 +109,24 @@ export function WalletHeader() {
 
             {showTooltip && (
               <div 
-                className="absolute top-full right-0 mt-2 p-4 border rounded-lg shadow-2xl z-50 min-w-[320px] bg-gradient-to-br from-slate-900/70 to-slate-800/50 border-slate-700/40"
+                className="absolute top-full right-0 mt-2 p-4 border-2 rounded-xl shadow-2xl z-50 min-w-[320px] backdrop-blur-xl"
                 style={{
-                  borderRadius: '8px'
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(0, 0, 0, 1)',
+                  borderColor: userColor
                 }}
               >
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.3)` }}>
-                    <span className="text-sm font-bold" style={{ color: userColor }}>WALLET INFO</span>
+                  <div className="flex items-center justify-between pb-2 border-b-2" style={{ borderColor: userColor, fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+                    <span className="text-sm font-bold uppercase" style={{ color: userColor }}>WALLET INFO</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleSignOut(); }}
-                      className="px-3 py-1.5 border-2 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5"
+                      className="px-3 py-1.5 border-2 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 rounded-lg"
                       style={{
-                        borderColor: borderColor,
-                        backgroundColor: `rgba(${userRgb.r}, ${userRgb.g}, ${userRgb.b}, 0.15)`,
-                        color: 'white',
-                        borderRadius: '8px'
+                        borderColor: userColor,
+                        backgroundColor: `${userColor}20`,
+                        color: userColor,
+                        fontFamily: 'IBM Plex Mono, Courier New, monospace'
                       }}
                       title="Sign Out"
                     >
@@ -130,18 +135,18 @@ export function WalletHeader() {
                     </button>
                   </div>
                   
-                  <div className="space-y-2">
-                    <div>
+                  <div className="space-y-2" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+                    <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
                       <div className="text-xs text-gray-400 mb-1">Wallet Type</div>
                       <div className="font-mono text-sm uppercase font-bold" style={{ color: userColor, fontSize: '1rem' }}>{walletMode}</div>
                     </div>
                     
-                    <div>
+                    <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
                       <div className="text-xs text-gray-400 mb-1">Key Type</div>
                       <div className="font-mono text-sm uppercase font-bold" style={{ color: userColor, fontSize: '1rem' }}>{user.crypto_type}</div>
                     </div>
                     
-                    <div>
+                    <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
                       <div className="text-xs text-gray-400 mb-1">Address</div>
                       <div className="flex items-center gap-2">
                         <div className="font-mono text-sm" style={{ color: 'white' }}>{shorten(user.key, 8, 8)}</div>
@@ -149,7 +154,7 @@ export function WalletHeader() {
                       </div>
                     </div>
                     
-                    <div>
+                    <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
                       <div className="text-xs text-gray-400 mb-1">Connected Address</div>
                       <div className="flex items-center gap-2">
                         <div className="font-mono text-sm" style={{ color: 'white' }}>{shorten(walletAddress, 8, 8)}</div>
@@ -158,7 +163,7 @@ export function WalletHeader() {
                     </div>
                     
                     {user.network && (
-                      <div>
+                      <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
                         <div className="text-xs text-gray-400 mb-1">Network Modules</div>
                         <div className="font-mono text-sm" style={{ color: userColor }}>{user.mods?.length || 0}</div>
                       </div>

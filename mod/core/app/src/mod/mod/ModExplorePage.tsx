@@ -205,7 +205,7 @@ export default function Modules() {
   }[columns] || 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className={'min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white transition-all duration-300'}>
+    <div className={'min-h-screen bg-black text-white transition-all duration-300'}>
       <main className="flex-1 px-2 pt-0 pb-0" role="main">
         <div className="mx-auto max-w-7xl mb-4">
           <div className="flex items-start gap-4">

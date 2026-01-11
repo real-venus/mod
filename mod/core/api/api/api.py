@@ -170,9 +170,9 @@ class  Api:
 
 
     def future_paths(self):
-        return list(self.path2future.keys())
+        return list(self.cid2future.keys())
 
-    path2future = {}
+    cid2future = {}
 
 
     def resolve_fn(self, fn: str):
@@ -217,7 +217,7 @@ class  Api:
         task['cid'] = self.put(task)
         m.put(task['path'], task)
         future =  m.submit(self.run_task, params=task ,  timeout=timeout)
-        self.path2future[task['cid']] = future
+        self.cid2future[task['cid']] = future
         if wait:
             result =  future.result()
             if return_cid:
@@ -231,13 +231,16 @@ class  Api:
         """
         Kill a running task by its CID.
         """
-        future = self.path2future.get(cid, None)
+        future = self.cid2future.get(cid, None)
         if future is not None:
             print(f'Killing task with CID: {cid}')
             future.cancel()
-            self.path2future.pop(cid, None)
+            self.cid2future.pop(cid, None)
             return True
         return False
+
+    def tasks(self) -> bool:
+        return list(self.cid2future.keys())
 
     def run_task(self, **task:dict) -> Any:
         """
@@ -350,10 +353,10 @@ class  Api:
         for path in self.call_paths():
             print(f'Removing call path: {path}')
             m.rm(path)
-        for future in self.path2future.values():
+        for future in self.cid2future.values():
             print(f'Cancelling future -> {future}')
             future.cancel()
-        self.path2future = {}
+        self.cid2future = {}
         assert len(self.call_paths()) == 0, "Failed to reset all call paths"
         return True
 
@@ -375,12 +378,11 @@ class  Api:
         return None
 
     def _clear_call_paths(self):
-        for path in self.path2future.keys():
-            print(f'Removing call path: {path}')
-            m.rm(path)
-            future = self.path2future[path]
+        for cid in self.cid2future.keys():
+            print(f'Removing call path: {cid}')
+            future = self.cid2future[cid]
             future.cancel()
-        self.path2future = {}
+        self.cid2future = {}
 
     def is_generator(self, obj):
         """
@@ -427,7 +429,11 @@ class  Api:
         """
         try:
             if self.is_valid_cid(mod):
-                content = self.get(self.get(mod)['content'])['data']
+                data = self.get(mod)
+                if isinstance(data, dict) and 'content' in data:
+                    content = self.get(data['content'])['data']
+                else:
+                    content = self.get(mod)['data']
             else:
                 content = self.get(self.mod(mod, key=key)['content'])['data']
             if expand: 
@@ -707,12 +713,12 @@ class  Api:
             self.sync()
 
     def sync(self):
-        n_tasks = len(list(self.path2future.values()))
+        n_tasks = len(list(self.cid2future.values()))
         if n_tasks == 0:
             return True
         else:
             print(f"Syncing {n_tasks} tasks...")
-            future2path = {future: path for path, future in self.path2future.items()}
+            future2path = {future: path for path, future in self.cid2future.items()}
         # check completed futures
         for future in m.as_completed(future2path.keys(), timeout=10):
             path = future2path.pop(future)
@@ -722,8 +728,8 @@ class  Api:
             except Exception as e:
                 print(f"Error in future for path {path}: {e}")
                 pass
-            # remove from path2future
-            self.path2future.pop(path, None)
+            # remove from cid2future
+            self.cid2future.pop(path, None)
 
     def time_since_last_sync(self) -> int:
         return m.time() - self.last_sync

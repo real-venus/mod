@@ -46,7 +46,7 @@ export default function UserPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <Loading />
       </div>
     )
@@ -54,7 +54,7 @@ export default function UserPage() {
 
   if (error || !userData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-red-400 mb-4">ERROR</h1>
           <p className="text-xl text-white/70">{error || 'User not found'}</p>
@@ -79,35 +79,35 @@ export default function UserPage() {
   const getButtonColors = (tabColor: string, isActive: boolean) => {
     const colorMap: Record<string, { active: string; inactive: string }> = {
       blue: {
-        active: 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-2 border-blue-300 shadow-2xl shadow-blue-500/50',
-        inactive: 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/40 hover:bg-blue-500/30 hover:border-blue-400/60'
+        active: 'bg-black text-white border-2 border-white',
+        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
       },
       purple: {
-        active: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-2 border-purple-300 shadow-2xl shadow-purple-500/50',
-        inactive: 'bg-purple-500/20 text-purple-300 border-2 border-purple-500/40 hover:bg-purple-500/30 hover:border-purple-400/60'
+        active: 'bg-black text-white border-2 border-white',
+        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
       },
       green: {
-        active: 'bg-gradient-to-r from-green-500 to-emerald-500 text-white border-2 border-green-300 shadow-2xl shadow-green-500/50',
-        inactive: 'bg-green-500/20 text-green-300 border-2 border-green-500/40 hover:bg-green-500/30 hover:border-green-400/60'
+        active: 'bg-black text-white border-2 border-white',
+        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
       },
       orange: {
-        active: 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white border-2 border-orange-300 shadow-2xl shadow-orange-500/50',
-        inactive: 'bg-orange-500/20 text-orange-300 border-2 border-orange-500/40 hover:bg-orange-500/30 hover:border-orange-400/60'
+        active: 'bg-black text-white border-2 border-white',
+        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
       },
       pink: {
-        active: 'bg-gradient-to-r from-pink-500 to-rose-500 text-white border-2 border-pink-300 shadow-2xl shadow-pink-500/50',
-        inactive: 'bg-pink-500/20 text-pink-300 border-2 border-pink-500/40 hover:bg-pink-500/30 hover:border-pink-400/60'
+        active: 'bg-black text-white border-2 border-white',
+        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
       },
       red: {
-        active: 'bg-gradient-to-r from-red-500 to-rose-500 text-white border-2 border-red-300 shadow-2xl shadow-red-500/50',
-        inactive: 'bg-red-500/20 text-red-300 border-2 border-red-500/40 hover:bg-red-500/30 hover:border-red-400/60'
+        active: 'bg-black text-white border-2 border-white',
+        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
       }
     }
     return isActive ? colorMap[tabColor].active : colorMap[tabColor].inactive
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white">
+    <div className="min-h-screen bg-black text-white">
       <main className="flex-1 px-6 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="mb-8">
@@ -119,7 +119,7 @@ export default function UserPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 rounded-xl font-black text-base uppercase transition-all duration-300 ${
+                className={`px-6 py-3 rounded font-black text-base uppercase transition-all duration-300 ${
                   getButtonColors(tab.color, activeTab === tab.id)
                 } ${activeTab === tab.id ? 'scale-105' : 'hover:scale-105'}`}
               >
@@ -128,7 +128,7 @@ export default function UserPage() {
             ))}
           </div>
 
-          <div className="bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-blue-500/10 border-2 border-purple-500/30 rounded-2xl p-6 backdrop-blur-xl shadow-2xl shadow-purple-500/20">
+          <div className="bg-black border-2 border-white/30 rounded p-6">
             {activeTab === 'mods' && <UserModules userData={userData} />}
             {activeTab === 'transfer' && client?.key && user && <Transfer />}
             {activeTab === 'register' && client?.key && user && <RegMod />}

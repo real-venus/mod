@@ -117,14 +117,14 @@ export default function ModulePage() {
     }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white flex flex-col">
+    <div className="min-h-screen bg-black text-white flex flex-col">
       <main className="flex-1 px-6 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="mb-8">
             <ModCard mod={mod} card_enabled={false} />
           </div>
 
-          <div className="flex flex-wrap gap-3 mb-6">
+          <div className="flex flex-wrap gap-3 mb-6 bg-black p-4 rounded-xl">
             {(availableTabs as const).map((tab) => {
               const isActive = activeTab === tab
               const color = tabColors[tab as keyof typeof tabColors]
@@ -138,8 +138,8 @@ export default function ModulePage() {
                       : 'text-gray-400 border-2 border-gray-600/40 hover:scale-105 hover:border-gray-500/60'
                   }`}
                   style={{
-                    backgroundColor: isActive ? `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)` : `rgba(${color.r}, ${color.g}, ${color.b}, 0.1)`,
-                    borderColor: isActive ? `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)` : undefined,
+                    backgroundColor: isActive ? `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)` : 'rgba(0, 0, 0, 1)',
+                    borderColor: isActive ? `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)` : 'rgba(255, 255, 255, 0.1)',
                     boxShadow: isActive ? `0 0 24px rgba(${color.r}, ${color.g}, ${color.b}, 0.5)` : undefined
                   }}
                 >
@@ -148,7 +148,7 @@ export default function ModulePage() {
               )
             })}
           </div>
-            <div>
+            <div className="bg-black p-6 rounded-xl">
               {activeTab === 'content' && <ModContent mod={mod} />}
               {activeTab === 'api' && <ModApi mod={mod} />}
               {activeTab === 'app' && mod.app&& <ModApp mod={mod} moduleColor={moduleColor} />}

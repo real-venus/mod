@@ -1,78 +1,57 @@
-// Safe copy util (SSR/insecure context/older browsers)
-// no "use client" needed; we guard for window
-
-export const USER_COLORS = [
-  { from: 'from-purple-500/20', to: 'to-pink-500/20', text: 'text-purple-400', hover: 'from-purple-400 to-pink-400', border: 'border-purple-500/30' },
-  { from: 'from-blue-500/20', to: 'to-cyan-500/20', text: 'text-blue-400', hover: 'from-blue-400 to-cyan-400', border: 'border-blue-500/30' },
-  { from: 'from-green-500/20', to: 'to-emerald-500/20', text: 'text-green-400', hover: 'from-green-400 to-emerald-400', border: 'border-green-500/30' },
-  { from: 'from-orange-500/20', to: 'to-red-500/20', text: 'text-orange-400', hover: 'from-orange-400 to-red-400', border: 'border-orange-500/30' },
-  { from: 'from-yellow-500/20', to: 'to-amber-500/20', text: 'text-yellow-400', hover: 'from-yellow-400 to-amber-400', border: 'border-yellow-500/30' },
-  { from: 'from-indigo-500/20', to: 'to-violet-500/20', text: 'text-indigo-400', hover: 'from-indigo-400 to-violet-400', border: 'border-indigo-500/30' },
-]
-
-export async function copyToClipboard(text: string): Promise<boolean> {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
-  try {
-    if (window.isSecureContext && navigator?.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {}
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok;
-  } catch {
-    return false;
-  }
+export const time2str = (timestamp: number): string => {
+  const date = new Date(timestamp)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
-
-export const shorten = (str: string, leading: number = 4, trailing: number = 0): string => {
-  const leadingPart = str.slice(0, leading)
-  const trailingPart = trailing > 0 ? str.slice(-trailing) : ''
-  return trailing > 0 ? `${leadingPart}..${trailingPart}` : `${leadingPart}...`
+export const time2utc = (timestamp: number): string => {
+  const date = new Date(timestamp)
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
+  const hours = String(date.getUTCHours()).padStart(2, '0')
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
-
-
-export const time2str = (time: number): string => {
-  const d = new Date(time * 1000)
-  const now = Date.now()
-  const diffMs = now - (time * 1000)
-  
-  const seconds = Math.floor(diffMs / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-  const weeks = Math.floor(days / 7)
-  const months = Math.floor(days / 30)
-  
-  return `${seconds}s ${minutes}m ${hours}h ${days}d ${weeks}w ${months}mo`
-}
-
-
-export const time2utc = (time: number): string => {
-  const d = new Date(time * 1000)
-  return d.toISOString().replace('T', ' ').substring(0, 19) 
-}
-
 
 export const text2color = (text: string): string => {
-  if (!text) return '#00ff00'
   let hash = 0
-  for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash)
-  const golden_ratio = 0.618033988749895
-  const hue = (hash * golden_ratio * 360) % 360
-  const saturation = 65 + (Math.abs(hash >> 8) % 35)
-  const lightness = 50 + (Math.abs(hash >> 16) % 20)
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+  for (let i = 0; i < text.length; i++) {
+    hash = text.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const h = hash % 360
+  return `hsl(${h}, 70%, 60%)`
 }
 
+export const shorten = (str: string, start = 8, end = 8): string => {
+  if (!str || str.length <= start + end) return str
+  return `${str.slice(0, start)}...${str.slice(-end)}`
+}
+
+export const copyToClipboard = async (text: string): Promise<boolean> => {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      return true
+    } else {
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      const success = document.execCommand('copy')
+      textArea.remove()
+      return success
+    }
+  } catch (err) {
+    console.error('Failed to copy:', err)
+    return false
+  }
+}

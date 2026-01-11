@@ -1,7 +1,7 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { CopyButton } from '@/mod/ui/CopyButton';
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { CopyButton } from '@/mod/ui/CopyButton'
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -16,29 +16,31 @@ import {
   PhotoIcon,
   FilmIcon,
   MusicalNoteIcon,
-  ArchiveBoxIcon
-} from '@heroicons/react/24/outline';
-import { ModuleType } from '@/mod/types';
-import { userContext } from '@/mod/context';
+  ArchiveBoxIcon,
+  ArrowUpDown
+} from '@heroicons/react/24/outline'
+import { ModuleType } from '@/mod/types'
+import { userContext } from '@/mod/context'
+import { text2color } from '@/mod/utils'
 
 export interface ModContentProps {
   mod: {
-    content: Record<string, string> | undefined | string;
-  };
+    content: Record<string, string> | undefined | string
+  }
 }
 
 export type FileNode = {
-  name: string;
-  path: string;
-  type: 'file' | 'folder';
-  children?: FileNode[];
-  content?: string;
-  language?: string;
-  hash?: string;
-  lineCount?: number;
-  size?: string;
-  cid?: string;
-};
+  name: string
+  path: string
+  type: 'file' | 'folder'
+  children?: FileNode[]
+  content?: string
+  language?: string
+  hash?: string
+  lineCount?: number
+  size?: string
+  cid?: string
+}
 
 export const ui = {
   panel: '#0b0b0b',
@@ -49,47 +51,47 @@ export const ui = {
   textDim: '#a8a8a8',
   green: '#22c55e',
   yellow: '#facc15',
-};
+}
 
 export const getFileIcon = (filename: string) => {
-  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  const ext = filename.split('.').pop()?.toLowerCase() || ''
   const iconMap: Record<string, any> = {
     ts: CodeBracketIcon, tsx: CodeBracketIcon, js: CodeBracketIcon, jsx: CodeBracketIcon, py: CodeBracketIcon,
     json: DocumentChartBarIcon, css: DocumentTextIcon, html: DocumentTextIcon, md: DocumentTextIcon, txt: DocumentTextIcon,
     jpg: PhotoIcon, jpeg: PhotoIcon, png: PhotoIcon, gif: PhotoIcon, svg: PhotoIcon,
     mp4: FilmIcon, avi: FilmIcon, mov: FilmIcon, mp3: MusicalNoteIcon, wav: MusicalNoteIcon, zip: ArchiveBoxIcon, tar: ArchiveBoxIcon, gz: ArchiveBoxIcon,
-  };
-  return iconMap[ext] || DocumentIcon;
-};
+  }
+  return iconMap[ext] || DocumentIcon
+}
 
 export const getLanguageFromPath = (path: string): string => {
-  const ext = path.split('.').pop()?.toLowerCase() || '';
+  const ext = path.split('.').pop()?.toLowerCase() || ''
   const langMap: Record<string, string> = {
     ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
     py: 'python', json: 'json', css: 'css', html: 'html', md: 'markdown',
-  };
-  return langMap[ext] || 'text';
-};
+  }
+  return langMap[ext] || 'text'
+}
 
 export const languageColors: Record<string, string> = {
   typescript: 'text-blue-400', javascript: 'text-yellow-400', python: 'text-green-400',
   json: 'text-orange-400', css: 'text-pink-400', html: 'text-red-400',
   markdown: 'text-gray-400', text: 'text-gray-300',
-};
+}
 
 export const formatFileSize = (bytes: number): string =>
-  bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
+  bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`
 
 export const buildFileTree = (files: Record<string, string>): FileNode[] => {
-  const root: FileNode = { name: '', path: '', type: 'folder', children: [] };
+  const root: FileNode = { name: '', path: '', type: 'folder', children: [] }
 
   Object.entries(files).forEach(([path, content]) => {
-    const parts = path.split('/').filter(Boolean);
-    let current = root;
+    const parts = path.split('/').filter(Boolean)
+    let current = root
     parts.forEach((part, idx) => {
-      const isFile = idx === parts.length - 1;
-      const currentPath = parts.slice(0, idx + 1).join('/');
-      let child = current.children!.find((c) => c.name === part);
+      const isFile = idx === parts.length - 1
+      const currentPath = parts.slice(0, idx + 1).join('/')
+      let child = current.children!.find((c) => c.name === part)
       if (!child) {
         child = {
           name: part,
@@ -101,26 +103,26 @@ export const buildFileTree = (files: Record<string, string>): FileNode[] => {
           cid: isFile ? content : undefined,
           lineCount: isFile ? content.split('\n').length : undefined,
           size: isFile ? formatFileSize(content.length) : undefined,
-        };
-        current.children!.push(child);
+        }
+        current.children!.push(child)
       }
-      if (!isFile) current = child;
-    });
-  });
+      if (!isFile) current = child
+    })
+  })
 
   const sortNodes = (nodes?: FileNode[]) => {
-    if (!nodes) return;
-    nodes.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'folder' ? -1 : 1));
-    nodes.forEach((n) => sortNodes(n.children));
-  };
-  sortNodes(root.children);
-  return root.children || [];
-};
+    if (!nodes) return
+    nodes.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'folder' ? -1 : 1))
+    nodes.forEach((n) => sortNodes(n.children))
+  }
+  sortNodes(root.children)
+  return root.children || []
+}
 
 export const highlightSearchTerm = (text: string, term: string) => {
-  if (!term) return text;
-  const safe = term.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${safe})`, 'gi'));
+  if (!term) return text
+  const safe = term.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${safe})`, 'gi'))
   return (
     <>
       {parts.map((p, i) =>
@@ -131,27 +133,27 @@ export const highlightSearchTerm = (text: string, term: string) => {
         )
       )}
     </>
-  );
-};
+  )
+}
 
 export function FileTreeItem({
   node, level, onSelect, expandedFolders, toggleFolder, selectedPath, onCopy, searchTerm,
 }: {
-  node: FileNode; level: number; onSelect: (n: FileNode) => void;
-  expandedFolders: Set<string>; toggleFolder: (p: string) => void; selectedPath?: string;
-  onCopy: (n: FileNode) => void; searchTerm?: string;
+  node: FileNode; level: number; onSelect: (n: FileNode) => void
+  expandedFolders: Set<string>; toggleFolder: (p: string) => void; selectedPath?: string
+  onCopy: (n: FileNode) => void; searchTerm?: string
 }) {
-  const isExpanded = expandedFolders.has(node.path);
-  const isSelected = selectedPath === node.path;
-  const FileIcon = node.type === 'file' ? getFileIcon(node.name) : (isExpanded ? FolderOpenIcon : FolderIcon);
+  const isExpanded = expandedFolders.has(node.path)
+  const isSelected = selectedPath === node.path
+  const FileIcon = node.type === 'file' ? getFileIcon(node.name) : (isExpanded ? FolderOpenIcon : FolderIcon)
 
   const matchesSearch = searchTerm
     ? node.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       node.path.toLowerCase().includes(searchTerm.toLowerCase())
-    : true;
+    : true
 
-  const handleClick = () => (node.type === 'folder' ? toggleFolder(node.path) : onSelect(node));
-  if (!matchesSearch && node.type === 'file') return null;
+  const handleClick = () => (node.type === 'folder' ? toggleFolder(node.path) : onSelect(node))
+  if (!matchesSearch && node.type === 'file') return null
 
   return (
     <div>
@@ -202,76 +204,78 @@ export function FileTreeItem({
         </div>
       )}
     </div>
-  );
+  )
 }
 
 export default function ModContent({ mod }: { mod: ModuleType }) {
-  const files = typeof mod.content === 'object' && mod.content !== null ? mod.content : {};
-  const { client } = userContext();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [fileSearchTerm, setFileSearchTerm] = useState('');
-  const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
-  const [selectedFile, setSelectedFile] = useState<string | null>(mod.content && typeof mod.content === 'object' ? Object.keys(mod.content)[0] : null);
-  const [fileTree, setFileTree] = useState<FileNode[]>([]);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [searchResults, setSearchResults] = useState<{ path: string; lineNumbers: number[] }[]>([]);
-  const codeRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const [fileContents, setFileContents] = useState<Record<string, string>>({});
-  const [dividerPosition, setDividerPosition] = useState(256);
-  const isDragging = useRef(false);
+  const files = typeof mod.content === 'object' && mod.content !== null ? mod.content : {}
+  const { client } = userContext()
+  const [searchTerm, setSearchTerm] = useState('')
+  const [fileSearchTerm, setFileSearchTerm] = useState('')
+  const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set())
+  const [selectedFile, setSelectedFile] = useState<string | null>(mod.content && typeof mod.content === 'object' ? Object.keys(mod.content)[0] : null)
+  const [fileTree, setFileTree] = useState<FileNode[]>([])
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [searchResults, setSearchResults] = useState<{ path: string; lineNumbers: number[] }[]>([])
+  const codeRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [fileContents, setFileContents] = useState<Record<string, string>>({})
+  const [dividerPosition, setDividerPosition] = useState(256)
+  const isDragging = useRef(false)
+
+  const modColor = text2color(mod.name || mod.key)
 
   useEffect(() => {
-    const tree = buildFileTree(files);
-    setFileTree(tree);
+    const tree = buildFileTree(files)
+    setFileTree(tree)
     if (!selectedFile) {
        for (let n of tree) {
           if (n.type === 'file') {
-            setSelectedFile(n.path);
-            break;
+            setSelectedFile(n.path)
+            break
        }
       }
     }
-    const all = new Set<string>();
-    const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }});
-    collect(tree);
-    setExpandedFolders(all);
-    if (tree.length > 0 && tree[0].type === 'file') setSelectedFile(tree[0].path);
-  }, [files, selectedFile]);
+    const all = new Set<string>()
+    const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }})
+    collect(tree)
+    setExpandedFolders(all)
+    if (tree.length > 0 && tree[0].type === 'file') setSelectedFile(tree[0].path)
+  }, [files, selectedFile])
 
   useEffect(() => {
-    if (!fileSearchTerm) return;
-    const folders = new Set<string>();
+    if (!fileSearchTerm) return
+    const folders = new Set<string>()
     const check = (n: FileNode, parent = '') => {
-      const cp = parent ? `${parent}/${n.name}` : n.name;
+      const cp = parent ? `${parent}/${n.name}` : n.name
       if (n.name.toLowerCase().includes(fileSearchTerm.toLowerCase()) || n.path.toLowerCase().includes(fileSearchTerm.toLowerCase())) {
-        const parts = cp.split('/').filter(Boolean);
-        for (let i = 0; i < parts.length - 1; i++) folders.add(parts.slice(0, i + 1).join('/'));
+        const parts = cp.split('/').filter(Boolean)
+        for (let i = 0; i < parts.length - 1; i++) folders.add(parts.slice(0, i + 1).join('/'))
       }
-      n.children?.forEach((c) => check(c, cp));
-    };
-    fileTree.forEach((n) => check(n));
-    setExpandedFolders((prev) => { const newSet = new Set(prev); folders.forEach(folder => newSet.add(folder)); return newSet; });
-  }, [fileSearchTerm, fileTree]);
+      n.children?.forEach((c) => check(c, cp))
+    }
+    fileTree.forEach((n) => check(n))
+    setExpandedFolders((prev) => { const newSet = new Set(prev); folders.forEach(folder => newSet.add(folder)); return newSet; })
+  }, [fileSearchTerm, fileTree])
 
   useEffect(() => {
     if (!searchTerm) { setSearchResults([]); return; }
-    const results: { path: string; lineNumbers: number[] }[] = [];
+    const results: { path: string; lineNumbers: number[] }[] = []
     Object.entries(files).forEach(([path, content]) => {
-      if (typeof content !== 'string') return;
-      const lines = content.split('\n');
-      const matchLines: number[] = [];
-      const q = searchTerm.toLowerCase();
-      lines.forEach((line, idx) => { if (line.toLowerCase().includes(q)) matchLines.push(idx + 1); });
-      if (matchLines.length) results.push({ path, lineNumbers: matchLines });
-    });
-    setSearchResults(results);
-    setCollapsedFiles(new Set());
-  }, [searchTerm, files]);
+      if (typeof content !== 'string') return
+      const lines = content.split('\n')
+      const matchLines: number[] = []
+      const q = searchTerm.toLowerCase()
+      lines.forEach((line, idx) => { if (line.toLowerCase().includes(q)) matchLines.push(idx + 1); })
+      if (matchLines.length) results.push({ path, lineNumbers: matchLines })
+    })
+    setSearchResults(results)
+    setCollapsedFiles(new Set())
+  }, [searchTerm, files])
 
   const fileSections = useMemo(() =>
     Object.entries(files)
       .map(([path, content]) => {
-        if (typeof content !== 'string') return null;
+        if (typeof content !== 'string') return null
         return {
           path,
           name: path.split('/').pop() || path,
@@ -280,147 +284,148 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
           cid: content,
           lineCount: content.split('\n').length,
           size: formatFileSize(content.length),
-        };
+        }
       })
       .filter((s): s is NonNullable<typeof s> => s !== null),
     [files]
-  );
+  )
 
   const filteredSections = useMemo(() => {
-    if (!searchTerm) return fileSections;
-    const q = searchTerm.toLowerCase();
-    return fileSections.filter((s) => s && (s.path.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)));
-  }, [fileSections, searchTerm]);
+    if (!searchTerm) return fileSections
+    const q = searchTerm.toLowerCase()
+    return fileSections.filter((s) => s && (s.path.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)))
+  }, [fileSections, searchTerm])
 
   const stats = useMemo(() => {
-    const totalLines = filteredSections.reduce((sum, s) => sum + s.lineCount, 0);
-    const totalSize = filteredSections.reduce((sum, s) => sum + s.content.length, 0);
-    return { fileCount: filteredSections.length, totalLines, totalSize: formatFileSize(totalSize) };
-  }, [filteredSections]);
+    const totalLines = filteredSections.reduce((sum, s) => sum + s.lineCount, 0)
+    const totalSize = filteredSections.reduce((sum, s) => sum + s.content.length, 0)
+    return { fileCount: filteredSections.length, totalLines, totalSize: formatFileSize(totalSize) }
+  }, [filteredSections])
 
-  const toggleFile = (path: string) => setCollapsedFiles((prev) => { const n = new Set(prev); n.has(path) ? n.delete(path) : n.add(path); return n; });
-  const toggleFolder = (path: string) => setExpandedFolders((prev) => { const n = new Set(prev); n.has(path) ? n.delete(path) : n.add(path); return n; });
+  const toggleFile = (path: string) => setCollapsedFiles((prev) => { const n = new Set(prev); n.has(path) ? n.delete(path) : n.add(path); return n; })
+  const toggleFolder = (path: string) => setExpandedFolders((prev) => { const n = new Set(prev); n.has(path) ? n.delete(path) : n.add(path); return n; })
 
   const handleFileSelect = async (node: FileNode) => {
-    if (node.type !== 'file') return;
-    setSelectedFile(node.path);
+    if (node.type !== 'file') return
+    setSelectedFile(node.path)
     if (node.cid && client && !fileContents[node.path]) {
       try {
-        const res = await client.call('get', { cid: node.cid });
-        setFileContents(prev => ({ ...prev, [node.path]: res }));
+        const res = await client.call('get', { cid: node.cid })
+        setFileContents(prev => ({ ...prev, [node.path]: res }))
       } catch (err) {
-        console.error('Failed to fetch content for', node.path, err);
+        console.error('Failed to fetch content for', node.path, err)
       }
     }
-    const el = codeRefs.current[node.path];
-    if (el) el.scrollIntoView({ behavior: 'smooth', bloc: 'start' });
-  };
+    const el = codeRefs.current[node.path]
+    if (el) el.scrollIntoView({ behavior: 'smooth', bloc: 'start' })
+  }
 
   const copyFileContent = (node: FileNode) => {
     if (node.type === 'file' && node.content) {
-      navigator.clipboard.writeText(node.content);
-      return;
+      navigator.clipboard.writeText(node.content)
+      return
     }
     if (node.type === 'folder') {
-      const buffer: string[] = [];
+      const buffer: string[] = []
       const walk = (n: FileNode) => {
-        if (n.type === 'file' && n.content) buffer.push(`// ${n.path}\n${n.content}`);
-        n.children?.forEach(walk);
-      };
-      walk(node);
-      navigator.clipboard.writeText(buffer.join('\n\n'));
+        if (n.type === 'file' && n.content) buffer.push(`// ${n.path}\n${n.content}`)
+        n.children?.forEach(walk)
+      }
+      walk(node)
+      navigator.clipboard.writeText(buffer.join('\n\n'))
     }
-  };
+  }
 
   const handleMouseDown = () => {
-    isDragging.current = true;
-  };
+    isDragging.current = true
+  }
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      const newPos = e.clientX;
+      if (!isDragging.current) return
+      const newPos = e.clientX
       if (newPos > 150 && newPos < 600) {
-        setDividerPosition(newPos);
+        setDividerPosition(newPos)
       }
-    };
+    }
 
     const handleMouseUp = () => {
-      isDragging.current = false;
-    };
+      isDragging.current = false
+    }
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
 
   const renderLineNumbers = (content: string, startLine: number, path: string) => {
-    const lines = content.split('\n');
-    const matches = searchResults.find((r) => r.path === path)?.lineNumbers || [];
+    const lines = content.split('\n')
+    const matches = searchResults.find((r) => r.path === path)?.lineNumbers || []
     return (
       <div className="select-none pr-2 font-mono text-xs text-gray-500">
         {lines.map((_, i) => {
-          const ln = startLine + i;
-          const isMatch = matches.includes(ln);
+          const ln = startLine + i
+          const isMatch = matches.includes(ln)
           return (
             <div key={i} className={`text-right ${isMatch ? 'bg-yellow-400/20 text-yellow-400' : ''}`}>
               {ln}
             </div>
-          );
+          )
         })}
       </div>
-    );
-  };
+    )
+  }
 
   const renderCode = (content: string, language: string, path: string) => {
-    const langColor = languageColors[language] || 'text-gray-300';
-    const lines = content.split('\n');
-    const matches = searchResults.find((r) => r.path === path)?.lineNumbers || [];
+    const langColor = languageColors[language] || 'text-gray-300'
+    const lines = content.split('\n')
+    const matches = searchResults.find((r) => r.path === path)?.lineNumbers || []
     return (
       <pre className="micro-scroll micro-edge-x flex-1 overflow-x-auto">
         <code className={`font-mono text-xs leading-relaxed ${langColor}`}>
           {lines.map((line, i) => {
-            const ln = i + 1;
-            const isMatch = matches.includes(ln);
+            const ln = i + 1
+            const isMatch = matches.includes(ln)
             return (
               <div key={i} className={isMatch ? 'bg-yellow-400/20' : ''}>
                 {searchTerm ? highlightSearchTerm(line, searchTerm) : line}
               </div>
-            );
+            )
           })}
         </code>
       </pre>
-    );
-  };
+    )
+  }
 
-  const topFile = fileSections[0];
+  const topFile = fileSections[0]
 
   return (
-    <div className="overflow-hidden rounded-lg" style={{ backgroundColor: ui.panelAlt }}>
-      <div className="px-4 py-3" style={{ backgroundColor: ui.panel, borderBottom: `1px solid ${ui.border}` }}>
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-4 text-xs" style={{ color: ui.textDim }}>
-            <span>{stats.fileCount} files</span>
-            <span>{stats.totalLines} lines</span>
-            <span>{stats.totalSize}</span>
-          </div>
+    <div className="rounded-xl border-2 font-mono" style={{ backgroundColor: `${modColor}15`, borderColor: modColor }}>
+      <div className="flex items-center justify-between p-3 border-b-2" style={{ borderColor: modColor }}>
+        <h3 className="text-xl font-black" style={{ color: modColor, letterSpacing: '0.02em' }}>Content</h3>
+        <div className="flex items-center gap-4 text-xs" style={{ color: `${modColor}80` }}>
+          <span>{stats.fileCount} files</span>
+          <span>{stats.totalLines} lines</span>
+          <span>{stats.totalSize}</span>
         </div>
+      </div>
+      <div className="p-3 border-b-2" style={{ borderColor: modColor }}>
         <div className="relative">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: `${modColor}60` }} />
           <input
             type="text"
             placeholder="Search in code content…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-md border bg-transparent pl-10 pr-16 py-2 text-sm outline-none"
-            style={{ borderColor: ui.border, color: ui.text }}
+            className="w-full rounded-lg border-2 bg-black/40 pl-10 pr-16 py-2 text-sm outline-none font-mono"
+            style={{ borderColor: `${modColor}40`, color: modColor }}
           />
           {searchTerm && (
-            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: ui.textDim }}>
+            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: `${modColor}60` }}>
               {searchResults.length} files, {searchResults.reduce((s, r) => s + r.lineNumbers.length, 0)} matches
             </div>
           )}
@@ -428,36 +433,38 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
       </div>
 
       <div className="flex relative">
-        <div className="micro-scroll-y max-h-[600px] overflow-y-auto border-r p-3" style={{ width: `${dividerPosition}px`, borderColor: ui.border, backgroundColor: ui.panelAlt2 }}>
+        <div className="micro-scroll-y max-h-[600px] overflow-y-auto border-r-2 p-3" style={{ width: `${dividerPosition}px`, borderColor: modColor, backgroundColor: 'rgba(0,0,0,0.4)' }}>
           <div className="mb-2">
-            <h3 className="mb-2 text-sm font-medium" style={{ color: ui.text }}>File Explorer</h3>
+            <h3 className="mb-2 text-sm font-bold" style={{ color: modColor }}>File Explorer</h3>
             <div className="relative">
-              <MagnifyingGlassIcon className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
+              <MagnifyingGlassIcon className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2" style={{ color: `${modColor}60` }} />
               <input
                 type="text"
                 placeholder="Filter files…"
                 value={fileSearchTerm}
                 onChange={(e) => setFileSearchTerm(e.target.value)}
-                className="w-full rounded border bg-transparent pl-6 pr-2 py-1 text-xs outline-none"
-                style={{ borderColor: ui.border, color: ui.text }}
+                className="w-full rounded border-2 bg-black/40 pl-6 pr-2 py-1 text-xs outline-none font-mono"
+                style={{ borderColor: `${modColor}40`, color: modColor }}
               />
             </div>
             <div className="mt-2 flex gap-1">
               <button
                 onClick={() => {
-                  const all = new Set<string>();
-                  const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }});
-                  collect(fileTree);
-                  setExpandedFolders(all);
+                  const all = new Set<string>()
+                  const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }})
+                  collect(fileTree)
+                  setExpandedFolders(all)
                 }}
-                className="text-xs text-emerald-400 hover:opacity-80"
+                className="text-xs hover:opacity-80"
+                style={{ color: modColor }}
                 title="Expand all"
               >
                 <ChevronDownIcon className="h-3 w-3" />
               </button>
               <button
                 onClick={() => setExpandedFolders(new Set())}
-                className="text-xs text-emerald-400 hover:opacity-80"
+                className="text-xs hover:opacity-80"
+                style={{ color: modColor }}
                 title="Collapse all"
               >
                 <ChevronRightIcon className="h-3 w-3" />
@@ -482,20 +489,20 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         </div>
 
         <div
-          className="absolute top-0 bottom-0 w-1 cursor-col-resize hover:bg-emerald-500/50 transition-colors"
-          style={{ left: `${dividerPosition}px`, zIndex: 10 }}
+          className="absolute top-0 bottom-0 w-1 cursor-col-resize hover:opacity-80 transition-colors"
+          style={{ left: `${dividerPosition}px`, zIndex: 10, backgroundColor: modColor }}
           onMouseDown={handleMouseDown}
         />
 
         <div className="micro-scroll-y max-h-[600px] flex-1 overflow-y-auto">
           {filteredSections.map((section) => {
-            const isCollapsed = collapsedFiles.has(section.path);
-            const isSelected = selectedFile === section.path;
-            const FileIcon = getFileIcon(section.name);
-            const matches = searchResults.find((r) => r.path === section.path)?.lineNumbers.length || 0;
-            if (selectedFile && !isSelected) return null;
-            if (!client) return null;
-            const content = fileContents[section.path] || section.content;
+            const isCollapsed = collapsedFiles.has(section.path)
+            const isSelected = selectedFile === section.path
+            const FileIcon = getFileIcon(section.name)
+            const matches = searchResults.find((r) => r.path === section.path)?.lineNumbers.length || 0
+            if (selectedFile && !isSelected) return null
+            if (!client) return null
+            const content = fileContents[section.path] || section.content
 
             return (
               <div
@@ -510,7 +517,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                   <div className="micro-row flex items-center gap-2">
                     {isCollapsed ? <ChevronRightIcon className="h-4 w-4 text-gray-400" /> : <ChevronDownIcon className="h-4 w-4 text-gray-400" />}
                     <FileIcon className="h-4 w-4 text-gray-400" />
-                    <span className="font-mono text-sm text-emerald-400">
+                    <span className="font-mono text-sm" style={{ color: modColor }}>
                       {section.name}
                     </span>
                     <span className={`text-xs ${languageColors[section.language]}`}>{section.language.toUpperCase()}</span>
@@ -532,23 +539,24 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                   </div>
                 )}
               </div>
-            );
+            )
           })}
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-4 py-3" style={{ backgroundColor: ui.panel, borderTop: `1px solid ${ui.border}` }}>
-        <div className="text-xs" style={{ color: ui.textDim }}>
+      <div className="flex items-center justify-between p-3 border-t-2" style={{ borderColor: modColor }}>
+        <div className="text-xs" style={{ color: `${modColor}80` }}>
           {searchTerm && searchResults.length > 0 && (
             <span>Found "{searchTerm}" in {searchResults.length} files</span>
           )}
         </div>
         <button
           onClick={() => {
-            const all = filteredSections.map((s) => `// ${s.path}\n${s.content}`).join('\n\n');
-            navigator.clipboard.writeText(all);
+            const all = filteredSections.map((s) => `// ${s.path}\n${s.content}`).join('\n\n')
+            navigator.clipboard.writeText(all)
           }}
-          className="flex items-center gap-2 text-xs text-emerald-400 hover:opacity-80"
+          className="flex items-center gap-2 text-xs hover:opacity-80 px-3 py-1.5 rounded-lg border-2"
+          style={{ color: modColor, borderColor: `${modColor}40`, backgroundColor: 'rgba(0,0,0,0.4)' }}
         >
           <DocumentIcon className="h-3 w-3" />
           Copy All Code
@@ -570,5 +578,5 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         .micro-row { min-height: 28px; }
       `}</style>
     </div>
-  );
+  )
 }

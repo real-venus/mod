@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Package, Upload, Database, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { Package, Upload, Database, Loader2, CheckCircle, AlertCircle, ArrowUpDown } from 'lucide-react'
 import {userContext} from '@/mod/context'
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { stringToU8a, u8aToHex } from '@polkadot/util'
@@ -25,6 +25,7 @@ export const RegMod = ( ) => {
   const [registrationType, setRegistrationType] = useState<'local' | 'onchain'>('local')
   const [localModules, setLocalModules] = useState<ModuleType[]>([])
   const [selectedLocalMod, setSelectedLocalMod] = useState<string>('')
+  const [sortAsc, setSortAsc] = useState(false)
 
   useEffect(() => {
     const walletMode = localStorage.getItem('wallet_mode')
@@ -237,6 +238,12 @@ export const RegMod = ( ) => {
     }
   }
 
+  const sortedLocalModules = [...localModules].sort((a, b) => {
+    const timeA = new Date(a.updated || 0).getTime()
+    const timeB = new Date(b.updated || 0).getTime()
+    return sortAsc ? timeA - timeB : timeB - timeA
+  })
+
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="space-y-5 p-6 rounded-xl bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-cyan-500/10 border-2 border-purple-500/30 shadow-2xl">
@@ -303,16 +310,26 @@ export const RegMod = ( ) => {
           ) : (
             <>
               <div className="space-y-2">
-                <label className="text-sm text-purple-400 font-mono uppercase font-bold tracking-wide">
-                  Select Local Module
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-purple-400 font-mono uppercase font-bold tracking-wide">
+                    Select Local Module
+                  </label>
+                  <button
+                    onClick={() => setSortAsc(!sortAsc)}
+                    className="px-3 py-1.5 rounded-lg hover:opacity-80 transition-all flex items-center gap-2 text-xs font-semibold border"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#a855f7', borderColor: '#a855f740' }}
+                  >
+                    <ArrowUpDown className="w-4 h-4" />
+                    {sortAsc ? 'Oldest' : 'Newest'}
+                  </button>
+                </div>
                 <select
                   value={selectedLocalMod}
                   onChange={(e) => setSelectedLocalMod(e.target.value)}
                   className="w-full bg-black/60 border-2 border-purple-500/40 rounded-lg px-4 py-3 text-purple-300 font-mono text-base focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all"
                 >
                   <option value="">-- Select a local module --</option>
-                  {localModules.map((mod) => (
+                  {sortedLocalModules.map((mod) => (
                     <option key={mod.name} value={mod.name}>
                       {mod.name}
                     </option>

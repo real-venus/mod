@@ -11,12 +11,12 @@
 
 BlocTime Protocol is a comprehensive DeFi system combining:
 
-1. **BlocTimeStaking**: Lock tokens → Earn BlocTime tokens (multiplier-based) → Claim treasury rewards
-2. **BlocTimeMarketplace**: Rent compute/AI/assets → Automatic treasury funding → Secondary market
-3. **Registry**: Modular module management → Ownership tracking → Availability control
-4. **BlocTimeTracker**: Session tracking with signature-based start/stop → Automatic bloctime deduction
-5. **TokenGate**: Multi-token support → Flexible payment options
-6. **BidSystem**: Competitive bidding → Price discovery → Market efficiency
+1. **BlocTime Staking**: Lock tokens → Earn BlocTime tokens (multiplier-based) → Claim treasury rewards
+2. **Market**: NFT-based marketplace for rentable resources with automatic treasury funding
+3. **Registry**: Module management → Ownership tracking → Availability control
+4. **Treasury**: Multi-token revenue collection → Proportional distribution to governance token holders
+5. **Perms**: Role-based access control for system operations
+6. **Oracles**: Price feed integration (Chainlink, Pyth, Manual)
 
 ### 💎 Key Innovation
 
@@ -25,13 +25,11 @@ BlocTime Protocol is a comprehensive DeFi system combining:
 ## 📚 Documentation
 
 - **[README.md](./README.md)**: This file - comprehensive overview
-- **[API Reference](./docs/API_REFERENCE.md)**: Complete API documentation with examples
+- **[WHITEPAPER](./docs/BLOCTIME_WHITEPAPER.tex)**: Complete economic model and technical whitepaper
+- **[ONE-PAGER](./docs/BLOCTIME_ONEPAGER.tex)**: Quick overview for stakeholders
+- **[DEPLOYMENT GUIDE](./DEPLOYMENT.md)**: Step-by-step deployment on any EVM chain
+- **[API Reference](./docs/API_REFERENCE.md)**: Complete API documentation
 - **[Integration Guide](./docs/INTEGRATION_GUIDE.md)**: Frontend/backend integration examples
-- **[Deployment Guide](./DEPLOYMENT.md)**: Step-by-step deployment instructions
-- **[Contributing Guide](./CONTRIBUTING.md)**: Contribution guidelines
-- **[Technical Whitepaper](./docs/bloctime_documentation.tex)**: LaTeX technical documentation
-- **[Whitepaper](./docs/BLOCTIME_WHITEPAPER.tex)**: Complete whitepaper
-- **[One-Pager](./docs/BLOCTIME_ONEPAGER.tex)**: Quick overview
 
 ## 🧪 Testing
 
@@ -40,11 +38,12 @@ BlocTime Protocol is a comprehensive DeFi system combining:
 npm test
 
 # Run specific test suites
-npx hardhat test test/Staking.test.js
-npx hardhat test test/Marketplace.test.js
+npx hardhat test test/BlocTime.test.js
+npx hardhat test test/Market.test.js
 npx hardhat test test/Registry.test.js
-npx hardhat test test/Tracker.test.js
-npx hardhat test test/Integration.test.js
+npx hardhat test test/Treasury.test.js
+npx hardhat test test/Perms.test.js
+npx hardhat test test/Oracles.test.js
 
 # Run with gas reporting
 npx hardhat test --gas-reporter
@@ -55,11 +54,12 @@ npx hardhat coverage
 
 ### Test Coverage
 
-✅ **BlocTimeStaking**: Multiplier points, staking/unstaking, treasury rewards, proportional distribution
-✅ **BlocTimeMarketplace**: Rental flow, fractional listings, secondary market, fee calculation
+✅ **BlocTime**: Multiplier points, staking/unstaking, treasury rewards, proportional distribution
+✅ **Market**: NFT-based rentals, marketplace operations, fee collection
 ✅ **Registry**: Module registration, updates, deactivation, user count management
-✅ **BlocTimeTracker**: Session management, signature verification, bloctime deduction, epoch clearing
-✅ **Integration**: Health checks, system statistics, user info aggregation
+✅ **Treasury**: Multi-token funding, proportional distribution, owner withdrawal
+✅ **Perms**: Role-based access control, permission management
+✅ **Oracles**: Price feed integration, multiple oracle support
 
 ## 🛠️ Setup & Deployment
 
@@ -73,7 +73,7 @@ npx hardhat coverage
 
 ```bash
 # Clone and navigate
-cd /root/mod/mod/_mods/bloctime
+cd /root/mod/mod/core/chain/chain/bloctime
 
 # Environment setup
 cp .env.example .env
@@ -95,15 +95,34 @@ docker-compose exec hardhat npx hardhat run scripts/deploy.js --network ganache
 
 # Setup local test environment
 docker-compose exec hardhat npx hardhat run scripts/setup-local.js --network ganache
+```
 
-# Deploy to Base Mainnet
-echo "PRIVATE_KEY=your_key" >> .env
-docker-compose exec hardhat npx hardhat run scripts/deploy.js --network base
+### Deploy to Your Own Chain
+
+```bash
+# Configure your network in hardhat.config.js
+# Add your network:
+networks: {
+  your_chain: {
+    url: "https://your-rpc-url",
+    accounts: [process.env.PRIVATE_KEY],
+    chainId: YOUR_CHAIN_ID
+  }
+}
+
+# Set private key
+echo "PRIVATE_KEY=your_private_key" >> .env
+
+# Deploy
+npx hardhat run scripts/deploy.js --network your_chain
+
+# Verify contracts (if block explorer supports it)
+npx hardhat verify --network your_chain DEPLOYED_ADDRESS "Constructor" "Args"
 ```
 
 For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
-## 📐 Mathematical Framework
+## 📊 Mathematical Framework
 
 ### BlocTime Minting
 
@@ -133,10 +152,6 @@ Primary Rental:
 Secondary Sale:
   Treasury_Fee = Sale_Price × 0.025
   Seller_Receives = Sale_Price - Treasury_Fee
-
-Bid Acceptance:
-  Treasury_Fee = Bid_Amount × 0.025
-  Slot_Owner_Receives = Bid_Amount - Treasury_Fee
 ```
 
 ## 🔒 Security Features
@@ -146,8 +161,7 @@ Bid Acceptance:
 ✅ **OpenZeppelin Contracts**: Industry-standard security libraries
 ✅ **ReentrancyGuard**: Protection on all state-changing functions
 ✅ **SafeERC20**: Safe token transfer operations
-✅ **Access Control**: Owner-only administrative functions
-✅ **Signature Verification**: ECDSA signature validation for tracker
+✅ **Access Control**: Role-based permissions via Perms contract
 ✅ **Monotonic Multipliers**: Prevents gaming the system
 ✅ **Overflow Protection**: Solidity 0.8+ built-in checks
 
@@ -158,8 +172,6 @@ Bid Acceptance:
 ✅ **Transparent Calculations**: All formulas on-chain
 ✅ **No Inflation**: Rewards from real revenue only
 ✅ **Lock Enforcement**: Cannot unstake before period ends
-✅ **Escrow Protection**: Bid amounts locked until resolution
-✅ **Signature Replay Protection**: One-time use signatures
 
 ## 🎯 Production Readiness
 
@@ -169,27 +181,42 @@ Bid Acceptance:
 - [x] BlocTime token minting based on lock duration multipliers
 - [x] Point-wise monotonic multiplier curves with linear interpolation
 - [x] Treasury reward distribution proportional to BlocTime holdings
-- [x] Marketplace with automatic treasury funding from ALL revenue
-- [x] Multi-token payment support via whitelist
-- [x] Bidding system with escrow protection
-- [x] Session tracker with signature-based verification
-- [x] Primary and secondary market fee consistency
-- [x] Fractional rental listings (from/to block ranges)
+- [x] NFT-based marketplace with automatic treasury funding
+- [x] Multi-token treasury with proportional distribution
+- [x] Role-based access control via Perms contract
+- [x] Oracle integration (Chainlink, Pyth, Manual)
+- [x] Registry for module management
 - [x] Comprehensive test suite (100% coverage)
-- [x] Docker Compose for Ganache and Base deployment
+- [x] Docker Compose for Ganache deployment
 - [x] Hardhat configuration for multiple networks
 - [x] Deployment scripts for all contracts
-- [x] Integration contract for system validation
-- [x] Complete documentation (README + API + Integration + LaTeX)
+- [x] Complete documentation (README + Whitepaper + One-Pager + Deployment Guide)
 
 ### 🚀 Ready to Deploy
 
 The system is production-ready and can be deployed immediately to:
 - Local Ganache for testing
 - Base Mainnet for production
-- Any EVM-compatible chain
+- Any EVM-compatible chain (Ethereum, Polygon, Arbitrum, Optimism, etc.)
 
-## 📄 License
+## 📄 Contract Architecture
+
+```
+BlocTime Protocol
+├── BlocTime.sol          # Staking + BlocTime token minting
+├── Market.sol            # NFT-based marketplace
+├── Registry.sol          # Module registration
+├── Treasury.sol          # Multi-token revenue distribution
+├── Perms.sol             # Role-based access control
+├── Token.sol             # ERC20 token implementation
+└── oracles/
+    ├── IOracleAdapter.sol    # Oracle interface
+    ├── ChainlinkAdapter.sol  # Chainlink price feeds
+    ├── PythAdapter.sol       # Pyth Network integration
+    └── ManualPriceOracle.sol # Manual price setting
+```
+
+## 📝 License
 
 MIT License - See LICENSE file for details
 
@@ -199,9 +226,11 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines
 
 ## 🔗 Links
 
+- **Whitepaper**: [BLOCTIME_WHITEPAPER.tex](./docs/BLOCTIME_WHITEPAPER.tex)
+- **One-Pager**: [BLOCTIME_ONEPAGER.tex](./docs/BLOCTIME_ONEPAGER.tex)
+- **Deployment Guide**: [DEPLOYMENT.md](./DEPLOYMENT.md)
 - **API Documentation**: [API_REFERENCE.md](./docs/API_REFERENCE.md)
 - **Integration Guide**: [INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)
-- **Technical Docs**: [bloctime_documentation.tex](./docs/bloctime_documentation.tex)
 - **Tests**: [test/](./test/) directory
 - **Contracts**: [contracts/](./contracts/) directory
 

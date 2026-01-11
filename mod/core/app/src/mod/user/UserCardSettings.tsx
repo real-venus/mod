@@ -45,12 +45,12 @@ export const UserCardSettings = ({
 
   return (
     <div className="relative z-50">
-      <div className="bg-black border-2 border-white/20 rounded-xl overflow-hidden">
+      <div className="border border-gray-800 rounded bg-black font-mono" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
         <button
           onClick={toggleExpanded}
           className="px-4 py-3 flex items-center gap-2 bg-black hover:bg-white/5 transition-colors whitespace-nowrap"
         >
-          <span className="text-white font-bold uppercase tracking-wider" style={{ fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }}>
+          <span className="text-white font-bold uppercase tracking-wider">
             Filters
           </span>
           {isExpanded ? (
@@ -61,18 +61,17 @@ export const UserCardSettings = ({
         </button>
 
         {isExpanded && (
-          <div className="absolute top-full left-0 mt-2 p-4 bg-black border-2 border-white/20 rounded-xl shadow-2xl backdrop-blur-xl min-w-[400px]">
+          <div className="absolute top-full left-0 mt-2 p-4 bg-black border border-gray-800 rounded shadow-2xl backdrop-blur-xl min-w-[400px]">
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <label className="text-white text-sm font-bold uppercase whitespace-nowrap" style={{ fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }}>
+                  <label className="text-white text-sm font-bold uppercase whitespace-nowrap">
                     Sort:
                   </label>
                   <select
                     value={sort}
                     onChange={(e) => onSortChange(e.target.value as SortKey)}
-                    className="px-3 py-2 bg-black border border-white/20 rounded-lg text-white focus:outline-none focus:border-white/40 transition-colors"
-                    style={{ fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }}
+                    className="px-3 py-2 bg-black border border-gray-800 rounded text-white focus:outline-none focus:border-gray-600 transition-colors"
                   >
                     <option value="recent">Recent</option>
                     <option value="balance">Balance</option>
@@ -81,14 +80,13 @@ export const UserCardSettings = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label className="text-white text-sm font-bold uppercase whitespace-nowrap" style={{ fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }}>
+                  <label className="text-white text-sm font-bold uppercase whitespace-nowrap">
                     Columns:
                   </label>
                   <select
                     value={columns}
                     onChange={(e) => onColumnsChange(Number(e.target.value))}
-                    className="px-3 py-2 bg-black border border-white/20 rounded-lg text-white focus:outline-none focus:border-white/40 transition-colors"
-                    style={{ fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }}
+                    className="px-3 py-2 bg-black border border-gray-800 rounded text-white focus:outline-none focus:border-gray-600 transition-colors"
                   >
                     <option value={1}>1</option>
                     <option value={2}>2</option>
@@ -100,7 +98,7 @@ export const UserCardSettings = ({
 
               {onUserFilterChange && (
                 <div className="flex items-center gap-2">
-                  <label className="text-white text-sm font-bold uppercase whitespace-nowrap" style={{ fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }}>
+                  <label className="text-white text-sm font-bold uppercase whitespace-nowrap">
                     User:
                   </label>
                   <input
@@ -108,8 +106,7 @@ export const UserCardSettings = ({
                     value={userFilter}
                     onChange={(e) => onUserFilterChange(e.target.value)}
                     placeholder="Filter by user key..."
-                    className="flex-1 px-3 py-2 bg-black border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-white/40 transition-colors"
-                    style={{ fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }}
+                    className="flex-1 px-3 py-2 bg-black border border-gray-800 rounded text-white placeholder-white/40 focus:outline-none focus:border-gray-600 transition-colors"
                   />
                 </div>
               )}
@@ -121,9 +118,9 @@ export const UserCardSettings = ({
                     id="myUsersOnly"
                     checked={showMyUsersOnly}
                     onChange={(e) => onShowMyUsersOnlyChange(e.target.checked)}
-                    className="w-4 h-4 bg-black border border-white/20 rounded focus:ring-2 focus:ring-white/40"
+                    className="w-4 h-4 bg-black border border-gray-800 rounded focus:ring-2 focus:ring-white/40"
                   />
-                  <label htmlFor="myUsersOnly" className="text-white text-sm font-bold uppercase cursor-pointer" style={{ fontFamily: "'Courier New', 'Consolas', 'Monaco', monospace" }}>
+                  <label htmlFor="myUsersOnly" className="text-white text-sm font-bold uppercase cursor-pointer">
                     My Users Only
                   </label>
                 </div>

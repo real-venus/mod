@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'
-import { time2utc, shorten } from '@/mod/utils'
+import { time2utc, shorten, text2color } from '@/mod/utils'
+import { CubeIcon } from '@heroicons/react/24/outline'
 
 interface Transaction {
   fn: string
@@ -28,26 +29,47 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
   const [isParamsExpanded, setIsParamsExpanded] = useState(false)
   const [isResultsExpanded, setIsResultsExpanded] = useState(false)
 
+  const getStatusEmoji = (status: string) => {
+    if (status === 'running') return '▶'
+    if (status === 'pending') return '●'
+    if (status === 'success' || status === 'finished' || status === 'complete') return '✓'
+    return '✗'
+  }
+
   const getStatusColor = (status: string) => {
-    if (status === 'running') return { bg: 'from-cyan-500/20 to-blue-600/10', border: 'border-cyan-400/40', text: 'text-cyan-300', shadow: 'shadow-cyan-500/10' }
-    if (status === 'pending') return { bg: 'from-yellow-500/20 to-yellow-600/10', border: 'border-yellow-400/40', text: 'text-yellow-300', shadow: 'shadow-yellow-500/10' }
-    if (status === 'success' || status === 'finished') return { bg: 'from-emerald-500/20 to-green-600/10', border: 'border-emerald-400/40', text: 'text-emerald-300', shadow: 'shadow-emerald-500/10' }
-    return { bg: 'from-rose-500/20 to-red-600/10', border: 'border-rose-400/40', text: 'text-rose-300', shadow: 'shadow-rose-500/10' }
+    if (status === 'running') return { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400' }
+    if (status === 'pending') return { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-400' }
+    if (status === 'success' || status === 'finished' || status === 'complete') return { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' }
+    return { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400' }
+  }
+
+  const getCardBackgroundColor = (status: string) => {
+    if (status === 'success' || status === 'finished' || status === 'complete') return 'rgba(34, 197, 94, 0.08)'
+    if (status === 'pending') return 'rgba(234, 179, 8, 0.08)'
+    if (status === 'error' || status === 'cancelled' || status === 'failed') return 'rgba(239, 68, 68, 0.08)'
+    return 'rgba(59, 130, 246, 0.08)'
+  }
+
+  const getCardBorderColor = (status: string) => {
+    if (status === 'success' || status === 'finished' || status === 'complete') return '#22c55e'
+    if (status === 'pending') return '#eab308'
+    if (status === 'error' || status === 'cancelled' || status === 'failed') return '#ef4444'
+    return text2color(tx.fn || tx.key)
   }
 
   const renderValue = (value: any) => {
     if (value === null || value === undefined) {
-      return <span className="text-gray-500 text-base">null</span>
+      return <span className="text-gray-600 font-mono text-base">null</span>
     }
     
     if (typeof value === 'object' && !Array.isArray(value)) {
       return (
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {Object.entries(value).map(([k, v]) => (
-            <div key={k} className="bg-slate-800/30 p-1 rounded border border-slate-700/30">
-              <div className="flex items-center gap-1">
-                <span className="text-cyan-400 font-semibold text-base">{k}:</span>
-                <span className="text-white break-all font-mono text-base">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+            <div key={k} className="bg-black/40 p-2 rounded-lg border-2 border-gray-800">
+              <div className="flex items-center gap-2">
+                <span className="text-cyan-400 font-mono text-base font-semibold">{k}:</span>
+                <span className="text-gray-300 break-all font-mono text-base">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
                 <CopyButton text={typeof v === 'object' ? JSON.stringify(v) : String(v)} size="sm" />
               </div>
             </div>
@@ -57,8 +79,8 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
     }
     
     return (
-      <div className="flex items-center gap-1">
-        <span className="text-white break-all font-mono text-base">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-gray-300 break-all font-mono text-base">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
         <CopyButton text={typeof value === 'object' ? JSON.stringify(value) : String(value)} size="sm" />
       </div>
     )
@@ -66,108 +88,116 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
 
   const statusColors = getStatusColor(tx.status)
   const timestamp = parseInt(tx.time)
-  const formattedTime = isNaN(timestamp) ? tx.time : time2utc(timestamp)
+  const formattedTime = isNaN(timestamp) ? tx.time : time2utc(timestamp * 1000)
   const costUsd = tx.cost !== undefined ? tx.cost : 0
+  const txColor = text2color(tx.fn || tx.key)
+  const cardBgColor = getCardBackgroundColor(tx.status)
+  const cardBorderColor = getCardBorderColor(tx.status)
 
   return (
-    <div className={`border rounded-lg bg-gradient-to-br ${statusColors.bg} ${statusColors.border} shadow ${statusColors.shadow} transition-all hover:shadow-md mb-1.5`}>
-      <div className="p-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="px-1 py-1 bg-slate-800/60 hover:bg-slate-700/80 border border-slate-600/60 rounded transition-all flex-shrink-0"
-            style={{ height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <span className="text-white text-base font-bold">{isExpanded ? '▼' : '▶'}</span>
-          </button>
-          <span className="font-bold text-white text-base px-2 py-0.5 rounded bg-slate-800/80 border border-slate-600/50 flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-            ⚡ {tx.fn}
-          </span>
-          <span className="px-2 py-0.5 rounded font-bold text-white text-base bg-slate-700/60 uppercase flex-shrink-0 border border-slate-600/50" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-            {tx.status}
+    <div 
+      className="border-2 rounded-xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:border-opacity-80 shadow-lg mb-2"
+      style={{ 
+        fontFamily: 'IBM Plex Mono, Courier New, monospace',
+        backgroundColor: cardBgColor,
+        borderColor: cardBorderColor
+      }}
+      onClick={() => setIsExpanded(!isExpanded)}
+    >
+      <div className="p-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <CubeIcon className="w-8 h-8" style={{ color: txColor }} />
+          <div className="flex items-center gap-1 bg-black/40 border-2 rounded-lg px-3 py-1.5" style={{ borderColor: `${txColor}40` }}>
+            <code className="text-base font-mono" style={{ color: txColor }}>{tx.fn}</code>
+            <CopyButton text={tx.fn} size="sm" />
+          </div>
+          <span className={`${statusColors.text} font-bold text-base px-3 py-1.5 bg-black/40 rounded-lg border-2 ${statusColors.border}`}>
+            {getStatusEmoji(tx.status)}
           </span>
           {tx.cid && (
-            <span className="bg-slate-900/60 border border-blue-400/50 rounded px-2 py-0.5 flex items-center gap-1 flex-shrink-0" style={{ height: '32px' }}>
-              <span className="text-blue-300 font-bold text-base">📦</span>
-              <span className="font-mono text-white text-base bg-slate-950/80 px-1 py-0.5 rounded border border-slate-700/50 break-all">{shorten(tx.cid)}</span>
+            <div className="flex items-center gap-1 bg-black/40 border-2 border-green-500/30 rounded-lg px-3 py-1.5">
+              <code className="text-sm font-mono" style={{ color: '#10b981' }}>{shorten(tx.cid)}</code>
               <CopyButton text={tx.cid} size="sm" />
-            </span>
+            </div>
           )}
+          <div className="flex items-center gap-1 bg-black/40 border-2 border-blue-500/30 rounded-lg px-3 py-1.5">
+            <span className="text-blue-400 text-xs font-mono">{formattedTime}</span>
+            <CopyButton text={formattedTime} size="sm" />
+          </div>
         </div>
+        
         {isExpanded && (
-          <div className="mt-2 space-y-1.5 pt-2 border-t border-slate-600/40">
-            <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="mt-3 space-y-2 pt-3 border-t-2 border-gray-800">
+            <div className="flex items-center gap-2 flex-wrap">
               {tx.signature && (
-                <span className="bg-slate-900/60 border border-orange-400/50 rounded px-2 py-0.5 flex items-center gap-1 flex-shrink-0" style={{ height: '32px' }}>
-                  <span className="text-orange-300 font-bold text-base">✍️</span>
-                  <span className="font-mono text-white text-base bg-slate-950/80 px-1 py-0.5 rounded border border-slate-700/50 break-all">{shorten(tx.signature)}</span>
+                <span className="bg-black/40 border-2 border-orange-900/50 rounded-lg px-3 py-1.5 flex items-center gap-1 text-sm">
+                  <span className="text-orange-400 font-semibold">SIG</span>
+                  <span className="font-mono text-gray-400">{shorten(tx.signature)}</span>
                   <CopyButton text={tx.signature} size="sm" />
                 </span>
               )}
               {tx.key && (
-                <span className="bg-slate-900/60 border border-purple-400/50 rounded px-2 py-0.5 flex items-center gap-1 flex-shrink-0" style={{ height: '32px' }}>
-                  <span className="text-purple-300 font-bold text-base">🔐</span>
-                  <span className="font-mono text-white text-base bg-slate-950/80 px-1 py-0.5 rounded border border-slate-700/50 break-all">{shorten(tx.key)}</span>
+                <span className="bg-black/40 border-2 border-purple-900/50 rounded-lg px-3 py-1.5 flex items-center gap-1 text-sm">
+                  <span className="text-purple-400 font-semibold">KEY</span>
+                  <span className="font-mono text-gray-400">{shorten(tx.key)}</span>
                   <CopyButton text={tx.key} size="sm" />
                 </span>
               )}
-
-          <span className="bg-emerald-500/25 border border-emerald-400/60 px-2 py-0.5 rounded font-mono text-white text-base font-bold flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-            💵 ${costUsd.toFixed(4)}
-          </span>
-          {tx.delta !== undefined && (
-            <span className="bg-cyan-500/25 border border-cyan-400/60 px-2 py-0.5 rounded font-mono text-white text-base font-bold flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-              ⚡ {tx.delta.toFixed(2)}s
-            </span>
-          )}
-
-            <span className="text-white text-base px-2 py-0.5 rounded bg-slate-700/40 border border-slate-500/50 flex-shrink-0" style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-            {formattedTime}
-          </span>
+              <span className="bg-black/40 border-2 border-green-900/50 px-3 py-1.5 rounded-lg font-mono text-green-400 text-base font-bold">
+                ${costUsd.toFixed(4)}
+              </span>
+              {tx.delta !== undefined && (
+                <span className="bg-black/40 border-2 border-cyan-900/50 px-3 py-1.5 rounded-lg font-mono text-cyan-400 text-sm font-semibold">
+                  {tx.delta.toFixed(2)}s
+                </span>
+              )}
             </div>
+            
             {tx.params && (
-              <div className="bg-slate-900/60 border border-slate-700/50 rounded overflow-hidden">
+              <div className="bg-black/40 border-2 border-gray-800 rounded-lg overflow-hidden">
                 <button
-                  onClick={() => setIsParamsExpanded(!isParamsExpanded)}
-                  className="w-full flex items-center justify-between p-2 hover:bg-slate-800/40 transition-all"
+                  onClick={(e) => { e.stopPropagation(); setIsParamsExpanded(!isParamsExpanded); }}
+                  className="w-full flex items-center justify-between p-3 hover:bg-gray-900/50 transition-all"
                 >
-                  <span className="text-cyan-300 font-bold text-base">📋 PARAMS</span>
+                  <span className="text-cyan-400 font-semibold text-base">PARAMS</span>
                   <div className="flex items-center gap-1">
                     <CopyButton text={JSON.stringify(tx.params, null, 2)} size="sm" />
-                    <span className="text-white text-base font-bold">{isParamsExpanded ? '▼' : '▶'}</span>
+                    <span className="text-gray-500 text-sm">{isParamsExpanded ? '▼' : '▶'}</span>
                   </div>
                 </button>
                 {isParamsExpanded && (
-                  <div className="p-2 bg-slate-950/80 border-t border-slate-700/50">
+                  <div className="p-3 bg-black/60 border-t-2 border-gray-800">
                     {renderValue(tx.params)}
                   </div>
                 )}
               </div>
             )}
+            
             {tx.result !== undefined && (
-              <div className="bg-slate-900/60 border border-slate-700/50 rounded overflow-hidden">
+              <div className="bg-black/40 border-2 border-gray-800 rounded-lg overflow-hidden">
                 <button
-                  onClick={() => setIsResultsExpanded(!isResultsExpanded)}
-                  className="w-full flex items-center justify-between p-2 hover:bg-slate-800/40 transition-all"
+                  onClick={(e) => { e.stopPropagation(); setIsResultsExpanded(!isResultsExpanded); }}
+                  className="w-full flex items-center justify-between p-3 hover:bg-gray-900/50 transition-all"
                 >
-                  <span className="text-emerald-300 font-bold text-base">✅ RESULT</span>
+                  <span className="text-green-400 font-semibold text-base">RESULT</span>
                   <div className="flex items-center gap-1">
                     <CopyButton text={typeof tx.result === 'object' ? JSON.stringify(tx.result, null, 2) : String(tx.result)} size="sm" />
-                    <span className="text-white text-base font-bold">{isResultsExpanded ? '▼' : '▶'}</span>
+                    <span className="text-gray-500 text-sm">{isResultsExpanded ? '▼' : '▶'}</span>
                   </div>
                 </button>
                 {isResultsExpanded && (
-                  <div className="p-2 bg-slate-950/80 border-t border-slate-700/50">
+                  <div className="p-3 bg-black/60 border-t-2 border-gray-800">
                     {renderValue(tx.result)}
                   </div>
                 )}
               </div>
             )}
+            
             {tx.client && (
-              <div className="bg-slate-900/60 border border-slate-700/50 rounded p-2">
-                <div className="flex items-center gap-1">
-                  <span className="text-purple-300 font-bold text-base">👤</span>
-                  <span className="font-mono text-white text-base bg-slate-950/80 px-1 py-0.5 rounded border border-slate-700/50 break-all">{tx.client}</span>
+              <div className="bg-black/40 border-2 border-gray-800 rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-purple-400 font-semibold text-base">CLIENT</span>
+                  <span className="font-mono text-gray-400 text-base">{shorten(tx.client)}</span>
                   <CopyButton text={tx.client} size="sm" />
                 </div>
               </div>

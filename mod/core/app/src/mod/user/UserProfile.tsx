@@ -18,15 +18,14 @@ export default function UserProfile({ user, isOpen, onClose, keyInstance }: User
   const [signResult, setSignResult] = useState<string | null>(null);
   const [autoVerifyResult, setAutoVerifyResult] = useState<string | null>(null);
 
-  // Auto-verify whenever we sign something
   useEffect(() => {
     if (signature && message && keyInstance) {
       const publicKey = keyInstance.publicKey || keyInstance.public_key || user.key;
       try {
         const isValid = keyInstance.verify(message, signature, publicKey);
-        setAutoVerifyResult(isValid ? '✓ AUTO-VERIFIED: Signature is valid!' : '✗ AUTO-VERIFY FAILED: Signature invalid!');
+        setAutoVerifyResult(isValid ? '✓ Valid' : '✗ Invalid');
       } catch (error) {
-        setAutoVerifyResult(`✗ AUTO-VERIFY ERROR: ${error}`);
+        setAutoVerifyResult(`✗ Error: ${error}`);
       }
     } else {
       setAutoVerifyResult(null);
@@ -35,31 +34,29 @@ export default function UserProfile({ user, isOpen, onClose, keyInstance }: User
 
   const handleSign = () => {
     if (!message.trim()) {
-      setSignResult('✗ ERROR: Please enter a message to sign');
+      setSignResult('✗ Enter message');
       return;
     }
-    
     try {
       const sig = keyInstance.sign(message);
       setSignature(sig);
-      setSignResult('✓ Message signed successfully!');
+      setSignResult('✓ Signed');
     } catch (error) {
-      setSignResult(`✗ ERROR: ${error}`);
+      setSignResult(`✗ Error: ${error}`);
       setSignature('');
     }
   };
 
   const handleVerify = () => {
     if (!verifyMessage.trim() || !verifySignature.trim() || !verifyPublicKey.trim()) {
-      setVerifyResult('✗ ERROR: All fields required for verification');
+      setVerifyResult('✗ All fields required');
       return;
     }
-
     try {
       const isValid = keyInstance.verify(verifyMessage, verifySignature, verifyPublicKey);
-      setVerifyResult(isValid ? '✓ VERIFIED: Signature is valid!' : '✗ INVALID: Signature does not match!');
+      setVerifyResult(isValid ? '✓ Valid' : '✗ Invalid');
     } catch (error) {
-      setVerifyResult(`✗ ERROR: ${error}`);
+      setVerifyResult(`✗ Error: ${error}`);
     }
   };
 
@@ -76,202 +73,70 @@ export default function UserProfile({ user, isOpen, onClose, keyInstance }: User
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-        onClick={onClose}
-      />
-      
-      {/* Panel */}
-      <div className="fixed right-0 top-0 h-full w-full md:w-[600px] bg-black border-l-2 border-green-500 z-50 overflow-y-auto animate-slide-in">
-        <div className="p-6 font-mono text-green-500">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-6 pb-4 border-b border-green-500">
-            <h2 className="text-2xl font-bold">$ USER_PROFILE</h2>
-            <button 
-              onClick={onClose}
-              className="text-green-500 hover:text-green-300 text-2xl font-bold"
-            >
-              ✕
-            </button>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full w-full md:w-[500px] bg-black border-l border-gray-800 z-50 overflow-y-auto font-mono" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-800">
+            <h2 className="text-lg font-bold text-white">USER PROFILE</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-xl">✕</button>
           </div>
 
-          {/* User Info */}
-          <div className="mb-8 space-y-2">
+          <div className="mb-6 space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-green-300">ADDRESS:</span>
-              <span className="text-sm break-all">{user.key}</span>
-              <button 
-                onClick={() => copyToClipboard(user.key)}
-                className="text-green-300 hover:text-green-100 ml-2"
-              >
-                📋
-              </button>
+              <span className="text-gray-400">ADDRESS:</span>
+              <span className="text-white text-xs break-all">{user.key}</span>
+              <button onClick={() => copyToClipboard(user.key)} className="text-gray-400 hover:text-white">📋</button>
             </div>
-            <div>
-              <span className="text-green-300">CRYPTO_TYPE:</span> {user.crypto_type || 'UNKNOWN'}
-            </div>
-            <div>
-              <span className="text-green-300">BALANCE:</span> {user.balance || 0}
-            </div>
+            <div><span className="text-gray-400">TYPE:</span> <span className="text-white">{user.crypto_type || 'UNKNOWN'}</span></div>
+            <div><span className="text-gray-400">BALANCE:</span> <span className="text-white">{user.balance || 0}</span></div>
           </div>
 
-          {/* SIGN SECTION */}
-          <div className="mb-8 p-4 border border-green-500 rounded">
-            <h3 className="text-xl mb-4 text-green-300">$ SIGN MESSAGE</h3>
-            <p className="text-sm mb-4 text-green-400">
-              ⚠️ Sign messages to prove ownership of your private key. 
-              The signature will be AUTO-VERIFIED immediately to ensure integrity.
-            </p>
-            
-            <div className="space-y-4">
+          <div className="mb-6 p-3 border border-gray-800 rounded">
+            <h3 className="text-sm mb-3 text-white font-bold">SIGN MESSAGE</h3>
+            <div className="space-y-3">
               <div>
-                <label className="bloc mb-2 text-green-300">MESSAGE TO SIGN:</label>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  className="w-full bg-black border border-green-500 text-green-500 p-2 rounded font-mono"
-                  rows={3}
-                  placeholder="Enter your message here..."
-                />
+                <label className="block mb-1 text-gray-400 text-xs">MESSAGE:</label>
+                <textarea value={message} onChange={(e) => setMessage(e.target.value)} className="w-full bg-black border border-gray-800 text-white p-2 rounded text-sm" rows={3} placeholder="Enter message..." />
               </div>
-
-              <button
-                onClick={handleSign}
-                className="w-full bg-green-500 text-black py-2 px-4 rounded font-bold hover:bg-green-400 transition"
-              >
-                $ SIGN
-              </button>
-
-              {signResult && (
-                <div className={`p-2 rounded ${signResult.startsWith('✓') ? 'bg-green-900/30 text-green-300' : 'bg-red-900/30 text-red-300'}`}>
-                  {signResult}
-                </div>
-              )}
-
+              <button onClick={handleSign} className="w-full bg-white text-black py-2 px-3 rounded font-bold hover:bg-gray-200 transition text-sm">SIGN</button>
+              {signResult && <div className={`p-2 rounded text-xs ${signResult.startsWith('✓') ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>{signResult}</div>}
               {signature && (
                 <div>
-                  <label className="bloc mb-2 text-green-300">SIGNATURE OUTPUT:</label>
+                  <label className="block mb-1 text-gray-400 text-xs">SIGNATURE:</label>
                   <div className="relative">
-                    <textarea
-                      value={signature}
-                      readOnly
-                      className="w-full bg-black border border-green-500 text-green-500 p-2 rounded font-mono text-xs"
-                      rows={4}
-                    />
-                    <button
-                      onClick={() => copyToClipboard(signature)}
-                      className="absolute top-2 right-2 text-green-300 hover:text-green-100"
-                    >
-                      📋 COPY
-                    </button>
+                    <textarea value={signature} readOnly className="w-full bg-black border border-gray-800 text-white p-2 rounded text-xs" rows={3} />
+                    <button onClick={() => copyToClipboard(signature)} className="absolute top-2 right-2 text-gray-400 hover:text-white text-xs">📋</button>
                   </div>
                 </div>
               )}
-
-              {autoVerifyResult && (
-                <div className={`p-3 rounded border-2 font-bold ${autoVerifyResult.startsWith('✓') ? 'bg-green-900/50 border-green-400 text-green-300' : 'bg-red-900/50 border-red-400 text-red-300'}`}>
-                  🔒 {autoVerifyResult}
-                  <p className="text-xs mt-1 font-normal">
-                    This signature was automatically verified against your public key to prevent tampering.
-                  </p>
-                </div>
-              )}
+              {autoVerifyResult && <div className={`p-2 rounded border text-xs font-bold ${autoVerifyResult.startsWith('✓') ? 'bg-green-900/30 border-green-700 text-green-400' : 'bg-red-900/30 border-red-700 text-red-400'}`}>{autoVerifyResult}</div>}
             </div>
           </div>
 
-          {/* VERIFY SECTION */}
-          <div className="mb-8 p-4 border border-green-500 rounded">
-            <h3 className="text-xl mb-4 text-green-300">$ VERIFY SIGNATURE</h3>
-            <p className="text-sm mb-4 text-green-400">
-              🔍 Verify any signature to ensure it was created by the claimed public key.
-              This prevents sneaky attacks where someone tries to replace signatures.
-            </p>
-
-            <div className="space-y-4">
+          <div className="mb-6 p-3 border border-gray-800 rounded">
+            <h3 className="text-sm mb-3 text-white font-bold">VERIFY SIGNATURE</h3>
+            <div className="space-y-3">
               <div>
-                <label className="bloc mb-2 text-green-300">ORIGINAL MESSAGE:</label>
-                <textarea
-                  value={verifyMessage}
-                  onChange={(e) => setVerifyMessage(e.target.value)}
-                  className="w-full bg-black border border-green-500 text-green-500 p-2 rounded font-mono"
-                  rows={3}
-                  placeholder="Enter the original message..."
-                />
+                <label className="block mb-1 text-gray-400 text-xs">MESSAGE:</label>
+                <textarea value={verifyMessage} onChange={(e) => setVerifyMessage(e.target.value)} className="w-full bg-black border border-gray-800 text-white p-2 rounded text-sm" rows={3} placeholder="Enter message..." />
               </div>
-
               <div>
-                <label className="bloc mb-2 text-green-300">SIGNATURE TO VERIFY:</label>
-                <textarea
-                  value={verifySignature}
-                  onChange={(e) => setVerifySignature(e.target.value)}
-                  className="w-full bg-black border border-green-500 text-green-500 p-2 rounded font-mono text-xs"
-                  rows={4}
-                  placeholder="Paste signature here..."
-                />
+                <label className="block mb-1 text-gray-400 text-xs">SIGNATURE:</label>
+                <textarea value={verifySignature} onChange={(e) => setVerifySignature(e.target.value)} className="w-full bg-black border border-gray-800 text-white p-2 rounded text-xs" rows={3} placeholder="Paste signature..." />
               </div>
-
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-green-300">PUBLIC KEY:</label>
-                  <button
-                    onClick={useMyPublicKey}
-                    className="text-xs bg-green-700 text-white py-1 px-2 rounded hover:bg-green-600"
-                  >
-                    USE MY KEY
-                  </button>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-gray-400 text-xs">PUBLIC KEY:</label>
+                  <button onClick={useMyPublicKey} className="text-xs bg-gray-800 text-white py-1 px-2 rounded hover:bg-gray-700">USE MY KEY</button>
                 </div>
-                <input
-                  type="text"
-                  value={verifyPublicKey}
-                  onChange={(e) => setVerifyPublicKey(e.target.value)}
-                  className="w-full bg-black border border-green-500 text-green-500 p-2 rounded font-mono text-xs"
-                  placeholder="Enter public key..."
-                />
+                <input type="text" value={verifyPublicKey} onChange={(e) => setVerifyPublicKey(e.target.value)} className="w-full bg-black border border-gray-800 text-white p-2 rounded text-xs" placeholder="Enter public key..." />
               </div>
-
-              <button
-                onClick={handleVerify}
-                className="w-full bg-green-500 text-black py-2 px-4 rounded font-bold hover:bg-green-400 transition"
-              >
-                $ VERIFY
-              </button>
-
-              {verifyResult && (
-                <div className={`p-3 rounded border-2 font-bold ${verifyResult.startsWith('✓') ? 'bg-green-900/50 border-green-400 text-green-300' : 'bg-red-900/50 border-red-400 text-red-300'}`}>
-                  {verifyResult}
-                </div>
-              )}
+              <button onClick={handleVerify} className="w-full bg-white text-black py-2 px-3 rounded font-bold hover:bg-gray-200 transition text-sm">VERIFY</button>
+              {verifyResult && <div className={`p-2 rounded border text-xs font-bold ${verifyResult.startsWith('✓') ? 'bg-green-900/30 border-green-700 text-green-400' : 'bg-red-900/30 border-red-700 text-red-400'}`}>{verifyResult}</div>}
             </div>
-          </div>
-
-          {/* Info Section */}
-          <div className="p-4 bg-green-900/20 border border-green-500 rounded">
-            <h4 className="font-bold mb-2 text-green-300">🛡️ SECURITY INFO</h4>
-            <ul className="text-xs space-y-1 text-green-400">
-              <li>• Every signature is AUTO-VERIFIED immediately after signing</li>
-              <li>• This prevents tampering or replacement attacks</li>
-              <li>• Always verify signatures from others before trusting them</li>
-              <li>• Your private key never leaves your device</li>
-              <li>• Signatures are cryptographically secure</li>
-            </ul>
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes slide-in {
-          from {
-            transform: translateX(100%);
-          }
-          to {
-            transform: translateX(0);
-          }
-        }
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-      `}</style>
     </>
   );
 }

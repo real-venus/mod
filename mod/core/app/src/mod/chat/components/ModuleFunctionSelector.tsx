@@ -221,7 +221,7 @@ export function ModuleFunctionSelector({
   }, [unifiedInput, solidifiedModule, solidifiedFunction, suggestedModules, suggestedFunctions])
 
     return (
-            <div ref={containerRef} className="relative mx-3 mt-1">
+            <div ref={containerRef} className="relative">
               <div className="w-full bg-black border-2 border-gray-700/60 px-3 py-2.5 rounded-lg focus-within:ring-2 focus-within:ring-white/60 focus-within:border-white/60 transition-all shadow-lg text-base flex items-center gap-2 flex-wrap">
                 {solidifiedModule && (
                   <span 

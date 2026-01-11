@@ -5,6 +5,7 @@ import { userContext } from '@/mod/context'
 import { ModuleType } from '@/mod/types'
 import { Clock, GitBranch, Hash, RotateCcw, ArrowUpDown } from 'lucide-react'
 import { CopyButton } from '@/mod/ui/CopyButton'
+import { text2color } from '@/mod/utils'
 
 interface ModVersionsProps {
   mod: ModuleType
@@ -16,23 +17,14 @@ interface Version {
   updated: string
 }
 
-const ui = {
-  bg: '#0b0b0b',
-  panel: '#121212',
-  panelAlt: '#151515',
-  border: '#2a2a2a',
-  text: '#e7e7e7',
-  textDim: '#a8a8a8',
-  blue: '#3b82f6',
-  green: '#10b981',
-}
-
 export default function ModVersions({ mod }: ModVersionsProps) {
   const { client } = userContext()
   const [versions, setVersions] = useState<Version[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sortAsc, setSortAsc] = useState(false)
+
+  const modColor = text2color(mod.name || mod.key)
 
   useEffect(() => {
     const fetchVersions = async () => {
@@ -68,68 +60,72 @@ export default function ModVersions({ mod }: ModVersionsProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8" style={{ backgroundColor: ui.panel }}>
-        <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent" style={{ borderColor: ui.blue }} />
+      <div className="flex items-center justify-center p-8 rounded-xl border-2" style={{ backgroundColor: `${modColor}15`, borderColor: modColor }}>
+        <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent" style={{ borderColor: modColor }} />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="p-4 rounded-lg border" style={{ backgroundColor: ui.panel, borderColor: '#ef4444' }}>
+      <div className="p-4 rounded-xl border-2" style={{ backgroundColor: `${modColor}15`, borderColor: '#ef4444' }}>
         <p className="text-red-400 text-sm font-mono">{error}</p>
       </div>
     )
   }
 
   return (
-    <div className="p-4 rounded-xl border-2" style={{ backgroundColor: ui.panel, borderColor: ui.border }}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-2xl font-black" style={{ color: ui.text, letterSpacing: '0.02em' }}>Versions</h3>
+    <div className="rounded-xl border-2 font-mono" style={{ backgroundColor: `${modColor}15`, borderColor: modColor }}>
+      <div className="flex items-center justify-between p-3 border-b-2" style={{ borderColor: modColor }}>
+        <h3 className="text-xl font-black" style={{ color: modColor, letterSpacing: '0.02em' }}>Versions</h3>
         <button
           onClick={() => setSortAsc(!sortAsc)}
-          className="px-4 py-2 rounded-lg hover:opacity-80 transition-all flex items-center gap-2 text-sm font-semibold"
-          style={{ backgroundColor: ui.panelAlt, color: ui.textDim, border: `1px solid ${ui.border}` }}
+          className="px-3 py-1.5 rounded-lg hover:opacity-80 transition-all flex items-center gap-2 text-xs font-semibold border"
+          style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: modColor, borderColor: `${modColor}40` }}
         >
           <ArrowUpDown className="w-4 h-4" />
           {sortAsc ? 'Oldest' : 'Newest'}
         </button>
       </div>
       {versions.length === 0 ? (
-        <p className="text-center py-8 text-base" style={{ color: ui.textDim }}>No versions found</p>
+        <p className="text-center py-8 text-base" style={{ color: `${modColor}80` }}>No versions found</p>
       ) : (
-        <div className="max-h-96 overflow-y-auto space-y-3 pr-2" style={{ scrollbarWidth: 'thin' }}>
+        <div className="max-h-96 overflow-y-auto space-y-2 p-3" style={{ scrollbarWidth: 'thin' }}>
           {sortedVersions.map((ver, idx) => {
             const originalIdx = versions.length - versions.indexOf(ver)
             return (
               <div
                 key={versions.indexOf(ver)}
-                className="p-4 rounded-xl border-2 hover:bg-opacity-90 transition-all shadow-sm"
-                style={{ backgroundColor: ui.panelAlt, borderColor: ui.border }}
+                className="p-3 rounded-lg border-2 hover:bg-opacity-90 transition-all"
+                style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderColor: `${modColor}40` }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-2 flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      <GitBranch className="w-5 h-5 flex-shrink-0" style={{ color: ui.blue }} />
-                      <span className="font-black text-lg" style={{ color: ui.blue }}>v{originalIdx}</span>
-                      <Clock className="w-4 h-4 flex-shrink-0" style={{ color: ui.textDim }} />
-                      <span className="text-sm truncate" style={{ color: ui.textDim }}>{ver.updated}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1 bg-black/40 border rounded px-2 py-1" style={{ borderColor: `${modColor}40` }}>
+                        <GitBranch className="w-4 h-4 flex-shrink-0" style={{ color: modColor }} />
+                        <span className="font-black text-sm" style={{ color: modColor }}>v{originalIdx}</span>
+                      </div>
+                      <div className="flex items-center gap-1 bg-black/40 border border-blue-500/30 rounded px-2 py-1">
+                        <Clock className="w-4 h-4 flex-shrink-0" style={{ color: '#3b82f6' }} />
+                        <span className="text-xs text-blue-400 font-mono">{ver.updated}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Hash className="w-4 h-4 flex-shrink-0" style={{ color: ui.textDim }} />
-                      <code className="text-sm font-mono truncate" style={{ color: ui.text }}>
+                    <div className="flex items-center gap-1 bg-black/40 border border-green-500/30 rounded px-2 py-1">
+                      <Hash className="w-4 h-4 flex-shrink-0" style={{ color: '#10b981' }} />
+                      <code className="text-xs font-mono" style={{ color: '#10b981' }}>
                         {ver.cid.slice(0, 12)}...{ver.cid.slice(-8)}
                       </code>
                       <CopyButton text={ver.cid} size="sm" />
                     </div>
                     {ver.comment && (
-                      <p className="text-sm truncate" style={{ color: ui.textDim }}>{ver.comment}</p>
+                      <p className="text-xs truncate" style={{ color: `${modColor}80` }}>{ver.comment}</p>
                     )}
                   </div>
                   <button
                     onClick={() => handleSetVersion(ver.cid, originalIdx)}
-                    className="px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90 transition-all flex items-center gap-2 flex-shrink-0 shadow-md"
-                    style={{ backgroundColor: ui.green, color: '#fff' }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2 flex-shrink-0 border"
+                    style={{ backgroundColor: '#10b981', color: '#fff', borderColor: '#10b981' }}
                   >
                     <RotateCcw className="w-4 h-4" />
                     Set

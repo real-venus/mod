@@ -22,7 +22,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
   }, [messages, isLoading])
 
   return (
-    <div className="flex-1 overflow-y-auto space-y-4 p-4">
+    <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-black/60 border-2 border-orange-500/40 rounded-lg">
       {messages.map((msg, idx) => (
         <div
           key={idx}

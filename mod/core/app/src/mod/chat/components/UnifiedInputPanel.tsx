@@ -56,6 +56,33 @@ export function UnifiedInputPanel({
   return (
     <div className="space-y-3">
 
+
+
+      <div className="flex gap-2 items-center">
+
+
+        <InputModeToggle mode={inputMode} onModeChange={setInputMode} />
+        {isLoading ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 px-6 py-4 bg-red-500/20 text-red-400 border-2 border-red-500/40 hover:bg-red-500/30 rounded-lg transition-all font-bold text-xl"
+            style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+          >
+            ❌ cancel
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => handleSubmit(e as any)}
+            className="flex-1 px-6 py-4 bg-orange-500/20 text-orange-400 border-2 border-orange-500/40 hover:bg-orange-500/30 rounded-lg transition-all font-bold text-xl"
+            style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+            disabled={!selectedModule || !selectedFunction}
+          >
+            🚀 send
+          </button>
+        )}
+      </div>
       {inputMode === 'chat' ? (
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative flex gap-2">
@@ -111,38 +138,13 @@ export function UnifiedInputPanel({
               params={params}
               handleParamChange={handleParamChangeWithSync}
               handleResetParams={handleResetParams}
-              numColumns={1}
+              numColumns={2}
             />
           )}
         </div>
       )}
 
 
-      <div className="flex gap-2 items-center">
-
-
-        <InputModeToggle mode={inputMode} onModeChange={setInputMode} />
-        {isLoading ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 px-6 py-4 bg-red-500/20 text-red-400 border-2 border-red-500/40 hover:bg-red-500/30 rounded-lg transition-all font-bold text-xl"
-            style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
-          >
-            ❌ cancel
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={(e) => handleSubmit(e as any)}
-            className="flex-1 px-6 py-4 bg-orange-500/20 text-orange-400 border-2 border-orange-500/40 hover:bg-orange-500/30 rounded-lg transition-all font-bold text-xl"
-            style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
-            disabled={!selectedModule || !selectedFunction}
-          >
-            🚀 send
-          </button>
-        )}
-      </div>
     </div>
   )
 }
