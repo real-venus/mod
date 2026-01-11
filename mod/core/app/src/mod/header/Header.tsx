@@ -5,6 +5,7 @@ import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 import { useSearchContext } from '@/mod/context/SearchContext'
 import { useRouter } from 'next/navigation'
+import { NetworkSelector } from '@/mod/network/NetworkSelector'
 
 export function Header() {
   const [searchCollapsed, setSearchCollapsed] = useState(false)
@@ -90,7 +91,7 @@ export function Header() {
         </div>
         
         <div className="flex items-center justify-end gap-3">
-          {/* <NetworkSelector /> */}
+          <NetworkSelector />
           <WalletHeader />
         </div>
       </div>

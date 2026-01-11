@@ -5,12 +5,14 @@ import { userContext } from '@/mod/context'
 import { Send, Zap, CheckCircle, AlertCircle, ArrowUpDown } from 'lucide-react'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { text2color } from '@/mod/utils'
+import { ethers } from 'ethers'
 
 interface TransferHistory {
   to: string
   amount: number
   timestamp: string
   hash?: string
+  networkUrl?: string
 }
 
 export const Transfer: React.FC = () => {
@@ -24,6 +26,8 @@ export const Transfer: React.FC = () => {
   const [balance, setBalance] = useState<string>('0')
   const [history, setHistory] = useState<TransferHistory[]>([])
   const [sortAsc, setSortAsc] = useState(false)
+  const [currentNetwork, setCurrentNetwork] = useState<string>('')
+  const [currentNetworkUrl, setCurrentNetworkUrl] = useState<string>('')
 
   const userColor = text2color(user?.key || 'default')
 
@@ -31,15 +35,35 @@ export const Transfer: React.FC = () => {
     if (typeof window === 'undefined') return
     const address = user?.key || ''
     const mode = localStorage.getItem('wallet_mode')
-    if (mode === 'subwallet' && address) {
+    const networkUrl = localStorage.getItem('network_url') || 'http://localhost:8545'
+    const selectedNetwork = localStorage.getItem('selected_network') || 'local'
+    
+    setCurrentNetwork(selectedNetwork)
+    setCurrentNetworkUrl(networkUrl)
+    
+    if (address) {
       setWalletAddress(address)
+      if (mode === 'metamask') {
+        fetchBalance(address, networkUrl)
+      }
     }
-    // Load transfer history from localStorage
     const savedHistory = localStorage.getItem(`transfer_history_${address}`)
     if (savedHistory) {
       setHistory(JSON.parse(savedHistory))
     }
-  }, [user])
+  }, [user, network])
+
+  const fetchBalance = async (address: string, networkUrl?: string) => {
+    try {
+      const url = networkUrl || localStorage.getItem('network_url') || 'http://localhost:8545'
+      const provider = new ethers.JsonRpcProvider(url)
+      const balanceWei = await provider.getBalance(address)
+      const balanceEth = ethers.formatEther(balanceWei)
+      setBalance(parseFloat(balanceEth).toFixed(6))
+    } catch (err) {
+      console.error('Failed to fetch balance:', err)
+    }
+  }
 
   const executeTransfer = async () => {
     if (!toAddress || !amount) return setError('Please fill in all fields')
@@ -50,17 +74,29 @@ export const Transfer: React.FC = () => {
     setResponse(null)
 
     try {
-      const result = await network.transfer(
-        walletAddress,
-        toAddress,
-        parseFloat(amount)
-      )
+      const networkUrl = localStorage.getItem('network_url') || 'http://localhost:8545'
+      
+      if (typeof window.ethereum === 'undefined') {
+        throw new Error('MetaMask is not installed')
+      }
+      
+      const url = networkUrl || localStorage.getItem('network_url') || 'http://localhost:8545'
+      const provider = new ethers.JsonRpcProvider(url)
+      const signer = await provider.getSigner()
+      
+      const tx = await signer.sendTransaction({
+        to: toAddress,
+        value: ethers.parseEther(amount)
+      })
+      
+      const receipt = await tx.wait()
 
       const newTransfer: TransferHistory = {
         to: toAddress,
         amount: parseFloat(amount),
         timestamp: new Date().toISOString(),
-        hash: result?.hash || result?.blockHash
+        hash: receipt?.hash || tx.hash,
+        networkUrl: networkUrl
       }
 
       const updatedHistory = [newTransfer, ...history]
@@ -68,19 +104,24 @@ export const Transfer: React.FC = () => {
       localStorage.setItem(`transfer_history_${walletAddress}`, JSON.stringify(updatedHistory))
 
       setResponse({
-        ...result,
+        hash: receipt?.hash || tx.hash,
+        blockNumber: receipt?.blockNumber,
         amount: parseFloat(amount),
         to: toAddress,
         from: walletAddress,
+        status: 'success',
+        networkUrl: networkUrl,
+        network: currentNetwork
       })
       setToAddress('')
       setAmount('')
+      await fetchBalance(walletAddress, networkUrl)
     } catch (err: any) {
       let msg = err?.message || String(err)
-      if (msg.includes('1010')) 
-        msg = 'Insufficient balance for fees.'
-      else if (msg.toLowerCase().includes('cancel'))
-        msg = 'Transaction cancelled by user.'
+      if (msg.includes('insufficient funds')) 
+        msg = 'Insufficient balance for transfer and fees.'
+      else if (msg.toLowerCase().includes('user rejected'))
+        msg = 'Transaction rejected by user.'
       else if (msg.includes('timeout'))
         msg = 'Transaction timeout. Please try again.'
       setError(msg)
@@ -98,6 +139,26 @@ export const Transfer: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="space-y-5 p-6 rounded-xl bg-gradient-to-br from-green-500/10 via-emerald-500/10 to-teal-500/10 border-2 border-green-500/30 shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-sm font-mono font-bold text-green-400 uppercase tracking-wide">
+              Network: {currentNetwork}
+            </span>
+          </div>
+          <div className="text-sm font-mono font-bold text-green-400">
+            Balance: {balance} ETH
+          </div>
+        </div>
+        
+        <div className="bg-black/40 border-2 border-green-500/30 rounded-lg p-3 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-green-400 font-mono font-bold uppercase">RPC URL:</span>
+            <code className="text-xs text-green-300 font-mono flex-1 truncate">{currentNetworkUrl}</code>
+            <CopyButton text={currentNetworkUrl} size="sm" />
+          </div>
+        </div>
+        
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
@@ -108,14 +169,14 @@ export const Transfer: React.FC = () => {
               value={toAddress}
               onChange={(e) => setToAddress(e.target.value)}
               disabled={isLoading}
-              placeholder="5GrwvaEF5zXb26..."
+              placeholder="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
               className="w-full bg-black/60 border-2 border-green-500/40 rounded-lg px-4 py-3 text-green-300 font-mono text-base placeholder-green-600/50 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 disabled:opacity-50 transition-all"
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
-              Amount (MOD)
+              Amount (ETH)
             </label>
             <input
               type="number"
@@ -128,7 +189,7 @@ export const Transfer: React.FC = () => {
               className="w-full bg-black/60 border-2 border-green-500/40 rounded-lg px-4 py-3 text-green-300 font-mono text-base placeholder-green-600/50 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 disabled:opacity-50 transition-all"
             />
             <p className="text-xs text-green-500/50 mt-1 font-mono">
-              Available: {balance} MOD
+              Available: {balance} ETH
             </p>
           </div>
 
@@ -211,7 +272,7 @@ export const Transfer: React.FC = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="flex items-center gap-1 bg-black/40 border rounded px-2 py-1" style={{ borderColor: `${userColor}40` }}>
                         <Send className="w-4 h-4 flex-shrink-0" style={{ color: userColor }} />
-                        <span className="font-black text-sm" style={{ color: userColor }}>{transfer.amount} MOD</span>
+                        <span className="font-black text-sm" style={{ color: userColor }}>{transfer.amount} ETH</span>
                       </div>
                       <div className="flex items-center gap-1 bg-black/40 border border-blue-500/30 rounded px-2 py-1">
                         <span className="text-xs text-blue-400 font-mono">{new Date(transfer.timestamp).toLocaleString()}</span>
@@ -229,6 +290,14 @@ export const Transfer: React.FC = () => {
                           Hash: {transfer.hash.slice(0, 12)}...{transfer.hash.slice(-8)}
                         </code>
                         <CopyButton text={transfer.hash} size="sm" />
+                      </div>
+                    )}
+                    {transfer.networkUrl && (
+                      <div className="flex items-center gap-1 bg-black/40 border border-cyan-500/30 rounded px-2 py-1">
+                        <code className="text-xs font-mono text-cyan-400">
+                          Network: {transfer.networkUrl}
+                        </code>
+                        <CopyButton text={transfer.networkUrl} size="sm" />
                       </div>
                     )}
                   </div>

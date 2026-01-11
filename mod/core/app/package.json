@@ -21,6 +21,7 @@
     "@polkadot/util-crypto": "^13.5.7",
     "@types/mdx": "^2.0.11",
     "bignumber.js": "^9.1.2",
+    "ethers": "^6.13.0",
     "framer-motion": "^12.23.6",
     "lodash": "^4.17.21",
     "lucide-react": "^0.474.0",

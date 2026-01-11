@@ -38,13 +38,18 @@ export function CopyButton({ text, content, size = 'md', showShortened = false }
     lg: 'w-7 h-7'
   }
 
+  if (!copyContent) {
+    return null
+  }
+
   return (
     <button
       onClick={handleCopy}
       className={`${sizeClasses[size]} inline-flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors flex-shrink-0`}
       title={copied ? 'Copied!' : `Copy ${copyContent} to clipboard`}
+      type="button"
     >
-      {showShortened && <span className="mr-2 text-white/70">{displayText}</span>}
+      {showShortened && displayText && <span className="mr-2 text-white/70">{displayText}</span>}
       {copied ? (
         <CheckIcon className={`${iconSizes[size]} text-green-400`} />
       ) : (

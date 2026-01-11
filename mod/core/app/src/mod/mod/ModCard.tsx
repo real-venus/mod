@@ -18,7 +18,7 @@ export default function ModCard({ mod }: ModCardProps) {
   
   const modColor = text2color(mod.name || mod.key)
   const userColor = text2color(mod.key)
-  const updatedTimeStr = mod.updated ? time2str(mod.updated) : time2str(Date.now())
+  const updatedTimeStr = mod.updated ? time2str(mod.updated * 1000) : time2str(Date.now())
   
   const displayName = mod.name.substring(0, 5)
   const displayCid = mod.cid ? `${mod.cid.slice(0, 8)}...${mod.cid.slice(-8)}` : 'N/A'
