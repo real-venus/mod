@@ -15,6 +15,38 @@ interface TransferHistory {
   networkUrl?: string
 }
 
+const NETWORK_CONFIGS: Record<string, { chainId: string, params: any }> = {
+  'local': {
+    chainId: '0x7a69',
+    params: {
+      chainId: '0x7a69',
+      chainName: 'Local Ganache',
+      rpcUrls: ['http://localhost:8545'],
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
+    }
+  },
+  'base-sepolia': {
+    chainId: '0x14a34',
+    params: {
+      chainId: '0x14a34',
+      chainName: 'Base Sepolia',
+      rpcUrls: ['https://sepolia.base.org'],
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      blockExplorerUrls: ['https://sepolia.basescan.org']
+    }
+  },
+  'base-mainnet': {
+    chainId: '0x2105',
+    params: {
+      chainId: '0x2105',
+      chainName: 'Base',
+      rpcUrls: ['https://mainnet.base.org'],
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      blockExplorerUrls: ['https://basescan.org']
+    }
+  }
+}
+
 export const Transfer: React.FC = () => {
   const { network, user } = userContext()
   const [toAddress, setToAddress] = useState('')
@@ -65,6 +97,35 @@ export const Transfer: React.FC = () => {
     }
   }
 
+  const switchToSelectedNetwork = async () => {
+    const selectedNetwork = localStorage.getItem('selected_network') || 'local'
+    const config = NETWORK_CONFIGS[selectedNetwork]
+    
+    if (!config) {
+      throw new Error(`Unknown network: ${selectedNetwork}`)
+    }
+
+    if (typeof window.ethereum === 'undefined') {
+      throw new Error('MetaMask is not installed')
+    }
+
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: config.chainId }],
+      })
+    } catch (switchError: any) {
+      if (switchError.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [config.params],
+        })
+      } else {
+        throw switchError
+      }
+    }
+  }
+
   const executeTransfer = async () => {
     if (!toAddress || !amount) return setError('Please fill in all fields')
     if (!walletAddress) return setError('No wallet connected')
@@ -80,9 +141,10 @@ export const Transfer: React.FC = () => {
         throw new Error('MetaMask is not installed')
       }
       
-      const url = networkUrl || localStorage.getItem('network_url') || 'http://localhost:8545'
-      const provider = new ethers.JsonRpcProvider(url)
-      const signer = await provider.getSigner()
+      await switchToSelectedNetwork()
+      
+      const browserProvider = new ethers.BrowserProvider(window.ethereum)
+      const signer = await browserProvider.getSigner()
       
       const tx = await signer.sendTransaction({
         to: toAddress,
