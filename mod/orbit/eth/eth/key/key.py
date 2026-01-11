@@ -150,17 +150,17 @@ class Key(Account):
         :return: object with methods for signing and encrypting
         :rtype: Key
         """
-        if not self._use_unaudited_hdwallet_features:
-            raise AttributeError(
-                "The use of the Mnemonic features of Account is disabled by "
-                "default until its API stabilizes. To use these features, please "
-                "enable them by running `Account.enable_unaudited_hdwallet_features()` "
-                "and try again."
-            )
+        # if not self._use_unaudited_hdwallet_features:
+        #     raise AttributeError(
+        #         "The use of the Mnemonic features of Account is disabled by "
+        #         "default until its API stabilizes. To use these features, please "
+        #         "enable them by running `Account.enable_unaudited_hdwallet_features()` "
+        #         "and try again."
+        #     )
         seed = seed_from_mnemonic(mnemonic, passphrase)
         private_key = key_from_seed(seed, account_path)
-        key = self._parsePrivateKey(private_key)
-        return Key(key)
+        key = self._parse_private_key(private_key)
+        return Key(key.to_hex())
 
     def __str__(self):
         return f'Key(address={self.address} name={self.name}, crypto_type={self.crypto_type})'

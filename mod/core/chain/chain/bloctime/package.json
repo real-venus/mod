@@ -7,7 +7,7 @@
     "test": "hardhat test",
     "setup:ganache": "hardhat run scripts/setup-ganache.js --network ganache",
     "deploy:ganache": "hardhat run scripts/deploy.js --network ganache",
-    "deploy:base": "hardhat run scripts/deploy.js --network base",
+    "deploy:base_tesnet": "hardhat run scripts/deploy.js --network base_testnet",
     "ganache:start": "docker-compose up -d ganache",
     "ganache:stop": "docker-compose stop ganache",
     "ganache:logs": "docker-compose logs -f ganache"

@@ -66,7 +66,7 @@ class  Api:
 
     def verify_mod(self, mod: str = 'store', key=None) -> bool:
         mod =  self.mod(mod=mod, key=key) if isinstance(mod, str) else mod
-        signature = mod.get('signature', None)
+        signature = mod.pop('signature', None)
         assert signature is not None, f'Mod {mod} has no signature'
         return self.key.verify(mod, signature=signature, address=mod['key'])
 
@@ -604,7 +604,7 @@ class  Api:
             self.get(url)
         else:
             raise ValueError(f'Unsupported URL for reg_from_url: {url}')
-        m.ext_tree(update=1)
+        m.tree(update=1)
         info = self.get_info(mod=mod, key=key, comment=comment, collateral=collateral)
         if payload:
             return info

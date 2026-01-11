@@ -1292,7 +1292,7 @@ class Mod:
         return self.get_tree(self.paths.orbit.core, search=search, depth=depth, **kwargs) 
 
 
-    def orbit(self, orbit='core', search=None, depth=None, **kwargs): 
+    def orbit(self, orbit='core', search=None, depth=None,  update=False, **kwargs): 
         if depth == None:
             orbit2depth = {
                 'inner': 10,
@@ -1302,7 +1302,7 @@ class Mod:
             }
             depth = orbit2depth.get(orbit, 1)
         kwargs['depth'] = depth or kwargs.get('depth', self.orbit2depth.get(orbit, 1))
-        return self.get_tree(self.paths["orbit"][orbit], search=search, **kwargs)
+        return self.get_tree(self.paths["orbit"][orbit], search=search, update=update, **kwargs)
 
     def search(self, search=None, tree=None, depth=1, max_depth=8 ,**kwargs) -> Dict[str, str]:
         """
