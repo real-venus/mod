@@ -13,7 +13,7 @@ from web3 import Web3
 from typing import Dict, Any, Optional, List, Tuple
 import json
 import os
-
+import mod as m
 
 class Mod:
     """BlocTime Protocol Interface for Python."""
@@ -844,3 +844,7 @@ class Mod:
     def forward(self, x=1, y=2):
         """Legacy function for backward compatibility."""
         return x + y
+
+
+    def test(self):
+        return os.system('npm test')

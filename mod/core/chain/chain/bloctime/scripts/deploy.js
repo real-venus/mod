@@ -7,25 +7,8 @@ async function main() {
   console.log('🚀 Deploying BlocTime Protocol...');
 
   // Check if Ganache is running, start if not
-  try {
-    await hre.ethers.provider.getNetwork();
-    console.log('✅ Ganache is running');
-  } catch (error) {
-    console.log('❌ Ganache not running, starting it...');
-    try {
-      const { stdout } = await execPromise('docker-compose up -d ganache');
-      console.log(stdout);
-      console.log('⏳ Waiting for Ganache to be ready...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      await hre.ethers.provider.getNetwork();
-      console.log('✅ Ganache started successfully');
-    } catch (dockerError) {
-      console.error('Failed to start Ganache:', dockerError.message);
-      console.log('Please run: docker-compose up -d ganache');
-      process.exit(1);
-    }
-  }
 
+  await hre.ethers.provider.getNetwork();
   const [deployer] = await hre.ethers.getSigners();
   console.log('Deploying with account:', deployer.address);
 

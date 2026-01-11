@@ -53,7 +53,7 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         address _treasury
     ) ERC20(name, symbol) {
         require(_treasury != address(0), "Invalid treasury");
-        treasury = _treasury;
+        treasury =_treasury;
     }
     
     /**

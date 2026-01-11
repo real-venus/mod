@@ -19,7 +19,7 @@ services:
     - ~/mod/mod/_mods/bloctime:/root/mod/mod/_mods/bloctime
     working_dir: /root/mod/mod/_mods/bloctime
   ganache:
-    container_name: bloctime-ganache
+    container_name: ganache
     command: '--mnemonic "test test test test test test test test test test test junk"
       --networkId 1337 --accounts 10 --defaultBalanceEther 1000 --gasLimit
       12000000 --gasPrice 20000000000 --host 0.0.0.0'
