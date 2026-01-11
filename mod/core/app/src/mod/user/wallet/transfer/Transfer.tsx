@@ -13,6 +13,8 @@ interface TransferHistory {
   timestamp: string
   hash?: string
   networkUrl?: string
+  tokenAddress?: string
+  tokenSymbol?: string
 }
 
 const NETWORK_CONFIGS: Record<string, { chainId: string, params: any }> = {
@@ -47,15 +49,26 @@ const NETWORK_CONFIGS: Record<string, { chainId: string, params: any }> = {
   }
 }
 
+const ERC20_ABI = [
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)'
+]
+
 export const Transfer: React.FC = () => {
   const { network, user } = userContext()
   const [toAddress, setToAddress] = useState('')
   const [amount, setAmount] = useState('')
+  const [tokenAddress, setTokenAddress] = useState('')
+  const [isERC20, setIsERC20] = useState(false)
   const [response, setResponse] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [walletAddress, setWalletAddress] = useState('')
   const [balance, setBalance] = useState<string>('0')
+  const [tokenBalance, setTokenBalance] = useState<string>('0')
+  const [tokenSymbol, setTokenSymbol] = useState<string>('TOKEN')
   const [history, setHistory] = useState<TransferHistory[]>([])
   const [sortAsc, setSortAsc] = useState(false)
   const [currentNetwork, setCurrentNetwork] = useState<string>('')
@@ -85,6 +98,12 @@ export const Transfer: React.FC = () => {
     }
   }, [user, network])
 
+  useEffect(() => {
+    if (isERC20 && tokenAddress && ethers.isAddress(tokenAddress)) {
+      fetchTokenInfo()
+    }
+  }, [isERC20, tokenAddress, walletAddress])
+
   const fetchBalance = async (address: string, networkUrl?: string) => {
     try {
       const url = networkUrl || localStorage.getItem('network_url') || 'http://localhost:8545'
@@ -94,6 +113,26 @@ export const Transfer: React.FC = () => {
       setBalance(parseFloat(balanceEth).toFixed(6))
     } catch (err) {
       console.error('Failed to fetch balance:', err)
+    }
+  }
+
+  const fetchTokenInfo = async () => {
+    try {
+      const url = localStorage.getItem('network_url') || 'http://localhost:8545'
+      const provider = new ethers.JsonRpcProvider(url)
+      const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider)
+      
+      const [symbol, decimals, balance] = await Promise.all([
+        contract.symbol(),
+        contract.decimals(),
+        contract.balanceOf(walletAddress)
+      ])
+      
+      setTokenSymbol(symbol)
+      setTokenBalance(ethers.formatUnits(balance, decimals))
+    } catch (err) {
+      console.error('Failed to fetch token info:', err)
+      setError('Invalid ERC20 token address')
     }
   }
 
@@ -129,6 +168,7 @@ export const Transfer: React.FC = () => {
   const executeTransfer = async () => {
     if (!toAddress || !amount) return setError('Please fill in all fields')
     if (!walletAddress) return setError('No wallet connected')
+    if (isERC20 && !ethers.isAddress(tokenAddress)) return setError('Invalid token address')
 
     setIsLoading(true)
     setError(null)
@@ -146,19 +186,31 @@ export const Transfer: React.FC = () => {
       const browserProvider = new ethers.BrowserProvider(window.ethereum)
       const signer = await browserProvider.getSigner()
       
-      const tx = await signer.sendTransaction({
-        to: toAddress,
-        value: ethers.parseEther(amount)
-      })
+      let tx, receipt
       
-      const receipt = await tx.wait()
+      if (isERC20) {
+        const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer)
+        const decimals = await contract.decimals()
+        const amountInWei = ethers.parseUnits(amount, decimals)
+        
+        tx = await contract.transfer(toAddress, amountInWei)
+        receipt = await tx.wait()
+      } else {
+        tx = await signer.sendTransaction({
+          to: toAddress,
+          value: ethers.parseEther(amount)
+        })
+        receipt = await tx.wait()
+      }
 
       const newTransfer: TransferHistory = {
         to: toAddress,
         amount: parseFloat(amount),
         timestamp: new Date().toISOString(),
         hash: receipt?.hash || tx.hash,
-        networkUrl: networkUrl
+        networkUrl: networkUrl,
+        tokenAddress: isERC20 ? tokenAddress : undefined,
+        tokenSymbol: isERC20 ? tokenSymbol : 'ETH'
       }
 
       const updatedHistory = [newTransfer, ...history]
@@ -173,11 +225,18 @@ export const Transfer: React.FC = () => {
         from: walletAddress,
         status: 'success',
         networkUrl: networkUrl,
-        network: currentNetwork
+        network: currentNetwork,
+        tokenAddress: isERC20 ? tokenAddress : undefined,
+        tokenSymbol: isERC20 ? tokenSymbol : 'ETH'
       })
       setToAddress('')
       setAmount('')
-      await fetchBalance(walletAddress, networkUrl)
+      
+      if (isERC20) {
+        await fetchTokenInfo()
+      } else {
+        await fetchBalance(walletAddress, networkUrl)
+      }
     } catch (err: any) {
       let msg = err?.message || String(err)
       if (msg.includes('insufficient funds')) 
@@ -209,7 +268,7 @@ export const Transfer: React.FC = () => {
             </span>
           </div>
           <div className="text-sm font-mono font-bold text-green-400">
-            Balance: {balance} ETH
+            Balance: {isERC20 ? `${tokenBalance} ${tokenSymbol}` : `${balance} ETH`}
           </div>
         </div>
         
@@ -220,8 +279,47 @@ export const Transfer: React.FC = () => {
             <CopyButton text={currentNetworkUrl} size="sm" />
           </div>
         </div>
+
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            onClick={() => setIsERC20(false)}
+            className={`flex-1 py-2 px-4 rounded-lg font-mono font-bold text-sm transition-all ${
+              !isERC20
+                ? 'bg-green-500/30 border-2 border-green-500 text-green-400'
+                : 'bg-black/40 border-2 border-green-500/30 text-green-500/50 hover:border-green-500/50'
+            }`}
+          >
+            ETH (Native)
+          </button>
+          <button
+            onClick={() => setIsERC20(true)}
+            className={`flex-1 py-2 px-4 rounded-lg font-mono font-bold text-sm transition-all ${
+              isERC20
+                ? 'bg-green-500/30 border-2 border-green-500 text-green-400'
+                : 'bg-black/40 border-2 border-green-500/30 text-green-500/50 hover:border-green-500/50'
+            }`}
+          >
+            ERC20 Token
+          </button>
+        </div>
         
         <div className="space-y-4">
+          {isERC20 && (
+            <div className="space-y-2">
+              <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
+                Token Contract Address
+              </label>
+              <input
+                type="text"
+                value={tokenAddress}
+                onChange={(e) => setTokenAddress(e.target.value)}
+                disabled={isLoading}
+                placeholder="0x..."
+                className="w-full bg-black/60 border-2 border-green-500/40 rounded-lg px-4 py-3 text-green-300 font-mono text-base placeholder-green-600/50 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 disabled:opacity-50 transition-all"
+              />
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
               Destination Address
@@ -238,7 +336,7 @@ export const Transfer: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
-              Amount (ETH)
+              Amount ({isERC20 ? tokenSymbol : 'ETH'})
             </label>
             <input
               type="number"
@@ -251,13 +349,13 @@ export const Transfer: React.FC = () => {
               className="w-full bg-black/60 border-2 border-green-500/40 rounded-lg px-4 py-3 text-green-300 font-mono text-base placeholder-green-600/50 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 disabled:opacity-50 transition-all"
             />
             <p className="text-xs text-green-500/50 mt-1 font-mono">
-              Available: {balance} ETH
+              Available: {isERC20 ? `${tokenBalance} ${tokenSymbol}` : `${balance} ETH`}
             </p>
           </div>
 
           <button
             onClick={executeTransfer}
-            disabled={!toAddress || !amount || isLoading || !walletAddress}
+            disabled={!toAddress || !amount || isLoading || !walletAddress || (isERC20 && !ethers.isAddress(tokenAddress))}
             className="w-full py-4 border-2 border-green-500/60 bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 hover:bg-green-500/30 hover:border-green-500 hover:scale-[1.02] transition-all duration-300 rounded-xl font-mono uppercase font-black text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3 shadow-lg"
           >
             {isLoading ? (
@@ -334,7 +432,7 @@ export const Transfer: React.FC = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="flex items-center gap-1 bg-black/40 border rounded px-2 py-1" style={{ borderColor: `${userColor}40` }}>
                         <Send className="w-4 h-4 flex-shrink-0" style={{ color: userColor }} />
-                        <span className="font-black text-sm" style={{ color: userColor }}>{transfer.amount} ETH</span>
+                        <span className="font-black text-sm" style={{ color: userColor }}>{transfer.amount} {transfer.tokenSymbol || 'ETH'}</span>
                       </div>
                       <div className="flex items-center gap-1 bg-black/40 border border-blue-500/30 rounded px-2 py-1">
                         <span className="text-xs text-blue-400 font-mono">{new Date(transfer.timestamp).toLocaleString()}</span>
@@ -346,6 +444,14 @@ export const Transfer: React.FC = () => {
                       </code>
                       <CopyButton text={transfer.to} size="sm" />
                     </div>
+                    {transfer.tokenAddress && (
+                      <div className="flex items-center gap-1 bg-black/40 border border-yellow-500/30 rounded px-2 py-1">
+                        <code className="text-xs font-mono text-yellow-400">
+                          Token: {transfer.tokenAddress.slice(0, 12)}...{transfer.tokenAddress.slice(-8)}
+                        </code>
+                        <CopyButton text={transfer.tokenAddress} size="sm" />
+                      </div>
+                    )}
                     {transfer.hash && (
                       <div className="flex items-center gap-1 bg-black/40 border border-purple-500/30 rounded px-2 py-1">
                         <code className="text-xs font-mono text-purple-400">
