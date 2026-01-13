@@ -847,4 +847,9 @@ class Mod:
 
 
     def test(self):
-        return os.system('npm test')
+        dp = m.dp('chain')
+        return os.system(f'cd {dp} && npm test')
+
+    def compile(self):
+        dp = m.dp('chain')
+        return os.system(f'cd {dp} && npm run compile')
