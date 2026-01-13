@@ -9,7 +9,7 @@ import { ModContent, ModApi, ModApp } from '@/mod/mod'
 import ModCard from '@/mod/mod/ModCard'
 import { AlertCircle } from 'lucide-react'
 import { text2color } from '@/mod/utils'
-import UpdateMod from '@/mod/user/wallet/update/UpdateMod'
+import UpdateMod from '@/mod/user/UpdateMod'
 import ModEdit from '@/mod/mod/edit/ModEdit'
 import ModVersions from '@/mod/mod/versions/ModVersions'
 

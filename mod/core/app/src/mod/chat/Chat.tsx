@@ -21,8 +21,18 @@ export default function Chat() {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 })
   const [splitPosition, setSplitPosition] = useState(50)
+  const [isNarrowScreen, setIsNarrowScreen] = useState(false)
 
   useChatEffects(chatState)
+
+  useEffect(() => {
+    const checkScreenWidth = () => {
+      setIsNarrowScreen(window.innerWidth < 768)
+    }
+    checkScreenWidth()
+    window.addEventListener('resize', checkScreenWidth)
+    return () => window.removeEventListener('resize', checkScreenWidth)
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -104,7 +114,6 @@ export default function Chat() {
         }])
       }
       
-      // Immediately update transactions after successful call
       if (transactionsPanelRef.current) {
         transactionsPanelRef.current.handleSync()
       }
@@ -166,7 +175,6 @@ export default function Chat() {
   return (
     <div className="flex h-full bg-gradient-to-br from-gray-950 via-black to-gray-900" style={{ fontFamily: "IBM Plex Mono, Courier New, monospace" }}>
       
-      {/* Split orientation toggle button - moved to bottom left */}
       <button
         onClick={() => setSplitOrientation(prev => prev === 'vertical' ? 'horizontal' : 'vertical')}
         className="fixed bottom-4 left-4 z-50 px-4 py-2 bg-blue-500/20 text-blue-400 border-2 border-blue-500/40 hover:bg-blue-500/30 rounded-lg transition-all font-bold"
@@ -176,12 +184,11 @@ export default function Chat() {
         {splitOrientation === 'vertical' ? '⚌ vertical' : '⚏ horizontal'}
       </button>
 
-      <div id="split-container" className={`flex ${splitOrientation === 'vertical' ? 'flex-row' : 'flex-col'} w-full h-full gap-0 p-2 relative`}>
-        {/* Left/Top Panel: Inputs (ModFn Selector, Chat Input, Params) */}
+      <div id="split-container" className={`flex ${isNarrowScreen ? 'flex-col' : (splitOrientation === 'vertical' ? 'flex-row' : 'flex-col')} w-full h-full gap-0 p-2 relative`}>
         <div 
-          className={`flex flex-col overflow-hidden rounded-lg bg-black/95`}
+          className={`flex flex-col overflow-hidden rounded-lg ${isNarrowScreen ? 'absolute inset-0 z-20 bg-black/95' : 'bg-black/95'}`}
           style={{
-            [splitOrientation === 'vertical' ? 'width' : 'height']: `${splitPosition}%`
+            [isNarrowScreen ? 'width' : (splitOrientation === 'vertical' ? 'width' : 'height')]: isNarrowScreen ? '100%' : `${splitPosition}%`
           }}
         >
           <ControlPanel
@@ -216,19 +223,19 @@ export default function Chat() {
           />
         </div>
 
-        {/* Draggable Divider */}
-        <div
-          className={`${splitOrientation === 'vertical' ? 'w-3 cursor-col-resize hover:bg-white/70' : 'h-3 cursor-row-resize hover:bg-white/70'} bg-white/40 transition-colors z-10 flex items-center justify-center`}
-          onMouseDown={handleMouseDown}
-        >
-          <div className={`${splitOrientation === 'vertical' ? 'w-1.5 h-12' : 'h-1.5 w-12'} bg-white/80 rounded-full`} />
-        </div>
+        {!isNarrowScreen && (
+          <div
+            className={`${splitOrientation === 'vertical' ? 'w-3 cursor-col-resize hover:bg-white/70' : 'h-3 cursor-row-resize hover:bg-white/70'} bg-black border-2 border-white transition-colors z-10 flex items-center justify-center`}
+            onMouseDown={handleMouseDown}
+          >
+            <div className={`${splitOrientation === 'vertical' ? 'w-1.5 h-12' : 'h-1.5 w-12'} bg-white/80 rounded-full`} />
+          </div>
+        )}
 
-        {/* Right/Bottom Panel: Transactions */}
         <div 
           className="flex flex-col overflow-hidden"
           style={{
-            [splitOrientation === 'vertical' ? 'width' : 'height']: `${100 - splitPosition}%`
+            [isNarrowScreen ? 'height' : (splitOrientation === 'vertical' ? 'width' : 'height')]: isNarrowScreen ? '100%' : `${100 - splitPosition}%`
           }}
         >
           <div className="h-full overflow-y-auto p-3">

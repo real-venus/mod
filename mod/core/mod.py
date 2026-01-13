@@ -1296,7 +1296,7 @@ class Mod:
         if depth == None:
             orbit2depth = {
                 'inner': 10,
-                'outer': 2,
+                'outer': 5,
                 'core': 10,
                 'local': 3
             }
@@ -1353,7 +1353,7 @@ class Mod:
         """
         tree = {}
         for orbit in self.orbits:
-            tree.update(self.orbit(orbit, **kwargs))
+            tree.update(self.orbit(orbit, search=search, **kwargs))
         # 
         tree = dict(sorted(tree.items(), key=lambda item: item[0]))
         return tree
@@ -1420,7 +1420,10 @@ class Mod:
         """
         make a new mod
         """
-        name = name or path.split('/')[-1]
+        name = name 
+        if '/' in name:
+            name = name.replace('/', '.')
+        name = name.split('.')[-1]
         dirpath = self.paths["orbit"][orbit] + '/' + name.replace('.', '/')
         print(f'Creating new mod {name} at {dirpath} from base {base}')
         for k,v in self.content(base).items():

@@ -6,14 +6,13 @@ import { userContext } from '@/mod/context'
 import { UserType } from '@/mod/types'
 import { Loading } from '@/mod/ui/Loading'
 import { UserCard } from '@/mod/user/UserCard'
-import Transfer from '@/mod/user/wallet/transfer'
-import RegMod from '@/mod/user/wallet/reg'
-import UpdateMod from '@/mod/user/wallet/update'
-import ClaimMod from '@/mod/user/wallet/claim'
-import { UserModules } from '@/mod/user/wallet/usermods/UserModules'
-import { Admin } from '@/mod/user/wallet/admin/Admin'
+import Transfer from '@/mod/user/transfer'
+import RegUpdate from '@/mod/user/regupdate'
+import ClaimMod from '@/mod/user/claim'
+import { UserModules } from '@/mod/user/usermods/UserModules'
+import { Admin } from '@/mod/user/admin/Admin'
 
-type TabType = 'mods' | 'sign' | 'transfer' | 'register' | 'update' | 'claim' | 'admin'
+type TabType = 'mods' | 'sign' | 'transfer' | 'regupdate' | 'claim' | 'admin'
 
 export default function UserPage() {
   const params = useParams()
@@ -66,8 +65,7 @@ export default function UserPage() {
   let tabs: { id: TabType; label: string; color: string }[] = [
     { id: 'transfer', label: 'transfer', color: 'blue' },
     { id: 'mods', label: 'mods', color: 'purple' },
-    { id: 'register', label: 'register', color: 'green' },
-    { id: 'update', label: 'update', color: 'orange' },
+    { id: 'regupdate', label: 'register/update', color: 'green' },
     { id: 'claim', label: 'claim', color: 'pink' },
     { id: 'admin', label: 'admin', color: 'red' },
   ]
@@ -87,10 +85,6 @@ export default function UserPage() {
         inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
       },
       green: {
-        active: 'bg-black text-white border-2 border-white',
-        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
-      },
-      orange: {
         active: 'bg-black text-white border-2 border-white',
         inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
       },
@@ -131,8 +125,7 @@ export default function UserPage() {
           <div className="bg-black border-2 border-white/30 rounded p-6">
             {activeTab === 'mods' && <UserModules userData={userData} />}
             {activeTab === 'transfer' && client?.key && user && <Transfer />}
-            {activeTab === 'register' && client?.key && user && <RegMod />}
-            {activeTab === 'update' && client?.key && user && <UpdateMod />}
+            {activeTab === 'regupdate' && client?.key && user && <RegUpdate />}
             {activeTab === 'claim' && client?.key && user && <ClaimMod />}
             {activeTab === 'admin' && client?.key && user && <Admin userData={userData} />}
           </div>

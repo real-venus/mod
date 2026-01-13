@@ -1064,13 +1064,12 @@ class  Api:
         """
         key = self.key_address(key)
         name = name or path.split('/')[-1]
-        dirpath = self.paths["orbit"][orbit] + '/'+ key+ '/'+  + name.replace('.', '/')
+        dirpath = m.paths["orbit"][orbit] + '/'+ key+ '/'+ name.replace('.', '/')
         print(f'Creating new mod {name} at {dirpath} from base {base}')
-        for k,v in self.content(base).items():
+        for k,v in self.content(base,  expand=1).items():
             new_path = dirpath + '/' +  k.replace(base, name)
-            self.put_text( new_path, v)
-        files = self.files(dirpath)
-        self.tree(update=True)
+            m.put_text( new_path, v)
+        m.tree(update=True)
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self.cid(name)}
 
     def is_owner(self, address:str):

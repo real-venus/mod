@@ -10,14 +10,14 @@ class Mod:
     Manage multiple Python virtual environments with a centralized manager
     """
 
-    def __init__(self, path: Optional[str] = None):
+    def __init__(self, path: Optional[str] = '~/.mod/pyenv'):
         """
         Initialize PyEnv manager
-        
+        git 
         Args:
             path: Base path for mod storage. Defaults to ~/.mod
         """
-        self.path = path if path else os.path.join(os.path.expanduser('~'), '.mod')
+        self.path = os.path.abspath(os.path.expanduser(path))
         self.config_file = os.path.join(self.path, 'pyenv_config.json')
         self.default_env = os.path.join(self.path, 'pyenv', 'mod')
         self._ensure_config()
@@ -45,7 +45,9 @@ class Mod:
         with open(self.config_file, 'w') as f:
             f.write(json.dumps(config, indent=2))
 
-    def add_env(self, name: str, env_path: str) -> Dict[str, Any]:
+    def env_path(self, name: str) -> str:
+        return self.path+'/envs/'+ name
+    def add_env(self, name: str) -> Dict[str, Any]:
         """
         Add a new environment to the manager
         
@@ -60,11 +62,11 @@ class Mod:
         if name in config['environments']:
             return {'success': False, 'message': f'Environment "{name}" already exists'}
         
-        config['environments'][name] = os.path.abspath(env_path)
+        config['environments'][name] = self.env_path(name)
         self._save_config(config)
-        return {'success': True, 'message': f'Environment "{name}" added at {env_path}'}
+        return {'success': True, 'message': f'Environment "{name}" added at {config["environments"][name]}'}
 
-    def remove_env(self, name: str, delete_files: bool = False) -> Dict[str, Any]:
+    def rm_env(self, name: str, delete_files: bool = False) -> Dict[str, Any]:
         """
         Remove an environment from the manager
         
@@ -111,29 +113,15 @@ class Mod:
             'active': config['active']
         }
 
-    def set_active(self, name: str) -> Dict[str, Any]:
-        """
-        Set the active environment
-        
-        Args:
-            name: Name of the environment to activate
-            
-        Returns:
-            Dictionary with success status and message
-        """
-        config = self._load_config()
-        if name not in config['environments']:
-            return {'success': False, 'message': f'Environment "{name}" not found'}
-        
-        config['active'] = name
-        self._save_config(config)
-        return {'success': True, 'message': f'Active environment set to "{name}"'}
 
-    def get_active_env(self) -> str:
-        """Get the path to the active environment"""
+    def python_bin(self, name: Optional[str] = None) -> str:
+        """Get the path to the Python binary in the virtual environment"""
         config = self._load_config()
-        active_name = config['active']
-        return config['environments'][active_name]
+        env_name = name or config['active']
+        if env_name not in config['environments']:
+            raise ValueError(f'Environment "{env_name}" not found')
+        env_path = config['environments'][env_name]
+        return self._get_python_bin(env_path)
 
     def _get_python_bin(self, env_path: str) -> str:
         """Get the path to the Python binary in the virtual environment"""
@@ -234,6 +222,8 @@ class Mod:
 
     def install(self, packages: List[str], name: Optional[str] = None) -> Dict[str, Any]:
         """Install packages using pip in the virtual environment"""
+        if isinstance(packages, str):
+            packages = [packages]
         config = self._load_config()
         env_name = name or config['active']
         
