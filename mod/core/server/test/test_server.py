@@ -1,8 +1,10 @@
  
 import mod as m
 
+import unittest
+
 Server = m.mod('server')
-class ServerTestMixin(Server):
+class ServerTestMixin( unittest.TestCase):
     def test_server(self, 
                         server = 'mod', 
                         key="server", 

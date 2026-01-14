@@ -48,7 +48,7 @@ class Server:
     def pm(self, value):
         self._pm = value
 
-    def set_pm(self,  pm: Union[str, 'Module', Any],  fns = ['logs', 'namespace', 'kill', 'kill_all','namespace', 'killall']):
+    def set_pm(self,  pm: Union[str, 'Module', Any],  fns = ['logs', 'namespace', 'kill', 'kill_all','namespace']):
         self.pm = m.mod(pm)()
         m.mergemods(from_mod=self.pm, to_mod=self, fns=fns)
 
@@ -149,15 +149,15 @@ class Server:
 
         self.set_pm(pm)
         mod = mod or m.name
-        if mod not in [m.name]:
-            try:
-                _mod = m.mod(mod)
-            except Exception as e:
-                print(f'Error loading mod {mod}: {m.detailed_error(e)}', color='red')
-                return m.fn('pm/up')(mod)
-            if hasattr(_mod, 'serve'):
-                return _mod().serve(**extra_params)
-        self.prepare_server(mod)
+        # if mod not in [m.name]:
+        #     try:
+        #         _mod = m.mod(mod)
+        #     except Exception as e:
+        #         print(f'Error loading mod {mod}: {m.detailed_error(e)}', color='red')
+        #         return m.fn('pm/up')(mod)
+        #     if hasattr(_mod, 'serve'):
+        #         return _mod().serve(**extra_params)
+        # self.prepare_server(mod)
         port = self.get_port(port, mod=mod)
         params = {**(params or {}), **extra_params}
         if remote:

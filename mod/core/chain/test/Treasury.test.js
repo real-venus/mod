@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("MultiTokenTreasury", function () {
+describe("Treasury", function () {
   let treasury, governanceToken, token1, token2, owner, user1, user2;
   const INITIAL_SUPPLY = ethers.parseEther("1000000");
   const OWNER_PERCENTAGE = 2000; // 20%
@@ -19,7 +19,7 @@ describe("MultiTokenTreasury", function () {
     token2 = await Token.deploy("Token2", "TK2", INITIAL_SUPPLY);
     await token2.waitForDeployment();
 
-    const Treasury = await ethers.getContractFactory("MultiTokenTreasury");
+    const Treasury = await ethers.getContractFactory("Treasury");
     treasury = await Treasury.deploy(OWNER_PERCENTAGE);
     await treasury.waitForDeployment();
 

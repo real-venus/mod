@@ -10,7 +10,7 @@ class SSHKeyManager:
         self.key_type = key_type
         self.prefix = f'id_{key_type}'
 
-    def list_keys(self , include_fingerprint=False):
+    def keys(self , include_fingerprint=False):
         """List all existing SSH keys without revealing system information."""
         keys = []
         for key_file in self.ssh_dir.glob("id_*"):
@@ -22,12 +22,12 @@ class SSHKeyManager:
                         # Remove comment/hostname from public key
                         parts = pub_content.split()
                         sanitized_key = f"{parts[0]} {parts[1]}" if len(parts) >= 2 else pub_content
-                        key_type = parts[0].replace("ssh-", "") if len(parts) >= 1 else "unknown"
-                        if key_type != self.key_type:
+                        self.key_type = parts[0].replace("ssh-", "") if len(parts) >= 1 else "unknown"
+                        if self.key_type != self.key_type:
                             continue
                         keys.append({
                             "name": key_file.name,
-                            'key_type': key_type,
+                            'self.key_type': self.key_type,
                             "public_key": sanitized_key,
         
                         })
@@ -49,12 +49,11 @@ class SSHKeyManager:
         except:
             return "Unable to get fingerprint"
 
-    def generate_key(self, key_name=None, comment=""):
+    def add(self, key_name=None, comment=""):
         """Generate SSH key without hostname in comment."""
         if not key_name:
-            key_name = f"id_{key_type}"
+            key_name = f"id_{self.key_type}"
         
-        key
         key_path = self.ssh_dir / f'{self.prefix}_{key_name}'
         
         if key_path.exists():
@@ -63,7 +62,7 @@ class SSHKeyManager:
 
         cmd = [
             "ssh-keygen",
-            "-t", key_type,
+            "-t", self.key_type,
             "-C", comment if comment else "",
             "-f", str(key_path),
             "-N", ""
@@ -84,10 +83,11 @@ class SSHKeyManager:
             with open(pub_path, 'w') as f:
                 f.write(sanitized + "\n")
         
-        print(f"[✓] Generated {key_type} key: {key_name}")
+        print(f"[✓] Generated {self.key_type} key: {key_name}")
         return True
 
-    def remove_key(self, key_name):
+    
+    def rm(self, key_name):
         """Remove SSH key pair."""
         key_path = self.ssh_dir / key_name
         pub_path = Path(str(key_path) + ".pub")

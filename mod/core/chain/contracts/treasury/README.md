@@ -4,7 +4,7 @@ Multi-token treasury system with proportional reward distribution based on gover
 
 ## Overview
 
-The **MultiTokenTreasury** contract enables ERC20 governance token holders to claim proportional shares of ALL tokens held in the treasury. If you own 20% of the governance token, you can claim 20% of every token in the treasury.
+The **Treasury** contract enables ERC20 governance token holders to claim proportional shares of ALL tokens held in the treasury. If you own 20% of the governance token, you can claim 20% of every token in the treasury.
 
 ## Key Features
 
@@ -110,7 +110,7 @@ claimable = ownerShare - ownerAlreadyClaimed
 ### Setup Treasury
 ```solidity
 // Deploy with 25% owner share
-MultiTokenTreasury treasury = new MultiTokenTreasury(2500);
+Treasury treasury = new Treasury(2500);
 
 // Set governance token
 treasury.setGovernanceToken(blocTimeTokenAddress);

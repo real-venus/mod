@@ -102,7 +102,8 @@ class  Api:
     def task_data(self , 
                 fn: str = 'store/ls',  
                 params: Dict[str, Any] = {}, 
-                timeout=1000
+                cost = 1,
+                timeout=1000,
                 ) -> Dict[str, Any]:
 
         if self.is_valid_cid(fn):
@@ -118,7 +119,8 @@ class  Api:
             'params': params,       
             'timeout': timeout,  
             'status': 'pending',
-            'time': m.time()
+            'time': m.time(), 
+            'cost': cost,
         }
 
 
@@ -164,14 +166,6 @@ class  Api:
             'sig': proof_sig
         }
         
-
-
-
-
-
-    def future_paths(self):
-        return list(self.cid2future.keys())
-
     cid2future = {}
 
 
@@ -233,9 +227,9 @@ class  Api:
         """
         future = self.cid2future.get(cid, None)
         if future is not None:
-            print(f'Killing task with CID: {cid}')
+            print(f'Kill({cid})')    
             future.cancel()
-            self.cid2future.pop(cid, None)
+            del self.cid2future[cid]
             return True
         return False
 
@@ -961,7 +955,7 @@ class  Api:
         
         return users
 
-    def user_mods(self, key: str = None) -> List[str]:
+    def user_mods(self, key: str = None, update=False) -> List[str]:
         """List all mods registered by a specific user in IPFS.
         
         Args:
@@ -969,6 +963,11 @@ class  Api:
         Returns:
             List of mod names   
         """
+
+        path = self.path('users/' + self.key_address(key) + '/mods.json')
+        mods = m.get( path,  update=update)
+        if mods != None:
+            return mods
         key = self.key_address(key)
         registry = self.registry(key)
         mods = []
@@ -976,6 +975,7 @@ class  Api:
             info = self.mod(mod, key=key)
             if info != None:
                 mods.append(info)
+        m.put( path, mods)
         return mods
 
 
@@ -996,7 +996,7 @@ class  Api:
         """
         address = self.key_address(address)
         path = self.path('users/' + address)
-        mods = self.user_mods(address)
+        mods = self.user_mods(address, update=update)
         user = { 
             'key': address,
             'mods': mods,
@@ -1057,7 +1057,6 @@ class  Api:
     def n(self, *args, **kwargs):
         return len(self.mods(*args, **kwargs))
 
-
     def new(self, name='base2', base='base', key=None, orbit='outer', update=True):
         """
         make a new mod
@@ -1066,25 +1065,15 @@ class  Api:
         name = name or path.split('/')[-1]
         dirpath = m.paths["orbit"][orbit] + '/'+ key+ '/'+ name.replace('.', '/')
         print(f'Creating new mod {name} at {dirpath} from base {base}')
-        for k,v in self.content(base,  expand=1).items():
+        for k,v in m.content(base).items():
             new_path = dirpath + '/' +  k.replace(base, name)
             m.put_text( new_path, v)
-        m.tree(update=True)
+        print(m.orbit())
+        m.orbit(orbit, update=True)
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self.cid(name)}
 
     def is_owner(self, address:str):
         return m.is_owner(address)
-
-    def setorbit(self, mod='store', orbit='outer'):
-        old_orbit_path = m.dp(mod)
-        new_orbit_path = m.paths['orbit'][orbit] + '/' + old_orbit_path.split('/')[-1]
-        # move the mod directory
-        m.mv(old_orbit_path, new_orbit_path)
-        return {
-            'old_path': old_orbit_path,
-            'new_path': new_orbit_path,
-            # 'msg': f'Mod {mod} moved from {old_orbit_path} to {new_orbit_path}'
-        }
 
     def wait_for_task(self, task, wait_frequency=0.2):
         task_path = task['path']

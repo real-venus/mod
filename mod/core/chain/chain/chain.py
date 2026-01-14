@@ -853,3 +853,7 @@ class Mod:
     def compile(self):
         dp = m.dp('chain')
         return os.system(f'cd {dp} && npm run compile')
+
+    def ganache(self, port: int = 8545):
+        dp = m.dp('chain')
+        return os.system(f'cd {dp} && docker-compose up -d ganache')

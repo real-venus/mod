@@ -20,6 +20,9 @@ export const time2utc = (timestamp: number): string => {
 
 export const text2color = (text: string): string => {
   let hash = 0
+  // if text is undefined or empty, return gray
+  if (!text) return '#808080' 
+  
   for (let i = 0; i < text.length; i++) {
     hash = text.charCodeAt(i) + ((hash << 5) - hash)
   }

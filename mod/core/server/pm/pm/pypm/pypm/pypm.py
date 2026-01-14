@@ -376,8 +376,8 @@ class PyPM:
     def resurrect(self) -> Dict[str, Any]:
         """Restart all previously running processes."""
         results = []
-        for name, proc_info in self.processes.items():
-            if proc_info.get('status') == 'online' and not self._is_running(name):
+        for name, proc_info in list(self.processes.items()):
+            if proc_info.get('status') == 'online':
                 result = self.start(
                     name=name,
                     script=proc_info['script'],

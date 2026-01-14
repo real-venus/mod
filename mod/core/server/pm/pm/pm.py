@@ -137,7 +137,7 @@ class PM:
             'restart': restart,
             'deploy': {'resources': resources} if resources else {},
             'shm_size': shm_size,
-            'ports': services[name].get('ports', [])
+            'ports': services.get(name, {}).get('ports', [])
         }
         ports =  [f'{port}:{port}'] 
         serve_config['ports'] = ports + serve_config['ports'][1:] if len(serve_config['ports']) > 0 else ports

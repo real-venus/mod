@@ -39,8 +39,8 @@ class Mod:
         self.paths["mod"] = self.mod_path =os.path.dirname(os.path.dirname(__file__))
         self.paths["lib"]  = self.lib_path = os.path.dirname(self.paths["mod"]) # the path to the repo
         self.paths['orbit'] = {
-            "inner": f'{self.mod_path}/orbit',
-            "outer": f'{self.mod_path}/orbit/_outer',
+            "inner": f'{self.mod_path}/_orbit',
+            "outer": f'{self.mod_path}/_orbit/_outer',
             "core": self.mod_path + '/core',
             "local": os.getcwd()
         }
@@ -735,7 +735,7 @@ class Mod:
             'params': params,
 
         }
-        return self.fn('client/call')('api/call', params=params, timeout=timeout, wait=True, return_cid=return_cid)
+        return self.fn('client/call')('api/call', params=params, timeout=timeout, wait=wait, return_cid=return_cid)
 
     def cache(self, path:str, max_age: int = 60, default=None, directory: str = '~/.mod/cache'):
         '''
@@ -754,6 +754,17 @@ class Mod:
                 return result
             return wrapper
         return decorator
+
+    def update(self):
+        tree = self.tree(update=1)
+        n = len(tree)
+        return {'success': True, 'message': 'Mod tree updated', 'mods': n, 'orbits':self.paths['orbit'].toDict()}
+
+
+    def key_address(self, key:str = None , **kwargs) -> str:
+        return self.get_key(key).key2address(**kwargs)
+    
+
     
     def content(self, mod = None , search=None, ignore_folders = ['mods', 'mods', 'private', 'data', '_mods'], relative=False,  **kwargs) ->  Dict[str, str]:
         """
@@ -1298,7 +1309,7 @@ class Mod:
                 'inner': 10,
                 'outer': 5,
                 'core': 10,
-                'local': 3
+                'local': 4
             }
             depth = orbit2depth.get(orbit, 1)
         kwargs['depth'] = depth or kwargs.get('depth', self.orbit2depth.get(orbit, 1))
@@ -1684,8 +1695,11 @@ class Mod:
             setattr(to_mod, fn, fn_obj)
         return to_mod
 
-    def edit(self, *query,  **kwargs):
-        return self.fn('api/edit')(query=' '.join(list(map(str, query))), api='api', **kwargs)
+    def edit(self, *query, mod='app', timeout=60, wait=False, **kwargs):
+        query = list(map(str, query))
+        params = {'query': ' '.join(query), 'mod': mod}
+        print(f'Editing {mod} with query: {params["query"]}')
+        return self.call('api/edit',  params=params, wait=wait, timeout=timeout, **kwargs)
         
     e = edit
 
@@ -1709,8 +1723,8 @@ class Mod:
         return self.fn('client/call')('api/history', params={"df":1})
 
     def setup(self):
-        self.serve('ipfs')
-        self.serve('api')
-        self.serve('app')
+        self.serve('ipfs') if not self.server_exists('ipfs') else None
+        self.serve('api') if not self.server_exists('api') else None
+        return self.fn('app/serve')() if not self.server_exists('app') else None
     
     s = setup

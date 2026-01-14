@@ -7,12 +7,12 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title MultiTokenTreasury
+ * @title Treasury
  * @dev Treasury contract that allows ERC20 token holders to withdraw proportional shares of ALL tokens
  * If you own 20% of the governance ERC20, you can claim 20% of ALL tokens in the treasury
  * Owner gets N% of treasury, rest distributed to ERC20 holders
  */
-contract MultiTokenTreasury is ReentrancyGuard, Ownable {
+contract Treasury is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
     IERC20 public governanceToken;

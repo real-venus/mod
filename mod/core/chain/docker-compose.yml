@@ -1,4 +1,3 @@
-version: '3.8'
 networks:
   default:
     external: true
@@ -18,21 +17,36 @@ services:
     - ~/.mod:/root/.mod
     - ~/mod/mod/_mods/bloctime:/root/mod/mod/_mods/bloctime
     working_dir: /root/mod/mod/_mods/bloctime
+  chain:
+    container_name: chain
+    deploy: {}
+    entrypoint: bash -c "m serve port=50103 key=chain remote=0 mod=chain"
+    image: chain
+    ports:
+    - 50103:50103
+    restart: unless-stopped
+    shm_size: 100g
+    volumes:
+    - ~/mod:/root/mod
+    - ~/.mod:/root/.mod
+    - ~/mod/mod/core/chain:/root/mod/mod/core/chain
+    working_dir: /root/mod/mod/core/chain
   ganache:
+    command: --mnemonic "test test test test test test test test test test test junk"
+      --networkId 1337 --accounts 10 --defaultBalanceEther 1000 --gasLimit 12000000
+      --gasPrice 20000000000 --host 0.0.0.0
     container_name: ganache
-    command: '--mnemonic "test test test test test test test test test test test junk"
-      --networkId 1337 --accounts 10 --defaultBalanceEther 1000 --gasLimit
-      12000000 --gasPrice 20000000000 --host 0.0.0.0'
     image: trufflesuite/ganache:latest
     ports:
     - 8545:8545
     restart: unless-stopped
     volumes: []
   hardhat:
+    command: sh -c "npm install && tail -f /dev/null"
     container_name: bloctime-hardhat
     image: node:18-alpine
-    working_dir: /app
+    restart: unless-stopped
     volumes:
     - ~/mod/mod/_mods/bloctime:/app
-    command: sh -c "npm install && tail -f /dev/null"
-    restart: unless-stopped
+    working_dir: /app
+version: '3.8'

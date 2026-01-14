@@ -224,7 +224,7 @@ await blocTime.setPoints(points);
 ### 2. Configure Treasury
 
 ```javascript
-const treasury = await ethers.getContractAt('MultiTokenTreasury', TREASURY_ADDRESS);
+const treasury = await ethers.getContractAt('Treasury', TREASURY_ADDRESS);
 
 // Set governance token
 await treasury.setGovernanceToken(NATIVE_TOKEN_ADDRESS);
