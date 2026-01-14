@@ -13,7 +13,7 @@ class Auth:
 
     def __init__(self, 
                 key=None, 
-                crypto_type='sr25519', 
+                crypto_type='ecdsa', 
                 max_age=3600 ):
         
         """
@@ -62,8 +62,10 @@ class Auth:
             headers = json.loads(self._base64url_decode(token))
         age = abs(time.time() - float(headers['time']))
         assert age < self.max_age, f'Token is stale {age} > {self.max_age}'
-        verified = self.key.verify(self.sig_data(headers), signature=headers['signature'], address=headers['key'])
-        assert verified, f'Invalid signature {headers}'
+        sigdata = self.sig_data(headers)
+        print(f'verifying sigdata: {self.hash(sigdata)}')
+        verified = self.key.verify(sigdata, signature=headers['signature'], address=headers['key'])
+        assert verified, f'Invalid signature {headers} sigdatahash: {self.hash(sigdata)}'
         return headers
 
     def get_key(self, key=None):
@@ -81,11 +83,12 @@ class Auth:
         """
         Hash the data using sha256
         """
+        if isinstance(data, dict):
+            data = json.dumps(data, separators=(',', ':'))
         if isinstance(data, str):
             data = data.encode('utf-8')
-        elif isinstance(data, dict):
-            data = json.dumps(data)
-        return m.hash(data)
+
+        return hashlib.sha256(data).hexdigest() 
 
     def sig_data(self, headers: Dict[str, str]) -> str:
         """
@@ -93,7 +96,7 @@ class Auth:
         """
         return json.dumps({k: headers[k] for k in self.sig_features}, separators=(',', ':'))
 
-    def test(self, key='test.auth', crypto_type='sr25519'):
+    def test(self, key='test.auth', crypto_type='ecdsa'):
         data = {'fn': 'test', 'params': {'a': 1, 'b': 2}}
         auth = Auth(key=key, crypto_type=crypto_type)
         headers = auth.generate(data, key=key)
@@ -114,3 +117,4 @@ class Auth:
         """Decode base64url data"""
         padding = b'=' * (4 - (len(data) % 4))
         return base64.urlsafe_b64decode(data.encode('utf-8') + padding)
+

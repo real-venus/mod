@@ -60,7 +60,7 @@ class Key:
     reverse_crypto_type_map = {v:k for k,v in crypto_type_map.items()}
     default_key= 'mod'
     ss58_format = 42
-    crypto_type =  'sr25519'
+    crypto_type =  'ecdsa'
     language_code = 'en'
     storage_path = os.path.expanduser('~/.mod/key')
 
@@ -481,6 +481,11 @@ class Key:
         -------
         Key
         """
+        # if not hex string, convert to bytes
+        if isinstance(private_key, str):
+            if private_key.startswith('0x'):
+                private_key = private_key[2:]
+            private_key = bytes.fromhex(private_key)
         return Key(private_key=private_key, crypto_type=crypto_type)
 
     def encode_signature_data(self, data: Union[ScaleBytes, bytes, str, dict]) -> bytes:
@@ -504,23 +509,37 @@ class Key:
         if isinstance(signature,str) and signature[0:2] == '0x':
             signature = bytes.fromhex(signature[2:])
         if type(signature) is str:
-            signature = bytes.fromhex(signature)
+            print(f'converting signature from hex-string to bytes {signature}')
+            signature = bytes.fromhex(signature[2:])
         if type(signature) is not bytes:
             raise TypeError(f"Signature should be of type bytes or a hex-string {signature}")
         return signature
 
-    def get_public_key(self, address=None, public_key=None):
-        if address != None:
+    def get_public_key(self, address=None, public_key=None, crypto_type=None):
+        if public_key != None: 
+            return public_key
+        else:
+            assert address != None, 'either address or public_key must be provided'
+        crypto_type = self.get_crypto_type(crypto_type)
+        if crypto_type in ['ed25519', 'sr25519']:
             if is_valid_ss58_address(address):
                 public_key = ss58_decode(address)
             else:
                 public_key = address
-        if public_key == None:
-            public_key = self.public_key
-        if isinstance(public_key, str) :
-            if public_key.startswith('0x'):
-                public_key = public_key[2:]
-            public_key = bytes.fromhex(public_key)
+            if isinstance(public_key, str) :
+                if public_key.startswith('0x'):
+                    public_key = public_key[2:]
+                public_key = bytes.fromhex(public_key)
+        elif crypto_type == 'ecdsa':
+            # convert the address to public key for ethereum
+            public_key = address
+            if isinstance(public_key, str) :
+                if public_key.startswith('0x'):
+                    public_key = public_key[2:]
+                    public_key = bytes.fromhex(public_key)
+        else:
+            raise ValueError(f'crypto_type "{crypto_type}" not supported')
+
         return public_key
 
     def sign(self, data: Union[ScaleBytes, bytes, str], mode='bytes', key=None, crypto_type=None) -> bytes:
@@ -583,8 +602,8 @@ class Key:
             data, signature, address = data['data'], data['signature'], data['address']
         data = self.encode_signature_data(data)
         signature = self.get_sig(signature)
-        public_key = self.get_public_key(address=address, public_key=public_key)
         crypto_type = self.get_crypto_type(crypto_type)
+        public_key = self.get_public_key(address=address, public_key=public_key, crypto_type=crypto_type)
 
         if crypto_type == "sr25519":
             crypto_verify_fn = sr25519.verify
@@ -594,6 +613,7 @@ class Key:
             crypto_verify_fn = ecdsa_verify
         else:
             raise Exception("Crypto type not supported")
+        print(f'verifying with crypto_type {crypto_type}')
         verified = crypto_verify_fn(signature, data, public_key)
         if not verified:
             # Another attempt with the data wrapped, as discussed in https://github.com/polkadot-js/extension/pull/743

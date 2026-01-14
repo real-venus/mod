@@ -43,7 +43,7 @@ class Dev:
         path = path or  m.dirpath(mod)
         self.memory.add('content', m.tool('select_files')(path=path, query=query)) if path != None else None
         def is_b_param(k):
-            return k.startswith('b') and k[1:].isdigit()
+            return k.startswith('base') and k[1:].isdigit()
         for k,v in kwargs.items():
             if is_b_param(k):
                 print(f'Adding to memory: {v}')

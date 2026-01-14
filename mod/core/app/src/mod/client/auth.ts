@@ -8,6 +8,7 @@ export interface AuthData {
   time: string;
   key: string;
   signature: string;
+  dataHash?: string;
 }
 export interface AuthHeaders {
   token: string;
@@ -81,17 +82,21 @@ public base64urlDecode(data: string): Uint8Array {
   public hash(data: string): string {
     return createHash('sha256').update(data).digest('hex');
   }
-
-  public signatureData(data: any): string {
-    let signatureData: Record<string, string> = {};
-    this.signatureKeys.forEach(k => {
-      if (k in data) {
-        signatureData[k] = data[k as keyof typeof data] as string;
-      }
-    })
-    return JSON.stringify(signatureData); // Ensure it's a plain object
-
-  }
+public signatureData(data: any): string {
+  // Build ordered key-value pairs manually to match Python's dict ordering
+  const parts: string[] = [];
+  
+  this.signatureKeys.forEach(k => {
+    if (k in data) {
+      const value = data[k as keyof typeof data] as string;
+      // Manually construct each "key":"value" pair
+      parts.push(`"${k}":${JSON.stringify(value)}`);
+    }
+  });
+  
+  // Join with commas, wrap in braces - matches Python's separators=(',', ':')
+  return `{${parts.join(',')}}`;
+}
 
   public async signWithInjector(signMessage: string, walletAddress: string): Promise<string> {
           const extensions = await web3Enable('MOD')
@@ -122,8 +127,10 @@ public base64urlDecode(data: string): Uint8Array {
       signature: '',
     };
 
+    console.log('key used for signing:', this.key)
     // Create signature data object with only the specified keys
     let signatureData: string = this.signatureData(authData);
+    authData.dataHash = this.hash(signatureData);
     if (walletAddress) {
       authData.signature = this.signWithInjector(signatureData, walletAddress) as unknown as string;
     } else {
@@ -133,6 +140,9 @@ public base64urlDecode(data: string): Uint8Array {
     if (!verified) {
       throw new Error('Signature verification failed');
     }
+
+    console.log('Signature verified:', authData);
+
     return this.base64urlEncode(JSON.stringify( authData));
   }
 

@@ -368,8 +368,12 @@ class Mod:
     def decrypt(self, data: Any,  password : str = None, key: str = None, **kwargs) -> bytes:
         return self.get_key(key).decrypt(data, password=password)
         
-    def sign(self, data:dict  = None, key: str = None,  crypto_type='sr25519', mode='str', **kwargs) -> bool:
-        return self.get_key(key, crypto_type=crypto_type).sign(data, mode=mode, **kwargs)
+    def sign(self, data:dict  = None, key: str = None,  crypto_type=None, mode='str', **kwargs) -> bool:
+        key = self.get_key(key, crypto_type=crypto_type)
+        crypto = crypto_type or key.crypto_type
+        signature =  key.sign(data, mode=mode, **kwargs)
+        assert self.verify(data, signature=signature, address=key.address, crypto_type=crypto), "Invalid signature"
+        return signature
 
     def size(self, mod) -> int:
         return len(str(self.content(mod)))
@@ -1346,7 +1350,6 @@ class Mod:
 
     s = search
 
-
     def tree(self, 
             search=None, 
             **kwargs):
@@ -1695,9 +1698,9 @@ class Mod:
             setattr(to_mod, fn, fn_obj)
         return to_mod
 
-    def edit(self, *query, mod='app', timeout=60, wait=False, **kwargs):
+    def edit(self, *query, mod='app', base=None, timeout=60, wait=False, **kwargs):
         query = list(map(str, query))
-        params = {'query': ' '.join(query), 'mod': mod}
+        params = {'query': ' '.join(query), 'mod': mod, 'base': base}
         print(f'Editing {mod} with query: {params["query"]}')
         return self.call('api/edit',  params=params, wait=wait, timeout=timeout, **kwargs)
         

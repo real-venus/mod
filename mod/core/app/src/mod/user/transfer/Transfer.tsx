@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { userContext } from '@/mod/context'
-import { Send, Zap, CheckCircle, AlertCircle, ArrowUpDown } from 'lucide-react'
+import { Send, Zap, CheckCircle, AlertCircle, ArrowUpDown, ChevronDown } from 'lucide-react'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { text2color } from '@/mod/utils'
 import { ethers } from 'ethers'
@@ -56,25 +56,38 @@ const ERC20_ABI = [
   'function symbol() view returns (string)'
 ]
 
+interface TokenOption {
+  address: string
+  symbol: string
+  decimals: number
+}
+
+const DEFAULT_TOKENS: TokenOption[] = [
+  { address: 'ETH', symbol: 'ETH', decimals: 18 }
+]
+
 export const Transfer: React.FC = () => {
   const { network, user } = userContext()
   const [toAddress, setToAddress] = useState('')
   const [amount, setAmount] = useState('')
-  const [tokenAddress, setTokenAddress] = useState('')
-  const [isERC20, setIsERC20] = useState(false)
+  const [selectedToken, setSelectedToken] = useState<TokenOption>(DEFAULT_TOKENS[0])
+  const [customTokens, setCustomTokens] = useState<TokenOption[]>([])
+  const [newTokenAddress, setNewTokenAddress] = useState('')
+  const [showAddToken, setShowAddToken] = useState(false)
   const [response, setResponse] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [walletAddress, setWalletAddress] = useState('')
   const [balance, setBalance] = useState<string>('0')
   const [tokenBalance, setTokenBalance] = useState<string>('0')
-  const [tokenSymbol, setTokenSymbol] = useState<string>('TOKEN')
   const [history, setHistory] = useState<TransferHistory[]>([])
   const [sortAsc, setSortAsc] = useState(false)
   const [currentNetwork, setCurrentNetwork] = useState<string>('')
   const [currentNetworkUrl, setCurrentNetworkUrl] = useState<string>('')
+  const [showTokenDropdown, setShowTokenDropdown] = useState(false)
 
   const userColor = text2color(user?.key || 'default')
+  const allTokens = [DEFAULT_TOKENS[0], ...customTokens]
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -96,13 +109,21 @@ export const Transfer: React.FC = () => {
     if (savedHistory) {
       setHistory(JSON.parse(savedHistory))
     }
+
+    // Load custom tokens
+    const savedTokens = localStorage.getItem(`custom_tokens_${selectedNetwork}`)
+    if (savedTokens) {
+      setCustomTokens(JSON.parse(savedTokens))
+    }
   }, [user, network])
 
   useEffect(() => {
-    if (isERC20 && tokenAddress && ethers.isAddress(tokenAddress)) {
-      fetchTokenInfo()
+    if (selectedToken.address !== 'ETH' && ethers.isAddress(selectedToken.address)) {
+      fetchTokenInfo(selectedToken.address)
+    } else if (selectedToken.address === 'ETH') {
+      fetchBalance(walletAddress, currentNetworkUrl)
     }
-  }, [isERC20, tokenAddress, walletAddress])
+  }, [selectedToken, walletAddress])
 
   const fetchBalance = async (address: string, networkUrl?: string) => {
     try {
@@ -116,7 +137,7 @@ export const Transfer: React.FC = () => {
     }
   }
 
-  const fetchTokenInfo = async () => {
+  const fetchTokenInfo = async (tokenAddress: string) => {
     try {
       const url = localStorage.getItem('network_url') || 'http://localhost:8545'
       const provider = new ethers.JsonRpcProvider(url)
@@ -128,11 +149,44 @@ export const Transfer: React.FC = () => {
         contract.balanceOf(walletAddress)
       ])
       
-      setTokenSymbol(symbol)
       setTokenBalance(ethers.formatUnits(balance, decimals))
     } catch (err) {
       console.error('Failed to fetch token info:', err)
       setError('Invalid ERC20 token address')
+    }
+  }
+
+  const addCustomToken = async () => {
+    if (!newTokenAddress || !ethers.isAddress(newTokenAddress)) {
+      setError('Invalid token address')
+      return
+    }
+
+    try {
+      const url = localStorage.getItem('network_url') || 'http://localhost:8545'
+      const provider = new ethers.JsonRpcProvider(url)
+      const contract = new ethers.Contract(newTokenAddress, ERC20_ABI, provider)
+      
+      const [symbol, decimals] = await Promise.all([
+        contract.symbol(),
+        contract.decimals()
+      ])
+
+      const newToken: TokenOption = {
+        address: newTokenAddress,
+        symbol,
+        decimals
+      }
+
+      const updatedTokens = [...customTokens, newToken]
+      setCustomTokens(updatedTokens)
+      localStorage.setItem(`custom_tokens_${currentNetwork}`, JSON.stringify(updatedTokens))
+      setSelectedToken(newToken)
+      setNewTokenAddress('')
+      setShowAddToken(false)
+      setError(null)
+    } catch (err) {
+      setError('Failed to add token. Please check the address.')
     }
   }
 
@@ -168,7 +222,7 @@ export const Transfer: React.FC = () => {
   const executeTransfer = async () => {
     if (!toAddress || !amount) return setError('Please fill in all fields')
     if (!walletAddress) return setError('No wallet connected')
-    if (isERC20 && !ethers.isAddress(tokenAddress)) return setError('Invalid token address')
+    if (selectedToken.address !== 'ETH' && !ethers.isAddress(selectedToken.address)) return setError('Invalid token address')
 
     setIsLoading(true)
     setError(null)
@@ -188,10 +242,9 @@ export const Transfer: React.FC = () => {
       
       let tx, receipt
       
-      if (isERC20) {
-        const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer)
-        const decimals = await contract.decimals()
-        const amountInWei = ethers.parseUnits(amount, decimals)
+      if (selectedToken.address !== 'ETH') {
+        const contract = new ethers.Contract(selectedToken.address, ERC20_ABI, signer)
+        const amountInWei = ethers.parseUnits(amount, selectedToken.decimals)
         
         tx = await contract.transfer(toAddress, amountInWei)
         receipt = await tx.wait()
@@ -209,8 +262,8 @@ export const Transfer: React.FC = () => {
         timestamp: new Date().toISOString(),
         hash: receipt?.hash || tx.hash,
         networkUrl: networkUrl,
-        tokenAddress: isERC20 ? tokenAddress : undefined,
-        tokenSymbol: isERC20 ? tokenSymbol : 'ETH'
+        tokenAddress: selectedToken.address !== 'ETH' ? selectedToken.address : undefined,
+        tokenSymbol: selectedToken.symbol
       }
 
       const updatedHistory = [newTransfer, ...history]
@@ -226,14 +279,14 @@ export const Transfer: React.FC = () => {
         status: 'success',
         networkUrl: networkUrl,
         network: currentNetwork,
-        tokenAddress: isERC20 ? tokenAddress : undefined,
-        tokenSymbol: isERC20 ? tokenSymbol : 'ETH'
+        tokenAddress: selectedToken.address !== 'ETH' ? selectedToken.address : undefined,
+        tokenSymbol: selectedToken.symbol
       })
       setToAddress('')
       setAmount('')
       
-      if (isERC20) {
-        await fetchTokenInfo()
+      if (selectedToken.address !== 'ETH') {
+        await fetchTokenInfo(selectedToken.address)
       } else {
         await fetchBalance(walletAddress, networkUrl)
       }
@@ -268,7 +321,7 @@ export const Transfer: React.FC = () => {
             </span>
           </div>
           <div className="text-sm font-mono font-bold text-green-400">
-            Balance: {isERC20 ? `${tokenBalance} ${tokenSymbol}` : `${balance} ETH`}
+            Balance: {selectedToken.address === 'ETH' ? `${balance} ETH` : `${tokenBalance} ${selectedToken.symbol}`}
           </div>
         </div>
         
@@ -280,43 +333,77 @@ export const Transfer: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mb-4">
-          <button
-            onClick={() => setIsERC20(false)}
-            className={`flex-1 py-2 px-4 rounded-lg font-mono font-bold text-sm transition-all ${
-              !isERC20
-                ? 'bg-green-500/30 border-2 border-green-500 text-green-400'
-                : 'bg-black/40 border-2 border-green-500/30 text-green-500/50 hover:border-green-500/50'
-            }`}
-          >
-            ETH (Native)
-          </button>
-          <button
-            onClick={() => setIsERC20(true)}
-            className={`flex-1 py-2 px-4 rounded-lg font-mono font-bold text-sm transition-all ${
-              isERC20
-                ? 'bg-green-500/30 border-2 border-green-500 text-green-400'
-                : 'bg-black/40 border-2 border-green-500/30 text-green-500/50 hover:border-green-500/50'
-            }`}
-          >
-            ERC20 Token
-          </button>
-        </div>
-        
         <div className="space-y-4">
-          {isERC20 && (
-            <div className="space-y-2">
-              <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
-                Token Contract Address
+          <div className="space-y-2">
+            <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
+              Token
+            </label>
+            <div className="relative">
+              <button
+                onClick={() => setShowTokenDropdown(!showTokenDropdown)}
+                className="w-full bg-black/60 border-2 border-green-500/40 rounded-lg px-4 py-3 text-green-300 font-mono text-base focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 transition-all flex items-center justify-between"
+              >
+                <span>{selectedToken.symbol}</span>
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              
+              {showTokenDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-black border-2 border-green-500/40 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                  {allTokens.map((token, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setSelectedToken(token)
+                        setShowTokenDropdown(false)
+                      }}
+                      className="w-full px-4 py-3 text-left text-green-300 hover:bg-green-500/20 transition-all font-mono"
+                    >
+                      {token.symbol} {token.address !== 'ETH' && `(${token.address.slice(0, 6)}...${token.address.slice(-4)})`}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setShowAddToken(true)
+                      setShowTokenDropdown(false)
+                    }}
+                    className="w-full px-4 py-3 text-left text-blue-400 hover:bg-blue-500/20 transition-all font-mono border-t-2 border-green-500/20"
+                  >
+                    + Add Custom ERC20
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {showAddToken && (
+            <div className="space-y-2 p-4 bg-black/40 border-2 border-blue-500/30 rounded-lg">
+              <label className="text-sm text-blue-400 font-mono uppercase font-bold tracking-wide">
+                Add Custom Token
               </label>
               <input
                 type="text"
-                value={tokenAddress}
-                onChange={(e) => setTokenAddress(e.target.value)}
-                disabled={isLoading}
+                value={newTokenAddress}
+                onChange={(e) => setNewTokenAddress(e.target.value)}
                 placeholder="0x..."
-                className="w-full bg-black/60 border-2 border-green-500/40 rounded-lg px-4 py-3 text-green-300 font-mono text-base placeholder-green-600/50 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 disabled:opacity-50 transition-all"
+                className="w-full bg-black/60 border-2 border-blue-500/40 rounded-lg px-4 py-3 text-blue-300 font-mono text-base placeholder-blue-600/50 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all"
               />
+              <div className="flex gap-2">
+                <button
+                  onClick={addCustomToken}
+                  className="flex-1 py-2 border-2 border-blue-500/60 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all rounded-lg font-mono uppercase font-bold text-sm"
+                >
+                  Add Token
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddToken(false)
+                    setNewTokenAddress('')
+                  }}
+                  className="flex-1 py-2 border-2 border-red-500/60 bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all rounded-lg font-mono uppercase font-bold text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
 
@@ -336,7 +423,7 @@ export const Transfer: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
-              Amount ({isERC20 ? tokenSymbol : 'ETH'})
+              Amount ({selectedToken.symbol})
             </label>
             <input
               type="number"
@@ -349,13 +436,13 @@ export const Transfer: React.FC = () => {
               className="w-full bg-black/60 border-2 border-green-500/40 rounded-lg px-4 py-3 text-green-300 font-mono text-base placeholder-green-600/50 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 disabled:opacity-50 transition-all"
             />
             <p className="text-xs text-green-500/50 mt-1 font-mono">
-              Available: {isERC20 ? `${tokenBalance} ${tokenSymbol}` : `${balance} ETH`}
+              Available: {selectedToken.address === 'ETH' ? `${balance} ETH` : `${tokenBalance} ${selectedToken.symbol}`}
             </p>
           </div>
 
           <button
             onClick={executeTransfer}
-            disabled={!toAddress || !amount || isLoading || !walletAddress || (isERC20 && !ethers.isAddress(tokenAddress))}
+            disabled={!toAddress || !amount || isLoading || !walletAddress}
             className="w-full py-4 border-2 border-green-500/60 bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 hover:bg-green-500/30 hover:border-green-500 hover:scale-[1.02] transition-all duration-300 rounded-xl font-mono uppercase font-black text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3 shadow-lg"
           >
             {isLoading ? (

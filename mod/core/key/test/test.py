@@ -14,7 +14,7 @@ class Test(Key):
         key = Key(crypto_type=crypto_type)
         sig = key.sign(data)
         assert key.verify(data,sig, key.public_key)
-        return {'success':True, 'data':data, 'crypto_type' : key.crypto_type}
+        return {'success':True, 'data':data, 'crypto_type' : key.crypto_type_name}
 
     def test_encryption(self,  values = [10, 'fam', 'hello world'], crypto_type=[0,1,2]):
         if isinstance(crypto_type, list):
@@ -28,7 +28,7 @@ class Test(Key):
             enc = key.encrypt(value)
             dec = key.decrypt(enc)
             assert str(dec) == value, f'encryption failed, {dec} != {value}'
-        return {'encrypted':enc, 'decrypted': dec, 'crypto_type':key.crypto_type}
+        return {'encrypted':enc, 'decrypted': dec, 'crypto_type':key.crypto_type_name, 'address': key.address, 'pubkey': key.public_key}
 
     def test_encryption_with_password(self, value = 10, password = 'fam', crypto_type=[0,1,2]):
         if isinstance(crypto_type, list):

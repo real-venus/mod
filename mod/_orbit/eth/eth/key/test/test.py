@@ -19,8 +19,8 @@ class Test:
         data = key.resolve_message('Hello, World!')
         signature = key.sign(data)
         print(signature, data)
-        assert key.verify(data, signature=signature['signature'], vrs=signature['vrs'], address=signature['address'])
-        assert key.verify(data, signature=signature['signature'], vrs=signature['vrs'], address=signature['address'])
+        assert key.verify(data, signature=signature['signature'], address=signature['address'])
+        assert key.verify(data, signature=signature['signature'],  address=signature['address'])
         assert not key.verify(data, 
                                 signature=signature['signature'], 
                                 vrs=signature['vrs'], 

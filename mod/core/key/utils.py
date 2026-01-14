@@ -148,16 +148,15 @@ def mnemonic_to_ecdsa_private_key(mnemonic: str, str_derivation_path: str = None
         private_key, chain_code = derive_bip32childkey(private_key, chain_code, i)
     return private_key
 
-
 def ecdsa_sign(private_key: bytes, message: bytes) -> bytes:
     signer = PrivateKey(private_key)
     return signer.sign_msg(message).to_bytes()
 
-
 def ecdsa_verify(signature: bytes, data: bytes, address: bytes) -> bool:
     signature_obj = Signature(signature)
     recovered_pubkey = signature_obj.recover_public_key_from_msg(data)
-    return recovered_pubkey.to_canonical_address() == address
+    recovered_address = recovered_pubkey.to_canonical_address()
+    return recovered_address == address
 
 NONCE_LENGTH = 24
 SCRYPT_LENGTH = 32 + (3 * 4)

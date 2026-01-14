@@ -15,5 +15,3 @@ class Auth:
                 continue
             setattr(self, _k, getattr(_auth, _k))
         self._auth = _auth
-    
-            

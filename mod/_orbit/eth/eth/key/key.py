@@ -76,7 +76,7 @@ class Key(Account):
         signable_message = self.resolve_message(message)
         signed_msg =  Account.sign_message(signable_message, key.private_key)
         return {
-            'message': signed_msg.messageHash.hex(),
+            'message': signed_msg,
             'signature': signed_msg.signature.hex(),
             'vrs': [signed_msg.v, signed_msg.r, signed_msg.s],
             'address': key.address
@@ -116,12 +116,11 @@ class Key(Account):
         private_key_object = keys.PrivateKey(private_key)
         return private_key_object.public_key
 
-    def verify(self, message:Any, signature:str, vrs:Union[tuple, list], address:str) -> bool:
+    def verify(self, message:Any, signature:str, vrs:Union[tuple, list]=None, address:str=None,) -> bool:
         '''
         verify message from the signature or vrs based on the address
         '''
         recovered_address = Account.recover_message(message, vrs=vrs, signature=signature)
-        print(recovered_address, address)
         return bool(recovered_address == address)
     
     def from_password(self, password:str, salt = 'eth'):
