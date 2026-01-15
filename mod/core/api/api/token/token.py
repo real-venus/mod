@@ -8,6 +8,7 @@ import time
 import glob
 import datetime
 import inspect
+import base64
 
 
 class Token:
@@ -38,6 +39,7 @@ class Token:
         signature = key.sign(token_data, mode='str')
         assert m.verify(token_data, signature=signature, address=to), "Signature verification failed"
         return self.tdiv.join([token_data, signature])
+
 
     def token2data(self, token: str) -> Dict[str, Any]:
         token_chunks = token.split(self.tdiv)

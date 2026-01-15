@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { userContext } from '@/mod/context'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 // Dynamic ABI loading from IPFS
 const loadAbiFromIpfs = async (client: any, cid: string) => {
@@ -41,7 +41,7 @@ const serializeBigInt = (obj: any): any => {
   return obj
 }
 
-export default function ContractsInterface() {
+export default function ContractsPage() {
   const { client } = userContext()
   const [selectedContract, setSelectedContract] = useState<string>('')
   const [selectedFunction, setSelectedFunction] = useState<string>('')
@@ -51,7 +51,6 @@ export default function ContractsInterface() {
   const [error, setError] = useState<string | null>(null)
   const [contracts, setContracts] = useState<Record<string, ContractMetadata>>({})
   const [loadingAbi, setLoadingAbi] = useState<string | null>(null)
-  const [isContractInfoCollapsed, setIsContractInfoCollapsed] = useState(true)
 
   const network = 'testnet'
   const chainConfig = modConfig.chain?.[network]
@@ -206,116 +205,119 @@ export default function ContractsInterface() {
 
   const selectedFunctionData = getContractFunctions().find(f => f.name === selectedFunction)
   const selectedContractData = selectedContract ? contracts[selectedContract] : null
-  const shortenAddress = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : ''
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-purple-950/20 to-black text-white p-8" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Contract & Function Selection - SAME LINE */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="block text-xl font-black mb-3 text-cyan-400">📜 contract</label>
-              <select
-                value={selectedContract}
-                onChange={(e) => {
-                  setSelectedContract(e.target.value)
+    <div className="min-h-screen bg-gradient-to-br from-black via-slate-950/20 to-black text-white p-4 md:p-8" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-4xl md:text-6xl font-black mb-3 bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+            🚀 CONTRACT DROPBOX 🚀
+          </h1>
+          <p className="text-sm md:text-xl text-gray-400 font-mono">ibm terminal × future bubble vibes</p>
+        </motion.div>
+
+        {/* Compact Contract Grid */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+          <label className="block text-xl md:text-2xl font-black mb-3 text-cyan-400">📜 contracts</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {Object.entries(contracts).map(([key, contract]) => (
+              <motion.button
+                key={key}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  setSelectedContract(key)
                   setSelectedFunction('')
                   setFunctionParams({})
                   setResult(null)
                   setError(null)
                 }}
-                className="w-full bg-black/80 border-2 border-cyan-500/50 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-cyan-400 focus:outline-none hover:border-cyan-400/70 transition-all shadow-lg shadow-cyan-500/20"
-              >
-                <option value="">choose contract...</option>
-                {Object.entries(contracts).map(([key, contract]) => (
-                  <option key={key} value={key}>
-                    {contract.emoji} {contract.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex-1">
-              <label className="block text-xl font-black mb-3 text-purple-400">⚡ function</label>
-              <select
-                value={selectedFunction}
-                onChange={(e) => {
-                  setSelectedFunction(e.target.value)
-                  setFunctionParams({})
-                  setResult(null)
-                  setError(null)
+                className={`p-3 rounded-xl border-2 transition-all ${
+                  selectedContract === key ? 'shadow-xl' : 'hover:border-gray-600'
+                }`}
+                style={{
+                  background: selectedContract === key 
+                    ? `linear-gradient(135deg, ${contract.color}40, ${contract.color}20)`
+                    : 'rgba(15,23,42,0.6)',
+                  borderColor: selectedContract === key ? contract.color : 'rgba(71,85,105,0.3)'
                 }}
-                disabled={!selectedContract || !selectedContractData?.abi}
-                className="w-full bg-black/80 border-2 border-purple-500/50 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-purple-400 focus:outline-none hover:border-purple-400/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
               >
-                <option value="">choose function...</option>
-                {getContractFunctions().map(func => (
-                  <option key={func.name} value={func.name}>
-                    {func.name} ({func.stateMutability})
-                  </option>
-                ))}
-              </select>
-            </div>
+                <div className="text-3xl mb-1">{contract.emoji}</div>
+                <div className="text-sm font-bold" style={{ color: contract.color }}>
+                  {contract.name}
+                </div>
+                {loadingAbi === key && (
+                  <div className="text-xs text-yellow-400 mt-1">⏳</div>
+                )}
+              </motion.button>
+            ))}
           </div>
-          {loadingAbi && (
-            <div className="text-yellow-400 mt-3 text-center text-sm animate-pulse">⏳ Loading ABI for {loadingAbi}...</div>
-          )}
         </motion.div>
 
-        {/* Collapsible Contract Info - UNDERNEATH */}
+        {/* Compact Contract Info */}
         {selectedContract && selectedContractData && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-slate-900/60 to-slate-800/50 backdrop-blur-xl rounded-xl border-2 border-cyan-500/30 shadow-xl shadow-cyan-500/10 overflow-hidden"
+            className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-2xl p-4 border-2 border-cyan-500/30"
           >
-            <button
-              onClick={() => setIsContractInfoCollapsed(!isContractInfoCollapsed)}
-              className="w-full p-3 flex items-center justify-between hover:bg-cyan-500/10 transition-all"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{selectedContractData.emoji}</span>
-                <span className="font-mono font-bold text-cyan-300">{shortenAddress(selectedContractData.address || '')}</span>
+            <h3 className="text-lg font-bold mb-2 text-cyan-300">📋 info</h3>
+            <div className="space-y-1 text-sm">
+              <div className="flex gap-2">
+                <span className="text-gray-400">addr:</span>
+                <span className="font-mono text-xs">{selectedContractData.address?.slice(0, 10)}...{selectedContractData.address?.slice(-8)}</span>
               </div>
-              <span className="text-lg text-cyan-300">{isContractInfoCollapsed ? '▼' : '▲'}</span>
-            </button>
-            <AnimatePresence>
-              {!isContractInfoCollapsed && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="px-4 pb-4 border-t border-cyan-500/20"
-                >
-                  <div className="space-y-2 text-sm mt-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">Full Address:</span>
-                      <span className="font-mono text-xs text-cyan-300">{selectedContractData.address}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">Status:</span>
-                      <span className="font-mono text-xs">
-                        {selectedContractData.abi ? '✅ ABI Loaded' : '⏳ ABI Not Loaded'}
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              <div className="flex gap-2">
+                <span className="text-gray-400">status:</span>
+                <span className="font-mono text-xs">
+                  {selectedContractData.abi ? '✅ loaded' : '⏳ loading'}
+                </span>
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* Function Parameters */}
+        {/* Compact Function Selection */}
+        {selectedContract && selectedContractData?.abi && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-2xl p-4 border-2 border-purple-500/30"
+          >
+            <label className="block text-lg font-bold mb-2 text-purple-300">⚡ function</label>
+            <select
+              value={selectedFunction}
+              onChange={(e) => {
+                setSelectedFunction(e.target.value)
+                setFunctionParams({})
+                setResult(null)
+                setError(null)
+              }}
+              className="w-full bg-black/60 border-2 border-purple-500/50 rounded-xl px-4 py-2 text-white text-sm font-bold focus:border-purple-400 focus:outline-none"
+            >
+              <option value="">select...</option>
+              {getContractFunctions().map(func => (
+                <option key={func.name} value={func.name}>
+                  {func.name} ({func.stateMutability})
+                </option>
+              ))}
+            </select>
+          </motion.div>
+        )}
+
+        {/* Compact Parameters */}
         {selectedFunctionData && selectedFunctionData.inputs.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-2xl p-6 border-2 border-pink-500/30 shadow-xl shadow-pink-500/10"
+            className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-2xl p-4 border-2 border-pink-500/30"
           >
-            <h3 className="text-xl font-bold mb-4 text-pink-300">🎯 parameters</h3>
-            <div className="space-y-3">
+            <h3 className="text-lg font-bold mb-2 text-pink-300">🎯 params</h3>
+            <div className="space-y-2">
               {selectedFunctionData.inputs.map((input: any) => (
                 <div key={input.name}>
                   <label className="block text-sm font-bold mb-1 text-pink-200">
@@ -328,8 +330,8 @@ export default function ContractsInterface() {
                       ...functionParams,
                       [input.name]: e.target.value
                     })}
-                    className="w-full bg-black/60 border-2 border-pink-500/50 rounded-xl px-4 py-2 text-white text-base focus:border-pink-400 focus:outline-none shadow-lg shadow-pink-500/10"
-                    placeholder={`enter ${input.type}`}
+                    className="w-full bg-black/60 border-2 border-pink-500/50 rounded-xl px-3 py-2 text-white text-sm focus:border-pink-400 focus:outline-none"
+                    placeholder={`${input.type}`}
                   />
                 </div>
               ))}
@@ -337,39 +339,39 @@ export default function ContractsInterface() {
           </motion.div>
         )}
 
-        {/* Execute Button */}
+        {/* Compact Execute Button */}
         {selectedFunction && (
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
             onClick={handleExecute}
             disabled={loading}
-            className="w-full bg-gradient-to-r from-green-500/40 to-emerald-600/40 text-white text-xl font-black py-5 rounded-2xl hover:from-green-600/50 hover:to-emerald-700/50 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-green-500/20 border-2 border-green-400/50"
+            className="w-full bg-gradient-to-r from-green-500/40 to-emerald-600/40 text-white text-lg font-black py-3 rounded-2xl hover:from-green-600/50 hover:to-emerald-700/50 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-green-500/20 border-2 border-green-400/50"
           >
-            {loading ? '⏳ executing...' : '🚀 execute contract'}
+            {loading ? '⏳ exec...' : '🚀 execute'}
           </motion.button>
         )}
 
-        {/* Error Display */}
+        {/* Compact Error */}
         {error && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-red-900/40 backdrop-blur-xl border-2 border-red-500/50 rounded-2xl p-5 shadow-xl shadow-red-500/20"
+            className="bg-red-900/40 backdrop-blur-xl border-2 border-red-500/50 rounded-2xl p-3 shadow-xl shadow-red-500/20"
           >
-            <p className="text-red-300 text-lg font-bold">❌ {error}</p>
+            <p className="text-red-300 text-sm font-bold">❌ {error}</p>
           </motion.div>
         )}
 
-        {/* Result Display */}
+        {/* Compact Result */}
         {result && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-green-900/40 backdrop-blur-xl border-2 border-green-500/50 rounded-2xl p-6 shadow-xl shadow-green-500/20"
+            className="bg-green-900/40 backdrop-blur-xl border-2 border-green-500/50 rounded-2xl p-4 shadow-xl shadow-green-500/20"
           >
-            <h3 className="text-2xl font-black mb-3 text-green-300">✅ result</h3>
-            <pre className="text-base overflow-auto bg-black/60 p-4 rounded-xl border border-green-500/30 text-green-200 font-mono max-h-96">
+            <h3 className="text-xl font-black mb-2 text-green-300">✅ result</h3>
+            <pre className="text-xs overflow-auto bg-black/60 p-3 rounded-xl border-2 border-green-500/30 text-green-200 font-mono max-h-64">
               {JSON.stringify(result, null, 2)}
             </pre>
           </motion.div>

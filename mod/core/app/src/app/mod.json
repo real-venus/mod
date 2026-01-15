@@ -1,7 +1,6 @@
 {
     "url": "http://{HOST}:8000",
     "links": {
-      
         "home": "/",
         "whitepaper": "https://ai-secure.github.io/DMLW2022/assets/papers/7.pdf",
         "github": "https://github.com/commune-ai",
@@ -11,31 +10,151 @@
         "mods": "/mod/explore",
         "devDiscord": "https://discord.gg/6CpXmP6P",
         "telegram": "https://t.me/communecommunity"
-      },
-
-    "contracts": {
-      "ganache": {
-        "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-        "USDC": "0x49fd2BE640DB2910c2fAb69bB8531Ab6E76127ff",
-        "USDT": "0x7A9Ec1d04904907De0ED7b6839CcdD59c3716AC9",
-        "ManualPriceOracle": "0x4631BCAbD6dF18D94796344963cB60d44a4136b6",
-        "TokenGate": "0xf953b3A269d80e3eB0F2947630Da976B896A8C5b",
-        "NativeToken": "0x720472c8ce72c2A2D711333e064ABD3E6BbEAdd3",
-        "BlocTime": "0xe8D2A1E88c91DCd5433208d4152Cc4F399a7e91d",
-        "Registry": "0x18E317A7D70d8fBf8e6E893616b52390EbBdb629",
-        "Market": "0x4b6aB5F819A515382B0dEB6935D793817bB4af28"
-      },
-      "testnet": {
-        "deployer": "0xf21030Ded69D913a296BF7DF153133BE32C61B2e",
-        "USDC": "0x79d537f29A0c5ca67BBE655075705be2719B1d22",
-        "USDT": "0x45a317Aa8415f111d86A1F007115785D2d665d19",
-        "ManualPriceOracle": "0x2812847741d92A2E646DcD619Bf90F947B97d45D",
-        "TokenGate": "0xfC304255fdb400D3c2B547F97c0D044F2B748818",
-        "NativeToken": "0xC37FCD088DD8CE128124B96F1DA4E46BAE1D66A9",
-        "BlocTime": "0x8911B7bD116EE3B43360d169210350545e8a7C57",
-        "Registry": "0x4829bea7C8f079D16bd1e2DDcB221c784F5a4A23",
-        "Market": "0xF935ef44a18995F8e5E2A2A593B5ad2021AD8a54"
-      }
-  }
-      
+    },
+    "chain": {
+        "localhost": {
+            "chainId": "1337",
+            "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            "contracts": {
+                "USDC": {
+                    "address": "0x1d460d731Bd5a0fF2cA07309dAEB8641a7b175A1",
+                    "contract": "Token"
+                },
+                "USDT": {
+                    "address": "0x41219a0a9C0b86ED81933c788a6B63Dfef8f17eE",
+                    "contract": "Token"
+                },
+                "ManualPriceOracle": {
+                    "address": "0xF67e26649037695DdFAB19f4E22d5c9Fd1564592",
+                    "contract": "ManualPriceOracle"
+                },
+                "TokenGate": {
+                    "address": "0x18b7CBdfFA52d1e7BB992fd50f394c5b59E20B72",
+                    "contract": "TokenGate"
+                },
+                "NativeToken": {
+                    "address": "0x3A906C603F080D96dc08f81CF2889dAB6FF299dE",
+                    "contract": "Token"
+                },
+                "BlocTime": {
+                    "address": "0x820638ecd57B55e51CE6EaD7D137962E7A201dD9",
+                    "contract": "BlocTime"
+                },
+                "Registry": {
+                    "address": "0x987Aa6E80e995d6A76C4d061eE324fc760Ea9F61",
+                    "contract": "Registry"
+                },
+                "Treasury": {
+                    "address": "0x6B9C4119796C80Ced5a3884027985Fd31830555b",
+                    "contract": "Treasury"
+                },
+                "Market": {
+                    "address": "0x716473Fb4E7cD49c7d1eC7ec6d7490A03d9dA332",
+                    "contract": "Market"
+                }
+            }
+        },
+        "testnet": {
+            "chainId": "84532",
+            "deployer": "0xf21030Ded69D913a296BF7DF153133BE32C61B2e",
+            "contracts": {
+                "USDC": {
+                    "address": "0xf40F2cC626fE317c03F9BcAfD77453C8C14bC517",
+                    "contract": "Token",
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
+                },
+                "USDT": {
+                    "address": "0xE8bDe9F39F0bb95d4c0C2999900F21c74614A04e",
+                    "contract": "Token",
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
+                },
+                "ManualPriceOracle": {
+                    "address": "0x7d2e4DA44Fc8762D3F9C9C2f992e59F3247D7F59",
+                    "contract": "ManualPriceOracle",
+                    "abi": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV"
+                },
+                "TokenGate": {
+                    "address": "0x49448EBCe4cD8F76fb3705b8b18150D4eA3bbc19",
+                    "contract": "TokenGate",
+                    "abi": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a"
+                },
+                "NativeToken": {
+                    "address": "0x7a16505B9146b5320A4D26d23d34211375B9ac79",
+                    "contract": "Token",
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
+                },
+                "BlocTime": {
+                    "address": "0x5ffE4751E4bcc823cD5B029f79B606a7eDF28629",
+                    "contract": "BlocTime",
+                    "abi": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM"
+                },
+                "Registry": {
+                    "address": "0x423Be12eC07abeC10E9CB26eA9c49b1CaF95c78b",
+                    "contract": "Registry",
+                    "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
+                },
+                "Treasury": {
+                    "address": "0x93fA9aE0Bc8f7c5EBc4FdfF2C75e9B2E285c7B35",
+                    "contract": "Treasury",
+                    "abi": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
+                },
+                "Market": {
+                    "address": "0x44292C33a0db91C48501FD20D759fCeC36B78a7E",
+                    "contract": "Market",
+                    "abi": "QmPGR8DcwDpm3QmxpDRCDqBVyTkC6G3TERbzE1ktYcsYdM"
+                }
+            }
+        },
+        "ganache": {
+            "chainId": "1337",
+            "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            "contracts": {
+                "USDC": {
+                    "address": "0x76d05F58D14c0838EC630C8140eDC5aB7CD159Dc",
+                    "contract": "Token",
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
+                },
+                "USDT": {
+                    "address": "0x7A3A9876c08B3f001D10c6a8aF685699BC52e7c8",
+                    "contract": "Token",
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
+                },
+                "ManualPriceOracle": {
+                    "address": "0xe8c3F27D20472e4f3C546A3f73C04B54DD72871d",
+                    "contract": "ManualPriceOracle",
+                    "abi": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV"
+                },
+                "TokenGate": {
+                    "address": "0x862E3acDE54f01a4540C4505a4E199214Ff6cD49",
+                    "contract": "TokenGate",
+                    "abi": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a"
+                },
+                "NativeToken": {
+                    "address": "0x72aC6A36de2f72BD39e9c782e9db0DCc41FEbfe2",
+                    "contract": "Token",
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
+                },
+                "BlocTime": {
+                    "address": "0xAAd4F7BB5FB661181D500829e60010043833a85B",
+                    "contract": "BlocTime",
+                    "abi": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM"
+                },
+                "Registry": {
+                    "address": "0x2B64822cf4bbDd77d386F51AA2B40c5cdbeb80b5",
+                    "contract": "Registry",
+                    "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
+                },
+                "Treasury": {
+                    "address": "0x30A6d2B697635a0ECf1975d2386A0FE6b608B0Fb",
+                    "contract": "Treasury",
+                    "abi": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
+                },
+                "Market": {
+                    "address": "0xBc153693BFAe1Ca202872a382aED20a1306C9200",
+                    "contract": "Market",
+                    "abi": "QmRbmhVQREoAFxH1suBigw2eGs77pZkVbtTdHhMKK3SYwo"
+                }
+            }
+        }
+    }
 }
