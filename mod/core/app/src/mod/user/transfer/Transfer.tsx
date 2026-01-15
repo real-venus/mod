@@ -251,7 +251,8 @@ export const Transfer: React.FC = () => {
       } else {
         tx = await signer.sendTransaction({
           to: toAddress,
-          value: ethers.parseEther(amount)
+          value: ethers.parseEther(amount),
+          gasLimit: ethers.toBigInt(21000)
         })
         receipt = await tx.wait()
       }

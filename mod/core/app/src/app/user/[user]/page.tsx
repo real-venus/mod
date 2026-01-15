@@ -7,12 +7,24 @@ import { UserType } from '@/mod/types'
 import { Loading } from '@/mod/ui/Loading'
 import { UserCard } from '@/mod/user/UserCard'
 import Transfer from '@/mod/user/transfer'
-import RegUpdate from '@/mod/user/regupdate'
+import Reg from '@/mod/user/reg'
+import Update from '@/mod/user/update'
 import ClaimMod from '@/mod/user/claim'
 import { UserModules } from '@/mod/user/usermods/UserModules'
+import ContractsInterface  from '@/mod/user/contracts/Contracts'
 import { Admin } from '@/mod/user/admin/Admin'
 
-type TabType = 'mods' | 'sign' | 'transfer' | 'regupdate' | 'claim' | 'admin'
+type TabType = 'mods' | 'sign' | 'transfer' | 'register' | 'update' | 'claim' | 'admin' | 'contracts'
+
+const DEFAULT_TABS: { id: TabType; label: string; color: string }[] = [
+  { id: 'transfer', label: 'transfer', color: 'blue' },
+  { id: 'mods', label: 'mods', color: 'purple' },
+  { id: 'register', label: 'register', color: 'green' },
+  { id: 'update', label: 'update', color: 'orange' },
+  { id: 'claim', label: 'claim', color: 'pink' },
+  { id: 'admin', label: 'admin', color: 'red' },
+  { id: 'contracts', label: 'contracts', color: 'cyan' },
+]
 
 export default function UserPage() {
   const params = useParams()
@@ -24,6 +36,34 @@ export default function UserPage() {
   const [activeTab, setActiveTab] = useState<TabType>('mods')
   const { user: currentUser } = userContext()
   const myMod = currentUser && currentUser.key === userKey
+
+  const [userTabs, setUserTabs] = useState<{ id: TabType; label: string; color: string }[]>(() => {
+    return DEFAULT_TABS
+  })
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('user_page_tabs', JSON.stringify(userTabs))
+    }
+  }, [userTabs])
+
+  const addTab = (tab: { id: TabType; label: string; color: string }) => {
+    if (!userTabs.find(t => t.id === tab.id)) {
+      setUserTabs([...userTabs, tab])
+    }
+  }
+
+  const removeTab = (tabId: TabType) => {
+    setUserTabs(userTabs.filter(t => t.id !== tabId))
+    if (activeTab === tabId && userTabs.length > 0) {
+      setActiveTab(userTabs[0].id)
+    }
+  }
+
+  const resetTabs = () => {
+    setUserTabs(DEFAULT_TABS)
+    localStorage.removeItem('user_page_tabs')
+  }
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -62,40 +102,18 @@ export default function UserPage() {
     )
   }
 
-  let tabs: { id: TabType; label: string; color: string }[] = [
-    { id: 'transfer', label: 'transfer', color: 'blue' },
-    { id: 'mods', label: 'mods', color: 'purple' },
-    { id: 'regupdate', label: 'register/update', color: 'green' },
-    { id: 'claim', label: 'claim', color: 'pink' },
-    { id: 'admin', label: 'admin', color: 'red' },
-  ]
-
-  if (!myMod) {
-    tabs = tabs.filter(tab => tab.id === 'mods')
-  }
+  let displayTabs = myMod ? userTabs : userTabs.filter(tab => tab.id === 'mods')
+  const availableTabs = DEFAULT_TABS.filter(dt => !userTabs.find(ut => ut.id === dt.id))
 
   const getButtonColors = (tabColor: string, isActive: boolean) => {
     const colorMap: Record<string, { active: string; inactive: string }> = {
-      blue: {
-        active: 'bg-black text-white border-2 border-white',
-        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
-      },
-      purple: {
-        active: 'bg-black text-white border-2 border-white',
-        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
-      },
-      green: {
-        active: 'bg-black text-white border-2 border-white',
-        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
-      },
-      pink: {
-        active: 'bg-black text-white border-2 border-white',
-        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
-      },
-      red: {
-        active: 'bg-black text-white border-2 border-white',
-        inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50'
-      }
+      blue: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
+      purple: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
+      green: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
+      orange: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
+      pink: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
+      red: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
+      cyan: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' }
     }
     return isActive ? colorMap[tabColor].active : colorMap[tabColor].inactive
   }
@@ -109,25 +127,28 @@ export default function UserPage() {
           </div>
 
           <div className="flex flex-wrap gap-3 mb-6">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 rounded font-black text-base uppercase transition-all duration-300 ${
-                  getButtonColors(tab.color, activeTab === tab.id)
-                } ${activeTab === tab.id ? 'scale-105' : 'hover:scale-105'}`}
-              >
-                {tab.label}
-              </button>
+            {displayTabs.map((tab) => (
+              <div key={tab.id} className="relative group">
+                <button
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-6 py-3 rounded font-black text-base uppercase transition-all duration-300 ${
+                    getButtonColors(tab.color, activeTab === tab.id)
+                  } ${activeTab === tab.id ? 'scale-105' : 'hover:scale-105'}`}
+                >
+                  {tab.label}
+                </button>
+              </div>
             ))}
           </div>
 
           <div className="bg-black border-2 border-white/30 rounded p-6">
             {activeTab === 'mods' && <UserModules userData={userData} />}
             {activeTab === 'transfer' && client?.key && user && <Transfer />}
-            {activeTab === 'regupdate' && client?.key && user && <RegUpdate />}
+            {activeTab === 'register' && client?.key && user && <Reg />}
+            {activeTab === 'update' && client?.key && user && <Update />}
             {activeTab === 'claim' && client?.key && user && <ClaimMod />}
             {activeTab === 'admin' && client?.key && user && <Admin userData={userData} />}
+            {activeTab === 'contracts' && client?.key && user && <ContractsInterface />}
           </div>
         </div>
       </main>

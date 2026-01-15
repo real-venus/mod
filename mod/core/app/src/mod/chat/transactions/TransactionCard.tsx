@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'
-import { time2utc, shorten, text2color } from '@/mod/utils'
+import { timeAgo, shorten, text2color } from '@/mod/utils'
 import { CubeIcon } from '@heroicons/react/24/outline'
 
 interface Transaction {
@@ -88,7 +88,7 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
 
   const statusColors = getStatusColor(tx.status)
   const timestamp = parseInt(tx.time)
-  const formattedTime = isNaN(timestamp) ? tx.time : time2utc(timestamp * 1000)
+  const formattedTime = isNaN(timestamp) ? tx.time : timeAgo(timestamp * 1000)
   const costUsd = tx.cost !== undefined ? tx.cost : 0
   const txColor = text2color(tx.fn || tx.key)
   const cardBgColor = getCardBackgroundColor(tx.status)
@@ -113,6 +113,9 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
           </div>
           <span className={`${statusColors.text} font-bold text-base px-3 py-1.5 bg-black/40 rounded-lg border-2 ${statusColors.border}`}>
             {getStatusEmoji(tx.status)}
+          </span>
+          <span className="bg-black/40 border-2 border-green-900/50 px-3 py-1.5 rounded-lg font-mono text-green-400 text-base font-bold">
+            ${costUsd.toFixed(4)}
           </span>
           {tx.cid && (
             <div className="flex items-center gap-1 bg-black/40 border-2 border-green-500/30 rounded-lg px-3 py-1.5">
@@ -143,9 +146,6 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                   <CopyButton text={tx.key} size="sm" />
                 </span>
               )}
-              <span className="bg-black/40 border-2 border-green-900/50 px-3 py-1.5 rounded-lg font-mono text-green-400 text-base font-bold">
-                ${costUsd.toFixed(4)}
-              </span>
               {tx.delta !== undefined && (
                 <span className="bg-black/40 border-2 border-cyan-900/50 px-3 py-1.5 rounded-lg font-mono text-cyan-400 text-sm font-semibold">
                   {tx.delta.toFixed(2)}s

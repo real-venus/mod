@@ -25,7 +25,11 @@ class Gate:
         self.loop = m.loop()
         self.store = m.mod('store')(path)
         self.auth = m.mod(auth)()
+        self.roles_path = self.store.get_path('roles')
+        if len(self.roles()) < 2:
+            self.ensure_role_map()
         self.set_mod(mod=mod)
+    
 
     def forward(self, fn:str, request, mod:Any=None) -> dict:
         """
@@ -35,11 +39,10 @@ class Gate:
         assert not isinstance(fn, str) or fn != '', "Function name cannot be empty"
         info = mod.info()
         headers = dict(request.headers)
+        role = self.get_role(info['key'])
+        assert role, f"Role for key {info['key']} not found"
         headers = self.auth.verify(headers)
-        assert self.is_user(info['name'], headers['key']), f"User {headers['key']} for Mod {info['name']} is not a user"
-        # if is owner dont do a function check let them do anything
-        owner = bool(m.owner() == headers['key'])
-        if owner:
+        if  bool(role == 'owner'):
             print(f'ATTENTION: owner({headers["key"]}) is calling {fn}', color='green')
         else:
             assert fn in info['fns'], f"Function {fn} not in fns={info['fns']}"
@@ -55,6 +58,17 @@ class Gate:
             return  EventSourceResponse(generator_wrapper(result))
         else:
             return result
+
+
+    def get_role(self, user:str) -> str:
+        """
+        get the role for a user
+        """
+        role2data = self.role2data()
+        for role, data in role2data.items():
+            if 'users' in data and user in data['users']:
+                return role
+        return None
 
     def is_generator(self, obj):
         """
@@ -116,132 +130,147 @@ class Gate:
             fn_obj = getattr(self.mod, fn) # get the function object from the mod
         return fn_obj
 
-    def add_user_max(self, mod:str, max_users:int):
+    def add_user_max(self, max_users:int= 100):
         """
         gate if the address is usersed
         """
-        return self.store.put('user_max/' + mod , max_users)
+        self.store.put('user_max' , max_users)
+        return self.user_max()
 
-    def user_max(self, mod:str, default:bool = 10) -> int:
+    def user_max(self,default:bool = 100) -> int:
         """
         gate if the address is usersed
         """
-        return self.store.get('user_max/' + mod , default)
+        return self.store.get('user_max' , default)
 
-    def add_user(self, mod:str , user:str, update:bool = False, ):
+    def add_user(self, user:str, role='public', update:bool = False, ):
         """
         gate if the address is usersed
         """
-        path = self.users_path(mod)
-        user_max = self.user_max(mod)
-        users = self.store.get(path, [], update=update)
-        assert len(users) < user_max, f'User limit reached for mod {mod}: {len(users)}/{user_max}'
-        users.append(user)
-        users = list(set(users))
-        self.store.put(path, users)
-        return {'users': users, 'user': user }
+        role_data = self.role_data(role)
+        role_data['users'] = list(set(role_data.get('users', []) + [user]))
+        self.save_role_data(role, role_data)
+        assert self.is_user(user, role) , f"User {user} already exists in role {role}"
+        return self.role_data(role)
 
     def owner_key(self) -> str:
         if not hasattr(self, 'owner_address'):
             self.owner_address = m.key().ss58_address
         return self.owner_address
 
-    def users(self, mod:str, update:bool = False):
+
+    def user2role(self) -> Dict[str, str]:
         """
         preprocess if the address is usersed
-        """
-        path = self.users_path(mod)
-        users =  self.store.get(path, [], update=update)
-        owner_key = self.owner_key()
-        if owner_key not in users:
-            users.append(owner_key)
-            self.store.put(path, users)
-        return users
-
-    def users_path(self, mod:str) -> str:
-        """
-        preprocess if the address is usersed
-        """
-        return f'users/{mod}'
-
-    def rm_user(self, mod:str,  user:str, update:bool = False):
-        """
-        preprocess if the address is usersed
-        """
-        path = self.users_path(mod)
-        users =self.store.get(path, [], update=update)
-        users.remove(user)
-        self.store.put(path , users)
-        return {'users': users, 'user': user }
-
-    def is_user(self, mod:str,  user:str) -> bool:
-        """
-        preprocess if the address is usersed
-        """
-        return user in self.users(mod)
-
-    role2data_path = 'role2data'
-
-    def role2data(self):
-        """
-        get the role to data mapping
-        """
-        return self.store.get(self.role2data_path, {})
-
-    def add_role(self, role:str = 'owner', data:dict = {'fns': ['*']}):
-        """
-        add a role
         """
         role2data = self.role2data()
-        role2data[role] = data
-        self.store.put(self.role2data_path, role2data)
-        return role2data
+        user2role = {}
+        for role, data in role2data.items():
+            if 'users' in data:
+                for user in data['users']:
+                    user2role[user] = role
+        return user2role
 
-    def rm_role(self, role:str):
+    def users(self, role:str = None, update:bool = False):
         """
-        remove a role
+        preprocess if the address is usersed
         """
-        role2data = self.role2data()
-        if role in role2data:
-            del role2data[role]
-        self.store.put(self.role2data_path, role2data)
-        return role2data
-    
+        role_data = self.role_data(role)
+        return role_data.get('users', [])
+
+    def users_path(self, role:str) -> str:
+        """
+        preprocess if the address is usersed
+        """
+        return f'users/{role}'
+
+    def resolve_role(self, role='public'): 
+        return role or 'public'
+
     def reset_roles(self):
         """
         reset the roles
         """
-        self.store.put(self.role2data_path, {})
+        self.store.rm(self.roles_path)
+        return self.ensure_role_map()
 
-    user2role_path = 'user2role'
+    def rm_user(self, user:str, role = None, update:bool = False):
+        """
+        preprocess if the address is usersed
+        """
+        role_data = self.role_data(role)
+        users = role_data.get('users', [])
+        if user in users:
+            users.remove(user)
+        role_data['users'] = users
+        self.save_role_data(role, role_data)
+        assert not self.is_user(user, role), f"Failed to remove user {user} from role {role}"
+        return self.role_data(role)
 
-    def set_user_role(self, role:str, user:str):
+    def is_user(self,  user:str, role = None) -> bool:
         """
-        set the user role
+        preprocess if the address is usersed
         """
-        user2role = self.store.get(self.user2role_path, {})
-        user2role[user] = role
-        self.store.put(self.user2role_path, user2role)
-        return user2role
+        role = self.resolve_role(role)
+        return user in self.users(role)
 
-    def rm_user_role(self, user:str):
-        """
-        remove the user role
-        """
-        user2role = self.store.get(self.user2role_path, {})
-        if user in user2role:
-            del user2role[user]
-        self.store.put(self.user2role_path, user2role)
-        return user2role
+    role2data_path = 'role2data'
 
-
-    def user2role(self):
+    def role_data(self, role:str = None) -> Dict[str, Any]:
         """
-        get the role user2role
+        get the role to data mapping
         """
-        path = 'user2role'
-        return  self.store.get(path, {})
+        role = self.resolve_role(role)
+        return self.store.get(self.role_data_path(role), {})
+    
+    def roles(self) -> List[str]:
+        """
+        get the roles
+        """
+        if not os.path.exists(self.roles_path):
+            os.makedirs(self.roles_path)
+        return list(map(lambda x: x.split('.json')[0], os.listdir(self.roles_path)))
 
+    def save_role_data(self, role:str, data:dict):
+        """
+        save the role data
+        """
+        role = self.resolve_role(role)
+        self.store.put(self.role_data_path(role), data)
+        return data
+
+    def role_data_path(self, role:str) -> str:
+        """
+        get the role data path
+        """
+        role = self.resolve_role(role)
+        return self.roles_path + '/' + role
+
+    def add_role(self, role:str = 'owner',  users:List[str] = None, fns:dict = []):
+        """
+        add a role
+        """
+        role_data = self.role_data()
+        role_data['users'] = users or []
+        if isinstance(fns, str):
+            fns = [fns]
+        if  role == 'owner':
+            fns = ['*']
+            role_data['users'].append(self.owner_key())
+        else:
+            assert '*' not in fns, "Only owner role can have '*' permission"
+        role_data['fns'] = fns
+        return self.save_role_data(role, role_data)
+
+    def rm_role(self, role:str):
+        return self.store.rm(self.role_data_path(role))
+        
+    def role2data(self) -> Dict[str, Any]:
+        roles = self.roles()
+        role2data = {}
+        for role in roles:
+            role2data[role] = self.role_data(role)
+        return role2data
 
     def add_permission(self, role:str, fn:str):
         """
@@ -256,24 +285,6 @@ class Gate:
             role2data[role]['fns'].append(fn)
         self.store.put(self.role2data_path, role2data)
         return role2data
-    
-    def rm_permission(self, role:str, fn:str):
-        """
-        remove a permission from a role
-        """
-        role2data = self.role2data()
-        if role in role2data and 'fns' in role2data[role] and fn in role2data[role]['fns']:
-            role2data[role]['fns'].remove(fn)
-        self.store.put(self.role2data_path, role2data)
-        return role2data
-    
-    def rm_permissions(self, role:str, fns:List[str]):
-        """
-        remove multiple permissions from a role
-        """
-        for fn in fns:
-            self.rm_permission(role, fn)
-        return self.role2data()
 
     def delegations(self):
         """
@@ -307,11 +318,13 @@ class Gate:
         self.store.put('delegations', delegations)
         return delegations
  
+
+    ensure_roles = ['owner', 'public']
     def ensure_role_map(self):
         """
         ensure that the owner role exists
         """
         role2data = self.role2data()
-        if 'owner' not in role2data:
-            self.add_role('owner', {'fns': ['*']})
-        
+        for role in self.ensure_roles:
+            if role not in role2data:
+                self.add_role(role=role)

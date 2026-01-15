@@ -10,6 +10,7 @@ class ServerTestMixin( unittest.TestCase):
                         key="server", 
                         trials=10, 
                         sleep_interval=2):
+            m.fn('gate/add_user')(m.key(key).address)
             m.serve(server, key=key)
             print(f'testing server {server} with')
             info = {}
@@ -25,7 +26,7 @@ class ServerTestMixin( unittest.TestCase):
                 if 'key' in info: 
                     assert info['key'] == m.key(key).ss58_address, f"Server key {info['key']} does not match expected {m.key(key).ss58_address}"
                     return {'success': True, 'msg': 'server test passed'}
-
+            m.fn('gate/rm_user')(m.key(key).address)
             raise Exception(f"Failed to connect to server {server} after {trials} trials, last info: {info}")
 
     def test_executor(self):
@@ -36,15 +37,3 @@ class ServerTestMixin( unittest.TestCase):
             print(f'testing {auth}')
             m.test(auth)
         return {'success': True, 'msg': 'server test passed', 'auths': auths}
-
-    def test_user(self,  mod='api', user='test', update:bool = False):  
-        """
-        check if the address is blacklisted
-        """
-        gate = m.mod('gate')()
-        user  = m.key(user).address
-        gate.add_user(mod, user)
-        assert user in gate.users(mod), f"Failed to add {user} to blacklist"
-        gate.rm_user(mod, user, update=update)
-        assert user not in gate.users(mod) and not gate.is_user(mod, user), f"Failed to remove {user}"
-        return {'user': user , 'users': gate.users(mod)}

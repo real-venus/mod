@@ -497,9 +497,7 @@ class Key:
         if not isinstance(data, str):
             data = python2str(data)
         if isinstance(data, str):
-            if data[0:2] == '0x': # hex string
-                data = bytes.fromhex(data[2:])
-            elif type(data) is str:
+            if type(data) is str:
                 data = data.encode()
         if type(data) is ScaleBytes:
             data = bytes(data.data)
@@ -613,7 +611,6 @@ class Key:
             crypto_verify_fn = ecdsa_verify
         else:
             raise Exception("Crypto type not supported")
-        print(f'verifying with crypto_type {crypto_type}')
         verified = crypto_verify_fn(signature, data, public_key)
         if not verified:
             # Another attempt with the data wrapped, as discussed in https://github.com/polkadot-js/extension/pull/743

@@ -1,5 +1,6 @@
     
 import mod as m
+import os
 class Test:
     description = """
     i test stuff
@@ -87,3 +88,11 @@ class Test:
             if self.has_test(mod, verbose=verbose):
                 test_mods.append(mod)
         return test_mods
+
+
+    def pytest(self, mod='pypm'):
+        """
+        Run pytest on the mod
+        """
+        path = m.dp(mod)
+        return os.system(f'pytest {path}')

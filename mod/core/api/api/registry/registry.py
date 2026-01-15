@@ -12,6 +12,9 @@ import mod as m
 
 class Registry:
 
+    def __init__(self):
+        self.ipfs = m.mod('ipfs')()
+
     def key_address(self, key=None):
         """Get the key address for the registry"""
         return key or m.key_address()

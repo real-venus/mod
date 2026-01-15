@@ -54,12 +54,11 @@ describe("BlocTime Protocol - Full Integration Tests", function () {
     registry = await Registry.deploy();
     await registry.waitForDeployment();
 
-    // Deploy Treasury
+    // Deploy Treasury with TokenGate
     const Treasury = await ethers.getContractFactory("Treasury");
-    treasury = await Treasury.deploy(2000);
+    treasury = await Treasury.deploy(2000, await tokenGate.getAddress());
     await treasury.waitForDeployment();
     await treasury.setGovernanceToken(await blocTime.getAddress());
-    await treasury.addTreasuryToken(await paymentToken.getAddress());
 
     // Deploy Market
     const Market = await ethers.getContractFactory("Market");
@@ -93,8 +92,9 @@ describe("BlocTime Protocol - Full Integration Tests", function () {
       const user2BlocTime = await blocTime.balanceOf(user2.address);
       expect(user1BlocTime).to.be.gt(user2BlocTime); // user1 locked longer
 
-      // 2. Register module in Registry
+      // 2. Register module in Registry with name and data
       await registry.connect(moduleOwner).registerMod(
+        "TestModule",
         "ipfs://test-metadata"
       );
 
@@ -179,6 +179,36 @@ describe("BlocTime Protocol - Full Integration Tests", function () {
     it("Should enforce access control", async function () {
       await expect(oracle.connect(user1).setPrice(await paymentToken.getAddress(), TOKEN_PRICE, 8))
         .to.be.reverted;
+    });
+  });
+
+  describe("TokenGate Whitelist Integration", function () {
+    it("Should use TokenGate whitelist for treasury tokens", async function () {
+      // Treasury should use TokenGate's whitelist
+      const treasuryTokens = await treasury.getTreasuryTokens();
+      const tokenGateTokens = await tokenGate.getTokenList();
+      
+      expect(treasuryTokens.length).to.equal(tokenGateTokens.length);
+      expect(treasuryTokens[0]).to.equal(tokenGateTokens[0]);
+    });
+
+    it("Should sync when TokenGate whitelist changes", async function () {
+      // Add new token to TokenGate
+      const Token = await ethers.getContractFactory("Token");
+      const newToken = await Token.deploy("New Token", "NEW", INITIAL_SUPPLY);
+      await newToken.waitForDeployment();
+      await oracle.setPrice(await newToken.getAddress(), TOKEN_PRICE, 8);
+      await tokenGate.whitelistToken(await newToken.getAddress());
+
+      // Treasury should automatically see it
+      const treasuryTokens = await treasury.getTreasuryTokens();
+      expect(treasuryTokens.length).to.equal(2);
+      expect(treasuryTokens[1]).to.equal(await newToken.getAddress());
+
+      // Should be able to fund with new token
+      await newToken.approve(await treasury.getAddress(), ethers.parseEther("100"));
+      await expect(treasury.fundTreasury(await newToken.getAddress(), ethers.parseEther("100")))
+        .to.emit(treasury, "TreasuryFunded");
     });
   });
 });

@@ -1,2 +1,2 @@
-import {RegMod} from './RegMod'
-export default RegMod
+import {Reg} from './Reg'
+export default Reg

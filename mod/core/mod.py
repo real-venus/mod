@@ -20,7 +20,7 @@ class Mod:
     orbits = [ 'core', 'local',  'inner', 'outer']
 
     # we are going to avoid these folders when listing files
-    avoid_folders = ['__pycache__', '.git', '.ipynb_checkpoints', 'node_modules', 'artifacts', 'egg-info',  'private', 'node_modules', '.venv', 'venv', '.env']
+    avoid_folders = ['__pycache__', '.git', '.ipynb_checkpoints', 'node_modules', 'egg-info',  'private', 'node_modules', '.venv', 'venv', '.env']
     file_types = ['py', 'json', 'sol'] # default file types
     anchor_names = ['agent', 'mod', 'block'] # default anchor names
     lib_name = __file__.split('/')[-2] # mod/core/mod.py -> mod 
@@ -109,12 +109,20 @@ class Mod:
         return self.serve('app')
 
     _mod_cache = {}
+
+
+    def add_fns(self, obj, add_fns = ['fns', 'schema', 'code', 'cid', 'edit', 'config']):
+        for fn in add_fns:
+            if not hasattr(obj, fn):
+                setattr(obj, fn, partial(getattr(self, fn), obj=obj.__name__))
+        return obj
     def mod(self, 
                 mod: str = 'mod', 
                 params: dict = None,  
                 cache=True, 
                 verbose=False,
                 update=True,
+                add_fns = ['fns', 'schema', 'code'],
                 **kwargs) -> str:
         """
         imports the mod core
@@ -132,6 +140,7 @@ class Mod:
         self._mod_cache[name] = obj
         delta = self.time() - t0
         self.print(f'mod({name} [{delta:.2f}s])', verbose=verbose)
+        self.add_fns(obj, add_fns=add_fns)
         return obj
 
     def forward(self, fn:str='info', params:dict=None, auth=None) -> Any:
@@ -405,8 +414,8 @@ class Mod:
             routes[k] = routes.get(k , [])
             routes[k].append(v)
         return routes
-    def set_config(self, config=None):
 
+    def set_config(self, config=None):
         if config is None:
             configs = self.config_paths(config)
             # sort configs by shortest then by json first
@@ -420,6 +429,22 @@ class Mod:
             else:
                 raise Exception('Unknown config format', configs[0])
         return config
+
+    def save_config(self, mod:str, config:dict):
+        paths = self.config_paths(mod)
+        if len(paths) == 0:
+            path = self.dp(mod) + '/config.json'
+        else:
+            path = paths[0]
+        
+        assert path != None, 'No config path found'
+        if path.endswith('.json'):
+            with open(path, 'w') as f:
+                json.dump(config, f, indent=4)
+        elif path.endswith('.yaml') or path.endswith('.yml'):
+            with open(path, 'w') as f:
+                yaml.dump(config, f)
+        return path
 
     def put_json(self, 
                  path:str, 
@@ -789,7 +814,7 @@ class Mod:
         """
         get the cid of the mod
         """
-        return self.fn('api/mod')(mod)['cid']
+        return self.info(mod=mod, cid=True, **kwargs)['cid']
 
     def dir(self, obj=None, sdearch=None, *args, **kwargs):
         obj = self.obj(obj)
@@ -1550,7 +1575,7 @@ class Mod:
             return {}
         config =  self.get_json(configs[0])
         self._config_cache[str(mod)] = config
-        return self.munch(config)
+        return config
 
     cfg = config
 
@@ -1578,6 +1603,8 @@ class Mod:
         if len(configs) == 0:
             return None
         return configs[0]
+
+    cpath = cfgpath = config_path
 
     def serve(self, mod:str = 'mod', port:int=None, remote=True, **kwargs):
         return self.fn('server/serve')(mod, port=port, remote=remote, **kwargs)
@@ -1729,5 +1756,8 @@ class Mod:
         self.serve('ipfs') if not self.server_exists('ipfs') else None
         self.serve('api') if not self.server_exists('api') else None
         return self.fn('app/serve')() if not self.server_exists('app') else None
+
+    def pytest(self, mod='pypm'):
+        return self.fn('tester/pytest')(mod)
     
     s = setup

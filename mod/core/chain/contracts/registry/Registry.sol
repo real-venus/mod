@@ -8,6 +8,7 @@ pragma solidity ^0.8.0;
 contract Registry {
     struct Mod {
         address owner;
+        string name;
         string data;
     }
 
@@ -15,8 +16,9 @@ contract Registry {
     
     mapping(uint256 => Mod) public mods;
     mapping(address => uint256[]) public userMods;
+    mapping(address => mapping(string => bool)) public creatorNameExists;
 
-    event ModRegistered(uint256 indexed modId, address indexed owner, string data);
+    event ModRegistered(uint256 indexed modId, address indexed owner, string name, string data);
     event ModUpdated(uint256 indexed modId, string data);
     event ModRemoved(uint256 indexed modId, address indexed owner);
     event OwnershipTransferred(uint256 indexed modId, address indexed previousOwner, address indexed newOwner);
@@ -32,22 +34,28 @@ contract Registry {
     }
 
     /**
-     * @dev Register a new mod with data (JSON metadata)
+     * @dev Register a new mod with name and data (JSON metadata)
+     * @param name Unique name for the mod (unique per creator)
      * @param data IPFS hash or metadata reference describing the asset as JSON
      */
     function registerMod(
+        string memory name,
         string memory data
     ) external returns (uint256) {
+        require(bytes(name).length > 0, "Invalid name");
         require(bytes(data).length > 0, "Invalid data");
+        require(!creatorNameExists[msg.sender][name], "Name already exists for this creator");
         
         uint256 id = nextModId++;
         mods[id] = Mod({
             owner: msg.sender,
+            name: name,
             data: data
         });
         
+        creatorNameExists[msg.sender][name] = true;
         userMods[msg.sender].push(id);
-        emit ModRegistered(id, msg.sender, data);
+        emit ModRegistered(id, msg.sender, name, data);
         return id;
     }
 
@@ -73,6 +81,7 @@ contract Registry {
         uint256 modId
     ) external onlyModOwner(modId) modExists(modId) {
         address owner = mods[modId].owner;
+        string memory name = mods[modId].name;
         
         // Remove from userMods array
         uint256[] storage userModsList = userMods[owner];
@@ -83,6 +92,9 @@ contract Registry {
                 break;
             }
         }
+        
+        // Free up the name for reuse
+        creatorNameExists[owner][name] = false;
         
         // Delete the mod
         delete mods[modId];
@@ -101,6 +113,10 @@ contract Registry {
         require(newOwner != address(0), "Invalid new owner");
         
         address previousOwner = mods[modId].owner;
+        string memory name = mods[modId].name;
+        
+        // Check name uniqueness for new owner
+        require(!creatorNameExists[newOwner][name], "Name already exists for new owner");
         
         // Remove from previous owner's list
         uint256[] storage prevOwnerMods = userMods[previousOwner];
@@ -111,6 +127,10 @@ contract Registry {
                 break;
             }
         }
+        
+        // Update name mappings
+        creatorNameExists[previousOwner][name] = false;
+        creatorNameExists[newOwner][name] = true;
         
         // Add to new owner's list
         userMods[newOwner].push(modId);
@@ -126,10 +146,11 @@ contract Registry {
      */
     function getMod(uint256 id) external view returns (
         address owner,
+        string memory name,
         string memory data
     ) {
         Mod storage m = mods[id];
-        return (m.owner, m.data);
+        return (m.owner, m.name, m.data);
     }
 
     /**
@@ -137,5 +158,12 @@ contract Registry {
      */
     function getUserMods(address user) external view returns (uint256[] memory) {
         return userMods[user];
+    }
+
+    /**
+     * @dev Check if name exists for creator
+     */
+    function isNameTaken(address creator, string memory name) external view returns (bool) {
+        return creatorNameExists[creator][name];
     }
 }

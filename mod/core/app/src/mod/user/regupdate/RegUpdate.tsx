@@ -1,11 +1,10 @@
 'use client'
 import { useState } from 'react'
-import RegMod from '@/mod/user/reg'
-import UpdateMod from '@/mod/user/update'
+import Reg from '@/mod/user/reg/Reg'
+import Update from '@/mod/user/update/Update'
 
 export const RegUpdate = () => {
   const [activeTab, setActiveTab] = useState<'register' | 'update'>('register')
-  const [activeSubTab, setActiveSubTab] = useState<'local' | 'onchain'>('local')
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -32,33 +31,10 @@ export const RegUpdate = () => {
         </button>
       </div>
 
-      <div className="flex gap-3 mb-4">
-        <button
-          onClick={() => setActiveSubTab('local')}
-          className={`flex-1 px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border-2 ${
-            activeSubTab === 'local'
-              ? 'bg-blue-500/30 text-blue-300 border-blue-500'
-              : 'bg-black/60 text-blue-500/60 border-blue-500/30 hover:bg-blue-500/10 hover:border-blue-500/50'
-          }`}
-        >
-          LOCAL (API)
-        </button>
-        <button
-          onClick={() => setActiveSubTab('onchain')}
-          className={`flex-1 px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border-2 ${
-            activeSubTab === 'onchain'
-              ? 'bg-blue-500/30 text-blue-300 border-blue-500'
-              : 'bg-black/60 text-blue-500/60 border-blue-500/30 hover:bg-blue-500/10 hover:border-blue-500/50'
-          }`}
-        >
-          ONCHAIN (NETWORK)
-        </button>
-      </div>
-
       {activeTab === 'register' ? (
-        <RegMod initialSubTab={activeSubTab} onSubTabChange={setActiveSubTab} />
+        <Reg />
       ) : (
-        <UpdateMod initialSubTab={activeSubTab} onSubTabChange={setActiveSubTab} />
+        <Update />
       )}
     </div>
   )

@@ -14,7 +14,6 @@ interface ModuleFunctionSelectorProps {
   onEnterPress?: () => void
 }
 
-
 export function ModuleFunctionSelector({
   selectedModule,
   setSelectedModule,
@@ -24,310 +23,136 @@ export function ModuleFunctionSelector({
   functions,
   onEnterPress
 }: ModuleFunctionSelectorProps) {
-  const [unifiedInput, setUnifiedInput] = useState('')
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [solidifiedModule, setSolidifiedModule] = useState('api')
-  const [solidifiedFunction, setSolidifiedFunction] = useState('edit')
-  const inputRef = useRef<HTMLInputElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [showModuleList, setShowModuleList] = useState(false)
+  const [showFunctionList, setShowFunctionList] = useState(false)
+  const moduleRef = useRef<HTMLDivElement>(null)
+  const functionRef = useRef<HTMLDivElement>(null)
 
   const moduleColor = useMemo(() => {
-    return solidifiedModule ? text2color(solidifiedModule) : '#8b5cf6'
-  }, [solidifiedModule])
+    return selectedModule ? text2color(selectedModule) : '#8b5cf6'
+  }, [selectedModule])
 
   const functionColor = useMemo(() => {
-    return solidifiedFunction ? text2color(solidifiedFunction) : '#8b5cf6'
-  }, [solidifiedFunction])
+    return selectedFunction ? text2color(selectedFunction) : '#8b5cf6'
+  }, [selectedFunction])
 
-  useEffect(() => {
-    if (containerRef.current && solidifiedModule && solidifiedFunction) {
-      const rect = containerRef.current.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      if (rect.top < 0 || rect.bottom > viewportHeight) {
-        containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      }
-    }
-  }, [solidifiedModule, solidifiedFunction])
-
-  useEffect(() => {
-    if (!solidifiedModule || !solidifiedFunction) {
-      setShowSuggestions(true)
-    }
-  }, [solidifiedModule, solidifiedFunction])
-
-  const handleUnifiedInput = (value: string) => {
-    setUnifiedInput(value)
-    setShowSuggestions(true)
-    
-    if (value.includes('/')) {
-      const [modPart, fnPart] = value.split('/')
-      
-      if (!solidifiedModule) {
-        const trimmedMod = modPart.trim()
-        const foundModule = modules.find(m => m.name === trimmedMod)
-        
-        if (foundModule) {
-          setSolidifiedModule(trimmedMod)
-          setSelectedModule(trimmedMod)
-          if (fnPart && fnPart.trim()) {
-            const trimmedFn = fnPart.trim()
-            const foundFunction = functions.find(f => f === trimmedFn)
-            if (foundFunction) {
-              setSolidifiedFunction(trimmedFn)
-              setSelectedFunction(trimmedFn)
-              setUnifiedInput('')
-              setShowSuggestions(false)
-            } else {
-              setUnifiedInput(trimmedFn)
-            }
-          } else {
-            setUnifiedInput('')
-          }
-        } else {
-          alert(`Module "${trimmedMod}" not found`)
-        }
-      }
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault()
-      const inlineSuggestion = getInlineSuggestion
-      if (inlineSuggestion) {
-        const fullSuggestion = unifiedInput + inlineSuggestion
-        if (!solidifiedModule) {
-          handleModuleSelect(fullSuggestion)
-        } else if (!solidifiedFunction) {
-          handleFunctionSelect(fullSuggestion)
-        }
-      } else if (suggestedModules.length > 0 && !solidifiedModule) {
-        handleModuleSelect(suggestedModules[0].name)
-      } else if (suggestedFunctions.length > 0 && solidifiedModule && !solidifiedFunction) {
-        handleFunctionSelect(suggestedFunctions[0])
-      } else if (solidifiedModule && solidifiedFunction) {
-        setShowSuggestions(false)
-        if (e.key === 'Enter' && onEnterPress) {
-          onEnterPress()
-        }
-      }
-    } else if (e.key === 'Backspace' && unifiedInput === '') {
-      if (solidifiedFunction) {
-        setSolidifiedFunction('')
-        setSelectedFunction('')
-        e.preventDefault()
-      } else if (solidifiedModule) {
-        setSolidifiedModule('')
-        setSelectedModule('')
-        setSolidifiedFunction('')
-        setSelectedFunction('')
-        e.preventDefault()
-      }
-    } else if (e.key === 'Delete' && unifiedInput === '') {
-      if (solidifiedFunction) {
-        setSolidifiedFunction('')
-        setSelectedFunction('')
-        e.preventDefault()
-      } else if (solidifiedModule) {
-        setSolidifiedModule('')
-        setSelectedModule('')
-        setSolidifiedFunction('')
-        setSelectedFunction('')
-        e.preventDefault()
-      }
-    }
-  }
-
-  const handleModuleSelect = (modName: string) => {
-    setSolidifiedModule(modName)
+  const handleModuleClick = (modName: string) => {
     setSelectedModule(modName)
-    setSolidifiedFunction('')
-    setSelectedFunction('')
-    setUnifiedInput('')
-    setShowSuggestions(true)
-    inputRef.current?.focus()
+    setShowModuleList(false)
+    setTimeout(() => {
+      setShowFunctionList(true)
+    }, 100)
   }
 
-  const handleFunctionSelect = (fn: string) => {
-    setSolidifiedFunction(fn)
+  const handleFunctionClick = (fn: string) => {
     setSelectedFunction(fn)
-    setUnifiedInput('')
-    setShowSuggestions(false)
-    inputRef.current?.focus()
+    setShowFunctionList(false)
+    if (onEnterPress) {
+      setTimeout(() => onEnterPress(), 100)
+    }
   }
 
-  const handleDeleteModule = () => {
-    setSolidifiedModule('')
-    setSelectedModule('')
-    setSolidifiedFunction('')
-    setSelectedFunction('')
-    setUnifiedInput('')
-    setShowSuggestions(true)
-    inputRef.current?.focus()
-  }
-
-  const handleDeleteFunction = () => {
-    setSolidifiedFunction('')
-    setSelectedFunction('')
-    setUnifiedInput('')
-    setShowSuggestions(true)
-    inputRef.current?.focus()
-  }
-
-  const getSuggestedModules = () => {
-    if (solidifiedModule) return []
-    const lowerSearch = unifiedInput.toLowerCase()
-    return modules
-      .filter(m => m.name.toLowerCase().includes(lowerSearch))
-      .slice(0, 5)
-  }
-
-  const getSuggestedFunctions = () => {
-    if (!solidifiedModule) return []
-    const lowerSearch = unifiedInput.toLowerCase()
-    return functions
-      .filter(f => f.toLowerCase().includes(lowerSearch))
-      .slice(0, 5)
-  }
-
-  const suggestedModules = getSuggestedModules()
-  const suggestedFunctions = getSuggestedFunctions()
-
-  const getPlaceholder = () => {
-    if (!solidifiedModule) return "Type module or select from list..."
-    if (!solidifiedFunction) return "Type function or select from list..."
-    return ""
-  }
-
-  const getInlineSuggestion = useMemo(() => {
-    if (!unifiedInput) return ''
-    const lowerInput = unifiedInput.toLowerCase()
-    
-    if (!solidifiedModule && suggestedModules.length > 0) {
-      const topMatch = suggestedModules[0].name
-      if (topMatch.toLowerCase().startsWith(lowerInput)) {
-        return topMatch.slice(unifiedInput.length)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moduleRef.current && !moduleRef.current.contains(event.target as Node)) {
+        setShowModuleList(false)
+      }
+      if (functionRef.current && !functionRef.current.contains(event.target as Node)) {
+        setShowFunctionList(false)
       }
     }
-    
-    if (solidifiedModule && !solidifiedFunction && suggestedFunctions.length > 0) {
-      const topMatch = suggestedFunctions[0]
-      if (topMatch.toLowerCase().startsWith(lowerInput)) {
-        return topMatch.slice(unifiedInput.length)
-      }
-    }
-    
-    return ''
-  }, [unifiedInput, solidifiedModule, solidifiedFunction, suggestedModules, suggestedFunctions])
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
-    return (
-            <div ref={containerRef} className="relative">
-              <div className="w-full bg-black border-2 border-gray-700/60 px-3 py-2.5 rounded-lg focus-within:ring-2 focus-within:ring-white/60 focus-within:border-white/60 transition-all shadow-lg text-base flex items-center gap-2 flex-wrap">
-                {solidifiedModule && (
-                  <span 
-                    className="inline-flex items-center gap-1 px-3 py-1 border-2 rounded-full text-white font-bold shadow-lg" 
-                    style={{ 
-                      fontFamily: 'IBM Plex Mono, monospace',
-                      backgroundColor: `${moduleColor}30`,
-                      borderColor: moduleColor,
-                      boxShadow: `0 0 10px ${moduleColor}40`,
-                      fontSize: '1.25rem'
-                    }}
-                  >
-                    {solidifiedModule}
-                    <button
-                      onClick={handleDeleteModule}
-                      className="ml-1 text-red-400 hover:text-red-300 font-bold text-xs"
-                      title="Delete module"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                )}
-                {solidifiedModule && solidifiedFunction && (
-                  <span className="text-gray-500 text-lg">/</span>
-                )}
-                {solidifiedFunction && (
-                  <span 
-                    className="inline-flex items-center gap-1 px-3 py-1 border-2 rounded-full font-bold shadow-lg" 
-                    style={{ 
-                      fontFamily: 'IBM Plex Mono, monospace',
-                      backgroundColor: `${functionColor}20`,
-                      borderColor: `${functionColor}60`,
-                      color: `${functionColor}`,
-                      boxShadow: 'none',
-                      fontSize: '1.25rem'
-                    }}
-                  >
-                    {solidifiedFunction}
-                    <button
-                      onClick={handleDeleteFunction}
-                      className="ml-1 text-red-400 hover:text-red-300 font-bold text-xs"
-                      title="Delete function"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                )}
-                <div className="relative flex-1 min-w-[150px]">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={unifiedInput}
-                    onChange={(e) => handleUnifiedInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                    placeholder={getPlaceholder()}
-                    className="w-full bg-transparent text-white outline-none placeholder-gray-600 text-base"
-                    style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
-                  />
-                  {getInlineSuggestion && (
-                    <div className="absolute top-0 left-0 pointer-events-none text-base" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-                      <span className="invisible">{unifiedInput}</span>
-                      <span className="text-gray-500/50">{getInlineSuggestion}</span>
-                    </div>
-                  )}
-                </div>
-                <HostSelector />
-              </div>
-              {showSuggestions && (suggestedModules.length > 0 || suggestedFunctions.length > 0) && (
-                <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-48 overflow-y-auto" style={{ zIndex: 99999 }}>
-                  {suggestedModules.map(mod => {
-                    const modColor = text2color(mod.name)
-                    return (
-                      <button
-                        key={mod.name}
-                        onClick={() => handleModuleSelect(mod.name)}
-                        className="w-full text-left px-4 py-2.5 hover:bg-white/20 text-white text-base last:border-b-0 transition-all border-l-4"
-                        style={{ 
-                          fontFamily: 'IBM Plex Mono, Courier New, monospace',
-                          borderLeftColor: modColor
-                        }}
-                      >
-                        {mod.name}
-                      </button>
-                    )
-                  })}
-                  {suggestedFunctions.map(fn => {
-                    const fnColor = text2color(fn)
-                    return (
-                      <button
-                        key={fn}
-                        onClick={() => handleFunctionSelect(fn)}
-                        className="w-full text-left px-4 py-2.5 hover:bg-white/20 text-white text-base last:border-b-0 transition-all border-l-4"
-                        style={{ 
-                          fontFamily: 'IBM Plex Mono, Courier New, monospace',
-                          borderLeftColor: fnColor
-                        }}
-                      >
-                        {fn}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-    )
-  }
-  
+  return (
+    <div className="flex gap-2 items-center">
+      <div ref={moduleRef} className="relative flex-1">
+        <button
+          onClick={() => {
+            setShowModuleList(!showModuleList)
+            setShowFunctionList(false)
+          }}
+          className="w-full bg-black border-2 px-4 py-3 rounded-lg transition-all shadow-lg text-left flex items-center justify-between"
+          style={{
+            fontFamily: 'IBM Plex Mono, monospace',
+            backgroundColor: `${moduleColor}20`,
+            borderColor: `${moduleColor}60`,
+            color: selectedModule ? 'white' : '#9ca3af',
+            fontSize: '1.1rem'
+          }}
+        >
+          <span>{selectedModule || 'select module'}</span>
+          <span className="text-sm">{showModuleList ? '▲' : '▼'}</span>
+        </button>
+        {showModuleList && (
+          <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-64 overflow-y-auto z-50">
+            {modules.map(mod => {
+              const modColor = text2color(mod.name)
+              return (
+                <button
+                  key={mod.name}
+                  onClick={() => handleModuleClick(mod.name)}
+                  className="w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4"
+                  style={{
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderLeftColor: modColor,
+                    fontSize: '1rem'
+                  }}
+                >
+                  {mod.name}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div ref={functionRef} className="relative flex-1">
+        <button
+          onClick={() => {
+            if (selectedModule) {
+              setShowFunctionList(!showFunctionList)
+              setShowModuleList(false)
+            }
+          }}
+          disabled={!selectedModule}
+          className="w-full bg-black border-2 px-4 py-3 rounded-lg transition-all shadow-lg text-left flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            fontFamily: 'IBM Plex Mono, monospace',
+            backgroundColor: `${functionColor}20`,
+            borderColor: `${functionColor}60`,
+            color: selectedFunction ? 'white' : '#9ca3af',
+            fontSize: '1.1rem'
+          }}
+        >
+          <span>{selectedFunction || 'select function'}</span>
+          <span className="text-sm">{showFunctionList ? '▲' : '▼'}</span>
+        </button>
+        {showFunctionList && selectedModule && (
+          <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-64 overflow-y-auto z-50">
+            {functions.map(fn => {
+              const fnColor = text2color(fn)
+              return (
+                <button
+                  key={fn}
+                  onClick={() => handleFunctionClick(fn)}
+                  className="w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4"
+                  style={{
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderLeftColor: fnColor,
+                    fontSize: '1rem'
+                  }}
+                >
+                  {fn}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <HostSelector />
+    </div>
+  )
+}

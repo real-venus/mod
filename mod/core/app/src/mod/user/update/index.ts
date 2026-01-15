@@ -1,2 +1,2 @@
-import {UpdateMod} from './UpdateMod'
-export default UpdateMod
+import {Update} from './Update'
+export default Update

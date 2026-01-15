@@ -41,7 +41,7 @@ class  Api:
         self._store_path = store
         return {'store': self._store_path}
             
-    def is_valid_cid(self, cid: str) -> bool:
+    def valid_cid (self, cid: str) -> bool:
         """Check if a given string is a valid IPFS CID.
         
         Args:
@@ -106,7 +106,7 @@ class  Api:
                 timeout=1000,
                 ) -> Dict[str, Any]:
 
-        if self.is_valid_cid(fn):
+        if self.valid_cid (fn):
             task = self.get(fn)
             fn = task['fn']
             params = task['params']
@@ -143,28 +143,9 @@ class  Api:
         }
         return self.pdiv.join([str(proof_data[k]) for k in self.pdata_args])
 
-    def proof2data(self, proof):
-        proof_data = proof.split(self.pdiv)[2]
-        return self.get(proof_data)
-
-
-        key = m.key(key)
-        proof_data = self.proof_data(data=data, cost=cost)
-        signature = key.sign(proof_data, mode='str')
-        return proof_data + self.pdiv + signature
-    
-    def verify_proof(self, proof):
-        assert  float(proof_chunks[0]) < m.time('int')
-        proof_chunks = proof.split(self.pdiv)
-        proof_sig =  proof_chunks[-1]
-        proof_data = self.pdiv.join(proof_chunks[:-1])
-        proof_address =  proof_chunks[-2]
-        m.verify(proof_data, signature=proof_sig, address=proof_address )
-
-        assert {
-            'time': proof_t, 
-            'sig': proof_sig
-        }
+ 
+    def test_proof(self):
+        return self.verify_proof(self.proof())
         
     cid2future = {}
 
@@ -422,7 +403,7 @@ class  Api:
             Content dictionary
         """
         try:
-            if self.is_valid_cid(mod):
+            if self.valid_cid (mod):
                 data = self.get(mod)
                 if isinstance(data, dict) and 'content' in data:
                     content = self.get(data['content'])['data']
@@ -594,7 +575,7 @@ class  Api:
                 os.makedirs(dirpath, exist_ok=True)
                 os.system(git_cmd)
                 m.print(f"[✓] Cloned repository from {url} to {modpath}", color="green")
-        elif self.is_valid_cid(url):
+        elif self.valid_cid (url):
             self.get(url)
         else:
             raise ValueError(f'Unsupported URL for reg_from_url: {url}')
@@ -785,7 +766,7 @@ class  Api:
 
     def versions(self, mod='app' , key=None, df=False, n=4, update=False, max_age=2) -> List[Dict[str, Any]]:
 
-        if self.is_valid_cid(mod):
+        if self.valid_cid (mod):
             mod_info = self.get(mod)
             mod = mod_info['name']
             key = mod_info['key']
@@ -1018,8 +999,12 @@ class  Api:
     def models(self, search=None, mod: str='model.openrouter', **kwargs) -> List[Dict[str, Any]]:
         return self.model.models(search=search, **kwargs)
 
-    def files(self, mod='store', **kwargs):
-        return list(self.content(mod, expand=True, **kwargs).keys())
+
+    def files(self, mod='store', search=None, **kwargs):
+        files =  list(self.content(mod, expand=True, **kwargs).keys())
+        if search != None:
+            files = [f for f in files if search in f]
+        return files
 
     def hardware(self) -> Dict[str, Any]:
         hardware =  m.hardware() 
@@ -1074,6 +1059,51 @@ class  Api:
 
     def is_owner(self, address:str):
         return m.is_owner(address)
+
+
+    token_keys = ['owner', 'cost', 'time', 'data']
+    token_divider = '::'
+    def token_data(self, cost=0, time=None, data=None, to=None) -> Dict[str, Any]:
+        token_data = {
+            'owner': to or m.owner(),
+            'cost': cost or 0,
+            'time': int(m.time('int')),
+            'data': json.dumps(data)
+        }
+        return self.token_divider.join([str(token_data[k]) for k in self.token_keys])
+    
+    def token(self, cost=0, time=None, data=None, to=None, signature=None) -> Dict[str, Any]:
+        token_data = self.token_data(cost=cost, time=time, data=data, to=to)
+        signature = self.key.sign(token_data, mode='str')
+        return token_data + self.token_divider + signature
+
+    def token2data(self, token: str) -> Dict[str, Any]:
+        token_chunks = token.split(self.token_divider)
+        assert len(token_chunks) == len(self.token_keys) + 1, "Invalid token format"
+        token_data_chunks = token_chunks[:-1]
+        token_dict = {k: v for k, v in zip(self.token_keys, token_data_chunks)}
+        token_dict['cost'] = float(token_dict['cost'])
+        token_dict['time'] = int(token_dict['time'])
+        try:
+            token_dict['data'] = json.loads(token_dict['data'])
+        except:
+            pass
+        return token_dict
+        
+    def verify_token(self, token: str) -> bool:
+        token_chunks = token.split(self.token_divider)
+        assert len(token_chunks) == len(self.token_keys) + 1, "Invalid token format"
+        token_data_chunks = token_chunks[:-1]
+        signature = token_chunks[-1]
+        token_data = self.token_divider.join(token_data_chunks)
+        token_dict = {k: v for k, v in zip(self.token_keys, token_data_chunks)}
+        owner = token_dict['owner']
+        return m.verify(token_data, signature=signature, address=owner, mode='str')
+
+    def test_token(self, cost=0, time=None, data=None, to=None) -> bool:
+        token = self.token(cost=cost, time=time, data=data, to=to)
+        assert self.verify_token(token)
+        return {'token': token, 'status': 'valid', 'token_data': self.token2data(token)}
 
     def wait_for_task(self, task, wait_frequency=0.2):
         task_path = task['path']
