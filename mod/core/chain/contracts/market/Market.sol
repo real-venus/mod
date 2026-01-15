@@ -80,6 +80,7 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
     /**
      * @dev Credit stable tokens to user by paying with whitelisted token
      * Uses TokenGate for token validation and oracle pricing
+     * ALLOWANCE MUST BE SET BEFORE CALLING THIS FUNCTION
      */
     function credit(address paymentToken, uint256 stableAmount) external nonReentrant returns (uint256) {
         require(stableAmount > 0, "Invalid amount");
@@ -92,7 +93,7 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         // Calculate payment required based on oracle pricing
         uint256 paymentAmount = (stableAmount * (10 ** tokenDecimals)) / tokenPrice;
         
-        // Transfer payment to treasury
+        // Transfer payment to treasury - REQUIRES PRIOR APPROVAL
         IERC20(paymentToken).safeTransferFrom(msg.sender, treasury, paymentAmount);
         
         // Mint stable tokens to user
@@ -105,19 +106,20 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
     }
     
     /**
-     * @dev Debit stable tokens from user
-     * Burns stable tokens
+     * @dev Debit stable tokens from user (owner can debit anyone)
+     * Burns stable tokens and tracks spending
      */
-    function debit(uint256 stableAmount) external nonReentrant returns (uint256) {
+    function debit(address user, uint256 stableAmount) external nonReentrant returns (uint256) {
         require(stableAmount > 0, "Invalid amount");
-        require(balanceOf(msg.sender) >= stableAmount, "Insufficient balance");
+        require(msg.sender == owner() || msg.sender == user, "Not authorized");
+        require(balanceOf(user) >= stableAmount, "Insufficient balance");
         
         // Burn stable tokens from user
-        _burn(msg.sender, stableAmount);
+        _burn(user, stableAmount);
         
         uint256 txId = nextTransactionId++;
 
-        emit Debit(txId, msg.sender, stableAmount);
+        emit Debit(txId, user, stableAmount);
         return txId;
     }
     

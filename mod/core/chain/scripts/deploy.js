@@ -34,7 +34,7 @@ async function main() {
     usdt = await Token.deploy(
       'Tether USD',
       'USDT',
-      hre.ethers.parseUnits('1000000', 6)
+       hre.ethers.parseEther('1000000')
     );
     await usdt.waitForDeployment();
     usdtAddress = await usdt.getAddress();
@@ -43,7 +43,7 @@ async function main() {
     usdc = await Token.deploy(
       'USD Coin',
       'USDC',
-      hre.ethers.parseUnits('1000000', 6)
+       hre.ethers.parseEther('1000000')
     );
     await usdc.waitForDeployment();
     usdcAddress = await usdc.getAddress();

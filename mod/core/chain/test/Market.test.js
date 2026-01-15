@@ -121,7 +121,7 @@ describe("Market Integration", function () {
     });
 
     it("Should debit stable tokens correctly", async function () {
-      await expect(market.connect(user1).debit(stableAmount))
+      await expect(market.connect(user1).debit(user1.address, stableAmount))
         .to.emit(market, "Debit");
 
       expect(await market.balanceOf(user1.address)).to.equal(0);
@@ -129,7 +129,7 @@ describe("Market Integration", function () {
 
     it("Should reject debit with insufficient balance", async function () {
       await expect(
-        market.connect(user1).debit(stableAmount * 2n)
+        market.connect(user1).debit(user1.address, stableAmount * 2n)
       ).to.be.revertedWith("Insufficient balance");
     });
   });

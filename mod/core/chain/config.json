@@ -5,39 +5,40 @@
             "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
             "contracts": {
                 "USDC": {
-                    "address": "0x32cd5ecdA7f2B8633C00A0434DE28Db111E60636",
+                    "address": "0x1d460d731Bd5a0fF2cA07309dAEB8641a7b175A1",
                     "contract": "Token"
                 },
                 "USDT": {
-                    "address": "0xFCa5Bb3732185AE6AaFC65aD8C9A4fBFf21DbaaD",
+                    "address": "0x41219a0a9C0b86ED81933c788a6B63Dfef8f17eE",
                     "contract": "Token"
                 },
                 "ManualPriceOracle": {
-                    "address": "0xbeC6419cD931e29ef41157fe24C6928a0C952f0b",
+                    "address": "0xF67e26649037695DdFAB19f4E22d5c9Fd1564592",
                     "contract": "ManualPriceOracle"
                 },
                 "TokenGate": {
-                    "address": "0x92b0d1Cc77b84973B7041CB9275d41F09840eaDd",
+                    "address": "0x18b7CBdfFA52d1e7BB992fd50f394c5b59E20B72",
                     "contract": "TokenGate"
                 },
                 "NativeToken": {
-                    "address": "0xf18774574148852771c2631d7d06E2A6c8b44fCA",
+                    "address": "0x3A906C603F080D96dc08f81CF2889dAB6FF299dE",
                     "contract": "Token"
                 },
                 "BlocTime": {
-                    "address": "0x9f62EE65a8395824Ee0821eF2Dc4C947a23F0f25",
+                    "address": "0x820638ecd57B55e51CE6EaD7D137962E7A201dD9",
                     "contract": "BlocTime"
                 },
                 "Registry": {
-                    "address": "0x3AeEBbEe7CE00B11cB202d6D0F38D696A3f4Ff8e",
+                    "address": "0x987Aa6E80e995d6A76C4d061eE324fc760Ea9F61",
                     "contract": "Registry"
                 },
                 "Treasury": {
-                    "address": "0xB2ff9d5e60d68A52cea3cd041b32f1390A880365",
+                    "address": "0x6B9C4119796C80Ced5a3884027985Fd31830555b",
                     "contract": "Treasury"
                 },
                 "Market": {
-                    "address": "0x8B64968F69E669faCc86FA3484FD946f1bBE7c91"
+                    "address": "0x716473Fb4E7cD49c7d1eC7ec6d7490A03d9dA332",
+                    "contract": "Market"
                 }
             }
         },
@@ -46,49 +47,49 @@
             "deployer": "0xf21030Ded69D913a296BF7DF153133BE32C61B2e",
             "contracts": {
                 "USDC": {
-                    "address": "0x184d712Fa6F64554DABece45C55D4B5111C6BDf9",
+                    "address": "0xf40F2cC626fE317c03F9BcAfD77453C8C14bC517",
                     "contract": "Token",
-                    "abi": "QmUMw1GTn3qPV81JF6mAQnpQ9wDRYnqkJKH7DhgB4iXrVf"
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "USDT": {
-                    "address": "0x7384EeB114cf93886eA6b7f339d66eeBB06a56D9",
+                    "address": "0xE8bDe9F39F0bb95d4c0C2999900F21c74614A04e",
                     "contract": "Token",
-                    "abi": "QmUMw1GTn3qPV81JF6mAQnpQ9wDRYnqkJKH7DhgB4iXrVf"
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "ManualPriceOracle": {
-                    "address": "0x18f3bdB49D5e86516D977C8982fae396849D7dEB",
+                    "address": "0x7d2e4DA44Fc8762D3F9C9C2f992e59F3247D7F59",
                     "contract": "ManualPriceOracle",
-                    "abi": "QmSSTsTQA3hjwhbKQxSnNxXgKKZvY8WNqMd8NSsaBBeude"
+                    "abi": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV"
                 },
                 "TokenGate": {
-                    "address": "0xc2166CBf56Dfb16776a5ae3528eaBcD58bb38696",
+                    "address": "0x49448EBCe4cD8F76fb3705b8b18150D4eA3bbc19",
                     "contract": "TokenGate",
-                    "abi": "QmYKYvE4vi5EGt6tfD8cJTy8LwCckRN8YPZpokeHhvXbxh"
+                    "abi": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a"
                 },
                 "NativeToken": {
-                    "address": "0x0a87E1c34Bac5e7296537a70379aA3c85C5b8f6C",
+                    "address": "0x7a16505B9146b5320A4D26d23d34211375B9ac79",
                     "contract": "Token",
-                    "abi": "QmUMw1GTn3qPV81JF6mAQnpQ9wDRYnqkJKH7DhgB4iXrVf"
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "BlocTime": {
-                    "address": "0xf6f82a052a862996881843A44E5728E03107fD3F",
+                    "address": "0x5ffE4751E4bcc823cD5B029f79B606a7eDF28629",
                     "contract": "BlocTime",
-                    "abi": "QmaRQhiDScpAAfdFCLcfa2UjxU23mFF3TRqvyuainjZdWK"
+                    "abi": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM"
                 },
                 "Registry": {
-                    "address": "0x8Fb10F369d0771f765619d6571c446B62f8a1cA6",
+                    "address": "0x423Be12eC07abeC10E9CB26eA9c49b1CaF95c78b",
                     "contract": "Registry",
-                    "abi": "QmfYDiq1GcrKboGb1WKm1AyHHnYLjnzmNiybteRpupcki2"
+                    "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
                 },
                 "Treasury": {
-                    "address": "0x1551a0Bc9Ec59591Cf4aC615df61D274463809fe",
+                    "address": "0x93fA9aE0Bc8f7c5EBc4FdfF2C75e9B2E285c7B35",
                     "contract": "Treasury",
-                    "abi": "QmWkA62dhjXvXcqHHy5uVR5KiGcSKRdiA7fs5i2uXNCUxf"
+                    "abi": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
                 },
                 "Market": {
-                    "address": "0xa6D6A227D1946D1468b1D3Af91a108AD7deEf827",
+                    "address": "0x44292C33a0db91C48501FD20D759fCeC36B78a7E",
                     "contract": "Market",
-                    "abi": "QmT8wpeUhRHNbtf6TMyHZYq28oXZUaGS5TZfLDytVngirp"
+                    "abi": "QmPGR8DcwDpm3QmxpDRCDqBVyTkC6G3TERbzE1ktYcsYdM"
                 }
             }
         },
@@ -97,49 +98,49 @@
             "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
             "contracts": {
                 "USDC": {
-                    "address": "0x273c507D8E21cDE039491B14647Fe9278D88e91D",
+                    "address": "0x76d05F58D14c0838EC630C8140eDC5aB7CD159Dc",
                     "contract": "Token",
-                    "abi": "QmUMw1GTn3qPV81JF6mAQnpQ9wDRYnqkJKH7DhgB4iXrVf"
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "USDT": {
-                    "address": "0x04F75a27cE2FDC591C71a88f1EcaC7e5Ce44f5Fc",
+                    "address": "0x7A3A9876c08B3f001D10c6a8aF685699BC52e7c8",
                     "contract": "Token",
-                    "abi": "QmUMw1GTn3qPV81JF6mAQnpQ9wDRYnqkJKH7DhgB4iXrVf"
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "ManualPriceOracle": {
-                    "address": "0x93B800CD7ACdcA13754624D4B1A2760A86bE0D1f",
+                    "address": "0xe8c3F27D20472e4f3C546A3f73C04B54DD72871d",
                     "contract": "ManualPriceOracle",
-                    "abi": "QmSSTsTQA3hjwhbKQxSnNxXgKKZvY8WNqMd8NSsaBBeude"
+                    "abi": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV"
                 },
                 "TokenGate": {
-                    "address": "0x10537D7bD661C9c34F547b38EC662D6FD482Ae95",
+                    "address": "0x862E3acDE54f01a4540C4505a4E199214Ff6cD49",
                     "contract": "TokenGate",
-                    "abi": "QmYKYvE4vi5EGt6tfD8cJTy8LwCckRN8YPZpokeHhvXbxh"
+                    "abi": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a"
                 },
                 "NativeToken": {
-                    "address": "0x798f111c92E38F102931F34D1e0ea7e671BDBE31",
+                    "address": "0x72aC6A36de2f72BD39e9c782e9db0DCc41FEbfe2",
                     "contract": "Token",
-                    "abi": "QmUMw1GTn3qPV81JF6mAQnpQ9wDRYnqkJKH7DhgB4iXrVf"
+                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "BlocTime": {
-                    "address": "0xabebE9a2D62Af9a89E86EB208b51321e748640C3",
+                    "address": "0xAAd4F7BB5FB661181D500829e60010043833a85B",
                     "contract": "BlocTime",
-                    "abi": "QmaRQhiDScpAAfdFCLcfa2UjxU23mFF3TRqvyuainjZdWK"
+                    "abi": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM"
                 },
                 "Registry": {
-                    "address": "0xbc71F5687CFD36f64Ae6B4549186EE3A6eE259a4",
+                    "address": "0x2B64822cf4bbDd77d386F51AA2B40c5cdbeb80b5",
                     "contract": "Registry",
-                    "abi": "QmfYDiq1GcrKboGb1WKm1AyHHnYLjnzmNiybteRpupcki2"
+                    "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
                 },
                 "Treasury": {
-                    "address": "0xD73bAb8F06DB28c87932571f87D0D2C0FDF13D94",
+                    "address": "0x30A6d2B697635a0ECf1975d2386A0FE6b608B0Fb",
                     "contract": "Treasury",
-                    "abi": "QmWkA62dhjXvXcqHHy5uVR5KiGcSKRdiA7fs5i2uXNCUxf"
+                    "abi": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
                 },
                 "Market": {
-                    "address": "0x82A9286dB983093Ff234cefCea1d8fA66382876B",
+                    "address": "0xBc153693BFAe1Ca202872a382aED20a1306C9200",
                     "contract": "Market",
-                    "abi": "QmT8wpeUhRHNbtf6TMyHZYq28oXZUaGS5TZfLDytVngirp"
+                    "abi": "QmRbmhVQREoAFxH1suBigw2eGs77pZkVbtTdHhMKK3SYwo"
                 }
             }
         }

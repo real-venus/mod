@@ -29,6 +29,8 @@ class Mod:
         self.path = m.dp('chain')
         self.ipfs = m.mod('ipfs')()
         self.contracts_path = os.path.join(self.path, 'artifacts', 'contracts')
+        self.dotenv_path = os.path.join(self.path, '.env')
+        
         if not os.path.exists(self.contracts_path):
             os.makedirs(self.path)
 
@@ -501,13 +503,14 @@ class Mod:
         """Deploy contracts."""
         deployment =  os.system(f'cd {self.path} && npm run deploy:{network}')
         config = m.config('chain')
-        config['abi'] = self.abimap()
+        apimap = self.abimap()
         deployment = config['deployments'][network]
         for name, info in deployment['contracts'].items():
-            config['deployments'][network]['contracts'][name]['abi'] = self.ipfs.put(
-                config['abi'][info['contract']]
-            )
+            config['deployments'][network]['contracts'][name]['abi'] = apimap[info['contract']]
         m.save_config('chain', config)
+        app_config = m.config('app')
+        app_config['chain'] = config['deployments']
+        m.save_config('app', app_config)
         return deployment
 
     def ganache(self, port: int = 8545):
