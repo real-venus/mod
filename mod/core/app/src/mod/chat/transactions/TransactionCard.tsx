@@ -25,9 +25,10 @@ interface TransactionCardProps {
 }
 
 export function TransactionCard({ tx, idx }: TransactionCardProps) {
+  const hasCollapsibleContent = tx.params || tx.result !== undefined
   const [isExpanded, setIsExpanded] = useState(false)
-  const [isParamsExpanded, setIsParamsExpanded] = useState(false)
-  const [isResultsExpanded, setIsResultsExpanded] = useState(false)
+  const [isParamsExpanded, setIsParamsExpanded] = useState(true)
+  const [isResultsExpanded, setIsResultsExpanded] = useState(true)
 
   const getStatusEmoji = (status: string) => {
     if (status === 'running') return '▶'
@@ -96,13 +97,13 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
 
   return (
     <div 
-      className="border-2 rounded-xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:border-opacity-80 shadow-lg mb-2"
+      className={`border-2 rounded-xl font-mono transition-all backdrop-blur-sm hover:border-opacity-80 shadow-lg mb-2 ${hasCollapsibleContent ? 'cursor-pointer' : ''}`}
       style={{ 
         fontFamily: 'IBM Plex Mono, Courier New, monospace',
         backgroundColor: cardBgColor,
         borderColor: cardBorderColor
       }}
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={() => hasCollapsibleContent && setIsExpanded(!isExpanded)}
     >
       <div className="p-4">
         <div className="flex items-center gap-2 flex-wrap">

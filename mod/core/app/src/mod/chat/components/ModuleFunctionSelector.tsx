@@ -25,6 +25,8 @@ export function ModuleFunctionSelector({
 }: ModuleFunctionSelectorProps) {
   const [showModuleList, setShowModuleList] = useState(false)
   const [showFunctionList, setShowFunctionList] = useState(false)
+  const [moduleSearch, setModuleSearch] = useState('')
+  const [functionSearch, setFunctionSearch] = useState('')
   const moduleRef = useRef<HTMLDivElement>(null)
   const functionRef = useRef<HTMLDivElement>(null)
 
@@ -36,9 +38,24 @@ export function ModuleFunctionSelector({
     return selectedFunction ? text2color(selectedFunction) : '#8b5cf6'
   }, [selectedFunction])
 
+  const filteredModules = useMemo(() => {
+    if (!moduleSearch) return modules
+    return modules.filter(mod => 
+      mod.name.toLowerCase().includes(moduleSearch.toLowerCase())
+    )
+  }, [modules, moduleSearch])
+
+  const filteredFunctions = useMemo(() => {
+    if (!functionSearch) return functions
+    return functions.filter(fn => 
+      fn.toLowerCase().includes(functionSearch.toLowerCase())
+    )
+  }, [functions, functionSearch])
+
   const handleModuleClick = (modName: string) => {
     setSelectedModule(modName)
     setShowModuleList(false)
+    setModuleSearch('')
     setTimeout(() => {
       setShowFunctionList(true)
     }, 100)
@@ -47,6 +64,7 @@ export function ModuleFunctionSelector({
   const handleFunctionClick = (fn: string) => {
     setSelectedFunction(fn)
     setShowFunctionList(false)
+    setFunctionSearch('')
     if (onEnterPress) {
       setTimeout(() => onEnterPress(), 100)
     }
@@ -56,9 +74,11 @@ export function ModuleFunctionSelector({
     const handleClickOutside = (event: MouseEvent) => {
       if (moduleRef.current && !moduleRef.current.contains(event.target as Node)) {
         setShowModuleList(false)
+        setModuleSearch('')
       }
       if (functionRef.current && !functionRef.current.contains(event.target as Node)) {
         setShowFunctionList(false)
+        setFunctionSearch('')
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -86,24 +106,40 @@ export function ModuleFunctionSelector({
           <span className="text-sm">{showModuleList ? '▲' : '▼'}</span>
         </button>
         {showModuleList && (
-          <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-64 overflow-y-auto z-50">
-            {modules.map(mod => {
-              const modColor = text2color(mod.name)
-              return (
-                <button
-                  key={mod.name}
-                  onClick={() => handleModuleClick(mod.name)}
-                  className="w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4"
-                  style={{
-                    fontFamily: 'IBM Plex Mono, monospace',
-                    borderLeftColor: modColor,
-                    fontSize: '1rem'
-                  }}
-                >
-                  {mod.name}
-                </button>
-              )
-            })}
+          <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-64 overflow-hidden z-50">
+            <input
+              type="text"
+              value={moduleSearch}
+              onChange={(e) => setModuleSearch(e.target.value)}
+              placeholder="🔍 search modules..."
+              className="w-full bg-black/60 border-b-2 border-white/20 text-white px-4 py-2 focus:outline-none focus:bg-black/80 placeholder-gray-500"
+              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+              autoFocus
+            />
+            <div className="max-h-52 overflow-y-auto">
+              {filteredModules.map(mod => {
+                const modColor = text2color(mod.name)
+                return (
+                  <button
+                    key={mod.name}
+                    onClick={() => handleModuleClick(mod.name)}
+                    className="w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4"
+                    style={{
+                      fontFamily: 'IBM Plex Mono, monospace',
+                      borderLeftColor: modColor,
+                      fontSize: '1rem'
+                    }}
+                  >
+                    {mod.name}
+                  </button>
+                )
+              })}
+              {filteredModules.length === 0 && (
+                <div className="px-4 py-3 text-gray-500 text-center" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                  no modules found
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -130,24 +166,40 @@ export function ModuleFunctionSelector({
           <span className="text-sm">{showFunctionList ? '▲' : '▼'}</span>
         </button>
         {showFunctionList && selectedModule && (
-          <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-64 overflow-y-auto z-50">
-            {functions.map(fn => {
-              const fnColor = text2color(fn)
-              return (
-                <button
-                  key={fn}
-                  onClick={() => handleFunctionClick(fn)}
-                  className="w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4"
-                  style={{
-                    fontFamily: 'IBM Plex Mono, monospace',
-                    borderLeftColor: fnColor,
-                    fontSize: '1rem'
-                  }}
-                >
-                  {fn}
-                </button>
-              )
-            })}
+          <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-64 overflow-hidden z-50">
+            <input
+              type="text"
+              value={functionSearch}
+              onChange={(e) => setFunctionSearch(e.target.value)}
+              placeholder="🔍 search functions..."
+              className="w-full bg-black/60 border-b-2 border-white/20 text-white px-4 py-2 focus:outline-none focus:bg-black/80 placeholder-gray-500"
+              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+              autoFocus
+            />
+            <div className="max-h-52 overflow-y-auto">
+              {filteredFunctions.map(fn => {
+                const fnColor = text2color(fn)
+                return (
+                  <button
+                    key={fn}
+                    onClick={() => handleFunctionClick(fn)}
+                    className="w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4"
+                    style={{
+                      fontFamily: 'IBM Plex Mono, monospace',
+                      borderLeftColor: fnColor,
+                      fontSize: '1rem'
+                    }}
+                  >
+                    {fn}
+                  </button>
+                )
+              })}
+              {filteredFunctions.length === 0 && (
+                <div className="px-4 py-3 text-gray-500 text-center" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                  no functions found
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

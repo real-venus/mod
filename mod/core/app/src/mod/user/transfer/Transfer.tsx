@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { userContext } from '@/mod/context'
-import { Send, Zap, CheckCircle, AlertCircle, ArrowUpDown, ChevronDown } from 'lucide-react'
+import { Send, Zap, CheckCircle, AlertCircle, ArrowUpDown } from 'lucide-react'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { text2color } from '@/mod/utils'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
+import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
+import { TransferHeader } from './TransferHeader'
 
 interface TransferHistory {
   to: string
@@ -63,18 +65,11 @@ interface TokenOption {
   decimals: number
 }
 
-const DEFAULT_TOKENS: TokenOption[] = [
-  { address: 'ETH', symbol: 'ETH', decimals: 18 }
-]
-
 export const Transfer: React.FC = () => {
   const { network, user } = userContext()
   const [toAddress, setToAddress] = useState('')
   const [amount, setAmount] = useState('')
-  const [selectedToken, setSelectedToken] = useState<TokenOption>(DEFAULT_TOKENS[0])
-  const [customTokens, setCustomTokens] = useState<TokenOption[]>([])
-  const [newTokenAddress, setNewTokenAddress] = useState('')
-  const [showAddToken, setShowAddToken] = useState(false)
+  const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null)
   const [response, setResponse] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -85,12 +80,11 @@ export const Transfer: React.FC = () => {
   const [sortAsc, setSortAsc] = useState(false)
   const [currentNetwork, setCurrentNetwork] = useState<string>('')
   const [currentNetworkUrl, setCurrentNetworkUrl] = useState<string>('')
-  const [showTokenDropdown, setShowTokenDropdown] = useState(false)
   const [usdcBalance, setUsdcBalance] = useState<string>('0')
   const [usdtBalance, setUsdtBalance] = useState<string>('0')
+  const [marketBalance, setMarketBalance] = useState<string>('0')
 
   const userColor = text2color(user?.key || 'default')
-  const allTokens = [DEFAULT_TOKENS[0], ...customTokens]
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -107,39 +101,19 @@ export const Transfer: React.FC = () => {
       if (mode === 'metamask') {
         fetchBalance(address, networkUrl)
         fetchUsdcUsdtBalances(address)
+        fetchMarketBalance(address)
       }
     }
     const savedHistory = localStorage.getItem(`transfer_history_${address}`)
     if (savedHistory) {
       setHistory(JSON.parse(savedHistory))
     }
-
-    const chainConfig = modConfig.chain?.['testnet']
-    const preloadedTokens: TokenOption[] = []
-    
-    if (chainConfig?.contracts?.USDC?.address) {
-      preloadedTokens.push({
-        address: chainConfig.contracts.USDC.address,
-        symbol: 'USDC',
-        decimals: 6
-      })
-    }
-    
-    if (chainConfig?.contracts?.USDT?.address) {
-      preloadedTokens.push({
-        address: chainConfig.contracts.USDT.address,
-        symbol: 'USDT',
-        decimals: 6
-      })
-    }
-    
-    setCustomTokens(preloadedTokens)
   }, [user, network])
 
   useEffect(() => {
-    if (selectedToken.address !== 'ETH' && ethers.isAddress(selectedToken.address)) {
+    if (selectedToken && selectedToken.address !== 'ETH' && ethers.isAddress(selectedToken.address)) {
       fetchTokenInfo(selectedToken.address)
-    } else if (selectedToken.address === 'ETH') {
+    } else if (selectedToken?.address === 'ETH') {
       fetchBalance(walletAddress, currentNetworkUrl)
     }
   }, [selectedToken, walletAddress])
@@ -178,6 +152,23 @@ export const Transfer: React.FC = () => {
     }
   }
 
+  const fetchMarketBalance = async (address: string) => {
+    try {
+      const url = localStorage.getItem('network_url') || 'http://localhost:8545'
+      const provider = new ethers.JsonRpcProvider(url)
+      const chainConfig = modConfig.chain?.['testnet']
+      
+      if (chainConfig?.contracts?.Market?.address) {
+        const marketContract = new ethers.Contract(chainConfig.contracts.Market.address, MarketABI.abi, provider)
+        const marketBal = await marketContract.balanceOf(address)
+        const decimals = await marketContract.decimals()
+        setMarketBalance(ethers.formatUnits(marketBal, decimals))
+      }
+    } catch (err) {
+      console.error('Failed to fetch Market balance:', err)
+    }
+  }
+
   const fetchTokenInfo = async (tokenAddress: string) => {
     try {
       const url = localStorage.getItem('network_url') || 'http://localhost:8545'
@@ -194,40 +185,6 @@ export const Transfer: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch token info:', err)
       setError('Invalid ERC20 token address')
-    }
-  }
-
-  const addCustomToken = async () => {
-    if (!newTokenAddress || !ethers.isAddress(newTokenAddress)) {
-      setError('Invalid token address')
-      return
-    }
-
-    try {
-      const url = localStorage.getItem('network_url') || 'http://localhost:8545'
-      const provider = new ethers.JsonRpcProvider(url)
-      const contract = new ethers.Contract(newTokenAddress, ERC20_ABI, provider)
-      
-      const [symbol, decimals] = await Promise.all([
-        contract.symbol(),
-        contract.decimals()
-      ])
-
-      const newToken: TokenOption = {
-        address: newTokenAddress,
-        symbol,
-        decimals
-      }
-
-      const updatedTokens = [...customTokens, newToken]
-      setCustomTokens(updatedTokens)
-      localStorage.setItem(`custom_tokens_${currentNetwork}`, JSON.stringify(updatedTokens))
-      setSelectedToken(newToken)
-      setNewTokenAddress('')
-      setShowAddToken(false)
-      setError(null)
-    } catch (err) {
-      setError('Failed to add token. Please check the address.')
     }
   }
 
@@ -263,6 +220,7 @@ export const Transfer: React.FC = () => {
   const executeTransfer = async () => {
     if (!toAddress || !amount) return setError('Please fill in all fields')
     if (!walletAddress) return setError('No wallet connected')
+    if (!selectedToken) return setError('Please select a token')
     if (selectedToken.address !== 'ETH' && !ethers.isAddress(selectedToken.address)) return setError('Invalid token address')
 
     setIsLoading(true)
@@ -286,7 +244,9 @@ export const Transfer: React.FC = () => {
       if (selectedToken.address !== 'ETH') {
         const contract = new ethers.Contract(selectedToken.address, ERC20_ABI, signer)
         const amountInWei = ethers.parseUnits(amount, selectedToken.decimals)
-        
+
+        console.log('Transferring', amountInWei.toString(), 'of', selectedToken.address, 'with', selectedToken.decimals, 'decimals')  
+
         tx = await contract.transfer(toAddress, amountInWei)
         receipt = await tx.wait()
       } else {
@@ -334,6 +294,7 @@ export const Transfer: React.FC = () => {
       }
       
       await fetchUsdcUsdtBalances(walletAddress)
+      await fetchMarketBalance(walletAddress)
     } catch (err: any) {
       let msg = err?.message || String(err)
       if (msg.includes('insufficient funds')) 
@@ -366,13 +327,16 @@ export const Transfer: React.FC = () => {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-sm font-mono font-bold text-green-400">
-              Balance: {selectedToken.address === 'ETH' ? `${balance} ETH` : `${tokenBalance} ${selectedToken.symbol}`}
+              Balance: {selectedToken?.address === 'ETH' ? `${balance} ETH` : `${tokenBalance} ${selectedToken?.symbol || ''}`}
             </div>
             <div className="text-sm font-mono font-bold text-blue-400">
               USDC: {usdcBalance}
             </div>
             <div className="text-sm font-mono font-bold text-purple-400">
               USDT: {usdtBalance}
+            </div>
+            <div className="text-sm font-mono font-bold text-yellow-400">
+              MARKET: {marketBalance}
             </div>
           </div>
         </div>
@@ -385,79 +349,14 @@ export const Transfer: React.FC = () => {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
-              Token
-            </label>
-            <div className="relative">
-              <button
-                onClick={() => setShowTokenDropdown(!showTokenDropdown)}
-                className="w-full bg-black/60 border-2 border-green-500/40 rounded-lg px-4 py-3 text-green-300 font-mono text-base focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 transition-all flex items-center justify-between"
-              >
-                <span>{selectedToken.symbol}</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              
-              {showTokenDropdown && (
-                <div className="absolute z-10 w-full mt-1 bg-black border-2 border-green-500/40 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                  {allTokens.map((token, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setSelectedToken(token)
-                        setShowTokenDropdown(false)
-                      }}
-                      className="w-full px-4 py-3 text-left text-green-300 hover:bg-green-500/20 transition-all font-mono"
-                    >
-                      {token.symbol} {token.address !== 'ETH' && `(${token.address.slice(0, 6)}...${token.address.slice(-4)})`}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => {
-                      setShowAddToken(true)
-                      setShowTokenDropdown(false)
-                    }}
-                    className="w-full px-4 py-3 text-left text-blue-400 hover:bg-blue-500/20 transition-all font-mono border-t-2 border-green-500/20"
-                  >
-                    + Add Custom ERC20
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+        <TransferHeader
+          selectedToken={selectedToken}
+          setSelectedToken={setSelectedToken}
+          walletAddress={walletAddress}
+          currentNetwork={currentNetwork}
+        />
 
-          {showAddToken && (
-            <div className="space-y-2 p-4 bg-black/40 border-2 border-blue-500/30 rounded-lg">
-              <label className="text-sm text-blue-400 font-mono uppercase font-bold tracking-wide">
-                Add Custom Token
-              </label>
-              <input
-                type="text"
-                value={newTokenAddress}
-                onChange={(e) => setNewTokenAddress(e.target.value)}
-                placeholder="0x..."
-                className="w-full bg-black/60 border-2 border-blue-500/40 rounded-lg px-4 py-3 text-blue-300 font-mono text-base placeholder-blue-600/50 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={addCustomToken}
-                  className="flex-1 py-2 border-2 border-blue-500/60 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all rounded-lg font-mono uppercase font-bold text-sm"
-                >
-                  Add Token
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAddToken(false)
-                    setNewTokenAddress('')
-                  }}
-                  className="flex-1 py-2 border-2 border-red-500/60 bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all rounded-lg font-mono uppercase font-bold text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+        <div className="space-y-4">
 
           <div className="space-y-2">
             <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
@@ -475,7 +374,7 @@ export const Transfer: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-sm text-green-400 font-mono uppercase font-bold tracking-wide">
-              Amount ({selectedToken.symbol})
+              Amount ({selectedToken?.symbol || ''})
             </label>
             <input
               type="number"
@@ -483,18 +382,18 @@ export const Transfer: React.FC = () => {
               onChange={(e) => setAmount(e.target.value)}
               disabled={isLoading}
               min="0"
-              step="0.000000001"
+              step="any"
               placeholder="0.0"
               className="w-full bg-black/60 border-2 border-green-500/40 rounded-lg px-4 py-3 text-green-300 font-mono text-base placeholder-green-600/50 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 disabled:opacity-50 transition-all"
             />
             <p className="text-xs text-green-500/50 mt-1 font-mono">
-              Available: {selectedToken.address === 'ETH' ? `${balance} ETH` : `${tokenBalance} ${selectedToken.symbol}`}
+              Available: {selectedToken?.address === 'ETH' ? `${balance} ETH` : `${tokenBalance} ${selectedToken?.symbol || ''}`}
             </p>
           </div>
 
           <button
             onClick={executeTransfer}
-            disabled={!toAddress || !amount || isLoading || !walletAddress}
+            disabled={!toAddress || !amount || isLoading || !walletAddress || !selectedToken}
             className="w-full py-4 border-2 border-green-500/60 bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 hover:bg-green-500/30 hover:border-green-500 hover:scale-[1.02] transition-all duration-300 rounded-xl font-mono uppercase font-black text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3 shadow-lg"
           >
             {isLoading ? (

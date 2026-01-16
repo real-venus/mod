@@ -18,10 +18,8 @@ print = m.print
 class Server:
     
     # possible attributes in the mod that list the functions to expose
-    fn_attributes = ['endpoints',  'fns', 'expose',  'exposed', 'functions', 'fns', 'expose_fns']
 
     # helper functions that are always exposed are always exposed [WARNING: HELPER FNS SHOULD BE CAREFULLY CHOSEN TO AVOID SECURITY RISKS]
-    HELPER_FNS = ['info', 'forward']
     
     def __init__(
         self, 
@@ -141,7 +139,6 @@ class Server:
               key = None, # the key for the server
               remote = False, # whether to run the server remotely
               d = True, 
-              run_mode = 'hypercorn', # the mode to run the api server
               pm = 'pm',
               **extra_params 
 
@@ -149,22 +146,32 @@ class Server:
 
         self.set_pm(pm)
         mod = mod or m.name
-        # if mod not in [m.name]:
-        #     try:
-        #         _mod = m.mod(mod)
-        #     except Exception as e:
-        #         print(f'Error loading mod {mod}: {m.detailed_error(e)}', color='red')
-        #         return m.fn('pm/up')(mod)
-        #     if hasattr(_mod, 'serve'):
-        #         return _mod().serve(**extra_params)
-        # self.prepare_server(mod)
         port = self.get_port(port, mod=mod)
         params = {**(params or {}), **extra_params}
         if remote:
-            return m.fn(f'{pm}/forward')(mod=mod, params=params, port=port, key=key,  daemon=d)
-        self.set_mod(mod=mod, key=key, params=params ,fns = fns)
+            return self.pm.forward(mod=mod, params=params, port=port, key=key,  daemon=d)
+        self.start_api( mod=mod, key=key, params=params, fns = fns, port=port)
+
+    def start_api(self, 
+                  mod: Union[str, 'Module', Any]=None,
+                  key: Optional[Union[str, 'Module', Any]]=None,
+                  params: Optional[dict]=None,
+                  fns : Optional[List[str]]=None,
+                  port:int=8000, 
+                  run_mode:str='hypercorn'):
+        """
+        run the api server
+        """
+
+        self.mod = m.mod(mod)(**(params or {}))
+        self.key = m.key(key)
+        fns =  fns or self.get_fns(mod)
+        def get_info(mod, **kwargs):
+                info =  m.info(mod, **kwargs)
+                info['fns'] = fns
+                return info
+        self.mod.info = partial(get_info, mod=mod, key=self.key)
         self.gate = m.mod('gate')(mod=self.mod)
-        # setup the api server
         self.app = FastAPI()
         @self.app.options("/{fn}")
         async def options_handler(fn: str):
@@ -197,36 +204,19 @@ class Server:
         else:
             raise Exception(f'Unknown mode {run_mode} for run_api')
 
-    def set_mod(self, mod, key=None, params=None ,fns = None) -> List[str]: 
-        """
-        get the public functions
-        """
-
-        self.config = m.config(mod) or {}
-        self.mod = m.mod(mod)(**(params or {}))
-        self.key = m.key(key)
-        fns =  fns or []
-        # if no fns are provided, get them from the mod attributes
-        if len(fns) == 0:
-            for fa in self.fn_attributes:
-                if fa in self.config: 
-                    fns = self.config[fa]
-                if hasattr(self.mod, fa) and isinstance(getattr(self.mod, fa), list):
-                    fns = getattr(self.mod, fa) 
-                if len(fns) > 0:
-                    break
-        fns =  list(set(fns + self.HELPER_FNS))
-        print(f'Exposing functions: {fns}', color='green')
-
-        def get_info(mod, **kwargs):
-                info =  m.info(mod, **kwargs)
-                info['fns'] = fns
-                return info
-        self.mod.info = partial(get_info, mod=mod, key=self.key)
-
-        print('--- Server Ixnfo ---', color='green')
-        shorten_v = lambda fn: fn[:6] + '...' + fn[-4:] if len(fn) > 12 else fn
-        print(self.mod.info().copy(), color='green')
-        print('-------------------', color='green')
-
+    def get_fns(self, 
+                mod:str, 
+                helper_fns:List[str]=['info', 'forward'],
+                fn_attributes = ['endpoints',  'fns', 'expose',  'exposed', 'functions', 'fns', 'expose_fns']):
+        fns = []
+        config = m.config(mod) or {}
+        mod_obj = m.mod(mod)
+        for fa in fn_attributes:
+            if fa in config: 
+                fns = config[fa]
+            if hasattr(mod_obj, fa) and isinstance(getattr(mod_obj, fa), list):
+                fns = getattr(mod_obj, fa) 
+            if len(fns) > 0:
+                break
+        fns =  list(set(fns + helper_fns))
         return fns

@@ -170,6 +170,7 @@ async function main() {
   existingConfig.deployments[networkName] = {
     chainId: chainId,
     deployer: deployer.address,
+    url: hre.network.config.url || '',
     contracts: {
       USDC: { address: await usdc.getAddress(),  contract : 'Token' },
       USDT: { address: await usdt.getAddress() , contract : 'Token' },

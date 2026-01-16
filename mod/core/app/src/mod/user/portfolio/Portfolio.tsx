@@ -21,7 +21,7 @@ export function Portfolio() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [totalValue, setTotalValue] = useState('0.00')
-  const [networkUrl, setNetworkUrl] = useState( localStorage.getItem('network_url'))
+  const [networkUrl, setNetworkUrl] = useState(localStorage.getItem('network_url'))
 
   useEffect(() => {
     const savedUrl = localStorage.getItem('network_url')

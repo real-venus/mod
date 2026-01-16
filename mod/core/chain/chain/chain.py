@@ -10,7 +10,7 @@ Provides interaction with:
 """
 
 from web3 import Web3
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 import json
 import os
 import mod as m
@@ -18,26 +18,36 @@ import mod as m
 class Mod:
     """Simplified Chain Interface for New Contract Architecture."""
 
-    def __init__(self, rpc_url: str = 'http://localhost:8545'):
+    network2url = {
+        'testnet': 'https://sepolia.base.org',
+        'local': 'http://localhost:8545',
+        'mainnet': 'https://mainnet.base.org'
+    }
+    decimals = 18
+    def __init__(self, network: str = 'testnet'):
         """Initialize Chain interface.
         
         Args:
             rpc_url: Ethereum RPC endpoint
         """
-        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
+        self.network = network
+        self.rpc_url = self.network2url.get(network, network)
+        self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
         self.contracts = {}
         self.path = m.dp('chain')
-        self.set_env()
+        self.load_env()
         self.ipfs = m.mod('ipfs')()
         self.contracts_path = os.path.join(self.path, 'artifacts', 'contracts')
         # load .env if exists
-        
+        self.config = m.config('chain')
+        addresses = self.config['deployments'].get(network, {}).get('contracts', {})
+        self.load_all_contracts()
         if not os.path.exists(self.contracts_path):
             os.makedirs(self.path)
             
     
 
-    def set_env(self):
+    def load_env(self):
         env_path = os.path.join(self.path, '.env')
         if os.path.exists(env_path):
             from dotenv import load_dotenv
@@ -50,8 +60,9 @@ class Mod:
                 if not line.strip() or line.startswith('#'):
                     continue
                 key, value = line.strip().split('=', 1)
-                env_dict[key] = value
+                env_dict[key.lower()] = value
         self.env = env_dict
+        self.connect(self.env['private_key'])
         return env_dict
 
 
@@ -87,16 +98,19 @@ class Mod:
         )
         return self.contracts[name]
 
-    def load_all_contracts(self, addresses: Dict[str, str], abis: Dict[str, list]):
+    def load_all_contracts(self):
         """Load all contracts at once.
         
         Args:
             addresses: Dict mapping contract names to addresses
             abis: Dict mapping contract names to ABIs
         """
-        for name in ['bloctime', 'market', 'registry', 'tokengate', 'treasury', 'perms', 'native_token']:
-            if name in addresses and name in abis:
-                self.load_contract(name, addresses[name], abis[name])
+        contracts = self.config['deployments'][self.network]['contracts']
+        for name, info in contracts.items():
+            name = name.lower()
+            address = info['address']
+            abi = self.ipfs.get(info.get('abi'))
+            self.load_contract(name, address, abi)
 
     # ==================== BLOCTIME FUNCTIONS ====================
 
@@ -244,7 +258,7 @@ class Mod:
         tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    def debit(self, stable_amount: int) -> Dict[str, Any]:
+    def debit(self, user:str, stable_amount: int) -> Dict[str, Any]:
         """Burn stable tokens.
         
         Args:
@@ -256,8 +270,11 @@ class Mod:
         market = self.contracts.get('market')
         if not market:
             raise ValueError('Market contract not loaded')
-        
-        tx = market.functions.debit(stable_amount).build_transaction({
+        stable_amount = int(stable_amount * 10**self.decimals)
+        # assert the user 
+        user = Web3.to_checksum_address(user)
+        # 
+        tx = market.functions.debit(user, stable_amount).build_transaction({
             'from': self.account.address,
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
@@ -267,7 +284,7 @@ class Mod:
 
     # ==================== REGISTRY FUNCTIONS ====================
 
-    def register_mod(self, name: str, data: str) -> Dict[str, Any]:
+    def reg(self, name: str, data: str=None) -> Dict[str, Any]:
         """Register a new mod.
         
         Args:
@@ -277,6 +294,9 @@ class Mod:
         Returns:
             Transaction receipt
         """
+        mod = m.fn('api/mod')(name)
+        data = data or mod.get('cid', '')
+        name = mod['name']
         registry = self.contracts.get('registry')
         if not registry:
             raise ValueError('Registry contract not loaded')
@@ -286,10 +306,24 @@ class Mod:
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    def update_mod(self, mod_id: int, data: str) -> Dict[str, Any]:
+
+    def name2id(self, name: str=None) -> Union[int, Dict[str, int]]:
+        """Get mod ID from name.
+        
+        Args:
+            name: Mod name
+            
+        Returns:
+            Mod ID
+        """
+        mods = self.mods()
+        name2id = {mod['name']: mod['id'] for mod in mods}
+        return name2id.get(name, 0) if name else name2id
+
+    def update(self, name: int, data: str) -> Dict[str, Any]:
         """Update mod data.
         
         Args:
@@ -308,7 +342,7 @@ class Mod:
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
     def get_mod(self, mod_id: int) -> Dict[str, Any]:
@@ -332,6 +366,8 @@ class Mod:
         }
 
     # ==================== TOKENGATE FUNCTIONS ====================
+
+
 
     def whitelist_token(self, token_address: str) -> Dict[str, Any]:
         """Whitelist a token (owner only).
@@ -462,6 +498,44 @@ class Mod:
         if not treasury:
             raise ValueError('Treasury contract not loaded')
         return treasury.functions.getClaimableAmount(holder, token).call()
+
+
+    def getMods(self):
+        """Get all mods from registry."""
+        registry = self.contracts.get('registry')
+        if not registry:
+            raise ValueError('Registry contract not loaded')
+        mod_count = registry.functions.mods(1).call()
+        return mod_count
+
+
+    def modIds(self, address=None):
+        """Get all mods for a user from registry."""
+        registry = self.contracts.get('registry')
+        if not registry:
+            raise ValueError('Registry contract not loaded')
+        addr = address or self.account.address
+        mod_ids = registry.functions.getUserMods(addr).call()
+        return mod_ids
+
+    def mods(self, address=None, keys=['id','data', 'name', ]):
+        """Get all mods for a user from registry."""
+        mod_ids = self.modIds(address=address)
+        mods = []
+        for mod_id in mod_ids:
+            _mod = self.get_mod(mod_id)
+            _mod['id'] = mod_id
+            mod_info = {k: _mod[k] for k in keys}
+            
+            mods.append(mod_info)
+            
+
+        return mods
+
+    def mymods(self):
+        """Get all mods for the connected user from registry."""
+        return self.mods(address=self.account.address)
+        
 
     # ==================== UTILITY FUNCTIONS ====================
 

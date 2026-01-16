@@ -17,7 +17,7 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
 
   const CardContent = () => (
     <div 
-      className="border-2 rounded-xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:border-opacity-80 shadow-lg"
+      className="border rounded-xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:border-opacity-80 shadow-lg"
       style={{ 
         fontFamily: 'IBM Plex Mono, Courier New, monospace',
         backgroundColor: 'black',
@@ -32,7 +32,7 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
             <KeyIcon className="w-8 h-8" style={{ color: userColor }} />
           </Link>
           
-          <div className="flex items-center gap-1 bg-black border-2 rounded-lg px-3 py-1.5" style={{ borderColor: `${userColor}40` }}>
+          <div className="flex items-center gap-1 bg-black border rounded-lg px-3 py-1.5" style={{ borderColor: `${userColor}40` }}>
             <Link href={`/user/${user.key}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
               <code className="text-base font-mono" style={{ color: userColor }}>
                 {user.key.substring(0, 8)}...{user.key.substring(user.key.length - 8)}

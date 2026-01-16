@@ -171,12 +171,6 @@ export function NetworkSelector() {
           className="w-3 h-3 rounded-full animate-pulse"
           style={{ backgroundColor: selectedNetwork.color }}
         />
-        <span 
-          className="font-bold text-sm uppercase tracking-wider"
-          style={{ color: selectedNetwork.color }}
-        >
-          {selectedNetwork.name}
-        </span>
         {selectedNetwork.chainId && (
           <span className="text-xs text-gray-400 font-mono">#{selectedNetwork.chainId}</span>
         )}

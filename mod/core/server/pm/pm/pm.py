@@ -233,11 +233,7 @@ class PM:
         return {}
 
     def servers(self, search=None, **kwargs):
-        servers =  self.ps()
-        if search != None:
-            servers = [m for m in servers if search in m]
-        servers = sorted(list(set(servers)))
-        return servers
+        return list(self.namespace(search=search, **kwargs).keys())
 
     def server_exists(self, name):
         return name in self.servers()
@@ -388,9 +384,8 @@ class PM:
                 self.sync()
         except Exception as e:
             print(f'Error killing container {name}: {m.detailed_error(e)}', color='red')
-        servers = self.servers(search=name)
-        assert name not in servers, f'Failed to kill container {name}'
-        children = self.servers(search=name + '.')
+        assert name not in self.ps(), f'Failed to kill container {name}'
+        children = self.ps(search=name + '.')
         for child in children:
             print(f'Killing child container {child}')
             self.kill(child, update=update)
@@ -546,7 +541,7 @@ class PM:
             return stats
         return m.df(stats)
 
-    def ps(self) -> List[str]:
+    def ps(self, search: str = None) -> List[str]:
         """
         List all running Docker containers.
         """
@@ -560,6 +555,8 @@ class PM:
                     parts = line.split()
                     if len(parts) > 0:  # Check if there are any parts in the line
                         ps.append(parts[-1])
+            if search != None:
+                ps = [m for m in ps if search in m]
             return ps
         except Exception as e:
             m.print(f"Error listing containers: {e}", color='red')

@@ -160,10 +160,8 @@ class  Api:
     def call(self , 
                 fn: str = 'api/edit',  
                 params: Dict[str, Any] = {}, 
-                key='api', 
-                signature=None, 
-                api=None,
                 cost = 1,
+                token = None, 
                 wait=False,
                 return_cid = False,
                 timeout=1000, **extra_params) -> Any:
@@ -178,16 +176,12 @@ class  Api:
             Result of the function call
         """
         task = self.task_data( fn=fn, params=params, timeout=timeout)
-        if self.devmode:
-            key = m.key(key)
-            key_address =  key.address
-            signature = key.sign(task, mode='str')
-        else:
-            key_address = key
-            assert signature is not None, "Signature must be provided in non-devmode"
-        assert self.key.verify(task, signature=signature, address=key_address), "Signature verification failed"
-        task['key'] = key_address
-        task['signature'] = signature
+        if self.devmode and token == None:
+            print(self.key.address)
+            token = self.auth.token(data=task, key=self.key)
+        token_auth = self.auth.verify(token)
+        task['key'] = token_auth['key']
+        task['token'] = token
         task['path'] = self.task_path(task)
         task['cid'] = self.put(task)
         m.put(task['path'], task)
@@ -227,7 +221,6 @@ class  Api:
         path = task['path']
         if isinstance(task['params'], str):
             params =  self.get(task['params'])
-        
         assert isinstance(params, dict)
         
         m.put(path, task)
@@ -235,8 +228,16 @@ class  Api:
         # avoid recursion
         assert not task['fn'].endswith('/call'), "Function name cannot end with '/call'"
         try:
-            result = m.fn('client/call')(task['fn'], params=params, timeout=task['timeout'])
+            mod_name , fn_name = task['fn'].split('/', 1)
+            if mod_name in self.servers():
+                result = m.fn('client/call')(fn=task['fn'], params=params, timeout=task['timeout'])
+            else:
+                allowed_fns = self.get_fns(mod)
+                assert fn_name in allowed_fns, f'Function {fn_name} not allowed in mod {mod_name}. Allowed functions: {allowed_fns}'
+                result = m.fn(fn_name)(**params)
+
             task['status'] = 'success'
+
         except Exception as e:
             result = m.detailed_error(e)
             task['status'] = 'error'
@@ -252,7 +253,7 @@ class  Api:
         task['delta'] = m.time() - task['time']
         task['owner'] = self.key.address
         task['request_cid'] = m.copy(task['cid'])
-        task['owner_signature'] = self.key.sign(task, mode='str')
+        task['owner_token'] = self.auth.token(data=task, key=self.key)
         task['cid'] = self.put(task)
         m.put(path, task)
         return task['cid']
@@ -1115,3 +1116,21 @@ class  Api:
                 raise Exception(f'Task {task_path} failed with error: {task.get("result","unknown error")}   ')
         return task
         
+
+
+    def get_fns(self, 
+                mod:str, 
+                helper_fns:List[str]=['info', 'forward'],
+                fn_attributes = ['endpoints',  'fns', 'expose',  'exposed', 'functions', 'fns', 'expose_fns']):
+        fns = []
+        config = m.config(mod) or {}
+        mod_obj = m.mod(mod)
+        for fa in fn_attributes:
+            if fa in config: 
+                fns = config[fa]
+            if hasattr(mod_obj, fa) and isinstance(getattr(mod_obj, fa), list):
+                fns = getattr(mod_obj, fa) 
+            if len(fns) > 0:
+                break
+        fns =  list(set(fns + helper_fns))
+        return fns

@@ -57,6 +57,8 @@ class Auth:
         Verify and decode a JWT token
         provide the data if you want to verify the data hash
         """
+        if isinstance(headers, str):
+            headers = json.loads(self._base64url_decode(headers))
         if 'token' in headers:
             token = headers['token']
             headers = json.loads(self._base64url_decode(token))

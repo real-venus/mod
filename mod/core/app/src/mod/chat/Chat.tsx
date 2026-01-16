@@ -100,9 +100,16 @@ export default function Chat() {
       if (chatState.input.trim() && chatState.selectedInputParam) {
         callParams[chatState.selectedInputParam] = chatState.input.trim()
       }
+
+      // const task_data = await chatState.client.call('task_data', {
+      //   fn: `${chatState.selectedModule}/${chatState.selectedFunction}`,
+      //   params: callParams
+      // })
+      // let token = chatState.client.auth.token(task_data)
       const result = await chatState.client.call('call', {
         fn: `${chatState.selectedModule}/${chatState.selectedFunction}`,
         params: callParams,
+        // token: token,
         wait: chatState.wait
       }, 0, {}, chatState.timeout * 1000)
 

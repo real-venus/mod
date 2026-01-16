@@ -39,9 +39,10 @@ class Gate:
         assert not isinstance(fn, str) or fn != '', "Function name cannot be empty"
         info = mod.info()
         headers = dict(request.headers)
-        role = self.get_role(info['key'])
-        assert role, f"Role for key {info['key']} not found"
         headers = self.auth.verify(headers)
+        role = self.get_role(headers['key'])
+
+        assert role, f"Role for key {headers['key']} not found"
         if  bool(role == 'owner'):
             print(f'ATTENTION: owner({headers["key"]}) is calling {fn}', color='green')
         else:
