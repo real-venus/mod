@@ -127,7 +127,6 @@ public signatureData(data: any): string {
       signature: '',
     };
 
-    console.log('key used for signing:', this.key)
     // Create signature data object with only the specified keys
     let signatureData: string = this.signatureData(authData);
     authData.dataHash = this.hash(signatureData);
@@ -141,7 +140,6 @@ public signatureData(data: any): string {
       throw new Error('Signature verification failed');
     }
 
-    console.log('Signature verified:', authData);
 
     return this.base64urlEncode(JSON.stringify( authData));
   }

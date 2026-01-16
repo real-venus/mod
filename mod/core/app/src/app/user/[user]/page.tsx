@@ -13,18 +13,20 @@ import ClaimMod from '@/mod/user/claim'
 import { UserModules } from '@/mod/user/usermods/UserModules'
 import ContractsInterface from '@/mod/user/contracts/Contracts'
 import { Admin } from '@/mod/user/admin/Admin'
+import { Portfolio } from '@/mod/user/portfolio/Portfolio'
 import { DollarSign, CreditCard, AlertCircle, CheckCircle, Zap } from 'lucide-react'
 import { MarketAllowanceManager } from '@/mod/network/marketAllowance'
 import modConfig from '@/app/mod.json'
 import { ethers } from 'ethers'
 import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 
-type TabType = 'mods' | 'sign' | 'transfer' | 'register' | 'update' | 'claim' | 'admin' | 'contracts' | 'billing'
+type TabType = 'mods' | 'sign' | 'transfer' | 'register' | 'update' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio'
 type TokenType = 'USDC' | 'USDT'
 
 const DEFAULT_TABS: { id: TabType; label: string; color: string }[] = [
   { id: 'transfer', label: 'transfer', color: 'blue' },
   { id: 'mods', label: 'mods', color: 'purple' },
+  { id: 'portfolio', label: 'portfolio', color: 'indigo' },
   { id: 'register', label: 'register', color: 'green' },
   { id: 'update', label: 'update', color: 'orange' },
   { id: 'claim', label: 'claim', color: 'pink' },
@@ -246,6 +248,7 @@ export default function UserPage() {
     const colorMap: Record<string, { active: string; inactive: string }> = {
       blue: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
       purple: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
+      indigo: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
       green: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
       orange: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
       pink: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
@@ -289,6 +292,7 @@ export default function UserPage() {
 
           <div className="bg-black border-2 border-white/30 rounded p-6">
             {activeTab === 'mods' && <UserModules userData={userData} />}
+            {activeTab === 'portfolio' && <Portfolio />}
             {activeTab === 'transfer' && client?.key && user && <Transfer />}
             {activeTab === 'register' && client?.key && user && <Reg />}
             {activeTab === 'update' && client?.key && user && <Update />}

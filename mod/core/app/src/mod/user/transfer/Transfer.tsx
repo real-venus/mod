@@ -6,6 +6,7 @@ import { Send, Zap, CheckCircle, AlertCircle, ArrowUpDown, ChevronDown } from 'l
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { text2color } from '@/mod/utils'
 import { ethers } from 'ethers'
+import modConfig from '@/app/mod.json'
 
 interface TransferHistory {
   to: string
@@ -85,6 +86,8 @@ export const Transfer: React.FC = () => {
   const [currentNetwork, setCurrentNetwork] = useState<string>('')
   const [currentNetworkUrl, setCurrentNetworkUrl] = useState<string>('')
   const [showTokenDropdown, setShowTokenDropdown] = useState(false)
+  const [usdcBalance, setUsdcBalance] = useState<string>('0')
+  const [usdtBalance, setUsdtBalance] = useState<string>('0')
 
   const userColor = text2color(user?.key || 'default')
   const allTokens = [DEFAULT_TOKENS[0], ...customTokens]
@@ -103,6 +106,7 @@ export const Transfer: React.FC = () => {
       setWalletAddress(address)
       if (mode === 'metamask') {
         fetchBalance(address, networkUrl)
+        fetchUsdcUsdtBalances(address)
       }
     }
     const savedHistory = localStorage.getItem(`transfer_history_${address}`)
@@ -110,11 +114,26 @@ export const Transfer: React.FC = () => {
       setHistory(JSON.parse(savedHistory))
     }
 
-    // Load custom tokens
-    const savedTokens = localStorage.getItem(`custom_tokens_${selectedNetwork}`)
-    if (savedTokens) {
-      setCustomTokens(JSON.parse(savedTokens))
+    const chainConfig = modConfig.chain?.['testnet']
+    const preloadedTokens: TokenOption[] = []
+    
+    if (chainConfig?.contracts?.USDC?.address) {
+      preloadedTokens.push({
+        address: chainConfig.contracts.USDC.address,
+        symbol: 'USDC',
+        decimals: 6
+      })
     }
+    
+    if (chainConfig?.contracts?.USDT?.address) {
+      preloadedTokens.push({
+        address: chainConfig.contracts.USDT.address,
+        symbol: 'USDT',
+        decimals: 6
+      })
+    }
+    
+    setCustomTokens(preloadedTokens)
   }, [user, network])
 
   useEffect(() => {
@@ -134,6 +153,28 @@ export const Transfer: React.FC = () => {
       setBalance(parseFloat(balanceEth).toFixed(6))
     } catch (err) {
       console.error('Failed to fetch balance:', err)
+    }
+  }
+
+  const fetchUsdcUsdtBalances = async (address: string) => {
+    try {
+      const url = localStorage.getItem('network_url') || 'http://localhost:8545'
+      const provider = new ethers.JsonRpcProvider(url)
+      const chainConfig = modConfig.chain?.['testnet']
+      
+      if (chainConfig?.contracts?.USDC?.address) {
+        const usdcContract = new ethers.Contract(chainConfig.contracts.USDC.address, ERC20_ABI, provider)
+        const usdcBal = await usdcContract.balanceOf(address)
+        setUsdcBalance(ethers.formatUnits(usdcBal, 6))
+      }
+      
+      if (chainConfig?.contracts?.USDT?.address) {
+        const usdtContract = new ethers.Contract(chainConfig.contracts.USDT.address, ERC20_ABI, provider)
+        const usdtBal = await usdtContract.balanceOf(address)
+        setUsdtBalance(ethers.formatUnits(usdtBal, 6))
+      }
+    } catch (err) {
+      console.error('Failed to fetch USDC/USDT balances:', err)
     }
   }
 
@@ -291,6 +332,8 @@ export const Transfer: React.FC = () => {
       } else {
         await fetchBalance(walletAddress, networkUrl)
       }
+      
+      await fetchUsdcUsdtBalances(walletAddress)
     } catch (err: any) {
       let msg = err?.message || String(err)
       if (msg.includes('insufficient funds')) 
@@ -321,8 +364,16 @@ export const Transfer: React.FC = () => {
               Network: {currentNetwork}
             </span>
           </div>
-          <div className="text-sm font-mono font-bold text-green-400">
-            Balance: {selectedToken.address === 'ETH' ? `${balance} ETH` : `${tokenBalance} ${selectedToken.symbol}`}
+          <div className="flex items-center gap-4">
+            <div className="text-sm font-mono font-bold text-green-400">
+              Balance: {selectedToken.address === 'ETH' ? `${balance} ETH` : `${tokenBalance} ${selectedToken.symbol}`}
+            </div>
+            <div className="text-sm font-mono font-bold text-blue-400">
+              USDC: {usdcBalance}
+            </div>
+            <div className="text-sm font-mono font-bold text-purple-400">
+              USDT: {usdtBalance}
+            </div>
           </div>
         </div>
         

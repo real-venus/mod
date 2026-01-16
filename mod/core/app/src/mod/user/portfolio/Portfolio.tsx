@@ -21,6 +21,24 @@ export function Portfolio() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [totalValue, setTotalValue] = useState('0.00')
+  const [networkUrl, setNetworkUrl] = useState( localStorage.getItem('network_url'))
+
+  useEffect(() => {
+    const savedUrl = localStorage.getItem('network_url')
+    if (savedUrl) {
+      setNetworkUrl(savedUrl)
+    }
+
+    const handleStorageChange = () => {
+      const updatedUrl = localStorage.getItem('network_url')
+      if (updatedUrl) {
+        setNetworkUrl(updatedUrl)
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   const checkBalances = async () => {
     if (!user?.key) {
@@ -33,7 +51,7 @@ export function Portfolio() {
     const results: TokenBalance[] = []
 
     try {
-      const provider = new ethers.JsonRpcProvider('https://eth.llamarpc.com')
+      const provider = new ethers.JsonRpcProvider(networkUrl)
       const network = 'testnet'
       const chainConfig = modConfig.chain?.[network]
 
@@ -108,7 +126,7 @@ export function Portfolio() {
     if (user?.key) {
       checkBalances()
     }
-  }, [user?.key])
+  }, [user?.key, networkUrl])
 
   return (
     <div className="space-y-6">
@@ -182,7 +200,7 @@ export function Portfolio() {
         <div className="p-4 bg-black/40 border border-purple-500/20 rounded-lg">
           <div className="text-purple-500/60 text-sm font-mono">
             <p className="mb-2"><strong>Wallet:</strong> {user.key.slice(0, 10)}...{user.key.slice(-8)}</p>
-            <p><strong>Network:</strong> Ethereum Mainnet</p>
+            <p className="mb-2"><strong>Network URL:</strong> {networkUrl}</p>
           </div>
         </div>
       )}

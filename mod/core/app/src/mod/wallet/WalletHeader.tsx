@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation'
 import WalletAuthButton from '@/mod/wallet/WalletAuthButton'
 import { useState, useEffect } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'
+import { ethers } from 'ethers'
+import modConfig from '@/app/mod.json'
 
 
 
@@ -17,6 +19,11 @@ export function WalletHeader() {
   const [showTooltip, setShowTooltip] = useState(false)
   const [walletMode, setWalletMode] = useState('local')
   const [walletAddress, setWalletAddress] = useState('')
+  const [keyUsdcValue, setKeyUsdcValue] = useState<number>(0)
+  const [keyUsdtValue, setKeyUsdtValue] = useState<number>(0)
+  const [clientKeyUsdcValue, setClientKeyUsdcValue] = useState<number>(0)
+  const [clientKeyUsdtValue, setClientKeyUsdtValue] = useState<number>(0)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && user) {
@@ -24,6 +31,64 @@ export function WalletHeader() {
       setWalletAddress(localStorage.getItem('wallet_address') || user.key)
     }
   }, [user])
+
+  useEffect(() => {
+    const fetchUsdValues = async () => {
+      if (!user || !client) return
+      
+      try {
+        setLoading(true)
+        const network = 'testnet'
+        const chainConfig = modConfig.chain?.[network]
+        if (!chainConfig || !window.ethereum) return
+
+        const provider = new ethers.BrowserProvider(window.ethereum)
+        const usdcAddress = chainConfig.contracts.USDC?.address
+        const usdtAddress = chainConfig.contracts.USDT?.address
+        
+        if (usdcAddress) {
+          const usdcABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)']
+          const usdcContract = new ethers.Contract(usdcAddress, usdcABI, provider)
+          
+          // Get key USDC value
+          const keyBalance = await usdcContract.balanceOf(walletAddress)
+          const decimals = await usdcContract.decimals()
+          const keyUsdc = parseFloat(ethers.formatUnits(keyBalance, decimals))
+          setKeyUsdcValue(keyUsdc)
+          
+          // Get client key USDC value
+          const clientBalance = await usdcContract.balanceOf(client.key.address)
+          const clientUsdc = parseFloat(ethers.formatUnits(clientBalance, decimals))
+          setClientKeyUsdcValue(clientUsdc)
+        }
+        
+        if (usdtAddress) {
+          const usdtABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)']
+          const usdtContract = new ethers.Contract(usdtAddress, usdtABI, provider)
+          
+          // Get key USDT value
+          const keyBalance = await usdtContract.balanceOf(walletAddress)
+          const decimals = await usdtContract.decimals()
+          const keyUsdt = parseFloat(ethers.formatUnits(keyBalance, decimals))
+          setKeyUsdtValue(keyUsdt)
+          
+          // Get client key USDT value
+          const clientBalance = await usdtContract.balanceOf(client.key.address)
+          const clientUsdt = parseFloat(ethers.formatUnits(clientBalance, decimals))
+          setClientKeyUsdtValue(clientUsdt)
+        }
+        
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching USD values:', error)
+        setLoading(false)
+      }
+    }
+
+    if (showTooltip) {
+      fetchUsdValues()
+    }
+  }, [showTooltip, user, client, walletAddress])
 
   const handleSignOut = () => {
     signOut()
@@ -118,7 +183,7 @@ export function WalletHeader() {
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between pb-3 border-b-2" style={{ borderColor: userColor, fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-                    <span className="text-lg font-bold lowercase" style={{ color: userColor }}>WALLET INFO</span>
+                    <span className="text-2xl font-bold lowercase" style={{ color: userColor }}>WALLET INFO</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleSignOut(); }}
                       className="px-3 py-1.5 border-2 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 rounded-lg"
@@ -136,37 +201,57 @@ export function WalletHeader() {
                   </div>
                   
                   <div className="space-y-2" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-                    <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
-                      <div className="text-xs text-gray-400 mb-1">wallet</div>
-                      <div className="font-mono text-sm lowercase font-bold" style={{ color: userColor, fontSize: '1.1rem' }}>{walletMode}</div>
-                    </div>
-                    
-                    <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
-                      <div className="text-xs text-gray-400 mb-1">key</div>
-                      <div className="font-mono text-sm lowercase font-bold" style={{ color: userColor, fontSize: '1.1rem' }}>{user.crypto_type}</div>
+                    <div className="p-2 rounded-lg border-2 flex items-center justify-between" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
+                      <div>
+                        <div className="text-xs text-gray-400 mb-1">wallet</div>
+                        <div className="font-mono text-sm lowercase font-bold" style={{ color: userColor, fontSize: '1.1rem' }}>{walletMode}</div>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-xs text-gray-400 mb-1">type</div>
+                        <div className="font-mono text-sm lowercase font-bold" style={{ color: userColor, fontSize: '1.1rem' }}>{user.crypto_type}</div>
+                      </div>
                     </div>
                     
 
                     <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
                       <div className="text-xs text-gray-400 mb-1">key</div>
                       <div className="flex items-center gap-2">
-                        <div className="font-mono text-sm" style={{ color: 'white' }}>{shorten(walletAddress, 8, 8)}</div>
+                        <div className="font-mono text-lg font-bold" style={{ color: 'white' }}>{shorten(walletAddress, 8, 8)}</div>
                         <CopyButton text={walletAddress} size="sm" />
                       </div>
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className="text-xs text-green-400 font-bold">
+                          {loading ? 'Loading...' : `USDC: $${keyUsdcValue.toFixed(2)}`}
+                        </div>
+                        <span className="text-xs text-white/30">•</span>
+                        <div className="text-xs text-green-400 font-bold">
+                          {loading ? 'Loading...' : `USDT: $${keyUsdtValue.toFixed(2)}`}
+                        </div>
+                      </div>
                     </div>
                     
 
                     <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
-                      <div className="text-xs text-gray-400 mb-1">client</div>
+                      <div className="text-xs text-gray-400 mb-1">client key</div>
                       <div className="flex items-center gap-2">
-                        <div className="font-mono text-sm" style={{ color: 'white' }}>{shorten(client.key.address, 8, 8)}</div>
+                        <div className="font-mono text-lg font-bold" style={{ color: 'white' }}>{shorten(client.key.address, 8, 8)}</div>
                         <CopyButton text={client.key.address} size="sm" />
+                      </div>
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className="text-xs text-green-400 font-bold">
+                          {loading ? 'Loading...' : `USDC: $${clientKeyUsdcValue.toFixed(2)}`}
+                        </div>
+                        <span className="text-xs text-white/30">•</span>
+                        <div className="text-xs text-green-400 font-bold">
+                          {loading ? 'Loading...' : `USDT: $${clientKeyUsdtValue.toFixed(2)}`}
+                        </div>
                       </div>
                     </div>
                     
+
                     {user.network && (
                       <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
-                        <div className="text-xs text-gray-400 mb-1">Network Modules</div>
+                        <div className="text-lg text-gray-400 mb-1 font-bold">Network Modules</div>
                         <div className="font-mono text-sm" style={{ color: userColor }}>{user.mods?.length || 0}</div>
                       </div>
                     )}
