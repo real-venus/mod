@@ -27,12 +27,33 @@ class Mod:
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         self.contracts = {}
         self.path = m.dp('chain')
+        self.set_env()
         self.ipfs = m.mod('ipfs')()
         self.contracts_path = os.path.join(self.path, 'artifacts', 'contracts')
-        self.dotenv_path = os.path.join(self.path, '.env')
+        # load .env if exists
         
         if not os.path.exists(self.contracts_path):
             os.makedirs(self.path)
+            
+    
+
+    def set_env(self):
+        env_path = os.path.join(self.path, '.env')
+        if os.path.exists(env_path):
+            from dotenv import load_dotenv
+            load_dotenv(env_path)
+        # ensure contracts path exists  
+        # dot env dict
+        env_dict = dict()
+        with open(env_path, 'r') as f:
+            for line in f:
+                if not line.strip() or line.startswith('#'):
+                    continue
+                key, value = line.strip().split('=', 1)
+                env_dict[key] = value
+        self.env = env_dict
+        return env_dict
+
 
     def sync_app(self):
         """Sync contract artifacts to app."""

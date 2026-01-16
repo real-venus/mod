@@ -9,6 +9,7 @@ import { SearchProvider } from '@/mod/context/SearchContext'
 import { SidebarProvider } from '@/mod/context/SidebarContext'
 import { SplitScreenProvider, useSplitScreenContext } from '@/mod/context/SplitScreenContext'
 import { ControlPanelProvider } from '@/mod/context/ControlPanelContext'
+import { MarketCreditProvider } from '@/mod/context/MarketCreditContext'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import { SplitScreenControls } from '@/mod/components/SplitScreenControls'
@@ -72,15 +73,17 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <UserProvider>
-          <SearchProvider>
-            <SidebarProvider>
-              <SplitScreenProvider>
-                <ControlPanelProvider>
-                  <LayoutContent>{children}</LayoutContent>
-                </ControlPanelProvider>
-              </SplitScreenProvider>
-            </SidebarProvider>
-          </SearchProvider>
+          <MarketCreditProvider>
+            <SearchProvider>
+              <SidebarProvider>
+                <SplitScreenProvider>
+                  <ControlPanelProvider>
+                    <LayoutContent>{children}</LayoutContent>
+                  </ControlPanelProvider>
+                </SplitScreenProvider>
+              </SidebarProvider>
+            </SearchProvider>
+          </MarketCreditProvider>
         </UserProvider>
       </body>
     </html>

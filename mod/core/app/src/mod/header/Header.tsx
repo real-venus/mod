@@ -6,12 +6,21 @@ import { useState, useEffect } from 'react'
 import { useSearchContext } from '@/mod/context/SearchContext'
 import { useRouter } from 'next/navigation'
 import { NetworkSelector } from '@/mod/network/NetworkSelector'
+import WalletCreditDisplay from '@/mod/wallet/WalletCreditDisplay'
+import { userContext } from '@/mod/context/UserContext'
+import { CopyButton } from '@/mod/ui/CopyButton'
+import modConfig from '@/app/mod.json'
 
 export function Header() {
   const [searchCollapsed, setSearchCollapsed] = useState(false)
   const { handleSearch } = useSearchContext()
   const router = useRouter()
   const [inputValue, setInputValue] = useState('')
+  const { user } = userContext()
+  const [treasuryAddress, setTreasuryAddress] = useState('')
+  const [whitelistedTokens, setWhitelistedTokens] = useState<string[]>([])
+  const [usdcBalance, setUsdcBalance] = useState('0')
+  const [usdtBalance, setUsdtBalance] = useState('0')
 
   useEffect(() => {
     const checkWidth = () => {
@@ -22,6 +31,64 @@ export function Header() {
     window.addEventListener('resize', checkWidth)
     return () => window.removeEventListener('resize', checkWidth)
   }, [])
+
+  useEffect(() => {
+    const network = 'testnet'
+    const chainConfig = modConfig.chain?.[network]
+    if (chainConfig?.contracts?.Treasury?.address) {
+      setTreasuryAddress(chainConfig.contracts.Treasury.address)
+    }
+  }, [])
+
+  useEffect(() => {
+    const fetchTokenGateData = async () => {
+      if (!treasuryAddress || typeof window.ethereum === 'undefined') return
+      
+      try {
+        const { ethers } = await import('ethers')
+        const provider = new ethers.BrowserProvider(window.ethereum)
+        
+        const network = 'testnet'
+        const chainConfig = modConfig.chain?.[network]
+        const tokenGateAddress = chainConfig?.contracts?.TokenGate?.address
+        
+        if (!tokenGateAddress) return
+
+        const TokenGateABI = (await import('@/mod/contracts/abi/tokengate/TokenGate.sol/TokenGate.json')).default
+        const tokenGateContract = new ethers.Contract(tokenGateAddress, TokenGateABI.abi, provider)
+        
+        const tokens = await tokenGateContract.getTokenList()
+        setWhitelistedTokens(tokens)
+        
+        const usdcAddress = chainConfig?.contracts?.USDC?.address
+        const usdtAddress = chainConfig?.contracts?.USDT?.address
+        
+        if (usdcAddress && tokens.includes(usdcAddress)) {
+          const ERC20ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)']
+          const usdcContract = new ethers.Contract(usdcAddress, ERC20ABI, provider)
+          const balance = await usdcContract.balanceOf(treasuryAddress)
+          const decimals = await usdcContract.decimals()
+          setUsdcBalance(ethers.formatUnits(balance, decimals))
+        }
+        
+        if (usdtAddress && tokens.includes(usdtAddress)) {
+          const ERC20ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)']
+          const usdtContract = new ethers.Contract(usdtAddress, ERC20ABI, provider)
+          const balance = await usdtContract.balanceOf(treasuryAddress)
+          const decimals = await usdtContract.decimals()
+          setUsdtBalance(ethers.formatUnits(balance, decimals))
+        }
+      } catch (error) {
+        console.error('Error fetching tokengate data:', error)
+      }
+    }
+
+    if (treasuryAddress) {
+      fetchTokenGateData()
+      const interval = setInterval(fetchTokenGateData, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [treasuryAddress])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -88,9 +155,44 @@ export function Header() {
               )}
             </div>
           </div>
+          
+          {whitelistedTokens.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-2 bg-black/50 border border-green-500/40 rounded-lg" style={{ height: '60px' }}>
+                <div className="flex flex-col h-full justify-center">
+                  <span className="text-xs text-white/50 uppercase font-bold">Whitelisted Tokens</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-green-400 font-mono font-bold">USDC</span>
+                    <span className="text-xs text-white/30">•</span>
+                    <span className="text-sm text-green-400 font-mono font-bold">USDT</span>
+                  </div>
+                </div>
+              </div>
+              
+              {treasuryAddress && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-black/50 border border-purple-500/40 rounded-lg" style={{ height: '60px' }}>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-white/50 uppercase font-bold">Treasury Balance</span>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-purple-300/70">USDC:</span>
+                        <span className="text-sm text-purple-400 font-mono font-bold">${parseFloat(usdcBalance).toFixed(2)}</span>
+                      </div>
+                      <span className="text-xs text-white/30">•</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-purple-300/70">USDT:</span>
+                        <span className="text-sm text-purple-400 font-mono font-bold">${parseFloat(usdtBalance).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="flex items-center justify-end gap-3">
+          {/* {user && <WalletCreditDisplay />} */}
           <NetworkSelector />
           <WalletHeader />
         </div>
