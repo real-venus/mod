@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { userContext } from '@/mod/context'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
 import { motion, AnimatePresence } from 'framer-motion'
+import { CopyButton } from '@/mod/ui/CopyButton'
+import RegistryABI from '@/mod/contracts/abi/registry/Registry.sol/Registry.json'
 
-// Dynamic ABI loading from IPFS
 const loadAbiFromIpfs = async (client: any, cid: string) => {
   try {
     const abiData = await client.call('get', { cid })
@@ -17,7 +18,6 @@ const loadAbiFromIpfs = async (client: any, cid: string) => {
   }
 }
 
-// Contract metadata structure
 interface ContractMetadata {
   abi: any
   name: string
@@ -25,6 +25,13 @@ interface ContractMetadata {
   emoji?: string
   address?: string
   abiCid?: string
+}
+
+interface UserMod {
+  modId: string
+  name: string
+  data: string
+  owner: string
 }
 
 const serializeBigInt = (obj: any): any => {
@@ -42,7 +49,7 @@ const serializeBigInt = (obj: any): any => {
 }
 
 export default function ContractsInterface() {
-  const { client } = userContext()
+  const { client, user } = userContext()
   const [selectedContract, setSelectedContract] = useState<string>('')
   const [selectedFunction, setSelectedFunction] = useState<string>('')
   const [functionParams, setFunctionParams] = useState<Record<string, any>>({})
@@ -51,21 +58,37 @@ export default function ContractsInterface() {
   const [error, setError] = useState<string | null>(null)
   const [contracts, setContracts] = useState<Record<string, ContractMetadata>>({})
   const [loadingAbi, setLoadingAbi] = useState<string | null>(null)
-  const [isContractInfoCollapsed, setIsContractInfoCollapsed] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showContractDropdown, setShowContractDropdown] = useState(false)
+  const [showNetworkInfo, setShowNetworkInfo] = useState(true)
+  const [showContractInfo, setShowContractInfo] = useState(true)
+  const [userMods, setUserMods] = useState<UserMod[]>([])
+  const [loadingMods, setLoadingMods] = useState(false)
+  const [selectedModId, setSelectedModId] = useState<string>('')
+  const [editingModData, setEditingModData] = useState<string>('')
+  
+  const contractDropdownRef = useRef<HTMLDivElement>(null)
 
   const network = 'testnet'
   const chainConfig = modConfig.chain?.[network]
 
-  // Initialize contracts metadata WITHOUT loading ABIs
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (contractDropdownRef.current && !contractDropdownRef.current.contains(event.target as Node)) {
+        setShowContractDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   useEffect(() => {
     if (!chainConfig?.contracts) return
-
     const contractsMetadata: Record<string, ContractMetadata> = {}
-    
     for (const [contractName, contractInfo] of Object.entries(chainConfig.contracts)) {
       const info = contractInfo as any
       contractsMetadata[contractName] = {
-        abi: null,
+        abi: contractName === 'Registry' ? RegistryABI.abi : null,
         name: contractName,
         color: getContractColor(contractName),
         emoji: getContractEmoji(contractName),
@@ -73,26 +96,20 @@ export default function ContractsInterface() {
         abiCid: info.abi
       }
     }
-    
     setContracts(contractsMetadata)
   }, [chainConfig])
 
-  // Load ABI only when contract is selected
   useEffect(() => {
     const loadContractAbi = async () => {
       if (!selectedContract || !client || typeof window === 'undefined') return
-      
       const contract = contracts[selectedContract]
-      if (!contract || contract.abi) return // Already loaded
-      
+      if (!contract || contract.abi) return
       if (!contract.abiCid) {
         setError('No ABI CID found for this contract')
         return
       }
-
       setLoadingAbi(selectedContract)
       setError(null)
-      
       try {
         const abiData = await loadAbiFromIpfs(client, contract.abiCid)
         setContracts(prev => ({
@@ -109,9 +126,72 @@ export default function ContractsInterface() {
         setLoadingAbi(null)
       }
     }
-
     loadContractAbi()
   }, [selectedContract, client])
+
+  const fetchUserMods = async () => {
+    if (!user?.key || !selectedContract || selectedContract !== 'Registry') return
+    const contract = contracts['Registry']
+    if (!contract?.abi || !contract?.address) return
+    
+    setLoadingMods(true)
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const registryContract = new ethers.Contract(contract.address, contract.abi, provider)
+      const modIds = await registryContract.getUserMods(user.key)
+      
+      const modsData: UserMod[] = []
+      for (const modId of modIds) {
+        const [owner, data] = await registryContract.getMod(modId)
+        modsData.push({
+          modId: modId.toString(),
+          name: `Mod #${modId.toString()}`,
+          data: data,
+          owner: owner
+        })
+      }
+      setUserMods(modsData)
+    } catch (err: any) {
+      console.error('Failed to fetch user mods:', err)
+      setError(err.message || 'Failed to fetch user mods')
+    } finally {
+      setLoadingMods(false)
+    }
+  }
+
+  useEffect(() => {
+    if (selectedContract === 'Registry' && user?.key) {
+      fetchUserMods()
+    }
+  }, [selectedContract, user?.key])
+
+  const handleUpdateMod = async () => {
+    if (!selectedModId || !editingModData || !user?.key) return
+    
+    setLoading(true)
+    setError(null)
+    try {
+      const contract = contracts['Registry']
+      if (!contract?.abi || !contract?.address) throw new Error('Registry contract not loaded')
+      
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const signer = await provider.getSigner()
+      const registryContract = new ethers.Contract(contract.address, contract.abi, signer)
+      
+      const tx = await registryContract.updateMod(selectedModId, editingModData)
+      const receipt = await tx.wait()
+      
+      setResult({ success: true, txHash: receipt.hash, modId: selectedModId })
+      await fetchUserMods()
+      setSelectedModId('')
+      setEditingModData('')
+    } catch (err: any) {
+      console.error('Update mod error:', err)
+      setError(err.message || 'Failed to update mod')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getContractColor = (name: string): string => {
     const colors: Record<string, string> = {
@@ -145,7 +225,6 @@ export default function ContractsInterface() {
     if (!selectedContract || !contracts[selectedContract]) return []
     const contract = contracts[selectedContract]
     if (!contract || !contract.abi) return []
-    
     return contract.abi
       .filter((item: any) => item.type === 'function')
       .map((item: any) => ({
@@ -158,34 +237,21 @@ export default function ContractsInterface() {
 
   const handleExecute = async () => {
     if (!selectedContract || !selectedFunction || !client) return
-    
     setLoading(true)
     setError(null)
     setResult(null)
-
     try {
       const contract = contracts[selectedContract]
-      if (!contract || !contract.abi) {
-        throw new Error('Contract ABI not loaded')
-      }
-
-      if (!contract.address) {
-        throw new Error('Contract address not found')
-      }
-
+      if (!contract || !contract.abi) throw new Error('Contract ABI not loaded')
+      if (!contract.address) throw new Error('Contract address not found')
       const functionAbi = contract.abi.find(
         (item: any) => item.type === 'function' && item.name === selectedFunction
       )
-
-      if (!functionAbi) {
-        throw new Error('Function not found in ABI')
-      }
-
+      if (!functionAbi) throw new Error('Function not found in ABI')
       const params = functionAbi.inputs.map((input: any) => functionParams[input.name] || '')
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
       const contractInstance = new ethers.Contract(contract.address, contract.abi, signer)
-
       let txResult
       if (functionAbi.stateMutability === 'view' || functionAbi.stateMutability === 'pure') {
         txResult = await contractInstance[selectedFunction](...params)
@@ -194,8 +260,10 @@ export default function ContractsInterface() {
         const receipt = await tx.wait()
         txResult = receipt
       }
-
       setResult(serializeBigInt(txResult))
+      if (selectedContract === 'Registry') {
+        await fetchUserMods()
+      }
     } catch (err: any) {
       console.error('Contract execution error:', err)
       setError(err.message || 'Failed to execute contract function')
@@ -206,38 +274,188 @@ export default function ContractsInterface() {
 
   const selectedFunctionData = getContractFunctions().find(f => f.name === selectedFunction)
   const selectedContractData = selectedContract ? contracts[selectedContract] : null
-  const shortenAddress = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : ''
+  const filteredContracts = Object.entries(contracts).filter(([key, contract]) =>
+    contract.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    contract.address?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-purple-950/20 to-black text-white p-8" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Contract & Function Selection - SAME LINE */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="block text-xl font-black mb-3 text-cyan-400">📜 contract</label>
-              <select
-                value={selectedContract}
-                onChange={(e) => {
-                  setSelectedContract(e.target.value)
-                  setSelectedFunction('')
-                  setFunctionParams({})
-                  setResult(null)
-                  setError(null)
-                }}
-                className="w-full bg-black/80 border-2 border-cyan-500/50 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-cyan-400 focus:outline-none hover:border-cyan-400/70 transition-all shadow-lg shadow-cyan-500/20"
-              >
-                <option value="">choose contract...</option>
-                {Object.entries(contracts).map(([key, contract]) => (
-                  <option key={key} value={key}>
-                    {contract.emoji} {contract.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-black via-purple-950/20 to-black text-white p-4" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+      <div className="max-w-5xl mx-auto space-y-4">
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-4">
+          <h1 className="text-4xl font-black mb-3 bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+            🚀 CONTRACTS 🚀
+          </h1>
+          <p className="text-base text-gray-400 font-mono">minimal • steve approved</p>
+        </motion.div>
 
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-lg border border-green-500/30">
+          <button
+            onClick={() => setShowNetworkInfo(!showNetworkInfo)}
+            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+          >
+            <h3 className="text-xl font-bold text-green-300">🌐 NETWORK INFO</h3>
+            <span className="text-green-300 text-xl">{showNetworkInfo ? '▼' : '▶'}</span>
+          </button>
+          {showNetworkInfo && (
+            <div className="px-4 pb-4 space-y-2 text-base">
+              <div className="flex items-center gap-3">
+                <span className="text-gray-400 font-semibold">NETWORK:</span>
+                <span className="font-mono text-base text-green-400">{network.toUpperCase()}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-gray-400 font-semibold">CONNECTED KEY:</span>
+                <span className="font-mono text-base">{user?.key || 'Not connected'}</span>
+                {user?.key && <CopyButton text={user.key} size="md" />}
+              </div>
+            </div>
+          )}
+        </motion.div>
+
+        {selectedContract && selectedContractData && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-lg border border-cyan-500/30">
+            <button
+              onClick={() => setShowContractInfo(!showContractInfo)}
+              className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+            >
+              <h3 className="text-xl font-bold text-cyan-300">📋 CONTRACT INFO</h3>
+              <span className="text-cyan-300 text-xl">{showContractInfo ? '▼' : '▶'}</span>
+            </button>
+            {showContractInfo && (
+              <div className="px-4 pb-4 space-y-2 text-base">
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-400 font-semibold">ADDRESS:</span>
+                  <span className="font-mono text-base">{selectedContractData.address}</span>
+                  <CopyButton text={selectedContractData.address || ''} size="md" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-400 font-semibold">ABI CID:</span>
+                  <span className="font-mono text-base">{selectedContractData.abiCid}</span>
+                  <CopyButton text={selectedContractData.abiCid || ''} size="md" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-400 font-semibold">STATUS:</span>
+                  <span className="font-mono text-base">
+                    {selectedContractData.abi ? '✅ loaded' : '⏳ loading'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {selectedContract === 'Registry' && userMods.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-lg border border-purple-500/30 p-4">
+            <h3 className="text-xl font-bold text-purple-300 mb-4">📝 YOUR MODS</h3>
+            <div className="space-y-3">
+              {userMods.map((mod) => (
+                <div key={mod.modId} className="bg-black/60 border border-purple-500/30 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-purple-300">{mod.name}</span>
+                    <button
+                      onClick={() => {
+                        setSelectedModId(mod.modId)
+                        setEditingModData(mod.data)
+                      }}
+                      className="px-3 py-1 bg-purple-500/30 hover:bg-purple-500/50 rounded-lg text-sm font-bold transition-all"
+                    >
+                      ✏️ EDIT
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-400 font-mono">
+                    <div>ID: {mod.modId}</div>
+                    <div>DATA: {mod.data}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {selectedModId && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-lg border border-orange-500/30 p-4">
+            <h3 className="text-xl font-bold text-orange-300 mb-4">✏️ EDIT MOD #{selectedModId}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-base font-bold mb-2 text-orange-200">MOD DATA</label>
+                <textarea
+                  value={editingModData}
+                  onChange={(e) => setEditingModData(e.target.value)}
+                  className="w-full bg-black/60 border border-orange-500/50 rounded-lg px-4 py-3 text-white text-base focus:border-orange-400 focus:outline-none min-h-[100px]"
+                  placeholder="Enter new mod data..."
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleUpdateMod}
+                  disabled={loading || !editingModData}
+                  className="flex-1 bg-gradient-to-r from-orange-500/40 to-red-600/40 text-white text-lg font-black py-3 rounded-lg hover:from-orange-600/50 hover:to-red-700/50 disabled:opacity-50 border border-orange-400/50"
+                >
+                  {loading ? '⏳ updating...' : '💾 UPDATE MOD'}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedModId('')
+                    setEditingModData('')
+                  }}
+                  className="px-6 bg-gray-700/40 text-white text-lg font-black py-3 rounded-lg hover:bg-gray-600/50 border border-gray-500/50"
+                >
+                  ❌ CANCEL
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="flex gap-3">
+          <div className="flex-1 relative" ref={contractDropdownRef}>
+            <input
+              type="text"
+              placeholder="🔍 search contracts..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => setShowContractDropdown(true)}
+              className="w-full bg-black/80 border border-cyan-500/50 rounded-lg px-4 py-4 text-white text-base font-bold focus:border-cyan-400 focus:outline-none transition-all"
+            />
+            {showContractDropdown && filteredContracts.length > 0 && (
+              <div className="absolute w-full mt-1 bg-gray-900 border-2 border-cyan-400/60 rounded-lg shadow-xl max-h-64 overflow-y-auto z-50">
+                {filteredContracts.map(([key, contract]) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setSelectedContract(key)
+                      setSelectedFunction('')
+                      setFunctionParams({})
+                      setResult(null)
+                      setError(null)
+                      setSearchTerm(contract.name)
+                      setShowContractDropdown(false)
+                    }}
+                    className="w-full text-left px-4 py-4 hover:bg-white/20 text-white transition-all border-l-4"
+                    style={{
+                      fontFamily: 'IBM Plex Mono, monospace',
+                      borderLeftColor: contract.color,
+                      fontSize: '1.1rem'
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{contract.emoji}</span>
+                      <div className="flex-1">
+                        <div className="font-bold text-lg" style={{ color: contract.color }}>{contract.name}</div>
+                        <div className="text-sm text-gray-500 font-mono">
+                          {contract.address?.slice(0, 10)}...{contract.address?.slice(-8)}
+                        </div>
+                      </div>
+                      {loadingAbi === key && <span className="text-yellow-400 text-xl">⏳</span>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selectedContract && selectedContractData?.abi && (
             <div className="flex-1">
-              <label className="block text-xl font-black mb-3 text-purple-400">⚡ function</label>
               <select
                 value={selectedFunction}
                 onChange={(e) => {
@@ -246,130 +464,73 @@ export default function ContractsInterface() {
                   setResult(null)
                   setError(null)
                 }}
-                disabled={!selectedContract || !selectedContractData?.abi}
-                className="w-full bg-black/80 border-2 border-purple-500/50 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-purple-400 focus:outline-none hover:border-purple-400/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+                className="w-full bg-black/80 border border-purple-500/50 rounded-lg px-4 py-4 text-white text-base font-bold focus:border-purple-400 focus:outline-none transition-all"
               >
-                <option value="">choose function...</option>
+                <option value="">⚡ select function...</option>
                 {getContractFunctions().map(func => (
                   <option key={func.name} value={func.name}>
-                    {func.name} ({func.stateMutability})
+                    {func.name}
                   </option>
                 ))}
               </select>
             </div>
-          </div>
-          {loadingAbi && (
-            <div className="text-yellow-400 mt-3 text-center text-sm animate-pulse">⏳ Loading ABI for {loadingAbi}...</div>
           )}
-        </motion.div>
+        </div>
 
-        {/* Collapsible Contract Info - UNDERNEATH */}
-        {selectedContract && selectedContractData && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-slate-900/60 to-slate-800/50 backdrop-blur-xl rounded-xl border-2 border-cyan-500/30 shadow-xl shadow-cyan-500/10 overflow-hidden"
-          >
-            <button
-              onClick={() => setIsContractInfoCollapsed(!isContractInfoCollapsed)}
-              className="w-full p-3 flex items-center justify-between hover:bg-cyan-500/10 transition-all"
+        <AnimatePresence>
+          {selectedContract && selectedFunctionData && selectedFunctionData.inputs.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-lg p-5 border border-pink-500/30"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{selectedContractData.emoji}</span>
-                <span className="font-mono font-bold text-cyan-300">{shortenAddress(selectedContractData.address || '')}</span>
-              </div>
-              <span className="text-lg text-cyan-300">{isContractInfoCollapsed ? '▼' : '▲'}</span>
-            </button>
-            <AnimatePresence>
-              {!isContractInfoCollapsed && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="px-4 pb-4 border-t border-cyan-500/20"
-                >
-                  <div className="space-y-2 text-sm mt-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">Full Address:</span>
-                      <span className="font-mono text-xs text-cyan-300">{selectedContractData.address}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">Status:</span>
-                      <span className="font-mono text-xs">
-                        {selectedContractData.abi ? '✅ ABI Loaded' : '⏳ ABI Not Loaded'}
-                      </span>
-                    </div>
+              <h3 className="text-xl font-bold mb-4 text-pink-300">🎯 parameters</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {selectedFunctionData.inputs.map((input: any) => (
+                  <div key={input.name}>
+                    <label className="block text-base font-bold mb-2 text-pink-200">
+                      {input.name} <span className="text-gray-500">({input.type})</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={functionParams[input.name] || ''}
+                      onChange={(e) => setFunctionParams({ ...functionParams, [input.name]: e.target.value })}
+                      className="w-full bg-black/60 border border-pink-500/50 rounded-lg px-4 py-3 text-white text-base focus:border-pink-400 focus:outline-none"
+                      placeholder={input.type}
+                    />
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Function Parameters */}
-        {selectedFunctionData && selectedFunctionData.inputs.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-2xl p-6 border-2 border-pink-500/30 shadow-xl shadow-pink-500/10"
-          >
-            <h3 className="text-xl font-bold mb-4 text-pink-300">🎯 parameters</h3>
-            <div className="space-y-3">
-              {selectedFunctionData.inputs.map((input: any) => (
-                <div key={input.name}>
-                  <label className="block text-sm font-bold mb-1 text-pink-200">
-                    {input.name} <span className="text-gray-400 text-xs">({input.type})</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={functionParams[input.name] || ''}
-                    onChange={(e) => setFunctionParams({
-                      ...functionParams,
-                      [input.name]: e.target.value
-                    })}
-                    className="w-full bg-black/60 border-2 border-pink-500/50 rounded-xl px-4 py-2 text-white text-base focus:border-pink-400 focus:outline-none shadow-lg shadow-pink-500/10"
-                    placeholder={`enter ${input.type}`}
-                  />
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Execute Button */}
         {selectedFunction && (
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
             onClick={handleExecute}
             disabled={loading}
-            className="w-full bg-gradient-to-r from-green-500/40 to-emerald-600/40 text-white text-xl font-black py-5 rounded-2xl hover:from-green-600/50 hover:to-emerald-700/50 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-green-500/20 border-2 border-green-400/50"
+            className="w-full bg-gradient-to-r from-green-500/40 to-emerald-600/40 text-white text-lg font-black py-4 rounded-lg hover:from-green-600/50 hover:to-emerald-700/50 disabled:opacity-50 border border-green-400/50"
           >
-            {loading ? '⏳ executing...' : '🚀 execute contract'}
+            {loading ? '⏳ executing...' : '🚀 execute'}
           </motion.button>
         )}
 
-        {/* Error Display */}
         {error && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-red-900/40 backdrop-blur-xl border-2 border-red-500/50 rounded-2xl p-5 shadow-xl shadow-red-500/20"
-          >
-            <p className="text-red-300 text-lg font-bold">❌ {error}</p>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-900/40 border border-red-500/50 rounded-lg p-4">
+            <p className="text-red-300 text-base font-bold">❌ {error}</p>
           </motion.div>
         )}
 
-        {/* Result Display */}
         {result && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-green-900/40 backdrop-blur-xl border-2 border-green-500/50 rounded-2xl p-6 shadow-xl shadow-green-500/20"
-          >
-            <h3 className="text-2xl font-black mb-3 text-green-300">✅ result</h3>
-            <pre className="text-base overflow-auto bg-black/60 p-4 rounded-xl border border-green-500/30 text-green-200 font-mono max-h-96">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-green-900/40 border border-green-500/50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-black text-green-300">✅ result</h3>
+              <CopyButton text={JSON.stringify(result, null, 2)} size="md" />
+            </div>
+            <pre className="text-sm overflow-auto bg-black/60 p-3 rounded-lg border border-green-500/30 text-green-200 font-mono max-h-48">
               {JSON.stringify(result, null, 2)}
             </pre>
           </motion.div>

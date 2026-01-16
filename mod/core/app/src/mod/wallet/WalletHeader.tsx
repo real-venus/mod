@@ -109,7 +109,7 @@ export function WalletHeader() {
 
             {showTooltip && (
               <div 
-                className="absolute top-full right-0 mt-2 p-4 border-2 rounded-xl shadow-2xl z-50 min-w-[320px] backdrop-blur-xl"
+                className="absolute top-full right-0 mt-0 p-5 border-2 rounded-xl shadow-2xl z-50 min-w-[320px] backdrop-blur-xl"
                 style={{
                   borderRadius: '8px',
                   backgroundColor: 'rgba(0, 0, 0, 1)',
@@ -117,8 +117,8 @@ export function WalletHeader() {
                 }}
               >
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b-2" style={{ borderColor: userColor, fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-                    <span className="text-sm font-bold lowercase " style={{ color: userColor }}>WALLET INFO</span>
+                  <div className="flex items-center justify-between pb-3 border-b-2" style={{ borderColor: userColor, fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+                    <span className="text-lg font-bold lowercase" style={{ color: userColor }}>WALLET INFO</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleSignOut(); }}
                       className="px-3 py-1.5 border-2 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 rounded-lg"
@@ -138,12 +138,12 @@ export function WalletHeader() {
                   <div className="space-y-2" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
                     <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
                       <div className="text-xs text-gray-400 mb-1">wallet</div>
-                      <div className="font-mono text-sm lowercase font-bold" style={{ color: userColor, fontSize: '1rem' }}>{walletMode}</div>
+                      <div className="font-mono text-sm lowercase font-bold" style={{ color: userColor, fontSize: '1.1rem' }}>{walletMode}</div>
                     </div>
                     
                     <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
                       <div className="text-xs text-gray-400 mb-1">key</div>
-                      <div className="font-mono text-sm lowercase font-bold" style={{ color: userColor, fontSize: '1rem' }}>{user.crypto_type}</div>
+                      <div className="font-mono text-sm lowercase font-bold" style={{ color: userColor, fontSize: '1.1rem' }}>{user.crypto_type}</div>
                     </div>
                     
 
