@@ -65,4 +65,4 @@ class Token:
         token = self.token(cost=cost, data=data, to=to)
         verify_token = self.verify(token)
         assert verify_token['cost'] == cost, "Cost mismatch in token verification"
-        return verify_token
+        return {'token': token, 'verify_token': verify_token, 'token_data': self.token2data(token)}

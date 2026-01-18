@@ -2419,6 +2419,8 @@ def thread(fn: Union['callable', str],
         fn = m.get_fn(fn)
     if args == None:
         args = []
+    if isinstance(args, dict):
+        kwargs = args
     if kwargs == None:
         kwargs = {}
 
@@ -2446,7 +2448,6 @@ def thread(fn: Union['callable', str],
         t.start()
     thread_map[name] = t
     return t
-
 
 def threads(search:str = None):
     threads =  list(thread_map.keys())

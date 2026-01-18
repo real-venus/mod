@@ -235,8 +235,14 @@ class PM:
     def servers(self, search=None, **kwargs):
         return list(self.namespace(search=search, **kwargs).keys())
 
-    def server_exists(self, name):
-        return name in self.servers()
+    def server_exists(self, name: str) -> bool:
+        exists =  name in self.servers()
+        if not exists:
+            servers = self.servers(update=True)
+            exists = name in servers
+        return exists
+
+
 
     def params2cmd(self, params: Dict[str, Any]) -> str:
         """
@@ -333,6 +339,9 @@ class PM:
         if daemon:
             cmd += ' -d'
         return os.system('cd ' + path + ' && ' + cmd)
+
+    def update(self):
+        return self.namespace(update=True)
 
     def build(self,
               mod = None,

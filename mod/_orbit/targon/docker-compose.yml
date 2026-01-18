@@ -20,10 +20,10 @@ services:
   targon:
     container_name: targon
     deploy: {}
-    entrypoint: bash -c "m serve port=50050 key=targon remote=0 mod=targon"
+    entrypoint: bash -c "m serve port=50073 key=targon remote=0 mod=targon"
     image: targon
     ports:
-    - 50050:50050
+    - 50073:50073
     restart: unless-stopped
     shm_size: 100g
     volumes:

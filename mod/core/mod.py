@@ -787,7 +787,7 @@ class Mod:
     def update(self):
         tree = self.tree(update=1)
         n = len(tree)
-        return {'success': True, 'message': 'Mod tree updated', 'mods': n, 'orbits':self.paths['orbit'].toDict()}
+        return {'success': True, 'message': 'Mod tree updated', 'mods': n, 'orbits':self.paths['orbit'].toDict(), 'orbit2depth': self.orbit2depth}
 
 
     def key_address(self, key:str = None , **kwargs) -> str:
@@ -1332,15 +1332,16 @@ class Mod:
         return self.get_tree(self.paths.orbit.core, search=search, depth=depth, **kwargs) 
 
 
+    orbit2depth = {
+        'inner': 10,
+        'outer': 5,
+        'core': 10,
+        'local': 4
+        }
+
     def orbit(self, orbit='core', search=None, depth=None,  update=False, **kwargs): 
         if depth == None:
-            orbit2depth = {
-                'inner': 10,
-                'outer': 5,
-                'core': 10,
-                'local': 4
-            }
-            depth = orbit2depth.get(orbit, 1)
+            depth = self.orbit2depth.get(orbit, 1)
         kwargs['depth'] = depth or kwargs.get('depth', self.orbit2depth.get(orbit, 1))
         return self.get_tree(self.paths["orbit"][orbit], search=search, update=update, **kwargs)
 
@@ -1380,20 +1381,10 @@ class Mod:
             **kwargs):
         """
         get the full tree of the mods, local and core
-        ORDER OF PRIORITY:
-        1. core
-        2. local
-        3. mods
-
-        This means that if a mod exists in core and local, the core version will be used
-        if a mod exists in local and mods, the local version will be used
-        if a mod exists in core and mods, the core version will be used
-        
         """
         tree = {}
         for orbit in self.orbits:
             tree.update(self.orbit(orbit, search=search, **kwargs))
-        # 
         tree = dict(sorted(tree.items(), key=lambda item: item[0]))
         return tree
 
@@ -1607,7 +1598,17 @@ class Mod:
     cpath = cfgpath = config_path
 
     def serve(self, mod:str = 'mod', port:int=None, remote=True, **kwargs):
-        return self.fn('server/serve')(mod, port=port, remote=remote, **kwargs)
+        fn = self.fn('server/serve')
+        if isinstance(mod, str):
+            return fn(mod, port=port, remote=remote, **kwargs)
+        elif isinstance(mod, list):
+            threads = []
+            for m in mod:
+                params = {'mod': m, 'port': port, 'remote': remote, **kwargs}
+                t = self.thread(fn, params, timeout=timeout)
+                threads.append(t)
+            results = self.wait(threads, timeout=timeout)
+            return results
 
     def exec(self, mod:str = 'mod', *args, **kwargs):
         return self.fn('pm/exec')(mod, *args, **kwargs)
@@ -1753,8 +1754,8 @@ class Mod:
         return self.fn('client/call')('api/history', params={"df":1})
 
     def setup(self):
-        self.serve('ipfs') if not self.server_exists('ipfs') else None
-        self.serve('api') if not self.server_exists('api') else None
+        self.serve('ipfs') 
+        self.serve('api')
         return self.fn('app/serve')() if not self.server_exists('app') else None
 
     def pytest(self, mod='pypm'):

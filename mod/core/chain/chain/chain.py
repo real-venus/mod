@@ -300,14 +300,125 @@ class Mod:
         registry = self.contracts.get('registry')
         if not registry:
             raise ValueError('Registry contract not loaded')
+        return self.send_tx('registry', 'registerMod', [name, data])
+
+
+    def send_tx(self, module, function, args: list) -> Dict[str, Any]:
+        """Send a transaction to a contract function.
         
-        tx = registry.functions.registerMod(name, data).build_transaction({
+        Args:
+            module: Contract name
+            function: Function name
+            args: List of arguments
+            
+        Returns:
+            Transaction receipt
+        """
+        contract = self.contracts.get(module)
+        if not contract:
+            raise ValueError(f'{module} contract not loaded')
+        
+        tx = getattr(contract.functions, function)(*args).build_transaction({
             'from': self.account.address,
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
         tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+    def is_ecdsa(self, address: str) -> bool:
+        """Check if address is an ECDSA address.
+        
+        Args:
+            address: Address to check
+        Returns:
+            True if ECDSA address
+        """
+
+        if not Web3.is_address(address):
+            return False
+        code = self.w3.eth.get_code(Web3.to_checksum_address(address))
+        return code == b''  
+
+    def addy(self, key: str=None) -> str:
+        if key == None:
+            return self.account.address
+        if self.is_ecdsa(key):
+            return Web3.to_checksum_address(key)
+        else:
+            return m.key(key).address
+        return acct.address
+        
+
+
+    def contracts_config(self) -> Dict[str, Any]:
+        contract_map = self.config['deployments'][self.network]['contracts']
+        # lowercase all the keys 
+        contract_map = {k.lower(): v for k, v in contract_map.items()}
+        return contract_map
+
+    def balance(self, token='ETH',  address: str=None,) -> int:
+        """Get stable token balance.
+        
+        Args:
+            address: Address to query
+            
+        Returns:
+            Stable token balance
+        """
+        address = self.addy(address)
+        chain_config = self.config['deployments'][self.network]['contracts']
+        if token == 'ETH':
+            addr = address or self.account.address
+            print(f'Getting ETH balance for {addr}')
+            balance =  self.w3.eth.get_balance(addr)
+        else:
+            cfg =  self.contracts_config()[token.lower()]
+            token_contract = self.w3.eth.contract(
+                address=Web3.to_checksum_address(cfg['address']),
+                abi=self.ipfs.get(cfg['abi'])
+                )
+            balance = token_contract.functions.balanceOf(address).call()
+
+        return self.format_balance(balance, token=token)
+
+    def format_balance(self, balance: int, token='ETH') -> float:
+        """Format balance from wei to human-readable.
+        
+        Args:
+            balance: Balance in wei
+
+            token: Token symbol
+        Returns:
+            Formatted balance
+        """
+        decimals = self.decimals
+        if token != 'ETH':
+            chain_config = self.config['deployments'][self.network]['contracts']
+            if token in chain_config:
+                token_address = chain_config[token]['address']
+                token_abi = self.ipfs.get(chain_config[token]['abi'])
+                token_contract = self.w3.eth.contract(
+                    address=Web3.to_checksum_address(token_address),
+                    abi=token_abi
+                    )
+                decimals = token_contract.functions.decimals().call()
+        return balance / (10 ** decimals)
+
+
+    def regall(self, mods: List[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+        if mods is None:
+            mods = m.fn('api/mods')()
+        receipts = []
+        for mod in mods:
+            try:
+                receipt = self.reg(mod['name'], mod['cid'])
+            except Exception as e:
+                print(f'Error registering mod {mod["name"]}: {e}')
+                continue
+            receipts.append(receipt)
+
+        return receipts
 
 
     def name2id(self, name: str=None) -> Union[int, Dict[str, int]]:
@@ -323,7 +434,7 @@ class Mod:
         name2id = {mod['name']: mod['id'] for mod in mods}
         return name2id.get(name, 0) if name else name2id
 
-    def update(self, name: int, data: str) -> Dict[str, Any]:
+    def update(self, name: int, data: str=None) -> Dict[str, Any]:
         """Update mod data.
         
         Args:
@@ -333,17 +444,14 @@ class Mod:
         Returns:
             Transaction receipt
         """
+        if data is None:
+            mod = m.fn('api/mod')(name)
+            data = mod.get('cid', '')
         registry = self.contracts.get('registry')
         if not registry:
             raise ValueError('Registry contract not loaded')
-        
-        tx = registry.functions.updateMod(mod_id, data).build_transaction({
-            'from': self.account.address,
-            'nonce': self.w3.eth.get_transaction_count(self.account.address)
-        })
-        signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
-        return self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        mod_id = self.name2id(name)
+        return self.send_tx('registry', 'updateMod', [mod_id, data])
 
     def get_mod(self, mod_id: int) -> Dict[str, Any]:
         """Get mod information.

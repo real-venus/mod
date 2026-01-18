@@ -33,19 +33,41 @@ class Auth:
         self.key = m.key(key=key, crypto_type=crypto_type)
         self.crypto_type = crypto_type or self.key.crypto_type_name
 
-    def token(self,  data: dict,  key=None) -> dict:
+
+    def key_address(self, key=None) -> str:
+        """
+        Get the address of the key
+        """
+    
+        return self.get_key(key).address
+
+    def token_data(self, data, key=None) -> dict:
+        """
+        Generate the token data without encoding
+        """
+        result = {
+            'data': data,
+            'time': str(time.time()),
+            'key': key.address if key else self.key.address,
+        }
+        
+        return result
+
+    def token(self,  data: dict = {},  key=None, mod='str') -> dict:
         """
         Generate the headers with the JWT token
         """
         key = self.get_key(key)
-        result = {
-            'data': self.hash(data),
-            'time': str(time.time()),
-            'key': key.address,
-        }
+        result = self.token_data(data)
         result['signature'] = key.sign(self.sig_data(result), mode='str')
-        token = self._base64url_encode(result)
-        return token
+
+        if mod == 'dict':
+            return result
+        elif mod == 'str':
+            return self._base64url_encode(result)
+        else:
+            raise ValueError(f'Invalid mod {mod}')
+        
 
     def headers(self, data: dict, key=None) -> dict:
         return {'token': self.token(data=data, key=key)}
@@ -65,9 +87,7 @@ class Auth:
         age = abs(time.time() - float(headers['time']))
         assert age < self.max_age, f'Token is stale {age} > {self.max_age}'
         sigdata = self.sig_data(headers)
-        print(f'verifying sigdata: {self.hash(sigdata)}')
-        verified = self.key.verify(sigdata, signature=headers['signature'], address=headers['key'])
-        assert verified, f'Invalid signature {headers} sigdatahash: {self.hash(sigdata)}'
+        assert self.key.verify(sigdata, signature=headers['signature'], address=headers['key']),  'Invalid signature'
         return headers
 
     def get_key(self, key=None):

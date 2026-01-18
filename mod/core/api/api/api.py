@@ -509,12 +509,8 @@ class  Api:
         if key not in registry:
             registry[key] = {}
         registry[key][mod] = cid
-        print(f"Updated registry for mod: {mod}, cid: {cid}")
+        print('Registered({key}, {mod}) -> {cid}'.format(key=key, mod=mod, cid=cid))
         m.put(self.registry_path, registry)
-        path = self.path('mods')
-        mods = m.get(path, [])
-        mods.append(mod)
-        m.put(path, mods)
         return cid
 
     def put(self, data):
@@ -723,22 +719,17 @@ class  Api:
         Returns:
             List of mod names
         """
-        path = self.path('mods')
-        mods = m.get(path, None, update=update)
   
-        if mods == None: 
-            registry = self.registry()
-            key = self.key_address(key)
-            if key != 'all':
-                mods =  [self.mod(k, key=key) for k in registry.get(key, {}).keys()]
-            else:
-                mods = []
-                for user_key, user_mods in registry.items():
-                    for mod in user_mods.keys():
-                        mods.append(self.mod(mod, key=user_key))  
-            m.put(path, mods)
-            
-        # mods = [m for m in mods if m is isinstance(m, dict) and 'name' in m]
+
+        registry = self.registry()
+        key = self.key_address(key)
+        if key != 'all':
+            mods =  [self.mod(k, key=key) for k in registry.get(key, {}).keys()]
+        else:
+            mods = []
+            for user_key, user_mods in registry.items():
+                for mod in user_mods.keys():
+                    mods.append(self.mod(mod, key=user_key))  
         mods = [m for m in mods if isinstance(m, dict) and 'name' in m]
         if search != None:
             mods = [m for m in mods if search in m['name']]
@@ -803,6 +794,18 @@ class  Api:
         return result
 
     v = versions
+
+    def regall(self, key=None, comment=None, public=False, protocal='mod') -> Dict[str, Any]:
+        """
+        Register all mods in the local environment to IPFS.
+        Args:
+            key: Key object or address string
+            comment: Optional comment about the registration
+        Returns:
+            Dictionary with registration info for all mods
+        """
+        for mod in m.mods():
+            self.reg(mod=mod, key=key, comment=comment, public=public, protocal=protocal)
         
     def registry(self,  key='all', update=False) -> Dict[str, str]:
         """
