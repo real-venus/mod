@@ -24,7 +24,7 @@ class Mod:
         'mainnet': 'https://mainnet.base.org'
     }
     decimals = 18
-    def __init__(self, network: str = 'testnet'):
+    def __init__(self, network: str = 'testnet', key=None):
         """Initialize Chain interface.
         
         Args:
@@ -35,25 +35,19 @@ class Mod:
         self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
         self.contracts = {}
         self.path = m.dp('chain')
-        self.load_env()
+        self.set_key(key)
         self.ipfs = m.mod('ipfs')()
-        self.contracts_path = os.path.join(self.path, 'artifacts', 'contracts')
-        # load .env if exists
+        self.contracts_path = self.path + '/artifacts/contracts'
         self.config = m.config('chain')
-        addresses = self.config['deployments'].get(network, {}).get('contracts', {})
         self.load_all_contracts()
         if not os.path.exists(self.contracts_path):
             os.makedirs(self.path)
-            
-    
-
-    def load_env(self):
+        
+    def env_dict(self) -> Dict[str, str]:
         env_path = os.path.join(self.path, '.env')
         if os.path.exists(env_path):
             from dotenv import load_dotenv
             load_dotenv(env_path)
-        # ensure contracts path exists  
-        # dot env dict
         env_dict = dict()
         with open(env_path, 'r') as f:
             for line in f:
@@ -61,10 +55,14 @@ class Mod:
                     continue
                 key, value = line.strip().split('=', 1)
                 env_dict[key.lower()] = value
-        self.env = env_dict
-        self.connect(self.env['private_key'])
         return env_dict
-
+    def set_key(self, key = None):
+        if key:
+            self.key = m.key(key)
+        else:
+            self.key = m.mod('key')(self.env_dict().get('private_key'))
+        self.connect(self.key.private_key)
+        return self.account.address
 
     def sync_app(self):
         """Sync contract artifacts to app."""
@@ -348,7 +346,20 @@ class Mod:
         else:
             return m.key(key).address
         return acct.address
+
+    def abi(self, name: str = 'usdc', search=None) -> list:
+        """Get contract ABI by name.
         
+        Args:
+            name: Contract name
+            
+        Returns:
+            Contract ABI
+        """
+        contract = self.ipfs.get(self.contracts_config().get(name.lower())['abi'])
+        if search:
+            contract = [item for item in contract if search in item.get('name', '')]
+        return contract
 
 
     def contracts_config(self) -> Dict[str, Any]:
@@ -475,6 +486,17 @@ class Mod:
 
     # ==================== TOKENGATE FUNCTIONS ====================
 
+
+    def tokens(self) -> List[str]:
+        """Get all whitelisted tokens.
+        
+        Returns:
+            List of token addresses
+        """
+        tokengate = self.contracts.get('tokengate')
+        if not tokengate:
+            raise ValueError('TokenGate contract not loaded')
+        return tokengate.functions.getWhitelistedTokens().call()
 
 
     def whitelist_token(self, token_address: str) -> Dict[str, Any]:

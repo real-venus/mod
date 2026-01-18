@@ -8,6 +8,8 @@ import subprocess
 import json
 from datetime import datetime
 import yaml  
+
+print = m.print
 class PM:
     """
     A mod for interacting with Docker.
@@ -24,6 +26,42 @@ class PM:
         self.network = network
         self.store = m.mod('store')(path)
 
+    def forward(self,  
+                mod : str ='api', 
+                port : int = None, 
+                params : dict = None,
+                key : str = None,
+                image:str=None, 
+                daemon:bool=True,
+                cwd : str = None, # the working directory to run docker-compose in
+                volumes : list = None,
+                docker_in_docker:bool = False,
+                env:Optional[dict]=None,
+                call_interval : float = 0.2, # time between calls to check if server is up
+                ):
+        """
+        Runs a mod as a Docker container with port forwarding as a 
+        """
+        params = params or {}
+        port = port or m.free_port()
+        params.update({'port': port, 'key': key or mod, 'remote': False, 'mod': mod})
+        dirpath = m.dirpath(mod)
+        cmd = f"m serve {self.params2cmd(params)}"
+        
+        volumes = volumes or [f'{p}:{self.convert_docker_path(p)}' for p in  [m.lib_path, m.storage_path, dirpath]]
+        result = self.run(name=mod, 
+                          image=image, 
+                          port=port, 
+                          cmd=cmd , 
+                          daemon=daemon, 
+                          env=env, 
+                          volumes=volumes, 
+                          cwd=cwd or dirpath, 
+                          docker_in_docker=docker_in_docker,
+                          working_dir=self.convert_docker_path(dirpath))
+       
+        return result
+
     def up(self, mod='chain', daemon:bool=True):
         """
         Run docker-compose up in the specified path.
@@ -35,48 +73,16 @@ class PM:
         if daemon:
             cmd += ' -d'
         return os.system('cd ' + path + ' && ' + cmd)
-
-    
-
-    def forward(self,  
-                mod : str ='api', 
-                port : Optional[int] = None, 
-                params : Optional[dict] = None,
-                key : Optional[str] = None,
-                image:str=None, 
-                daemon:bool=True,
-                cwd : Optional[str] = None,
-                volumes : Optional[dict] = None,
-                docker_in_docker:bool = False,
-                env:Optional[dict]=None,
-                call_interval : float = 0.2, # time between calls to check if server is up
-                ):
+        
+    def down(self, mod='chain'):
         """
-        Runs a mod as a Docker container with port forwarding as a 
+        Run docker-compose down in the specified path.
         """
-        params = params or {}
-        port = port or m.free_port()
-        params.update({'port': port, 'key': key or mod, 'remote': False, 'mod': mod})
-        cmd  = f"m serve {self.params2cmd(params)}" 
-        dirpath = m.dirpath(mod)
-        if volumes is None:
-            paths =  [m.paths["lib"], m.storage_path, dirpath]
-            volumes = [f'{p}:{self.convert_docker_path(p)}' for p in paths]
-        cwd = cwd or dirpath
-        working_dir = self.convert_docker_path(dirpath)
-        # run the container
-        result = self.run(name=mod, 
-                          image=image, 
-                          port=port, 
-                          cmd=cmd, 
-                          daemon=daemon, 
-                          env=env, 
-                          volumes=volumes, 
-                          cwd=cwd, 
-                          docker_in_docker=docker_in_docker,
-                          working_dir=working_dir)
-        self.namespace(update=True)
-        return result
+        docker_compose_paths = self.compose_files(mod)
+        assert len(docker_compose_paths) > 0, f'No docker-compose file found in {mod}'
+        cmd = 'docker-compose down'
+        path = m.dirpath(mod)
+        return os.system('cd ' + path + ' && ' + cmd)
 
     def get_compose_path(self, name: str):
         dirpath = m.dirpath(name)
@@ -93,7 +99,6 @@ class PM:
             shm_size: str = '100g',
             network: Optional = None,  # 'host', 'bridge', etc.
             port: int = None,
-            ports: Union[List, Dict[int, int]] = None,
             daemon: bool = True,
             remote: bool = False,
             env: Optional[Dict] = None,
@@ -120,6 +125,7 @@ class PM:
                 'name': network
             }
         }
+        services = compose_config['services']
         image = image or self.ensure_image(name)
 
         if self.server_exists(name):
@@ -130,14 +136,11 @@ class PM:
             'container_name': name,
             'restart': restart,
             'deploy': {'resources': resources} if resources else {},
-            'shm_size': shm_size
+            'shm_size': shm_size,
+            'ports': services.get(name, {}).get('ports', [])
         }
-
-        # PORTS
-        if port != None:
-            ports = {port: port}
-        if isinstance(ports, dict):
-            serve_config['ports'] = [f"{host_port}:{container_port}" for container_port, host_port in ports.items()] 
+        ports =  [f'{port}:{port}'] 
+        serve_config['ports'] = ports + serve_config['ports'][1:] if len(serve_config['ports']) > 0 else ports
 
         # VOLUMES
         if volumes:
@@ -171,16 +174,18 @@ class PM:
         compose_cmd =  f'cd {cwd} && docker-compose -f {compose_path} up'
         if daemon:
             compose_cmd += ' -d'   
-
+            
+        # before running we need to make the volumes absolute
         self.make_volumes_absolute(compose_config)
         m.put_yaml(compose_path, compose_config)
         os.system(compose_cmd)
+
         # # now we want to make them relative again in case we push to git
         self.make_volumes_relative(compose_config)
         m.put_yaml(compose_path, compose_config)
 
-        # now we need to make the 
-
+        # sync once you run 
+        self.sync()
         return {'path': compose_path, 'compose' : compose_config}
 
 
@@ -228,14 +233,16 @@ class PM:
         return {}
 
     def servers(self, search=None, **kwargs):
-        servers =  self.ps()
-        if search != None:
-            servers = [m for m in servers if search in m]
-        servers = sorted(list(set(servers)))
-        return servers
+        return list(self.namespace(search=search, **kwargs).keys())
 
-    def server_exists(self, name):
-        return name in self.servers()
+    def server_exists(self, name: str) -> bool:
+        exists =  name in self.servers()
+        if not exists:
+            servers = self.servers(update=True)
+            exists = name in servers
+        return exists
+
+
 
     def params2cmd(self, params: Dict[str, Any]) -> str:
         """
@@ -292,9 +299,9 @@ class PM:
 
     def dockerfile(self, mod='mod'):
         path = self.dockerfile_path(mod)
-        if path is None:
+        if path == None:
             return None
-        return self.dockerfiles(mod)[0]
+        return self.dockerfiles(mod)
 
     def has_dockerfile(self, mod='mod'):
         """
@@ -318,7 +325,10 @@ class PM:
         return dockerfiles[0] if len(dockerfiles) > 0 else None
 
     def dockerfile(self, mod='mod'):
-        return m.get_text(self.dockerfile_path(mod))
+        dockerfile_path = self.dockerfile_path(mod)
+        if dockerfile_path is None:
+            return None
+        return m.get_text(dockerfile_path)
 
     def up(self, mod='chain', daemon: bool = True):
         """
@@ -329,6 +339,9 @@ class PM:
         if daemon:
             cmd += ' -d'
         return os.system('cd ' + path + ' && ' + cmd)
+
+    def update(self):
+        return self.namespace(update=True)
 
     def build(self,
               mod = None,
@@ -362,20 +375,31 @@ class PM:
         """
         return name in self.servers()
         
-    def kill(self, name: str) -> Dict[str, str]:
+    def kill(self, name: str, update=True) -> Dict[str, str]:
         """
         Kill and remove a container.
         """
-        if not self.exists(name):
+        if name == 'all':
+            return self.kill_all()
+        if not self.server_exists(name):
             return {'status': 'not_found', 'name': name}
+        servers = self.servers(search=name)
+        if name in servers:
+            result =  {'status': 'not_found', 'name': name}
         try:
-            os.system(f'docker kill {name}' )
+            os.system(f'docker kill {name}')
             os.system(f'docker rm {name}')
-            print(f'Killed container --> {name}')
-            return result
+            if update:
+                self.sync()
         except Exception as e:
-            return {'status': 'error', 'name': name, 'error': str(e)}
+            print(f'Error killing container {name}: {m.detailed_error(e)}', color='red')
+        assert name not in self.ps(), f'Failed to kill container {name}'
+        children = self.ps(search=name + '.')
+        for child in children:
+            print(f'Killing child container {child}')
+            self.kill(child, update=update)
 
+        return result
     def kill_all(self) -> Dict[str, str]:
         """
         Kill all running containers.
@@ -385,33 +409,34 @@ class PM:
                 self.kill(container)
             return {'status': 'all_containers_killed'}
         except Exception as e:
+            print('fam')
             return {'status': 'error', 'error': str(e), 'servers': self.servers()}
+    killall = kill_all
 
     def images(self, df: bool = True) -> Union[pd.DataFrame, Any]:
         """
         List all Docker images.
         """
         text = m.cmd('docker images')
-        rows = []
+        results = []
+        cols = []
+        forbidden_terms = ['IMAGE', 'WARNING', '<none>']
         for i, line in enumerate(text.split('\n')):
+            if 'warning:_this_output_is_designed' in line:
+                continue
             if not line.strip():
                 continue
-            if i == 0:
-                cols = [col.strip().lower().replace(' ', '_') for col in line.split('  ') if col]
-            else:
-                rows.append([v.strip() for v in line.split('  ') if v])
-
-        results = pd.DataFrame(rows, columns=cols)
-        if not df:
-            return results['repository'].tolist()
-        else:
-            return results
+            if any([ ft in line for ft in forbidden_terms]):
+                continue
+            image = line.split(' ')[0]
+            results.append(image.split(':')[0])
+        return results
 
     def image_names(self) -> List[str]:
         """
         Get a list of Docker image names.
         """
-        images = self.images(df=False)
+        images = self.images()
         return [img.split(':')[0] for img in images]
 
     def image_exists(self, name: str=None) -> bool:
@@ -484,7 +509,7 @@ class PM:
         """
         return os.path.expanduser(f'~/.mod/pm/{path}')
 
-    def stats(self, max_age=60, update=False) -> pd.DataFrame:
+    def stats(self, max_age=60, update=False, df=False) -> pd.DataFrame:
         """
         Get container resource usage statistics.
         """
@@ -502,25 +527,30 @@ class PM:
             stats = []
             for k, v in data.iterrows():
                 row = {header: v[header] for header in headers}
-                if 'MEM USAGE / LIMIT' in row:
-                    mem_usage, mem_limit = row.pop('MEM USAGE / LIMIT').split('/')
-                    row['MEM_USAGE'] = mem_usage
-                    row['MEM_LIMIT'] = mem_limit
-                row['ID'] = row.pop('CONTAINER ID')
+                try:
 
-                for prefix in ['NET', 'BLOCK']:
-                    if f'{prefix} I/O' in row:
-                        net_in, net_out = row.pop(f'{prefix} I/O').split('/')
-                        row[f'{prefix}_IN'] = net_in
-                        row[f'{prefix}_OUT'] = net_out
-                
-                row = {_k.lower(): _v for _k, _v in row.items()}
-                stats.append(row)
-                self.store.put(path, stats)
-            
+                    if 'MEM USAGE / LIMIT' in row:
+                        mem_usage, mem_limit = row.pop('MEM USAGE / LIMIT').split('/')
+                        row['MEM_USAGE'] = mem_usage
+                        row['MEM_LIMIT'] = mem_limit
+                    row['ID'] = row.pop('CONTAINER ID')
+
+                    for prefix in ['NET', 'BLOCK']:
+                        if f'{prefix} I/O' in row:
+                            net_in, net_out = row.pop(f'{prefix} I/O').split('/')
+                            row[f'{prefix}_IN'] = net_in
+                            row[f'{prefix}_OUT'] = net_out
+                    
+                    row = {_k.lower(): _v for _k, _v in row.items()}
+                    stats.append(row)
+                    self.store.put(path, stats)
+                except Exception as e :
+                    continue
+        if not df:
+            return stats
         return m.df(stats)
 
-    def ps(self) -> List[str]:
+    def ps(self, search: str = None) -> List[str]:
         """
         List all running Docker containers.
         """
@@ -534,6 +564,8 @@ class PM:
                     parts = line.split()
                     if len(parts) > 0:  # Check if there are any parts in the line
                         ps.append(parts[-1])
+            if search != None:
+                ps = [m for m in ps if search in m]
             return ps
         except Exception as e:
             m.print(f"Error listing containers: {e}", color='red')
@@ -642,6 +674,7 @@ class PM:
         """
         Sync container statistics.
         """
+        self.namespace(update=True)
         self.stats(update=1)
 
     # PM2-like methods for container management
@@ -783,9 +816,11 @@ class PM:
                 port = self.get_port(container)
                 namespace[container] =  ip + ':'+  str(port)
             self.store.put(path, namespace)
+        if search != None:
+            namespace = {k:v for k,v in namespace.items() if search in k}
         return namespace
 
-    def urls(self, search=None, mode='http') -> List[str]:
+    def urls(self, search=None) -> List[str]:
         return list(self.namespace(search=search).values())
 
     def start_docker_daemon(self, wait_time=5):
@@ -854,12 +889,21 @@ class PM:
             self.kill(mod)
             return result
 
-    def nodes(self,mod):
-        return self.dockerfile(mod)
-
     def ensure_network(self, network: str=None):
         network = network or self.network
         if not self.network_exists(network):
             self.add_network(network)
         assert self.network_exists(network), f"Failed to create network {network}"
         return network
+
+    def rm_orphan_containers(self):
+        """
+        Remove orphan Docker containers that are not managed by this PM.
+        """
+        managed = set(self.servers())
+        all_containers = set(self.ps())
+        orphans = all_containers - managed
+        for orphan in orphans:
+            print(f'Removing orphan container: {orphan}')
+            self.kill(orphan)
+        return {'status': 'removed_orphans', 'orphans': list(orphans)}

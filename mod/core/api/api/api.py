@@ -27,6 +27,7 @@ class  Api:
         self.executor = m.mod('executor')()
         self.calls_path = self.path('calls')
         self.auth = m.mod(auth)()
+        self.config = m.config('api')
         # self.threads['update'] = m.thread(self.update_loop)
         if 'sync' not in self.threads:
             self.threads['sync'] = m.thread(self.sync_loop)
@@ -95,9 +96,7 @@ class  Api:
             mod['version'] = len(txs) if txs is not None else 0
         return mod
 
-
     devmode = True
-
 
     def task_data(self , 
                 fn: str = 'store/ls',  
@@ -177,14 +176,11 @@ class  Api:
         """
         task = self.task_data( fn=fn, params=params, timeout=timeout)
         if self.devmode and token == None:
-            print(self.key.address)
             token = self.auth.token(data=task, key=self.key)
-        token_auth = self.auth.verify(token)
-        task['key'] = token_auth['key']
+        task['key'] =  self.auth.verify(token)['key']
         task['token'] = token
-        task['path'] = self.task_path(task)
         task['cid'] = self.put(task)
-        m.put(task['path'], task)
+        m.put(self.task_path(task), task)
         future =  m.submit(self.run_task, params=task ,  timeout=timeout)
         self.cid2future[task['cid']] = future
         if wait:
@@ -195,6 +191,21 @@ class  Api:
                 return self.get(self.get(result).get('result'))
             return result
         return task
+
+    def root_cid(self, key=None , public=False, update=True, **kwargs) -> str:
+        path = self.path('root_cid.json')
+        root_cid = m.get(path, None, update=update)
+        if root_cid == None:
+            registry = self.registry(key)
+            if not public:
+                registry = self.key.encrypt(registry)
+            if update:
+                cid = self.put(registry)
+                m.put(path, {'cid': cid})
+                return cid
+            root_cid = self.put(registry)
+            m.put(path, root_cid)
+        return root_cid
 
     def kill_task(self, cid: str) -> bool:
         """
@@ -218,13 +229,11 @@ class  Api:
         task['status'] = 'running'
         assert '/' in task['fn'], "Function name must be in the format 'mod/fn'"
         mod, fn =  task['fn'].split('/', 1)
-        path = task['path']
+        path = self.task_path(task)
         if isinstance(task['params'], str):
             params =  self.get(task['params'])
         assert isinstance(params, dict)
-        
         m.put(path, task)
-
         # avoid recursion
         assert not task['fn'].endswith('/call'), "Function name cannot end with '/call'"
         try:
@@ -232,12 +241,11 @@ class  Api:
             if mod_name in self.servers():
                 result = m.fn('client/call')(fn=task['fn'], params=params, timeout=task['timeout'])
             else:
+                assert mod in self.config.get('expose_mods', []), f'Mod {mod_name} is not exposed via the API'
                 allowed_fns = self.get_fns(mod)
                 assert fn_name in allowed_fns, f'Function {fn_name} not allowed in mod {mod_name}. Allowed functions: {allowed_fns}'
                 result = m.fn(fn_name)(**params)
-
             task['status'] = 'success'
-
         except Exception as e:
             result = m.detailed_error(e)
             task['status'] = 'error'
@@ -996,13 +1004,6 @@ class  Api:
             return self.call('api/edit', {'mod': mod, 'query': query}, api=api, key=key)
         m.fn('dev/forward')( query=query, mod=mod, safety=False, **kwargs)
         return self.reg(mod=mod, key=key, comment=query)
-    forward = edit
-    def chat(self, text, *extra_texts, mod: str='openrouter', stream=False, **kwargs) -> Dict[str, Any]:
-        return self.model.forward(' '.join([text] + list(extra_texts)), stream=stream, **kwargs)
-    
-    def models(self, search=None, mod: str='model.openrouter', **kwargs) -> List[Dict[str, Any]]:
-        return self.model.models(search=search, **kwargs)
-
 
     def files(self, mod='store', search=None, **kwargs):
         files =  list(self.content(mod, expand=True, **kwargs).keys())
@@ -1110,7 +1111,7 @@ class  Api:
         return {'token': token, 'status': 'valid', 'token_data': self.token2data(token)}
 
     def wait_for_task(self, task, wait_frequency=0.2):
-        task_path = task['path']
+        task_path =  self.task_path(task)
         print(f'Waiting for task {task_path} status={task.get("status","pending")}')
         while task.get('status', '') != 'success':
             time.sleep(wait_frequency)
@@ -1127,6 +1128,7 @@ class  Api:
                 fn_attributes = ['endpoints',  'fns', 'expose',  'exposed', 'functions', 'fns', 'expose_fns']):
         fns = []
         config = m.config(mod) or {}
+
         mod_obj = m.mod(mod)
         for fa in fn_attributes:
             if fa in config: 

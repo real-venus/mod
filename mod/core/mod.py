@@ -852,6 +852,10 @@ class Mod:
 
     def mods(self, search=None,  startswith=None, endswith=None, **kwargs)-> List[str]:  
         return list(self.tree(search=search, endswith=endswith, startswith=startswith , **kwargs).keys())
+
+    def root_cid(self, key=None , **kwargs) -> str:
+        registry = self.registry(key=key)
+        return self.put(registry)
     am = ms = mods
 
     mods = mods
@@ -1417,6 +1421,8 @@ class Mod:
         dirpath = self.paths["orbit"]["inner"] + '/' + name.replace('.', '/')
         self.cmd(f'cp -r {path} {dirpath}')
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created from path'}
+
+    
 
     def addcid(self, name='churn',  cid='QmXUjBQRFa8DbY2GhD1Aq6a44EBYzgejmtwwnYYTfvnFW4'):
         api = c.mod('api')()
