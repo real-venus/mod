@@ -295,9 +295,8 @@ class Mod:
         mod = m.fn('api/mod')(name)
         data = data or mod.get('cid', '')
         name = mod['name']
-        registry = self.contracts.get('registry')
-        if not registry:
-            raise ValueError('Registry contract not loaded')
+        if self.mod_exists(name):
+            return self.update(name, data)
         return self.send_tx('registry', 'registerMod', [name, data])
 
 
@@ -443,7 +442,39 @@ class Mod:
         """
         mods = self.mods()
         name2id = {mod['name']: mod['id'] for mod in mods}
-        return name2id.get(name, 0) if name else name2id
+        return name2id.get(name, name) if name else name2id
+
+    def rmall(self) -> List[Dict[str, Any]]:
+        """Delete all mods.
+        
+        Returns:
+            List of transaction receipts
+        """
+        mods = self.mods()
+        receipts = []
+        for mod in mods:
+            try:
+                receipt = self.rm(mod['name'])
+            except Exception as e:
+                print(f'Error removing mod {mod["name"]}: {e}')
+                continue
+            receipts.append(receipt)
+        return receipts
+
+    def rm(self, name: int) -> Dict[str, Any]:
+        """Delete mod by name.
+        
+        Args:
+            name: Mod name
+            
+        Returns:
+            Transaction receipt
+        """
+        registry = self.contracts.get('registry')
+        if not registry:
+            raise ValueError('Registry contract not loaded')
+        mod_id = self.name2id(name)
+        return self.send_tx('registry', 'removeMod', [mod_id])
 
     def update(self, name: int, data: str=None) -> Dict[str, Any]:
         """Update mod data.
@@ -647,6 +678,16 @@ class Mod:
         addr = address or self.account.address
         mod_ids = registry.functions.getUserMods(addr).call()
         return mod_ids
+
+    def mod_exists(self, mod: str) -> bool:
+        """Check if mod exists in registry."""
+        mod_id = self.name2id(mod)
+        try:
+            _ = self.get_mod(mod_id)
+            return True
+        except:
+            return False
+        
 
     def mods(self, address=None, keys=['id','data', 'name', ]):
         """Get all mods for a user from registry."""

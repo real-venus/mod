@@ -19,6 +19,13 @@ class Mod:
 
     orbits = [ 'core', 'local',  'inner', 'outer']
 
+    orbit2depth = {
+        'inner': 10,
+        'outer': 5,
+        'core': 10,
+        'local': 4
+        }
+
     # we are going to avoid these folders when listing files
     avoid_folders = ['__pycache__', '.git', '.ipynb_checkpoints', 'node_modules', 'egg-info',  'private', 'node_modules', '.venv', 'venv', '.env']
     file_types = ['py', 'json', 'sol'] # default file types
@@ -320,11 +327,11 @@ class Mod:
     
     def folders(self, 
             path:str = './', 
-            depth:Optional[int]=4, 
+            depth:Optional[int]=1, 
             recursive:bool=True, 
             search=None, 
             include_hidden=False):
-        files = self.files(path=path, depth=depth, recursive=recursive, include_hidden=include_hidden, search=search)
+        files = self.files(path=path, depth=depth + 1, recursive=recursive, include_hidden=include_hidden, search=search)
         return sorted(set([os.path.dirname(f) for f in files]))
             
     dirs = folders
@@ -429,6 +436,8 @@ class Mod:
             else:
                 raise Exception('Unknown config format', configs[0])
         return config
+
+    
 
     def save_config(self, mod:str, config:dict):
         paths = self.config_paths(mod)
@@ -853,9 +862,6 @@ class Mod:
     def mods(self, search=None,  startswith=None, endswith=None, **kwargs)-> List[str]:  
         return list(self.tree(search=search, endswith=endswith, startswith=startswith , **kwargs).keys())
 
-    def root_cid(self, key=None , **kwargs) -> str:
-        registry = self.registry(key=key)
-        return self.put(registry)
     am = ms = mods
 
     mods = mods
@@ -1334,14 +1340,6 @@ class Mod:
 
     def core_tree(self, search=None, depth=8,  **kwargs): 
         return self.get_tree(self.paths.orbit.core, search=search, depth=depth, **kwargs) 
-
-
-    orbit2depth = {
-        'inner': 10,
-        'outer': 5,
-        'core': 10,
-        'local': 4
-        }
 
     def orbit(self, orbit='core', search=None, depth=None,  update=False, **kwargs): 
         if depth == None:
