@@ -421,7 +421,7 @@ class Store:
         return path2text_encrypted
 
     def encrypted_folder_data_path(self, folder_path: str) -> str:
-        return self.get_path(folder_path + f'/encrypted_folder.txt')
+        return self.get_path(folder_path + f'/encrypted.txt')
     
     def decrypt_folder(self, folder_path, password=None) -> dict:
         """

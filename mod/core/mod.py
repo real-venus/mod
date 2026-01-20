@@ -117,6 +117,8 @@ class Mod:
 
     _mod_cache = {}
 
+    def addy(self, key=None):
+        return self.fn('key/addy')(key)
 
     def add_fns(self, obj, add_fns = ['fns', 'schema', 'code', 'cid', 'edit', 'config']):
         for fn in add_fns:
@@ -745,7 +747,7 @@ class Mod:
 
         print(f'Getting schema for mod {obj}')
         fns = self.fns(obj, search=search, **kwargs)
-        obj = self.mod(obj)()
+        obj = self.mod(obj)
         
         for fn in fns:
             try:
@@ -800,7 +802,7 @@ class Mod:
 
 
     def key_address(self, key:str = None , **kwargs) -> str:
-        return self.get_key(key).key2address(**kwargs)
+        return self.get_key(key).key_address(key, **kwargs)
     
 
     
@@ -1303,7 +1305,7 @@ class Mod:
                 search:Optional[str]=None, 
                 depth=8, 
                 folders:bool = True, 
-                update=False,  
+                update=True,  
                 **kwargs) -> Dict[str, str]: 
         """
         get the tree of the mods in the path
@@ -1314,10 +1316,9 @@ class Mod:
         cache_path = self.abspath(f'~/.mod/tree/{path.split("/")[-1]}/depth_{depth}.json')
         tree = self.get(cache_path, {}, update=update)
         if len(tree) == 0:
-            paths = self.files(path, depth=depth)
-            paths = list(filter(self.is_in_file_types, paths))
-            if folders:
-                paths = list(map(lambda x: os.path.dirname(x), paths))
+            paths = self.folders(path, depth=depth)
+            # if folders:
+            #     paths = list(map(lambda x: os.path.dirname(x), paths))
             for p in paths:
                 name = self.get_name(p)
                 p = self.process_path(p)
@@ -1347,13 +1348,19 @@ class Mod:
         kwargs['depth'] = depth or kwargs.get('depth', self.orbit2depth.get(orbit, 1))
         return self.get_tree(self.paths["orbit"][orbit], search=search, update=update, **kwargs)
 
-    def search(self, search=None, tree=None, depth=1, max_depth=8 ,**kwargs) -> Dict[str, str]:
+    def search(self, search=None, tree=None, depth=1, max_depth=8 , orbit='all' ,**kwargs) -> Dict[str, str]:
         """
         search the tree for a mod
         """
-        search = self.shortcuts.get(search, search)
+        if orbit == 'all':  
+            for orbit in self.orbits:
+                result = self.search(search=search, tree=None, depth=depth, max_depth=max_depth, orbit=orbit, **kwargs)
+                if len(result) > 0:
+                    return result
+            return {}
+
         search = search.lower().replace('/', '.')  
-        tree = tree or self.tree(**kwargs)
+        tree = tree or self.tree(depth=depth, orbit=orbit, **kwargs)
         if search == None:
             return tree
         # 1 exact match
@@ -1363,7 +1370,7 @@ class Mod:
             return {k: tree[k] for k in tree_options}
         
         # 3 startswith match
-        filter_fn = lambda k: search in k.split('.')
+        filter_fn = lambda k: search == k.split('.')[-1]
         tree_options = list(filter(filter_fn, tree.keys()))
         if len(tree_options) > 1:
             optoions_tree =  {k: tree[k] for k in tree_options}
@@ -1374,19 +1381,26 @@ class Mod:
         filter_fn = lambda k:  all([part in k for part in search.split('.')])
         tree_options = sorted([k for k in tree.keys() if filter_fn(k)], key=lambda x: len(x))
         result =  {k: tree[k] for k in tree_options}
+
+        if len(result) == 0 and depth < max_depth:
+            return self.search(search=search, tree=None, depth=depth+1, max_depth=max_depth, orbit=orbit, **kwargs)
+
         return result
 
     s = search
 
     def tree(self, 
             search=None, 
+            depth=1,
+            orbit = 'all', 
             **kwargs):
         """
         get the full tree of the mods, local and core
         """
         tree = {}
-        for orbit in self.orbits:
-            tree.update(self.orbit(orbit, search=search, **kwargs))
+        orbits = self.orbits if orbit == 'all' else [orbit]
+        for orbit in orbits:
+            tree.update(self.orbit(orbit, search=search, depth=depth, **kwargs))
         tree = dict(sorted(tree.items(), key=lambda item: item[0]))
         return tree
 

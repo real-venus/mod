@@ -3,31 +3,14 @@ networks:
     external: true
     name: modnet
 services:
-  ganache:
-    build:
-      context: .
-      dockerfile: Dockerfile
+   ganache:
+    command: --mnemonic "test test test test test test test test test test test junk"
+      --networkId 1337 --accounts 10 --defaultBalanceEther 1000 --gasLimit 12000000
+      --gasPrice 20000000000 --host 0.0.0.0
     container_name: ganache
-    deploy: {}
-    entrypoint: bash -c "m serve port=50140 key=ganache remote=0 mod=ganache"
-    healthcheck:
-      interval: 10s
-      retries: 5
-      test:
-      - CMD
-      - curl
-      - -f
-      - http://localhost:8545
-      timeout: 5s
-    image: ganache
+    image: trufflesuite/ganache:latest
     ports:
-    - 50140:50140
     - 8545:8545
     restart: unless-stopped
-    shm_size: 100g
-    volumes:
-    - ~/mod:/root/mod
-    - ~/.mod:/root/.mod
-    - ~/mod/mod/_orbit/eth/eth/network/ganache:/root/mod/mod/_orbit/eth/eth/network/ganache
-    working_dir: /root/mod/mod/_orbit/eth/eth/network/ganache
+    volumes: []
 version: '3.8'

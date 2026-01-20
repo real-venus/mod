@@ -16,7 +16,8 @@ import {
   PhotoIcon,
   FilmIcon,
   MusicalNoteIcon,
-  ArchiveBoxIcon
+  ArchiveBoxIcon,
+  HashtagIcon
 } from '@heroicons/react/24/outline';
 import { ModuleType } from '@/mod/types';
 import { userContext } from '@/mod/context';
@@ -146,6 +147,7 @@ export function FileTreeItem({
   const isExpanded = expandedFolders.has(node.path);
   const isSelected = selectedPath === node.path;
   const FileIcon = node.type === 'file' ? getFileIcon(node.name) : (isExpanded ? FolderOpenIcon : FolderIcon);
+  const [showCid, setShowCid] = useState(false);
 
   const matchesSearch = searchTerm
     ? node.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -175,6 +177,18 @@ export function FileTreeItem({
         {node.type === 'file' ? (
           <>
             <span className="ml-2 text-xs opacity-60">{node.size}</span>
+            <div 
+              className="relative ml-2"
+              onMouseEnter={() => setShowCid(true)}
+              onMouseLeave={() => setShowCid(false)}
+            >
+              <HashtagIcon className="h-3 w-3 text-emerald-400 hover:text-emerald-300" />
+              {showCid && node.cid && (
+                <div className="absolute right-0 top-6 z-50 bg-black/95 border border-emerald-400/60 rounded px-2 py-1 text-xs font-mono text-emerald-300 whitespace-nowrap shadow-lg">
+                  {node.cid.slice(0, 32)}...
+                </div>
+              )}
+            </div>
             <button
               onClick={(e) => { e.stopPropagation(); onCopy(node); }}
               className="ml-2 opacity-0 transition-opacity group-hover:opacity-100"
@@ -497,14 +511,6 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                   <div className="flex items-center gap-3 text-xs" style={{ color: ui.textDim }}>
                     <span>{section.size}</span>
                     <span>{section.lineCount} lines</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(section.cid || ''); }}
-                      className="flex items-center gap-1 rounded bg-emerald-900/20 px-2 py-1 text-emerald-400 hover:bg-emerald-900/30"
-                      title="Copy CID (longer hash)"
-                    >
-                      <span className="font-mono text-xs">{section.cid ? `${section.cid.slice(0, 16)}...` : 'CID'}</span>
-                      <ClipboardDocumentIcon className="h-3 w-3" />
-                    </button>
                     <CopyButton content={content} />
                   </div>
                 </div>

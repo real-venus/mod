@@ -20,7 +20,7 @@ class Mod:
 
     network2url = {
         'testnet': 'https://sepolia.base.org',
-        'local': 'http://localhost:8545',
+        'ganache': 'http://localhost:8545',
         'mainnet': 'https://mainnet.base.org'
     }
     decimals = 18
@@ -32,6 +32,7 @@ class Mod:
         """
         self.network = network
         self.rpc_url = self.network2url.get(network, network)
+        m.print(f'Connecting to {self.rpc_url} {network}', color='cyan')
         self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
         self.contracts = {}
         self.path = m.dp('chain')

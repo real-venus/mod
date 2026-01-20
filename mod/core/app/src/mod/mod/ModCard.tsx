@@ -15,13 +15,15 @@ interface ModCardProps {
 export default function ModCard({ mod }: ModCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isKeyHovered, setIsKeyHovered] = useState(false)
+  const [isCidHovered, setIsCidHovered] = useState(false)
   
   const modColor = text2color(mod.name || mod.key)
-  const userColor = text2color(mod.key)
+  const keyColor = text2color(mod.key)
+  const cidColor = text2color(mod.cid || '')
   const updatedTimeStr = mod.updated ? time2str(mod.updated * 1000) : time2str(Date.now())
   
-  const displayName = mod.name.substring(0, 5)
-  const displayCid = mod.cid ? `${mod.cid.slice(0, 8)}...${mod.cid.slice(-8)}` : 'N/A'
+  const displayKey = mod.key ? `${mod.key.slice(0, 6)}...${mod.key.slice(-6)}` : 'N/A'
+  const displayCid = mod.cid ? `${mod.cid.slice(0, 6)}...${mod.cid.slice(-6)}` : 'N/A'
 
   return (
     <Link href={`/mod/${mod.name}/${mod.key}`}>
@@ -40,8 +42,8 @@ export default function ModCard({ mod }: ModCardProps) {
             <CubeIcon className="w-8 h-8" style={{ color: modColor }} />
             
             <div className="flex items-center gap-1 bg-black/40 border-2 rounded-lg px-3 py-1.5" style={{ borderColor: `${modColor}40` }}>
-              <code className="text-base font-mono" style={{ color: modColor }}>
-                {displayName}
+              <code className="text-base font-mono truncate" style={{ color: modColor }}>
+                {mod.name}
               </code>
               <CopyButton text={mod.name} size="sm" />
             </div>
@@ -50,30 +52,69 @@ export default function ModCard({ mod }: ModCardProps) {
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1 bg-black/40 border-2 border-blue-500/30 rounded-lg px-3 py-1.5">
               <Clock size={16} style={{ color: '#3b82f6' }} />
-              <span className="text-blue-400 text-xs font-mono">{updatedTimeStr}</span>
+              <span className="text-blue-400 text-xs font-mono truncate">{updatedTimeStr}</span>
               <CopyButton text={updatedTimeStr} size="sm" />
             </div>
 
-            <div className="flex items-center gap-1 bg-black/40 border-2 border-green-500/30 rounded-lg px-3 py-1.5">
-              <code className="text-sm font-mono" style={{ color: '#10b981' }}>
+            <div 
+              className="flex items-center gap-1 bg-black/40 border-2 rounded-lg px-3 py-1.5 transition-all relative group"
+              style={{
+                backgroundColor: isCidHovered ? `${cidColor}20` : 'rgba(0, 0, 0, 0.4)',
+                borderColor: isCidHovered ? cidColor : `${cidColor}30`
+              }}
+              onMouseEnter={() => setIsCidHovered(true)}
+              onMouseLeave={() => setIsCidHovered(false)}
+              title={mod.cid}
+            >
+              <code className="text-sm font-mono truncate max-w-[100px]" style={{ color: cidColor }}>
                 {displayCid}
               </code>
               <CopyButton text={mod.cid || ''} size="sm" />
+              
+              {isCidHovered && mod.cid && (
+                <div 
+                  className="absolute bottom-full left-0 mb-2 px-3 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-lg"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                    borderColor: cidColor,
+                    color: cidColor
+                  }}
+                >
+                  {mod.cid}
+                </div>
+              )}
             </div>
 
             <div 
-              className="flex items-center gap-1 bg-black/40 border-2 border-pink-500/30 rounded-lg px-3 py-1.5 transition-all"
+              className="flex items-center gap-1 bg-black/40 border-2 rounded-lg px-3 py-1.5 transition-all relative group"
               style={{
-                backgroundColor: isKeyHovered ? 'rgba(236, 72, 153, 0.2)' : 'rgba(0, 0, 0, 0.4)',
-                borderColor: isKeyHovered ? '#ec4899' : 'rgba(236, 72, 153, 0.3)'
+                backgroundColor: isKeyHovered ? `${keyColor}20` : 'rgba(0, 0, 0, 0.4)',
+                borderColor: isKeyHovered ? keyColor : `${keyColor}30`
               }}
               onMouseEnter={() => setIsKeyHovered(true)}
               onMouseLeave={() => setIsKeyHovered(false)}
+              title={mod.key}
             >
               <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
-                <KeyIcon className="w-5 h-5" style={{ color: '#ec4899' }} />
+                <KeyIcon className="w-5 h-5" style={{ color: keyColor }} />
               </Link>
+              <code className="text-sm font-mono truncate max-w-[100px]" style={{ color: keyColor }}>
+                {displayKey}
+              </code>
               <CopyButton text={mod.key} size="sm" />
+              
+              {isKeyHovered && (
+                <div 
+                  className="absolute bottom-full left-0 mb-2 px-3 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-lg"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                    borderColor: keyColor,
+                    color: keyColor
+                  }}
+                >
+                  {mod.key}
+                </div>
+              )}
             </div>
           </div>
         </div>

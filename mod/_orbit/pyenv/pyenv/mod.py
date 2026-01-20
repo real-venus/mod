@@ -47,24 +47,46 @@ class Mod:
 
     def env_path(self, name: str) -> str:
         return self.path+'/envs/'+ name
-    def add_env(self, name: str) -> Dict[str, Any]:
+
+    def create(self, name: str, python_version: Optional[str] = None) -> Dict[str, Any]:
         """
-        Add a new environment to the manager
+        Create a new virtual environment and add it to the manager
         
         Args:
-            name: Name identifier for the environment
-            env_path: Path to the virtual environment
+            name: Name for the environment
+            python_version: Specific Python version to use (e.g., 'python3.9')
             
         Returns:
             Dictionary with success status and message
         """
         config = self._load_config()
-        if name in config['environments']:
-            return {'success': False, 'message': f'Environment "{name}" already exists'}
         
-        config['environments'][name] = self.env_path(name)
-        self._save_config(config)
-        return {'success': True, 'message': f'Environment "{name}" added at {config["environments"][name]}'}
+        # Add environment to config if not exists
+        if name not in config['environments']:
+            config['environments'][name] = self.env_path(name)
+            self._save_config(config)
+        
+        env_path = config['environments'][name]
+        
+        try:
+            python_cmd = python_version if python_version else sys.executable
+            subprocess.run([python_cmd, '-m', 'venv', env_path], check=True)
+            return {'success': True, 'message': f'Environment "{name}" created at {env_path}'}
+        except subprocess.CalledProcessError as e:
+            return {'success': False, 'message': f'Failed to create environment: {str(e)}'}
+
+    def add_env(self, name: str, python_version: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Add and create a new environment (same as create)
+        
+        Args:
+            name: Name identifier for the environment
+            python_version: Specific Python version to use (e.g., 'python3.9')
+            
+        Returns:
+            Dictionary with success status and message
+        """
+        return self.create(name, python_version)
 
     def rm_env(self, name: str, delete_files: bool = False) -> Dict[str, Any]:
         """
@@ -134,32 +156,6 @@ class Mod:
         if sys.platform == 'win32':
             return os.path.join(env_path, 'Scripts', 'pip.exe')
         return os.path.join(env_path, 'bin', 'pip')
-
-    def create(self, name: Optional[str] = None, python_version: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Create a new virtual environment
-        
-        Args:
-            name: Name for the environment (uses active if None)
-            python_version: Specific Python version to use (e.g., 'python3.9')
-            
-        Returns:
-            Dictionary with success status and message
-        """
-        config = self._load_config()
-        env_name = name or config['active']
-        
-        if env_name not in config['environments']:
-            return {'success': False, 'message': f'Environment "{env_name}" not in manager. Add it first.'}
-        
-        env_path = config['environments'][env_name]
-        
-        try:
-            python_cmd = python_version if python_version else sys.executable
-            subprocess.run([python_cmd, '-m', 'venv', env_path], check=True)
-            return {'success': True, 'message': f'Environment "{env_name}" created at {env_path}'}
-        except subprocess.CalledProcessError as e:
-            return {'success': False, 'message': f'Failed to create environment: {str(e)}'}
 
     def exists(self, name: Optional[str] = None) -> bool:
         """Check if the virtual environment exists"""

@@ -5,14 +5,15 @@ class Test:
     description = """
     i test stuff
     """
-    def forward(self, mod=None, timeout=50, modules=[ 'server', 'store','key', 'ipfs', 'auth', 'executor']):
+    mods = [ 'server', 'store','key', 'ipfs', 'auth', 'executor']
+    def forward(self, mod=None, timeout=50):
         """
         Test the mod 
         """
         if mod == None:
             test_results ={}
-            print(f'Testing modules: {modules}')
-            for mod in modules:
+            print(f'Testing modules: {self.mods}')
+            for mod in self.mods:
                 print(f'Testing mod: {mod}')
                 test_results[mod] = self.forward(mod=mod, timeout=timeout)
             return test_results
@@ -90,9 +91,29 @@ class Test:
         return test_mods
 
 
+    def cmd(self, cmd, stdout=None, stderr=None):
+        """
+        Run a command in the shell
+        """
+        
+        
+        text = ''
+        for ch in os.popen(cmd).readlines():
+            print(ch, end='')
+            text += ch
+        return text
+
     def pytest(self, mod='pypm'):
         """
         Run pytest on the mod
         """
         path = m.dp(mod)
-        return os.system(f'pytest {path}')
+        stdout = None
+        stderr = None
+        cmd = f'pytest {path} --maxfail=1 --disable-warnings -q'
+        return self.cmd(cmd)
+
+        
+
+
+        

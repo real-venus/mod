@@ -1,244 +1,176 @@
-# Base App - Next.js Frontend
+# MOD Protocol - Base App
 
-> **A modern, responsive web application for interacting with the Base Protocol ecosystem**
+> **Decentralized Module Marketplace - Build Once, Earn Forever**
 
 [![Next.js](https://img.shields.io/badge/Next.js-14.0.4-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![Tailwind](https://img.shields.io/badge/Tailwind-3.4-38bdf8)](https://tailwindcss.com/)
 
-## 🚀 Overview
+## 🚀 What is MOD?
 
-Base App is a comprehensive frontend application for the Base Protocol, providing:
+MOD Protocol is a **decentralized function marketplace** where developers publish code modules and earn money every time someone uses them. Think GitHub meets AWS Lambda meets Crypto.
 
-- **Module Management**: Register, update, and explore modules
-- **User Profiles**: Wallet integration and user management
-- **Chat Interface**: Interactive module communication with real-time transactions
-- **Marketplace**: Browse and interact with available modules
-- **Multi-Wallet Support**: Subwallet, Metamask, Phantom, Local wallets
+**For Developers:** Monetize your code with zero infrastructure
+**For Users:** Pay only for what you use, no subscriptions
+**For Everyone:** Verifiable, composable, unstoppable applications
 
-## ✨ Key Features
-
-### 🔐 Wallet Integration
-- **Polkadot**: Subwallet adapter for substrate chains
-- **Ethereum**: Metamask support for EVM chains
-- **Solana**: Phantom wallet integration
-- **Local**: Browser-based key management with signing/verification
-
-### 🎨 Modern UI/UX
-- **Responsive Design**: Mobile-first approach with Tailwind CSS
-- **Dark Mode**: Terminal/hacker aesthetic with green-on-black theme
-- **Animations**: Framer Motion for smooth transitions
-- **MDX Support**: Rich content with embedded components
-- **Split Screen**: Resizable panels for optimal workflow
-
-### ⚡ Performance
-- **App Router**: Next.js 14 with React Server Components
-- **SWC Minification**: Fast builds and optimized bundles
-- **Image Optimization**: Automatic image handling
-- **Code Splitting**: Lazy loading for optimal performance
-
-### 🔒 Security Features
-- **Auto-Verification**: Every signature is automatically verified after signing
-- **Message Signing**: Sign messages with your private key
-- **Signature Verification**: Verify signatures from other users
-- **Client-side Key Management**: Keys never leave your device
-
-## 🛠️ Quick Start
-
-### Prerequisites
+## ⚡ Quick Start
 
 ```bash
-Node.js 18+
-npm or yarn
-```
-
-### Installation & Development
-
-```bash
-# Navigate to app directory
-cd /root/mod/mod/core/app
-
 # Install dependencies
 npm install
 
 # Run development server
 npm run dev
 
-# Build for production
-npm run build
-
-# Start production server
-npm start
+# Open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+## ✨ Key Features
 
-### Docker Deployment
+### 🔐 Multi-Wallet Support
+- **Polkadot** (Subwallet) - Substrate chains
+- **Ethereum** (Metamask) - EVM chains  
+- **Solana** (Phantom) - High-performance execution
+- **Local** - Browser-based key management with signing/verification
 
-```bash
-# Build and run with Docker Compose
-docker-compose up -d
+### 💬 Interactive Chat Interface
+- **Module Selector** - Browse and select from available modules
+- **Schema Editor** - Configure parameters with JSON schema validation
+- **Transaction Panel** - Real-time transaction tracking with cost display
+- **Resizable Layout** - Drag-and-drop split screen for optimal workflow
 
-# View logs
-docker-compose logs -f
+### 🛡️ Security First
+- **Auto-Verification** - Every signature verified immediately after signing
+- **Message Signing** - Sign messages with your private key
+- **Signature Verification** - Verify signatures from other users
+- **Client-side Keys** - Your keys never leave your device
 
-# Stop services
-docker-compose down
-```
+### 🎨 Modern UI/UX
+- **Terminal Aesthetic** - Hacker-style green-on-black theme
+- **Responsive Design** - Mobile-first with Tailwind CSS
+- **Smooth Animations** - Framer Motion transitions
+- **MDX Support** - Rich content with embedded components
 
 ## 📁 Project Structure
 
 ```
 src/
-├── app/                    # Next.js app router pages
+├── app/                    # Next.js app router
 │   ├── chat/              # Chat interface with transactions
-│   ├── mod/               # Module pages and exploration
-│   ├── user/              # User profiles and management
-│   └── layout.tsx         # Root layout
-├── mod/                   # Core modules
+│   ├── mod/               # Module exploration & management
+│   └── user/              # User profiles & wallet integration
+├── mod/
 │   ├── chat/              # Chat components & transaction panel
 │   ├── client/            # API client with authentication
-│   ├── context/           # React contexts (User, Market, Sidebar)
-│   ├── header/            # Header components
-│   ├── key/               # Key management (SR25519, ECDSA)
-│   ├── mod/               # Module components
-│   ├── network/           # Network utilities & market allowance
-│   ├── sidebar/           # Sidebar components
-│   ├── ui/                # UI components (Loading, Copy, etc.)
-│   ├── user/              # User components (Sign/Verify, Transfer)
-│   └── wallet/            # Wallet adapters (Subwallet, Metamask, Phantom)
-└── contracts/             # Smart contracts (Solidity)
+│   ├── key/               # Cryptographic key management (SR25519, ECDSA)
+│   ├── wallet/            # Multi-wallet adapters
+│   └── user/              # User components (Sign/Verify, Transfer)
 ```
 
-## 🔧 Configuration
+## 🎯 Core Workflows
 
-### Environment Variables
+### Register a Module
+```python
+api = Api(key="your_key")
+api.reg(mod="my_awesome_function")
+# Done! Now earn when people use it
+```
+
+### Call a Module
+```python
+result = api.call(
+    fn="image_resizer/resize",
+    params={"width": 800},
+    cost=0.01
+)
+```
+
+### Sign & Verify Messages
+1. Enter message in Sign panel
+2. Click "$ SIGN" - signature auto-verified
+3. Copy signature with 📋 button
+4. Verify any signature in Verify panel
+
+## 🔧 Configuration
 
 Create `.env.local`:
 
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_CHAIN_ENDPOINT=ws://localhost:9944
 NEXT_PUBLIC_NETWORK=local
 ```
 
-### Base Config
-
-See `base.config.js` for Next.js configuration with SWC minification and app router support.
-
-## 🎯 Core Components
-
-### Chat Interface
-- **Resizable Panels**: Drag-and-drop split screen layout
-- **Module Selector**: Browse and select modules
-- **Schema Editor**: Configure module parameters with JSON schema
-- **Transaction History**: Real-time transaction tracking with cost display
-- **Keyboard Navigation**: Arrow keys for page navigation
-
-### Module Management
-- **Module Cards**: Visual module representation with settings
-- **Admin Panel**: Module configuration and updates
-- **Version Control**: Track module versions and changes
-- **Content Management**: IPFS integration for decentralized storage
-
-### User System
-- **Profile Pages**: User information, modules, and transactions
-- **Wallet Connection**: Multi-wallet support with auto-detection
-- **Transaction Management**: Transfer, stake, claim operations
-- **Module Registry**: Register and update your modules
-- **Sign/Verify**: Message signing with auto-verification
-
-### Security Panel
-- **Message Signing**: Sign any message with your private key
-- **Auto-Verification**: Signatures are verified immediately after creation
-- **Signature Verification**: Verify signatures from other users
-- **Public Key Display**: Easy access to your public key
-
-## 🧪 Testing
+## 🐳 Docker Deployment
 
 ```bash
-# Type checking
-npx tsc --noEmit
+# Build and run
+docker-compose up -d
 
-# Lint code
-npm run lint
+# View logs
+docker-compose logs -f
 
-# Format code
-npm run format:fix
+# Stop
+docker-compose down
 ```
+
+## 📦 Tech Stack
+
+**Frontend:**
+- Next.js 14 (App Router + Server Components)
+- React 18 with TypeScript
+- Tailwind CSS + Framer Motion
+
+**Blockchain:**
+- @polkadot/api - Substrate interaction
+- ethers - Ethereum integration
+- Cryptographic signing/verification
+
+**Storage:**
+- IPFS - Decentralized content storage
+- Immutable version history
+
+## 🔒 Security Best Practices
+
+1. ✅ **Always verify signatures** before trusting them
+2. ✅ **Check auto-verify results** after signing messages  
+3. ✅ **Never share private keys** - they stay in your browser
+4. ✅ **Read what you sign** - understand the message content
+5. ✅ **Use HTTPS in production** - protect data in transit
+
+## 📚 Documentation
+
+- [User Profile Module](./src/mod/user/README.md) - Sign/Verify guide
+- [One Pager](./docs/onepager.md) - Quick overview
+- [Whitepaper](./docs/whitepaper.md) - Technical deep dive
+
+## 🐛 Known Issues
+
+### Transaction Panel Filter Bug
+**Issue:** Transactions not showing when filter toggled  
+**Fix:** Remove line 83 filter logic in `TransactionsPanel.tsx`  
+**Details:** See `TRANSACTION_DEBUG.md`
+
+### Missing Cost Field
+**Issue:** Transaction interfaces missing cost property  
+**Fix:** Add `cost?: number` to Transaction interfaces  
+**Details:** See `ANALYSIS.md`
 
 ## 🚀 Deployment
 
 ### Vercel (Recommended)
-
 ```bash
-# Install Vercel CLI
 npm i -g vercel
-
-# Deploy
 vercel
 ```
 
 ### Docker
-
 ```bash
-# Build image
-docker build -t base-app .
-
-# Run container
-docker run -p 3000:3000 base-app
+docker build -t mod-app .
+docker run -p 3000:3000 mod-app
 ```
-
-## 📦 Key Dependencies
-
-### Core
-- **Next.js 14**: React framework with App Router
-- **React 18**: UI library with Server Components
-- **TypeScript**: Type safety and better DX
-
-### Blockchain
-- **@polkadot/api**: Substrate chain interaction
-- **@polkadot/extension-dapp**: Wallet integration
-- **@polkadot/util-crypto**: Cryptographic utilities
-- **ethers**: Ethereum interaction
-
-### UI/UX
-- **Tailwind CSS**: Utility-first styling
-- **Framer Motion**: Smooth animations
-- **Headless UI**: Accessible components
-- **Lucide React**: Modern icon library
-
-### Utilities
-- **BigNumber.js**: Precise number handling
-- **Lodash**: Utility functions
-- **React Toastify**: Toast notifications
-
-## 🔒 Security Best Practices
-
-1. **Always verify signatures** before trusting them
-2. **Check auto-verify results** after signing messages
-3. **Never share your private key** - it stays in your browser
-4. **Understand what you're signing** - read messages carefully
-5. **Use HTTPS in production** - protect data in transit
-
-## 📚 Documentation
-
-- [User Profile Module](./src/mod/user/README.md) - Sign/Verify documentation
-- [Transaction Debug](./TRANSACTION_DEBUG.md) - Transaction panel troubleshooting
-- [Analysis](./ANALYSIS.md) - Cost field implementation guide
-
-## 🐛 Known Issues & Fixes
-
-### Transaction Panel Not Showing Transactions
-- **Issue**: Filter logic bug on line 83 of TransactionsPanel.tsx
-- **Fix**: Remove the line that filters out user transactions when showOnlyMyTx is false
-- **Details**: See [TRANSACTION_DEBUG.md](./TRANSACTION_DEBUG.md)
-
-### Cost Field Missing
-- **Issue**: Transaction interfaces don't include cost field
-- **Fix**: Add `cost?: number` to Transaction interfaces
-- **Details**: See [ANALYSIS.md](./ANALYSIS.md)
 
 ## 🤝 Contributing
 
@@ -250,18 +182,30 @@ docker run -p 3000:3000 base-app
 
 ## 📄 License
 
-MIT License - See LICENSE file for details
+MIT License - See LICENSE file
 
 ---
 
-**Built with ⚡ by the Base Team**
+**Built with ⚡ by the MOD Protocol Team**
 
 *"Simplicity is the ultimate sophistication." - Leonardo da Vinci*
 
-## 🎯 Quick Links
+## 🔗 Quick Links
 
-- **Development**: `npm run dev` → [http://localhost:3000](http://localhost:3000)
-- **Production Build**: `npm run build && npm start`
-- **Docker**: `docker-compose up -d`
-- **Lint**: `npm run lint`
-- **Format**: `npm run format:fix`
+- **Dev Server:** `npm run dev` → http://localhost:3000
+- **Production:** `npm run build && npm start`
+- **Docker:** `docker-compose up -d`
+- **Lint:** `npm run lint`
+- **Format:** `npm run format:fix`
+
+## 🌟 Why MOD?
+
+| Traditional Cloud | MOD Protocol |
+|------------------|-------------|
+| AWS charges you | You charge users |
+| Code can disappear | Stored forever on IPFS |
+| Trust Amazon | Verify cryptographically |
+| Complex billing | Automatic micropayments |
+| Vendor lock-in | Use any module |
+
+**Join the revolution. Build once, earn forever.**

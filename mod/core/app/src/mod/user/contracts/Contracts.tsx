@@ -248,7 +248,17 @@ export default function ContractsInterface() {
         (item: any) => item.type === 'function' && item.name === selectedFunction
       )
       if (!functionAbi) throw new Error('Function not found in ABI')
-      const params = functionAbi.inputs.map((input: any) => functionParams[input.name] || '')
+      
+      const params = functionAbi.inputs.map((input: any) => {
+        if (functionParams[input.name] !== undefined && functionParams[input.name] !== '') {
+          return functionParams[input.name]
+        }
+        if (input.type === 'address' && user?.key) {
+          return user.key
+        }
+        return ''
+      })
+      
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
       const contractInstance = new ethers.Contract(contract.address, contract.abi, signer)
@@ -286,27 +296,30 @@ export default function ContractsInterface() {
           <h1 className="text-4xl font-black mb-3 bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
             🚀 CONTRACTS 🚀
           </h1>
-          <p className="text-base text-gray-400 font-mono">minimal • steve approved</p>
+          <p className="text-sm text-gray-400 font-mono">minimal • steve approved</p>
         </motion.div>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-lg border border-green-500/30">
           <button
             onClick={() => setShowNetworkInfo(!showNetworkInfo)}
-            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+            className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors"
           >
-            <h3 className="text-xl font-bold text-green-300">🌐 NETWORK INFO</h3>
-            <span className="text-green-300 text-xl">{showNetworkInfo ? '▼' : '▶'}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🌐</span>
+              <h3 className="text-base font-bold text-green-300">NETWORK</h3>
+            </div>
+            <span className="text-green-300 text-sm">{showNetworkInfo ? '▼' : '▶'}</span>
           </button>
           {showNetworkInfo && (
-            <div className="px-4 pb-4 space-y-2 text-base">
-              <div className="flex items-center gap-3">
-                <span className="text-gray-400 font-semibold">NETWORK:</span>
-                <span className="font-mono text-base text-green-400">{network.toUpperCase()}</span>
+            <div className="px-3 pb-3 space-y-1 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 font-semibold text-xs">NET:</span>
+                <span className="font-mono text-xs text-green-400">{network.toUpperCase()}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-gray-400 font-semibold">CONNECTED KEY:</span>
-                <span className="font-mono text-base">{user?.key || 'Not connected'}</span>
-                {user?.key && <CopyButton text={user.key} size="md" />}
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 font-semibold text-xs">USER:</span>
+                <span className="font-mono text-xs truncate max-w-[300px]">{user?.key || 'Not connected'}</span>
+                {user?.key && <CopyButton text={user.key} size="sm" />}
               </div>
             </div>
           )}
@@ -316,26 +329,29 @@ export default function ContractsInterface() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-lg border border-cyan-500/30">
             <button
               onClick={() => setShowContractInfo(!showContractInfo)}
-              className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+              className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors"
             >
-              <h3 className="text-xl font-bold text-cyan-300">📋 CONTRACT INFO</h3>
-              <span className="text-cyan-300 text-xl">{showContractInfo ? '▼' : '▶'}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">📋</span>
+                <h3 className="text-base font-bold text-cyan-300">CONTRACT</h3>
+              </div>
+              <span className="text-cyan-300 text-sm">{showContractInfo ? '▼' : '▶'}</span>
             </button>
             {showContractInfo && (
-              <div className="px-4 pb-4 space-y-2 text-base">
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-400 font-semibold">ADDRESS:</span>
-                  <span className="font-mono text-base">{selectedContractData.address}</span>
-                  <CopyButton text={selectedContractData.address || ''} size="md" />
+              <div className="px-3 pb-3 space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 font-semibold text-xs">ADDR:</span>
+                  <span className="font-mono text-xs truncate max-w-[300px]">{selectedContractData.address}</span>
+                  <CopyButton text={selectedContractData.address || ''} size="sm" />
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-400 font-semibold">ABI CID:</span>
-                  <span className="font-mono text-base">{selectedContractData.abiCid}</span>
-                  <CopyButton text={selectedContractData.abiCid || ''} size="md" />
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 font-semibold text-xs">ABI:</span>
+                  <span className="font-mono text-xs truncate max-w-[300px]">{selectedContractData.abiCid}</span>
+                  <CopyButton text={selectedContractData.abiCid || ''} size="sm" />
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-400 font-semibold">STATUS:</span>
-                  <span className="font-mono text-base">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 font-semibold text-xs">STATUS:</span>
+                  <span className="font-mono text-xs">
                     {selectedContractData.abi ? '✅ loaded' : '⏳ loading'}
                   </span>
                 </div>
@@ -406,6 +422,20 @@ export default function ContractsInterface() {
             </div>
           </motion.div>
         )}
+
+        <div className="bg-gradient-to-r from-slate-900/60 to-slate-800/40 backdrop-blur-xl rounded-lg border border-blue-500/30 p-3">
+          <h3 className="text-base font-bold text-blue-300 mb-2">👤 USER</h3>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={user?.key || ''}
+              readOnly
+              className="flex-1 bg-black/60 border border-blue-500/50 rounded-lg px-3 py-2 text-white text-sm font-mono"
+              placeholder="Connect wallet"
+            />
+            {user?.key && <CopyButton text={user.key} size="sm" />}
+          </div>
+        </div>
 
         <div className="flex gap-3">
           <div className="flex-1 relative" ref={contractDropdownRef}>
@@ -487,17 +517,20 @@ export default function ContractsInterface() {
             >
               <h3 className="text-xl font-bold mb-4 text-pink-300">🎯 parameters</h3>
               <div className="grid grid-cols-2 gap-4">
-                {selectedFunctionData.inputs.map((input: any) => (
+                {selectedFunctionData.inputs.map((input: any, index: number) => (
                   <div key={input.name}>
                     <label className="block text-base font-bold mb-2 text-pink-200">
                       {input.name} <span className="text-gray-500">({input.type})</span>
+                      {input.type === 'address' && index === 0 && user?.key && (
+                        <span className="text-xs text-green-400 ml-2">✓ defaults to your address</span>
+                      )}
                     </label>
                     <input
                       type="text"
                       value={functionParams[input.name] || ''}
                       onChange={(e) => setFunctionParams({ ...functionParams, [input.name]: e.target.value })}
                       className="w-full bg-black/60 border border-pink-500/50 rounded-lg px-4 py-3 text-white text-base focus:border-pink-400 focus:outline-none"
-                      placeholder={input.type}
+                      placeholder={input.type === 'address' && index === 0 && user?.key ? user.key : input.type}
                     />
                   </div>
                 ))}

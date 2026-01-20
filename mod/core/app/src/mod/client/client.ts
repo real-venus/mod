@@ -6,6 +6,7 @@ export class Client {
   public url: string;
   public key: Key | undefined;
   public auth: Auth;
+  private keyRotationCallback?: () => void;
 
   constructor(url?: string, key?: Key ) {
     this.url = url || process.env.NEXT_PUBLIC_API_URL || config.api_url || 'http://localhost:8000';
@@ -15,6 +16,34 @@ export class Client {
       throw new Error('Key is required for Client initialization');
     }
     this.auth = new Auth(key);
+    this.setupKeyRotationListener();
+  }
+
+  private setupKeyRotationListener() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'client_key_password' && e.newValue !== e.oldValue) {
+          this.refreshClientKey();
+        }
+      });
+    }
+  }
+
+  public refreshClientKey() {
+    const password = localStorage.getItem('client_key_password');
+    if (password) {
+      const newKey = new Key(password, 'ecdsa');
+      this.key = newKey;
+      this.auth = new Auth(newKey);
+      console.log('Client key refreshed:', newKey.address);
+      if (this.keyRotationCallback) {
+        this.keyRotationCallback();
+      }
+    }
+  }
+
+  public onKeyRotation(callback: () => void) {
+    this.keyRotationCallback = callback;
   }
 
   public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, cost = 0, headers: any = {}, timeout: number = 30000, onCancel?: () => void): Promise<any> {

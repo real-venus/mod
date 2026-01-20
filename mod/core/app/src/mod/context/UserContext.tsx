@@ -14,6 +14,7 @@ interface UserContextType {
   authLoading: boolean
   client: Client | null
   connectClient: () => Promise<void>
+  setLocalKey: React.Dispatch<React.SetStateAction<Key | null>>
   localKey: Key | null
 }
 
@@ -26,6 +27,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [client, setClient] = useState<Client | null>(null)
   const [network, setNetwork] = useState<Network| null>(null)
   const [localKey, setLocalKey] = useState<Key | null>(null)
+
+
+  
 
 
   // Initialize from localStorage on mount
@@ -63,14 +67,26 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setClient(new Client( undefined, new Key('this_is_a_shitty_password_for_the_default_local_wallet')))
     }
   }
+
+  const setClientKey = async () => {
+
+
+
+      setClient(new Client(undefined, key))
+
+  }
+
   const signIn = async () => {
     try {
       await cryptoWaitReady()
   
-      const wallet_password = localStorage.getItem('wallet_password') || 'this_is_a_shitty_password_for_the_default_local_wallet'
+      let wallet_password = localStorage.getItem('wallet_password')
+      if (!wallet_password) {
+        wallet_password = Math.random().toString(36).substring(2) + Date.now().toString(36)
+      }
       const key = new Key(wallet_password)
+      setClient(new Client(undefined, key))
       setLocalKey(key)
-
       const wallet_mode = localStorage.getItem('wallet_mode') || 'local'
       const user_key = wallet_mode === 'local' ? key.address : localStorage.getItem('wallet_address') || key.address
       let balance = 0
@@ -85,7 +101,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       }
       setUser(userData)
-      setClient(new Client(undefined, key))
       
       // Persist to localStorage
       localStorage.setItem('user_data', JSON.stringify(userData))

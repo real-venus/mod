@@ -38,6 +38,9 @@ class  Api:
             self._store = m.mod(self._store_path)()
         return self._store
 
+    def addy(self, key=None):
+        return self.key.address or m.addy(key)
+
     def set_store(self, store):
         # set the store mod
         self._store_path = store
@@ -65,16 +68,13 @@ class  Api:
         """
         return bool(self.cid(mod=mod, key=key))
 
-
     def verify_mod(self, mod: str = 'store', key=None) -> bool:
         mod =  self.mod(mod=mod, key=key) if isinstance(mod, str) else mod
         signature = mod.pop('signature', None)
         assert signature is not None, f'Mod {mod} has no signature'
         return self.key.verify(mod, signature=signature, address=mod['key'])
 
-
-
-    def mod(self, mod: m.Mod='store', key=None, schema=False, content=False,  expand = False, fns=None,**kwargs) -> Dict[str, Any]:
+    def mod(self, mod: m.Mod='store', key=None, schema=False, content=False, public=True,  expand = False, fns=None,**kwargs) -> Dict[str, Any]:
         """
         get the mod Mod from IPFS.
         """
@@ -87,10 +87,12 @@ class  Api:
         if fns is not None:
             mod['fns'] =fns
         mod['name'] = mod['name'].split('/')[0]
+        mod['public'] = mod.get('public', public)
         if content:
             mod['content'] = self.content(mod['content'], expand=1)
         mod['cid'] = cid
         mod['protocal'] = mod.get('protocal', self.protocal)
+
         if 'version' not in mod:
             # get the txs and set the version to the length of the txs
             txs = self.txs(mod=mod['name'], key=mod['key'], df=0)
@@ -193,7 +195,7 @@ class  Api:
             return result
         return task
 
-    def root_cid(self, key=None , public=False, update=True, **kwargs) -> str:
+    def root(self, key=None , public=True, update=True, **kwargs) -> str:
         path = self.path('root_cid.json')
         root_cid = m.get(path, None, update=update)
         if root_cid == None:
@@ -580,7 +582,6 @@ class  Api:
                 git_cmd = f'git clone --single-branch {url} {modpath}'
                 os.makedirs(dirpath, exist_ok=True)
                 os.system(git_cmd)
-                m.print(f"[✓] Cloned repository from {url} to {modpath}", color="green")
         elif self.valid_cid (url):
             self.get(url)
         else:
@@ -600,7 +601,6 @@ class  Api:
         assert self.verify_mod(info), "Mod verification failed"
         self.update_registry(info)
         return info
-
 
     def get_info(self, mod='store', key=None, comment=None, collateral=0.0, public=False, protocal='mod') -> Dict[str, Any]:
         """
@@ -740,6 +740,8 @@ class  Api:
                 for mod in user_mods.keys():
                     mods.append(self.mod(mod, key=user_key))  
         mods = [m for m in mods if isinstance(m, dict) and 'name' in m]
+        # only include the last part of the name
+        mods = [{**m, 'name': m['name'].split('.')[-1]} for m in mods]
         if search != None:
             mods = [m for m in mods if search in m['name']]
         if network != None:
@@ -813,7 +815,7 @@ class  Api:
         Returns:
             Dictionary with registration info for all mods
         """
-        for mod in m.mods():
+        for mod in m.mods(depth=1):
             self.reg(mod=mod, key=key, comment=comment, public=public, protocal=protocal)
         
     def registry(self,  key='all', update=False) -> Dict[str, str]:

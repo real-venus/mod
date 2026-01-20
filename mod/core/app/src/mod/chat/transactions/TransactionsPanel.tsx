@@ -31,6 +31,8 @@ export const TransactionsPanel = forwardRef((props, ref) => {
   const [isHovered, setIsHovered] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [isOpen, setIsOpen] = useState(true)
+  const [expandedTxKey, setExpandedTxKey] = useState<string | null>(null)
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
 
   const fetchTransactions = async () => {
     if (!client) return
@@ -53,9 +55,38 @@ export const TransactionsPanel = forwardRef((props, ref) => {
     }
   }
 
+  const fetchExpandedTxStatus = async () => {
+    if (!client || !expandedTxKey) return
+    try {
+      const result = await client.call('txs', { df: 0, n: pageSize, page: page })
+      if (Array.isArray(result)) {
+        setTransactions(result)
+      }
+    } catch (err) {
+      console.error('Failed to poll transaction status:', err)
+    }
+  }
+
   useEffect(() => {
     fetchTransactions()
   }, [client, page, pageSize])
+
+  useEffect(() => {
+    if (expandedTxKey) {
+      const interval = setInterval(() => {
+        fetchExpandedTxStatus()
+      }, 1000)
+      setPollingInterval(interval)
+      return () => {
+        if (interval) clearInterval(interval)
+      }
+    } else {
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
+        setPollingInterval(null)
+      }
+    }
+  }, [expandedTxKey])
 
   const handleSync = () => {
     setPage(0)
@@ -82,7 +113,6 @@ export const TransactionsPanel = forwardRef((props, ref) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* HEADER TOGGLE BUTTON - FAR RIGHT */}
       <div className="flex justify-end mb-2">
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -93,10 +123,8 @@ export const TransactionsPanel = forwardRef((props, ref) => {
         </button>
       </div>
 
-      {/* COLLAPSIBLE CONTENT WITH OPAQUE BACKGROUND */}
       {isOpen && (
         <div className="flex flex-col h-full bg-black/95 backdrop-blur-md rounded-lg border-2 border-cyan-400/30 p-4">
-          {/* SEARCH AND CONTROLS */}
           <div 
             className={`border rounded-lg backdrop-blur-sm transition-all mb-2 ${
               isHovered ? 'bg-gradient-to-br from-slate-900/70 to-slate-800/50 border-cyan-400/40 shadow-lg' : 'bg-gradient-to-br from-slate-900/50 to-slate-800/30 border-slate-700/40'
@@ -138,7 +166,6 @@ export const TransactionsPanel = forwardRef((props, ref) => {
             </div>
           </div>
 
-          {/* SCROLLABLE TRANSACTIONS LIST */}
           <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/50 scrollbar-track-slate-800/30 pr-1.5">
             {loading ? (
               <div className="flex items-center justify-center py-8">
@@ -146,7 +173,9 @@ export const TransactionsPanel = forwardRef((props, ref) => {
               </div>
             ) : (
               filteredTransactions.map((tx, idx) => (
-                <TransactionCard key={`${tx.client}-${idx}`} tx={tx} idx={idx} />
+                <div key={`${tx.client}-${idx}`} onClick={() => setExpandedTxKey(tx.key === expandedTxKey ? null : tx.key)}>
+                  <TransactionCard tx={tx} idx={idx} />
+                </div>
               ))
             )}
 
@@ -157,7 +186,6 @@ export const TransactionsPanel = forwardRef((props, ref) => {
             )}
           </div>
 
-          {/* PAGINATION */}
           <div 
             className={`border rounded-lg backdrop-blur-sm transition-all mt-2 ${
               isHovered ? 'bg-gradient-to-br from-slate-900/70 to-slate-800/50 border-cyan-400/40 shadow-lg' : 'bg-gradient-to-br from-slate-900/50 to-slate-800/30 border-slate-700/40'

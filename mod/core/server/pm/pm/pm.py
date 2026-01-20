@@ -810,7 +810,7 @@ class PM:
         path = self.store.get_path('namespace')
         namespace = m.get(path, None, max_age=max_age, update=update)
         if namespace == None :
-            containers = self.servers(search=search)
+            containers = self.ps(search=search)
             namespace = {}
             for container in containers:
                 port = self.get_port(container)

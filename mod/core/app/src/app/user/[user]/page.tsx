@@ -7,27 +7,25 @@ import { UserType } from '@/mod/types'
 import { Loading } from '@/mod/ui/Loading'
 import { UserCard } from '@/mod/user/UserCard'
 import Transfer from '@/mod/user/transfer'
-import Reg from '@/mod/user/reg'
-import Update from '@/mod/user/update'
 import ClaimMod from '@/mod/user/claim'
-import { UserModules } from '@/mod/user/usermods/UserModules'
+import Mods from '@/mod/user/mods'
 import ContractsInterface from '@/mod/user/contracts/Contracts'
 import { Admin } from '@/mod/user/admin/Admin'
 import { Portfolio } from '@/mod/user/portfolio/Portfolio'
 import { Billing } from '@/mod/user/billing'
+import RegUpdate from '@/mod/user/regupdate'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
 import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 
-type TabType = 'mods' | 'sign' | 'transfer' | 'register' | 'update' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio'
+type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'regupdate'
 
 const DEFAULT_TABS: { id: TabType; label: string; color: string }[] = [
   { id: 'transfer', label: 'transfer', color: 'blue' },
   { id: 'mods', label: 'mods', color: 'purple' },
   { id: 'portfolio', label: 'portfolio', color: 'indigo' },
-  { id: 'register', label: 'register', color: 'green' },
-  { id: 'update', label: 'update', color: 'orange' },
   { id: 'claim', label: 'claim', color: 'pink' },
+  { id: 'regupdate', label: 'reg/update', color: 'green' },
   { id: 'admin', label: 'admin', color: 'red' },
   { id: 'contracts', label: 'contracts', color: 'cyan' },
   { id: 'billing', label: 'billing', color: 'yellow' },
@@ -168,12 +166,11 @@ export default function UserPage() {
           </div>
 
           <div className="bg-black border-2 border-white/30 rounded p-6">
-            {activeTab === 'mods' && <UserModules userData={userData} />}
+            {activeTab === 'mods' && <Mods userData={userData} />}
             {activeTab === 'portfolio' && <Portfolio />}
             {activeTab === 'transfer' && client?.key && user && <Transfer />}
-            {activeTab === 'register' && client?.key && user && <Reg />}
-            {activeTab === 'update' && client?.key && user && <Update />}
             {activeTab === 'claim' && client?.key && user && <ClaimMod />}
+            {activeTab === 'regupdate' && client?.key && user && <RegUpdate />}
             {activeTab === 'admin' && client?.key && user && <Admin userData={userData} />}
             {activeTab === 'contracts' && client?.key && user && <ContractsInterface />}
             {activeTab === 'billing' && client?.key && user && <Billing />}

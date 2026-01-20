@@ -238,7 +238,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     const all = new Set<string>()
     const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }})
     collect(tree)
-    setExpandedFolders(all)
+    setExpandedFolders(new Set())
     if (tree.length > 0 && tree[0].type === 'file') setSelectedFile(tree[0].path)
   }, [files, selectedFile])
 

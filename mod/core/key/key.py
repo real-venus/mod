@@ -56,6 +56,7 @@ class Key:
     hash = m.hash
     time = m.time
     crypto_type_map = {'ed25519': 0, 'sr25519': 1, 'ecdsa': 2}
+    crypto_type_aliases = {'eth': 'ecdsa', 'secp256k1': 'ecdsa'}
     crypto_types = list(crypto_type_map.keys())
     reverse_crypto_type_map = {v:k for k,v in crypto_type_map.items()}
     default_key= 'mod'
@@ -120,16 +121,15 @@ class Key:
         self.crypto_type = self.crypto_type_id = self.crypto_type_map[crypto_type] # the integer value of the crypto type
         self.private_key = private_key
         self.public_key = public_key
-        self.address = self.key_address = self.ss58_address =  address
+        self.address = self.addy =  self.key_address = self.ss58_address =  address
         return {'address':address, 'crypto_type':crypto_type}
 
 
     def get_crypto_type(self, crypto_type=None):
         if crypto_type == None:
             crypto_type = self.crypto_type
-        shortcuts = {}
-        if crypto_type in shortcuts:
-            crypto_type = shortcuts[crypto_type]
+        if crypto_type in self.crypto_type_aliases:
+            crypto_type = self.crypto_type_aliases[crypto_type]
         
         if is_int(crypto_type):
             crypto_type = self.reverse_crypto_type_map[int(crypto_type)]
@@ -266,6 +266,7 @@ class Key:
                     continue
             key2address[key] = path.split('/')[-1].split('.')[0]
         return key2address
+
 
     def address2key(self, search:Optional[str]=None,  crypto_type=None, **kwargs):
         crypto_type = self.get_crypto_type(crypto_type)

@@ -1,6 +1,6 @@
 import mod as m
 
-class SeelctMods:
+class Tool:
     def forward(self, query='most relevent tool that can store things', *extra_query, n=1):
         """
         read the content of a mod file

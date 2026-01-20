@@ -1,12 +1,20 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Package, Upload, Database, Loader2, CheckCircle, AlertCircle, ArrowUpDown } from 'lucide-react'
+import { Package, Upload, Database, Loader2, CheckCircle, AlertCircle, ArrowUpDown, Plus, Trash2 } from 'lucide-react'
 import {userContext} from '@/mod/context'
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { stringToU8a, u8aToHex } from '@polkadot/util'
 import ModCard from '@/mod/mod/ModCard'
 import { ModuleType } from '@/mod/types'
 import { UrlTypeSelector, UrlType } from './UrlTypeSelector'
+
+type FieldType = 'string' | 'int' | 'float' | 'bytes' | 'dict' | 'bool'
+
+interface CustomField {
+  name: string
+  type: FieldType
+  value: string
+}
 
 export const Reg = ( ) => {
   const { client, localKey, network } = userContext()
@@ -26,6 +34,10 @@ export const Reg = ( ) => {
   const [localModules, setLocalModules] = useState<ModuleType[]>([])
   const [selectedLocalMod, setSelectedLocalMod] = useState<string>('')
   const [sortAsc, setSortAsc] = useState(false)
+  const [customFields, setCustomFields] = useState<CustomField[]>([
+    { name: 'name', type: 'string', value: '' },
+    { name: 'cid', type: 'string', value: '' }
+  ])
 
   useEffect(() => {
     const walletMode = localStorage.getItem('wallet_mode')
@@ -61,10 +73,56 @@ export const Reg = ( ) => {
     name = name.endsWith('.git') ? name.slice(0, -4) : name
     name = name.toLowerCase()
     setModName(name)
+    updateFieldValue('name', name)
   }
 
   const handleNameChange = (e) => {
-    setModName(e.target.value || '')
+    const newName = e.target.value || ''
+    setModName(newName)
+    updateFieldValue('name', newName)
+  }
+
+  const updateFieldValue = (fieldName: string, value: string) => {
+    setCustomFields(prev => prev.map(f => 
+      f.name === fieldName ? { ...f, value } : f
+    ))
+  }
+
+  const addCustomField = () => {
+    setCustomFields(prev => [...prev, { name: '', type: 'string', value: '' }])
+  }
+
+  const removeCustomField = (index: number) => {
+    if (customFields.length <= 2) return // Keep at least name and cid
+    setCustomFields(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const updateCustomField = (index: number, field: Partial<CustomField>) => {
+    setCustomFields(prev => prev.map((f, i) => 
+      i === index ? { ...f, ...field } : f
+    ))
+  }
+
+  const convertFieldValue = (value: string, type: FieldType): any => {
+    switch (type) {
+      case 'int': return parseInt(value) || 0
+      case 'float': return parseFloat(value) || 0.0
+      case 'bool': return value.toLowerCase() === 'true'
+      case 'dict': 
+        try { return JSON.parse(value) } catch { return {} }
+      case 'bytes': return value
+      default: return value
+    }
+  }
+
+  const buildModPayload = () => {
+    const payload: any = {}
+    customFields.forEach(field => {
+      if (field.name) {
+        payload[field.name] = convertFieldValue(field.value, field.type)
+      }
+    })
+    return payload
   }
 
   const handleCreateModuleLocal = async () => {
@@ -149,6 +207,10 @@ export const Reg = ( ) => {
       setModUrl('')
       setModName('')
       setCollateral(0.0)
+      setCustomFields([
+        { name: 'name', type: 'string', value: '' },
+        { name: 'cid', type: 'string', value: '' }
+      ])
       
       const updatedResponse = await client.call('mods', {})
       const updatedLocalMods = updatedResponse.filter((mod: ModuleType) => mod.network === 'local')
@@ -286,25 +348,58 @@ export const Reg = ( ) => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="space-y-4 p-4 bg-black/40 rounded-lg border border-purple-500/30">
+                <div className="flex items-center justify-between">
                   <label className="text-sm text-purple-400 font-mono uppercase font-bold tracking-wide">
-                    Module Name
+                    Custom Fields
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={modName}
-                      onChange={handleNameChange}
-                      placeholder="my-awesome-module"
-                      className="w-full bg-black/60 border-2 border-purple-500/40 rounded-lg px-4 py-3 pl-11 text-purple-300 font-mono text-base placeholder-purple-600/50 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all"
-                    />
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500/70">
-                      <Package size={20} />
-                    </div>
-                  </div>
+                  <button
+                    onClick={addCustomField}
+                    className="px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30 transition-all flex items-center gap-2 text-xs font-bold"
+                  >
+                    <Plus size={14} />
+                    ADD FIELD
+                  </button>
                 </div>
 
+                {customFields.map((field, index) => (
+                  <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                    <input
+                      type="text"
+                      value={field.name}
+                      onChange={(e) => updateCustomField(index, { name: e.target.value })}
+                      placeholder="Field name"
+                      disabled={field.name === 'name' || field.name === 'cid'}
+                      className="col-span-3 bg-black/60 border border-purple-500/40 rounded px-3 py-2 text-purple-300 font-mono text-sm placeholder-purple-600/50 focus:outline-none focus:border-purple-500 disabled:opacity-50"
+                    />
+                    <select
+                      value={field.type}
+                      onChange={(e) => updateCustomField(index, { type: e.target.value as FieldType })}
+                      className="col-span-2 bg-black/60 border border-purple-500/40 rounded px-3 py-2 text-purple-300 font-mono text-sm focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="string">string</option>
+                      <option value="int">int</option>
+                      <option value="float">float</option>
+                      <option value="bytes">bytes</option>
+                      <option value="dict">dict</option>
+                      <option value="bool">bool</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={field.value}
+                      onChange={(e) => updateCustomField(index, { value: e.target.value })}
+                      placeholder="Value"
+                      className="col-span-6 bg-black/60 border border-purple-500/40 rounded px-3 py-2 text-purple-300 font-mono text-sm placeholder-purple-600/50 focus:outline-none focus:border-purple-500"
+                    />
+                    <button
+                      onClick={() => removeCustomField(index)}
+                      disabled={field.name === 'name' || field.name === 'cid' || customFields.length <= 2}
+                      className="col-span-1 p-2 rounded bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
             </>
           ) : (

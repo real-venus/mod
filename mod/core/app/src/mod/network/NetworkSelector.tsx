@@ -160,8 +160,10 @@ export function NetworkSelector() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 px-5 py-2.5 rounded-xl border-2 transition-all backdrop-blur-xl hover:scale-105 active:scale-95"
+        className="flex items-center gap-3 px-6 py-3.5 rounded-xl border-2 transition-all backdrop-blur-xl hover:scale-105 active:scale-95"
         style={{
+          height: '60px',
+          minWidth: '200px',
           backgroundColor: `${selectedNetwork.color}15`,
           borderColor: `${selectedNetwork.color}60`,
           boxShadow: `0 0 20px ${selectedNetwork.color}30`
@@ -171,11 +173,17 @@ export function NetworkSelector() {
           className="w-3 h-3 rounded-full animate-pulse"
           style={{ backgroundColor: selectedNetwork.color }}
         />
+        <span 
+          className="font-bold text-base uppercase tracking-wider"
+          style={{ color: selectedNetwork.color }}
+        >
+          {selectedNetwork.name}
+        </span>
         {selectedNetwork.chainId && (
           <span className="text-xs text-gray-400 font-mono">#{selectedNetwork.chainId}</span>
         )}
         <ChevronDownIcon 
-          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           style={{ color: selectedNetwork.color }}
         />
       </button>

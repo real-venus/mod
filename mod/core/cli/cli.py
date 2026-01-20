@@ -20,6 +20,7 @@ class Cli:
         Forward the function to the mod and function
         """
         t0 = m.time()
+
         fn = self.get_fn()
         params = self.get_params()
         result = fn(*params['args'], **params['kwargs']) if callable(fn) else fn
@@ -58,6 +59,8 @@ class Cli:
         """
         argv = self.argv
         mod = self.mod
+        init_kwargs = self.get_init_params()
+        print(f'Init params: {init_kwargs}', color='cyan')
 
         if len(argv) == 0:
             # scenario 1: no function name provided, use default 'go'
@@ -76,17 +79,42 @@ class Cli:
             # scenario 6: first argument is a path to a function m mod/fn *args **kwargs
             # first mod/submodule/.../fn
             mod , fn = argv.pop(0).split('/')
-            mod = m.mod(mod)()
+            mod = m.mod(mod)(**init_kwargs)
         elif len(argv[0].split('/')) >= 2:
             # scenario 7: first argument is a path to a function m.mod.submodule...fn
             parts = argv.pop(0).split('/')
             fn = parts.pop(-1)
-            mod = m.mod(parts.pop(0))()
+            mod = m.mod(parts.pop(0))(**init_kwargs)
             for part in parts:
                 mod = getattr(mod, part)
+        elif m.mod_exists(argv[0]):
+            # scenario 8: first argument is a mod name, use default fn
+            mod = m.mod(argv.pop(0))(**init_kwargs)
+            fn = argv.pop(1)
         else: 
             raise Exception(f'Function was not extracted from {argv} ')
         return getattr(mod, fn)
+
+
+    def get_init_params(self) -> dict:
+        """
+        Get the parameters passed to the mod init function
+        The parameters can be passed as keyword arguments
+        e.g mod/fn --key1=value1 --key2=value2 # would be init if it preceeds with --
+        """
+
+        argv = self.argv
+        # ---- INIT PARAMS ----
+        init_params = {}
+        if len(argv) > 0:
+            for arg in argv:
+                if arg.startswith('--') and '=' in arg:
+                    key, value = arg[2:].split('=')
+                    init_params[key] = self.str2python(value)
+                    # remove the init params from argv
+                    argv.remove(arg)
+        self.argv = argv
+        return  init_params
 
     def get_params(self) -> tuple:
         """
