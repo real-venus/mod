@@ -1,6 +1,6 @@
-# MOD Protocol - Base App
+# MOD Protocol - Decentralized Module Marketplace
 
-> **Decentralized Module Marketplace - Build Once, Earn Forever**
+> **Build Once, Earn Forever - The Future of Code Monetization**
 
 [![Next.js](https://img.shields.io/badge/Next.js-14.0.4-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
@@ -9,11 +9,11 @@
 
 ## 🚀 What is MOD?
 
-MOD Protocol is a **decentralized function marketplace** where developers publish code modules and earn money every time someone uses them. Think GitHub meets AWS Lambda meets Crypto.
+MOD Protocol is a **decentralized function marketplace** where developers publish code modules and earn money every time someone uses them. Think **GitHub meets AWS Lambda meets Crypto**.
 
-**For Developers:** Monetize your code with zero infrastructure
-**For Users:** Pay only for what you use, no subscriptions
-**For Everyone:** Verifiable, composable, unstoppable applications
+- **For Developers:** Monetize your code with zero infrastructure
+- **For Users:** Pay only for what you use, no subscriptions
+- **For Everyone:** Verifiable, composable, unstoppable applications
 
 ## ⚡ Quick Start
 
@@ -140,23 +140,23 @@ docker-compose down
 4. ✅ **Read what you sign** - understand the message content
 5. ✅ **Use HTTPS in production** - protect data in transit
 
+## 🌟 Why MOD?
+
+| Traditional Cloud | MOD Protocol |
+|------------------|-------------|
+| AWS charges you | You charge users |
+| Code can disappear | Stored forever on IPFS |
+| Trust Amazon | Verify cryptographically |
+| Complex billing | Automatic micropayments |
+| Vendor lock-in | Use any module |
+
+**Join the revolution. Build once, earn forever.**
+
 ## 📚 Documentation
 
 - [User Profile Module](./src/mod/user/README.md) - Sign/Verify guide
 - [One Pager](./docs/onepager.md) - Quick overview
 - [Whitepaper](./docs/whitepaper.md) - Technical deep dive
-
-## 🐛 Known Issues
-
-### Transaction Panel Filter Bug
-**Issue:** Transactions not showing when filter toggled  
-**Fix:** Remove line 83 filter logic in `TransactionsPanel.tsx`  
-**Details:** See `TRANSACTION_DEBUG.md`
-
-### Missing Cost Field
-**Issue:** Transaction interfaces missing cost property  
-**Fix:** Add `cost?: number` to Transaction interfaces  
-**Details:** See `ANALYSIS.md`
 
 ## 🚀 Deployment
 
@@ -197,15 +197,3 @@ MIT License - See LICENSE file
 - **Docker:** `docker-compose up -d`
 - **Lint:** `npm run lint`
 - **Format:** `npm run format:fix`
-
-## 🌟 Why MOD?
-
-| Traditional Cloud | MOD Protocol |
-|------------------|-------------|
-| AWS charges you | You charge users |
-| Code can disappear | Stored forever on IPFS |
-| Trust Amazon | Verify cryptographically |
-| Complex billing | Automatic micropayments |
-| Vendor lock-in | Use any module |
-
-**Join the revolution. Build once, earn forever.**

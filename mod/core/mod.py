@@ -345,7 +345,7 @@ class Mod:
               include_hidden:bool = False, 
               relative = False, # relative to the current working directory
               startswith:str = None,
-              depth=16,
+              depth=1,
               **kwargs) -> List[str]:
         """
         Lists all files in the path
@@ -806,19 +806,26 @@ class Mod:
     
 
     
-    def content(self, mod = None , search=None, ignore_folders = ['mods', 'mods', 'private', 'data', '_mods'], relative=False,  **kwargs) ->  Dict[str, str]:
+    def content(self, mod = None , search=None, ignore_folders = ['mods', 'mods', 'private', 'data', '_mods'], depth=10, relative=False,  **kwargs) ->  Dict[str, str]:
         """
         get the content of the mod as a dict of file path to file content
         return a dict of file path to file content
         """
         mod = mod or 'mod'
-        dirpath = self.dirpath(mod)
-        content = self.file2text(dirpath)
-        content = {k[len(dirpath+'/'): ]:v for k,v in content.items()}
-        # ignore if .mods . is in the path
+        dirpath = self.abspath(self.dirpath(mod))
+        files = self.files(dirpath, depth=depth)
+        content = {self.abspath(f):self.text(f) for f in files}
+        print(dirpath)
+        content = {k[len(dirpath+'/'):]:v for k,v in content.items()}
         content = {k:v for k,v in content.items() if not any(['/'+f+'/' in k for f in ignore_folders])}
         return dict(sorted(content.items(), key=lambda item: item[0]))
 
+    def content_files(self, mod = None , **kwargs) ->  Dict[str, str]:
+        """
+        get the content of the mod as a dict of file path to file content
+        return a dict of file path to file content
+        """
+        return list(self.content(mod=mod, **kwargs).keys())
     cont = codemap =  cm =  content
 
     def cid(self, mod=None , **kwargs) -> Union[str, Dict[str, str]]:
@@ -919,6 +926,14 @@ class Mod:
         return self.mod('key')().str2key(pwd, **kwargs)
 
     _executors = {}
+
+    def subtree(self, mod:str='store', depth:int=2, **kwargs) -> Dict[str, Any]:
+        """
+        Get the subtree of the mod
+        """
+        path = self.dirpath(mod)
+        tree = self.get_tree(path,**kwargs)
+        return tree
     
     def submit(self, 
                 fn, 
@@ -1313,7 +1328,8 @@ class Mod:
             
         """
         path = path or self.paths["core"]
-        cache_path = self.abspath(f'~/.mod/tree/{path.split("/")[-1]}/depth_{depth}.json')
+        relpath = self.hash(self.relpath(path))
+        cache_path = self.abspath(f'~/.mod/tree/{relpath}/depth_{depth}.json')
         tree = self.get(cache_path, {}, update=update)
         if len(tree) == 0:
             paths = self.folders(path, depth=depth)
@@ -1352,40 +1368,32 @@ class Mod:
         """
         search the tree for a mod
         """
-        if orbit == 'all':  
-            for orbit in self.orbits:
-                result = self.search(search=search, tree=None, depth=depth, max_depth=max_depth, orbit=orbit, **kwargs)
-                if len(result) > 0:
-                    return result
-            return {}
-
         search = search.lower().replace('/', '.')  
         tree = tree or self.tree(depth=depth, orbit=orbit, **kwargs)
         if search == None:
             return tree
         # 1 exact match
-        filter_fn = lambda k: k == search
+        def filter_fn(k):
+            k_lower = k.lower()
+            v = False
+            if k_lower == search:
+                v =  True
+            elif k_lower.endswith('.' + search):
+                v =  True
+            elif k_lower.startswith(search + '.'):
+                v =  True
+
+            return v
         tree_options = list(filter(filter_fn, tree.keys()))
-        if len(tree_options) == 1:
-            return {k: tree[k] for k in tree_options}
-        
-        # 3 startswith match
-        filter_fn = lambda k: search == k.split('.')[-1]
-        tree_options = list(filter(filter_fn, tree.keys()))
-        if len(tree_options) > 1:
+        if len(tree_options) >= 1:
             optoions_tree =  {k: tree[k] for k in tree_options}
             tree_options = sorted(optoions_tree.keys(), key=lambda x: len(x))
             return {k: tree[k] for k in tree_options}
-
-        # 4 contains match
-        filter_fn = lambda k:  all([part in k for part in search.split('.')])
-        tree_options = sorted([k for k in tree.keys() if filter_fn(k)], key=lambda x: len(x))
-        result =  {k: tree[k] for k in tree_options}
-
-        if len(result) == 0 and depth < max_depth:
+        elif depth < max_depth:
             return self.search(search=search, tree=None, depth=depth+1, max_depth=max_depth, orbit=orbit, **kwargs)
+        else:
+            return {}
 
-        return result
 
     s = search
 
@@ -1464,21 +1472,17 @@ class Mod:
         self.orbit(orbit,update=True)
         return self.files(dirpath)
 
-    def new(self, name='base2', base='base', orbit='inner', update=True):
+    def new(self, name='test_base', base='base',  orbit='inner', update=True):
         """
         make a new mod
         """
-        name = name 
-        if '/' in name:
-            name = name.replace('/', '.')
-        name = name.split('.')[-1]
         dirpath = self.paths["orbit"][orbit] + '/' + name.replace('.', '/')
-        print(f'Creating new mod {name} at {dirpath} from base {base}')
+        if os.path.exists(dirpath):
+            shutil.rmtree(dirpath)
         for k,v in self.content(base).items():
-            new_path = dirpath + '/' +  k.replace(base, name)
+            new_path = dirpath + '/' +  k.replace(f'{base}/', f'/{name}/')
             self.put_text( new_path, v)
         files = self.files(dirpath)
-        self.tree(update=True)
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self.cid(name)}
     
     create = new = add = fork = new 

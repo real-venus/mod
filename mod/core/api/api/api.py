@@ -20,7 +20,7 @@ class  Api:
     folder_path = m.abspath('~/.mod/api')
     threads = {}
 
-    def __init__(self, store = 'ipfs', chain='chain', key=None, auth='auth.v0'):
+    def __init__(self,  key=None, store = 'ipfs', chain='chain', auth='auth.v0'):
         self.set_store(store)
         self.key = m.key(key)
         self.model = m.mod('model.openrouter')()
@@ -731,17 +731,24 @@ class  Api:
   
 
         registry = self.registry()
-        key = self.key_address(key)
-        if key != 'all':
-            mods =  [self.mod(k, key=key) for k in registry.get(key, {}).keys()]
-        else:
-            mods = []
-            for user_key, user_mods in registry.items():
-                for mod in user_mods.keys():
-                    mods.append(self.mod(mod, key=user_key))  
-        mods = [m for m in mods if isinstance(m, dict) and 'name' in m]
-        # only include the last part of the name
-        mods = [{**m, 'name': m['name'].split('.')[-1]} for m in mods]
+
+
+        path = self.path('mods.json')
+        mods = m.get(path, None, update=update)
+
+        if mods is None :
+
+            key = self.key_address(key)
+            if key != 'all':
+                mods =  [self.mod(k, key=key) for k in registry.get(key, {}).keys()]
+            else:
+                mods = []
+                for user_key, user_mods in registry.items():
+                    for mod in user_mods.keys():
+                        mods.append(self.mod(mod, key=user_key))  
+            mods = [m for m in mods if isinstance(m, dict) and 'name' in m]
+            m.put(path, mods)
+        
         if search != None:
             mods = [m for m in mods if search in m['name']]
         if network != None:

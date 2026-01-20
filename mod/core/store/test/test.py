@@ -80,8 +80,8 @@ class TestStore:
         return {'success': True, 'msg': 'Passed all tests in encrypt all'}
 
     
-    def test_encrypt_folder(self,  mod='mod_test' , password='fam') -> bool:
-        """
+    def test_encrypt_folder(self,  mod='base_test' , password='fam') -> bool:
+        """b
         Test encrypting and decrypting a folder
         """
         store = self.store

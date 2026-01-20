@@ -1820,7 +1820,6 @@ def file2text(path = './',
             continue
     if relative:
         homepath = os.path.abspath(os.path.expanduser('~'))
-
         results = {}
         for k,v in file2text.items():
             if k.startswith(homepath):

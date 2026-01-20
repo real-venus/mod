@@ -9,11 +9,12 @@ import hashlib
 class Auth:
 
     features = ['data', 'time', 'key', 'signature']
-    max_age=3600
+    sig_features = ['data', 'time']
 
     def __init__(self, 
                 key=None, 
-                crypto_type='ecdsa' ):
+                crypto_type='ecdsa', 
+                max_age=3600 ):
         
         """
 
@@ -23,6 +24,7 @@ class Auth:
         :param signature_keys: the keys to use for signing 
         """
         self.set_key(key=key, crypto_type=crypto_type)
+        self.max_age = max_age
 
     def set_key(self, key, crypto_type=None):
         """
@@ -31,69 +33,61 @@ class Auth:
         self.key = m.key(key=key, crypto_type=crypto_type)
         self.crypto_type = crypto_type or self.key.crypto_type_name
 
-    def token(self,  data: dict = {},  key=None, owner=None, cost=0) -> dict:
+
+    def key_address(self, key=None) -> str:
+        """
+        Get the address of the key
+        """
+    
+        return self.get_key(key).address
+
+    def token_data(self, data, key=None) -> dict:
+        """
+        Generate the token data without encoding
+        """
+        result = {
+            'data': data,
+            'time': str(time.time()),
+            'key': key.address if key else self.key.address,
+        }
+        
+        return result
+
+    def token(self,  data: dict = {},  key=None, mod='str') -> dict:
         """
         Generate the headers with the JWT token
         """
         key = self.get_key(key)
-        result = {
-            'data': self.encode_data(data),
-            'time': str(time.time()),
-            'owner': owner or m.owner(),
-            'cost':  str(cost),
-            'key': key.address,
-        }
+        result = self.token_data(data)
         result['signature'] = key.sign(self.sig_data(result), mode='str')
 
-        return self.result2token(result)
-
-    concat_features = ['time', 'cost', 'owner', 'data','key', 'signature' ]
-    sig_features = concat_features[:-1]
-
-
-    def encode_data(self, data: dict) -> str:
-        """Encode data dictionary into a base64url string"""
-        json_data = json.dumps(data, separators=(',', ':'))
-        return self._base64url_encode(json_data)
-
-    def decode_data(self, data_str: str) -> dict:
-        """Decode base64url string back into a data dictionary"""
-        json_data = self._base64url_decode(data_str).decode('utf-8')
-        return json.loads(json_data)
-
-    def result2token(self, result: dict) -> dict:
-        token_data =  '.'.join([ str(result[k]) for k in self.concat_features])
-        return token_data
-
-    def token2result(self, token: str) -> dict:
-        parts = token.split('.')
-        result = {}
-        for i, k in enumerate(self.concat_features):
-            result[k] = parts[i]
-        return result
+        if mod == 'dict':
+            return result
+        elif mod == 'str':
+            return self._base64url_encode(result)
+        else:
+            raise ValueError(f'Invalid mod {mod}')
         
-
 
     def headers(self, data: dict, key=None) -> dict:
         return {'token': self.token(data=data, key=key)}
 
     generate = forward = headers
 
-    def verify(self, token: str) -> dict:
+    def verify(self, headers: str) -> dict:
         """
         Verify and decode a JWT token
         provide the data if you want to verify the data hash
         """
-        if isinstance(token, dict) and 'token' in token:
-            token = token['token']
-        headers = self.token2result(token)
-        signature = headers['signature']
+        if isinstance(headers, str):
+            headers = json.loads(self._base64url_decode(headers))
+        if 'token' in headers:
+            token = headers['token']
+            headers = json.loads(self._base64url_decode(token))
         age = abs(time.time() - float(headers['time']))
         assert age < self.max_age, f'Token is stale {age} > {self.max_age}'
         sigdata = self.sig_data(headers)
-        print(sigdata)
-        verified = self.key.verify(sigdata, signature=headers['signature'], address=headers['key'])
-        assert verified, f'Invalid signature {headers} sigdatahash: {self.hash(sigdata)}'
+        assert self.key.verify(sigdata, signature=headers['signature'], address=headers['key']),  'Invalid signature'
         return headers
 
     def get_key(self, key=None):
@@ -122,16 +116,15 @@ class Auth:
         """
         get the signature data from the headers
         """
-        sig_data =  m.hash(json.dumps({k: headers[k] for k in self.sig_features}, separators=(',', ':')))
-        print(f'sig_data: {sig_data}')
-        return sig_data
+        return json.dumps({k: headers[k] for k in self.sig_features}, separators=(',', ':'))
 
     def test(self, key='test.auth', crypto_type='ecdsa'):
         data = {'fn': 'test', 'params': {'a': 1, 'b': 2}}
         auth = Auth(key=key, crypto_type=crypto_type)
-        token = auth.token(data, key=key)
-        assert auth.verify(token), 'Auth test failed'
-        return {'test_passed': True, 'headers': headers,  'data': data, }
+        headers = auth.generate(data, key=key)
+        assert auth.verify(headers), 'Auth test failed'
+        return {'test_passed': True, 'headers': headers,  'data': data, 'verify': self.verify(headers)}
+
 
     def _base64url_encode(self, data):
         """Encode data in base64url format"""
