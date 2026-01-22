@@ -18,6 +18,7 @@ class SelectFiles:
               trials = 3,
               number_lines = True,
               mod=None,
+              max_chars_pre_split = 100_000,
               content: bool = True,
               model='anthropic/claude-opus-4.5',
               avoid_paths: List[str] = ['.git', '__pycache__', 'node_modules', '.venv', 'venv', '.env', '/private', '/tmp'],
@@ -28,9 +29,31 @@ class SelectFiles:
             if mod:
                 path = c.dirpath(mod)
             files = c.files(path, depth=depth)
-
+        print(f"Total files found: {len(str(files))}", color="blue")
+        if len(str(files)) > max_chars_pre_split:
+            print(f"Total characters in file list exceed {max_chars_pre_split}. Splitting into batches...")
+            num_batches = (len(str(files)) // max_chars_pre_split) + 1
+            print(f"Splitting file selection into {num_batches} batches due to size...")
+            all_selected_files = set()
+            batch_size = len(files) // num_batches
+            for i in range(num_batches):
+                batch_files = files[i*batch_size : (i+1)*batch_size] if i < num_batches - 1 else files[i*batch_size :]
+                selected_files = self.forward(
+                    query=query,
+                    files=batch_files,
+                    n=n,
+                    trials=trials,
+                    number_lines=number_lines,
+                    content=content,
+                    model=model,
+                    avoid_paths=avoid_paths,
+                    depth=depth,
+                    max_chars_pre_split=max_chars_pre_split,
+                    **kwargs
+                )
+                all_selected_files.update(selected_files)
+            return list(all_selected_files)
         if len(files) > 1:
-
             # make the files relative to the path
             for trial in range(trials):
                 try:
@@ -55,7 +78,6 @@ class SelectFiles:
                     continue
         else: 
             results = files
-        print(f"Selected files >>> ",files, color="cyan")
         if number_lines:
             for f in results:
                 results[f] =  [f"{i+1}   {line}" for i, line in enumerate(results[f].split('\n'))]

@@ -1,12 +1,12 @@
-import mod as c
+import mod as m
 import os
 import json
 
 class Desc:
 
     def __init__(self, path='~/.desc', key=None):
-        self.path = c.abspath(path) 
-        self.key = c.key(key)
+        self.path = m.abspath(path) 
+        self.key = m.key(key)
 
     def forward(self,   
                 module='desc', 
@@ -19,11 +19,11 @@ class Desc:
                  **kwargs):
                  
 
-        self.model = c.mod('model.openrouter')(model)
-        context  = c.content(module)
-        dirpath = c.dirpath(module)
-        path  = c.abspath(f'{self.path}/{module}/{model}.json')
-        result = c.get(path, max_age=max_age, update=update)
+        self.model = m.mod('model.openrouter')(model)
+        dp = m.dp(module)
+        context  = m.fn('select_files/')(m.dp(module))
+        path  = m.abspath(f'{self.path}/{module}/{model}.json')
+        result = m.get(path, max_age=max_age, update=update)
         if result is not None and cache:
             print(f'Using cached description from {path} (use update=True to refresh)')
             return result['data']
@@ -65,12 +65,12 @@ class Desc:
                     output = json.loads(output)
                 else:
                     raise e
-            c.put(path, output)
+            m.put(path, output)
             return output
 
 
     def run(self, mods=None, batch_size=16, timeout=32, trials=3, **kwargs): 
-        mods = c.copy(mods or c.core_mods())
+        mods = m.copy(mods or m.core_mods())
         results = {}
         for t in range(trials):
             print(f'Starting trial {t+1}/{trials} with {len(mods)} modules left to describe')
@@ -81,11 +81,11 @@ class Desc:
                 
                 if len(future2mod) < batch_size:
                     params = {'module': mod, **kwargs}
-                    future = (c.submit(self.forward, params, timeout=timeout))
+                    future = (m.submit(self.forward, params, timeout=timeout))
                     future2mod[future] = mod
 
                 else:
-                    for f in c.as_completed(future2mod, timeout=timeout):
+                    for f in m.as_completed(future2mod, timeout=timeout):
                         try:
                             result_mod = future2mod.pop(f)
                             results[result_mod] = f.result()
@@ -107,10 +107,10 @@ class Desc:
 
 
     def mod2desc(self, search=None, **kwargs):
-        files = c.files(self.path)
+        files = m.files(self.path)
         descs = []
         for file in files:
-            desc = c.get(file)
+            desc = m.get(file)
             if desc is None:
                 continue
             if search is not None:

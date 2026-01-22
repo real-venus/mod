@@ -124,6 +124,7 @@ class Mod:
         for fn in add_fns:
             if not hasattr(obj, fn):
                 setattr(obj, fn, partial(getattr(self, fn), obj=obj.__name__))
+        obj.mods = self.mods
         return obj
     def mod(self, 
                 mod: str = 'mod', 
@@ -333,8 +334,17 @@ class Mod:
             recursive:bool=True, 
             search=None, 
             include_hidden=False):
-        files = self.files(path=path, depth=depth + 1, recursive=recursive, include_hidden=include_hidden, search=search)
-        return sorted(set([os.path.dirname(f) for f in files]))
+        path = self.abspath(path)
+        # filter only directories
+        paths = [os.path.join(path, d) for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
+        # avoid hidden folders
+        paths = list(filter(lambda f:self.filter_path(f, include_hidden=include_hidden), paths))
+        if depth > 1:
+            for p in paths:
+                paths.extend(self.folders(p, depth=depth-1, recursive=recursive, search=search, include_hidden=include_hidden))
+
+        paths = list(sorted(set(paths)))
+        return paths
             
     dirs = folders
 
@@ -345,7 +355,7 @@ class Mod:
               include_hidden:bool = False, 
               relative = False, # relative to the current working directory
               startswith:str = None,
-              depth=1,
+              depth=10,
               **kwargs) -> List[str]:
         """
         Lists all files in the path
@@ -361,13 +371,20 @@ class Mod:
             for path in self.ls(path):
                 files.extend(self.files(path, depth=depth-1) if os.path.isdir(path) else [path])
         files =  list(filter(lambda f:os.path.isfile(f), files))
-        if not include_hidden:
-            files =  [f for f in files if not '/.' in f ]
-        if len(self.avoid_folders) > 0:
-            files =  [f for f in files if not any(['/'+at in f for at in self.avoid_folders])]
+        files = list(filter(lambda f:self.filter_path(f, include_hidden=include_hidden), files))
         if search != None:
             files = [f for f in files if search in f]
         return sorted(files)
+
+    def filter_path(self, path, include_hidden=False):
+        if not include_hidden:
+            if '/.' in path:
+                return False
+        if len(self.avoid_folders) > 0:
+            for af in self.avoid_folders:
+                if f'/{af}' in path:
+                    return False
+        return True
 
     def modfiles(self, mod=None, relative=1, **kwargs) -> List[str]:
         mod = mod or 'mod'
@@ -874,7 +891,7 @@ class Mod:
     am = ms = mods
 
     mods = mods
-    def get_mods (self, search=None, **kwargs):
+    def get_mods(self, search=None, **kwargs):
         return self.mods(search=search, **kwargs)
 
     def core_mods(self, *args,  **kwargs) -> List[str]:
@@ -1243,11 +1260,16 @@ class Mod:
         if len(files) == 1:
             return files[0]
         
+        result_options = []
         for file_type in self.file_types:
             for anchor_name in anchor_names:
                 for f in files:
                     if f.endswith('/' + anchor_name + '.' + file_type):
-                        return f
+                        result_options.append(f)
+        if len(result_options) > 0:
+            result_options = sorted(result_options, key=lambda x: len(x))
+            result = result_options[0]
+            return result
         if result is None:
             raise Exception(f'No anchor file found in {path} with anchor names {anchor_names} and file types {self.file_types}')
         return result
@@ -1315,22 +1337,31 @@ class Mod:
     def is_in_file_types(self, f:str) -> bool:
         return any([f.endswith('.' + ft) for ft in self.file_types])
     
+    tree_cache = {}
     def get_tree(self, 
                 path:Optional[str]=None, 
                 search:Optional[str]=None, 
                 depth=8, 
                 folders:bool = True, 
-                update=True,  
+                update=False,  
+                local_cache = True,
                 **kwargs) -> Dict[str, str]: 
         """
         get the tree of the mods in the path
         params: 
             
         """
+
         path = path or self.paths["core"]
         relpath = self.hash(self.relpath(path))
         cache_path = self.abspath(f'~/.mod/tree/{relpath}/depth_{depth}.json')
-        tree = self.get(cache_path, {}, update=update)
+        if update:
+            tree = {}
+        else:
+            if local_cache:
+                tree = self.tree_cache.get(cache_path, {})
+            else:
+                tree = self.get(cache_path, {}, update=update)
         if len(tree) == 0:
             paths = self.folders(path, depth=depth)
             # if folders:
@@ -1349,7 +1380,11 @@ class Mod:
                     tree[k] = tree[v]
             # make all the trees relative to the homepath
             tree = {k: self.relpath(v) for k,v in tree.items()}
-            self.put(cache_path, tree)
+            if local_cache:
+                self.tree_cache[cache_path] = tree
+            else:
+                self.put(cache_path, tree)
+
         tree = {k: self.abspath(v) for k,v in tree.items()}
         if search:
             return self.search(search=search, tree=tree, **kwargs)
@@ -1358,11 +1393,11 @@ class Mod:
     def core_tree(self, search=None, depth=8,  **kwargs): 
         return self.get_tree(self.paths.orbit.core, search=search, depth=depth, **kwargs) 
 
-    def orbit(self, orbit='core', search=None, depth=None,  update=False, **kwargs): 
+    def orbit(self, orbit='core', search=None, depth=None,**kwargs): 
         if depth == None:
             depth = self.orbit2depth.get(orbit, 1)
         kwargs['depth'] = depth or kwargs.get('depth', self.orbit2depth.get(orbit, 1))
-        return self.get_tree(self.paths["orbit"][orbit], search=search, update=update, **kwargs)
+        return self.get_tree(self.paths["orbit"][orbit], search=search,**kwargs)
 
     def search(self, search=None, tree=None, depth=1, max_depth=8 , orbit='all' ,**kwargs) -> Dict[str, str]:
         """
@@ -1378,16 +1413,19 @@ class Mod:
             v = False
             if k_lower == search:
                 v =  True
+            elif search in k_lower:
+                v =  True
+            elif all([chunk in k_lower.split('.') for chunk in search.split('.')]):
+                v =  True
             elif k_lower.endswith('.' + search):
                 v =  True
             elif k_lower.startswith(search + '.'):
                 v =  True
-
             return v
         tree_options = list(filter(filter_fn, tree.keys()))
         if len(tree_options) >= 1:
-            optoions_tree =  {k: tree[k] for k in tree_options}
-            tree_options = sorted(optoions_tree.keys(), key=lambda x: len(x))
+            tree_options =  {k: tree[k] for k in tree_options}
+            tree_options = list(dict(sorted(tree_options.items(), key=lambda item: len(item[1]))).keys())
             return {k: tree[k] for k in tree_options}
         elif depth < max_depth:
             return self.search(search=search, tree=None, depth=depth+1, max_depth=max_depth, orbit=orbit, **kwargs)
@@ -1483,6 +1521,8 @@ class Mod:
             new_path = dirpath + '/' +  k.replace(f'{base}/', f'/{name}/')
             self.put_text( new_path, v)
         files = self.files(dirpath)
+        self.update()
+        assert self.mod_exists(name), f'Mod {name} not found after creation'
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self.cid(name)}
     
     create = new = add = fork = new 

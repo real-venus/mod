@@ -5,15 +5,15 @@ class Test:
     description = """
     i test stuff
     """
-    mods = [ 'server', 'store','key', 'ipfs', 'auth', 'executor']
+    _mods = [ 'server', 'store','key', 'ipfs', 'auth', 'executor']
     def forward(self, mod=None, timeout=50):
         """
         Test the mod 
         """
         if mod == None:
             test_results ={}
-            print(f'Testing modules: {self.mods}')
-            for mod in self.mods:
+            print(f'Testing modules: {self._mods}')
+            for mod in self._mods:
                 print(f'Testing mod: {mod}')
                 test_results[mod] = self.forward(mod=mod, timeout=timeout)
             return test_results
@@ -82,8 +82,8 @@ class Test:
 
     def test_mods(self, search=None, verbose=False, **kwargs):
         test_mods = []
-        mods =  m.mods(search=search, **kwargs)
-        for mod in mods:
+        _mods =  m._mods(search=search, **kwargs)
+        for mod in _mods:
             if verbose:
                 m.print(f'Checking mod: {mod}')
             if self.has_test(mod, verbose=verbose):
