@@ -16,7 +16,7 @@ class Token:
     fns = ['token', 'token2data', 'verify_token', 'test']
     sig_keys = ['signature']
     token_keys = ['key', 'to', 'cost', 'time', 'data']
-    tdiv = '::'
+    tdiv = '.'
     def token_data(self,  data=None,  cost=0, to=None, key=None) -> Dict[str, Any]:
         token_data = {
             'to': to or m.owner(),

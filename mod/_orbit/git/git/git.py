@@ -1,4 +1,4 @@
-import mod as c
+import mod as m
 import subprocess
 import requests
 import base64

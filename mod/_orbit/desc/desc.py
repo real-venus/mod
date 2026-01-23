@@ -21,13 +21,13 @@ class Desc:
 
         self.model = m.mod('model.openrouter')(model)
         dp = m.dp(module)
-        context  = m.fn('select_files/')(m.dp(module))
         path  = m.abspath(f'{self.path}/{module}/{model}.json')
         result = m.get(path, max_age=max_age, update=update)
         if result is not None and cache:
             print(f'Using cached description from {path} (use update=True to refresh)')
             return result['data']
         else:
+            context  = m.fn('select_files/')(m.dp(module))
             anchors = ['<JSON_START_DATA>', '</JSON_END_DATA>']
             output_schema = '{"name": str, "data": str}'
             text = f"""

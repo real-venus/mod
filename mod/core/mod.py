@@ -124,7 +124,7 @@ class Mod:
         for fn in add_fns:
             if not hasattr(obj, fn):
                 setattr(obj, fn, partial(getattr(self, fn), obj=obj.__name__))
-        obj.mods = self.mods
+        # obj.mods = self.mods
         return obj
     def mod(self, 
                 mod: str = 'mod', 
@@ -849,7 +849,7 @@ class Mod:
         """
         get the cid of the mod
         """
-        return self.info(mod=mod, cid=True, **kwargs)['cid']
+        return self.info(mod=mod, **kwargs)['cid']
 
     def dir(self, obj=None, sdearch=None, *args, **kwargs):
         obj = self.obj(obj)
@@ -1341,8 +1341,7 @@ class Mod:
     def get_tree(self, 
                 path:Optional[str]=None, 
                 search:Optional[str]=None, 
-                depth=8, 
-                folders:bool = True, 
+                depth=4, 
                 update=False,  
                 local_cache = True,
                 **kwargs) -> Dict[str, str]: 
@@ -1364,8 +1363,6 @@ class Mod:
                 tree = self.get(cache_path, {}, update=update)
         if len(tree) == 0:
             paths = self.folders(path, depth=depth)
-            # if folders:
-            #     paths = list(map(lambda x: os.path.dirname(x), paths))
             for p in paths:
                 name = self.get_name(p)
                 p = self.process_path(p)
@@ -1399,7 +1396,25 @@ class Mod:
         kwargs['depth'] = depth or kwargs.get('depth', self.orbit2depth.get(orbit, 1))
         return self.get_tree(self.paths["orbit"][orbit], search=search,**kwargs)
 
-    def search(self, search=None, tree=None, depth=1, max_depth=8 , orbit='all' ,**kwargs) -> Dict[str, str]:
+    @staticmethod
+    def filter_fn(k, search):
+        k_lower = k.lower()
+        v = False
+        if k_lower == search:
+            v =  True
+        elif search in k_lower:
+            v =  True
+        elif all([search_chunk in k_lower.split('.') for search_chunk in search.split('.')]):
+            v =  True
+        elif all([search_chunk in k_lower for search_chunk in search.split('.')]):
+            v =  True
+        elif k_lower.endswith('.' + search):
+            v =  True
+        elif k_lower.startswith(search + '.'):
+            v =  True
+        return v
+
+    def search(self, search=None, tree=None, depth=1, max_depth=4 , orbit='all' ,**kwargs) -> Dict[str, str]:
         """
         search the tree for a mod
         """
@@ -1408,21 +1423,7 @@ class Mod:
         if search == None:
             return tree
         # 1 exact match
-        def filter_fn(k):
-            k_lower = k.lower()
-            v = False
-            if k_lower == search:
-                v =  True
-            elif search in k_lower:
-                v =  True
-            elif all([chunk in k_lower.split('.') for chunk in search.split('.')]):
-                v =  True
-            elif k_lower.endswith('.' + search):
-                v =  True
-            elif k_lower.startswith(search + '.'):
-                v =  True
-            return v
-        tree_options = list(filter(filter_fn, tree.keys()))
+        tree_options = list(filter(lambda k: self.filter_fn(k, search), tree.keys()))
         if len(tree_options) >= 1:
             tree_options =  {k: tree[k] for k in tree_options}
             tree_options = list(dict(sorted(tree_options.items(), key=lambda item: len(item[1]))).keys())

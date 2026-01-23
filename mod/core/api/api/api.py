@@ -92,7 +92,6 @@ class  Api:
             mod['content'] = self.content(mod['content'], expand=1)
         mod['cid'] = cid
         mod['protocal'] = mod.get('protocal', self.protocal)
-
         if 'version' not in mod:
             # get the txs and set the version to the length of the txs
             txs = self.txs(mod=mod['name'], key=mod['key'], df=0)
@@ -1062,6 +1061,8 @@ class  Api:
         make a new mod
         """
         key = self.key_address(key)
+        if key == self.key.address:
+            orbit = 'inner'
         name = name or path.split('/')[-1]
         dirpath = m.paths["orbit"][orbit] + '/'+ key+ '/'+ name.replace('.', '/')
         print(f'Creating new mod {name} at {dirpath} from base {base}')
@@ -1072,9 +1073,14 @@ class  Api:
         m.orbit(orbit, update=True)
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self.cid(name)}
 
+    def dp(self, path:str, key=None) -> str:
+        key = self.key_address(key)
+        if key != self.key.address:
+            path = key + '/' + path
+        return m.dp(path)
+
     def is_owner(self, address:str):
         return m.is_owner(address)
-
 
     token_keys = ['owner', 'cost', 'time', 'data']
     token_divider = '::'
