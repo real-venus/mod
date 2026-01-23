@@ -1,7 +1,0 @@
-networks:
-  default:
-    external: true
-    name: modnet
-services:
-
-version: '3.8'
