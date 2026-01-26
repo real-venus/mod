@@ -1819,7 +1819,7 @@ class Mod:
     def setup(self):
         self.serve('ipfs') 
         self.serve('api')
-        return self.fn('app/serve')() if not self.server_exists('app') else None
+        self.up('app')
 
     def pytest(self, mod='pypm'):
         return self.fn('tester/pytest')(mod)

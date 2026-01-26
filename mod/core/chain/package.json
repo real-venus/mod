@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@chainlink/contracts": "^0.8.0",
-    "@openzeppelin/contracts": "^5.0.0",
+    "@openzeppelin/contracts": "4.9.3",
     "@pythnetwork/pyth-sdk-solidity": "^2.2.0",
     "dotenv": "^16.3.1"
   }

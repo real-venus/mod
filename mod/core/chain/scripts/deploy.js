@@ -1,223 +1,208 @@
-const hre = require('hardhat');
-const fs = require('fs');
-const path = require('path');
+const hre = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 // Real mainnet USDT and USDC addresses
 const MAINNET_ADDRESSES = {
-  USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-  USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+  USDT: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 };
 
-async function main() {
-  console.log('🚀 Deploying BlocTime Protocol...');
+// Helper to send tx and wait for 1 confirmation
+async function sendAndConfirm(txPromise, label = "Transaction") {
+  const tx = await txPromise;
+  console.log(`${label} tx sent: ${tx.hash}`);
+  const receipt = await tx.wait(1);
+  console.log(`${label} confirmed in block ${receipt.blockNumber}`);
+  
+  // 2-second delay after confirmation (this is the increased value)
+  console.log(`Waiting 2 seconds for node stability...`);
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  return receipt;
+}
 
-  // config ../config.json
+async function main() {
+  console.log("🚀 Deploying BlocTime Protocol...");
+
   const [deployer] = await hre.ethers.getSigners();
-  console.log('Deploying with account:', deployer.address);
-  console.log('Network:', hre.network.name);
+  console.log("Deploying with account:", deployer.address);
+  console.log("Network:", hre.network.name);
 
   let usdcAddress, usdtAddress, usdc, usdt;
 
-  // Determine if we're on mainnet or test/local
-  if (hre.network.name === 'mainnet' || hre.network.name === 'base_mainnet') {
-    // Use real USDT and USDC addresses on mainnet
+  if (hre.network.name === "mainnet" || hre.network.name === "base_mainnet") {
     usdtAddress = MAINNET_ADDRESSES.USDT;
     usdcAddress = MAINNET_ADDRESSES.USDC;
-    console.log('\n🌐 Using REAL mainnet addresses:');
-    console.log('USDT:', usdtAddress);
-    console.log('USDC:', usdcAddress);
+    console.log("\n🌐 Using REAL mainnet addresses:");
+    console.log("USDT:", usdtAddress);
+    console.log("USDC:", usdcAddress);
   } else {
-    // Deploy mock tokens for local/test networks
-    console.log('\n📦 Deploying MOCK tokens for testing...');
-    const Token = await hre.ethers.getContractFactory('Token');
-    
-    usdt = await Token.deploy(
-      'Tether USD',
-      'USDT',
-       hre.ethers.parseEther('1000000')
-    );
-    await usdt.waitForDeployment();
-    usdtAddress = await usdt.getAddress();
-    console.log('Mock USDT deployed to:', usdtAddress);
+    console.log("\n📦 Deploying MOCK tokens for testing...");
 
-    usdc = await Token.deploy(
-      'USD Coin',
-      'USDC',
-       hre.ethers.parseEther('1000000')
-    );
-    await usdc.waitForDeployment();
+    const Token = await hre.ethers.getContractFactory("Token");
+
+    // Mock USDT
+    const usdtDeployTx = await Token.deploy("Tether USD", "USDT", hre.ethers.parseEther("1000000"));
+    await sendAndConfirm(usdtDeployTx.deploymentTransaction(), "Mock USDT deploy");
+    usdt = usdtDeployTx;
+    usdtAddress = await usdt.getAddress();
+    console.log("Mock USDT deployed to:", usdtAddress);
+
+    // Mock USDC
+    const usdcDeployTx = await Token.deploy("USD Coin", "USDC", hre.ethers.parseEther("1000000"));
+    await sendAndConfirm(usdcDeployTx.deploymentTransaction(), "Mock USDC deploy");
+    usdc = usdcDeployTx;
     usdcAddress = await usdc.getAddress();
-    console.log('Mock USDC deployed to:', usdcAddress);
+    console.log("Mock USDC deployed to:", usdcAddress);
   }
 
-  // Deploy Manual Price Oracle
-  console.log('\n📦 Deploying Manual Price Oracle...');
-  const ManualPriceOracle = await hre.ethers.getContractFactory('ManualPriceOracle');
-  const oracle = await ManualPriceOracle.deploy();
-  await oracle.waitForDeployment();
-  console.log('Manual Price Oracle deployed to:', await oracle.getAddress());
+  // Manual Price Oracle
+  console.log("\n📦 Deploying Manual Price Oracle...");
+  const ManualPriceOracle = await hre.ethers.getContractFactory("ManualPriceOracle");
+  const oracleDeployTx = await ManualPriceOracle.deploy();
+  await sendAndConfirm(oracleDeployTx.deploymentTransaction(), "ManualPriceOracle deploy");
+  const oracle = oracleDeployTx;
+  const oracleAddress = await oracle.getAddress();
+  console.log("Manual Price Oracle deployed to:", oracleAddress);
 
-  // Set 1:1 peg for USDC and USDT
-  console.log('\n⚙️  Setting 1:1 oracle prices...');
+  console.log("\n⚙️ Setting 1:1 oracle prices...");
   const usdPrice = 100000000n; // $1.00 with 8 decimals
-  await oracle.setPrice(usdcAddress, usdPrice, 8);
-  console.log('USDC price set to $1.00');
-  
-  await oracle.setPrice(usdtAddress, usdPrice, 8);
-  console.log('USDT price set to $1.00');
+  await sendAndConfirm(oracle.setPrice(usdcAddress, usdPrice, 8), "USDC price set");
+  await sendAndConfirm(oracle.setPrice(usdtAddress, usdPrice, 8), "USDT price set");
+  console.log("USDC & USDT prices set to $1.00");
 
-  // Deploy TokenGate
-  console.log('\n📦 Deploying TokenGate...');
-  const TokenGate = await hre.ethers.getContractFactory('TokenGate');
-  const tokenGate = await TokenGate.deploy(await oracle.getAddress());
-  await tokenGate.waitForDeployment();
-  console.log('TokenGate deployed to:', await tokenGate.getAddress());
+  // TokenGate
+  console.log("\n📦 Deploying TokenGate...");
+  const TokenGate = await hre.ethers.getContractFactory("TokenGate");
+  const tokenGateDeployTx = await TokenGate.deploy(oracleAddress);
+  await sendAndConfirm(tokenGateDeployTx.deploymentTransaction(), "TokenGate deploy");
+  const tokenGate = tokenGateDeployTx;
+  const tokenGateAddress = await tokenGate.getAddress();
+  console.log("TokenGate deployed to:", tokenGateAddress);
 
-  // Whitelist USDC and USDT in TokenGate
-  console.log('\n⚙️  Whitelisting tokens in TokenGate...');
-  await tokenGate.whitelistToken(usdcAddress);
-  console.log('USDC whitelisted');
-  
-  await tokenGate.whitelistToken(usdtAddress);
-  console.log('USDT whitelisted');
+  console.log("\n⚙️ Whitelisting tokens in TokenGate...");
+  await sendAndConfirm(tokenGate.whitelistToken(usdcAddress), "USDC whitelist");
+  await sendAndConfirm(tokenGate.whitelistToken(usdtAddress), "USDT whitelist");
+  console.log("USDC & USDT whitelisted");
 
-  // Deploy Native Token for staking
-  console.log('\n📦 Deploying Native Token...');
-  const Token = await hre.ethers.getContractFactory('Token');
-  const nativeToken = await Token.deploy(
-    'Native Token',
-    'NAT',
-    hre.ethers.parseEther('1000000')
-  );
-  await nativeToken.waitForDeployment();
-  console.log('Native Token deployed to:', await nativeToken.getAddress());
+  // Native Token
+  console.log("\n📦 Deploying Native Token...");
+  const Token = await hre.ethers.getContractFactory("Token");
+  const nativeTokenDeployTx = await Token.deploy("Native Token", "NAT", hre.ethers.parseEther("1000000"));
+  await sendAndConfirm(nativeTokenDeployTx.deploymentTransaction(), "Native Token deploy");
+  const nativeToken = nativeTokenDeployTx;
+  const nativeTokenAddress = await nativeToken.getAddress();
+  console.log("Native Token deployed to:", nativeTokenAddress);
 
-  // Deploy BlocTime
-  console.log('\n📦 Deploying BlocTime...');
-  const BlocTime = await hre.ethers.getContractFactory('BlocTime');
-  const blocTime = await BlocTime.deploy(
-    await nativeToken.getAddress(),
-    'BlocTime Token',
-    'BLOC',
+  // BlocTime
+  console.log("\n📦 Deploying BlocTime...");
+  const BlocTime = await hre.ethers.getContractFactory("BlocTime");
+  const blocTimeDeployTx = await BlocTime.deploy(
+    nativeTokenAddress,
+    "BlocTime Token",
+    "BLOC",
     100000,
     5000
   );
-  await blocTime.waitForDeployment();
-  console.log('BlocTime deployed to:', await blocTime.getAddress());
+  await sendAndConfirm(blocTimeDeployTx.deploymentTransaction(), "BlocTime deploy");
+  const blocTime = blocTimeDeployTx;
+  const blocTimeAddress = await blocTime.getAddress();
+  console.log("BlocTime deployed to:", blocTimeAddress);
 
-  // Set multiplier points
-  console.log('\n⚙️  Setting multiplier points...');
+  console.log("\n⚙️ Setting multiplier points...");
   const points = [
     { blocks: 0, multiplier: 10000 },
     { blocks: 10000, multiplier: 15000 },
     { blocks: 50000, multiplier: 20000 },
-    { blocks: 100000, multiplier: 30000 }
+    { blocks: 100000, multiplier: 30000 },
   ];
-  await blocTime.setPoints(points);
-  console.log('Multiplier points set successfully');
+  await sendAndConfirm(blocTime.setPoints(points), "Multiplier points set");
+  console.log("Multiplier points set successfully");
 
-  // Deploy Registry
-  console.log('\n📦 Deploying Registry...');
-  const Registry = await hre.ethers.getContractFactory('Registry');
-  const registry = await Registry.deploy();
-  await registry.waitForDeployment();
-  console.log('Registry deployed to:', await registry.getAddress());
+  // Registry
+  console.log("\n📦 Deploying Registry...");
+  const Registry = await hre.ethers.getContractFactory("Registry");
+  const registryDeployTx = await Registry.deploy();
+  await sendAndConfirm(registryDeployTx.deploymentTransaction(), "Registry deploy");
+  const registry = registryDeployTx;
+  const registryAddress = await registry.getAddress();
+  console.log("Registry deployed to:", registryAddress);
 
-  // Deploy Treasury with TokenGate
-  console.log('\n📦 Deploying Treasury...');
-  const Treasury = await hre.ethers.getContractFactory('Treasury');
-  const treasury = await Treasury.deploy(2000, await tokenGate.getAddress());
-  await treasury.waitForDeployment();
-  console.log('Treasury deployed to:', await treasury.getAddress());
+  // Treasury
+  console.log("\n📦 Deploying Treasury...");
+  const Treasury = await hre.ethers.getContractFactory("Treasury");
+  const treasuryDeployTx = await Treasury.deploy(2000, tokenGateAddress);
+  await sendAndConfirm(treasuryDeployTx.deploymentTransaction(), "Treasury deploy");
+  const treasury = treasuryDeployTx;
+  const treasuryAddress = await treasury.getAddress();
+  console.log("Treasury deployed to:", treasuryAddress);
 
-  // Set governance token in Treasury
-  console.log('\n⚙️  Setting governance token in Treasury...');
-  await treasury.setGovernanceToken(await blocTime.getAddress());
-  console.log('Governance token set to BlocTime');
+  await sendAndConfirm(treasury.setGovernanceToken(blocTimeAddress), "Governance token set");
+  console.log("Governance token set to BlocTime");
 
-  // Deploy Market
-  console.log('\n📦 Deploying Market...');
-  const Market = await hre.ethers.getContractFactory('Market');
-  const market = await Market.deploy(
-    'BlocTime Market Token',
-    'BTMT',
-    await treasury.getAddress(),
-    await tokenGate.getAddress()
+  // Market
+  console.log("\n📦 Deploying Market...");
+  const Market = await hre.ethers.getContractFactory("Market");
+  const marketDeployTx = await Market.deploy(
+    "BlocTime Market Token",
+    "BTMT",
+    treasuryAddress,
+    tokenGateAddress
   );
-  await market.waitForDeployment();
-  console.log('Market deployed to:', await market.getAddress());
+  await sendAndConfirm(marketDeployTx.deploymentTransaction(), "Market deploy");
+  const market = marketDeployTx;
+  const marketAddress = await market.getAddress();
+  console.log("Market deployed to:", marketAddress);
 
-  // Create deployment config with deployer at top and contracts organized by network/contract
+  // Save to config.json (unchanged)
   const chainId = (await hre.ethers.provider.getNetwork()).chainId.toString();
   const networkName = hre.network.name;
-  const configPath = path.join(__dirname, '..', 'config.json');
-  
-  // Load existing config if it exists
+  const configPath = path.join(__dirname, "..", "config.json");
+
   let existingConfig = { deployments: {} };
   if (fs.existsSync(configPath)) {
     try {
-      existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      if (!existingConfig.deployments) {
-        existingConfig.deployments = {};
-      }
+      existingConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+      existingConfig.deployments = existingConfig.deployments || {};
     } catch (e) {
-      console.log('⚠️  Could not parse existing config.json, creating new one');
-      existingConfig = { deployments: {} };
+      console.warn("⚠️ Could not parse config.json – creating new");
     }
   }
 
-  // Update config with new deployment - deployer first, then contracts
   existingConfig.deployments[networkName] = {
-    chainId: chainId,
+    chainId,
     deployer: deployer.address,
-    url: hre.network.config.url || '',
+    url: hre.network.config.url || "",
     contracts: {
-      USDC: { address: await usdc.getAddress(),  contract : 'Token' },
-      USDT: { address: await usdt.getAddress() , contract : 'Token' },
-      ManualPriceOracle: { address: await oracle.getAddress() , contract : 'ManualPriceOracle' },
-      TokenGate: { address: await tokenGate.getAddress() , contract : 'TokenGate' },
-      NativeToken: { address: await nativeToken.getAddress() , contract : 'Token' },
-      BlocTime: { address: await blocTime.getAddress() , contract : 'BlocTime' },
-      Registry: { address: await registry.getAddress() , contract : 'Registry' },
-      Treasury: { address: await treasury.getAddress() , contract : 'Treasury' },
-      Market: { address: await market.getAddress() , contract : 'Market' }
-    }
+      USDC: { address: usdcAddress, contract: "Token" },
+      USDT: { address: usdtAddress, contract: "Token" },
+      ManualPriceOracle: { address: oracleAddress, contract: "ManualPriceOracle" },
+      TokenGate: { address: tokenGateAddress, contract: "TokenGate" },
+      NativeToken: { address: nativeTokenAddress, contract: "Token" },
+      BlocTime: { address: blocTimeAddress, contract: "BlocTime" },
+      Registry: { address: registryAddress, contract: "Registry" },
+      Treasury: { address: treasuryAddress, contract: "Treasury" },
+      Market: { address: marketAddress, contract: "Market" },
+    },
   };
 
-
-  // Write config.json
   fs.writeFileSync(configPath, JSON.stringify(existingConfig, null, 2));
-  console.log('\n📝 Deployment addresses saved to config.json');
-  console.log('Format: contracts/{chainId}/{contractName}->address');
-  console.log('Deployer address saved to contracts/{chainId}/deployer');
+  console.log("\n📝 Deployment addresses saved to config.json");
 
-  // Summary
-  console.log('\n📋 Deployment Summary:');
-  console.log('\ndeployer address:', deployer.address);
-  console.log('========================');
-  console.log('Network:', hre.network.name);
-  console.log('Mode:', hre.network.name === 'mainnet' || hre.network.name === 'base_mainnet' ? 'MAINNET (Real Tokens)' : 'TEST/LOCAL (Mock Tokens)');
-  console.log('USDC Token:', usdcAddress);
-  console.log('USDT Token:', usdtAddress);
-  console.log('Manual Price Oracle:', await oracle.getAddress());
-  console.log('TokenGate:', await tokenGate.getAddress());
-  console.log('Native Token:', await nativeToken.getAddress());
-  console.log('BlocTime:', await blocTime.getAddress());
-  console.log('Registry:', await registry.getAddress());
-  console.log('Treasury:', await treasury.getAddress());
-  console.log('Market:', await market.getAddress());
-  console.log('========================');
-  console.log('\n✅ Deployment complete!');
-  console.log('\n💡 Export these addresses:');
-  console.log('export USDC_ADDRESS=' + usdcAddress);
-  console.log('export USDT_ADDRESS=' + usdtAddress);
-  console.log('export ORACLE_ADDRESS=' + await oracle.getAddress());
-  console.log('export TOKENGATE_ADDRESS=' + await tokenGate.getAddress());
-  console.log('export NATIVE_TOKEN_ADDRESS=' + await nativeToken.getAddress());
-  console.log('export BLOCTIME_ADDRESS=' + await blocTime.getAddress());
-  console.log('export REGISTRY_ADDRESS=' + await registry.getAddress());
-  console.log('export TREASURY_ADDRESS=' + await treasury.getAddress());
-  console.log('export MARKET_ADDRESS=' + await market.getAddress());
+  console.log("\n📋 Deployment Summary:");
+  console.log("Network:", networkName);
+  console.log("Deployer:", deployer.address);
+  console.log("USDC:", usdcAddress);
+  console.log("USDT:", usdtAddress);
+  console.log("Oracle:", oracleAddress);
+  console.log("TokenGate:", tokenGateAddress);
+  console.log("Native Token:", nativeTokenAddress);
+  console.log("BlocTime:", blocTimeAddress);
+  console.log("Registry:", registryAddress);
+  console.log("Treasury:", treasuryAddress);
+  console.log("Market:", marketAddress);
+  console.log("\n✅ Deployment complete!");
 }
 
 main()

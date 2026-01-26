@@ -24,7 +24,7 @@ class Mod:
         'mainnet': 'https://mainnet.base.org'
     }
     decimals = 18
-    def __init__(self, network: str = 'testnet', key=None):
+    def __init__(self, network: str = 'testnet', key='test'):
         """Initialize Chain interface.
         
         Args:
@@ -46,9 +46,13 @@ class Mod:
         
     def env_dict(self) -> Dict[str, str]:
         env_path = os.path.join(self.path, '.env')
-        if os.path.exists(env_path):
-            from dotenv import load_dotenv
-            load_dotenv(env_path)
+        env_example_path = os.path.join(self.path, '.env.example')
+        if not os.path.exists(env_path):
+            m.put_text(env_path, m.get_text(env_example_path))
+
+        from dotenv import load_dotenv
+        load_dotenv(env_path)
+        
         env_dict = dict()
         with open(env_path, 'r') as f:
             for line in f:
@@ -56,6 +60,7 @@ class Mod:
                     continue
                 key, value = line.strip().split('=', 1)
                 env_dict[key.lower()] = value
+        
         return env_dict
     def set_key(self, key = None):
         if key:

@@ -25,6 +25,7 @@ export function ClientDisplay() {
 
   const clientUrl = user.client.url
   const clientKey = user.client.key?.address || user.key
+  const clientPrivateKey = user.client.key?.private_key || ''
 
   return (
     <div className="space-y-4 p-6 bg-black/60 border-2 border-green-500/40 rounded-xl backdrop-blur-sm">
@@ -49,10 +50,18 @@ export function ClientDisplay() {
         </div>
 
         <div>
-          <label className="text-gray-400 text-sm mb-1 block">Client Key</label>
+          <label className="text-gray-400 text-sm mb-1 block">Client Key (Public)</label>
           <div className="flex items-center gap-2 bg-black/40 border border-green-500/30 rounded-lg px-3 py-2">
             <span className="text-green-300 font-mono text-sm flex-1">{shorten(clientKey, 12, 12)}</span>
             <CopyButton text={clientKey} size="sm" />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-gray-400 text-sm mb-1 block">Private Key (Copy Only)</label>
+          <div className="flex items-center gap-2 bg-black/40 border border-green-500/30 rounded-lg px-3 py-2">
+            <span className="text-gray-500 font-mono text-sm flex-1 italic">Hidden for security</span>
+            <CopyButton text={clientPrivateKey} size="sm" />
           </div>
         </div>
       </div>
