@@ -3,10 +3,8 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
 import { Header } from '@/mod/header/Header'
-import { Sidebar } from '@/mod/sidebar/Sidebar'
 import { UserProvider } from '@/mod/context'
 import { SearchProvider } from '@/mod/context/SearchContext'
-import { SidebarProvider } from '@/mod/context/SidebarContext'
 import { SplitScreenProvider, useSplitScreenContext } from '@/mod/context/SplitScreenContext'
 import { ControlPanelProvider } from '@/mod/context/ControlPanelContext'
 import { MarketCreditProvider } from '@/mod/context/MarketCreditContext'
@@ -26,6 +24,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const { isHeaderMode, toggleLayout } = useLayoutContext()
   const pathname = usePathname()
   const [hoveredLogo, setHoveredLogo] = useState(false)
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
 
   useEffect(() => {
     if (isSplitScreen && leftPanelUrl === pathname) {
@@ -40,13 +39,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-black">
-      {!isHeaderMode && (
-        <div className="fixed left-0 top-0 h-full" style={{ width: '80px', zIndex: 40 }}>
-          <Sidebar />
-        </div>
-      )}
+
       <div className="fixed left-0 top-0 h-full flex items-start justify-center pt-4" style={{ width: '80px', zIndex: 50 }}>
-        <Link href="/chat">
+        <button onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}>
           <motion.div
             className="relative cursor-pointer"
             onMouseEnter={() => setHoveredLogo(true)}
@@ -67,15 +62,15 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                 exit={{ opacity: 0, x: 10 }}
                 className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-green-500/30 whitespace-nowrap text-sm font-medium pointer-events-none"
               >
-                GO TO CHAT
+                {isHeaderCollapsed ? 'EXPAND HEADER' : 'COLLAPSE HEADER'}
                 <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900" />
               </motion.div>
             )}
           </motion.div>
-        </Link>
+        </button>
       </div>
       <div className="flex-1 flex flex-col" style={{ marginLeft: '80px' }}>
-        {isHeaderMode && <Header />}
+        {isHeaderMode && !isHeaderCollapsed && <Header />}
         <main className="flex-1 overflow-hidden flex">
           {isSplitScreen ? (
             <div className={`w-full h-full ${containerClass}`}>
@@ -113,7 +108,6 @@ export default function RootLayout({
         <UserProvider>
           <MarketCreditProvider>
             <SearchProvider>
-              <SidebarProvider>
                 <SplitScreenProvider>
                   <ControlPanelProvider>
                     <LayoutProvider>
@@ -121,7 +115,6 @@ export default function RootLayout({
                     </LayoutProvider>
                   </ControlPanelProvider>
                 </SplitScreenProvider>
-              </SidebarProvider>
             </SearchProvider>
           </MarketCreditProvider>
         </UserProvider>

@@ -20,7 +20,7 @@ setup(
     description='A simple CLI tool to help you manage your projects and tasks and connecting all of them together in a simple way',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/commune-ai/eth',
+    url='https://github.com/mod-ai/eth',
     author='physics',
     packages=find_packages(),
     include_package_data=True,

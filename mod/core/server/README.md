@@ -1,10 +1,10 @@
-# Commune Server Module
+# mod Server Module
 
-The Commune Server module provides a robust, extensible server framework for creating and managing API endpoints within the Commune ecosystem. It includes authentication, middleware, process management, and client-server communication capabilities.
+The mod Server module provides a robust, extensible server framework for creating and managing API endpoints within the mod ecosystem. It includes authentication, middleware, process management, and client-server communication capabilities.
 
 ## Overview
 
-This module is the backbone of Commune's distributed architecture, allowing modules to expose their functionality as API endpoints. The server module handles:
+This module is the backbone of mod's distributed architecture, allowing modules to expose their functionality as API endpoints. The server module handles:
 
 - Authentication and authorization
 - Request/response handling

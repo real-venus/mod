@@ -9,7 +9,7 @@ export default function NodeMarketplace() {
   const [apiModules, setApiModules] = useState<ModuleType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { client, connectClient } = userContext()
+  const { client } = userContext()
 
   useEffect(() => {
     fetchApiModules()
@@ -19,9 +19,6 @@ export default function NodeMarketplace() {
     try {
       setLoading(true)
       setError(null)
-      if (!client) {
-        await connectClient()
-      }
       const response = await client.call('mods', { search: 'api' })
       const modules = Array.isArray(response) ? response : []
       setApiModules(modules)

@@ -985,6 +985,9 @@ class Mod:
             mod, fn = fn.split('/')
             mod = self.mod(mod)()
             fn_obj = getattr(mod, fn)
+        elif self.mod_exists(fn):
+            mod = self.mod(fn)()
+            fn_obj = getattr(mod, default_fn)
         else:
             raise Exception(f'Function {fn} not found')
         if params:
@@ -1594,7 +1597,7 @@ class Mod:
         query = ' '.join(list(map(str, [query, *extra_query])))
         mod =  mod or mod
         context = self.context(path=self.paths["core"])
-        return self.mod('agent')().ask(f'given the code {self.code(mod)} and CONTEXT OF COMMUNE {context} anster wht following question: {query}', preprocess=False)
+        return self.mod('agent')().ask(f'given the code {self.code(mod)} and CONTEXT OF mod {context} anster wht following question: {query}', preprocess=False)
     
     def ask(self, *args, **kwargs):
         return self.fn("agent/")(*args, **kwargs) 

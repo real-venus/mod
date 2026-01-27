@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MCP (Module Control Protocol) - Base module for commune-style architecture
+MCP (Module Control Protocol) - Base module for mod-style architecture
 
 A Leonardo da Vinci inspired approach to modular Python development.
 Simple, elegant, and powerful.
@@ -13,12 +13,12 @@ import importlib
 import inspect
 from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
-import commune as c
+import mod as c
 
 
 class MCP:
     """
-    Base class for all modules in the commune architecture.
+    Base class for all modules in the mod architecture.
     Provides core functionality for module management, communication, and execution.
     """
     
@@ -181,12 +181,12 @@ class MCP:
     @staticmethod
     def test():
         """
-        Main entry point for the commune system.
+        Main entry point for the mod system.
         Simple, elegant, powerful.
         """
         print("""
         ╔═══════════════════════════════════════╗
-        ║         COMMUNE MCP SYSTEM            ║
+        ║         mod MCP SYSTEM            ║
         ║    'Simplicity is the ultimate        ║
         ║         sophistication'                ║
         ║           - Leonardo da Vinci          ║

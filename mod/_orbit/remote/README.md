@@ -1,4 +1,4 @@
-Remote Class for Commune
+Remote Class for mod
 Welcome! Imagine you have a magic wand that lets you talk to computers far away as if they were right in front of you. The Remote class is like that magic wand for adults, letting them send messages (we call them "commands") to computers that are not next to them. It's like sending a letter to a friend who lives in another city, but much, much faster!
 
 How It Works

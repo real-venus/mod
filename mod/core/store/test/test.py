@@ -4,7 +4,7 @@ import time
 import json
 
 class TestStore:
-    def __init__(self, mod='store',  path='~/.commune/store/test', **kwargs):
+    def __init__(self, mod='store',  path='~/.mod/store/test', **kwargs):
         self.store = m.mod(mod)(path, **kwargs)
 
     def test_encrypt(self, path: str= 'test/a',  key: str='fam') -> str:
@@ -13,7 +13,7 @@ class TestStore:
             """
 
 
-            store = m.mod('store')(path='~/.commune/store/test_encrypt', password=key)
+            store = m.mod('store')(path='~/.mod/store/test_encrypt', password=key)
             if store.exists(path):
                 store.rm(path)
             assert not store.exists(path), f'Failed to delete {path}'
@@ -52,7 +52,7 @@ class TestStore:
         """
         Test the private store
         """
-        store = m.mod('store')(path='~/.commune/store/test_private', password=key)
+        store = m.mod('store')(path='~/.mod/store/test_private', password=key)
         store.rm_all()
         for path, value in data.items():
             print(f'Putting {path} with value {value}')
@@ -68,7 +68,7 @@ class TestStore:
         """
         Test the encrypt all function
         """
-        store = m.mod('store')(path='~/.commune/store/test_encrypt_all')
+        store = m.mod('store')(path='~/.mod/store/test_encrypt_all')
         store.rm_all()
         for path, value in data.items():
             print(f'Putting {path} with value {value}')

@@ -1,7 +1,7 @@
-import commune as c 
+import mod as c 
 class Hf:
     """
-    A base class that provides fundamental functionality for commune modules.
+    A base class that provides fundamental functionality for mod modules.
     """
     def __init__(self, **kwargs):
         """

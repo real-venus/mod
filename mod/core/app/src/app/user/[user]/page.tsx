@@ -26,7 +26,6 @@ const DEFAULT_TABS: { id: TabType; label: string; color: string }[] = [
   { id: 'mods', label: 'mods', color: 'purple' },
   { id: 'portfolio', label: 'portfolio', color: 'indigo' },
   { id: 'claim', label: 'claim', color: 'pink' },
-  { id: 'regupdate', label: 'reg/update', color: 'green' },
   { id: 'admin', label: 'admin', color: 'red' },
   { id: 'contracts', label: 'contracts', color: 'cyan' },
   { id: 'billing', label: 'billing', color: 'yellow' },

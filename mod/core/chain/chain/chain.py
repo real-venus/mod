@@ -372,8 +372,8 @@ class Mod:
         # lowercase all the keys 
         contract_map = {k.lower(): v for k, v in contract_map.items()}
         return contract_map
-
-    def balance(self, token='ETH',  address: str=None,) -> int:
+    
+    def balance(self, token='ETH',  address: str=None) -> int:
         """Get stable token balance.
         
         Args:
@@ -397,7 +397,7 @@ class Mod:
             balance = token_contract.functions.balanceOf(address).call()
 
         return self.format_balance(balance, token=token)
-
+    bal = balance
     def format_balance(self, balance: int, token='ETH') -> float:
         """Format balance from wei to human-readable.
         
@@ -409,7 +409,8 @@ class Mod:
             Formatted balance
         """
         decimals = self.decimals
-        if token != 'ETH':
+        token = token.lower()
+        if token != 'eth':
             chain_config = self.config['deployments'][self.network]['contracts']
             if token in chain_config:
                 token_address = chain_config[token]['address']

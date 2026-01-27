@@ -285,7 +285,7 @@ We envision a future where:
 **Join the Revolution**
 
 - Website: https://mod.protocol
-- GitHub: https://github.com/commune-ai/mod
+- GitHub: https://github.com/mod-ai/mod
 - Discord: https://discord.gg/mod
 - Twitter: @modprotocol
 

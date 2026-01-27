@@ -253,7 +253,7 @@ class Git:
         """
         return m.cmd('git init', cwd=path, verbose=False)
 
-    def giturl(self, url:str='commune-ai/commune'):
+    def giturl(self, url:str='mod-ai/mod'):
         gitprefix = 'https://github.com/'
         gitsuffix = '.git'
         if not url.startswith(gitprefix):

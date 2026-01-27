@@ -203,7 +203,7 @@ m.push("fix bug", "and update docs", safety=True)
 # Repository info
 is_repo = m.isrepo('module_name')
 git_info = m.git_info(path='./repo')
-repos = m.repos(search='commune')
+repos = m.repos(search='mod')
 
 # Clone repositories
 m.clone('https://github.com/user/repo')

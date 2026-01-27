@@ -57,7 +57,6 @@ class Skill:
         params.update({
             'goal': self.goal,
             'output_format': self.output_format,
-            'tools':  {t: m.schema(t, content=1) for t in params['tools']}
             })
         if len(params['tools']) == 0:
             return params['query']

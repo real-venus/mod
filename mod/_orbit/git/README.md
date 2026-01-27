@@ -1,11 +1,11 @@
-# 🚀 Commune Git Module
+# 🚀 mod Git Module
 
-[![GitHub stars](https://img.shields.io/github/stars/commune-ai/commune?style=social)](https://github.com/commune-ai/commune)
+[![GitHub stars](https://img.shields.io/github/stars/mod-ai/mod?style=social)](https://github.com/mod-ai/mod)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-The Commune Git Module is a powerful, Pythonic interface for Git operations, designed for seamless integration with the Commune framework. This module provides a comprehensive set of tools for managing Git repositories, tracking changes, and automating Git workflows.
+The mod Git Module is a powerful, Pythonic interface for Git operations, designed for seamless integration with the mod framework. This module provides a comprehensive set of tools for managing Git repositories, tracking changes, and automating Git workflows.
 
 ## 🔥 Features
 
@@ -19,13 +19,13 @@ The Commune Git Module is a powerful, Pythonic interface for Git operations, des
 ## 🛠️ Installation
 
 ```bash
-pip install commune
+pip install mod
 ```
 
 ## 🚀 Quick Start
 
 ```python
-import commune as c
+import mod as c
 
 # Initialize Git module
 git = c.module('git')
@@ -114,4 +114,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-Built with ❤️ by the [Commune](https://github.com/commune-ai/commune) team.
+Built with ❤️ by the [mod](https://github.com/mod-ai/mod) team.

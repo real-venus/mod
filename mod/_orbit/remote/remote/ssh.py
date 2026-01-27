@@ -1,6 +1,6 @@
-import commune as c
+import mod as c
 
-import commune as c
+import mod as c
 import streamlit as st
 from typing import *
 import paramiko

@@ -5,6 +5,7 @@ import { cryptoWaitReady } from '@polkadot/util-crypto'
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { KeyIcon, WalletIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Key } from '@/mod/key'
 
 type AuthMode = 'local' | 'subwallet' | 'metamask' | 'phantom'
 
@@ -42,6 +43,8 @@ export function WalletAuthButton() {
     try {
       localStorage.setItem('wallet_mode', 'local')
       localStorage.setItem('wallet_password', password)
+      const key = new Key(password)
+      localStorage.setItem('wallet_address', key.address)
       await signIn()
       setShowAuthModal(false)
       setPassword('')
@@ -97,7 +100,7 @@ export function WalletAuthButton() {
       if (!accounts || accounts.length === 0) {
         throw new Error('No MetaMask accounts found')
       }
-
+      console.log('MetaMask accounts:', accounts)
       localStorage.setItem('wallet_mode', 'metamask')
       localStorage.setItem('wallet_address', accounts[0])
       localStorage.setItem('wallet_type', 'ethereum')
@@ -126,6 +129,9 @@ export function WalletAuthButton() {
       }
 
       localStorage.setItem('wallet_mode', 'phantom')
+
+
+      // get the address not the publicKey object
       localStorage.setItem('wallet_address', response.publicKey.toString())
       localStorage.setItem('wallet_type', 'solana')
       await signIn()

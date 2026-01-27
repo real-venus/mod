@@ -20,14 +20,14 @@ Vali is a Python module designed for validating and scoring modules in distribut
 ## Installation
 
 ```bash
-pip install commune
+pip install mod
 ```
 
 ## Quick Start
 
 ```python
 import mod as c
-from commune.vali import Vali
+from mod.vali import Vali
 
 # Create a validator with a custom scoring function
 def my_score_function(client):
@@ -119,7 +119,7 @@ validator.set_score(new_score_function)
 ## Example: Custom Scoring Function
 
 ```python
-from commune.vali import Vali
+from mod.vali import Vali
 
 def advanced_score(client, **kwargs):
     # Get module info
@@ -148,7 +148,7 @@ validator = Vali(
 ## Running as a Standalone Validator
 
 ```python
-from commune.vali import Vali
+from mod.vali import Vali
 
 # Run a single epoch without starting the continuous loop
 results = Vali.run_epoch(network='local')

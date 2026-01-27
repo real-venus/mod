@@ -73,7 +73,7 @@ class Vali:
         return self.network
 
     def get_path(self, path):
-        return os.path.expanduser(f'~/.commune/vali/{path}')
+        return os.path.expanduser(f'~/.mod/vali/{path}')
 
     def next_epoch_time(self):
         return self.epoch_time + self.tempo

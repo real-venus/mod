@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import {Key} from '@/mod/key';
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { stringToU8a, u8aToHex } from '@polkadot/util'
+import { MetamaskAdapter } from '@/mod/wallet/adapters/MetamaskAdapter'
 
 export interface AuthData {
   data: string;
@@ -12,13 +13,14 @@ export interface AuthData {
 }
 export interface AuthHeaders {
   token: string;
+  refreshToken?: string;
 }
 
 export class Auth {
   private key: Key;
   private maxAge: number;
   private signatureKeys: string[];
-  private tokenCache: { token: string; expiresAt: number } | null = null;
+  private tokenCache: { token: string; refreshToken: string; expiresAt: number } | null = null;
   private refreshInterval: number;
 
   /**
@@ -29,63 +31,17 @@ export class Auth {
    * @param refreshInterval - Token refresh interval in seconds (default: 3600 = 1 hour)
    */
   constructor(
-    key: Key | undefined,
     maxAge: number = 3600,
     signatureKeys: string[] = ['data', 'time'],
     refreshInterval: number = 3600
   ) {
-    if (!key) {
-      throw new Error('Key is required for Auth');
-    }
-    this.key = key;
     this.maxAge = maxAge;
     this.signatureKeys = signatureKeys;
     this.refreshInterval = refreshInterval;
-    this.startTokenRefresh();
+    this.key = new Key(localStorage.getItem('wallet_password') || 'wefwefewf');
   }
 
-  /**
-   * Start automatic token refresh
-   */
-  private startTokenRefresh() {
-    // Generate initial token
-    this.refreshToken();
-    
-    // Set up interval to refresh token
-    setInterval(() => {
-      this.refreshToken();
-    }, this.refreshInterval * 1000);
-  }
 
-  /**
-   * Refresh the cached token
-   */
-  private refreshToken() {
-    const token = this.token();
-    this.tokenCache = {
-      token,
-      expiresAt: Date.now() + (this.refreshInterval * 1000)
-    };
-  }
-
-  /**
-   * Get the current valid token (from cache or generate new)
-   */
-  public getToken(): string {
-    if (this.tokenCache && Date.now() < this.tokenCache.expiresAt) {
-      return this.tokenCache.token;
-    }
-    this.refreshToken();
-    return this.tokenCache!.token;
-  }
-
-  /**
-   * Set custom refresh interval
-   * @param seconds - Refresh interval in seconds
-   */
-  public setRefreshInterval(seconds: number) {
-    this.refreshInterval = seconds;
-  }
 
   public base64urlEncode(data: string | Record<string, unknown> | Uint8Array): string {
     let bytes: Uint8Array;
@@ -153,32 +109,53 @@ export class Auth {
     })
     return sig;
   }
-        
-  public token(data: any = '', walletAddress?: any): string {
-    const authData: AuthData = {
-      data: data,
+
+  public async signWithMetamask(signMessage: string): Promise<string> {
+    const metamaskAdapter = new MetamaskAdapter();
+    return await metamaskAdapter.sign(signMessage);
+  }
+
+  public async signLocal(signMessage: string): Promise<string> {
+    const localKey = new Key(localStorage.getItem('wallet_password') || '')
+    return localKey.sign(signMessage);
+  }
+      
+  public async token(data: any = '', walletAddress?: any, wallet_mode?: any): Promise<string> {
+
+    if (!wallet_mode) {
+      wallet_mode = typeof localStorage !== 'undefined' ? localStorage.getItem('wallet_mode') : 'local';
+    }
+    
+    let authData: AuthData = {
+      data: data || '',
       time: String(this.time()),
-      key: walletAddress || this.key.address,
+      key: walletAddress,
       signature: '',
     };
 
     let signatureData: string = this.signatureData(authData);
     authData.dataHash = this.hash(signatureData);
-    if (walletAddress) {
-      authData.signature = this.signWithInjector(signatureData, walletAddress) as unknown as string;
-    } else {
-      authData.signature = this.key.sign(signatureData);
+    console.log(authData, 'authData in token function');
+
+    // Sign with appropriate wallet adapter based on wallet mode
+    if (wallet_mode === 'metamask') {
+      authData.signature = await this.signWithMetamask(signatureData);
+    } else if (wallet_mode === 'local') {
+      // Always sign with client key (local key) for local mode
+      authData.signature = await this.signLocal(signatureData);
     }
-    const verified = this.key.verify(signatureData, authData.signature, authData.key);
-    if (!verified) {
-      throw new Error('Signature verification failed');
-    }
+
+    console.log(authData, 'authData after signing in token function');
 
     return this.base64urlEncode(JSON.stringify(authData));
   }
 
-  public generate(data: any, walletAddress?: any): AuthHeaders {
-    return {token: this.getToken()};
+
+
+  public async generate(data: any, walletAddress?: any): Promise<AuthHeaders> {
+    return {
+      token: await this.token(data, walletAddress),
+    };
   }
 
   public time(): number {
@@ -234,7 +211,7 @@ export class Auth {
     const data = { fn: 'test', params: { a: 1, b: 2 } };
     const auth = new Auth(key);
     
-    const headers = auth.generate(data);
+    const headers = await auth.generate(data);
     
     auth.verify(headers);
     

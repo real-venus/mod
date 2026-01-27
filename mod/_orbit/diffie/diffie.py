@@ -1,4 +1,4 @@
-import commune as c
+import mod as c
 import os
 import base64
 import hmac

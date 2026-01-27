@@ -156,7 +156,7 @@ class App:
             st.write('---')
             cols = st.columns([2,1])
             enable_docker = cols[1].checkbox('Enable Docker')
-            docker_container = cols[0].text_input('Docker Container', 'commune')
+            docker_container = cols[0].text_input('Docker Container', 'mod')
 
             # line 
             st.write('---')

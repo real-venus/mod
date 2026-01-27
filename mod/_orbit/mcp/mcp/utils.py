@@ -2,7 +2,7 @@
 """
 MCP Utils - Utility functions and helpers for the MCP system
 
-Enhanced utilities for the commune MCP architecture.
+Enhanced utilities for the mod MCP architecture.
 Built with Leonardo da Vinci's principle: 'Simplicity is the ultimate sophistication'
 """
 

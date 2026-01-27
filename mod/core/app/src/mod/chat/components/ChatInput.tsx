@@ -38,7 +38,7 @@ export function ChatInput({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="enter your message..."
-            className="flex-1 bg-black/60 border-2 border-orange-500/40 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 placeholder-orange-600/40 resize-none"
+            className="flex-1 bg-black/60 border-2 border-orange-500/40 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 placeholder-orange-600/40 resize-none text-xl"
             style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
             disabled={isLoading}
             rows={4}

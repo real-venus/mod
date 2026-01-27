@@ -1,5 +1,5 @@
-import { Sr25519 } from './sr25519'
-import { Ecdsa } from './ecdsa'
+import { Sr25519 } from './keys/sr25519'
+import { Ecdsa } from './keys/ecdsa'
 
 // Define the structure of a key object
 export interface WalletType {

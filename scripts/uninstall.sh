@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Commune Uninstall Script
-# This script removes commune and its dependencies
+# mod Uninstall Script
+# This script removes mod and its dependencies
 
 echo "==========================================="
-echo "       Commune Uninstall Script"
+echo "       mod Uninstall Script"
 echo "==========================================="
 echo ""
 
@@ -13,17 +13,17 @@ OS_NAME=$(uname)
 echo "Detected OS: $OS_NAME"
 echo ""
 
-# Uninstall commune Python package
-echo "=== Uninstalling Commune Python Package ==="
-if pip3 list | grep -q commune; then
-    echo "Found commune package installed"
-    if confirm "Do you want to uninstall the commune Python package?"; then
-        pip3 uninstall -y commune
-        echo "✓ Commune package uninstalled"
+# Uninstall mod Python package
+echo "=== Uninstalling mod Python Package ==="
+if pip3 list | grep -q mod; then
+    echo "Found mod package installed"
+    if confirm "Do you want to uninstall the mod Python package?"; then
+        pip3 uninstall -y mod
+        echo "✓ mod package uninstalled"
     else
-        echo "⚠ Skipping commune package uninstall"
+        echo "⚠ Skipping mod package uninstall"
     fi
 else
-    echo "⚠ Commune package not found in pip"
+    echo "⚠ mod package not found in pip"
 fi
 echo ""

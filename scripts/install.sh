@@ -156,21 +156,21 @@ else
 fi
 
 
-# is commune installed
+# is mod installed
 
-if pip3 list | grep commune
+if pip3 list | grep mod
 then
     IS_INSTALLED="True"
 else
     IS_INSTALLED="False"
 fi
 
-# install commune
+# install mod
 if [ "$IS_INSTALLED" == "False" ]; then
-    echo "Installing commune"
+    echo "Installing mod"
     pip3 install -e .
 else
-    echo "commune is already installed"
+    echo "mod is already installed"
 fi
 
 c key

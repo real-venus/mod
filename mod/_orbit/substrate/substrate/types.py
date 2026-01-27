@@ -1,5 +1,5 @@
 """
-Common types for the communex module.
+Common types for the modx module.
 """
 
 from typing import *

@@ -17,7 +17,7 @@ class Model:
         timeout: float = None,
         prompt:str=None,
         max_retries: int = 10,
-        storage_path = '~/.commune/openrouter',
+        storage_path = '~/.mod/openrouter',
         key = None,
         **kwargs
     ):

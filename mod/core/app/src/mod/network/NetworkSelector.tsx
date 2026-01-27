@@ -47,6 +47,7 @@ export function NetworkSelector() {
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(DEFAULT_NETWORKS[0])
   const [showDetails, setShowDetails] = useState(false)
   const [networkStatuses, setNetworkStatuses] = useState<Record<string, 'online' | 'offline' | 'checking'>>({})
+  const [isHovering, setIsHovering] = useState(false)
 
   useEffect(() => {
     const savedNetworks = localStorage.getItem('custom_networks')
@@ -65,6 +66,15 @@ export function NetworkSelector() {
 
     checkNetworkStatuses()
   }, [])
+
+  useEffect(() => {
+    if (!isHovering) {
+      const timer = setTimeout(() => {
+        setShowDetails(false)
+      }, 200)
+      return () => clearTimeout(timer)
+    }
+  }, [isHovering])
 
   const checkNetworkStatuses = async () => {
     const statuses: Record<string, 'online' | 'offline' | 'checking'> = {}
@@ -98,6 +108,7 @@ export function NetworkSelector() {
     setSelectedNetwork(network)
     localStorage.setItem('selected_network', network.id)
     setShowDetails(false)
+    setIsHovering(false)
   }
 
   const getStatusIcon = (networkId: string) => {
@@ -110,8 +121,13 @@ export function NetworkSelector() {
   return (
     <div className="relative">
       <div
-        onMouseEnter={() => setShowDetails(true)}
-        onMouseLeave={() => setShowDetails(false)}
+        onMouseEnter={() => {
+          setIsHovering(true)
+          setShowDetails(true)
+        }}
+        onMouseLeave={() => {
+          setIsHovering(false)
+        }}
         className="cursor-pointer"
       >
         <div
@@ -137,9 +153,14 @@ export function NetworkSelector() {
               onClick={(e) => {
                 e.stopPropagation()
                 setShowDetails(false)
+                setIsHovering(false)
               }}
             />
-            <div className="absolute right-0 mt-2 w-96 bg-black/95 backdrop-blur-xl border-2 border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+            <div 
+              className="absolute right-0 mt-2 w-96 bg-black/95 backdrop-blur-xl border-2 border-white/10 rounded-xl shadow-2xl overflow-hidden z-50"
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseLeave={() => setIsHovering(false)}
+            >
               <div className="p-4 border-b-2 border-white/10">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">

@@ -31,6 +31,9 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
   const hasCollapsibleContent = tx.params || tx.result !== undefined
   const [isExpanded, setIsExpanded] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
+  const [isKeyHovered, setIsKeyHovered] = useState(false)
+  const [isCidHovered, setIsCidHovered] = useState(false)
+  const [isSignatureHovered, setIsSignatureHovered] = useState(false)
   
   const hasResults = tx.result !== undefined
   const hasParams = tx.params !== null && tx.params !== undefined
@@ -78,15 +81,10 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
     }
   }
 
-  const copyFieldValue = (value: any) => {
-    const textValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
-    navigator.clipboard.writeText(textValue)
-  }
-
-  const renderValue = (value: any, isNested = false) => {
+  const renderValue = (value: any) => {
     if (value === null || value === undefined) {
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-black/20 p-3 rounded-lg border border-gray-700/30">
           <span className="text-gray-500 font-mono text-sm">null</span>
           <CopyButton text="null" size="sm" />
         </div>
@@ -95,23 +93,21 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
     
     if (typeof value === 'object' && !Array.isArray(value)) {
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {Object.entries(value).map(([key, val]) => (
-            <div key={key} className="flex items-start gap-2 bg-black/20 p-3 rounded-lg border border-gray-700/30 hover:border-gray-600/40 transition-all">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-cyan-400 font-mono text-sm font-semibold">{key}:</span>
-                  <CopyButton text={typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val)} size="sm" />
-                </div>
-                <div className="ml-2">
-                  {typeof val === 'object' ? (
-                    <pre className="text-xs bg-black/30 p-2.5 rounded-md border border-gray-700/40 overflow-x-auto max-w-full">
-                      <code className="text-gray-300">{JSON.stringify(val, null, 2)}</code>
-                    </pre>
-                  ) : (
-                    <span className="text-gray-300 break-all font-mono text-sm">{String(val)}</span>
-                  )}
-                </div>
+            <div key={key} className="bg-black/20 p-3 rounded-lg border border-gray-700/30 hover:border-gray-600/40 transition-all">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-cyan-400 font-mono text-sm font-semibold">{key}:</span>
+                <CopyButton text={typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val)} size="sm" />
+              </div>
+              <div className="ml-2">
+                {typeof val === 'object' ? (
+                  <pre className="text-xs bg-black/30 p-2.5 rounded-md border border-gray-700/40 overflow-x-auto">
+                    <code className="text-gray-300">{JSON.stringify(val, null, 2)}</code>
+                  </pre>
+                ) : (
+                  <span className="text-gray-300 break-all font-mono text-sm">{String(val)}</span>
+                )}
               </div>
             </div>
           ))}
@@ -120,7 +116,7 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
     }
     
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 bg-black/20 p-3 rounded-lg border border-gray-700/30">
         <span className="text-gray-300 break-all font-mono text-sm">{typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}</span>
         <CopyButton text={typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)} size="sm" />
       </div>
@@ -135,6 +131,9 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
   const cardBgColor = getCardBackgroundColor(tx.status)
   const cardBorderColor = getCardBorderColor(tx.status)
   const showCancelButton = (tx.status === 'running' || tx.status === 'pending') && tx.cid
+  const keyColor = text2color(tx.key)
+  const cidColor = text2color(tx.cid || '')
+  const signatureColor = text2color(tx.signature || '')
 
   return (
     <div 
@@ -166,18 +165,66 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
           </span>
 
           {tx.cid && (
-            <span className="bg-black/30 border-2 border-purple-900/60 rounded-xl px-4 py-2 flex items-center gap-2 text-xs shadow-sm" style={{ height: '42px' }}>
-              <span className="text-purple-400 font-semibold">CID</span>
-              <span className="font-mono text-gray-400">{shorten(tx.cid)}</span>
+            <div 
+              className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/cid shadow-md hover:scale-105"
+              style={{
+                borderColor: `${cidColor}40`,
+                backgroundColor: isCidHovered ? `${cidColor}25` : 'rgba(0, 0, 0, 0.3)',
+                height: '42px'
+              }}
+              onMouseEnter={() => setIsCidHovered(true)}
+              onMouseLeave={() => setIsCidHovered(false)}
+              title={tx.cid}
+            >
+              <code className="text-sm font-mono font-bold" style={{ color: cidColor }}>
+                ●●●●●●
+              </code>
               <CopyButton text={tx.cid} size="sm" />
-            </span>
+              
+              {isCidHovered && tx.cid && (
+                <div 
+                  className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                    borderColor: cidColor,
+                    color: cidColor,
+                    boxShadow: `0 0 20px ${cidColor}40`
+                  }}
+                >
+                  {tx.cid}
+                </div>
+              )}
+            </div>
           )}
 
           {tx.key && (
-            <div className="flex items-center gap-2 bg-black/30 border-2 border-purple-500/40 rounded-xl px-4 py-2 shadow-sm" style={{ height: '42px' }}>
-              <KeyIcon className="w-4 h-4 text-purple-400" />
-              <code className="text-xs font-mono" style={{ color: '#a855f7' }}>{tx.key.slice(0, 6)}...</code>
+            <div 
+              className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
+              style={{
+                borderColor: `${keyColor}40`,
+                backgroundColor: isKeyHovered ? `${keyColor}25` : 'rgba(0, 0, 0, 0.3)',
+                height: '42px'
+              }}
+              onMouseEnter={() => setIsKeyHovered(true)}
+              onMouseLeave={() => setIsKeyHovered(false)}
+              title={tx.key}
+            >
+              <KeyIcon className="w-4 h-4" style={{ color: keyColor }} />
               <CopyButton text={tx.key} size="sm" />
+              
+              {isKeyHovered && (
+                <div 
+                  className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                    borderColor: keyColor,
+                    color: keyColor,
+                    boxShadow: `0 0 20px ${keyColor}40`
+                  }}
+                >
+                  {tx.key}
+                </div>
+              )}
             </div>
           )}
 
@@ -208,11 +255,37 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
           <div className="mt-4 space-y-3 pt-4 border-t-2 border-gray-800/50 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               {tx.signature && (
-                <span className="bg-black/30 border-2 border-orange-900/60 rounded-xl px-4 py-2 flex items-center gap-2 text-xs shadow-sm" style={{ height: '42px' }}>
-                  <span className="text-orange-400 font-semibold">SIG</span>
-                  <span className="font-mono text-gray-400">{shorten(tx.signature)}</span>
+                <div 
+                  className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/signature shadow-md hover:scale-105"
+                  style={{
+                    borderColor: `${signatureColor}40`,
+                    backgroundColor: isSignatureHovered ? `${signatureColor}25` : 'rgba(0, 0, 0, 0.3)',
+                    height: '42px'
+                  }}
+                  onMouseEnter={() => setIsSignatureHovered(true)}
+                  onMouseLeave={() => setIsSignatureHovered(false)}
+                  title={tx.signature}
+                >
+                  <span className="text-orange-400 font-semibold text-xs">SIG</span>
+                  <code className="text-sm font-mono font-bold" style={{ color: signatureColor }}>
+                    ●●●●●●
+                  </code>
                   <CopyButton text={tx.signature} size="sm" />
-                </span>
+                  
+                  {isSignatureHovered && tx.signature && (
+                    <div 
+                      className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
+                      style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                        borderColor: signatureColor,
+                        color: signatureColor,
+                        boxShadow: `0 0 20px ${signatureColor}40`
+                      }}
+                    >
+                      {tx.signature}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             

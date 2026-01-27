@@ -4,51 +4,21 @@ import {Key} from '@/mod/key';
 
 export class Client {
   public url: string;
-  public key: Key | undefined;
+  public token: string | undefined;
   public auth: Auth;
   private keyRotationCallback?: () => void;
 
-  constructor(url?: string, key?: Key ) {
+  constructor(url?: string, token?: string) {
     this.url = url || process.env.NEXT_PUBLIC_API_URL || config.api_url || 'http://localhost:8000';
     console.log('Client initialized with URL:', this.url);
-    this.key = key;
-    if (!key) {
-      throw new Error('Key is required for Client initialization');
-    }
-    this.auth = new Auth(key);
-    this.setupKeyRotationListener();
+    this.auth = new Auth(undefined);
+    this.token = token;
   }
 
-  private setupKeyRotationListener() {
-    if (typeof window !== 'undefined') {
-      window.addEventListener('storage', (e) => {
-        if (e.key === 'client_key_password' && e.newValue !== e.oldValue) {
-          this.refreshClientKey();
-        }
-      });
-    }
-  }
-
-  public refreshClientKey() {
-    const password = localStorage.getItem('client_key_password');
-    if (password) {
-      const newKey = new Key(password, 'ecdsa');
-      this.key = newKey;
-      this.auth = new Auth(newKey);
-      console.log('Client key refreshed:', newKey.address);
-      if (this.keyRotationCallback) {
-        this.keyRotationCallback();
-      }
-    }
-  }
-
-  public onKeyRotation(callback: () => void) {
-    this.keyRotationCallback = callback;
-  }
 
   public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, cost = 0, headers: any = {}, timeout: number = 30000, onCancel?: () => void): Promise<any> {
     let body: string | FormData;    
-    headers = this.auth.generate('');
+    headers = { token: this.token || ''};
     body = JSON.stringify(params);
     headers['Content-Type'] = 'application/json';
     headers['Accept'] = 'application/json';

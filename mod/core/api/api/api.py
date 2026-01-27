@@ -169,7 +169,7 @@ class  Api:
         """
         Call a function from a mod Mod in IPFS.
         Args:
-            mod: Commune Mod object
+            mod: mod Mod object
             fn: Function name to call
             params: Parameters for the function call
             key: Key object or address string
@@ -408,7 +408,7 @@ class  Api:
         """Get the content of a mod Mod from IPFS.
         
         Args:
-            mod: Commune Mod object
+            mod: mod Mod object
             
         Returns:
             Content dictionary
@@ -773,7 +773,7 @@ class  Api:
         import datetime
         return datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
-    def versions(self, mod='app' , key=None, df=False, n=4, update=False, max_age=2) -> List[Dict[str, Any]]:
+    def versions(self, mod='app' , key=None, df=False, n=1000, update=False, max_age=2) -> List[Dict[str, Any]]:
 
         if self.valid_cid (mod):
             mod_info = self.get(mod)
@@ -842,7 +842,7 @@ class  Api:
         """Get the schema of a mod Mod from IPFS.
         
         Args:
-            mod: Commune Mod object
+            mod: mod Mod object
         Returns:
             Schema dictionary
         """
@@ -864,7 +864,7 @@ class  Api:
         """
         Setback a mod Mod to a previous CID in IPFS.
         Args:
-            mod: Commune Mod object
+            mod: mod Mod object
             cid: Target CID to setback to
             key: Key object or address string
         """
@@ -908,7 +908,7 @@ class  Api:
         """Remove a mod Mod from IPFS.
         
         Args:
-            mod: Commune Mod object
+            mod: mod Mod object
         Returns:
             True if removal was successful, False otherwise
         """

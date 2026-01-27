@@ -14,7 +14,7 @@ class Auth:
     def __init__(self, 
                 key=None, 
                 crypto_type='ecdsa', 
-                max_age=3600 ):
+                max_age=3_600 ):
         
         """
 
@@ -75,21 +75,44 @@ class Auth:
     generate = forward = headers
 
     def verify(self, headers: str) -> dict:
-        """
-        Verify and decode a JWT token
-        provide the data if you want to verify the data hash
-        """
         if isinstance(headers, str):
             headers = json.loads(self._base64url_decode(headers))
         if 'token' in headers:
             token = headers['token']
             headers = json.loads(self._base64url_decode(token))
+
         age = abs(time.time() - float(headers['time']))
         assert age < self.max_age, f'Token is stale {age} > {self.max_age}'
-        sigdata = self.sig_data(headers)
-        assert self.key.verify(sigdata, signature=headers['signature'], address=headers['key']),  'Invalid signature'
-        return headers
 
+        # ────────────────────────────────────────────────
+        # FIX: Normalize MetaMask legacy v=27/28 → v=0/1
+        # ────────────────────────────────────────────────
+        sig = headers['signature']
+        if sig.startswith('0x'):
+            sig_hex = sig[2:]
+        else:
+            sig_hex = sig
+
+        if len(sig_hex) == 130:  # 65 bytes = 130 hex chars
+            r = sig_hex[:64]
+            s = sig_hex[64:128]
+            v_hex = sig_hex[128:130]  # last 2 hex chars = 1 byte
+            v = int(v_hex, 16)
+            if v in (27, 28):
+                normalized_v = v - 27   # 27→0, 28→1
+                headers['signature'] = '0x' + r + s + f'{normalized_v:02x}'
+                print(f"Normalized legacy v={v} → {normalized_v}")
+
+        sig_data = self.sig_data(headers)   
+        print('Hashing sig_data for verification:', m.hash(sig_data))
+        # Now verify with (possibly normalized) signature
+        assert self.key.verify(
+            self.sig_data(headers),
+            signature=headers['signature'],
+            address=headers['key']
+        )
+
+        return headers
     def get_key(self, key=None):
         """
         Get the key to use for signing

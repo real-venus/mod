@@ -9,7 +9,7 @@ import mod as c
 class Store:
 
     def __init__(self, 
-                folder='~/.commune/store', 
+                folder='~/.mod/store', 
                 suffix='json',
                 key = None,
                 private=False,

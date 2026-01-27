@@ -4,7 +4,7 @@ import { WalletHeader } from '@/mod/wallet/WalletHeader'
 import { TreasuryHeader } from '@/mod/header/TreasuryHeader'
 import { UsersIcon, CubeIcon, TableCellsIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, PlusIcon, Bars3Icon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { NetworkSelector } from '@/mod/network/NetworkSelector'
 import { userContext } from '@/mod/context/UserContext'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -17,18 +17,18 @@ import { CSS } from '@dnd-kit/utilities'
 
 const defaultNavigation = [
   { id: 'search', name: 'Search', component: 'SearchBar', color: '#d8cc1b' },
-  { id: 'treasury', name: 'Treasury', component: 'TreasuryHeader', color: '#10b981' },
   { id: 'chat', name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon, color: '#ef4444' },
   { id: 'mods', name: 'Mods', href: '/mod/explore', icon: CubeIcon, color: '#3b82f6' },
   { id: 'users', name: 'Users', href: '/user/explore', icon: UsersIcon, color: '#10b981' },
   { id: 'transactions', name: 'Transactions', href: '/transactions', icon: TableCellsIcon, color: '#f59e0b' },
   { id: 'split', name: 'Split Screen', component: 'SplitScreen', color: '#a855f7' },
-  { id: 'add', name: 'Add Tab', component: 'AddTab', color: '#06b6d4' },
+  { id: 'treasury', name: 'Treasury', component: 'TreasuryHeader', color: '#10b981' },
   { id: 'network', name: 'Network', component: 'NetworkSelector', color: '#3b82f6' },
   { id: 'wallet', name: 'Wallet', component: 'WalletHeader', color: '#f59e0b' },
 ]
 
-function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection, isSplitScreen, toggleSplitScreen, setOrientation, showOrientationMenu, setShowOrientationMenu, showTabMenu, setShowTabMenu, isEditMode }: any) {
+function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection, isSplitScreen, toggleSplitScreen, setOrientation, showOrientationMenu, setShowOrientationMenu, showTabMenu, setShowTabMenu, isEditMode, setIsEditMode, isHeaderCollapsed }: any) {
+  const router = useRouter()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: !isEditMode })
   
   const style = {
@@ -37,6 +37,8 @@ function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection,
     opacity: isDragging ? 0.5 : 1,
     cursor: isEditMode ? 'grab' : 'default'
   }
+
+  if (isHeaderCollapsed) return null
 
   const renderComponent = () => {
     if (item.component === 'SearchBar') return <SearchBar />
@@ -82,14 +84,27 @@ function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection,
           <AnimatePresence>
             {hoveredSection === 'Add Tab' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.15 }} className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none z-50">
-                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-cyan-500/30 whitespace-nowrap text-sm font-medium">Add New Tab<div className="absolute bottom-full left-1/2 -translate-x-1/2 border-8 border-transparent border-b-gray-900" /></div>
+                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-cyan-500/30 whitespace-nowrap text-sm font-medium">Create New Mod<div className="absolute bottom-full left-1/2 -translate-x-1/2 border-8 border-transparent border-b-gray-900" /></div>
               </motion.div>
             )}
           </AnimatePresence>
           {showTabMenu && (
             <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-cyan-500/30 rounded-lg shadow-xl overflow-hidden z-50 min-w-[200px]">
-              <div className="p-2 text-white text-sm font-medium border-b border-gray-800">Add New Tab</div>
-              <div className="p-2 text-white/70 text-xs">Coming soon...</div>
+              <div className="p-2 text-white text-sm font-medium border-b border-gray-800">Create New</div>
+              <button 
+                onClick={() => { router.push('/user/reg'); setShowTabMenu(false) }}
+                className="w-full px-4 py-3 text-left text-white hover:bg-cyan-500/20 transition-colors flex items-center gap-3 border-b border-gray-800"
+              >
+                <CubeIcon className="w-5 h-5" />
+                <span className="text-sm font-medium">Register Module</span>
+              </button>
+              <button 
+                onClick={() => { router.push('/user/reg'); setShowTabMenu(false) }}
+                className="w-full px-4 py-3 text-left text-white hover:bg-cyan-500/20 transition-colors flex items-center gap-3"
+              >
+                <PlusIcon className="w-5 h-5" />
+                <span className="text-sm font-medium">Create Custom Tab</span>
+              </button>
             </div>
           )}
         </div>
@@ -132,6 +147,7 @@ export function Header() {
   const [showTabMenu, setShowTabMenu] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [items, setItems] = useState(defaultNavigation)
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -172,6 +188,8 @@ export function Header() {
                   showTabMenu={showTabMenu}
                   setShowTabMenu={setShowTabMenu}
                   isEditMode={isEditMode}
+                  setIsEditMode={setIsEditMode}
+                  isHeaderCollapsed={isHeaderCollapsed}
                 />
               ))}
             </div>

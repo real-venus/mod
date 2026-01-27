@@ -4,6 +4,8 @@ export interface WalletAdapter {
   signIn(): Promise<void>
   isAvailable(): Promise<boolean>
   getAccounts?(): Promise<any[]>
+  sign(message: string): Promise<string>
+  verify(message: string, signature: string, publicKey: string): Promise<boolean>
 }
 
 export type WalletType = 'local' | 'subwallet' | 'metamask' | 'phantom'

@@ -152,11 +152,51 @@ def ecdsa_sign(private_key: bytes, message: bytes) -> bytes:
     signer = PrivateKey(private_key)
     return signer.sign_msg(message).to_bytes()
 
+
+from eth_account import Account
+from eth_account.messages import encode_defunct
+import binascii
+
 def ecdsa_verify(signature: bytes, data: bytes, address: bytes) -> bool:
+    """
+    Verify ECDSA signature, handling both legacy (v=27/28) and modern (v=0/1) formats.
+    """
+    print("Input signature (hex):", binascii.hexlify(signature).decode())
+    print("Input data (utf8):", data.decode('utf-8', errors='ignore'))
+    print("Expected address:", address.hex())
+
+    # Normalize signature if it's legacy
+    sig_hex = binascii.hexlify(signature).decode()
+    if len(sig_hex) == 130:  # 65 bytes
+        r = sig_hex[:64]
+        s = sig_hex[64:128]
+        v_hex = sig_hex[128:]
+        v = int(v_hex, 16)
+        print(f"Detected v = {v}")
+        if v in (27, 28):
+            normalized_v = v - 27
+            normalized_sig_hex = r + s + f'{normalized_v:02x}'
+            normalized_sig = binascii.unhexlify(normalized_sig_hex)
+            print(f"Normalized to v={normalized_v}, sig: {normalized_sig_hex}")
+            signature = normalized_sig  # use normalized version
+    # Use eth_account for verification (handles both v formats)
+    try:
+        message = encode_defunct(data)
+        recovered = Account.recover_message(message, signature=signature)
+        recovered_bytes = bytes.fromhex(recovered[2:])  # remove 0x
+        print("Recovered address:", recovered)
+        print("Matches expected?", recovered_bytes == address)
+        result =  recovered_bytes.lower() == address.lower()
+    except Exception as e:
+        print("Verification failed:", str(e))
+        result =  False
+    if result:
+        return True
     signature_obj = Signature(signature)
     recovered_pubkey = signature_obj.recover_public_key_from_msg(data)
     recovered_address = recovered_pubkey.to_canonical_address()
-    return recovered_address == address
+    return recovered_address.lower() == address.lower()
+
 
 NONCE_LENGTH = 24
 SCRYPT_LENGTH = 32 + (3 * 4)

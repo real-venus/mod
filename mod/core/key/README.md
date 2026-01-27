@@ -1,8 +1,8 @@
-# Commune Key Module
+# mod Key Module
 
 ## Overview
 
-The Key module provides a comprehensive cryptographic key management system for the Commune framework. It supports multiple cryptographic types (sr25519, ed25519, and ecdsa) and offers functionality for key generation, signing, verification, encryption, and decryption.
+The Key module provides a comprehensive cryptographic key management system for the mod framework. It supports multiple cryptographic types (sr25519, ed25519, and ecdsa) and offers functionality for key generation, signing, verification, encryption, and decryption.
 
 ## Features
 
@@ -16,7 +16,7 @@ The Key module provides a comprehensive cryptographic key management system for 
 
 ## Installation
 
-The Key module is part of the Commune core and is installed with the main framework:
+The Key module is part of the mod core and is installed with the main framework:
 
 ```bash
 pip install mod
@@ -65,7 +65,7 @@ key.rm_key("my_key")
 
 ```python
 # Sign data
-data = "Hello, Commune!"
+data = "Hello, mod!"
 signature = key.sign(data)
 
 # Verify signature
@@ -140,4 +140,4 @@ key_from_json = m.key().from_json(key_json)
 
 ## License
 
-This module is part of the Commune framework and is licensed under the same terms.
+This module is part of the mod framework and is licensed under the same terms.

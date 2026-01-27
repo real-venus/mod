@@ -23,8 +23,8 @@ async function getKeyBalance(address: string): Promise<number> {
 }
 
 export function WalletInfoTabs() {
-  const { user, client } = userContext()
-  const [activeTab, setActiveTab] = useState<'KEY' | 'CLIENT' | 'ACCESS_TOKEN'>('KEY')
+  const { user, client, signIn } = userContext()
+  const [activeTab, setActiveTab] = useState<'KEY' | 'ACCESS_TOKEN'>('KEY')
   const [showPrivateKey, setShowPrivateKey] = useState(false)
   const [clientKey, setClientKey] = useState<Key | null>(null)
   const [keyBalance, setKeyBalance] = useState<number>(0)
@@ -47,50 +47,54 @@ export function WalletInfoTabs() {
     initClientKey()
   }, [])
 
-  useEffect(() => {
-    const fetchBalances = async () => {
-      if (user && client && window.ethereum) {
-        setLoading(true)
-        try {
-          const balance = await getKeyBalance(user.key)
-          setKeyBalance(balance)
-        } catch (error) {
-          console.error('Error fetching key balance:', error)
-        }
-        try {
-          const clientbalance = await getKeyBalance(client.key.address)
-          setClientKeyBalance(clientbalance)
-        } catch (error) {
-          console.error('Error fetching client key balance:', error)
-        }
-        setLoading(false)
+  const fetchBalances = async () => {
+    if (user && client && window.ethereum) {
+      setLoading(true)
+      try {
+        const balance = await getKeyBalance(user.key)
+        setKeyBalance(balance)
+      } catch (error) {
+        console.error('Error fetching key balance:', error)
       }
+      try {
+        const clientbalance = await getKeyBalance(client.key.address)
+        setClientKeyBalance(clientbalance)
+      } catch (error) {
+        console.error('Error fetching client key balance:', error)
+      }
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchBalances()
   }, [user, client])
 
-  useEffect(() => {
-    const generateToken = () => {
-      if (client?.auth) {
-        const token = client.auth.getToken()
-        setAccessToken(token)
-        const expiryTime = Date.now() + 3600000 // 1 hour from now
-        setTokenExpiry(expiryTime)
-      }
+  const generateToken = async () => {
+    if (client?.auth) {
+      console.log('Generating token for user key:', user?.key)
+      const token = client.token
+      setAccessToken(token)
+      const expiryTime = Date.now() + 3600000
+      setTokenExpiry(expiryTime)
     }
+  }
 
+  useEffect(() => {
     generateToken()
-    const interval = setInterval(generateToken, 3600000) // Refresh every hour
-
+    const interval = setInterval(generateToken, 3600000)
     return () => clearInterval(interval)
   }, [client])
 
-  const handleRotateClientKey = () => {
-    const newPassword = Math.random().toString(36).substring(2) + Date.now().toString(36)
-    localStorage.setItem('client_key_password', newPassword)
-    const newKey = new Key(newPassword, 'ecdsa')
-    setClientKey(newKey)
-    setShowPrivateKey(false)
+
+  const handleRefreshToken = async () => {
+    await signIn()
+    await generateToken()
+  }
+
+  const handleRefreshBalance = async () => {
+    await fetchBalances()
+
   }
 
   const getTimeRemaining = () => {
@@ -120,11 +124,11 @@ export function WalletInfoTabs() {
   const tokenData = parseTokenData()
 
   return (
-    <div className="rounded-xl border-2 p-6" style={{ borderColor: userColor, backgroundColor: `${userColor}10` }}>
+    <div className="rounded-xl border-2 p-6 shadow-2xl backdrop-blur-sm" style={{ borderColor: userColor, backgroundColor: `${userColor}10` }}>
       <div className="flex gap-3 mb-6 border-b-2 pb-2" style={{ borderColor: `${userColor}40` }}>
         <button
           onClick={() => setActiveTab('KEY')}
-          className={`px-6 py-3 font-bold text-base transition-all rounded-t-lg ${
+          className={`px-6 py-3 font-bold text-base transition-all rounded-t-lg hover:scale-105 ${
             activeTab === 'KEY' ? 'border-b-4' : 'opacity-60 hover:opacity-90'
           }`}
           style={{
@@ -135,22 +139,10 @@ export function WalletInfoTabs() {
         >
           🔑 KEY
         </button>
-        <button
-          onClick={() => setActiveTab('CLIENT')}
-          className={`px-6 py-3 font-bold text-base transition-all rounded-t-lg ${
-            activeTab === 'CLIENT' ? 'border-b-4' : 'opacity-60 hover:opacity-90'
-          }`}
-          style={{
-            color: userColor,
-            borderColor: activeTab === 'CLIENT' ? userColor : 'transparent',
-            backgroundColor: activeTab === 'CLIENT' ? `${userColor}15` : 'transparent'
-          }}
-        >
-          💼 CLIENT
-        </button>
+
         <button
           onClick={() => setActiveTab('ACCESS_TOKEN')}
-          className={`px-6 py-3 font-bold text-base transition-all rounded-t-lg ${
+          className={`px-6 py-3 font-bold text-base transition-all rounded-t-lg hover:scale-105 ${
             activeTab === 'ACCESS_TOKEN' ? 'border-b-4' : 'opacity-60 hover:opacity-90'
           }`}
           style={{
@@ -165,17 +157,30 @@ export function WalletInfoTabs() {
 
       {activeTab !== 'ACCESS_TOKEN' && (
         <>
-          {/* Balance Display */}
-          <div className="p-4 rounded-lg border-2 mb-4" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
-            <div className="text-xs text-gray-400 mb-2">{activeTab === 'KEY' ? 'key balance' : 'client key balance'}</div>
-            <div className="text-2xl text-green-400 font-bold">
-              {loading ? 'Loading...' : `$${displayBalance.toFixed(2)}`}
+          {/* Balance Display with Refresh */}
+          <div className="p-5 rounded-lg border-2 mb-4 shadow-lg" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)', borderColor: `${userColor}60` }}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
+                {activeTab === 'KEY' ? '🔑 Key Balance' : '💼 Client Key Balance'}
+              </div>
+              <button
+                onClick={handleRefreshBalance}
+                className="flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg hover:bg-white/10 transition-all border"
+                style={{ color: userColor, borderColor: `${userColor}40` }}
+                title="Refresh balance"
+              >
+                <ArrowPathIcon className="w-4 h-4" />
+                Refresh
+              </button>
+            </div>
+            <div className="text-3xl font-bold" style={{ color: userColor }}>
+              {loading ? '⏳ Loading...' : `$${displayBalance.toFixed(2)}`}
             </div>
           </div>
 
           {/* Address Display */}
-          <div className="bg-black/30 rounded-lg p-4 border-2" style={{ borderColor: `${userColor}30` }}>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-black/50 border" style={{ borderColor: `${userColor}20` }}>
+          <div className="bg-black/40 rounded-lg p-4 border-2 shadow-md" style={{ borderColor: `${userColor}30` }}>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-black/60 border" style={{ borderColor: `${userColor}20` }}>
               <div className="font-mono text-base flex-1 break-all" style={{ color: userColor }}>
                 {shorten(displayAddress, 8, 8)}
               </div>
@@ -185,53 +190,22 @@ export function WalletInfoTabs() {
         </>
       )}
 
-      {activeTab === 'CLIENT' && clientKey && (
-        <div className="mt-4">
-          <div className="flex items-center justify-between mb-4 p-3 bg-black/30 rounded-lg border-2" style={{ borderColor: `${userColor}30` }}>
-            <button
-              onClick={handleRotateClientKey}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg hover:bg-white/10 transition-all border-2"
-              style={{ color: userColor, borderColor: `${userColor}40` }}
-              title="Rotate client key"
-            >
-              <ArrowPathIcon className="w-4 h-4" />
-              🔄 Rotate
-            </button>
-          </div>
-
-          <div className="bg-black/30 rounded-lg p-4 border-2" style={{ borderColor: `${userColor}30` }}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-bold uppercase tracking-wider" style={{ color: `${userColor}90` }}>
-                🔐 Private Key (Hot Wallet)
-              </div>
-              <button
-                onClick={() => setShowPrivateKey(!showPrivateKey)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-all border-2"
-                style={{ borderColor: `${userColor}30` }}
-                title={showPrivateKey ? 'Hide' : 'Show'}
-              >
-                {showPrivateKey ? (
-                  <EyeSlashIcon className="w-5 h-5" style={{ color: userColor }} />
-                ) : (
-                  <EyeIcon className="w-5 h-5" style={{ color: userColor }} />
-                )}
-              </button>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-black/50 border" style={{ borderColor: `${userColor}20` }}>
-              <div className="font-mono text-sm flex-1 break-all" style={{ color: userColor }}>
-                {showPrivateKey ? clientKey.private_key : '••••••••••••••••••••••••••••••••••••••••••••'}
-              </div>
-              {showPrivateKey && <CopyButton text={clientKey.private_key} size="sm" />}
-            </div>
-          </div>
-        </div>
-      )}
-
       {activeTab === 'ACCESS_TOKEN' && (
         <div className="space-y-4">
-          <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
-            <div className="text-xs text-gray-400 mb-2">Token Expires In</div>
-            <div className="text-2xl text-green-400 font-bold">
+          <div className="p-5 rounded-lg border-2 shadow-lg" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)', borderColor: `${userColor}60` }}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">⏱️ Token Expires In</div>
+              <button
+                onClick={handleRefreshToken}
+                className="flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg hover:bg-white/10 transition-all border"
+                style={{ color: userColor, borderColor: `${userColor}40` }}
+                title="Refresh token"
+              >
+                <ArrowPathIcon className="w-4 h-4" />
+                Refresh
+              </button>
+            </div>
+            <div className="text-3xl font-bold" style={{ color: userColor }}>
               {getTimeRemaining()}
             </div>
           </div>
@@ -240,7 +214,7 @@ export function WalletInfoTabs() {
           <div className="flex gap-2 mb-4 border-b border-white/20 pb-2">
             <button
               onClick={() => setActiveTokenSubTab('DATA')}
-              className={`px-4 py-2 font-bold text-sm transition-all rounded-t ${
+              className={`px-4 py-2 font-bold text-sm transition-all rounded-t hover:scale-105 ${
                 activeTokenSubTab === 'DATA' ? 'border-b-2' : 'opacity-60 hover:opacity-90'
               }`}
               style={{
@@ -253,7 +227,7 @@ export function WalletInfoTabs() {
             </button>
             <button
               onClick={() => setActiveTokenSubTab('TOKEN')}
-              className={`px-4 py-2 font-bold text-sm transition-all rounded-t ${
+              className={`px-4 py-2 font-bold text-sm transition-all rounded-t hover:scale-105 ${
                 activeTokenSubTab === 'TOKEN' ? 'border-b-2' : 'opacity-60 hover:opacity-90'
               }`}
               style={{
@@ -266,7 +240,7 @@ export function WalletInfoTabs() {
             </button>
             <button
               onClick={() => setActiveTokenSubTab('SIGNATURE')}
-              className={`px-4 py-2 font-bold text-sm transition-all rounded-t ${
+              className={`px-4 py-2 font-bold text-sm transition-all rounded-t hover:scale-105 ${
                 activeTokenSubTab === 'SIGNATURE' ? 'border-b-2' : 'opacity-60 hover:opacity-90'
               }`}
               style={{
@@ -281,25 +255,25 @@ export function WalletInfoTabs() {
 
           {/* Token Sub-tab Content */}
           {activeTokenSubTab === 'DATA' && tokenData && (
-            <div className="bg-black/30 rounded-lg p-4 border-2" style={{ borderColor: `${userColor}30` }}>
+            <div className="bg-black/40 rounded-lg p-4 border-2 shadow-md" style={{ borderColor: `${userColor}30` }}>
               <div className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: `${userColor}90` }}>
                 📊 Token Data
               </div>
               <div className="space-y-2">
-                <div className="p-3 bg-black/50 rounded border" style={{ borderColor: `${userColor}20` }}>
-                  <div className="text-xs text-gray-400 mb-1">Data</div>
+                <div className="p-3 bg-black/60 rounded border" style={{ borderColor: `${userColor}20` }}>
+                  <div className="text-xs text-gray-400 mb-1 font-semibold">Data</div>
                   <div className="font-mono text-xs break-all" style={{ color: userColor }}>{tokenData.data || 'N/A'}</div>
                 </div>
-                <div className="p-3 bg-black/50 rounded border" style={{ borderColor: `${userColor}20` }}>
-                  <div className="text-xs text-gray-400 mb-1">Time</div>
+                <div className="p-3 bg-black/60 rounded border" style={{ borderColor: `${userColor}20` }}>
+                  <div className="text-xs text-gray-400 mb-1 font-semibold">Time</div>
                   <div className="font-mono text-xs" style={{ color: userColor }}>{tokenData.time}</div>
                 </div>
-                <div className="p-3 bg-black/50 rounded border" style={{ borderColor: `${userColor}20` }}>
-                  <div className="text-xs text-gray-400 mb-1">Key</div>
+                <div className="p-3 bg-black/60 rounded border" style={{ borderColor: `${userColor}20` }}>
+                  <div className="text-xs text-gray-400 mb-1 font-semibold">Key</div>
                   <div className="font-mono text-xs break-all" style={{ color: userColor }}>{shorten(tokenData.key, 12, 12)}</div>
                 </div>
-                <div className="p-3 bg-black/50 rounded border" style={{ borderColor: `${userColor}20` }}>
-                  <div className="text-xs text-gray-400 mb-1">Data Hash</div>
+                <div className="p-3 bg-black/60 rounded border" style={{ borderColor: `${userColor}20` }}>
+                  <div className="text-xs text-gray-400 mb-1 font-semibold">Data Hash</div>
                   <div className="font-mono text-xs break-all" style={{ color: userColor }}>{tokenData.dataHash || 'N/A'}</div>
                 </div>
               </div>
@@ -307,13 +281,13 @@ export function WalletInfoTabs() {
           )}
 
           {activeTokenSubTab === 'TOKEN' && (
-            <div className="bg-black/30 rounded-lg p-4 border-2" style={{ borderColor: `${userColor}30` }}>
+            <div className="bg-black/40 rounded-lg p-4 border-2 shadow-md" style={{ borderColor: `${userColor}30` }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-bold uppercase tracking-wider" style={{ color: `${userColor}90` }}>
                   🎫 Access Token (Auto-Regenerates Every Hour)
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-black/50 border" style={{ borderColor: `${userColor}20` }}>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-black/60 border" style={{ borderColor: `${userColor}20` }}>
                 <div className="font-mono text-xs flex-1 break-all" style={{ color: userColor }}>
                   {accessToken || 'Generating...'}
                 </div>
@@ -326,13 +300,13 @@ export function WalletInfoTabs() {
           )}
 
           {activeTokenSubTab === 'SIGNATURE' && tokenData && (
-            <div className="bg-black/30 rounded-lg p-4 border-2" style={{ borderColor: `${userColor}30` }}>
+            <div className="bg-black/40 rounded-lg p-4 border-2 shadow-md" style={{ borderColor: `${userColor}30` }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-bold uppercase tracking-wider" style={{ color: `${userColor}90` }}>
                   ✍️ Token Signature
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-black/50 border" style={{ borderColor: `${userColor}20` }}>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-black/60 border" style={{ borderColor: `${userColor}20` }}>
                 <div className="font-mono text-xs flex-1 break-all" style={{ color: userColor }}>
                   {tokenData.signature}
                 </div>

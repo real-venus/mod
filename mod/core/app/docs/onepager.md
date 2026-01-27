@@ -163,7 +163,7 @@ Connect wallet → Browse modules → Start using
 
 🐦 **Twitter:** @modprotocol
 
-💻 **GitHub:** github.com/commune-ai/mod
+💻 **GitHub:** github.com/mod-ai/mod
 
 📧 **Email:** hello@mod.protocol
 

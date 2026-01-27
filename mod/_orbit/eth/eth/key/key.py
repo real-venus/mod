@@ -9,7 +9,7 @@ from eth_account.hdaccount import ETHEREUM_DEFAULT_PATH, key_from_seed, seed_fro
 from eth_account.messages import SignableMessage, encode_defunct
 from eth_utils.curried import combomethod,keccak,text_if_str,to_bytes
 from eth_keys import keys
-import mod as c # import commune
+import mod as c # import mod
 
 class Key(Account):
     crypto_type = 'eth'

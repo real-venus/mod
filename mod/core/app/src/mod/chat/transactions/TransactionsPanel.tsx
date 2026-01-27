@@ -20,7 +20,7 @@ interface Transaction {
 }
 
 export const TransactionsPanel = forwardRef((props, ref) => {
-  const { client, localKey } = userContext()
+  const { client } = userContext()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -96,7 +96,7 @@ export const TransactionsPanel = forwardRef((props, ref) => {
     handleSync
   }))
 
-  const myClientKey = localKey?.address || ''
+  const myClientKey = ''
 
   const filteredTransactions = transactions.filter(tx => {
     if (showOnlyMyTx && tx.client !== myClientKey) return false

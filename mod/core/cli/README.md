@@ -1,10 +1,10 @@
-# 🚀 Commune CLI Module
+# 🚀 mod CLI Module
 
-> A pythonic command-line interface that makes interacting with Commune feel natural and intuitive.
+> A pythonic command-line interface that makes interacting with mod feel natural and intuitive.
 
 ## ✨ Overview
 
-The Commune CLI breaks away from traditional argparse-based tools, offering a Python-like experience directly from your terminal. Test functions, interact with modules, and build faster—all with an elegant, minimalist syntax.
+The mod CLI breaks away from traditional argparse-based tools, offering a Python-like experience directly from your terminal. Test functions, interact with modules, and build faster—all with an elegant, minimalist syntax.
 
 ## 🎯 Basic Usage
 
@@ -33,7 +33,7 @@ m module/code
 
 ## 📦 Module Naming Conventions
 
-Commune uses clean, simplified naming:
+mod uses clean, simplified naming:
 
 - `mod/module.py` → `mod`
 - `storage/module.py` → `storage`
@@ -102,7 +102,7 @@ m call module/ask hey stream=1
 
 ## ⚡ Shortcuts & Pro Tips
 
-- **`c`** (no args) → Navigate to Commune repository
+- **`c`** (no args) → Navigate to mod repository
 - **`m module/`** → Calls the module's `forward` function
 - **`m module/forward`** → Explicitly calls `forward`
 - **`m module/add a=1 b=1`** ≡ **`m module/add 1 1`**
@@ -136,8 +136,8 @@ module.ask('hey', stream=1)
 
 > "Simplicity is the ultimate sophistication." — Leonardo da Vinci
 
-Commune CLI embodies this principle: powerful functionality through elegant simplicity. No complex flags, no verbose syntax—just pure, intuitive interaction.
+mod CLI embodies this principle: powerful functionality through elegant simplicity. No complex flags, no verbose syntax—just pure, intuitive interaction.
 
 ---
 
-**Built with ❤️ by the Commune community**
+**Built with ❤️ by the mod community**

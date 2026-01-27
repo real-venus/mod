@@ -1,4 +1,5 @@
 import { WalletAdapter } from '../types'
+import bs58 from 'bs58'
 
 export class PhantomAdapter implements WalletAdapter {
   async connect(): Promise<void> {
@@ -33,5 +34,28 @@ export class PhantomAdapter implements WalletAdapter {
 
   async isAvailable(): Promise<boolean> {
     return typeof window.solana !== 'undefined' && window.solana.isPhantom
+  }
+
+  async sign(message: string): Promise<string> {
+    if (typeof window.solana === 'undefined' || !window.solana.isPhantom) {
+      throw new Error('Phantom wallet is not installed')
+    }
+    
+    const encodedMessage = new TextEncoder().encode(message)
+    const signedMessage = await window.solana.signMessage(encodedMessage, 'utf8')
+    return bs58.encode(signedMessage.signature)
+  }
+
+  async verify(message: string, signature: string, publicKey: string): Promise<boolean> {
+    try {
+      const nacl = require('tweetnacl')
+      const encodedMessage = new TextEncoder().encode(message)
+      const signatureBytes = bs58.decode(signature)
+      const publicKeyBytes = bs58.decode(publicKey)
+      
+      return nacl.sign.detached.verify(encodedMessage, signatureBytes, publicKeyBytes)
+    } catch (error) {
+      return false
+    }
   }
 }

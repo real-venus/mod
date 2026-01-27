@@ -6,7 +6,7 @@ import json
 import paramiko
     
 class Remote:
-    def __init__(self, path = c.abspath('~/.commune/remote/hosts.yaml')):
+    def __init__(self, path = c.abspath('~/.mod/remote/hosts.yaml')):
         self.path = path
 
     def ssh_cmd(self, *cmd_args, 
@@ -353,7 +353,7 @@ class Remote:
         repo_url = c.repo_name_url()
         c.print(self.cmd(f'git clone {repo_url}', **kwargs))
         c.print(self.cmd(f'apt ', **kwargs))
-        c.print(self.cmd(f'cd commune && pip install -e .', **kwargs))
+        c.print(self.cmd(f'cd mod && pip install -e .', **kwargs))
         c.print(self.cmd(f'c add_admin {c.root_key().ss58_address} ', **kwargs))
         c.print(self.cmd(f'c serve', **kwargs))
 

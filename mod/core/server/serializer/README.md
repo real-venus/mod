@@ -1,7 +1,7 @@
 # Serializer Module
 
 ## Overview
-The Serializer module is a core component of the Commune framework that handles data serialization and deserialization operations. This module provides efficient methods for converting complex data structures into formats suitable for storage, transmission, or inter-process communication.
+The Serializer module is a core component of the mod framework that handles data serialization and deserialization operations. This module provides efficient methods for converting complex data structures into formats suitable for storage, transmission, or inter-process communication.
 
 ## Features
 - **Multiple Format Support**: Handles various serialization formats including JSON, MessagePack, Pickle, and more
@@ -11,7 +11,7 @@ The Serializer module is a core component of the Commune framework that handles 
 - **Error Handling**: Robust error handling for malformed data and edge cases
 
 ## Installation
-The serializer module is included as part of the Commune core package. No additional installation is required.
+The serializer module is included as part of the mod core package. No additional installation is required.
 
 ## Usage
 
@@ -102,10 +102,10 @@ Contributions to the serializer module are welcome! Please ensure:
 - Code follows the project's style guidelines
 
 ## License
-This module is part of the Commune project and follows the same licensing terms.
+This module is part of the mod project and follows the same licensing terms.
 
 ## Support
 For issues, questions, or contributions related to the serializer module:
-- Open an issue on the Commune GitHub repository
-- Join the Commune community Discord
+- Open an issue on the mod GitHub repository
+- Join the mod community Discord
 - Check the documentation at docs.mod.ai

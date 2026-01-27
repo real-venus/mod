@@ -139,13 +139,13 @@ export const Transfer: React.FC = () => {
       if (chainConfig?.contracts?.USDC?.address) {
         const usdcContract = new ethers.Contract(chainConfig.contracts.USDC.address, ERC20_ABI, provider)
         const usdcBal = await usdcContract.balanceOf(address)
-        setUsdcBalance(ethers.formatUnits(usdcBal, 6))
+        setUsdcBalance(parseFloat(ethers.formatUnits(usdcBal, 6)).toFixed(2))
       }
       
       if (chainConfig?.contracts?.USDT?.address) {
         const usdtContract = new ethers.Contract(chainConfig.contracts.USDT.address, ERC20_ABI, provider)
         const usdtBal = await usdtContract.balanceOf(address)
-        setUsdtBalance(ethers.formatUnits(usdtBal, 6))
+        setUsdtBalance(parseFloat(ethers.formatUnits(usdtBal, 6)).toFixed(2))
       }
     } catch (err) {
       console.error('Failed to fetch USDC/USDT balances:', err)
@@ -162,7 +162,7 @@ export const Transfer: React.FC = () => {
         const marketContract = new ethers.Contract(chainConfig.contracts.Market.address, MarketABI.abi, provider)
         const marketBal = await marketContract.balanceOf(address)
         const decimals = await marketContract.decimals()
-        setMarketBalance(ethers.formatUnits(marketBal, decimals))
+        setMarketBalance(parseFloat(ethers.formatUnits(marketBal, decimals)).toFixed(6))
       }
     } catch (err) {
       console.error('Failed to fetch Market balance:', err)
@@ -181,7 +181,7 @@ export const Transfer: React.FC = () => {
         contract.balanceOf(walletAddress)
       ])
       
-      setTokenBalance(ethers.formatUnits(balance, decimals))
+      setTokenBalance(parseFloat(ethers.formatUnits(balance, decimals)).toFixed(6))
     } catch (err) {
       console.error('Failed to fetch token info:', err)
       setError('Invalid ERC20 token address')
@@ -318,29 +318,7 @@ export const Transfer: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="space-y-5 p-6 rounded-xl bg-gradient-to-br from-green-500/10 via-emerald-500/10 to-teal-500/10 border-2 border-green-500/30 shadow-2xl">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-mono font-bold text-green-400 uppercase tracking-wide">
-              Network: {currentNetwork}
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-sm font-mono font-bold text-green-400">
-              Balance: {selectedToken?.address === 'ETH' ? `${balance} ETH` : `${tokenBalance} ${selectedToken?.symbol || ''}`}
-            </div>
-            <div className="text-sm font-mono font-bold text-blue-400">
-              USDC: {usdcBalance}
-            </div>
-            <div className="text-sm font-mono font-bold text-purple-400">
-              USDT: {usdtBalance}
-            </div>
-            <div className="text-sm font-mono font-bold text-yellow-400">
-              MARKET: {marketBalance}
-            </div>
-          </div>
-        </div>
-        
+
         <div className="bg-black/40 border-2 border-green-500/30 rounded-lg p-3 mb-4">
           <div className="flex items-center gap-2">
             <span className="text-xs text-green-400 font-mono font-bold uppercase">RPC URL:</span>
@@ -470,7 +448,7 @@ export const Transfer: React.FC = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="flex items-center gap-1 bg-black/40 border rounded px-2 py-1" style={{ borderColor: `${userColor}40` }}>
                         <Send className="w-4 h-4 flex-shrink-0" style={{ color: userColor }} />
-                        <span className="font-black text-sm" style={{ color: userColor }}>{transfer.amount} {transfer.tokenSymbol || 'ETH'}</span>
+                        <span className="font-black text-sm" style={{ color: userColor }}>{transfer.amount.toFixed(6)} {transfer.tokenSymbol || 'ETH'}</span>
                       </div>
                       <div className="flex items-center gap-1 bg-black/40 border border-blue-500/30 rounded px-2 py-1">
                         <span className="text-xs text-blue-400 font-mono">{new Date(transfer.timestamp).toLocaleString()}</span>

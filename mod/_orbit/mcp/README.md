@@ -2,7 +2,7 @@
 
 > "Simplicity is the ultimate sophistication" - Leonardo da Vinci
 
-A minimal, elegant Python framework for building modular, communicating systems inspired by the commune architecture.
+A minimal, elegant Python framework for building modular, communicating systems inspired by the mod architecture.
 
 ## 🚀 Features
 
@@ -314,7 +314,7 @@ MIT License - Build freely, build beautifully.
 
 Inspired by:
 - Leonardo da Vinci's philosophy of simplicity
-- The commune architecture
+- The mod architecture
 - Model Context Protocol (MCP)
 
 ---

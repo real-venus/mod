@@ -1,6 +1,7 @@
 'use client'
+
+import { Settings, Grid3x3, Grid2x2, LayoutGrid, User, Filter } from 'lucide-react'
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, SlidersHorizontal, Grid3x3, Grid2x2, LayoutGrid, User, Home, Globe, Filter } from 'lucide-react'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 
@@ -13,10 +14,6 @@ interface ModCardSettingsProps {
   onUserFilterChange: (filter: string) => void
   showMyModsOnly: boolean
   onShowMyModsOnlyChange: (show: boolean) => void
-  showLocalOnly: boolean
-  onShowLocalOnlyChange: (show: boolean) => void
-  showOnchainOnly: boolean
-  onShowOnchainOnlyChange: (show: boolean) => void
 }
 
 export function ModCardSettings({
@@ -28,123 +25,97 @@ export function ModCardSettings({
   onUserFilterChange,
   showMyModsOnly,
   onShowMyModsOnlyChange,
-  showLocalOnly,
-  onShowLocalOnlyChange,
-  showOnchainOnly,
-  onShowOnchainOnlyChange,
 }: ModCardSettingsProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  const sortOptions: { value: SortKey; label: string }[] = [
-    { value: 'recent', label: 'RECENT' },
-    { value: 'name', label: 'NAME' },
-    { value: 'author', label: 'AUTHOR' },
-    { value: 'updated', label: 'UPDATED' },
-    { value: 'created', label: 'CREATED' },
-  ]
-
-  const columnOptions = [1, 2, 3, 4]
+  const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="w-full">
+    <div className="relative">
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-purple-900/40 to-blue-900/40 border-2 border-purple-500/50 rounded-xl hover:border-purple-400 transition-all backdrop-blur-sm"
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-3 rounded-xl border-2 border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 transition-all backdrop-blur-xl"
+        title="Settings"
       >
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-5 h-5 text-purple-300" />
-          <span className="font-bold text-purple-300 uppercase tracking-wider">FILTERS</span>
-        </div>
-        {isExpanded ? <ChevronUp className="w-5 h-5 text-purple-300" /> : <ChevronDown className="w-5 h-5 text-purple-300" />}
+        <Settings className="w-5 h-5 text-purple-400" />
       </button>
 
-      {isExpanded && (
-        <div className="mt-3 p-4 bg-gradient-to-br from-black/80 to-purple-900/20 border-2 border-purple-500/30 rounded-xl backdrop-blur-sm space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-bold text-purple-300 mb-2 uppercase tracking-wider">SORT BY</label>
-              <select
-                value={sort}
-                onChange={(e) => onSortChange(e.target.value as SortKey)}
-                className="w-full px-3 py-2 bg-black/60 border-2 border-purple-500/40 rounded-lg text-purple-200 font-bold text-sm focus:border-purple-400 focus:outline-none transition-all"
-              >
-                {sortOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {isOpen && (
+        <>
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute top-full left-0 mt-2 w-80 bg-black/95 border-2 border-purple-500/40 rounded-xl p-4 backdrop-blur-xl shadow-2xl z-50">
+            <div className="space-y-4">
+              <div>
+                <label className="text-purple-300 font-bold text-sm uppercase tracking-wide mb-2 block">
+                  Sort By
+                </label>
+                <select
+                  value={sort}
+                  onChange={(e) => onSortChange(e.target.value as SortKey)}
+                  className="w-full px-3 py-2 bg-black/50 border-2 border-purple-500/40 rounded-lg text-white focus:outline-none focus:border-purple-500/60"
+                >
+                  <option value="recent">Recent</option>
+                  <option value="name">Name</option>
+                  <option value="author">Author</option>
+                  <option value="updated">Updated</option>
+                  <option value="created">Created</option>
+                </select>
+              </div>
 
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-bold text-purple-300 mb-2 uppercase tracking-wider">COLUMNS</label>
-              <div className="flex gap-2">
-                {columnOptions.map((col) => (
-                  <button
-                    key={col}
-                    onClick={() => onColumnsChange(col)}
-                    className={`flex-1 px-3 py-2 rounded-lg font-bold text-sm transition-all border-2 ${
-                      columns === col
-                        ? 'bg-purple-500/30 text-purple-200 border-purple-400'
-                        : 'bg-black/60 text-purple-400/60 border-purple-500/30 hover:border-purple-400/50'
-                    }`}
-                  >
-                    {col}
-                  </button>
-                ))}
+              <div>
+                <label className="text-purple-300 font-bold text-sm uppercase tracking-wide mb-2 block">
+                  Columns
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4].map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => onColumnsChange(num)}
+                      className={`flex-1 p-2 rounded-lg border-2 transition-all ${
+                        columns === num
+                          ? 'bg-purple-500/30 border-purple-500 text-purple-300'
+                          : 'bg-black/50 border-purple-500/30 text-purple-500/60 hover:bg-purple-500/10'
+                      }`}
+                    >
+                      {num === 1 && <LayoutGrid className="w-5 h-5 mx-auto" />}
+                      {num === 2 && <Grid2x2 className="w-5 h-5 mx-auto" />}
+                      {num === 3 && <Grid3x3 className="w-5 h-5 mx-auto" />}
+                      {num === 4 && <Filter className="w-5 h-5 mx-auto" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-purple-300 font-bold text-sm uppercase tracking-wide mb-2 block">
+                  Filter by User
+                </label>
+                <input
+                  type="text"
+                  value={userFilter}
+                  onChange={(e) => onUserFilterChange(e.target.value)}
+                  placeholder="Enter user key..."
+                  className="w-full px-3 py-2 bg-black/50 border-2 border-purple-500/40 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/60"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showMyModsOnly}
+                    onChange={(e) => onShowMyModsOnlyChange(e.target.checked)}
+                    className="w-5 h-5 rounded border-2 border-purple-500/40 bg-black/50 checked:bg-purple-500 checked:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                  <span className="text-purple-300 font-bold text-sm uppercase tracking-wide">
+                    My Modules Only
+                  </span>
+                </label>
               </div>
             </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-bold text-purple-300 mb-2 uppercase tracking-wider">USER FILTER</label>
-              <input
-                type="text"
-                value={userFilter}
-                onChange={(e) => onUserFilterChange(e.target.value)}
-                placeholder="Filter by user key..."
-                className="w-full px-3 py-2 bg-black/60 border-2 border-purple-500/40 rounded-lg text-purple-200 font-mono text-sm focus:border-purple-400 focus:outline-none transition-all placeholder:text-purple-500/40"
-              />
-            </div>
           </div>
-
-          <div className="flex flex-wrap gap-2 pt-2 border-t-2 border-purple-500/20">
-            <button
-              onClick={() => onShowMyModsOnlyChange(!showMyModsOnly)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all border-2 ${
-                showMyModsOnly
-                  ? 'bg-blue-500/30 text-blue-200 border-blue-400'
-                  : 'bg-black/60 text-blue-400/60 border-blue-500/30 hover:border-blue-400/50'
-              }`}
-            >
-              <User size={16} />
-              MY MODS
-            </button>
-
-            <button
-              onClick={() => onShowLocalOnlyChange(!showLocalOnly)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all border-2 ${
-                showLocalOnly
-                  ? 'bg-green-500/30 text-green-200 border-green-400'
-                  : 'bg-black/60 text-green-400/60 border-green-500/30 hover:border-green-400/50'
-              }`}
-            >
-              <Home size={16} />
-              LOCAL
-            </button>
-
-            <button
-              onClick={() => onShowOnchainOnlyChange(!showOnchainOnly)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all border-2 ${
-                showOnchainOnly
-                  ? 'bg-orange-500/30 text-orange-200 border-orange-400'
-                  : 'bg-black/60 text-orange-400/60 border-orange-500/30 hover:border-orange-400/50'
-              }`}
-            >
-              <Globe size={16} />
-              ONCHAIN
-            </button>
-          </div>
-        </div>
+        </>
       )}
     </div>
   )
