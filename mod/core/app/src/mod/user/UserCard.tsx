@@ -4,6 +4,7 @@ import { KeyIcon, CubeIcon, SparklesIcon, ClockIcon } from '@heroicons/react/24/
 import { UserType } from '@/mod/types'
 import Link from 'next/link'
 import { CopyButton } from '@/mod/ui/CopyButton'
+import { QRCode } from '@/mod/ui/QRCode'
 import { useState } from 'react'
 
 interface UserCardProps {
@@ -14,7 +15,9 @@ interface UserCardProps {
 export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
   const [isHovered, setIsHovered] = useState(false)
   const [isKeyHovered, setIsKeyHovered] = useState(false)
+  const [isQrHovered, setIsQrHovered] = useState(false)
   const userColor = text2color(user.key)
+  const moduleIdentifier = `${user.key}/${user.key.substring(0, 8)}`
 
   const CardContent = () => (
     <div 
@@ -36,40 +39,85 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
       />
 
       <div className="relative p-5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="relative">
-            <KeyIcon className="w-10 h-10 transition-all duration-300 group-hover:rotate-12" style={{ color: userColor }} />
-            <div 
-              className="absolute inset-0 blur-xl opacity-40 group-hover:opacity-60 transition-opacity"
-              style={{ backgroundColor: userColor }}
-            />
-          </div>
-          
-          <div className="flex items-center gap-2 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-4 py-2 flex-1 shadow-lg">
-            <code className="text-lg font-bold font-mono tracking-wide" style={{ color: userColor }}>
-              {user.key.substring(0, 6)}...{user.key.substring(user.key.length - 6)}
-            </code>
-            <CopyButton text={user.key} size="sm" />
-          </div>
-        </div>
+        <div className="flex items-start gap-4 mb-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="relative">
+                <KeyIcon className="w-10 h-10 transition-all duration-300 group-hover:rotate-12" style={{ color: userColor }} />
+                <div 
+                  className="absolute inset-0 blur-xl opacity-40 group-hover:opacity-60 transition-opacity"
+                  style={{ backgroundColor: userColor }}
+                />
+              </div>
+              
+              <div className="flex items-center gap-2 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-4 py-2 flex-1 shadow-lg">
+                <code className="text-lg font-bold font-mono tracking-wide" style={{ color: userColor }}>
+                  {user.key.substring(0, 6)}...{user.key.substring(user.key.length - 6)}
+                </code>
+                <CopyButton text={user.key} size="sm" />
+              </div>
+            </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <div 
-            className="flex items-center gap-1.5 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
-            style={{
-              backgroundColor: isKeyHovered ? `${userColor}25` : 'rgba(0, 0, 0, 0.5)'
-            }}
-            onMouseEnter={() => setIsKeyHovered(true)}
-            onMouseLeave={() => setIsKeyHovered(false)}
-            title={(user.crypto_type || 'sr25519').toLowerCase()}
-          >
-            <code className="text-sm font-mono font-bold" style={{ color: userColor }}>
-              {(user.crypto_type || 'sr25519').toLowerCase()}
-            </code>
-            
-            {isKeyHovered && (
+            <div className="flex items-center gap-2 flex-wrap">
               <div 
-                className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
+                style={{
+                  backgroundColor: isKeyHovered ? `${userColor}25` : 'rgba(0, 0, 0, 0.5)'
+                }}
+                onMouseEnter={() => setIsKeyHovered(true)}
+                onMouseLeave={() => setIsKeyHovered(false)}
+                title={(user.crypto_type || 'sr25519').toLowerCase()}
+              >
+                <code className="text-sm font-mono font-bold" style={{ color: userColor }}>
+                  {(user.crypto_type || 'sr25519').toLowerCase()}
+                </code>
+                
+                {isKeyHovered && (
+                  <div 
+                    className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
+                    style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                      borderColor: userColor,
+                      color: userColor,
+                      boxShadow: `0 0 20px ${userColor}40`
+                    }}
+                  >
+                    {user.crypto_type || 'sr25519'}
+                  </div>
+                )}
+              </div>
+
+              {user.mods && user.mods.length > 0 && (
+                <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
+                  <CubeIcon className="w-4 h-4" style={{ color: '#a855f7' }} />
+                  <code className="text-sm font-mono font-bold" style={{ color: '#a855f7' }}>
+                    {user.mods.length}
+                  </code>
+                </div>
+              )}
+
+              {user.balance !== undefined && (
+                <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-900/30 to-teal-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
+                  <ClockIcon className="w-4 h-4" style={{ color: '#10b981' }} />
+                  <code className="text-sm font-mono font-bold" style={{ color: '#10b981' }}>
+                    {user.balance.toLocaleString()}
+                  </code>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div 
+            className="flex flex-col items-center gap-2 relative"
+            onMouseEnter={() => setIsQrHovered(true)}
+            onMouseLeave={() => setIsQrHovered(false)}
+          >
+            <div className="p-2 bg-black/60 rounded-lg border-2" style={{ borderColor: userColor }}>
+              <QRCode value={user.key} size={80} color={userColor} />
+            </div>
+            {isQrHovered && (
+              <div 
+                className="absolute top-full mt-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
                 style={{
                   backgroundColor: 'rgba(0, 0, 0, 0.95)',
                   borderColor: userColor,
@@ -77,28 +125,10 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
                   boxShadow: `0 0 20px ${userColor}40`
                 }}
               >
-                {user.crypto_type || 'sr25519'}
+                {moduleIdentifier}
               </div>
             )}
           </div>
-
-          {user.mods && user.mods.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
-              <CubeIcon className="w-4 h-4" style={{ color: '#a855f7' }} />
-              <code className="text-sm font-mono font-bold" style={{ color: '#a855f7' }}>
-                {user.mods.length}
-              </code>
-            </div>
-          )}
-
-          {user.balance !== undefined && (
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-900/30 to-teal-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
-              <ClockIcon className="w-4 h-4" style={{ color: '#10b981' }} />
-              <code className="text-sm font-mono font-bold" style={{ color: '#10b981' }}>
-                {user.balance.toLocaleString()}
-              </code>
-            </div>
-          )}
         </div>
       </div>
     </div>

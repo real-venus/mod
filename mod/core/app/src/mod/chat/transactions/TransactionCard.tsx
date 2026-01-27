@@ -6,6 +6,7 @@ import { timeAgo, shorten, text2color } from '@/mod/utils'
 import { CubeIcon, HashtagIcon, KeyIcon } from '@heroicons/react/24/outline'
 import { userContext } from '@/mod/context'
 import { Key } from '@/mod/key'
+import { QRCode } from '@/mod/ui/QRCode'
 
 interface Transaction {
   fn: string
@@ -34,6 +35,7 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
   const [isKeyHovered, setIsKeyHovered] = useState(false)
   const [isCidHovered, setIsCidHovered] = useState(false)
   const [isSignatureHovered, setIsSignatureHovered] = useState(false)
+  const [isCidQrHovered, setIsCidQrHovered] = useState(false)
   
   const hasResults = tx.result !== undefined
   const hasParams = tx.params !== null && tx.params !== undefined
@@ -180,6 +182,18 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                 ●●●●●●
               </code>
               <CopyButton text={tx.cid} size="sm" />
+              <div 
+                className="relative ml-1"
+                onMouseEnter={() => setIsCidQrHovered(true)}
+                onMouseLeave={() => setIsCidQrHovered(false)}
+              >
+                <HashtagIcon className="h-4 w-4" style={{ color: cidColor }} />
+                {isCidQrHovered && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: cidColor }}>
+                    <QRCode value={tx.cid} size={100} color={cidColor} />
+                  </div>
+                )}
+              </div>
               
               {isCidHovered && tx.cid && (
                 <div 
