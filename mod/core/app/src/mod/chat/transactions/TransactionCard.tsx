@@ -34,7 +34,7 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
   
   const hasResults = tx.result !== undefined
   const hasParams = tx.params !== null && tx.params !== undefined
-  const [activeTab, setActiveTab] = useState<'params' | 'results'>(hasResults ? 'results' : 'params')
+  const [activeTab, setActiveTab] = useState<'params' | 'results'>('results')
 
   const getStatusEmoji = (status: string) => {
     if (status === 'running') return '▶'

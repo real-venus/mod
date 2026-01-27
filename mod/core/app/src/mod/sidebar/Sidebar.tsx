@@ -8,6 +8,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useSidebarContext } from '@/mod/context/SidebarContext'
 import { SidebarSplitScreenButton } from './SidebarSplitScreenButton'
 import { SidebarWalletButton } from './SidebarWalletButton'
+import { SidebarNetworkButton } from './SidebarNetworkButton'
+import { SidebarTreasuryButton } from './SidebarTreasuryButton'
 
 const navigation = [
   { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },
@@ -124,6 +126,11 @@ export function Sidebar() {
 
           </nav>
 
+          <div className="px-3 py-4 space-y-2 border-t border-white/10">
+            <SidebarNetworkButton />
+            <SidebarTreasuryButton />
+            <SidebarWalletButton />
+          </div>
 
         </div>
       </div>

@@ -11,7 +11,7 @@ export function InputModeToggle({ mode, onModeChange }: InputModeToggleProps) {
       <button
         type="button"
         onClick={() => onModeChange('chat')}
-        className={`px-6 py-3 border-2 rounded-lg transition-all font-bold text-lg ${
+        className={`px-4 py-2 border-2 rounded-lg transition-all font-bold text-sm ${
           mode === 'chat'
             ? 'bg-orange-500/30 text-orange-300 border-orange-400/80 shadow-lg'
             : 'bg-black/40 text-orange-600/60 border-orange-500/30 hover:bg-orange-500/10'
@@ -23,7 +23,7 @@ export function InputModeToggle({ mode, onModeChange }: InputModeToggleProps) {
       <button
         type="button"
         onClick={() => onModeChange('params')}
-        className={`px-6 py-3 border-2 rounded-lg transition-all font-bold text-lg ${
+        className={`px-4 py-2 border-2 rounded-lg transition-all font-bold text-sm ${
           mode === 'params'
             ? 'bg-orange-500/30 text-orange-300 border-orange-400/80 shadow-lg'
             : 'bg-black/40 text-orange-600/60 border-orange-500/30 hover:bg-orange-500/10'

@@ -21,28 +21,31 @@ export function Portfolio() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [totalValue, setTotalValue] = useState('0.00')
-  const [networkUrl, setNetworkUrl] = useState(localStorage.getItem('network_url'))
+  const [networkUrl, setNetworkUrl] = useState('')
 
   useEffect(() => {
-    const savedUrl = localStorage.getItem('network_url')
-    if (savedUrl) {
+    if (typeof window !== 'undefined') {
+      const savedUrl = localStorage.getItem('network_url') || 'http://127.0.0.1:8545'
       setNetworkUrl(savedUrl)
-    }
 
-    const handleStorageChange = () => {
-      const updatedUrl = localStorage.getItem('network_url')
-      if (updatedUrl) {
+      const handleStorageChange = () => {
+        const updatedUrl = localStorage.getItem('network_url') || 'http://127.0.0.1:8545'
         setNetworkUrl(updatedUrl)
       }
-    }
 
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
+      window.addEventListener('storage', handleStorageChange)
+      return () => window.removeEventListener('storage', handleStorageChange)
+    }
   }, [])
 
   const checkBalances = async () => {
     if (!user?.key) {
       setError('No wallet connected')
+      return
+    }
+
+    if (!networkUrl) {
+      setError('Network URL not configured')
       return
     }
 
@@ -80,10 +83,11 @@ export function Portfolio() {
 
       // USDC
       try {
-        const usdcAddress = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+        const usdcAddress = chainConfig.contracts?.USDC?.address || '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
         const usdcContract = new ethers.Contract(usdcAddress, ERC20_ABI, provider)
         const usdcBalance = await usdcContract.balanceOf(user.key)
-        const usdcFormatted = ethers.formatUnits(usdcBalance, 6)
+        const usdcDecimals = await usdcContract.decimals()
+        const usdcFormatted = ethers.formatUnits(usdcBalance, usdcDecimals)
         results.push({
           symbol: 'USDC',
           balance: parseFloat(usdcFormatted).toFixed(2),
@@ -97,10 +101,11 @@ export function Portfolio() {
 
       // USDT
       try {
-        const usdtAddress = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
+        const usdtAddress = chainConfig.contracts?.USDT?.address || '0xdAC17F958D2ee523a2206206994597C13D831ec7'
         const usdtContract = new ethers.Contract(usdtAddress, ERC20_ABI, provider)
         const usdtBalance = await usdtContract.balanceOf(user.key)
-        const usdtFormatted = ethers.formatUnits(usdtBalance, 6)
+        const usdtDecimals = await usdtContract.decimals()
+        const usdtFormatted = ethers.formatUnits(usdtBalance, usdtDecimals)
         results.push({
           symbol: 'USDT',
           balance: parseFloat(usdtFormatted).toFixed(2),
@@ -123,7 +128,7 @@ export function Portfolio() {
   }
 
   useEffect(() => {
-    if (user?.key) {
+    if (user?.key && networkUrl) {
       checkBalances()
     }
   }, [user?.key, networkUrl])

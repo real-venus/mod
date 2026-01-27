@@ -101,15 +101,9 @@ export default function Chat() {
         callParams[chatState.selectedInputParam] = chatState.input.trim()
       }
 
-      // const task_data = await chatState.client.call('task_data', {
-      //   fn: `${chatState.selectedModule}/${chatState.selectedFunction}`,
-      //   params: callParams
-      // })
-      // let token = chatState.client.auth.token(task_data)
       const result = await chatState.client.call('call', {
         fn: `${chatState.selectedModule}/${chatState.selectedFunction}`,
         params: callParams,
-        // token: token,
         wait: chatState.wait
       }, 0, {}, chatState.timeout * 1000)
 
@@ -184,11 +178,11 @@ export default function Chat() {
       
       <button
         onClick={() => setSplitOrientation(prev => prev === 'vertical' ? 'horizontal' : 'vertical')}
-        className="fixed bottom-4 left-4 z-50 px-4 py-2 bg-blue-500/20 text-blue-400 border-2 border-blue-500/40 hover:bg-blue-500/30 rounded-lg transition-all font-bold"
+        className="fixed bottom-4 left-4 z-50 px-3 py-2 bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30 rounded-md transition-all font-bold text-xs"
         style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
         title={`Switch to ${splitOrientation === 'vertical' ? 'Horizontal' : 'Vertical'} Split`}
       >
-        {splitOrientation === 'vertical' ? '⚌ vertical' : '⚏ horizontal'}
+        {splitOrientation === 'vertical' ? '⚌ vert' : '⚏ horiz'}
       </button>
 
       <div id="split-container" className={`flex ${isNarrowScreen ? 'flex-col' : (splitOrientation === 'vertical' ? 'flex-row' : 'flex-col')} w-full h-full gap-0 p-2 relative`}>
@@ -232,11 +226,9 @@ export default function Chat() {
 
         {!isNarrowScreen && (
           <div
-            className={`${splitOrientation === 'vertical' ? 'w-3 cursor-col-resize hover:bg-white/70' : 'h-3 cursor-row-resize hover:bg-white/70'} bg-black border-2 border-white transition-colors z-10 flex items-center justify-center`}
+            className={`${splitOrientation === 'vertical' ? 'w-1 cursor-col-resize hover:w-2' : 'h-1 cursor-row-resize hover:h-2'} bg-gradient-to-r from-orange-500/30 via-orange-400/50 to-orange-500/30 hover:from-orange-500/60 hover:via-orange-400/80 hover:to-orange-500/60 transition-all duration-150 ${isDragging ? 'bg-orange-400/80' : ''} z-10`}
             onMouseDown={handleMouseDown}
-          >
-            <div className={`${splitOrientation === 'vertical' ? 'w-1.5 h-12' : 'h-1.5 w-12'} bg-white/80 rounded-full`} />
-          </div>
+          />
         )}
 
         <div 

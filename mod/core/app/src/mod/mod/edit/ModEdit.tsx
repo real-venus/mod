@@ -42,6 +42,7 @@ export default function ModEdit({ mod }: ModEditProps) {
         fn: 'api/edit',
         params: {
           mod: mod.name,
+          key: mod.key,
           query: query
         },
         url: 'api'

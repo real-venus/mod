@@ -12,7 +12,7 @@ class  IpfsClient:
     endpoints = ['pin', 'add_mod', 'reg', 'mod', 'pins']
     """Simple IPFS client using requests library only."""
     node_name = 'ipfs.node'
-    host_options = ['0.0.0.0', node_name]
+    host_options = ['https://ipfs.modc2.com', '0.0.0.0', node_name]
     def __init__(self, url: str = None):
         self.set_url(url)
         self.session = requests.Session()

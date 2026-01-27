@@ -27,8 +27,12 @@ export function ModuleFunctionSelector({
   const [showFunctionList, setShowFunctionList] = useState(false)
   const [moduleSearch, setModuleSearch] = useState('')
   const [functionSearch, setFunctionSearch] = useState('')
+  const [moduleHighlightIndex, setModuleHighlightIndex] = useState(0)
+  const [functionHighlightIndex, setFunctionHighlightIndex] = useState(0)
   const moduleRef = useRef<HTMLDivElement>(null)
   const functionRef = useRef<HTMLDivElement>(null)
+  const moduleInputRef = useRef<HTMLInputElement>(null)
+  const functionInputRef = useRef<HTMLInputElement>(null)
 
   const moduleColor = useMemo(() => {
     return selectedModule ? text2color(selectedModule) : '#8b5cf6'
@@ -56,6 +60,7 @@ export function ModuleFunctionSelector({
     setSelectedModule(modName)
     setShowModuleList(false)
     setModuleSearch('')
+    setModuleHighlightIndex(0)
     setTimeout(() => {
       setShowFunctionList(true)
     }, 100)
@@ -65,10 +70,57 @@ export function ModuleFunctionSelector({
     setSelectedFunction(fn)
     setShowFunctionList(false)
     setFunctionSearch('')
+    setFunctionHighlightIndex(0)
     if (onEnterPress) {
       setTimeout(() => onEnterPress(), 100)
     }
   }
+
+  const handleModuleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (filteredModules.length > 0) {
+        handleModuleClick(filteredModules[moduleHighlightIndex].name)
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setModuleHighlightIndex(prev => 
+        prev < filteredModules.length - 1 ? prev + 1 : 0
+      )
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setModuleHighlightIndex(prev => 
+        prev > 0 ? prev - 1 : filteredModules.length - 1
+      )
+    }
+  }
+
+  const handleFunctionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (filteredFunctions.length > 0) {
+        handleFunctionClick(filteredFunctions[functionHighlightIndex])
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setFunctionHighlightIndex(prev => 
+        prev < filteredFunctions.length - 1 ? prev + 1 : 0
+      )
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setFunctionHighlightIndex(prev => 
+        prev > 0 ? prev - 1 : filteredFunctions.length - 1
+      )
+    }
+  }
+
+  useEffect(() => {
+    setModuleHighlightIndex(0)
+  }, [moduleSearch])
+
+  useEffect(() => {
+    setFunctionHighlightIndex(0)
+  }, [functionSearch])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -108,22 +160,24 @@ export function ModuleFunctionSelector({
         {showModuleList && (
           <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-64 overflow-hidden z-50">
             <input
+              ref={moduleInputRef}
               type="text"
               value={moduleSearch}
               onChange={(e) => setModuleSearch(e.target.value)}
+              onKeyDown={handleModuleKeyDown}
               placeholder="🔍 search modules..."
               className="w-full bg-black/60 border-b-2 border-white/20 text-white px-4 py-2 focus:outline-none focus:bg-black/80 placeholder-gray-500"
               style={{ fontFamily: 'IBM Plex Mono, monospace' }}
               autoFocus
             />
             <div className="max-h-52 overflow-y-auto">
-              {filteredModules.map(mod => {
+              {filteredModules.map((mod, index) => {
                 const modColor = text2color(mod.name)
                 return (
                   <button
                     key={mod.name}
                     onClick={() => handleModuleClick(mod.name)}
-                    className="w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4"
+                    className={`w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4 ${index === moduleHighlightIndex ? 'bg-white/10' : ''}`}
                     style={{
                       fontFamily: 'IBM Plex Mono, monospace',
                       borderLeftColor: modColor,
@@ -168,22 +222,24 @@ export function ModuleFunctionSelector({
         {showFunctionList && selectedModule && (
           <div className="absolute w-full mt-1 bg-gray-900 border-2 border-white/60 rounded-lg shadow-xl max-h-64 overflow-hidden z-50">
             <input
+              ref={functionInputRef}
               type="text"
               value={functionSearch}
               onChange={(e) => setFunctionSearch(e.target.value)}
+              onKeyDown={handleFunctionKeyDown}
               placeholder="🔍 search functions..."
               className="w-full bg-black/60 border-b-2 border-white/20 text-white px-4 py-2 focus:outline-none focus:bg-black/80 placeholder-gray-500"
               style={{ fontFamily: 'IBM Plex Mono, monospace' }}
               autoFocus
             />
             <div className="max-h-52 overflow-y-auto">
-              {filteredFunctions.map(fn => {
+              {filteredFunctions.map((fn, index) => {
                 const fnColor = text2color(fn)
                 return (
                   <button
                     key={fn}
                     onClick={() => handleFunctionClick(fn)}
-                    className="w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4"
+                    className={`w-full text-left px-4 py-3 hover:bg-white/20 text-white transition-all border-l-4 ${index === functionHighlightIndex ? 'bg-white/10' : ''}`}
                     style={{
                       fontFamily: 'IBM Plex Mono, monospace',
                       borderLeftColor: fnColor,

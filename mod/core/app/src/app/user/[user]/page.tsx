@@ -14,6 +14,7 @@ import { Admin } from '@/mod/user/admin/Admin'
 import { Portfolio } from '@/mod/user/portfolio/Portfolio'
 import { Billing } from '@/mod/user/billing'
 import RegUpdate from '@/mod/user/regupdate'
+import { TabManager } from '@/mod/user/TabManager'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
 import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
@@ -51,6 +52,16 @@ export default function UserPage() {
   })
 
   const [userTabs, setUserTabs] = useState<{ id: TabType; label: string; color: string }[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('user_page_tabs')
+      if (saved) {
+        try {
+          return JSON.parse(saved)
+        } catch (e) {
+          return DEFAULT_TABS
+        }
+      }
+    }
     return DEFAULT_TABS
   })
 
@@ -149,6 +160,14 @@ export default function UserPage() {
           <div className="mb-8">
             <UserCard user={userData}/>
           </div>
+
+          {myMod && (
+            <TabManager
+              userTabs={userTabs}
+              onTabsChange={setUserTabs}
+              availableTabs={DEFAULT_TABS}
+            />
+          )}
 
           <div className="flex flex-wrap gap-3 mb-6">
             {displayTabs.map((tab) => (

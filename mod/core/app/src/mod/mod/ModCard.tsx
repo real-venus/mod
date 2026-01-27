@@ -22,9 +22,6 @@ export default function ModCard({ mod }: ModCardProps) {
   const cidColor = text2color(mod.cid || '')
   const updatedTimeStr = mod.updated ? time2str(mod.updated * 1000) : time2str(Date.now())
   
-  const displayKey = mod.key ? `${mod.key.slice(0, 6)}...${mod.key.slice(-6)}` : 'N/A'
-  const displayCid = mod.cid ? `${mod.cid.slice(0, 6)}...${mod.cid.slice(-6)}` : 'N/A'
-
   return (
     <Link href={`/mod/${mod.name}/${mod.key}`}>
       <div 
@@ -38,7 +35,6 @@ export default function ModCard({ mod }: ModCardProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Animated gradient background */}
         <div 
           className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500"
           style={{
@@ -56,8 +52,7 @@ export default function ModCard({ mod }: ModCardProps) {
               />
             </div>
             
-            <div className="flex items-center gap-2 bg-gradient-to-r from-black/50 to-black/30 border-2 rounded-lg px-4 py-2 flex-1 shadow-lg" 
-                 style={{ borderColor: `${modColor}50` }}>
+            <div className="flex items-center gap-2 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-4 py-2 flex-1 shadow-lg">
               <code className="text-lg font-bold font-mono tracking-wide" style={{ color: modColor }}>
                 {mod.name}
               </code>
@@ -66,25 +61,22 @@ export default function ModCard({ mod }: ModCardProps) {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-2 bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border-2 rounded-lg px-3 py-2 shadow-md transition-all hover:scale-105" 
-                 style={{ borderColor: '#3b82f650' }}>
-              <Clock size={18} style={{ color: '#3b82f6' }} />
-              <span className="text-blue-400 text-sm font-mono font-bold">{updatedTimeStr}</span>
+            <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-900/30 to-cyan-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
+              <Clock size={16} style={{ color: '#3b82f6' }} />
               <CopyButton text={updatedTimeStr} size="sm" />
             </div>
 
             <div 
-              className="flex items-center gap-2 bg-gradient-to-r from-black/50 to-black/30 border-2 rounded-lg px-3 py-2 transition-all relative group/cid shadow-md hover:scale-105"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-2 py-1.5 transition-all relative group/cid shadow-md hover:scale-105"
               style={{
-                backgroundColor: isCidHovered ? `${cidColor}25` : 'rgba(0, 0, 0, 0.5)',
-                borderColor: isCidHovered ? `${cidColor}80` : `${cidColor}40`
+                backgroundColor: isCidHovered ? `${cidColor}25` : 'rgba(0, 0, 0, 0.5)'
               }}
               onMouseEnter={() => setIsCidHovered(true)}
               onMouseLeave={() => setIsCidHovered(false)}
               title={mod.cid}
             >
-              <code className="text-sm font-mono font-bold truncate max-w-[100px]" style={{ color: cidColor }}>
-                {displayCid}
+              <code className="text-sm font-mono font-bold" style={{ color: cidColor }}>
+                ●●●●●●
               </code>
               <CopyButton text={mod.cid || ''} size="sm" />
               
@@ -104,21 +96,17 @@ export default function ModCard({ mod }: ModCardProps) {
             </div>
 
             <div 
-              className="flex items-center gap-2 bg-gradient-to-r from-black/50 to-black/30 border-2 rounded-lg px-3 py-2 transition-all relative group/key shadow-md hover:scale-105"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
               style={{
-                backgroundColor: isKeyHovered ? `${keyColor}25` : 'rgba(0, 0, 0, 0.5)',
-                borderColor: isKeyHovered ? `${keyColor}80` : `${keyColor}40`
+                backgroundColor: isKeyHovered ? `${keyColor}25` : 'rgba(0, 0, 0, 0.5)'
               }}
               onMouseEnter={() => setIsKeyHovered(true)}
               onMouseLeave={() => setIsKeyHovered(false)}
               title={mod.key}
             >
               <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
-                <KeyIcon className="w-5 h-5 transition-transform hover:scale-110" style={{ color: keyColor }} />
+                <KeyIcon className="w-4 h-4 transition-transform hover:scale-110" style={{ color: keyColor }} />
               </Link>
-              <code className="text-sm font-mono font-bold truncate max-w-[100px]" style={{ color: keyColor }}>
-                {displayKey}
-              </code>
               <CopyButton text={mod.key} size="sm" />
               
               {isKeyHovered && (

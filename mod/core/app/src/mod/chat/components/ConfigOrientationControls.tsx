@@ -36,11 +36,11 @@ export function ConfigOrientationControls({
           title="Left"
         >←</button>
         
-        {/* Right button */}
+        {/* Right button - CHANGED FROM vertical TO left */}
         <button
-          onClick={() => setConfigOrientation('vertical')}
-          className={`absolute top-1/2 right-1 -translate-y-1/2 px-2 py-1 text-lg ${configOrientation === 'vertical' ? 'bg-blue-500/40 border-blue-400' : 'bg-blue-500/20 border-blue-500/40'} text-blue-400 border hover:bg-blue-500/30 rounded transition-all hover:scale-105 active:scale-95`}
-          title="Right"
+          onClick={() => setConfigOrientation('left')}
+          className={`absolute top-1/2 right-1 -translate-y-1/2 px-2 py-1 text-lg ${configOrientation === 'left' ? 'bg-blue-500/40 border-blue-400' : 'bg-blue-500/20 border-blue-500/40'} text-blue-400 border hover:bg-blue-500/30 rounded transition-all hover:scale-105 active:scale-95`}
+          title="Left"
         >→</button>
       </div>
     </div>

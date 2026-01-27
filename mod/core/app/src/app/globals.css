@@ -10,3 +10,169 @@
     @apply bg-black text-white;
   }
 }
+
+/* DOPE NIGHTFORM FILTER STYLES - 420 EDITION */
+@layer utilities {
+  .filter-nightform {
+    filter: 
+      contrast(1.2)
+      brightness(0.85)
+      saturate(1.4)
+      hue-rotate(280deg)
+      drop-shadow(0 0 20px rgba(138, 43, 226, 0.6))
+      drop-shadow(0 0 40px rgba(0, 255, 255, 0.4));
+  }
+  
+  .filter-dope {
+    filter:
+      contrast(1.3)
+      saturate(1.6)
+      brightness(0.9)
+      hue-rotate(320deg)
+      drop-shadow(0 0 30px rgba(255, 0, 255, 0.7))
+      drop-shadow(0 0 50px rgba(0, 255, 0, 0.5));
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  .filter-ultra-dope {
+    filter:
+      contrast(1.4)
+      saturate(2.0)
+      brightness(0.95)
+      hue-rotate(340deg)
+      drop-shadow(0 0 40px rgba(255, 0, 255, 0.8))
+      drop-shadow(0 0 60px rgba(0, 255, 255, 0.6))
+      drop-shadow(0 0 80px rgba(138, 43, 226, 0.4));
+    animation: mega-pulse 1.5s ease-in-out infinite, rainbow-shift 4s linear infinite;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    filter:
+      contrast(1.3)
+      saturate(1.6)
+      brightness(0.9)
+      hue-rotate(320deg)
+      drop-shadow(0 0 30px rgba(255, 0, 255, 0.7))
+      drop-shadow(0 0 50px rgba(0, 255, 0, 0.5));
+  }
+  50% {
+    filter:
+      contrast(1.5)
+      saturate(1.8)
+      brightness(1.0)
+      hue-rotate(340deg)
+      drop-shadow(0 0 50px rgba(255, 0, 255, 0.9))
+      drop-shadow(0 0 70px rgba(0, 255, 0, 0.7));
+  }
+}
+
+@keyframes mega-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter:
+      contrast(1.4)
+      saturate(2.0)
+      brightness(0.95);
+  }
+  50% {
+    transform: scale(1.02);
+    filter:
+      contrast(1.6)
+      saturate(2.2)
+      brightness(1.05);
+  }
+}
+
+@keyframes rainbow-shift {
+  0% { filter: hue-rotate(0deg); }
+  25% { filter: hue-rotate(90deg); }
+  50% { filter: hue-rotate(180deg); }
+  75% { filter: hue-rotate(270deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
+/* APPLY NIGHTFORM TO CARDS AND COMPONENTS */
+.mod-card,
+.user-card,
+.treasury-card,
+.wallet-card {
+  @apply filter-nightform;
+  transition: all 0.3s ease-in-out;
+}
+
+.mod-card:hover,
+.user-card:hover,
+.treasury-card:hover,
+.wallet-card:hover {
+  @apply filter-dope;
+  transform: scale(1.05) translateY(-5px);
+}
+
+/* ULTRA DOPE FOR SPECIAL ELEMENTS */
+.header-glow,
+.sidebar-glow,
+.cta-button {
+  @apply filter-ultra-dope;
+}
+
+/* NEON GLOW TEXT */
+.neon-text {
+  text-shadow:
+    0 0 10px rgba(0, 255, 255, 0.8),
+    0 0 20px rgba(138, 43, 226, 0.6),
+    0 0 30px rgba(255, 0, 255, 0.4),
+    0 0 40px rgba(0, 255, 0, 0.3);
+  animation: neon-flicker 3s ease-in-out infinite;
+}
+
+@keyframes neon-flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+  75% { opacity: 0.95; }
+}
+
+/* 420 SPECIAL EFFECTS */
+.effect-420 {
+  background: linear-gradient(
+    45deg,
+    rgba(0, 255, 0, 0.2),
+    rgba(138, 43, 226, 0.2),
+    rgba(0, 255, 255, 0.2),
+    rgba(255, 0, 255, 0.2)
+  );
+  background-size: 400% 400%;
+  animation: gradient-flow 8s ease infinite;
+}
+
+@keyframes gradient-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* CYBERPUNK SCANLINES */
+.scanlines {
+  position: relative;
+}
+
+.scanlines::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 255, 0.05) 2px,
+    rgba(0, 255, 255, 0.05) 4px
+  );
+  pointer-events: none;
+  animation: scan 8s linear infinite;
+}
+
+@keyframes scan {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}

@@ -1,15 +1,19 @@
 'use client'
 
-import { BuildingLibraryIcon } from '@heroicons/react/24/outline'
+import { BuildingLibraryIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import modConfig from '@/app/mod.json'
 import { ethers } from 'ethers'
+import { useRouter } from 'next/navigation'
 
 export function TreasuryHeader() {
+  const router = useRouter()
   const [treasuryAddress, setTreasuryAddress] = useState('')
   const [totalUsdValue, setTotalUsdValue] = useState('0')
   const [showTreasuryDetails, setShowTreasuryDetails] = useState(false)
+  const [usdcBalance, setUsdcBalance] = useState('0')
+  const [usdtBalance, setUsdtBalance] = useState('0')
 
   useEffect(() => {
     const network = 'testnet'
@@ -41,6 +45,7 @@ export function TreasuryHeader() {
           const balance = await usdcContract.balanceOf(treasuryAddress)
           const decimals = await usdcContract.decimals()
           const usdc = parseFloat(ethers.formatUnits(balance, decimals))
+          setUsdcBalance(usdc.toFixed(2))
           totalUsd += usdc
         }
         
@@ -50,6 +55,7 @@ export function TreasuryHeader() {
           const balance = await usdtContract.balanceOf(treasuryAddress)
           const decimals = await usdtContract.decimals()
           const usdt = parseFloat(ethers.formatUnits(balance, decimals))
+          setUsdtBalance(usdt.toFixed(2))
           totalUsd += usdt
         }
         
@@ -66,6 +72,10 @@ export function TreasuryHeader() {
     }
   }, [treasuryAddress])
 
+  const handleClick = () => {
+    router.push('/user/billing')
+  }
+
   if (!treasuryAddress) return null
 
   return (
@@ -74,25 +84,50 @@ export function TreasuryHeader() {
       style={{ height: '60px', minWidth: '60px', opacity: showTreasuryDetails ? 1 : 0.9 }}
       onMouseEnter={() => setShowTreasuryDetails(true)}
       onMouseLeave={() => setShowTreasuryDetails(false)}
-      title={`Treasury Balance: $${totalUsdValue}`}
+      onClick={handleClick}
+      title={`Treasury Balance: $${totalUsdValue} - Click to go to Billing`}
     >
       <div className="w-8 h-8 flex items-center justify-center bg-purple-500/20 border-2 border-purple-500/60 rounded-lg hover:bg-purple-500/30 transition-all">
         <BuildingLibraryIcon className="w-5 h-5 text-purple-400" />
       </div>
 
       {showTreasuryDetails && (
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-white/70 font-mono">
-              {treasuryAddress.slice(0, 6)}...{treasuryAddress.slice(-4)}
-            </span>
-            <CopyButton text={treasuryAddress} size="sm" />
-          </div>
+        <>
+          <div className="absolute top-full left-0 mt-2 bg-black/95 backdrop-blur-xl border-2 border-purple-500/40 rounded-xl shadow-2xl p-4 z-50 min-w-[250px]">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-white/50 uppercase font-bold">Treasury</span>
+              <ChevronUpIcon className="w-4 h-4 text-white/50" />
+            </div>
+            
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs text-white/70 font-mono">
+                {treasuryAddress.slice(0, 6)}...{treasuryAddress.slice(-4)}
+              </span>
+              <CopyButton text={treasuryAddress} size="sm" />
+            </div>
 
-          <div className="flex items-center gap-1 pl-2 border-l border-white/10">
-            <span className="text-sm text-green-400 font-mono font-bold">${totalUsdValue}</span>
+            <div className="flex items-center justify-between pt-2 border-t border-white/10 mb-2">
+              <span className="text-xs text-white/50 uppercase font-bold">USDC TVL</span>
+              <span className="text-sm text-purple-400 font-mono font-bold">
+                ${usdcBalance}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-white/50 uppercase font-bold">USDT TVL</span>
+              <span className="text-sm text-purple-400 font-mono font-bold">
+                ${usdtBalance}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between pt-2 border-t border-white/10">
+              <span className="text-xs text-white/50 uppercase font-bold">TOTAL USD</span>
+              <span className="text-sm text-green-400 font-mono font-bold">
+                ${totalUsdValue}
+              </span>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )

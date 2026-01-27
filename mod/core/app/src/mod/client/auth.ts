@@ -18,17 +18,21 @@ export class Auth {
   private key: Key;
   private maxAge: number;
   private signatureKeys: string[];
+  private tokenCache: { token: string; expiresAt: number } | null = null;
+  private refreshInterval: number;
 
   /**
    * Initialize the Auth class
    * @param key - The key to use for signing
    * @param maxAge - Maximum staleness allowed for timestamps (in seconds)
    * @param signatureKeys - The keys to use for signing
+   * @param refreshInterval - Token refresh interval in seconds (default: 3600 = 1 hour)
    */
   constructor(
     key: Key | undefined,
     maxAge: number = 3600,
-    signatureKeys: string[] = ['data', 'time']
+    signatureKeys: string[] = ['data', 'time'],
+    refreshInterval: number = 3600
   ) {
     if (!key) {
       throw new Error('Key is required for Auth');
@@ -36,14 +40,52 @@ export class Auth {
     this.key = key;
     this.maxAge = maxAge;
     this.signatureKeys = signatureKeys;
+    this.refreshInterval = refreshInterval;
+    this.startTokenRefresh();
   }
 
   /**
-   * Generate authentication headers with signature
-   * @param data - The data to sign
-   * @param key - Optional key override
-   * @returns Authentication headers with signature
+   * Start automatic token refresh
    */
+  private startTokenRefresh() {
+    // Generate initial token
+    this.refreshToken();
+    
+    // Set up interval to refresh token
+    setInterval(() => {
+      this.refreshToken();
+    }, this.refreshInterval * 1000);
+  }
+
+  /**
+   * Refresh the cached token
+   */
+  private refreshToken() {
+    const token = this.token();
+    this.tokenCache = {
+      token,
+      expiresAt: Date.now() + (this.refreshInterval * 1000)
+    };
+  }
+
+  /**
+   * Get the current valid token (from cache or generate new)
+   */
+  public getToken(): string {
+    if (this.tokenCache && Date.now() < this.tokenCache.expiresAt) {
+      return this.tokenCache.token;
+    }
+    this.refreshToken();
+    return this.tokenCache!.token;
+  }
+
+  /**
+   * Set custom refresh interval
+   * @param seconds - Refresh interval in seconds
+   */
+  public setRefreshInterval(seconds: number) {
+    this.refreshInterval = seconds;
+  }
 
   public base64urlEncode(data: string | Record<string, unknown> | Uint8Array): string {
     let bytes: Uint8Array;
@@ -53,81 +95,73 @@ export class Auth {
     } else if (data instanceof Uint8Array) {
       bytes = data;
     } else {
-      // dict → compact JSON (separators=(',', ':'))
       const json = JSON.stringify(data);
       bytes = new TextEncoder().encode(json);
     }
 
-    // Convert bytes → base64
     const base64 = Buffer.from(bytes).toString("base64");
 
-    // base64 → base64url (RFC 4648)
     return base64
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/, "");
   }
 
-public base64urlDecode(data: string): Uint8Array {
-  // Restore padding
-  const padding = "=".repeat((4 - (data.length % 4)) % 4);
+  public base64urlDecode(data: string): Uint8Array {
+    const padding = "=".repeat((4 - (data.length % 4)) % 4);
 
-  const base64 = (data + padding)
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
+    const base64 = (data + padding)
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
 
-  return new Uint8Array(Buffer.from(base64, "base64"));
-}
-
+    return new Uint8Array(Buffer.from(base64, "base64"));
+  }
+  
   public hash(data: string): string {
     return createHash('sha256').update(data).digest('hex');
   }
-public signatureData(data: any): string {
-  // Build ordered key-value pairs manually to match Python's dict ordering
-  const parts: string[] = [];
-  
-  this.signatureKeys.forEach(k => {
-    if (k in data) {
-      const value = data[k as keyof typeof data] as string;
-      // Manually construct each "key":"value" pair
-      parts.push(`"${k}":${JSON.stringify(value)}`);
-    }
-  });
-  
-  // Join with commas, wrap in braces - matches Python's separators=(',', ':')
-  return `{${parts.join(',')}}`;
-}
+
+  public signatureData(data: any): string {
+    const parts: string[] = [];
+    
+    this.signatureKeys.forEach(k => {
+      if (k in data) {
+        const value = data[k as keyof typeof data] as string;
+        parts.push(`"${k}":${JSON.stringify(value)}`);
+      }
+    });
+    
+    return `{${parts.join(',')}}`;
+  }
 
   public async signWithInjector(signMessage: string, walletAddress: string): Promise<string> {
-          const extensions = await web3Enable('MOD')
-          if (extensions.length === 0) {
-            throw new Error('No wallet extension found')
-          }
-          
-          const injector = await web3FromAddress(walletAddress)
-          if (!injector.signer.signRaw) {
-            throw new Error('Wallet does not support signing')
-          }
-          
-          const signRaw = injector.signer.signRaw
-          const { signature: sig } = await signRaw({
-            address: walletAddress,
-            data: u8aToHex(stringToU8a(signMessage)),
-            type: 'bytes'
-          })
-          return sig;
-        }
-          
+    const extensions = await web3Enable('MOD')
+    if (extensions.length === 0) {
+      throw new Error('No wallet extension found')
+    }
+    
+    const injector = await web3FromAddress(walletAddress)
+    if (!injector.signer.signRaw) {
+      throw new Error('Wallet does not support signing')
+    }
+    
+    const signRaw = injector.signer.signRaw
+    const { signature: sig } = await signRaw({
+      address: walletAddress,
+      data: u8aToHex(stringToU8a(signMessage)),
+      type: 'bytes'
+    })
+    return sig;
+  }
+        
   public token(data: any = '', walletAddress?: any): string {
-
     const authData: AuthData = {
       data: data,
-      time: String(this.time()), // Unix timestamp in seconds
+      time: String(this.time()),
       key: walletAddress || this.key.address,
       signature: '',
     };
 
-    // Create signature data object with only the specified keys
     let signatureData: string = this.signatureData(authData);
     authData.dataHash = this.hash(signatureData);
     if (walletAddress) {
@@ -135,21 +169,20 @@ public signatureData(data: any): string {
     } else {
       authData.signature = this.key.sign(signatureData);
     }
-    const verified = this.key.verify( signatureData, authData.signature, authData.key);
+    const verified = this.key.verify(signatureData, authData.signature, authData.key);
     if (!verified) {
       throw new Error('Signature verification failed');
     }
 
-
-    return this.base64urlEncode(JSON.stringify( authData));
+    return this.base64urlEncode(JSON.stringify(authData));
   }
 
   public generate(data: any, walletAddress?: any): AuthHeaders {
-    return {token: this.token(data, walletAddress)};
+    return {token: this.getToken()};
   }
 
   public time(): number {
-    return Date.now() / 1000; // Returns current timestamp in seconds
+    return Date.now() / 1000;
   }
 
   public token2data(token: string): AuthData {
@@ -159,7 +192,6 @@ public signatureData(data: any): string {
   }
 
   public verify(headers: AuthHeaders, data?: any): boolean {
-    // Check staleness
     const authData = this.token2data(headers.token);
 
     if (!authData.signature) {
@@ -170,7 +202,6 @@ public signatureData(data: any): string {
       throw new Error(`Token is stale: ${staleness}s > ${this.maxAge}s`);
     }
     
-    // Create signature data object for verification
     const signatureData: Record<string, string> = {};
     this.signatureKeys.forEach(k => {
       if (k in headers) {
@@ -178,7 +209,7 @@ public signatureData(data: any): string {
       }
     });
 
-    const signatureDataString = JSON.stringify(signatureData); // Ensure it's a plain object
+    const signatureDataString = JSON.stringify(signatureData);
 
     let params = {
       message: signatureDataString,
@@ -188,14 +219,13 @@ public signatureData(data: any): string {
 
     let verified = this.key.verify(params.message, params.signature, params.public_key);
 
-    // get boolean value of verified
     verified = Boolean(verified);
     return verified;
   }
 
   /**
    * Test the authentication flow
-   * @param keyName - Name of the test key
+   * @param key - Name of the test key
    * @returns Test results
    */
   public static async test(
@@ -204,13 +234,10 @@ public signatureData(data: any): string {
     const data = { fn: 'test', params: { a: 1, b: 2 } };
     const auth = new Auth(key);
     
-    // Generate headers
     const headers = auth.generate(data);
     
-    // Verify headers without data
     auth.verify(headers);
     
-    // Verify headers with data
     const verifiedHeaders = auth.verify(headers);
     
     return { 

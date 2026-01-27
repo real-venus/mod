@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import WalletAuthButton from '@/mod/wallet/WalletAuthButton'
 import { useState } from 'react'
 import WalletInfoTabs from './WalletInfoTabs'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export function WalletHeader() {
     const {  user, authLoading, signOut} = userContext()
@@ -84,45 +85,52 @@ export function WalletHeader() {
             <WalletIcon className="w-10 h-10" style={{ color: userColor, filter: 'drop-shadow(0 0 8px currentColor)' }} />
           </div>
 
-          {showTooltip && (
-            <div 
-              className="absolute top-full right-0 mt-0 p-5 border-2 rounded-xl shadow-2xl z-50 min-w-[400px] backdrop-blur-xl"
-              style={{
-                borderRadius: '8px',
-                backgroundColor: 'rgba(0, 0, 0, 1)',
-                borderColor: userColor
-              }}
-            >
-              <div className="space-y-3">
-                {/* Wallet Info Tabs */}
-                <WalletInfoTabs />
+          <AnimatePresence>
+            {showTooltip && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="absolute top-full right-0 mt-2 p-6 border-2 rounded-xl shadow-2xl z-50 min-w-[450px] backdrop-blur-xl"
+                style={{
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                  borderColor: userColor,
+                  boxShadow: `0 0 30px ${userColor}40, 0 10px 40px rgba(0, 0, 0, 0.8)`
+                }}
+              >
+                <div className="space-y-4">
+                  {/* Wallet Info Tabs */}
+                  <WalletInfoTabs />
 
-                {user.network && (
-                  <div className="p-2 rounded-lg border-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)', borderColor: `${userColor}60` }}>
-                    <div className="text-lg text-gray-400 mb-1 font-bold">Network Modules</div>
-                    <div className="font-mono text-sm" style={{ color: userColor }}>{user.mods?.length || 0}</div>
+                  {user.network && (
+                    <div className="p-3 rounded-lg border-2 transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}60` }}>
+                      <div className="text-sm text-gray-400 mb-1 font-bold uppercase tracking-wider">Network Modules</div>
+                      <div className="font-mono text-lg font-bold" style={{ color: userColor }}>{user.mods?.length || 0}</div>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between pt-3 border-t-2" style={{ borderColor: `${userColor}40`, fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSignOut(); }}
+                      className="px-4 py-2 border-2 transition-all hover:scale-105 active:scale-95 flex items-center gap-2 rounded-lg ml-auto font-bold"
+                      style={{
+                        borderColor: userColor,
+                        backgroundColor: `${userColor}20`,
+                        color: userColor,
+                        fontFamily: 'IBM Plex Mono, Courier New, monospace'
+                      }}
+                      title="Sign Out"
+                    >
+                      <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                      <span className="text-sm">SIGN OUT</span>
+                    </button>
                   </div>
-                )}
-                
-                <div className="flex items-center justify-between pb-3 border-b-2" style={{ borderColor: userColor, fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleSignOut(); }}
-                    className="px-3 py-1.5 border-2 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 rounded-lg ml-auto"
-                    style={{
-                      borderColor: userColor,
-                      backgroundColor: `${userColor}20`,
-                      color: userColor,
-                      fontFamily: 'IBM Plex Mono, Courier New, monospace'
-                    }}
-                    title="Sign Out"
-                  >
-                    <ArrowRightOnRectangleIcon className="w-4 h-4" />
-                    <span className="font-bold text-xs">SIGN OUT</span>
-                  </button>
                 </div>
-              </div>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     )
