@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import RegUpdate from '@/mod/user/regupdate/RegUpdate'
+import RegUpdate from '@/mod/user/regupdate'
+import UserModules from '@/mod/user/usermods'
 import { UserType } from '@/mod/types'
 
 export const Mods = ({ userData }: { userData: UserType }) => {
@@ -31,6 +32,7 @@ export const Mods = ({ userData }: { userData: UserType }) => {
         </button>
       </div>
 
+      {activeTab === 'modules' && <UserModules userData={userData} />}
       {activeTab === 'regupdate' && <RegUpdate />}
 
     </div>

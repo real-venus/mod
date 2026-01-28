@@ -26,16 +26,33 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [client, setClient] = useState<Client | null>(null)
   const [network, setNetwork] = useState<Network| null>(null)
 
-
-  
-
-
   // Initialize from localStorage on mount
   useEffect(() => {
     const initializeAuth = async () => {
       try {
         setNetwork(new Network('test'))
         await cryptoWaitReady()
+        
+        // Check if user data exists in localStorage
+        const storedUserData = localStorage.getItem('user_data')
+        const walletMode = localStorage.getItem('wallet_mode')
+        const walletAddress = localStorage.getItem('wallet_address')
+        let  walletToken = localStorage.getItem('wallet_token')
+        
+        if (storedUserData && walletMode && walletAddress) {
+          // Restore user session from localStorage
+          const userData = JSON.parse(storedUserData)
+          setUser(userData)
+          
+          // Regenerate token and client
+          if (!walletToken) {
+            const auth = new Auth()
+            walletToken = await auth.token('', walletAddress, walletMode)
+            localStorage.setItem('wallet_token', walletToken)
+          }
+          setClient(new Client(undefined, walletToken))
+
+        }
       } catch (error) {
         console.error('Failed to restore auth session:', error)
         localStorage.removeItem('user_data')
@@ -56,8 +73,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const wallet_type = localStorage.getItem('wallet_type') || 'edcsa'
 
       const auth = new Auth()
-      const token = await auth.token('',wallet_address)
-      console.log('Generated token:', token, wallet_address)
+      const token = await auth.token('',wallet_address, wallet_mode)
+      localStorage.setItem('wallet_token', token)
+
       setClient(new Client(undefined, token))
       let balance = 0
       if (!network) {

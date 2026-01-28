@@ -731,13 +731,12 @@ class  Api:
 
         registry = self.registry()
 
-
-        path = self.path('mods.json')
+        key = self.key_address(key)
+        path = self.path(f'mods/{key}.json')
         mods = m.get(path, None, update=update)
 
         if mods is None :
 
-            key = self.key_address(key)
             if key != 'all':
                 mods =  [self.mod(k, key=key) for k in registry.get(key, {}).keys()]
             else:

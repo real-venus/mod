@@ -33,29 +33,32 @@ export function ChatInput({
   return (
     <div className="space-y-3">
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="relative flex gap-2">
+        <div className="relative">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="enter your message..."
-            className="flex-1 bg-black/60 border-2 border-orange-500/40 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 placeholder-orange-600/40 resize-none text-xl"
-            style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+            className="w-full bg-black/60 border-2 border-orange-500/40 text-white px-4 py-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 placeholder-orange-600/40 resize-none text-xl"
+            style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase', minHeight: '120px' }}
             disabled={isLoading}
-            rows={4}
+            rows={6}
           />
+        </div>
+
+        <div className="flex gap-2 items-center">
           {inputParamOptions.length > 0 && (
-            <div className="absolute bottom-2 right-2 z-10">
+            <div className="relative flex-1">
               <button
                 type="button"
                 onClick={() => setShowParamSelector(!showParamSelector)}
-                className="px-16 py-10 bg-cyan-500/30 text-cyan-300 border-4 border-cyan-400/60 hover:bg-cyan-500/40 hover:border-cyan-400/80 rounded-xl transition-all duration-200 font-bold text-4xl shadow-lg backdrop-blur-sm"
+                className="w-full px-4 py-3 bg-cyan-500/30 text-cyan-300 border-2 border-cyan-400/60 hover:bg-cyan-500/40 hover:border-cyan-400/80 rounded-lg transition-all duration-200 font-bold text-sm shadow-lg backdrop-blur-sm"
                 style={{ fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 10px rgba(34, 211, 238, 0.6)' }}
                 disabled={isLoading}
               >
                 {selectedInputParam || 'param'}
               </button>
               {showParamSelector && (
-                <div className="absolute bottom-full mb-2 right-0 bg-black/95 border-4 border-cyan-400/70 rounded-xl shadow-2xl max-h-80 overflow-y-auto z-50 backdrop-blur-md">
+                <div className="absolute bottom-full mb-2 left-0 right-0 bg-black/95 border-4 border-cyan-400/70 rounded-xl shadow-2xl max-h-80 overflow-y-auto z-50 backdrop-blur-md">
                   {inputParamOptions.map(param => (
                     <button
                       key={param}
@@ -64,7 +67,7 @@ export function ChatInput({
                         setSelectedInputParam(param)
                         setShowParamSelector(false)
                       }}
-                      className="w-full text-left px-16 py-10 hover:bg-cyan-500/30 text-cyan-300 border-b border-cyan-500/30 last:border-b-0 transition-all duration-200 font-bold text-4xl"
+                      className="w-full text-left px-4 py-3 hover:bg-cyan-500/30 text-cyan-300 border-b border-cyan-500/30 last:border-b-0 transition-all duration-200 font-bold text-sm"
                       style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}
                     >
                       {param}
@@ -73,6 +76,26 @@ export function ChatInput({
                 </div>
               )}
             </div>
+          )}
+
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-6 py-3 bg-red-500/20 text-red-400 border-2 border-red-500/40 hover:bg-red-500/30 rounded-lg transition-all font-bold text-sm"
+              style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+            >
+              ❌ cancel
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="px-6 py-3 bg-orange-500/20 text-orange-400 border-2 border-orange-500/40 hover:bg-orange-500/30 rounded-lg transition-all font-bold text-sm"
+              style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+              disabled={!selectedModule || !selectedFunction}
+            >
+              🚀 send
+            </button>
           )}
         </div>
       </form>

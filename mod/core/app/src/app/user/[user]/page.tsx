@@ -185,13 +185,13 @@ export default function UserPage() {
 
           <div className="bg-black border-2 border-white/30 rounded p-6">
             {activeTab === 'mods' && <Mods userData={userData} />}
-            {activeTab === 'portfolio' && <Portfolio />}
-            {activeTab === 'transfer' && client?.key && user && <Transfer />}
-            {activeTab === 'claim' && client?.key && user && <ClaimMod />}
-            {activeTab === 'regupdate' && client?.key && user && <RegUpdate />}
-            {activeTab === 'admin' && client?.key && user && <Admin userData={userData} />}
-            {activeTab === 'contracts' && client?.key && user && <ContractsInterface />}
-            {activeTab === 'billing' && client?.key && user && <Billing />}
+            {activeTab === 'portfolio' &&  user && <Portfolio />}
+            {activeTab === 'transfer' &&  user && <Transfer />}
+            {activeTab === 'claim' &&  user && <ClaimMod />}
+            {activeTab === 'regupdate' &&  user && <RegUpdate />}
+            {activeTab === 'admin' && user && <Admin userData={userData} />}
+            {activeTab === 'contracts' &&  user && <ContractsInterface />}
+            {activeTab === 'billing' &&  user && <Billing />}
           </div>
         </div>
       </main>
