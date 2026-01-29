@@ -37,7 +37,7 @@ class SelectOptions:
               min_score: int = 0,
               max_score: int = 10,
               threshold: int = 5,
-              model: str =  'anthropic/claude-opus-4',
+              model: str =  'anthropic/claude-opus-4.5',
               context: Optional[str] = None,
               temperature: float = 0.5,
               include_scores = True,
@@ -65,8 +65,10 @@ class SelectOptions:
         Returns:
             List of the most relevant options
         """
-        
-        options_map = {int(i): option for i, option in enumerate(options)}
+        if isinstance(options, list):
+            options_map = {int(i): option for i, option in enumerate(options)}
+        elif isinstance(options, dict):
+            options_map = {int(i): [k,v] for i, (k,v) in enumerate(options.items())}
         if not options_map:
             return []
            
@@ -151,5 +153,7 @@ class SelectOptions:
             "success": True,
             "message": f"Test passed with results: {results}"
         }
+
+    
 
     

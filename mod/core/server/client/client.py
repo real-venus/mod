@@ -62,6 +62,7 @@ class Client:
             "Accept": "application/json",
             "Content-Type": "application/json",
         })
+        print(f'Sending request to {url} with params {params} and headers {headers}')
         try:
             response = requests.post( url, json=params,  headers=headers, timeout=timeout, stream=stream)
         except requests.exceptions.ConnectionError as e:
@@ -104,7 +105,7 @@ class Client:
         """
         url = url.split('://')[-1].split('/')[0]
         for mod_name, mod_url in self.namespace.items():
-            if mod_url.startswith(url):
+            if mod_url.endswith(url):
                 return mod_name 
         raise Exception(f"Could not find mod for url: {url}")
     call = forward

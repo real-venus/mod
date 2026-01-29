@@ -14,6 +14,12 @@ readme_path = os.path.join(this_dir, 'README.md')
 with open(readme_path, 'r', encoding='utf-8') as fh:
     long_description = fh.read()
 
+# Define install requirements
+# get requirements from requirements.txt
+requirements_path = os.path.join(this_dir, 'requirements.txt')
+with open(requirements_path, 'r', encoding='utf-8') as f:
+    install_requires = f.read().splitlines()
+
 # Get version from mod package if possible
 version = '0.1.0'  # default
 mod_path = os.path.join(this_dir, 'mod', '__init__.py')
@@ -25,52 +31,6 @@ if os.path.exists(mod_path):
     if match:
         version = match.group(1)
 
-# Core dependencies
-install_requires = [
-    # network
-    'fastapi>=0.115.13',
-    'sse-starlette>=2.1,<2.3.7',
-    'paramiko>=3.5.1',
-    'nest_asyncio>=1.6.0',
-    'uvicorn>=0.22.0',
-    'hypercorn>=0.14.0',
-    'aiohttp>=3.12.13',
-    'msgpack_numpy>=0.4.8',
-    'netaddr>=1.3.0',
-    'pyyaml>=6.0.2',
-    'websocket-client>=0.57.0',
-    'requests>=2.21.0',
-
-    # misc
-    'certifi>=2019.3.9',
-    'idna>=2.1.0',
-    'aiofiles>=24.1.0',
-    'loguru>=0.7.3',
-    'xxhash>=1.3.0',
-    'python-dotenv',
-    'pandas>=2.3.0',
-    'rich>=13.6.0',
-    'munch>=4.0.0',
-    'regex>=2023.3.23',
-
-    # ai
-    'safetensors>=0.5.3',
-    'openai>=1.91.0',
-    'torch>=2.7.1',
-
-    # crypot
-    'scalecodec>=1.2.10,<1.3',
-    'base58>=1.0.3',
-    'ecdsa>=0.17.0',
-    'eth-keys>=0.2.1',
-    'eth_utils>=1.3.0',
-    'pycryptodome>=3.11.0',
-    'PyNaCl>=1.0.1',
-    'py-sr25519-bindings>=0.2.0',
-    'py-ed25519-zebra-bindings>=1.0',
-    'py-bip39-bindings>=0.1.9',
-    'psutil>=7.0.0',
-]
 
 # Optional dependencies
 extras_require = {
@@ -96,13 +56,12 @@ setup(
     author_email='bloc@proton.me',
     url='https://modchain.org/',
     project_urls={
-        'Homepage': 'https://modchain.ai/',
-        'Repository': 'https://github.com/mod-chain/modsdk',
-        'Issues': 'https://github.com/mod-chain/modsdk/issues',
+        'Homepage': 'https://app.modc2.ai/',
+        'Repository': 'https://github.com/modc2/mod',
     },
     packages=find_packages(exclude=['tests*', 'docs*']),
     include_package_data=True,
-    python_requires='>=3.8, <3.13',  # restrict to Python <3.13 to avoid asyncio issues
+    python_requires='>=3.8, <=3.15',  # restrict to Python <3.13 to avoid asyncio issues
     install_requires=install_requires,
     extras_require=extras_require,
     entry_points={

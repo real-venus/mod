@@ -1,13 +1,10 @@
-# start of file
 import os
 import pandas as pd
 from typing import List, Dict, Union, Optional, Any
 import mod as m
-
 import subprocess
 import json
 from datetime import datetime
-import yaml
 
 class PM2:
     """
@@ -17,22 +14,21 @@ class PM2:
 
     def __init__(self,  
                 mod='mod',
-                path='~/.mod/server', 
+                path='~/.mod/server',
+                scripts_path='~/.mod/scripts/serve',
+                registry = 'server.registry',
                 **kwargs):
-        """
-        Initialize PM2 manager.
-        
-        Args:
-            mod: Module name
-            path: Storage path for PM2 data
-        """
         self.mod = mod
         self.store = m.mod('store')(path)
+        self.registry = m.mod(registry)(path)
+        self.scripts_path = os.path.expanduser(scripts_path)
+        os.makedirs(self.scripts_path, exist_ok=True)
 
     def forward(self,  
                 mod: str = 'api', 
                 params: Optional[dict] = None,
                 key: Optional[str] = None,
+                port: Optional[int] = None,
                 cwd: Optional[str] = None,
                 env: Optional[dict] = None,
                 interpreter: str = 'python3',
@@ -40,240 +36,269 @@ class PM2:
                 **kwargs):
         """
         Start a mod as a PM2 process server.
-        
-        Args:
-            mod: Module name to serve
-            params: Parameters to pass to the server
-            key: Server key identifier
-            cwd: Working directory
-            env: Environment variables
-            interpreter: Python interpreter to use
-            name: Process name in PM2
-            
-        Returns:
-            Dictionary with server start status
         """
         params = params or {}
         name = name or mod
-        params.update({'key': key or mod, 'remote': False, 'mod': mod})
-        cmd = f"m serve {self.params2cmd(params)}"
+        
+        # Create the Python script that will be executed
+        script_path = self.create_serve_script(
+            name=name, 
+            mod=mod, 
+            port=port,
+            key=key,
+            extra_params=params
+        )
+        
         dirpath = m.dirpath(mod)
         cwd = cwd or dirpath
-        
-        return self.run(name=name, script=cmd, cwd=cwd, env=env, interpreter=interpreter)
 
-    def run(self, name: str, script: str = None, cwd: str = None, env: Dict = None, interpreter: str = 'python3', **kwargs) -> Dict[str, Any]:
+        
+        return self.start_script(
+            name=name, 
+            script_path=script_path, 
+            cwd=cwd, 
+            env=env, 
+            interpreter=interpreter
+        )
+
+    def create_serve_script(self, 
+                           name: str, 
+                           mod: str, 
+                           port: Optional[int] = None,
+                           key: Optional[str] = None,
+                           extra_params: Optional[dict] = None) -> str:
         """
-        Start a process with PM2.
+        Create a Python script file that starts the server.
+        
+        Returns:
+            Path to the created script file
+        """
+        script_path = os.path.join(self.scripts_path, f'{name}_serve.py')
+        
+        # Build the params for the serve call
+        serve_kwargs = ['remote=False']  # Critical: prevent recursion
+        
+        if port is not None:
+            serve_kwargs.append(f'port={port}')
+        if key is not None:
+            serve_kwargs.append(f'key={repr(key)}')
+        if extra_params:
+            for k, v in extra_params.items():
+                if k not in ['remote', 'daemon', 'd', 'mod', 'name']:
+                    if isinstance(v, str):
+                        serve_kwargs.append(f'{k}={repr(v)}')
+                    else:
+                        serve_kwargs.append(f'{k}={v}')
+        
+        kwargs_str = ', '.join(serve_kwargs)
+        
+        script_content = f'''#!/usr/bin/env python3
+"""
+Auto-generated serve script for {name}
+Module: {mod}
+Generated: {datetime.now().isoformat()}
+"""
+import mod as m
+
+if __name__ == "__main__":
+    print("Starting server for {mod}...")
+    m.serve({repr(mod)}, {kwargs_str})
+'''
+        
+        # Write the script
+        with open(script_path, 'w') as f:
+            f.write(script_content)
+        
+        # Make it executable
+        os.chmod(script_path, 0o755)
+        
+        m.print(f"Created serve script: {script_path}", color='green')
+        m.print(f"Script content:", color='cyan')
+        print(script_content)
+        
+        return script_path
+
+    def start_script(self, 
+                    name: str, 
+                    script_path: str, 
+                    cwd: str = None, 
+                    env: Dict = None, 
+                    interpreter: str = 'python3') -> Dict[str, Any]:
+        """
+        Start a Python script with PM2.
         
         Args:
-            name: Process name
-            script: Script/command to run
+            name: Process name in PM2
+            script_path: Absolute path to the Python script
             cwd: Working directory
             env: Environment variables
-            interpreter: Interpreter to use
+            interpreter: Python interpreter to use
             
         Returns:
-            Dictionary with start status and details
+            Dictionary with start status
         """
         if self.exists(name):
-            m.print(f"Process {name} already exists, restarting...", color='yellow')
-            return self.restart(name)
+            m.print(f"Process {name} already exists, deleting first...", color='yellow')
+            self.kill(name, remove_script=False)
         
-        cmd = ['pm2', 'start']
+        # Verify script exists
+        if not os.path.exists(script_path):
+            return {
+                'status': 'error',
+                'name': name,
+                'error': f'Script not found: {script_path}',
+                'success': False
+            }
         
-        if script:
-            cmd.append(script)
-        
-        cmd.extend(['--name', name])
-        
-        if interpreter:
-            cmd.extend(['--interpreter', interpreter])
+        # Build PM2 command as a list for proper escaping
+        cmd_parts = [
+            'pm2', 'start',
+            script_path,
+            '--name', name,
+            '--interpreter', interpreter
+        ]
         
         if cwd:
-            cmd.extend(['--cwd', cwd])
+            cmd_parts.extend(['--cwd', cwd])
         
-        if env:
-            for k, v in env.items():
-                cmd.extend(['--env', f'{k}={v}'])
+        cmd_str = ' '.join(cmd_parts)
+        m.print(f"Running: {cmd_str}", color='cyan')
         
-        cmd_str = ' '.join(cmd)
-        m.print(f"Starting PM2 process: {cmd_str}", color='cyan')
-        result = os.system(cmd_str)
-        
-        return {
-            'status': 'started' if result == 0 else 'error',
-            'name': name,
-            'command': cmd_str,
-            'success': result == 0
-        }
-    start = run
+        # Use subprocess for better control
+        try:
+            result = subprocess.run(
+                cmd_parts,
+                capture_output=True,
+                text=True,
+                env={**os.environ, **(env or {})}
+            )
+            
+            success = result.returncode == 0
+            
+            if success:
+                m.print(f"Successfully started {name}", color='green')
+            else:
+                m.print(f"Failed to start {name}: {result.stderr}", color='red')
+            
+            return {
+                'status': 'started' if success else 'error',
+                'name': name,
+                'command': cmd_str,
+                'script': script_path,
+                'stdout': result.stdout,
+                'stderr': result.stderr,
+                'success': success
+            }
+        except Exception as e:
+            m.print(f"Exception starting process: {e}", color='red')
+            return {
+                'status': 'error',
+                'name': name,
+                'error': str(e),
+                'success': False
+            }
+
+    start = forward  # Alias start to forward for serving modules
 
     def stop(self, name: str) -> Dict[str, str]:
-        """
-        Stop a PM2 process.
-        
-        Args:
-            name: Process name to stop
-            
-        Returns:
-            Dictionary with stop status
-        """
+        """Stop a PM2 process."""
         if not self.exists(name):
             return {'status': 'not_found', 'name': name, 'success': False}
         
-        try:
-            result = os.system(f'pm2 stop {name}')
-            return {
-                'status': 'stopped' if result == 0 else 'error',
-                'name': name,
-                'success': result == 0
-            }
-        except Exception as e:
-            return {'status': 'error', 'name': name, 'error': str(e), 'success': False}
+        result = subprocess.run(['pm2', 'stop', name], capture_output=True, text=True)
+        return {
+            'status': 'stopped' if result.returncode == 0 else 'error',
+            'name': name,
+            'success': result.returncode == 0
+        }
 
     def restart(self, name: str) -> Dict[str, str]:
-        """
-        Restart a PM2 process.
-        
-        Args:
-            name: Process name to restart
-            
-        Returns:
-            Dictionary with restart status
-        """
+        """Restart a PM2 process."""
         if not self.exists(name):
             return {'status': 'not_found', 'name': name, 'success': False}
         
-        try:
-            result = os.system(f'pm2 restart {name}')
-            return {
-                'status': 'restarted' if result == 0 else 'error',
-                'name': name,
-                'success': result == 0
-            }
-        except Exception as e:
-            return {'status': 'error', 'name': name, 'error': str(e), 'success': False}
+        result = subprocess.run(['pm2', 'restart', name], capture_output=True, text=True)
+        return {
+            'status': 'restarted' if result.returncode == 0 else 'error',
+            'name': name,
+            'success': result.returncode == 0
+        }
 
     def delete(self, name: str) -> Dict[str, str]:
-        """
-        Delete a PM2 process.
-        
-        Args:
-            name: Process name to delete
-            
-        Returns:
-            Dictionary with delete status
-        """
+        """Delete a PM2 process."""
         return self.kill(name)
 
-    def kill(self, name: str) -> Dict[str, str]:
-        """
-        Kill and remove a PM2 process.
-        
-        Args:
-            name: Process name to kill
-            
-        Returns:
-            Dictionary with kill status
-        """
+    def kill(self, name: str, remove_script: bool = True) -> Dict[str, str]:
+        """Kill and remove a PM2 process."""
         if not self.exists(name):
             return {'status': 'not_found', 'name': name, 'success': False}
         
-        try:
-            result = os.system(f'pm2 delete {name}')
-            return {
-                'status': 'deleted' if result == 0 else 'error',
-                'name': name,
-                'success': result == 0
-            }
-        except Exception as e:
-            return {'status': 'error', 'name': name, 'error': str(e), 'success': False}
-
-    def kill_all(self) -> Dict[str, str]:
-        """
-        Kill all PM2 processes.
+        result = subprocess.run(['pm2', 'delete', name], capture_output=True, text=True)
+        success = result.returncode == 0
+        self.registry.dereg(name)
         
-        Returns:
-            Dictionary with kill all status
-        """
-        try:
-            result = os.system('pm2 delete all')
-            return {
-                'status': 'all_processes_killed' if result == 0 else 'error',
-                'success': result == 0
-            }
-        except Exception as e:
-            return {'status': 'error', 'error': str(e), 'success': False}
-
-    def servers(self, search=None, **kwargs):
-        """
-        List all PM2 server processes.
+        # Remove generated scripts
+        if remove_script:
+            for suffix in ['_serve.py', '_cmd.sh']:
+                script_path = os.path.join(self.scripts_path, f'{name}{suffix}')
+                if os.path.exists(script_path):
+                    os.remove(script_path)
+                    m.print(f"Removed script: {script_path}", color='yellow')
         
-        Args:
-            search: Optional search filter for server names
-            
-        Returns:
-            List of server names
-        """
+        return {
+            'status': 'deleted' if success else 'error',
+            'name': name,
+            'success': success
+        }
+
+    def kill_all(self, remove_scripts: bool = True) -> Dict[str, str]:
+        """Kill all PM2 processes."""
+        servers = self.servers() if remove_scripts else []
+        
+        result = subprocess.run(['pm2', 'delete', 'all'], capture_output=True, text=True)
+        success = result.returncode == 0
+        
+        if remove_scripts:
+            for name in servers:
+                for suffix in ['_serve.py', '_cmd.sh']:
+                    script_path = os.path.join(self.scripts_path, f'{name}{suffix}')
+                    if os.path.exists(script_path):
+                        os.remove(script_path)
+        
+        return {
+            'status': 'all_processes_killed' if success else 'error',
+            'success': success
+        }
+
+    def servers(self, search=None, **kwargs) -> List[str]:
+        """List all PM2 server processes."""
         servers = self.ps()
-        if search != None:
+        if search is not None:
             servers = [s for s in servers if search in s]
-        servers = sorted(list(set(servers)))
-        return servers
-
-    def server_exists(self, name):
-        """
-        Check if a server exists.
-        
-        Args:
-            name: Server name
-            
-        Returns:
-            Boolean indicating existence
-        """
-        return name in self.servers()
+        return sorted(list(set(servers)))
 
     def exists(self, name: str) -> bool:
-        """
-        Check if a PM2 process exists.
-        
-        Args:
-            name: Process name
-            
-        Returns:
-            Boolean indicating existence
-        """
-        return name in self.servers()
+        """Check if a PM2 process exists."""
+        return name in self.ps()
 
     def ps(self) -> List[str]:
-        """
-        List all running PM2 processes.
-        
-        Returns:
-            List of process names
-        """
+        """List all running PM2 processes."""
         try:
-            output = m.cmd('pm2 jlist', verbose=False)
-            processes = json.loads(output)
+            result = subprocess.run(
+                ['pm2', 'jlist'], 
+                capture_output=True, 
+                text=True
+            )
+            if result.returncode != 0:
+                return []
+            processes = json.loads(result.stdout)
             return [p['name'] for p in processes]
         except Exception as e:
             m.print(f"Error listing processes: {e}", color='red')
             return []
 
     def logs(self, name: str, lines: int = 100, follow: bool = False, f=None) -> str:
-        """
-        Get PM2 process logs.
-        
-        Args:
-            name: Process name
-            lines: Number of log lines to retrieve
-            follow: Whether to follow logs in real-time
-            f: Alias for follow
-            
-        Returns:
-            Log output string or system call result
-        """
+        """Get PM2 process logs."""
         follow = f if f is not None else follow
         cmd = f'pm2 logs {name}'
         
@@ -286,23 +311,14 @@ class PM2:
             return m.cmd(cmd, verbose=False)
 
     def stats(self, max_age=60, update=False) -> pd.DataFrame:
-        """
-        Get PM2 process statistics.
-        
-        Args:
-            max_age: Maximum age of cached stats in seconds
-            update: Force update of stats
-            
-        Returns:
-            DataFrame with process statistics
-        """
+        """Get PM2 process statistics."""
         path = 'pm2_stats.json'
         stats = self.store.get(path, [], max_age=max_age, update=update)
         
         if len(stats) == 0 or update:
             try:
-                output = m.cmd('pm2 jlist', verbose=False)
-                processes = json.loads(output)
+                result = subprocess.run(['pm2', 'jlist'], capture_output=True, text=True)
+                processes = json.loads(result.stdout)
                 stats = []
                 
                 for proc in processes:
@@ -324,177 +340,36 @@ class PM2:
         
         return pd.DataFrame(stats)
 
-    def process_info(self, name):
-        """
-        Get info about a specific PM2 process.
-        
-        Args:
-            name: Process name
-            
-        Returns:
-            Dictionary with process information
-        """
-        stats = self.stats()
-        if 'name' in stats.columns:
-            info = stats[stats['name'] == name]
-            if len(info) > 0:
-                return info.iloc[0].to_dict()
-        return {}
-
-    def params2cmd(self, params: Dict[str, Any]) -> str:
-        """
-        Convert a dictionary of parameters to a command string.
-        
-        Args:
-            params: Dictionary of parameters
-            
-        Returns:
-            Command string with key=value pairs
-        """
-        for k, v in params.items():
-            if isinstance(v, bool):
-                params[k] = '1' if v else '0'
-            elif isinstance(v, list):
-                params[k] = ','.join(map(str, v))
-            elif isinstance(v, dict):
-                params[k] = json.dumps(v)
-            elif v is None:
-                params[k] = ''
-        return ' '.join([f"{k}={v}" for k, v in params.items() if v is not None])
-
     def namespace(self, search=None, max_age=None, update=False, **kwargs) -> dict:
-        """
-        Get namespace mapping of PM2 processes.
+        """Get namespace mapping of PM2 processes."""
+        path = 'namespace.json'
+        namespace = self.store.get(path, None, max_age=max_age, update=update)
         
-        Args:
-            search: Optional search filter
-            max_age: Maximum age of cached namespace
-            update: Force update of namespace
-            
-        Returns:
-            Dictionary mapping process names to namespaces
-        """
-        path = self.store.get_path('namespace')
-        namespace = m.get(path, None, max_age=max_age, update=update)
-        
-        if namespace == None:
+        if namespace is None:
             processes = self.servers(search=search)
             namespace = {proc: f'pm2:{proc}' for proc in processes}
             self.store.put(path, namespace)
         
         return namespace
 
-    def sync(self):
-        """
-        Sync PM2 process statistics.
-        
-        Returns:
-            Dictionary with sync status
-        """
-        self.stats(update=True)
-        return {'status': 'synced', 'success': True}
-
     def save(self):
-        """
-        Save PM2 process list for resurrection.
-        
-        Returns:
-            Dictionary with save status
-        """
-        result = os.system('pm2 save')
-        return {'status': 'saved', 'success': result == 0}
+        """Save PM2 process list for resurrection."""
+        result = subprocess.run(['pm2', 'save'], capture_output=True, text=True)
+        return {'status': 'saved', 'success': result.returncode == 0}
 
     def resurrect(self):
-        """
-        Resurrect previously saved PM2 processes.
-        
-        Returns:
-            Dictionary with resurrect status
-        """
-        result = os.system('pm2 resurrect')
-        return {'status': 'resurrected', 'success': result == 0}
+        """Resurrect previously saved PM2 processes."""
+        result = subprocess.run(['pm2', 'resurrect'], capture_output=True, text=True)
+        return {'status': 'resurrected', 'success': result.returncode == 0}
 
     def flush(self, name: str = None):
-        """
-        Flush PM2 logs.
-        
-        Args:
-            name: Optional process name to flush logs for
-            
-        Returns:
-            Dictionary with flush status
-        """
+        """Flush PM2 logs."""
+        cmd = ['pm2', 'flush']
         if name:
-            result = os.system(f'pm2 flush {name}')
-        else:
-            result = os.system('pm2 flush')
-        return {'status': 'flushed', 'success': result == 0}
+            cmd.append(name)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return {'status': 'flushed', 'success': result.returncode == 0}
 
     def monit(self):
-        """
-        Open PM2 monitoring dashboard.
-        
-        Returns:
-            System call result
-        """
+        """Open PM2 monitoring dashboard."""
         return os.system('pm2 monit')
-
-    def reload(self, name: str) -> Dict[str, Any]:
-        """
-        Reload a PM2 process with zero-downtime.
-        
-        Args:
-            name: Process name to reload
-            
-        Returns:
-            Dictionary with reload status
-        """
-        if not self.exists(name):
-            return {'status': 'not_found', 'name': name, 'success': False}
-        
-        try:
-            result = os.system(f'pm2 reload {name}')
-            return {
-                'status': 'reloaded' if result == 0 else 'error',
-                'name': name,
-                'success': result == 0
-            }
-        except Exception as e:
-            return {'status': 'error', 'name': name, 'error': str(e), 'success': False}
-
-    def describe(self, name: str) -> Dict[str, Any]:
-        """
-        Get detailed description of a PM2 process.
-        
-        Args:
-            name: Process name
-            
-        Returns:
-            Dictionary with process details
-        """
-        try:
-            output = m.cmd(f'pm2 describe {name}', verbose=False)
-            return {'status': 'success', 'name': name, 'output': output}
-        except Exception as e:
-            return {'status': 'error', 'name': name, 'error': str(e)}
-
-    def env(self, name: str) -> Dict[str, Any]:
-        """
-        Get environment variables for a PM2 process.
-        
-        Args:
-            name: Process name
-            
-        Returns:
-            Dictionary with environment variables
-        """
-        try:
-            output = m.cmd('pm2 jlist', verbose=False)
-            processes = json.loads(output)
-            for proc in processes:
-                if proc.get('name') == name:
-                    return proc.get('pm2_env', {}).get('env', {})
-            return {}
-        except Exception as e:
-            m.print(f"Error getting env: {e}", color='red')
-            return {}

@@ -12,7 +12,7 @@ from functools import partial
 import asyncio
 import time
 import mod as m
-
+import uvicorn
 print = m.print
 
 class Server:
@@ -25,15 +25,25 @@ class Server:
         self, 
         path = '~/.mod/server', # the path to store the server data
         pm = 'pm', # the process manager to use
-        executor = 'executor', # the executor to use,
-        gate='gate',
+        registry = 'server.registry',
         timeout = 300,
         **_kwargs):
-        self.loop = asyncio.get_event_loop()
         self.store = m.mod('store')(path)
         self.set_pm(pm)
-        self.executor = m.mod(executor)()
+        # self.executor = m.mod(executor)()
+        self.registry = m.mod(registry)()
         self.timeout = timeout
+
+    def kill(self, name):
+        self.pm.kill(name)
+        self.registry.dereg(name)
+        return {'status': 'killed', 'name': name}
+    
+    def namespace(self, search: Optional[str] = None,  **kwargs) -> Dict[str, str]:
+        """
+        Get the namespace of registered servers, optionally filtered by a search string.
+        """
+        return self.registry.namespace(search=search, **kwargs)
 
 
     @property
@@ -46,9 +56,11 @@ class Server:
     def pm(self, value):
         self._pm = value
 
-    def set_pm(self,  pm: Union[str, 'Module', Any],  fns = ['logs', 'namespace', 'kill', 'kill_all','namespace']):
+    def set_pm(self,  pm: str):
         self.pm = m.mod(pm)()
-        m.mergemods(from_mod=self.pm, to_mod=self, fns=fns)
+
+    def logs(self, name: str, **kwargs) -> str:
+        return self.pm.logs(name, **kwargs)
 
     def forward(self, **request: dict):
         """
@@ -152,58 +164,6 @@ class Server:
             return self.pm.forward(mod=mod, params=params, port=port, key=key,  daemon=d)
         self.start_api( mod=mod, key=key, params=params, fns = fns, port=port)
 
-    def start_api(self, 
-                  mod: Union[str, 'Module', Any]=None,
-                  key: Optional[Union[str, 'Module', Any]]=None,
-                  params: Optional[dict]=None,
-                  fns : Optional[List[str]]=None,
-                  port:int=8000, 
-                  run_mode:str='hypercorn'):
-        """
-        run the api server
-        """
-
-        self.mod = m.mod(mod)(**(params or {}))
-        self.key = m.key(key)
-        fns =  fns or self.get_fns(mod)
-        def get_info(mod, **kwargs):
-                info =  m.info(mod, **kwargs)
-                info['fns'] = fns
-                return info
-        self.mod.info = partial(get_info, mod=mod, key=self.key)
-        self.gate = m.mod('gate')(mod=self.mod)
-        self.app = FastAPI()
-        @self.app.options("/{fn}")
-        async def options_handler(fn: str):
-            return Response(status_code=204)
-        cors_params = {
-            "allow_origins": ["*"],
-            "allow_credentials": True,
-            "allow_methods": ["*"],
-            "allow_headers": ["*"],
-        }
-        self.app.add_middleware(CORSMiddleware, **cors_params)
-        def server_fn(fn: str, request: Request):
-            try:
-                result = self.gate.forward(fn=fn, request=request, mod=self.mod) # get the request
-            except Exception as e:
-                result =  m.detailed_error(e)
-            return result
-        self.app.post("/{fn}")(server_fn)
-
-        # run the api server
-        if run_mode == 'uvicorn':
-            import uvicorn
-            uvicorn.run(self.app, host='0.0.0.0', port=port)
-        elif run_mode == 'hypercorn':
-            from hypercorn.config import Config
-            from hypercorn.asyncio import serve
-            config = Config()
-            config.bind = [f"0.0.0.0:{port}"]
-            asyncio.run(serve(self.app, config))
-        else:
-            raise Exception(f'Unknown mode {run_mode} for run_api')
-
     def get_fns(self, 
                 mod:str, 
                 helper_fns:List[str]=['info', 'forward'],
@@ -220,3 +180,99 @@ class Server:
                 break
         fns =  list(set(fns + helper_fns))
         return fns
+
+
+
+    def start_api(self, 
+                mod: Union[str, 'Module', Any]=None,
+                key: Optional[Union[str, 'Module', Any]]=None,
+                params: Optional[dict]=None,
+                fns : Optional[List[str]]=None,
+                port:int=8000, 
+                run_mode:str='hypercorn'):  # Changed default to uvicorn for stability
+        """
+        run the api server
+        """
+
+        self.mod = m.mod(mod)(**(params or {}))
+        self.key = m.key(key)
+        fns = fns or self.get_fns(mod)
+        
+        def get_info(mod, **kwargs):
+            info = m.info(mod, **kwargs)
+            info['fns'] = fns
+            return info
+        
+        self.mod.info = partial(get_info, mod=mod, key=self.key)
+        self.gate = m.mod('gate')(mod=self.mod)
+        self.app = FastAPI()
+
+        cors_params = {
+            "allow_origins": ["*"],
+            "allow_credentials": True,
+            "allow_methods": ["*"],
+            "allow_headers": ["*"],
+        }
+        self.app.add_middleware(CORSMiddleware, **cors_params)
+
+        def server_fn(fn: str, request: Request):
+            try:
+                result = self.gate.forward(fn=fn, request=request, mod=self.mod)
+            except Exception as e:
+                result = m.detailed_error(e)
+            return result
+
+        self.app.post("/{fn}")(server_fn)
+
+        self.registry.reg(mod, f'http://0.0.0.0:{port}')
+        if run_mode == 'uvicorn':
+            
+            uvicorn.run(
+                self.app,
+                host="0.0.0.0",
+                port=port,
+                log_level="info",
+            )
+
+        elif run_mode == 'hypercorn':
+            from hypercorn.config import Config
+            from hypercorn.asyncio import serve
+            import signal
+            
+            config = Config()
+            config.bind = [f"0.0.0.0:{port}"]
+            config.graceful_timeout = 10.0
+            config.shutdown_timeout = 15.0
+            
+            shutdown_event = asyncio.Event()
+            
+            def signal_handler(*args):
+                shutdown_event.set()
+            
+            async def run_server():
+                # Use the existing event loop if available, otherwise let asyncio manage it
+                loop = asyncio.get_running_loop()
+                
+                # Set up signal handlers
+                for sig in (signal.SIGINT, signal.SIGTERM):
+                    try:
+                        loop.add_signal_handler(sig, signal_handler)
+                    except NotImplementedError:
+                        # Windows doesn't support add_signal_handler
+                        signal.signal(sig, signal_handler)
+                
+                try:
+                    await serve(self.app, config, shutdown_trigger=shutdown_event.wait)
+                except Exception as e:
+                    print(f"Server error: {e}")
+                finally:
+                    # Clean shutdown
+                    shutdown_event.set()
+            
+            try:
+                asyncio.run(run_server())
+            except KeyboardInterrupt:
+                print("Server shutdown requested")
+        
+        else:
+            raise Exception(f'Unknown mode {run_mode} for run_api')

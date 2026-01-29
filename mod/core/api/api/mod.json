@@ -1,7 +1,6 @@
 {
     "port": 8000,
-
-    "mods": ["store", "chain", "openrouter", "dev"], 
+    "mods": ["api", "chain", "openrouter", "dev", "mod", "agent"], 
     "fns" :  [
                 "mods",
                 "names", 

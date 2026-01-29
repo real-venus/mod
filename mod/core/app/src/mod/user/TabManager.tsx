@@ -2,8 +2,11 @@
 
 import { useState } from 'react'
 import { XMarkIcon, PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, horizontalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
-type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'regupdate'
+type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create'
 
 interface Tab {
   id: TabType
@@ -17,9 +20,69 @@ interface TabManagerProps {
   availableTabs: Tab[]
 }
 
+function SortableTab({ tab, onRemove, isEditMode }: { tab: Tab; onRemove: (id: TabType) => void; isEditMode: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+    id: tab.id, 
+    disabled: !isEditMode 
+  })
+  
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: isEditMode ? 'grab' : 'default'
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600/20 to-cyan-600/20 border-2 rounded-xl transition-all hover:scale-105 hover:shadow-lg"
+      style={{
+        ...style,
+        borderColor: `${tab.color}60`,
+        boxShadow: `0 0 15px ${tab.color}30`
+      }}
+    >
+      <span className="font-bold uppercase text-sm" style={{ color: tab.color }}>{tab.label}</span>
+      {isEditMode && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove(tab.id)
+          }}
+          className="text-red-400 hover:text-red-300 transition-colors p-1 hover:bg-red-500/20 rounded-lg"
+          title="Remove tab"
+        >
+          <XMarkIcon className="w-5 h-5" />
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function TabManager({ userTabs, onTabsChange, availableTabs }: TabManagerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [isEditMode, setIsEditMode] = useState(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event
+    if (active.id !== over.id) {
+      const oldIndex = userTabs.findIndex((tab) => tab.id === active.id)
+      const newIndex = userTabs.findIndex((tab) => tab.id === over.id)
+      onTabsChange(arrayMove(userTabs, oldIndex, newIndex))
+    }
+  }
 
   const removeTab = (tabId: TabType) => {
     onTabsChange(userTabs.filter(t => t.id !== tabId))
@@ -31,6 +94,13 @@ export function TabManager({ userTabs, onTabsChange, availableTabs }: TabManager
     }
   }
 
+  const toggleEditMode = () => {
+    setIsEditMode(!isEditMode)
+    if (!isEditMode) {
+      setIsOpen(true)
+    }
+  }
+
   const unusedTabs = availableTabs.filter(at => !userTabs.find(ut => ut.id === at.id))
   const filteredTabs = unusedTabs.filter(tab => 
     tab.label.toLowerCase().includes(searchTerm.toLowerCase())
@@ -38,42 +108,36 @@ export function TabManager({ userTabs, onTabsChange, availableTabs }: TabManager
 
   return (
     <div className="mb-4">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="px-6 py-3 bg-gradient-to-r from-purple-600/20 to-cyan-600/20 text-white border-2 border-purple-500/40 rounded-xl hover:border-purple-500/60 hover:from-purple-600/30 hover:to-cyan-600/30 transition-all font-bold uppercase text-sm shadow-lg hover:shadow-purple-500/20 backdrop-blur-sm"
-        style={{
-          boxShadow: '0 0 20px rgba(168, 85, 247, 0.2)'
-        }}
-      >
-        ⚙️ Manage Tabs
-      </button>
+      <div className="flex gap-3 items-center">
+        <button
+          onClick={toggleEditMode}
+          className={`px-6 py-3 border-2 rounded-xl transition-all font-bold uppercase text-sm shadow-lg backdrop-blur-sm ${
+            isEditMode 
+              ? 'bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-400 border-green-500/40 hover:border-green-500/60' 
+              : 'bg-gradient-to-r from-orange-600/20 to-yellow-600/20 text-orange-400 border-orange-500/40 hover:border-orange-500/60'
+          }`}
+          style={{
+            boxShadow: isEditMode ? '0 0 20px rgba(34, 197, 94, 0.2)' : '0 0 20px rgba(251, 146, 60, 0.2)'
+          }}
+        >
+          {isEditMode ? '✓ Exit Edit' : '✏️ Edit Mode'}
+        </button>
+      </div>
 
       {isOpen && (
         <div className="mt-4 p-6 bg-black/95 border-2 border-purple-500/50 rounded-xl backdrop-blur-xl shadow-2xl" style={{
           boxShadow: '0 0 30px rgba(168, 85, 247, 0.3)'
         }}>
           <h3 className="text-xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">Active Tabs</h3>
-          <div className="flex flex-wrap gap-3 mb-6">
-            {userTabs.map(tab => (
-              <div
-                key={tab.id}
-                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600/20 to-cyan-600/20 border-2 rounded-xl transition-all hover:scale-105 hover:shadow-lg"
-                style={{
-                  borderColor: `${tab.color}60`,
-                  boxShadow: `0 0 15px ${tab.color}30`
-                }}
-              >
-                <span className="font-bold uppercase text-sm" style={{ color: tab.color }}>{tab.label}</span>
-                <button
-                  onClick={() => removeTab(tab.id)}
-                  className="text-red-400 hover:text-red-300 transition-colors p-1 hover:bg-red-500/20 rounded-lg"
-                  title="Remove tab"
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={userTabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
+              <div className="flex flex-wrap gap-3 mb-6">
+                {userTabs.map(tab => (
+                  <SortableTab key={tab.id} tab={tab} onRemove={removeTab} isEditMode={isEditMode} />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
 
           {unusedTabs.length > 0 && (
             <>

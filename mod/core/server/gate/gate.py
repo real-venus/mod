@@ -8,6 +8,7 @@ import os
 import pandas as pd
 import json
 import inspect
+import asyncio
 import time
 import mod as m
 
@@ -22,7 +23,6 @@ class Gate:
             path: the path to store the gate data
             auth: the auth module to use
         """
-        self.loop = m.loop()
         self.store = m.mod('store')(path)
         self.auth = m.mod(auth)()
         self.roles_path = self.store.get_path('roles')
@@ -47,7 +47,7 @@ class Gate:
             print(f'ATTENTION: owner({headers["key"]}) is calling {fn}', color='green')
         else:
             assert fn in info['fns'], f"Function {fn} not in fns={info['fns']}"
-        params = self.loop.run_until_complete(request.json())
+        params = asyncio.run(request.json())
         params = json.loads(params) if isinstance(params, str) else params
         self.print_request({'fn': fn, 'params': params, 'client': headers.get('key', ''), 'time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())})
         fn_obj = self.get_fn_obj(fn, mod=mod)

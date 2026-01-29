@@ -28,10 +28,13 @@ class  Api:
         self.executor = m.mod('executor')()
         self.calls_path = self.path('calls')
         self.auth = m.mod(auth)()
-        self.config = m.config('api')
         # self.threads['update'] = m.thread(self.update_loop)
         if 'sync' not in self.threads:
             self.threads['sync'] = m.thread(self.sync_loop)
+
+    @property
+    def config(self):
+        return m.config('api')
     @property
     def store(self):
         if not hasattr(self, '_store'):
@@ -243,7 +246,7 @@ class  Api:
             if mod_name in self.servers():
                 result = m.fn('client/call')(fn=task['fn'], params=params, timeout=task['timeout'])
             else:
-                assert mod in self.config.get('expose_mods', []), f'Mod {mod_name} is not exposed via the API'
+                assert mod in m.config('api').get('expose_mods', []), f'Mod {mod_name} is not exposed via the API'
                 allowed_fns = self.get_fns(mod)
                 assert fn_name in allowed_fns, f'Function {fn_name} not allowed in mod {mod_name}. Allowed functions: {allowed_fns}'
                 result = m.fn(fn_name)(**params)
@@ -721,7 +724,7 @@ class  Api:
         """
         return self.folder_path + '/' + path
 
-    def mods(self, search:str=None, network:str=None, key=None, update:bool=False, n:int=None, page:int=None,  **kwargs) -> List[str]:
+    def mods(self, search:str=None, network:str=None, key=None, update:bool=True, n:int=None, page:int=None,  **kwargs) -> List[str]:
         """
         List all registered mods in IPFS.
         Returns:
@@ -732,18 +735,18 @@ class  Api:
         registry = self.registry()
 
         key = self.key_address(key)
-        path = self.path(f'mods/{key}.json')
+        path = self.path(f'mods/{key}/{m.hash(kwargs)}.json')
         mods = m.get(path, None, update=update)
 
         if mods is None :
 
             if key != 'all':
-                mods =  [self.mod(k, key=key) for k in registry.get(key, {}).keys()]
+                mods =  [self.mod(k, key=key, **kwargs) for k in registry.get(key, {}).keys()]
             else:
                 mods = []
                 for user_key, user_mods in registry.items():
                     for mod in user_mods.keys():
-                        mods.append(self.mod(mod, key=user_key))  
+                        mods.append(self.mod(mod, key=user_key, **kwargs))  
             mods = [m for m in mods if isinstance(m, dict) and 'name' in m]
             m.put(path, mods)
         

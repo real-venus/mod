@@ -11,7 +11,7 @@ import {
 import { userContext } from '@/mod/context/UserContext'
 import { ModuleType } from '@/mod/types'
 
-export const RegUpdate: React.FC = () => {
+export const Create: React.FC = () => {
   const { network, user, client } = userContext()
   const [myMods, setMyMods] = useState<ModuleType[]>([])
   const [selectedMod, setSelectedMod] = useState<string>('new')
@@ -338,4 +338,4 @@ export const RegUpdate: React.FC = () => {
   )
 }
 
-export default RegUpdate
+export default Create

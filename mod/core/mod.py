@@ -12,8 +12,6 @@ from functools import partial
 import os
 from copy import deepcopy
 from typing import *
-import nest_asyncio
-nest_asyncio.apply()
 
 class Mod: 
 
@@ -1532,10 +1530,10 @@ class Mod:
     create = new = add = fork = new 
 
     def urls(self, *args, **kwargs):
-        return self.fn('pm/urls')(*args, **kwargs)
+        return self.fn('server/urls')(*args, **kwargs)
 
     def servers(self, *args, **kwargs):
-        return self.fn('pm/servers')(*args, **kwargs)
+        return self.fn('server/servers')(*args, **kwargs)
 
     executor_cache = {}
     def executor(self,  max_workers=8, mode='thread', cache=True):
@@ -1625,13 +1623,13 @@ class Mod:
         """
         Returns the config file in the path
         """
-        if str(mod) in self._config_cache:
-            return self._config_cache[str(mod)]
+        # if str(mod) in self._config_cache:
+        #     return self._config_cache[str(mod)]
         configs = self.config_paths(mod=mod)
         if len(configs) == 0:
             return {}
         config =  self.get_json(configs[0])
-        self._config_cache[str(mod)] = config
+        # self._config_cache[str(mod)] = config
         return config
 
     cfg = config

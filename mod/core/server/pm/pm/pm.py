@@ -19,12 +19,15 @@ class PM:
                 mod='mod',
                 path='~/.mod/server', 
                 network='modnet',
+                registry = 'server.registry',
+                store = 'store',
                 image = None,
                 **kwargs):
         self.mod = mod
         self.image = image or mod
         self.network = network
-        self.store = m.mod('store')(path)
+        self.store = m.mod(store)(path)
+
 
     def forward(self,  
                 mod : str ='api', 
@@ -231,15 +234,10 @@ class PM:
             if len(info) > 0:
                 return info.iloc[0].to_dict()
         return {}
-
-    def servers(self, search=None, **kwargs):
-        return list(self.namespace(search=search, **kwargs).keys())
+    
 
     def server_exists(self, name: str) -> bool:
-        exists =  name in self.servers()
-        if not exists:
-            servers = self.servers(update=True)
-            exists = name in servers
+        exists =  name in self.ps()
         return exists
 
 
@@ -383,7 +381,7 @@ class PM:
             return self.kill_all()
         if not self.server_exists(name):
             return {'status': 'not_found', 'name': name}
-        servers = self.servers(search=name)
+        servers = self.ps(search=name)
         if name in servers:
             result =  {'status': 'not_found', 'name': name}
         try:
@@ -398,7 +396,6 @@ class PM:
         for child in children:
             print(f'Killing child container {child}')
             self.kill(child, update=update)
-
         return result
     def kill_all(self) -> Dict[str, str]:
         """
@@ -674,7 +671,6 @@ class PM:
         """
         Sync container statistics.
         """
-        self.namespace(update=True)
         self.stats(update=1)
 
     # PM2-like methods for container management
@@ -801,27 +797,7 @@ class PM:
             return {'status': 'removed', 'name': name}
         except Exception as e:
             return {'status': 'error', 'name': name, 'error': str(e)}
-    
-    def namespace(self, search=None, max_age=None, update=False, **kwargs) -> dict:
-        """
-        Get a list of unique namespaces from container names.
-        """
-        ip = '0.0.0.0'
-        path = self.store.get_path('namespace')
-        namespace = m.get(path, None, max_age=max_age, update=update)
-        if namespace == None :
-            containers = self.ps(search=search)
-            namespace = {}
-            for container in containers:
-                port = self.get_port(container)
-                namespace[container] =  ip + ':'+  str(port)
-            self.store.put(path, namespace)
-        if search != None:
-            namespace = {k:v for k,v in namespace.items() if search in k}
-        return namespace
-
-    def urls(self, search=None) -> List[str]:
-        return list(self.namespace(search=search).values())
+        
 
     def start_docker_daemon(self, wait_time=5):
         """
