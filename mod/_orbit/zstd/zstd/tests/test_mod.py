@@ -1,7 +1,8 @@
 import unittest
-from zstd.mod import Zstd
+import mod as m
 import os
 import tempfile
+Zstd = m.mod('zstd')
 
 
 class TestZstd(unittest.TestCase):

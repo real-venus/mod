@@ -6,13 +6,14 @@ import { ModCardSettings } from './ModCardSettings'
 import { ModuleType } from '@/mod/types'
 import { useSearchContext } from '@/mod/context/SearchContext'
 import { userContext } from '@/mod/context'
-import { X, RotateCcw, Sparkles, Maximize2, Minimize2 } from 'lucide-react'
+import { X, RotateCcw, Sparkles } from 'lucide-react'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 
-export default function Modules() {
+export default function ModExplorePage() {
   const { client, user } = userContext()
-  const { searchFilters } = useSearchContext()
+  const { searchFilters, handleSearch } = useSearchContext()
 
   const [mods, setMods] = useState<ModuleType[]>([])
   const [loading, setLoading] = useState(false)
@@ -42,7 +43,7 @@ export default function Modules() {
     return false
   })
 
-  const [searchTerm, setSearchTerm] = useState<string>(() => {
+  const [localSearchTerm, setLocalSearchTerm] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('mod_explorer_search') || ''
     }
@@ -51,15 +52,11 @@ export default function Modules() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('mod_explorer_search', searchTerm)
+      localStorage.setItem('mod_explorer_search', localSearchTerm)
     }
-  }, [searchTerm])
+  }, [localSearchTerm])
 
-  const handleSearchChange = (value: string) => {
-    setSearchTerm(value)
-  }
-
-  const searchTermToUse = searchTerm || searchFilters.searchTerm?.trim() || ''
+  const searchTermToUse = localSearchTerm || searchFilters.searchTerm?.trim() || ''
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -170,7 +167,24 @@ export default function Modules() {
   return (
     <div className={'min-h-screen bg-black text-white transition-all duration-300'}>
       <main className="flex-1 px-2 pt-0 pb-0" role="main">
-        <div className="mx-auto max-w-7xl mb-4">
+        <div className="mx-auto max-w-7xl mb-6">
+          <div className="relative mb-4">
+            <input
+              type="text"
+              value={localSearchTerm}
+              onChange={(e) => setLocalSearchTerm(e.target.value)}
+              placeholder="Search mods by name, author, or description..."
+              className="w-full px-6 py-4 pr-14 bg-black/50 border-2 border-blue-500/40 rounded-xl text-white text-base placeholder-gray-400 focus:outline-none focus:border-blue-500/60 backdrop-blur-xl transition-all"
+              style={{
+                boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
+                fontFamily: 'IBM Plex Mono, monospace'
+              }}
+            />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              <MagnifyingGlassIcon className="w-6 h-6 text-blue-400" />
+            </div>
+          </div>
+          
           <div className="flex items-start gap-4">
             <ModCardSettings
               sort={sort}

@@ -45,19 +45,29 @@ export function DraggableSplitPanel({ leftPanel, rightPanel }: DraggableSplitPan
 
   return (
     <div className="flex h-full bg-gradient-to-br from-gray-950 via-black to-gray-900" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-      <button
-        onClick={() => setSplitOrientation(prev => prev === 'vertical' ? 'horizontal' : 'vertical')}
-        className="fixed top-4 right-4 z-50 px-4 py-2 bg-blue-500/20 text-blue-400 border-2 border-blue-500/40 hover:bg-blue-500/30 rounded-lg transition-all font-bold"
-        style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
-        title={`Switch to ${splitOrientation === 'vertical' ? 'Horizontal' : 'Vertical'} Split`}
-      >
-        {splitOrientation === 'vertical' ? '⚌ vertical' : '⚏ horizontal'}
-      </button>
-
       <div 
         ref={containerRef}
         className={`flex ${splitOrientation === 'vertical' ? 'flex-row' : 'flex-col'} w-full h-full gap-0 p-2 relative`}
       >
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 flex gap-2">
+          <button
+            onClick={() => setSplitOrientation('vertical')}
+            className={`px-4 py-2 ${splitOrientation === 'vertical' ? 'bg-blue-500/40 border-blue-400' : 'bg-blue-500/20 border-blue-500/40'} text-blue-400 border-2 hover:bg-blue-500/30 rounded-lg transition-all font-bold`}
+            style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+            title="Vertical Split"
+          >
+            ⚌ vertical
+          </button>
+          <button
+            onClick={() => setSplitOrientation('horizontal')}
+            className={`px-4 py-2 ${splitOrientation === 'horizontal' ? 'bg-blue-500/40 border-blue-400' : 'bg-blue-500/20 border-blue-500/40'} text-blue-400 border-2 hover:bg-blue-500/30 rounded-lg transition-all font-bold`}
+            style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+            title="Horizontal Split"
+          >
+            ⚏ horizontal
+          </button>
+        </div>
+
         <div 
           className="overflow-hidden border-2 border-orange-500/40 rounded-lg bg-black/40"
           style={{

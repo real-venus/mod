@@ -15,12 +15,13 @@ export default function Chat() {
   const configState = useConfigState()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
-  const [splitOrientation, setSplitOrientation] = useState<'horizontal' | 'vertical'>('horitzontal')
+  const [splitOrientation, setSplitOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
   const transactionsPanelRef = useRef<{ handleSync: () => void } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 })
-  const [splitPosition, setSplitPosition] = useState(30)
+  const [splitPosition, setSplitPosition] = useState(60)
   const [isNarrowScreen, setIsNarrowScreen] = useState(false)
+  const [isTransactionsCollapsed, setIsTransactionsCollapsed] = useState(false)
 
   useChatEffects(chatState)
 
@@ -181,7 +182,7 @@ export default function Chat() {
         style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
         title={`Switch to ${splitOrientation === 'vertical' ? 'Horizontal' : 'Vertical'} Split`}
       >
-        {splitOrientation === 'vertical' ? '⚌ vert' : '⚏ horiz'}
+        {splitOrientation === 'vertical' ? '⚏ horiz' : '⚌ vert'}
       </button>
 
       <div id="split-container" className={`flex ${isNarrowScreen ? 'flex-col' : (splitOrientation === 'vertical' ? 'flex-row' : 'flex-col')} w-full h-full gap-0 p-2 relative`}>
@@ -236,9 +237,28 @@ export default function Chat() {
             [isNarrowScreen ? 'height' : (splitOrientation === 'vertical' ? 'width' : 'height')]: isNarrowScreen ? '100%' : `${100 - splitPosition}%`
           }}
         >
-          <div className="h-full overflow-y-auto p-3">
-            <TransactionsPanel ref={transactionsPanelRef} />
-          </div>
+          {!isTransactionsCollapsed ? (
+            <div className="h-full overflow-y-auto p-3 relative">
+              <button
+                onClick={() => setIsTransactionsCollapsed(true)}
+                className="absolute top-2 right-2 z-10 p-2 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 rounded-md transition-all font-bold text-xs"
+                style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+                title="Collapse Transactions"
+              >
+                ✕
+              </button>
+              <TransactionsPanel ref={transactionsPanelRef} />
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsTransactionsCollapsed(false)}
+              className="m-3 p-4 bg-cyan-500/20 text-cyan-400 border-2 border-cyan-500/40 hover:bg-cyan-500/30 rounded-lg transition-all font-bold text-sm"
+              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+              title="Expand Transactions"
+            >
+              📊 Show Transactions
+            </button>
+          )}
         </div>
       </div>
     </div>

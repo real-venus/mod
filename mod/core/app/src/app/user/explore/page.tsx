@@ -7,6 +7,7 @@ import { UserCardSettings } from '@/mod/user/UserCardSettings'
 import { UserType } from '@/mod/types'
 import { userContext } from '@/mod/context'
 import { X, RotateCcw, Users } from 'lucide-react'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
 type SortKey = 'recent' | 'name' | 'balance' | 'modules'
 
@@ -21,12 +22,12 @@ export default function UsersPage() {
     }
     return 'recent'
   })
-    const [columns, setColumns] = useState<number>(() => {
-      if (typeof window !== 'undefined') {
-        return parseInt(localStorage.getItem('user_explorer_columns') || '2')
-      }
-      return 2
-    })
+  const [columns, setColumns] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('user_explorer_columns') || '2')
+    }
+    return 2
+  })
   const [userFilter, setUserFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('user_explorer_user_filter') || ''
@@ -39,6 +40,19 @@ export default function UsersPage() {
     }
     return false
   })
+
+  const [localSearchTerm, setLocalSearchTerm] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('user_explorer_search') || ''
+    }
+    return ''
+  })
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('user_explorer_search', localSearchTerm)
+    }
+  }, [localSearchTerm])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -81,6 +95,12 @@ export default function UsersPage() {
     return list.filter(u => u.key?.toLowerCase().includes(lowerKey))
   }
 
+  const filterUsersBySearch = (list: UserType[], searchTerm: string) => {
+    if (!searchTerm) return list
+    const lowerTerm = searchTerm.toLowerCase()
+    return list.filter(u => u.key?.toLowerCase().includes(lowerTerm))
+  }
+
   const filterMyUsers = (list: UserType[]) => {
     if (!showMyUsersOnly || !user) return list
     return list.filter(u => u.key === user.key)
@@ -94,6 +114,7 @@ export default function UsersPage() {
       const raw = (await client.call('users', {})) as UserType[]
       const allUsers = Array.isArray(raw) ? raw : []
       let filtered = filterUsersByKey(allUsers, userFilter)
+      filtered = filterUsersBySearch(filtered, localSearchTerm)
       filtered = filterMyUsers(filtered)
       const sorted = sortUsers(filtered)
       setUsers(sorted)
@@ -107,7 +128,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchAll()
-  }, [client, sort, userFilter, showMyUsersOnly])
+  }, [client, sort, userFilter, showMyUsersOnly, localSearchTerm])
 
   const gridColsClass = {
     1: 'grid-cols-1',
@@ -119,7 +140,24 @@ export default function UsersPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <main className="flex-1 px-6 pt-0 pb-0" role="main">
-        <div className="mx-auto max-w-7xl mb-4">
+        <div className="mx-auto max-w-7xl mb-6">
+          <div className="relative mb-4">
+            <input
+              type="text"
+              value={localSearchTerm}
+              onChange={(e) => setLocalSearchTerm(e.target.value)}
+              placeholder="Search users by key..."
+              className="w-full px-6 py-4 pr-14 bg-black/50 border-2 border-green-500/40 rounded-xl text-white text-base placeholder-gray-400 focus:outline-none focus:border-green-500/60 backdrop-blur-xl transition-all"
+              style={{
+                boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)',
+                fontFamily: 'IBM Plex Mono, monospace'
+              }}
+            />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              <MagnifyingGlassIcon className="w-6 h-6 text-green-400" />
+            </div>
+          </div>
+
           <UserCardSettings
             sort={sort}
             onSortChange={setSort}
@@ -164,7 +202,7 @@ export default function UsersPage() {
               <Users className="w-16 h-16 text-purple-300" strokeWidth={2} />
             </div>
             <div className="text-purple-300 text-3xl mb-6 font-black uppercase tracking-wide">
-              {userFilter || showMyUsersOnly ? 'NO USERS MATCH YOUR FILTERS' : 'NO USERS YET'}
+              {localSearchTerm || userFilter || showMyUsersOnly ? 'NO USERS MATCH YOUR FILTERS' : 'NO USERS YET'}
             </div>
           </div>
         )}
@@ -175,7 +213,7 @@ export default function UsersPage() {
           </div>
         )}
 
-          <div className={`mx-auto max-w-7xl grid ${gridColsClass} gap-4`}>
+        <div className={`mx-auto max-w-7xl grid ${gridColsClass} gap-4`}>
           {users.map((user) => (
             <div
               key={user.key}
