@@ -5,7 +5,7 @@ class App:
     
     def serve(self, 
             port=3000, 
-            api_url = 'http://0.0.0.0:8000',
+            api_url = 'https://api.modc2.com',
             mod = 'app', 
             prod =False, dev =None, # if prod is True, dev is False
             api_port=8000, 
