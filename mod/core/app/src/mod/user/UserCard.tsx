@@ -18,6 +18,7 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
   const [isQrHovered, setIsQrHovered] = useState(false)
   const userColor = text2color(user.key)
   const moduleIdentifier = `${user.key}/${user.key.substring(0, 8)}`
+  const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/user/${user.key}` : ''
 
   const CardContent = () => (
     <div 
@@ -54,16 +55,13 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
                 <code className="text-lg font-bold font-mono tracking-wide" style={{ color: userColor }}>
                   {user.key.substring(0, 6)}...{user.key.substring(user.key.length - 6)}
                 </code>
-                <CopyButton text={user.key} size="sm" />
+                <CopyButton text={user.key} size="sm" showValueOnHover={true} />
               </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
               <div 
                 className="flex items-center gap-1.5 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
-                style={{
-                  backgroundColor: isKeyHovered ? `${userColor}25` : 'rgba(0, 0, 0, 0.5)'
-                }}
                 onMouseEnter={() => setIsKeyHovered(true)}
                 onMouseLeave={() => setIsKeyHovered(false)}
                 title={(user.crypto_type || 'sr25519').toLowerCase()}
@@ -113,7 +111,7 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
             onMouseLeave={() => setIsQrHovered(false)}
           >
             <div className="p-2 bg-black/60 rounded-lg border-2" style={{ borderColor: userColor }}>
-              <QRCode value={user.key} size={80} color={userColor} />
+              <QRCode value={websiteUrl} size={120} color={userColor} />
             </div>
             {isQrHovered && (
               <div 
@@ -125,7 +123,7 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
                   boxShadow: `0 0 20px ${userColor}40`
                 }}
               >
-                {moduleIdentifier}
+                {websiteUrl}
               </div>
             )}
           </div>

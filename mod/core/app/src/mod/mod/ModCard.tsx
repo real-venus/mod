@@ -24,6 +24,7 @@ export default function ModCard({ mod }: ModCardProps) {
   const cidColor = text2color(mod.cid || '')
   const updatedTimeStr = mod.updated ? time2str(mod.updated * 1000) : time2str(Date.now())
   const moduleIdentifier = `${mod.key}/${mod.name}`
+  const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/mod/${mod.name}/${mod.key}` : ''
   
   return (
     <Link href={`/mod/${mod.name}/${mod.key}`}>
@@ -61,21 +62,18 @@ export default function ModCard({ mod }: ModCardProps) {
                   <code className="text-lg font-bold font-mono tracking-wide" style={{ color: modColor }}>
                     {mod.name}
                   </code>
-                  <CopyButton text={mod.name} size="sm" />
+                  <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
                 </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-900/30 to-cyan-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
                   <Clock size={16} style={{ color: '#3b82f6' }} />
-                  <CopyButton text={updatedTimeStr} size="sm" />
+                  <CopyButton text={updatedTimeStr} size="sm" showValueOnHover={true} />
                 </div>
 
                 <div 
                   className="flex items-center gap-1.5 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-2 py-1.5 transition-all relative group/cid shadow-md hover:scale-105"
-                  style={{
-                    backgroundColor: isCidHovered ? `${cidColor}25` : 'rgba(0, 0, 0, 0.5)'
-                  }}
                   onMouseEnter={() => setIsCidHovered(true)}
                   onMouseLeave={() => setIsCidHovered(false)}
                   title={mod.cid}
@@ -83,7 +81,7 @@ export default function ModCard({ mod }: ModCardProps) {
                   <code className="text-sm font-mono font-bold" style={{ color: cidColor }}>
                     ●●●●●●
                   </code>
-                  <CopyButton text={mod.cid || ''} size="sm" />
+                  <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
                   
                   {isCidHovered && mod.cid && (
                     <div 
@@ -102,9 +100,6 @@ export default function ModCard({ mod }: ModCardProps) {
 
                 <div 
                   className="flex items-center gap-1.5 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
-                  style={{
-                    backgroundColor: isKeyHovered ? `${keyColor}25` : 'rgba(0, 0, 0, 0.5)'
-                  }}
                   onMouseEnter={() => setIsKeyHovered(true)}
                   onMouseLeave={() => setIsKeyHovered(false)}
                   title={mod.key}
@@ -112,7 +107,7 @@ export default function ModCard({ mod }: ModCardProps) {
                   <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
                     <KeyIcon className="w-4 h-4 transition-transform hover:scale-110" style={{ color: keyColor }} />
                   </Link>
-                  <CopyButton text={mod.key} size="sm" />
+                  <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
                   
                   {isKeyHovered && (
                     <div 
@@ -137,7 +132,7 @@ export default function ModCard({ mod }: ModCardProps) {
               onMouseLeave={() => setIsQrHovered(false)}
             >
               <div className="p-2 bg-black/60 rounded-lg border-2" style={{ borderColor: modColor }}>
-                <QRCode value={moduleIdentifier} size={80} color={modColor} />
+                <QRCode value={websiteUrl} size={120} color={modColor} />
               </div>
               {isQrHovered && (
                 <div 
@@ -149,7 +144,7 @@ export default function ModCard({ mod }: ModCardProps) {
                     boxShadow: `0 0 20px ${modColor}40`
                   }}
                 >
-                  {moduleIdentifier}
+                  {websiteUrl}
                 </div>
               )}
             </div>

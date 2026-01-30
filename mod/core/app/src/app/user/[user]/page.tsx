@@ -14,10 +14,10 @@ import { Admin } from '@/mod/user/admin/Admin'
 import { Portfolio } from '@/mod/user/portfolio/Portfolio'
 import { Billing } from '@/mod/user/billing'
 import Create from '@/mod/user/create'
-import { TabManager } from '@/mod/user/TabManager'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
 import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
 type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create'
 
@@ -63,6 +63,8 @@ export default function UserPage() {
     }
     return DEFAULT_TABS
   })
+
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -136,21 +138,10 @@ export default function UserPage() {
   }
 
   let displayTabs = myMod ? userTabs : userTabs.filter(tab => tab.id === 'mods')
-
-  const getButtonColors = (tabColor: string, isActive: boolean) => {
-    const colorMap: Record<string, { active: string; inactive: string }> = {
-      blue: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
-      purple: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
-      indigo: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
-      green: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
-      orange: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
-      pink: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
-      red: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
-      cyan: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' },
-      yellow: { active: 'bg-black text-white border-2 border-white', inactive: 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50' }
-    }
-    return isActive ? colorMap[tabColor].active : colorMap[tabColor].inactive
-  }
+  
+  const filteredTabs = displayTabs.filter(tab => 
+    tab.label.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -160,28 +151,40 @@ export default function UserPage() {
             <UserCard user={userData}/>
           </div>
 
-          {myMod && (
-            <TabManager
-              userTabs={userTabs}
-              onTabsChange={setUserTabs}
-              availableTabs={DEFAULT_TABS}
-            />
+          {myMod && displayTabs.length > 3 && (
+            <div className="relative mb-4">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search tabs..."
+                className="w-full px-4 py-3 pl-12 bg-black/60 border-2 border-white/30 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/60 transition-all font-mono"
+              />
+              <MagnifyingGlassIcon className="w-5 h-5 text-white/60 absolute left-4 top-1/2 -translate-y-1/2" />
+            </div>
           )}
 
           <div className="flex flex-wrap gap-3 mb-6">
-            {displayTabs.map((tab) => (
-              <div key={tab.id} className="relative group">
-                <button
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-6 py-3 rounded font-black text-base uppercase transition-all duration-300 ${
-                    getButtonColors(tab.color, activeTab === tab.id)
-                  } ${activeTab === tab.id ? 'scale-105' : 'hover:scale-105'}`}
-                >
-                  {tab.label}
-                </button>
-              </div>
+            {filteredTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-6 py-3 rounded-xl font-black text-base uppercase transition-all duration-300 ${
+                  activeTab === tab.id
+                    ? 'bg-white text-black border-2 border-white scale-105 shadow-lg'
+                    : 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50 hover:text-white/80 hover:scale-105'
+                }`}
+              >
+                {tab.label}
+              </button>
             ))}
           </div>
+
+          {filteredTabs.length === 0 && searchTerm && (
+            <div className="text-center text-white/40 py-8 font-mono">
+              No tabs found matching "{searchTerm}"
+            </div>
+          )}
 
           <div className="bg-black border-2 border-white/30 rounded p-6">
             {activeTab === 'mods' && <Mods userData={userData} />}

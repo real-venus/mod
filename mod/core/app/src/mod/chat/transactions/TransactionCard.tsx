@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { timeAgo, shorten, text2color } from '@/mod/utils'
-import { CubeIcon, HashtagIcon, KeyIcon } from '@heroicons/react/24/outline'
+import { CubeIcon, HashtagIcon, KeyIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import { userContext } from '@/mod/context'
 import { Key } from '@/mod/key'
 import { QRCode } from '@/mod/ui/QRCode'
@@ -36,6 +36,8 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
   const [isCidHovered, setIsCidHovered] = useState(false)
   const [isSignatureHovered, setIsSignatureHovered] = useState(false)
   const [isCidQrHovered, setIsCidQrHovered] = useState(false)
+  const [isKeyQrHovered, setIsKeyQrHovered] = useState(false)
+  const [isSignatureQrHovered, setIsSignatureQrHovered] = useState(false)
   
   const hasResults = tx.result !== undefined
   const hasParams = tx.params !== null && tx.params !== undefined
@@ -187,7 +189,7 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                 onMouseEnter={() => setIsCidQrHovered(true)}
                 onMouseLeave={() => setIsCidQrHovered(false)}
               >
-                <HashtagIcon className="h-4 w-4" style={{ color: cidColor }} />
+                <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: cidColor }} />
                 {isCidQrHovered && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: cidColor }}>
                     <QRCode value={tx.cid} size={100} color={cidColor} />
@@ -225,6 +227,18 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
             >
               <KeyIcon className="w-4 h-4" style={{ color: keyColor }} />
               <CopyButton text={tx.key} size="sm" />
+              <div 
+                className="relative ml-1"
+                onMouseEnter={() => setIsKeyQrHovered(true)}
+                onMouseLeave={() => setIsKeyQrHovered(false)}
+              >
+                <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: keyColor }} />
+                {isKeyQrHovered && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: keyColor }}>
+                    <QRCode value={tx.key} size={100} color={keyColor} />
+                  </div>
+                )}
+              </div>
               
               {isKeyHovered && (
                 <div 
@@ -285,6 +299,18 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                     ●●●●●●
                   </code>
                   <CopyButton text={tx.signature} size="sm" />
+                  <div 
+                    className="relative ml-1"
+                    onMouseEnter={() => setIsSignatureQrHovered(true)}
+                    onMouseLeave={() => setIsSignatureQrHovered(false)}
+                  >
+                    <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: signatureColor }} />
+                    {isSignatureQrHovered && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: signatureColor }}>
+                        <QRCode value={tx.signature} size={100} color={signatureColor} />
+                      </div>
+                    )}
+                  </div>
                   
                   {isSignatureHovered && tx.signature && (
                     <div 

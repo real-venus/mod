@@ -8,6 +8,7 @@ import { useSearchContext } from '@/mod/context/SearchContext'
 import { userContext } from '@/mod/context'
 import { X, RotateCcw, Sparkles } from 'lucide-react'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { text2color } from '@/mod/utils'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 
@@ -37,6 +38,8 @@ export default function ModExplorePage() {
     }
     return ''
   })
+
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -120,6 +123,29 @@ export default function ModExplorePage() {
     fetchAll()
   }, [client, searchTermToUse, sort])
 
+  const uniqueKeys = useMemo(() => {
+    const keys = new Set<string>()
+    mods.forEach(mod => {
+      if (mod.key) keys.add(mod.key)
+    })
+    return Array.from(keys).sort()
+  }, [mods])
+
+  const filteredMods = useMemo(() => {
+    if (selectedKeys.length === 0) return mods
+    return mods.filter(mod => selectedKeys.includes(mod.key))
+  }, [mods, selectedKeys])
+
+  const toggleKey = (key: string) => {
+    setSelectedKeys(prev => 
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    )
+  }
+
+  const clearKeyFilters = () => {
+    setSelectedKeys([])
+  }
+
   const gridColsClass = {
     1: 'grid-cols-1',
     2: 'grid-cols-1 md:grid-cols-2',
@@ -156,6 +182,41 @@ export default function ModExplorePage() {
               </div>
             </div>
           </div>
+
+          {uniqueKeys.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-bold text-gray-400 uppercase tracking-wide">Filter by Owner:</span>
+                {uniqueKeys.map(key => {
+                  const keyColor = text2color(key)
+                  const isSelected = selectedKeys.includes(key)
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => toggleKey(key)}
+                      className="px-3 py-1.5 rounded-full border-2 font-mono text-sm font-bold transition-all hover:scale-105"
+                      style={{
+                        backgroundColor: isSelected ? `${keyColor}30` : `${keyColor}10`,
+                        borderColor: isSelected ? keyColor : `${keyColor}40`,
+                        color: keyColor,
+                        boxShadow: isSelected ? `0 0 15px ${keyColor}40` : 'none'
+                      }}
+                    >
+                      {key.slice(0, 8)}...{key.slice(-6)}
+                    </button>
+                  )
+                })}
+                {selectedKeys.length > 0 && (
+                  <button
+                    onClick={clearKeyFilters}
+                    className="px-3 py-1.5 rounded-full border-2 border-red-500/40 bg-red-500/10 text-red-400 font-bold text-sm hover:bg-red-500/20 transition-all"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -184,13 +245,13 @@ export default function ModExplorePage() {
           </div>
         )}
 
-        {!loading && mods.length === 0 && !error && (
+        {!loading && filteredMods.length === 0 && !error && (
           <div className="mx-auto max-w-4xl text-center py-12">
             <div className="mb-6 inline-bloc p-6 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20 rounded-2xl border-2 border-purple-500/40 shadow-xl backdrop-blur-xl">
               <Sparkles className="w-16 h-16 text-purple-300" strokeWidth={2} />
             </div>
             <div className="text-purple-300 text-3xl mb-6 font-black uppercase tracking-wide">
-              {searchTermToUse ? 'NO MODULES MATCH YOUR FILTERS' : 'NO MODULES YET'}
+              {searchTermToUse || selectedKeys.length > 0 ? 'NO MODULES MATCH YOUR FILTERS' : 'NO MODULES YET'}
             </div>
           </div>
         )}
@@ -202,7 +263,7 @@ export default function ModExplorePage() {
         )}
 
         <div className={`mx-auto max-w-7xl grid ${gridColsClass} gap-6`}>
-          {mods.map((mod) => (
+          {filteredMods.map((mod) => (
             <div
               key={`${mod.name}-${mod.key}`}
               className="transform hover:scale-[1.02] transition-all duration-300 ease-out"

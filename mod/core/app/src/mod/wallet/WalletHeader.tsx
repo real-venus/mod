@@ -92,8 +92,9 @@ export function WalletHeader() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="absolute top-full right-0 mt-2 p-6 border-2 rounded-xl shadow-2xl z-50 min-w-[450px] backdrop-blur-xl"
+                className="absolute left-0 mt-2 p-6 border-2 rounded-xl shadow-2xl z-50 min-w-[450px] backdrop-blur-xl"
                 style={{
+                  top: 'calc(100% + 8px)',
                   borderRadius: '12px',
                   backgroundColor: 'rgba(0, 0, 0, 0.95)',
                   borderColor: userColor,

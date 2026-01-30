@@ -9,10 +9,12 @@ interface CopyButtonProps {
   content?: string
   size?: 'sm' | 'md' | 'lg'
   showShortened?: boolean
+  showValueOnHover?: boolean
 }
 
-export function CopyButton({ text, content, size = 'md', showShortened = false }: CopyButtonProps) {
+export function CopyButton({ text, content, size = 'md', showShortened = false, showValueOnHover = false }: CopyButtonProps) {
   const [copied, setCopied] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const copyContent = text || content || ''
   const displayText = showShortened ? shorten(copyContent) : copyContent
 
@@ -43,18 +45,38 @@ export function CopyButton({ text, content, size = 'md', showShortened = false }
   }
 
   return (
-    <button
-      onClick={handleCopy}
-      className={`${sizeClasses[size]} inline-flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors flex-shrink-0`}
-      title={copied ? 'Copied!' : `Copy ${copyContent} to clipboard`}
-      type="button"
+    <div 
+      className="relative inline-flex"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {showShortened && displayText && <span className="mr-2 text-white/70">{displayText}</span>}
-      {copied ? (
-        <CheckIcon className={`${iconSizes[size]} text-green-400`} />
-      ) : (
-        <ClipboardDocumentIcon className={`${iconSizes[size]} text-white/70 hover:text-white`} />
+      <button
+        onClick={handleCopy}
+        className={`${sizeClasses[size]} inline-flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors flex-shrink-0`}
+        title={copied ? 'Copied!' : `Copy ${copyContent} to clipboard`}
+        type="button"
+      >
+        {showShortened && displayText && <span className="mr-2 text-white/70">{displayText}</span>}
+        {copied ? (
+          <CheckIcon className={`${iconSizes[size]} text-green-400`} />
+        ) : (
+          <ClipboardDocumentIcon className={`${iconSizes[size]} text-white/70 hover:text-white`} />
+        )}
+      </button>
+      
+      {showValueOnHover && isHovered && copyContent && (
+        <div 
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            borderColor: '#10b981',
+            color: '#10b981',
+            boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)'
+          }}
+        >
+          {copyContent}
+        </div>
       )}
-    </button>
+    </div>
   )
 }

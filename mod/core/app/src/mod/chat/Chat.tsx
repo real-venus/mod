@@ -20,6 +20,8 @@ export default function Chat() {
   const [splitPosition, setSplitPosition] = useState(60)
   const [isNarrowScreen, setIsNarrowScreen] = useState(false)
   const [isTransactionsCollapsed, setIsTransactionsCollapsed] = useState(false)
+  const [isControlPanelHovered, setIsControlPanelHovered] = useState(false)
+  const [isChatHeaderHovered, setIsChatHeaderHovered] = useState(false)
 
   useChatEffects(chatState)
 
@@ -189,6 +191,8 @@ export default function Chat() {
           style={{
             [isNarrowScreen ? 'width' : (splitOrientation === 'vertical' ? 'width' : 'height')]: isNarrowScreen ? '100%' : `${splitPosition}%`
           }}
+          onMouseEnter={() => setIsChatHeaderHovered(true)}
+          onMouseLeave={() => setIsChatHeaderHovered(false)}
         >
           <ControlPanel
             selectedModule={chatState.selectedModule}
@@ -216,7 +220,7 @@ export default function Chat() {
             inputParamOptions={inputParamOptions}
             handleSubmit={handleSubmit}
             onCancel={handleCancel}
-            isCollapsed={configState.isConfigCollapsed}
+            isCollapsed={isChatHeaderHovered ? false : configState.isConfigCollapsed}
             setIsCollapsed={configState.setIsConfigCollapsed}
             transactionsPanelRef={transactionsPanelRef}
           />
