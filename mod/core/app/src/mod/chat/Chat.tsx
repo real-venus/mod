@@ -13,7 +13,7 @@ export default function Chat() {
   const configState = useConfigState()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
-  const [splitOrientation, setSplitOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
+  const [splitOrientation, setSplitOrientation] = useState<'horizontal' | 'vertical'>('vertical')
   const transactionsPanelRef = useRef<{ handleSync: () => void } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 })
@@ -254,11 +254,11 @@ export default function Chat() {
           ) : (
             <button
               onClick={() => setIsTransactionsCollapsed(false)}
-              className="m-3 p-4 bg-cyan-500/20 text-cyan-400 border-2 border-cyan-500/40 hover:bg-cyan-500/30 rounded-lg transition-all font-bold text-sm"
+              className="fixed top-4 right-4 z-50 w-12 h-12 bg-cyan-500/20 text-cyan-400 border-2 border-cyan-500/40 hover:bg-cyan-500/30 rounded-lg transition-all font-bold text-xl flex items-center justify-center shadow-lg"
               style={{ fontFamily: 'IBM Plex Mono, monospace' }}
               title="Expand Transactions"
             >
-              📊 Show Transactions
+              📊
             </button>
           )}
         </div>

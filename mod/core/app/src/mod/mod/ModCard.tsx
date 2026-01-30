@@ -1,6 +1,6 @@
 'use client'
 import { text2color, shorten, time2str } from '@/mod/utils'
-import { KeyIcon, CubeIcon } from '@heroicons/react/24/outline'
+import { KeyIcon, CubeIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import { ModuleType } from '@/mod/types'
 import Link from 'next/link'
 import { CopyButton } from '@/mod/ui/CopyButton'
@@ -18,6 +18,10 @@ export default function ModCard({ mod }: ModCardProps) {
   const [isKeyHovered, setIsKeyHovered] = useState(false)
   const [isCidHovered, setIsCidHovered] = useState(false)
   const [isQrHovered, setIsQrHovered] = useState(false)
+  const [isKeyQrHovered, setIsKeyQrHovered] = useState(false)
+  const [isCidQrHovered, setIsCidQrHovered] = useState(false)
+  const [isKeyCopyHovered, setIsKeyCopyHovered] = useState(false)
+  const [isCidCopyHovered, setIsCidCopyHovered] = useState(false)
   
   const modColor = text2color(mod.name || mod.key)
   const keyColor = text2color(mod.key)
@@ -62,14 +66,14 @@ export default function ModCard({ mod }: ModCardProps) {
                   <code className="text-lg font-bold font-mono tracking-wide" style={{ color: modColor }}>
                     {mod.name}
                   </code>
-                  <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
+                  <CopyButton text={mod.name} size="sm" showValueOnHover={false} />
                 </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-900/30 to-cyan-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
                   <Clock size={16} style={{ color: '#3b82f6' }} />
-                  <CopyButton text={updatedTimeStr} size="sm" showValueOnHover={true} />
+                  <CopyButton text={updatedTimeStr} size="sm" showValueOnHover={false} />
                 </div>
 
                 <div 
@@ -81,9 +85,26 @@ export default function ModCard({ mod }: ModCardProps) {
                   <code className="text-sm font-mono font-bold" style={{ color: cidColor }}>
                     ●●●●●●
                   </code>
-                  <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
+                  <div
+                    onMouseEnter={() => setIsCidCopyHovered(true)}
+                    onMouseLeave={() => setIsCidCopyHovered(false)}
+                  >
+                    <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
+                  </div>
+                  <div 
+                    className="relative ml-1"
+                    onMouseEnter={() => setIsCidQrHovered(true)}
+                    onMouseLeave={() => setIsCidQrHovered(false)}
+                  >
+                    <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: cidColor }} />
+                    {isCidQrHovered && mod.cid && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: cidColor }}>
+                        <QRCode value={mod.cid} size={100} color={cidColor} />
+                      </div>
+                    )}
+                  </div>
                   
-                  {isCidHovered && mod.cid && (
+                  {isCidHovered && mod.cid && !isCidQrHovered && !isCidCopyHovered && (
                     <div 
                       className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
                       style={{
@@ -107,9 +128,26 @@ export default function ModCard({ mod }: ModCardProps) {
                   <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
                     <KeyIcon className="w-4 h-4 transition-transform hover:scale-110" style={{ color: keyColor }} />
                   </Link>
-                  <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
+                  <div
+                    onMouseEnter={() => setIsKeyCopyHovered(true)}
+                    onMouseLeave={() => setIsKeyCopyHovered(false)}
+                  >
+                    <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
+                  </div>
+                  <div 
+                    className="relative ml-1"
+                    onMouseEnter={() => setIsKeyQrHovered(true)}
+                    onMouseLeave={() => setIsKeyQrHovered(false)}
+                  >
+                    <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: keyColor }} />
+                    {isKeyQrHovered && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: keyColor }}>
+                        <QRCode value={mod.key} size={100} color={keyColor} />
+                      </div>
+                    )}
+                  </div>
                   
-                  {isKeyHovered && (
+                  {isKeyHovered && !isKeyQrHovered && !isKeyCopyHovered && (
                     <div 
                       className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
                       style={{

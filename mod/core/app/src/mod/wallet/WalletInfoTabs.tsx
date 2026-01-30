@@ -159,13 +159,6 @@ export default function WalletInfoTabs() {
           )}
         </div>
 
-        {user.network && (
-          <div className="p-3 rounded-lg border-2 transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}60` }}>
-            <div className="text-sm text-gray-400 mb-1 font-bold uppercase tracking-wider">Network Modules</div>
-            <div className="font-mono text-lg font-bold" style={{ color: userColor }}>{user.mods?.length || 0}</div>
-          </div>
-        )}
-
         <div className="p-3 rounded-lg border-2 transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}60` }}>
           <div className="text-sm text-gray-400 mb-1 font-bold uppercase tracking-wider">Key Type</div>
           <div className="font-mono text-sm font-bold" style={{ color: userColor }}>{user.crypto_type || 'ecdsa'}</div>

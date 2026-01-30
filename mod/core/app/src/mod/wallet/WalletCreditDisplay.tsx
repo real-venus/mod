@@ -6,7 +6,7 @@ import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { text2color } from '@/mod/utils'
 import { userContext } from '@/mod/context/UserContext'
 
-type TokenType = 'USDC' | 'USDT'
+type TokenType = 'USDC' | 'USDT' | 'MARKET'
 
 export default function WalletCreditDisplay() {
   const { user } = userContext()
@@ -64,6 +64,22 @@ export default function WalletCreditDisplay() {
               }}
             >
               USDT
+            </button>
+
+            <button
+              onClick={() => handleTokenToggle('MARKET')}
+              className={`px-2 py-1 text-xs font-bold rounded transition-all ${
+                selectedToken === 'MARKET'
+                  ? 'bg-opacity-30 border'
+                  : 'bg-opacity-10 border border-transparent hover:border-white/20'
+              }`}
+              style={{
+                backgroundColor: selectedToken === 'MARKET' ? `${userColor}30` : `${userColor}10`,
+                borderColor: selectedToken === 'MARKET' ? userColor : 'transparent',
+                color: userColor
+              }}
+            >
+              MARKET
             </button>
           </div>
           <button

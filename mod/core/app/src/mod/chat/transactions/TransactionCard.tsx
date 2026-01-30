@@ -38,6 +38,9 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
   const [isCidQrHovered, setIsCidQrHovered] = useState(false)
   const [isKeyQrHovered, setIsKeyQrHovered] = useState(false)
   const [isSignatureQrHovered, setIsSignatureQrHovered] = useState(false)
+  const [isKeyCopyHovered, setIsKeyCopyHovered] = useState(false)
+  const [isCidCopyHovered, setIsCidCopyHovered] = useState(false)
+  const [isSignatureCopyHovered, setIsSignatureCopyHovered] = useState(false)
   
   const hasResults = tx.result !== undefined
   const hasParams = tx.params !== null && tx.params !== undefined
@@ -173,7 +176,7 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
               className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/cid shadow-md hover:scale-105"
               style={{
                 borderColor: `${cidColor}40`,
-                backgroundColor: isCidHovered ? `${cidColor}25` : 'rgba(0, 0, 0, 0.3)',
+                backgroundColor: (isCidHovered || isCidCopyHovered) ? `${cidColor}25` : 'rgba(0, 0, 0, 0.3)',
                 height: '42px'
               }}
               onMouseEnter={() => setIsCidHovered(true)}
@@ -183,7 +186,12 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
               <code className="text-sm font-mono font-bold" style={{ color: cidColor }}>
                 ●●●●●●
               </code>
-              <CopyButton text={tx.cid} size="sm" />
+              <div
+                onMouseEnter={() => setIsCidCopyHovered(true)}
+                onMouseLeave={() => setIsCidCopyHovered(false)}
+              >
+                <CopyButton text={tx.cid} size="sm" showValueOnHover={true} />
+              </div>
               <div 
                 className="relative ml-1"
                 onMouseEnter={() => setIsCidQrHovered(true)}
@@ -196,20 +204,6 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                   </div>
                 )}
               </div>
-              
-              {isCidHovered && tx.cid && (
-                <div 
-                  className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
-                  style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                    borderColor: cidColor,
-                    color: cidColor,
-                    boxShadow: `0 0 20px ${cidColor}40`
-                  }}
-                >
-                  {tx.cid}
-                </div>
-              )}
             </div>
           )}
 
@@ -218,7 +212,7 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
               className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
               style={{
                 borderColor: `${keyColor}40`,
-                backgroundColor: isKeyHovered ? `${keyColor}25` : 'rgba(0, 0, 0, 0.3)',
+                backgroundColor: (isKeyHovered || isKeyCopyHovered) ? `${keyColor}25` : 'rgba(0, 0, 0, 0.3)',
                 height: '42px'
               }}
               onMouseEnter={() => setIsKeyHovered(true)}
@@ -226,7 +220,12 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
               title={tx.key}
             >
               <KeyIcon className="w-4 h-4" style={{ color: keyColor }} />
-              <CopyButton text={tx.key} size="sm" />
+              <div
+                onMouseEnter={() => setIsKeyCopyHovered(true)}
+                onMouseLeave={() => setIsKeyCopyHovered(false)}
+              >
+                <CopyButton text={tx.key} size="sm" showValueOnHover={true} />
+              </div>
               <div 
                 className="relative ml-1"
                 onMouseEnter={() => setIsKeyQrHovered(true)}
@@ -239,20 +238,6 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                   </div>
                 )}
               </div>
-              
-              {isKeyHovered && (
-                <div 
-                  className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
-                  style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                    borderColor: keyColor,
-                    color: keyColor,
-                    boxShadow: `0 0 20px ${keyColor}40`
-                  }}
-                >
-                  {tx.key}
-                </div>
-              )}
             </div>
           )}
 
@@ -287,7 +272,7 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                   className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/signature shadow-md hover:scale-105"
                   style={{
                     borderColor: `${signatureColor}40`,
-                    backgroundColor: isSignatureHovered ? `${signatureColor}25` : 'rgba(0, 0, 0, 0.3)',
+                    backgroundColor: (isSignatureHovered || isSignatureCopyHovered) ? `${signatureColor}25` : 'rgba(0, 0, 0, 0.3)',
                     height: '42px'
                   }}
                   onMouseEnter={() => setIsSignatureHovered(true)}
@@ -298,7 +283,12 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                   <code className="text-sm font-mono font-bold" style={{ color: signatureColor }}>
                     ●●●●●●
                   </code>
-                  <CopyButton text={tx.signature} size="sm" />
+                  <div
+                    onMouseEnter={() => setIsSignatureCopyHovered(true)}
+                    onMouseLeave={() => setIsSignatureCopyHovered(false)}
+                  >
+                    <CopyButton text={tx.signature} size="sm" showValueOnHover={true} />
+                  </div>
                   <div 
                     className="relative ml-1"
                     onMouseEnter={() => setIsSignatureQrHovered(true)}
@@ -311,20 +301,6 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
                       </div>
                     )}
                   </div>
-                  
-                  {isSignatureHovered && tx.signature && (
-                    <div 
-                      className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
-                      style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                        borderColor: signatureColor,
-                        color: signatureColor,
-                        boxShadow: `0 0 20px ${signatureColor}40`
-                      }}
-                    >
-                      {tx.signature}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

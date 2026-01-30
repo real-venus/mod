@@ -1,6 +1,6 @@
 'use client'
 import { text2color, shorten } from '@/mod/utils'
-import { KeyIcon, CubeIcon, SparklesIcon, ClockIcon } from '@heroicons/react/24/outline'
+import { KeyIcon, CubeIcon, SparklesIcon, ClockIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import { UserType } from '@/mod/types'
 import Link from 'next/link'
 import { CopyButton } from '@/mod/ui/CopyButton'
@@ -16,6 +16,9 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
   const [isHovered, setIsHovered] = useState(false)
   const [isKeyHovered, setIsKeyHovered] = useState(false)
   const [isQrHovered, setIsQrHovered] = useState(false)
+  const [isCopyHovered, setIsCopyHovered] = useState(false)
+  const [isKeyQrHovered, setIsKeyQrHovered] = useState(false)
+  const [isKeyCopyHovered, setIsKeyCopyHovered] = useState(false)
   const userColor = text2color(user.key)
   const moduleIdentifier = `${user.key}/${user.key.substring(0, 8)}`
   const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/user/${user.key}` : ''
@@ -51,11 +54,15 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
                 />
               </div>
               
-              <div className="flex items-center gap-2 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-4 py-2 flex-1 shadow-lg">
+              <div 
+                className="flex items-center gap-2 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-4 py-2 flex-1 shadow-lg"
+                onMouseEnter={() => setIsCopyHovered(true)}
+                onMouseLeave={() => setIsCopyHovered(false)}
+              >
                 <code className="text-lg font-bold font-mono tracking-wide" style={{ color: userColor }}>
-                  {user.key.substring(0, 6)}...{user.key.substring(user.key.length - 6)}
+                  {isCopyHovered ? user.key : `${user.key.substring(0, 6)}...${user.key.substring(user.key.length - 6)}`}
                 </code>
-                <CopyButton text={user.key} size="sm" showValueOnHover={true} />
+                <CopyButton text={user.key} size="sm" showValueOnHover={false} />
               </div>
             </div>
 
@@ -69,8 +76,26 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
                 <code className="text-sm font-mono font-bold" style={{ color: userColor }}>
                   {(user.crypto_type || 'sr25519').toLowerCase()}
                 </code>
+                <div
+                  onMouseEnter={() => setIsKeyCopyHovered(true)}
+                  onMouseLeave={() => setIsKeyCopyHovered(false)}
+                >
+                  <CopyButton text={user.crypto_type || 'sr25519'} size="sm" showValueOnHover={true} />
+                </div>
+                <div 
+                  className="relative ml-1"
+                  onMouseEnter={() => setIsKeyQrHovered(true)}
+                  onMouseLeave={() => setIsKeyQrHovered(false)}
+                >
+                  <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: userColor }} />
+                  {isKeyQrHovered && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: userColor }}>
+                      <QRCode value={user.crypto_type || 'sr25519'} size={100} color={userColor} />
+                    </div>
+                  )}
+                </div>
                 
-                {isKeyHovered && (
+                {isKeyHovered && !isKeyQrHovered && !isKeyCopyHovered && (
                   <div 
                     className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
                     style={{
