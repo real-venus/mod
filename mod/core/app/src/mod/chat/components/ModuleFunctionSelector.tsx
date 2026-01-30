@@ -25,6 +25,7 @@ export function ModuleFunctionSelector({
   const [inputValue, setInputValue] = useState('')
   const [showModuleSuggestions, setShowModuleSuggestions] = useState(false)
   const [showFunctionSuggestions, setShowFunctionSuggestions] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const functionColor = useMemo(() => {
@@ -35,13 +36,44 @@ export function ModuleFunctionSelector({
     return selectedModule ? text2color(selectedModule) : '#06b6d4'
   }, [selectedModule])
 
-  // Calculate semantic distance (simple string similarity for now)
+  // Improved fuzzy matching algorithm
   const calculateDistance = (str1: string, str2: string): number => {
     const s1 = str1.toLowerCase()
     const s2 = str2.toLowerCase()
-    if (s1.includes(s2) || s2.includes(s1)) return 0.1
-    const commonChars = s1.split('').filter(c => s2.includes(c)).length
-    return 1 - (commonChars / Math.max(s1.length, s2.length))
+    
+    // Exact match
+    if (s1 === s2) return 0
+    
+    // Starts with query (high priority)
+    if (s1.startsWith(s2)) return 0.05
+    if (s2.startsWith(s1)) return 0.1
+    
+    // Contains query
+    if (s1.includes(s2)) return 0.2
+    if (s2.includes(s1)) return 0.3
+    
+    // Levenshtein distance for fuzzy matching
+    const matrix: number[][] = []
+    for (let i = 0; i <= s2.length; i++) {
+      matrix[i] = [i]
+    }
+    for (let j = 0; j <= s1.length; j++) {
+      matrix[0][j] = j
+    }
+    for (let i = 1; i <= s2.length; i++) {
+      for (let j = 1; j <= s1.length; j++) {
+        if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1]
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          )
+        }
+      }
+    }
+    return matrix[s2.length][s1.length] / Math.max(s1.length, s2.length)
   }
 
   const filteredModules = useMemo(() => {
@@ -51,9 +83,9 @@ export function ModuleFunctionSelector({
         ...m,
         distance: calculateDistance(m.name, inputValue)
       }))
-      .filter(m => m.name.toLowerCase().includes(inputValue.toLowerCase()))
+      .filter(m => m.distance < 0.8)
       .sort((a, b) => a.distance - b.distance)
-      .slice(0, 5)
+      .slice(0, 8)
   }, [inputValue, modules])
 
   const filteredFunctions = useMemo(() => {
@@ -64,10 +96,15 @@ export function ModuleFunctionSelector({
         name: f,
         distance: calculateDistance(f, fnPart)
       }))
-      .filter(f => f.name.toLowerCase().includes(fnPart.toLowerCase()))
+      .filter(f => f.distance < 0.8)
       .sort((a, b) => a.distance - b.distance)
-      .slice(0, 5)
+      .slice(0, 8)
   }, [inputValue, functions])
+
+  // Reset selected index when suggestions change
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [filteredModules, filteredFunctions])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -104,9 +141,28 @@ export function ModuleFunctionSelector({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    const currentSuggestions = showModuleSuggestions ? filteredModules : showFunctionSuggestions ? filteredFunctions : []
+    
+    if (e.key === 'ArrowDown') {
       e.preventDefault()
-      if (inputValue.includes('/')) {
+      setSelectedIndex(prev => (prev + 1) % currentSuggestions.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIndex(prev => (prev - 1 + currentSuggestions.length) % currentSuggestions.length)
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      if (showModuleSuggestions && filteredModules.length > 0) {
+        selectModule(filteredModules[selectedIndex].name)
+      } else if (showFunctionSuggestions && filteredFunctions.length > 0) {
+        selectFunction(filteredFunctions[selectedIndex].name)
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (showModuleSuggestions && filteredModules.length > 0) {
+        selectModule(filteredModules[selectedIndex].name)
+      } else if (showFunctionSuggestions && filteredFunctions.length > 0) {
+        selectFunction(filteredFunctions[selectedIndex].name)
+      } else if (inputValue.includes('/')) {
         const [mod, fn] = inputValue.split('/')
         const trimmedMod = mod.trim()
         const trimmedFn = fn?.trim() || ''
@@ -222,12 +278,14 @@ export function ModuleFunctionSelector({
 
         {showModuleSuggestions && filteredModules.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-purple-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto">
-            {filteredModules.map(mod => (
+            {filteredModules.map((mod, idx) => (
               <button
                 key={mod.name}
                 type="button"
                 onClick={() => selectModule(mod.name)}
-                className="w-full text-left px-4 py-3 hover:bg-purple-500/30 text-white border-b border-purple-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center"
+                className={`w-full text-left px-4 py-3 text-white border-b border-purple-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${
+                  idx === selectedIndex ? 'bg-purple-500/40' : 'hover:bg-purple-500/30'
+                }`}
                 style={{ fontFamily: 'IBM Plex Mono, monospace' }}
               >
                 <span>
@@ -242,12 +300,14 @@ export function ModuleFunctionSelector({
 
         {showFunctionSuggestions && filteredFunctions.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-cyan-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto">
-            {filteredFunctions.map(fn => (
+            {filteredFunctions.map((fn, idx) => (
               <button
                 key={fn.name}
                 type="button"
                 onClick={() => selectFunction(fn.name)}
-                className="w-full text-left px-4 py-3 hover:bg-cyan-500/30 text-white border-b border-cyan-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center"
+                className={`w-full text-left px-4 py-3 text-white border-b border-cyan-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${
+                  idx === selectedIndex ? 'bg-cyan-500/40' : 'hover:bg-cyan-500/30'
+                }`}
                 style={{ fontFamily: 'IBM Plex Mono, monospace' }}
               >
                 <span>/{fn.name}</span>

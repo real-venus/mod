@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useSplitScreenContext } from '@/mod/context/SplitScreenContext'
 import { SearchBar } from '@/mod/header/SearchBar'
+import { HoverSearchBar } from '@/mod/header/HoverSearchBar'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -18,9 +19,9 @@ import { CSS } from '@dnd-kit/utilities'
 const defaultNavigation = [
   { id: 'search', name: 'Search', component: 'SearchBar', color: '#d8cc1b' },
   { id: 'chat', name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon, color: '#ef4444' },
-  { id: 'mods', name: 'Mods', href: '/mod/explore', icon: CubeIcon, color: '#3b82f6' },
-  { id: 'users', name: 'Users', href: '/user/explore', icon: UsersIcon, color: '#10b981' },
-  { id: 'transactions', name: 'Transactions', href: '/transactions', icon: TableCellsIcon, color: '#f59e0b' },
+  { id: 'mods', name: 'Mods', href: '/mod/explore', icon: CubeIcon, color: '#3b82f6', hasHoverSearch: true },
+  { id: 'users', name: 'Users', href: '/user/explore', icon: UsersIcon, color: '#10b981', hasHoverSearch: true },
+  { id: 'transactions', name: 'Transactions', href: '/transactions', icon: TableCellsIcon, color: '#f59e0b', hasHoverSearch: true },
   { id: 'split', name: 'Split Screen', component: 'SplitScreen', color: '#a855f7' },
   { id: 'treasury', name: 'Treasury', component: 'TreasuryHeader', color: '#10b981' },
   { id: 'network', name: 'Network', component: 'NetworkSelector', color: '#3b82f6' },
@@ -75,44 +76,33 @@ function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection,
       )
     }
     
-    if (item.component === 'AddTab') {
-      return (
-        <div className="relative" onMouseEnter={() => setHoveredSection('Add Tab')} onMouseLeave={() => setHoveredSection(null)}>
-          <button onClick={() => setShowTabMenu(!showTabMenu)} className="flex items-center justify-center rounded-xl p-3 border-2 border-cyan-500/30 hover:border-cyan-500/50 hover:bg-cyan-500/10 transition-all backdrop-blur-sm" style={{ height: '60px', width: '60px', boxShadow: '0 0 15px rgba(6, 182, 212, 0.2)' }}>
-            <PlusIcon className="w-8 h-8" style={{ color: '#06b6d4' }} />
-          </button>
-          <AnimatePresence>
-            {hoveredSection === 'Add Tab' && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.15 }} className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none z-50">
-                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-cyan-500/30 whitespace-nowrap text-sm font-medium">Create New Mod<div className="absolute bottom-full left-1/2 -translate-x-1/2 border-8 border-transparent border-b-gray-900" /></div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          {showTabMenu && (
-            <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-cyan-500/30 rounded-lg shadow-xl overflow-hidden z-50 min-w-[200px]">
-              <div className="p-2 text-white text-sm font-medium border-b border-gray-800">Create New</div>
-              <button 
-                onClick={() => { router.push('/user/reg'); setShowTabMenu(false) }}
-                className="w-full px-4 py-3 text-left text-white hover:bg-cyan-500/20 transition-colors flex items-center gap-3 border-b border-gray-800"
-              >
-                <CubeIcon className="w-5 h-5" />
-                <span className="text-sm font-medium">Register Module</span>
-              </button>
-              <button 
-                onClick={() => { router.push('/user/reg'); setShowTabMenu(false) }}
-                className="w-full px-4 py-3 text-left text-white hover:bg-cyan-500/20 transition-colors flex items-center gap-3"
-              >
-                <PlusIcon className="w-5 h-5" />
-                <span className="text-sm font-medium">Create Custom Tab</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )
-    }
-    
     if (item.href && item.icon) {
       const isActive = pathname === item.href
+      
+      if (item.hasHoverSearch) {
+        return (
+          <div className="relative" onMouseEnter={() => setHoveredSection(item.name)} onMouseLeave={() => setHoveredSection(null)}>
+            <Link href={item.href} className={`flex items-center justify-center rounded-xl p-3 transition-all backdrop-blur-sm ${isActive ? 'bg-opacity-20 border-2 shadow-lg' : 'border-2 border-white/20 hover:border-white/40 hover:bg-white/10'}`} style={{ height: '60px', width: '60px', backgroundColor: isActive ? `${item.color}33` : undefined, borderColor: isActive ? `${item.color}4D` : undefined, boxShadow: isActive ? `0 0 20px ${item.color}33` : '0 0 10px rgba(255,255,255,0.05)' }}>
+              <item.icon className="w-8 h-8" style={{ color: isActive ? item.color : '#9ca3af' }} />
+            </Link>
+            <AnimatePresence>
+              {hoveredSection === item.name && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.15 }} className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50">
+                  <HoverSearchBar
+                    title={item.name}
+                    placeholder={`Search ${item.name.toLowerCase()}...`}
+                    onSearch={(term) => {
+                      console.log(`Searching ${item.name}:`, term)
+                    }}
+                    redirectPath={item.href}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )
+      }
+      
       return (
         <div className="relative" onMouseEnter={() => setHoveredSection(item.name)} onMouseLeave={() => setHoveredSection(null)}>
           <Link href={item.href} className={`flex items-center justify-center rounded-xl p-3 transition-all backdrop-blur-sm ${isActive ? 'bg-opacity-20 border-2 shadow-lg' : 'border-2 border-white/20 hover:border-white/40 hover:bg-white/10'}`} style={{ height: '60px', width: '60px', backgroundColor: isActive ? `${item.color}33` : undefined, borderColor: isActive ? `${item.color}4D` : undefined, boxShadow: isActive ? `0 0 20px ${item.color}33` : '0 0 10px rgba(255,255,255,0.05)' }}>

@@ -54,7 +54,7 @@ setup(
     long_description_content_type='text/markdown',
     author='developers',
     author_email='bloc@proton.me',
-    url='https://modchain.org/',
+    url='https://app.modc2.com/',
     project_urls={
         'Homepage': 'https://app.modc2.ai/',
         'Repository': 'https://github.com/modc2/mod',

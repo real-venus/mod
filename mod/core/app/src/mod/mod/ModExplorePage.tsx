@@ -30,18 +30,6 @@ export default function ModExplorePage() {
     }
     return 2
   })
-  const [userFilter, setUserFilter] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('mod_explorer_user_filter') || ''
-    }
-    return ''
-  })
-  const [showMyModsOnly, setShowMyModsOnly] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('mod_explorer_my_mods_only') === 'true'
-    }
-    return false
-  })
 
   const [localSearchTerm, setLocalSearchTerm] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -69,18 +57,6 @@ export default function ModExplorePage() {
       localStorage.setItem('mod_explorer_columns', columns.toString())
     }
   }, [columns])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mod_explorer_user_filter', userFilter)
-    }
-  }, [userFilter])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mod_explorer_my_mods_only', showMyModsOnly.toString())
-    }
-  }, [showMyModsOnly])
 
   const sortModules = (list: ModuleType[]) => {
     const sortOrder = typeof window !== 'undefined' 
@@ -120,17 +96,6 @@ export default function ModExplorePage() {
     )
   }
 
-  const filterModsByUser = (list: ModuleType[], userKey: string) => {
-    if (!userKey) return list
-    const lowerUserKey = userKey.toLowerCase()
-    return list.filter(mod => mod.key?.toLowerCase().includes(lowerUserKey))
-  }
-
-  const filterMyMods = (list: ModuleType[]) => {
-    if (!showMyModsOnly || !user) return list
-    return list.filter(mod => mod.key === user.key)
-  }
-
   const fetchAll = async () => {
     setLoading(true)
     setError(null)
@@ -141,9 +106,7 @@ export default function ModExplorePage() {
       }
       const raw = (await client.call('mods', { search: searchTermToUse })) as ModuleType[]
       const allMods = Array.isArray(raw) ? raw : []
-      let filtered = filterModsByUser(allMods, userFilter)
-      filtered = filterMyMods(filtered)
-      const sorted = sortModules(filtered)
+      const sorted = sortModules(allMods)
       setMods(sorted)
     } catch (err: any) {
       console.error('Error fetching modules:', err)
@@ -155,7 +118,7 @@ export default function ModExplorePage() {
 
   useEffect(() => {
     fetchAll()
-  }, [client, searchTermToUse, sort, userFilter, showMyModsOnly])
+  }, [client, searchTermToUse, sort])
 
   const gridColsClass = {
     1: 'grid-cols-1',
@@ -165,38 +128,32 @@ export default function ModExplorePage() {
   }[columns] || 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className={'min-h-screen bg-black text-white transition-all duration-300'}>
+    <div className={'min-h-screen bg-black text-white transition-all duration-300 pl-20'}>
       <main className="flex-1 px-2 pt-0 pb-0" role="main">
         <div className="mx-auto max-w-7xl mb-6">
-          <div className="relative mb-4">
-            <input
-              type="text"
-              value={localSearchTerm}
-              onChange={(e) => setLocalSearchTerm(e.target.value)}
-              placeholder="Search mods by name, author, or description..."
-              className="w-full px-6 py-4 pr-14 bg-black/50 border-2 border-blue-500/40 rounded-xl text-white text-base placeholder-gray-400 focus:outline-none focus:border-blue-500/60 backdrop-blur-xl transition-all"
-              style={{
-                boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
-                fontFamily: 'IBM Plex Mono, monospace'
-              }}
-            />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              <MagnifyingGlassIcon className="w-6 h-6 text-blue-400" />
-            </div>
-          </div>
-          
-          <div className="flex items-start gap-4">
+          <div className="flex items-center gap-4 mb-4">
             <ModCardSettings
               sort={sort}
               onSortChange={setSort}
               columns={columns}
               onColumnsChange={setColumns}
-              userFilter={userFilter}
-              onUserFilterChange={setUserFilter}
-              showMyModsOnly={showMyModsOnly}
-              onShowMyModsOnlyChange={setShowMyModsOnly}
             />
-            <div className="flex-1">
+            
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={localSearchTerm}
+                onChange={(e) => setLocalSearchTerm(e.target.value)}
+                placeholder="Search mods by name, author, or description..."
+                className="w-full px-6 py-4 pr-14 bg-black/50 border-2 border-blue-500/40 rounded-xl text-white text-base placeholder-gray-400 focus:outline-none focus:border-blue-500/60 backdrop-blur-xl transition-all"
+                style={{
+                  boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
+                  fontFamily: 'IBM Plex Mono, monospace'
+                }}
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <MagnifyingGlassIcon className="w-6 h-6 text-blue-400" />
+              </div>
             </div>
           </div>
         </div>
@@ -233,7 +190,7 @@ export default function ModExplorePage() {
               <Sparkles className="w-16 h-16 text-purple-300" strokeWidth={2} />
             </div>
             <div className="text-purple-300 text-3xl mb-6 font-black uppercase tracking-wide">
-              {searchTermToUse || userFilter || showMyModsOnly ? 'NO MODULES MATCH YOUR FILTERS' : 'NO MODULES YET'}
+              {searchTermToUse ? 'NO MODULES MATCH YOUR FILTERS' : 'NO MODULES YET'}
             </div>
           </div>
         )}

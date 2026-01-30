@@ -55,13 +55,13 @@ export function UnifiedInputPanel({
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-3 items-stretch">
+      <div className="flex gap-3 items-center">
         <InputModeToggle mode={inputMode} onModeChange={setInputMode} />
         {isLoading ? (
           <button
             type="button"
             onClick={onCancel}
-            className="h-full px-6 py-3 bg-red-500/20 text-red-400 border-2 border-red-500/40 hover:bg-red-500/30 rounded-xl transition-all font-bold text-base"
+            className="px-6 py-3 bg-red-500/20 text-red-400 border-2 border-red-500/40 hover:bg-red-500/30 rounded-xl transition-all font-bold text-base"
             style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
           >
             ❌ cancel
@@ -70,7 +70,7 @@ export function UnifiedInputPanel({
           <button
             type="button"
             onClick={(e) => handleSubmit(e as any)}
-            className="h-full px-6 py-3 bg-orange-500/20 text-orange-400 border-2 border-orange-500/40 hover:bg-orange-500/30 rounded-xl transition-all font-bold text-base"
+            className="px-6 py-3 bg-orange-500/20 text-orange-400 border-2 border-orange-500/40 hover:bg-orange-500/30 rounded-xl transition-all font-bold text-base"
             style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
             disabled={!selectedModule || !selectedFunction}
           >

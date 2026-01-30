@@ -75,40 +75,45 @@ export function ControlPanel({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ fontSize: '1.2rem' }}>
       <div className="border-t-2 border-white/10 bg-black/40 backdrop-blur-sm flex flex-col" style={{ minHeight: '400px' }}>
         <div className="px-6 pt-6 pb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <ModuleFunctionSelector
-              selectedModule={selectedModule}
-              setSelectedModule={setSelectedModule}
-              selectedFunction={selectedFunction}
-              setSelectedFunction={setSelectedFunction}
-              modules={modules}
-              functions={functions}
-              onEnterPress={handleModFnEnterPress}
-            />
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div style={{ width: '100%', maxWidth: '800px' }}>
+              <ModuleFunctionSelector
+                selectedModule={selectedModule}
+                setSelectedModule={setSelectedModule}
+                selectedFunction={selectedFunction}
+                setSelectedFunction={setSelectedFunction}
+                modules={modules}
+                functions={functions}
+                onEnterPress={handleModFnEnterPress}
+              />
+            </div>
           </div>
           
-          {/* Unified Input Panel with Mode Toggle */}
-          <UnifiedInputPanel
-            input={input}
-            setInput={setInput}
-            selectedInputParam={selectedInputParam}
-            setSelectedInputParam={setSelectedInputParam}
-            wait={wait}
-            setWait={setWait}
-            isLoading={isLoading}
-            selectedModule={selectedModule}
-            selectedFunction={selectedFunction}
-            inputParamOptions={inputParamOptions}
-            handleSubmit={handleSubmit}
-            onCancel={onCancel}
-            params={params}
-            handleParamChange={handleParamChange}
-            handleResetParams={handleResetParams}
-            schema={schema}
-          />
+          <div className="flex justify-center gap-3">
+            <div style={{ width: '100%', maxWidth: '800px' }}>
+              <UnifiedInputPanel
+                input={input}
+                setInput={setInput}
+                selectedInputParam={selectedInputParam}
+                setSelectedInputParam={setSelectedInputParam}
+                wait={wait}
+                setWait={setWait}
+                isLoading={isLoading}
+                selectedModule={selectedModule}
+                selectedFunction={selectedFunction}
+                inputParamOptions={inputParamOptions}
+                handleSubmit={handleSubmit}
+                onCancel={onCancel}
+                params={params}
+                handleParamChange={handleParamChange}
+                handleResetParams={handleResetParams}
+                schema={schema}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

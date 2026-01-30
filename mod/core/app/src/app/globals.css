@@ -18,6 +18,23 @@
   }
 }
 
+/* HEADER COMPONENT EDGE COLORS WITH HOVER INVERT */
+@layer components {
+  .header-component {
+    @apply border-2 rounded-xl p-3 transition-all duration-300;
+    border-color: var(--component-color, rgba(255, 255, 255, 0.2));
+    background-color: transparent;
+    color: var(--component-color, #9ca3af);
+  }
+  
+  .header-component:hover {
+    background-color: var(--component-color, #9ca3af);
+    color: #000000;
+    border-color: var(--component-color, #9ca3af);
+    box-shadow: 0 0 20px var(--component-glow, rgba(255, 255, 255, 0.3));
+  }
+}
+
 /* DOPE NIGHTFORM FILTER STYLES - 420 EDITION */
 @layer utilities {
   .filter-nightform {

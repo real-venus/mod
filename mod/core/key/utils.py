@@ -161,9 +161,6 @@ def ecdsa_verify(signature: bytes, data: bytes, address: bytes) -> bool:
     """
     Verify ECDSA signature, handling both legacy (v=27/28) and modern (v=0/1) formats.
     """
-    print("Input signature (hex):", binascii.hexlify(signature).decode())
-    print("Input data (utf8):", data.decode('utf-8', errors='ignore'))
-    print("Expected address:", address.hex())
 
     # Normalize signature if it's legacy
     sig_hex = binascii.hexlify(signature).decode()
@@ -184,8 +181,6 @@ def ecdsa_verify(signature: bytes, data: bytes, address: bytes) -> bool:
         message = encode_defunct(data)
         recovered = Account.recover_message(message, signature=signature)
         recovered_bytes = bytes.fromhex(recovered[2:])  # remove 0x
-        print("Recovered address:", recovered)
-        print("Matches expected?", recovered_bytes == address)
         result =  recovered_bytes.lower() == address.lower()
     except Exception as e:
         print("Verification failed:", str(e))

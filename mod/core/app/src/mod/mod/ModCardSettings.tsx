@@ -1,6 +1,6 @@
 'use client'
 
-import { Settings, Grid3x3, Grid2x2, LayoutGrid, User, Filter } from 'lucide-react'
+import { Settings, Grid3x3, Grid2x2, LayoutGrid, User, Filter, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
@@ -32,10 +32,11 @@ export function ModCardSettings({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-3 rounded-xl border-2 border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 transition-all backdrop-blur-xl"
+        className="p-3 rounded-xl border-2 border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 transition-all backdrop-blur-xl flex items-center gap-2"
         title="Settings"
       >
         <Settings className="w-5 h-5 text-purple-400" />
+        <ChevronDown className={`w-4 h-4 text-purple-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (

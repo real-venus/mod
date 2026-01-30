@@ -75,6 +75,13 @@ class Key:
         
         self.set_key(private_key=private_key, crypto_type=crypto_type, mnemonic=mnemonic, **kwargs)
 
+
+
+
+
+
+
+
     def set_key(self, private_key: Union[bytes, str] ,  crypto_type: int , mnemonic:Optional[str] = None, **kwargs):
         """
         Allows generation of Keys from a variety of input combination, such as a public/private key combination,
@@ -91,6 +98,7 @@ class Key:
             private_key = self.from_mnemonic(mnemonic, crypto_type=crypto_type).private_key
         elif private_key is None:
             # generate a new keypair if no private key is provided
+            print('generating new keypair')
             private_key = self.new_key(crypto_type=crypto_type).private_key
         if type(private_key) == str:
             private_key = str2bytes(private_key)
@@ -631,12 +639,11 @@ class Key:
     def time(self ):
         return int(time.time())
 
-    def password(self, udpate=False):
-        x = self.get('password', update=udpate)
+    def password(self, update=False):
+        x = self.get('password', update=update)
         if x != None:
             return x
         else: 
-                
             x = self.time()
             x =  self.hash(str(x * x + 2 * x + 1))
             self.put('password', x)

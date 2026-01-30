@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { QRCode } from '@/mod/ui/QRCode'
 import { text2color } from '@/mod/utils'
-import { ArrowPathIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
+import { ArrowPathIcon, ChevronDownIcon, ClockIcon } from '@heroicons/react/24/outline'
 import { Auth } from '@/mod/client/auth'
 import WalletCreditDisplay from './WalletCreditDisplay'
 
@@ -14,10 +14,34 @@ export default function WalletInfoTabs() {
   const [activeTab, setActiveTab] = useState<'details' | 'qr'>('details')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [showBalanceDropdown, setShowBalanceDropdown] = useState(false)
+  const [tokenExpiry, setTokenExpiry] = useState<string | null>(null)
   
   if (!user) return null
   
   const userColor = text2color(user.key)
+
+  // Calculate token expiry time
+  const getTokenExpiry = () => {
+    const token = localStorage.getItem('wallet_token')
+    if (!token) return 'No token'
+    
+    try {
+      const auth = new Auth()
+      const authData = auth.token2data(token)
+      const tokenTime = parseFloat(authData.time)
+      const expiryTime = tokenTime + 3600 // 1 hour from token creation
+      const now = Date.now() / 1000
+      const timeLeft = expiryTime - now
+      
+      if (timeLeft <= 0) return 'Expired'
+      
+      const minutes = Math.floor(timeLeft / 60)
+      const seconds = Math.floor(timeLeft % 60)
+      return `${minutes}m ${seconds}s`
+    } catch (error) {
+      return 'Invalid token'
+    }
+  }
 
   const handleRefreshToken = async () => {
     setIsRefreshing(true)
@@ -27,6 +51,7 @@ export default function WalletInfoTabs() {
       const auth = new Auth()
       const newToken = await auth.token('', wallet_address, wallet_mode)
       localStorage.setItem('wallet_token', newToken)
+      setTokenExpiry(getTokenExpiry())
       console.log('Token refreshed successfully:', newToken)
     } catch (error) {
       console.error('Failed to refresh token:', error)
@@ -34,6 +59,14 @@ export default function WalletInfoTabs() {
       setIsRefreshing(false)
     }
   }
+
+  // Update expiry display every second
+  useState(() => {
+    const interval = setInterval(() => {
+      setTokenExpiry(getTokenExpiry())
+    }, 1000)
+    return () => clearInterval(interval)
+  })
 
   return (
     <div className="space-y-4">
@@ -68,6 +101,35 @@ export default function WalletInfoTabs() {
 
       {activeTab === 'details' ? (
         <div className="space-y-3">
+          {/* AUTH TOKEN AT TOP */}
+          <div className="p-3 rounded-lg border-2 transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}60` }}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">Auth Token</div>
+                <div className="flex items-center gap-1 text-xs" style={{ color: userColor }}>
+                  <ClockIcon className="w-4 h-4" />
+                  <span className="font-mono font-bold">{tokenExpiry || getTokenExpiry()}</span>
+                </div>
+              </div>
+              <button
+                onClick={handleRefreshToken}
+                disabled={isRefreshing}
+                className="flex items-center gap-1 px-2 py-1 rounded border transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                style={{ borderColor: userColor, color: userColor }}
+                title="Refresh Token"
+              >
+                <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="text-xs font-bold">REFRESH</span>
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="font-mono text-xs break-all text-gray-500">
+                {localStorage.getItem('wallet_token')?.substring(0, 40)}...
+              </code>
+              <CopyButton text={localStorage.getItem('wallet_token') || ''} size="sm" />
+            </div>
+          </div>
+
           <div className="p-3 rounded-lg border-2 transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}60` }}>
             <div className="text-sm text-gray-400 mb-1 font-bold uppercase tracking-wider">Address</div>
             <div className="flex items-center gap-2">
@@ -114,28 +176,6 @@ export default function WalletInfoTabs() {
           <div className="p-3 rounded-lg border-2 transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}60` }}>
             <div className="text-sm text-gray-400 mb-1 font-bold uppercase tracking-wider">Key Type</div>
             <div className="font-mono text-sm font-bold" style={{ color: userColor }}>{user.crypto_type || 'ecdsa'}</div>
-          </div>
-
-          <div className="p-3 rounded-lg border-2 transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}60` }}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">Auth Token</div>
-              <button
-                onClick={handleRefreshToken}
-                disabled={isRefreshing}
-                className="flex items-center gap-1 px-2 py-1 rounded border transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-                style={{ borderColor: userColor, color: userColor }}
-                title="Refresh Token"
-              >
-                <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="text-xs font-bold">REFRESH</span>
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="font-mono text-xs break-all text-gray-500">
-                {localStorage.getItem('wallet_token')?.substring(0, 40)}...
-              </code>
-              <CopyButton text={localStorage.getItem('wallet_token') || ''} size="sm" />
-            </div>
           </div>
         </div>
       ) : (
