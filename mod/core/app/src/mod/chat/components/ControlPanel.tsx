@@ -76,20 +76,18 @@ export function ControlPanel({
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      <div className="border-t-2 border-white/10 bg-black/40 backdrop-blur-sm flex flex-col">
-        <div className="px-3 pt-3 pb-3">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1">
-              <ModuleFunctionSelector
-                selectedModule={selectedModule}
-                setSelectedModule={setSelectedModule}
-                selectedFunction={selectedFunction}
-                setSelectedFunction={setSelectedFunction}
-                modules={modules}
-                functions={functions}
-                onEnterPress={handleModFnEnterPress}
-              />
-            </div>
+      <div className="border-t-2 border-white/10 bg-black/40 backdrop-blur-sm flex flex-col" style={{ minHeight: '400px' }}>
+        <div className="px-6 pt-6 pb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <ModuleFunctionSelector
+              selectedModule={selectedModule}
+              setSelectedModule={setSelectedModule}
+              selectedFunction={selectedFunction}
+              setSelectedFunction={setSelectedFunction}
+              modules={modules}
+              functions={functions}
+              onEnterPress={handleModFnEnterPress}
+            />
           </div>
           
           {/* Unified Input Panel with Mode Toggle */}

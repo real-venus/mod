@@ -36,7 +36,7 @@ npm run dev
 - **Local** - Browser-based key management with signing/verification
 
 ### 💬 Interactive Chat Interface
-- **Module Selector** - Browse and select from available modules
+- **Module Selector** - Browse and select from available modules with autocomplete
 - **Schema Editor** - Configure parameters with JSON schema validation
 - **Transaction Panel** - Real-time transaction tracking with cost display
 - **Resizable Layout** - Drag-and-drop split screen for optimal workflow
@@ -51,7 +51,7 @@ npm run dev
 - **Terminal Aesthetic** - Hacker-style green-on-black theme
 - **Responsive Design** - Mobile-first with Tailwind CSS
 - **Smooth Animations** - Framer Motion transitions
-- **MDX Support** - Rich content with embedded components
+- **Smart Autocomplete** - Intelligent module/function suggestions
 
 ## 📁 Project Structure
 
@@ -86,6 +86,13 @@ result = api.call(
     cost=0.01
 )
 ```
+
+### Use Smart Module Selector
+1. Type module name (e.g., "image")
+2. See filtered suggestions in real-time
+3. Select module, then type "/" for functions
+4. Pick function from autocomplete dropdown
+5. Hit Enter to execute
 
 ### Sign & Verify Messages
 1. Enter message in Sign panel
