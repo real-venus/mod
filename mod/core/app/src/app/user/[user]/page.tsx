@@ -13,13 +13,13 @@ import ContractsInterface from '@/mod/user/contracts/Contracts'
 import { Admin } from '@/mod/user/admin/Admin'
 import { Portfolio } from '@/mod/user/portfolio/Portfolio'
 import { Billing } from '@/mod/user/billing'
-import RegUpdate from '@/mod/user/regupdate'
+import Create from '@/mod/user/create'
 import { TabManager } from '@/mod/user/TabManager'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
 import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 
-type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'regupdate'
+type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create'
 
 const DEFAULT_TABS: { id: TabType; label: string; color: string }[] = [
   { id: 'transfer', label: 'transfer', color: 'blue' },
@@ -188,7 +188,7 @@ export default function UserPage() {
             {activeTab === 'portfolio' &&  user && <Portfolio />}
             {activeTab === 'transfer' &&  user && <Transfer />}
             {activeTab === 'claim' &&  user && <ClaimMod />}
-            {activeTab === 'regupdate' &&  user && <RegUpdate />}
+            {activeTab === 'create' &&  user && <Create />}
             {activeTab === 'admin' && user && <Admin userData={userData} />}
             {activeTab === 'contracts' &&  user && <ContractsInterface />}
             {activeTab === 'billing' &&  user && <Billing />}

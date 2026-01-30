@@ -50,7 +50,6 @@ class Dev:
         for k,v in kwargs.items():
             if is_b_param(k):
                 print(f'Adding to memory: {v}')
-
                 self.memory.add(v, m.code(v))
         self.memory.add('path', path)
         self.memory.add('steps', steps)

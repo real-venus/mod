@@ -2,9 +2,6 @@
 
 import { ModuleFunctionSelector } from './ModuleFunctionSelector'
 import { UnifiedInputPanel } from './UnifiedInputPanel'
-import { TransactionsPanel } from './transactions/TransactionsPanel'
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
-import { useState } from 'react'
 
 interface ControlPanelProps {
   selectedModule: string

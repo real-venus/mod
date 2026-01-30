@@ -1,12 +1,10 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { useChatState } from './hooks/useChatState'
 import { useConfigState } from './hooks/useConfigState'
 import { useChatEffects } from './hooks/useChatEffects'
 import { Message } from './types'
-import { ChatMessages } from './components/ChatMessages'
 import { TransactionsPanel } from './transactions/TransactionsPanel'
 import { ControlPanel } from './components/ControlPanel'
 
