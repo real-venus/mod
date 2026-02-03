@@ -66,14 +66,14 @@ export default function ModCard({ mod }: ModCardProps) {
                   <code className="text-lg font-bold font-mono tracking-wide" style={{ color: modColor }}>
                     {mod.name}
                   </code>
-                  <CopyButton text={mod.name} size="sm" showValueOnHover={false} />
+                  <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
                 </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-900/30 to-cyan-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
                   <Clock size={16} style={{ color: '#3b82f6' }} />
-                  <CopyButton text={updatedTimeStr} size="sm" showValueOnHover={false} />
+                  <CopyButton text={updatedTimeStr} size="sm" showValueOnHover={true} />
                 </div>
 
                 <div 
@@ -103,20 +103,6 @@ export default function ModCard({ mod }: ModCardProps) {
                       </div>
                     )}
                   </div>
-                  
-                  {isCidHovered && mod.cid && !isCidQrHovered && !isCidCopyHovered && (
-                    <div 
-                      className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
-                      style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                        borderColor: cidColor,
-                        color: cidColor,
-                        boxShadow: `0 0 20px ${cidColor}40`
-                      }}
-                    >
-                      {mod.cid}
-                    </div>
-                  )}
                 </div>
 
                 <div 
@@ -146,20 +132,6 @@ export default function ModCard({ mod }: ModCardProps) {
                       </div>
                     )}
                   </div>
-                  
-                  {isKeyHovered && !isKeyQrHovered && !isKeyCopyHovered && (
-                    <div 
-                      className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
-                      style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                        borderColor: keyColor,
-                        color: keyColor,
-                        boxShadow: `0 0 20px ${keyColor}40`
-                      }}
-                    >
-                      {mod.key}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

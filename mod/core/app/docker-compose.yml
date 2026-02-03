@@ -10,7 +10,7 @@ services:
     deploy: {}
     entrypoint: bash -c "npm run dev"
     environment:
-    - NEXT_PUBLIC_API_URL=https://api.modc2.com
+    - NEXT_PUBLIC_API_URL=http://0.0.0.0:8000
     image: app:latest
     ports:
     - 3000:3000

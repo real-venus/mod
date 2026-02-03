@@ -189,7 +189,7 @@ class Server:
                 params: Optional[dict]=None,
                 fns : Optional[List[str]]=None,
                 port:int=8000, 
-                run_mode:str='hypercorn'):  # Changed default to uvicorn for stability
+                run_mode:str='uvicorn'):  # Changed default to uvicorn for stability
         """
         run the api server
         """

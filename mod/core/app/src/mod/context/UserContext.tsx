@@ -20,8 +20,7 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<{ key: string; crypto_type: string; balance?: number; mods?: any[] } | null>(null)
-  const [password, setPassword] = useState('')
+  const [user, setUser] = useState<UserType | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [client, setClient] = useState<Client | null>(null)
   const [network, setNetwork] = useState<Network| null>(null)
@@ -101,7 +100,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = () => {
     setUser(null)
-    setPassword('')
     setClient(null)
     localStorage.removeItem('wallet_mode')
     localStorage.removeItem('wallet_password')

@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic';
 
 const ModulePage = dynamic(
-  () => import('@/mod/mod/ModExplorePage'),
+  () => import('@/mod/mod/explore/ModExplorePage'),
   { 
     ssr: false,
     loading: () => (

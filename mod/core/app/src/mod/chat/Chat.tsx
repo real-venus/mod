@@ -4,55 +4,58 @@ import { useRef, useEffect, useState } from 'react'
 import { useChatState } from './hooks/useChatState'
 import { useConfigState } from './hooks/useConfigState'
 import { useChatEffects } from './hooks/useChatEffects'
-import { Message } from './types'
 import { TransactionsPanel } from './transactions/TransactionsPanel'
 import { ControlPanel } from './components/ControlPanel'
 
 export default function Chat() {
   const chatState = useChatState()
   const configState = useConfigState()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
-  const [splitOrientation, setSplitOrientation] = useState<'horizontal' | 'vertical'>('vertical')
   const transactionsPanelRef = useRef<{ handleSync: () => void } | null>(null)
+  const [splitOrientation, setSplitOrientation] = useState<'vertical' | 'horizontal'>('vertical')
+  const [dividerPosition, setDividerPosition] = useState(50)
   const [isDragging, setIsDragging] = useState(false)
-  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 })
-  const [splitPosition, setSplitPosition] = useState(60)
-  const [isNarrowScreen, setIsNarrowScreen] = useState(false)
   const [isTransactionsCollapsed, setIsTransactionsCollapsed] = useState(false)
-  const [isControlPanelHovered, setIsControlPanelHovered] = useState(false)
-  const [isChatHeaderHovered, setIsChatHeaderHovered] = useState(false)
+  const [swapPanels, setSwapPanels] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useChatEffects(chatState)
 
   useEffect(() => {
-    const checkScreenWidth = () => {
-      setIsNarrowScreen(window.innerWidth < 768)
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !containerRef.current) return
+      
+      const container = containerRef.current.getBoundingClientRect()
+      
+      if (splitOrientation === 'vertical') {
+        const newPosition = ((e.clientX - container.left) / container.width) * 100
+        setDividerPosition(Math.min(Math.max(newPosition, 10), 90))
+      } else {
+        const newPosition = ((e.clientY - container.top) / container.height) * 100
+        setDividerPosition(Math.min(Math.max(newPosition, 10), 90))
+      }
     }
-    checkScreenWidth()
-    window.addEventListener('resize', checkScreenWidth)
-    return () => window.removeEventListener('resize', checkScreenWidth)
-  }, [])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [chatState.messages, chatState.streamingContent])
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging, splitOrientation])
 
   const handleCancel = () => {
     if (abortController) {
       abortController.abort()
       setAbortController(null)
       chatState.setIsLoading(false)
-      const cancelMessage: Message = {
-        role: 'assistant',
-        content: 'Transaction cancelled by user',
-        timestamp: Date.now(),
-      }
-      chatState.setMessages(prev => [...prev, cancelMessage])
     }
   }
 
@@ -80,17 +83,7 @@ export default function Chat() {
     e.preventDefault()
     if (chatState.isLoading || !chatState.selectedModule || !chatState.selectedFunction) return
 
-    chatState.setMessages(prev => [...prev, {
-      role: 'user',
-      content: chatState.input.trim() || 'Using default parameters',
-      timestamp: Date.now(),
-      module: chatState.selectedModule,
-      function: chatState.selectedFunction,
-      params: chatState.params
-    }])
-    chatState.setInput('')
     chatState.setIsLoading(true)
-
     const controller = new AbortController()
     setAbortController(controller)
 
@@ -101,34 +94,21 @@ export default function Chat() {
         callParams[chatState.selectedInputParam] = chatState.input.trim()
       }
 
-      const result = await chatState.client.call('call', {
+      await chatState.client.call('call', {
         fn: `${chatState.selectedModule}/${chatState.selectedFunction}`,
         params: callParams,
         wait: chatState.wait
       }, 0, {}, chatState.timeout * 1000)
 
-      if (!controller.signal.aborted) {
-        chatState.setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
-          timestamp: Date.now()
-        }])
-      }
-      
       if (transactionsPanelRef.current) {
         transactionsPanelRef.current.handleSync()
       }
     } catch (error) {
-      if (!controller.signal.aborted) {
-        chatState.setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`,
-          timestamp: Date.now()
-        }])
-      }
+      console.error('Error:', error)
     } finally {
       setAbortController(null)
       chatState.setIsLoading(false)
+      chatState.setInput('')
     }
   }
 
@@ -136,131 +116,145 @@ export default function Chat() {
     ? Object.keys(chatState.schema[chatState.selectedFunction].input).filter(k => k !== 'self' && k !== 'cls')
     : []
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true)
-    setDragStartPos({ x: e.clientX, y: e.clientY })
-  }
+  const leftPanel = swapPanels ? (
+    <ControlPanel
+      selectedModule={chatState.selectedModule}
+      setSelectedModule={chatState.setSelectedModule}
+      selectedFunction={chatState.selectedFunction}
+      setSelectedFunction={chatState.setSelectedFunction}
+      modules={chatState.modules}
+      functions={chatState.functions}
+      schema={chatState.schema}
+      params={chatState.params}
+      handleParamChange={handleParamChange}
+      handleResetParams={handleResetParams}
+      handleRefresh={handleRefresh}
+      configOrientation={configState.configOrientation}
+      setConfigOrientation={configState.setConfigOrientation}
+      messages={chatState.messages}
+      messagesEndRef={useRef<HTMLDivElement>(null)}
+      input={chatState.input}
+      setInput={chatState.setInput}
+      selectedInputParam={chatState.selectedInputParam}
+      setSelectedInputParam={chatState.setSelectedInputParam}
+      wait={chatState.wait}
+      setWait={chatState.setWait}
+      isLoading={chatState.isLoading}
+      inputParamOptions={inputParamOptions}
+      handleSubmit={handleSubmit}
+      onCancel={handleCancel}
+      isCollapsed={configState.isConfigCollapsed}
+      setIsCollapsed={configState.setIsConfigCollapsed}
+      transactionsPanelRef={transactionsPanelRef}
+    />
+  ) : (
+    <TransactionsPanel ref={transactionsPanelRef} />
+  )
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return
-    
-    const container = document.getElementById('split-container')
-    if (!container) return
-    
-    const rect = container.getBoundingClientRect()
-    
-    if (splitOrientation === 'vertical') {
-      const newPos = ((e.clientX - rect.left) / rect.width) * 100
-      setSplitPosition(Math.max(20, Math.min(80, newPos)))
-    } else {
-      const newPos = ((e.clientY - rect.top) / rect.height) * 100
-      setSplitPosition(Math.max(20, Math.min(80, newPos)))
-    }
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
-      }
-    }
-  }, [isDragging, splitOrientation])
+  const rightPanel = swapPanels ? (
+    <TransactionsPanel ref={transactionsPanelRef} />
+  ) : (
+    <ControlPanel
+      selectedModule={chatState.selectedModule}
+      setSelectedModule={chatState.setSelectedModule}
+      selectedFunction={chatState.selectedFunction}
+      setSelectedFunction={chatState.setSelectedFunction}
+      modules={chatState.modules}
+      functions={chatState.functions}
+      schema={chatState.schema}
+      params={chatState.params}
+      handleParamChange={handleParamChange}
+      handleResetParams={handleResetParams}
+      handleRefresh={handleRefresh}
+      configOrientation={configState.configOrientation}
+      setConfigOrientation={configState.setConfigOrientation}
+      messages={chatState.messages}
+      messagesEndRef={useRef<HTMLDivElement>(null)}
+      input={chatState.input}
+      setInput={chatState.setInput}
+      selectedInputParam={chatState.selectedInputParam}
+      setSelectedInputParam={chatState.setSelectedInputParam}
+      wait={chatState.wait}
+      setWait={chatState.setWait}
+      isLoading={chatState.isLoading}
+      inputParamOptions={inputParamOptions}
+      handleSubmit={handleSubmit}
+      onCancel={handleCancel}
+      isCollapsed={configState.isConfigCollapsed}
+      setIsCollapsed={configState.setIsConfigCollapsed}
+      transactionsPanelRef={transactionsPanelRef}
+    />
+  )
 
   return (
     <div className="flex h-full bg-gradient-to-br from-gray-950 via-black to-gray-900" style={{ fontFamily: "IBM Plex Mono, Courier New, monospace" }}>
-      
-      <button
-        onClick={() => setSplitOrientation(prev => prev === 'vertical' ? 'horizontal' : 'vertical')}
-        className="fixed bottom-4 left-4 z-50 px-3 py-2 bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30 rounded-md transition-all font-bold text-xs"
-        style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
-        title={`Switch to ${splitOrientation === 'vertical' ? 'Horizontal' : 'Vertical'} Split`}
-      >
-        {splitOrientation === 'vertical' ? '⚏ horiz' : '⚌ vert'}
-      </button>
-
-      <div id="split-container" className={`flex ${isNarrowScreen ? 'flex-col' : (splitOrientation === 'vertical' ? 'flex-row' : 'flex-col')} w-full h-full gap-0 p-2 relative`}>
-        <div 
-          className={`flex flex-col overflow-hidden rounded-lg ${isNarrowScreen ? 'absolute inset-0 z-20 bg-black/95' : 'bg-black/95'}`}
-          style={{
-            [isNarrowScreen ? 'width' : (splitOrientation === 'vertical' ? 'width' : 'height')]: isNarrowScreen ? '100%' : `${splitPosition}%`
-          }}
-          onMouseEnter={() => setIsChatHeaderHovered(true)}
-          onMouseLeave={() => setIsChatHeaderHovered(false)}
+      <div className="fixed bottom-4 left-4 z-50 flex gap-2">
+        <button
+          onClick={() => setSplitOrientation('vertical')}
+          className={`px-4 py-2 ${splitOrientation === 'vertical' ? 'bg-blue-500/40 border-blue-400' : 'bg-blue-500/20 border-blue-500/40'} text-blue-400 border-2 hover:bg-blue-500/30 rounded-lg transition-all font-bold`}
+          style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+          title="Vertical Split"
         >
-          <ControlPanel
-            selectedModule={chatState.selectedModule}
-            setSelectedModule={chatState.setSelectedModule}
-            selectedFunction={chatState.selectedFunction}
-            setSelectedFunction={chatState.setSelectedFunction}
-            modules={chatState.modules}
-            functions={chatState.functions}
-            schema={chatState.schema}
-            params={chatState.params}
-            handleParamChange={handleParamChange}
-            handleResetParams={handleResetParams}
-            handleRefresh={handleRefresh}
-            configOrientation={configState.configOrientation}
-            setConfigOrientation={configState.setConfigOrientation}
-            messages={chatState.messages}
-            messagesEndRef={messagesEndRef}
-            input={chatState.input}
-            setInput={chatState.setInput}
-            selectedInputParam={chatState.selectedInputParam}
-            setSelectedInputParam={chatState.setSelectedInputParam}
-            wait={chatState.wait}
-            setWait={chatState.setWait}
-            isLoading={chatState.isLoading}
-            inputParamOptions={inputParamOptions}
-            handleSubmit={handleSubmit}
-            onCancel={handleCancel}
-            isCollapsed={isChatHeaderHovered ? false : configState.isConfigCollapsed}
-            setIsCollapsed={configState.setIsConfigCollapsed}
-            transactionsPanelRef={transactionsPanelRef}
-          />
+          ⚌ vertical
+        </button>
+        <button
+          onClick={() => setSplitOrientation('horizontal')}
+          className={`px-4 py-2 ${splitOrientation === 'horizontal' ? 'bg-blue-500/40 border-blue-400' : 'bg-blue-500/20 border-blue-500/40'} text-blue-400 border-2 hover:bg-blue-500/30 rounded-lg transition-all font-bold`}
+          style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+          title="Horizontal Split"
+        >
+          ⚏ horizontal
+        </button>
+        <button
+          onClick={() => setSwapPanels(!swapPanels)}
+          className="px-4 py-2 bg-purple-500/20 border-2 border-purple-500/40 text-purple-400 hover:bg-purple-500/30 rounded-lg transition-all font-bold"
+          style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+          title="Swap Panels"
+        >
+          ⇄ swap
+        </button>
+        <button
+          onClick={() => setIsTransactionsCollapsed(!isTransactionsCollapsed)}
+          className="px-4 py-2 bg-cyan-500/20 border-2 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/30 rounded-lg transition-all font-bold"
+          style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
+          title={isTransactionsCollapsed ? 'Expand Transactions' : 'Collapse Transactions'}
+        >
+          {isTransactionsCollapsed ? '◉ expand' : '● collapse'}
+        </button>
+      </div>
+
+      <div 
+        ref={containerRef}
+        className={`flex ${splitOrientation === 'vertical' ? 'flex-row' : 'flex-col'} w-full h-full gap-0 p-2 relative`}
+      >
+        <div 
+          className="overflow-hidden border-2 border-cyan-400/30 rounded-lg bg-black/40 transition-all duration-300"
+          style={{
+            [splitOrientation === 'vertical' ? 'width' : 'height']: isTransactionsCollapsed ? '0px' : `${dividerPosition}%`,
+            display: isTransactionsCollapsed ? 'none' : 'block'
+          }}
+        >
+          {leftPanel}
         </div>
 
-        {!isNarrowScreen && (
+        {!isTransactionsCollapsed && (
           <div
-            className={`${splitOrientation === 'vertical' ? 'w-1 cursor-col-resize hover:w-2' : 'h-1 cursor-row-resize hover:h-2'} bg-gradient-to-r from-orange-500/30 via-orange-400/50 to-orange-500/30 hover:from-orange-500/60 hover:via-orange-400/80 hover:to-orange-500/60 transition-all duration-150 ${isDragging ? 'bg-orange-400/80' : ''} z-10`}
-            onMouseDown={handleMouseDown}
+            className={`bg-orange-500/40 hover:bg-orange-500/60 cursor-${splitOrientation === 'vertical' ? 'col' : 'row'}-resize transition-colors z-10 ${isDragging ? 'bg-orange-500/80' : ''}`}
+            style={{
+              [splitOrientation === 'vertical' ? 'width' : 'height']: '4px',
+              [splitOrientation === 'vertical' ? 'height' : 'width']: '100%'
+            }}
+            onMouseDown={() => setIsDragging(true)}
           />
         )}
 
         <div 
-          className="flex flex-col overflow-hidden"
+          className="overflow-hidden flex flex-col border-2 border-orange-500/30 rounded-lg transition-all duration-300"
           style={{
-            [isNarrowScreen ? 'height' : (splitOrientation === 'vertical' ? 'width' : 'height')]: isNarrowScreen ? '100%' : `${100 - splitPosition}%`
+            [splitOrientation === 'vertical' ? 'width' : 'height']: isTransactionsCollapsed ? '100%' : `${100 - dividerPosition}%`
           }}
         >
-          {!isTransactionsCollapsed ? (
-            <div className="h-full overflow-y-auto p-3 relative">
-              <button
-                onClick={() => setIsTransactionsCollapsed(true)}
-                className="absolute top-2 right-2 z-10 p-2 bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 rounded-md transition-all font-bold text-xs"
-                style={{ fontFamily: 'IBM Plex Mono, monospace' }}
-                title="Collapse Transactions"
-              >
-                ✕
-              </button>
-              <TransactionsPanel ref={transactionsPanelRef} />
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsTransactionsCollapsed(false)}
-              className="fixed top-4 right-4 z-50 w-12 h-12 bg-cyan-500/20 text-cyan-400 border-2 border-cyan-500/40 hover:bg-cyan-500/30 rounded-lg transition-all font-bold text-xl flex items-center justify-center shadow-lg"
-              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
-              title="Expand Transactions"
-            >
-              📊
-            </button>
-          )}
+          {rightPanel}
         </div>
       </div>
     </div>

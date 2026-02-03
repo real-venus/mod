@@ -37,6 +37,7 @@ class Gate:
         """
         mod = mod or self.mod
         assert not isinstance(fn, str) or fn != '', "Function name cannot be empty"
+        print(f'Gate forwarding request to function: {fn}', color='green')
         info = mod.info()
         headers = dict(request.headers)
         headers = self.auth.verify(headers)
@@ -67,7 +68,7 @@ class Gate:
         """
         role2data = self.role2data()
         for role, data in role2data.items():
-            if 'users' in data and user in data['users']:
+            if 'users' in data and user.lower() in data['users']:
                 return role
         return None
 
@@ -144,14 +145,15 @@ class Gate:
         """
         return self.store.get('user_max' , default)
 
-    def add_user(self, user:str, role='public', update:bool = False, ):
+    def add_user(self, user:str, role='public', update:bool = False ):
         """
         gate if the address is usersed
         """
         role_data = self.role_data(role)
-        role_data['users'] = list(set(role_data.get('users', []) + [user]))
+        role_data['users'] = list(map(lambda x:x.lower(), set(role_data.get('users', []) + [user])))
         self.save_role_data(role, role_data)
-        assert self.is_user(user, role) , f"User {user} already exists in role {role}"
+        if self.is_user(user, role): 
+            return {'status': 'success', 'message': f'User {user} added to role {role}'}
         return self.role_data(role)
 
     def owner_key(self) -> str:
@@ -222,7 +224,9 @@ class Gate:
         get the role to data mapping
         """
         role = self.resolve_role(role)
-        return self.store.get(self.role_data_path(role), {})
+        role_data  =  self.store.get(self.role_data_path(role), {})
+        role_data['users'] = list(map(lambda x:x.lower(), role_data.get('users', [])))
+        return role_data
     
     def roles(self) -> List[str]:
         """

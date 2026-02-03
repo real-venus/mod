@@ -84,7 +84,7 @@ export default function UserPage() {
       setLoading(true)
       setError(null)
       try {
-        const data = await client.call('user', { address: userKey })
+        const data = await client.call('user', { key: userKey ,  expand: true })
         setUserData(data as UserType)
         
         if (user?.key && typeof window !== 'undefined' && window.ethereum) {

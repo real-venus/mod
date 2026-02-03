@@ -127,7 +127,6 @@ export class Network
       await this.connect()
       if (!this.api) throw new Error('API not connected')
       const cleanId = BigInt(Math.floor(id)).toString();
-      console.log('Updating module with ID:', cleanId);
       const tx = this.api.tx.modules.updateModule(cleanId, name, data, url, take)
       const result = await this.submitTx(tx, walletAddress)
       await this.disconnect()

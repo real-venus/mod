@@ -26,7 +26,7 @@ export interface ModulesState {
   }
   
 export interface UserType {
-  key: string
+  key?: string
   crypto_type: string
   balance?: number
   mods?: any[]

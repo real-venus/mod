@@ -48,16 +48,21 @@ function SortableSidebarItem({ item, pathname, hoveredSection, setHoveredSection
       return (
         <div className="relative" onMouseEnter={() => setHoveredSection('Split Screen')} onMouseLeave={() => setHoveredSection(null)}>
           {!isSplitScreen ? (
-            <button onClick={() => setShowOrientationMenu(!showOrientationMenu)} className="flex items-center gap-3 rounded-xl p-3 border-2 border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/10 transition-all backdrop-blur-sm w-full" style={{ boxShadow: '0 0 15px rgba(168, 85, 247, 0.2)' }}>
+            <button onClick={() => setShowOrientationMenu(!showOrientationMenu)} className="flex items-center justify-center rounded-xl p-3 border-2 border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/10 transition-all backdrop-blur-sm w-full" style={{ boxShadow: '0 0 15px rgba(168, 85, 247, 0.2)' }}>
               <Squares2X2Icon className="w-6 h-6" style={{ color: '#a855f7' }} />
-              {isExpanded && <span className="text-sm font-medium text-white">Split Screen</span>}
             </button>
           ) : (
-            <button onClick={toggleSplitScreen} className="flex items-center gap-3 rounded-xl p-3 border-2 border-red-500/30 hover:border-red-500/50 bg-red-500/20 transition-all w-full">
+            <button onClick={toggleSplitScreen} className="flex items-center justify-center rounded-xl p-3 border-2 border-red-500/30 hover:border-red-500/50 bg-red-500/20 transition-all w-full">
               <Squares2X2Icon className="w-6 h-6" style={{ color: '#f87171' }} />
-              {isExpanded && <span className="text-sm font-medium text-white">Close Split</span>}
             </button>
           )}
+          <AnimatePresence>
+            {hoveredSection === 'Split Screen' && isExpanded && (
+              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="absolute left-full ml-2 top-0 pointer-events-none z-50">
+                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-purple-500/30 whitespace-nowrap text-sm font-medium">Split Screen</div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           {showOrientationMenu && (
             <div className="absolute left-full ml-2 top-0 bg-gray-900 border border-purple-500/30 rounded-lg shadow-xl overflow-hidden z-50">
               <button onClick={() => { setOrientation('vertical'); toggleSplitScreen(); setShowOrientationMenu(false) }} className="w-full px-4 py-3 text-left text-white hover:bg-purple-500/20 transition-colors flex items-center gap-3 border-b border-gray-800"><Squares2X2Icon className="w-5 h-5" /><span className="text-sm font-medium">Vertical Split</span></button>
@@ -68,31 +73,21 @@ function SortableSidebarItem({ item, pathname, hoveredSection, setHoveredSection
       )
     }
     
-    if (item.component === 'AddTab') {
-      return (
-        <div className="relative" onMouseEnter={() => setHoveredSection('Add Tab')} onMouseLeave={() => setHoveredSection(null)}>
-          <button onClick={() => setShowTabMenu(!showTabMenu)} className="flex items-center gap-3 rounded-xl p-3 border-2 border-cyan-500/30 hover:border-cyan-500/50 hover:bg-cyan-500/10 transition-all backdrop-blur-sm w-full" style={{ boxShadow: '0 0 15px rgba(6, 182, 212, 0.2)' }}>
-            <PlusIcon className="w-6 h-6" style={{ color: '#06b6d4' }} />
-            {isExpanded && <span className="text-sm font-medium text-white">Add Tab</span>}
-          </button>
-          {showTabMenu && (
-            <div className="absolute left-full ml-2 top-0 bg-gray-900 border border-cyan-500/30 rounded-lg shadow-xl overflow-hidden z-50 min-w-[200px]">
-              <div className="p-2 text-white text-sm font-medium border-b border-gray-800">Create New</div>
-              <button onClick={() => { router.push('/user/reg'); setShowTabMenu(false) }} className="w-full px-4 py-3 text-left text-white hover:bg-cyan-500/20 transition-colors flex items-center gap-3 border-b border-gray-800"><CubeIcon className="w-5 h-5" /><span className="text-sm font-medium">Register Module</span></button>
-              <button onClick={() => { router.push('/user/reg'); setShowTabMenu(false) }} className="w-full px-4 py-3 text-left text-white hover:bg-cyan-500/20 transition-colors flex items-center gap-3"><PlusIcon className="w-5 h-5" /><span className="text-sm font-medium">Create Custom Tab</span></button>
-            </div>
-          )}
-        </div>
-      )
-    }
-    
     if (item.href && item.icon) {
       const isActive = pathname === item.href
       return (
-        <Link href={item.href} className={`flex items-center gap-3 rounded-xl p-3 transition-all backdrop-blur-sm w-full ${isActive ? 'bg-opacity-20 border-2 shadow-lg' : 'border-2 border-white/20 hover:border-white/40 hover:bg-white/10'}`} style={{ backgroundColor: isActive ? `${item.color}33` : undefined, borderColor: isActive ? `${item.color}4D` : undefined, boxShadow: isActive ? `0 0 20px ${item.color}33` : '0 0 10px rgba(255,255,255,0.05)' }}>
-          <item.icon className="w-6 h-6" style={{ color: isActive ? item.color : '#9ca3af' }} />
-          {isExpanded && <span className="text-sm font-medium" style={{ color: isActive ? item.color : '#9ca3af' }}>{item.name}</span>}
-        </Link>
+        <div className="relative" onMouseEnter={() => setHoveredSection(item.name)} onMouseLeave={() => setHoveredSection(null)}>
+          <Link href={item.href} className={`flex items-center justify-center rounded-xl p-3 transition-all backdrop-blur-sm w-full ${isActive ? 'bg-opacity-20 border-2 shadow-lg' : 'border-2 border-white/20 hover:border-white/40 hover:bg-white/10'}`} style={{ backgroundColor: isActive ? `${item.color}33` : undefined, borderColor: isActive ? `${item.color}4D` : undefined, boxShadow: isActive ? `0 0 20px ${item.color}33` : '0 0 10px rgba(255,255,255,0.05)' }}>
+            <item.icon className="w-6 h-6" style={{ color: isActive ? item.color : '#9ca3af' }} />
+          </Link>
+          <AnimatePresence>
+            {hoveredSection === item.name && isExpanded && (
+              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="absolute left-full ml-2 top-1/2 -translate-y-1/2 pointer-events-none z-50">
+                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border whitespace-nowrap text-sm font-medium" style={{ borderColor: `${item.color}4D` }}>{item.name}</div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )
     }
     return null
@@ -114,7 +109,7 @@ export function Sidebar() {
   const [showTabMenu, setShowTabMenu] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [items, setItems] = useState(defaultNavigation)
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),

@@ -2,6 +2,9 @@
 
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { text2color } from '@/mod/utils'
+import { QRCode } from '@/mod/ui/QRCode'
+import { useRouter } from 'next/navigation'
+import { QrCodeIcon } from '@heroicons/react/24/outline'
 
 interface ModuleFunctionSelectorProps {
   selectedModule: string
@@ -26,7 +29,9 @@ export function ModuleFunctionSelector({
   const [showModuleSuggestions, setShowModuleSuggestions] = useState(false)
   const [showFunctionSuggestions, setShowFunctionSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [showQR, setShowQR] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   const functionColor = useMemo(() => {
     return selectedFunction ? text2color(selectedFunction) : '#8b5cf6'
@@ -36,23 +41,31 @@ export function ModuleFunctionSelector({
     return selectedModule ? text2color(selectedModule) : '#06b6d4'
   }, [selectedModule])
 
-  // Improved fuzzy matching algorithm
+  const selectedModuleInfo = useMemo(() => {
+    return modules.find(m => m.name === selectedModule)
+  }, [selectedModule, modules])
+
+  const modulePageUrl = useMemo(() => {
+    if (!selectedModuleInfo) return ''
+    return typeof window !== 'undefined' 
+      ? `${window.location.origin}/mod/${selectedModuleInfo.name}/${selectedModuleInfo.key}`
+      : ''
+  }, [selectedModuleInfo])
+
+  const handleQRClick = () => {
+    if (modulePageUrl) {
+      router.push(modulePageUrl)
+    }
+  }
+
   const calculateDistance = (str1: string, str2: string): number => {
     const s1 = str1.toLowerCase()
     const s2 = str2.toLowerCase()
-    
-    // Exact match
     if (s1 === s2) return 0
-    
-    // Starts with query (high priority)
     if (s1.startsWith(s2)) return 0.05
     if (s2.startsWith(s1)) return 0.1
-    
-    // Contains query
     if (s1.includes(s2)) return 0.2
     if (s2.includes(s1)) return 0.3
-    
-    // Levenshtein distance for fuzzy matching
     const matrix: number[][] = []
     for (let i = 0; i <= s2.length; i++) {
       matrix[i] = [i]
@@ -79,10 +92,7 @@ export function ModuleFunctionSelector({
   const filteredModules = useMemo(() => {
     if (!inputValue || inputValue.includes('/')) return []
     return modules
-      .map(m => ({
-        ...m,
-        distance: calculateDistance(m.name, inputValue)
-      }))
+      .map(m => ({ ...m, distance: calculateDistance(m.name, inputValue) }))
       .filter(m => m.distance < 0.8)
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 8)
@@ -92,16 +102,12 @@ export function ModuleFunctionSelector({
     if (!inputValue.includes('/')) return []
     const fnPart = inputValue.split('/')[1] || ''
     return functions
-      .map(f => ({
-        name: f,
-        distance: calculateDistance(f, fnPart)
-      }))
+      .map(f => ({ name: f, distance: calculateDistance(f, fnPart) }))
       .filter(f => f.distance < 0.8)
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 8)
   }, [inputValue, functions])
 
-  // Reset selected index when suggestions change
   useEffect(() => {
     setSelectedIndex(0)
   }, [filteredModules, filteredFunctions])
@@ -109,28 +115,22 @@ export function ModuleFunctionSelector({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setInputValue(value)
-
     if (value.includes('/')) {
       const [mod, fn] = value.split('/')
       const trimmedMod = mod.trim()
       const trimmedFn = fn?.trim() || ''
-
       setShowModuleSuggestions(false)
       setShowFunctionSuggestions(trimmedFn.length > 0)
-
       const matchedModule = modules.find(m => m.name.toLowerCase() === trimmedMod.toLowerCase())
       if (matchedModule) {
         setSelectedModule(matchedModule.name)
-        
         if (trimmedFn) {
           const matchedFunction = functions.find(f => f.toLowerCase() === trimmedFn.toLowerCase())
           if (matchedFunction) {
             setSelectedFunction(matchedFunction)
             setInputValue('')
             setShowFunctionSuggestions(false)
-            if (onEnterPress) {
-              setTimeout(() => onEnterPress(), 100)
-            }
+            if (onEnterPress) setTimeout(() => onEnterPress(), 100)
           }
         }
       }
@@ -142,7 +142,6 @@ export function ModuleFunctionSelector({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const currentSuggestions = showModuleSuggestions ? filteredModules : showFunctionSuggestions ? filteredFunctions : []
-    
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setSelectedIndex(prev => (prev + 1) % currentSuggestions.length)
@@ -166,7 +165,6 @@ export function ModuleFunctionSelector({
         const [mod, fn] = inputValue.split('/')
         const trimmedMod = mod.trim()
         const trimmedFn = fn?.trim() || ''
-
         const matchedModule = modules.find(m => m.name.toLowerCase() === trimmedMod.toLowerCase())
         if (matchedModule && trimmedFn) {
           const matchedFunction = functions.find(f => f.toLowerCase() === trimmedFn.toLowerCase())
@@ -175,9 +173,7 @@ export function ModuleFunctionSelector({
             setSelectedFunction(matchedFunction)
             setInputValue('')
             setShowFunctionSuggestions(false)
-            if (onEnterPress) {
-              setTimeout(() => onEnterPress(), 100)
-            }
+            if (onEnterPress) setTimeout(() => onEnterPress(), 100)
           }
         }
       }
@@ -211,107 +207,51 @@ export function ModuleFunctionSelector({
     setSelectedFunction(functionName)
     setInputValue('')
     setShowFunctionSuggestions(false)
-    if (onEnterPress) {
-      setTimeout(() => onEnterPress(), 100)
-    }
+    if (onEnterPress) setTimeout(() => onEnterPress(), 100)
   }
 
   return (
     <div className="flex gap-3 items-center w-full relative">
       <div className="flex-1 flex gap-2 items-center bg-black border-2 border-purple-500/40 px-4 py-3 rounded-lg relative">
         {selectedModule && (
-          <div 
-            className="flex items-center gap-2 px-3 py-1 rounded-full font-bold"
-            style={{
-              fontFamily: 'IBM Plex Mono, monospace',
-              fontSize: '1.1rem',
-              backgroundColor: `${moduleColor}30`,
-              borderColor: `${moduleColor}60`,
-              border: '2px solid',
-              color: 'white'
-            }}
-          >
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '1.1rem', backgroundColor: `${moduleColor}30`, borderColor: `${moduleColor}60`, border: '2px solid', color: 'white' }}>
             <span>{selectedModule}</span>
-            <button
-              onClick={handleRemoveModule}
-              className="hover:text-red-400 transition-colors"
-              type="button"
-            >
-              ✕
-            </button>
+            <button onClick={handleRemoveModule} className="hover:text-red-400 transition-colors" type="button">✕</button>
           </div>
         )}
-        
         {selectedFunction && (
-          <div 
-            className="flex items-center gap-2 px-3 py-1 rounded-full font-bold"
-            style={{
-              fontFamily: 'IBM Plex Mono, monospace',
-              fontSize: '1.1rem',
-              backgroundColor: `${functionColor}30`,
-              borderColor: `${functionColor}60`,
-              border: '2px solid',
-              color: 'white'
-            }}
-          >
-            <span>/{selectedFunction}</span>
-            <button
-              onClick={handleRemoveFunction}
-              className="hover:text-red-400 transition-colors"
-              type="button"
-            >
-              ✕
-            </button>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '1.1rem', backgroundColor: `${functionColor}30`, borderColor: `${functionColor}60`, border: '2px solid', color: 'white' }}>
+            <span>{selectedFunction}</span>
+            <button onClick={handleRemoveFunction} className="hover:text-red-400 transition-colors" type="button">✕</button>
           </div>
         )}
-
-        <input
-          ref={inputRef}
-          type="text"
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="module/function"
-          className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-500 text-lg"
-          style={{ fontFamily: 'IBM Plex Mono, monospace' }}
-        />
-
+        <input ref={inputRef} type="text" value={inputValue} onChange={handleInputChange} onKeyDown={handleKeyDown} placeholder={selectedModule && selectedFunction ? '' : 'module/function'} className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-500 text-lg" style={{ fontFamily: 'IBM Plex Mono, monospace' }} />
+        {selectedModuleInfo && (
+          <button type="button" onClick={handleQRClick} onMouseEnter={() => setShowQR(true)} onMouseLeave={() => setShowQR(false)} className="p-2 bg-black/60 rounded-lg border-2 transition-all hover:scale-105 cursor-pointer flex items-center gap-2" style={{ borderColor: moduleColor }}>
+            <QrCodeIcon className="w-5 h-5" style={{ color: moduleColor }} />
+            <div className="w-8 h-8"><QRCode value={modulePageUrl} size={32} color={moduleColor} /></div>
+          </button>
+        )}
+        {showQR && selectedModuleInfo && (
+          <div className="absolute right-0 top-full mt-2 px-4 py-3 rounded-lg border-2 text-sm font-mono whitespace-nowrap z-50 shadow-2xl pointer-events-none" style={{ backgroundColor: 'rgba(0, 0, 0, 0.95)', borderColor: moduleColor, color: moduleColor, boxShadow: `0 0 20px ${moduleColor}40` }}>
+            <div className="space-y-1"><div><strong>Module:</strong> {selectedModuleInfo.name}</div><div><strong>Owner:</strong> {selectedModuleInfo.key?.slice(0, 8)}...{selectedModuleInfo.key?.slice(-6)}</div><div className="text-xs opacity-75 mt-2">Click QR to visit page</div></div>
+          </div>
+        )}
         {showModuleSuggestions && filteredModules.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-purple-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto">
             {filteredModules.map((mod, idx) => (
-              <button
-                key={mod.name}
-                type="button"
-                onClick={() => selectModule(mod.name)}
-                className={`w-full text-left px-4 py-3 text-white border-b border-purple-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${
-                  idx === selectedIndex ? 'bg-purple-500/40' : 'hover:bg-purple-500/30'
-                }`}
-                style={{ fontFamily: 'IBM Plex Mono, monospace' }}
-              >
-                <span>
-                  {mod.name}
-                  {mod.owner && <span className="text-purple-400 text-sm ml-2">({mod.owner})</span>}
-                </span>
+              <button key={mod.name} type="button" onClick={() => selectModule(mod.name)} className={`w-full text-left px-4 py-3 text-white border-b border-purple-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${idx === selectedIndex ? 'bg-purple-500/40' : 'hover:bg-purple-500/30'}`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                <div className="flex flex-col gap-1"><span>{mod.name}</span>{mod.key && <span className="text-purple-400 text-xs font-mono">owner: {mod.key.slice(0, 8)}...{mod.key.slice(-6)}</span>}</div>
                 <span className="text-xs text-cyan-400 font-mono">~{mod.distance.toFixed(2)}</span>
               </button>
             ))}
           </div>
         )}
-
         {showFunctionSuggestions && filteredFunctions.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-cyan-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto">
             {filteredFunctions.map((fn, idx) => (
-              <button
-                key={fn.name}
-                type="button"
-                onClick={() => selectFunction(fn.name)}
-                className={`w-full text-left px-4 py-3 text-white border-b border-cyan-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${
-                  idx === selectedIndex ? 'bg-cyan-500/40' : 'hover:bg-cyan-500/30'
-                }`}
-                style={{ fontFamily: 'IBM Plex Mono, monospace' }}
-              >
-                <span>/{fn.name}</span>
-                <span className="text-xs text-orange-400 font-mono">~{fn.distance.toFixed(2)}</span>
+              <button key={fn.name} type="button" onClick={() => selectFunction(fn.name)} className={`w-full text-left px-4 py-3 text-white border-b border-cyan-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${idx === selectedIndex ? 'bg-cyan-500/40' : 'hover:bg-cyan-500/30'}`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                <span>{fn.name}</span><span className="text-xs text-orange-400 font-mono">~{fn.distance.toFixed(2)}</span>
               </button>
             ))}
           </div>

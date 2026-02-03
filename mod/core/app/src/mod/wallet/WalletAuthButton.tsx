@@ -129,9 +129,6 @@ export function WalletAuthButton() {
       }
 
       localStorage.setItem('wallet_mode', 'phantom')
-
-
-      // get the address not the publicKey object
       localStorage.setItem('wallet_address', response.publicKey.toString())
       localStorage.setItem('wallet_type', 'solana')
       await signIn()

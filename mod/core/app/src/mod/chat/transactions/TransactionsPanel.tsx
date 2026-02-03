@@ -110,6 +110,11 @@ export const TransactionsPanel = forwardRef((props, ref) => {
            tx.cid?.toLowerCase().includes(search)
   })
 
+  const handleCardClick = (txKey: string) => {
+    // Only toggle expansion, don't show in chat
+    setExpandedTxKey(txKey === expandedTxKey ? null : txKey)
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex flex-col h-full bg-black/95 backdrop-blur-md rounded-lg border-2 border-cyan-400/30">
@@ -161,8 +166,12 @@ export const TransactionsPanel = forwardRef((props, ref) => {
             </div>
           ) : (
             filteredTransactions.map((tx, idx) => (
-              <div key={`${tx.client}-${idx}`} onClick={() => setExpandedTxKey(tx.key === expandedTxKey ? null : tx.key)}>
-                <TransactionCard tx={tx} idx={idx} />
+              <div key={`${tx.client}-${idx}`} onClick={() => handleCardClick(tx.key)}>
+                <TransactionCard 
+                  tx={tx} 
+                  idx={idx} 
+                  isExpanded={tx.key === expandedTxKey}
+                />
               </div>
             ))
           )}

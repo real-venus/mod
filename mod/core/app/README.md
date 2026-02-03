@@ -164,6 +164,7 @@ docker-compose down
 - [User Profile Module](./src/mod/user/README.md) - Sign/Verify guide
 - [One Pager](./docs/onepager.md) - Quick overview
 - [Whitepaper](./docs/whitepaper.md) - Technical deep dive
+- [API Mechanics](../../api/docs/API_MECHANICS.md) - Backend architecture
 
 ## 🚀 Deployment
 
@@ -186,6 +187,16 @@ docker run -p 3000:3000 mod-app
 3. Commit changes (`git commit -m 'Add amazing feature'`)
 4. Push to branch (`git push origin feature/amazing`)
 5. Open Pull Request
+
+## 📊 Transaction Cost Display
+
+All transactions now display their cost in USD. The cost field is automatically included in transaction cards with a default value of $0.00 if not specified.
+
+**Features:**
+- 💰 Real-time cost display on every transaction
+- 🎨 Color-coded cost badges (green gradient)
+- 📈 Cost tracking across transaction history
+- 🔍 Filterable by cost in transaction queries
 
 ## 📄 License
 

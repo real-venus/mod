@@ -13,7 +13,7 @@ from pathlib import Path
 # Add parent directory to path to import pypm
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pypm.pypm import PyPM
+from mod.core.server.pm.pm.pypm.pypm import PyPM
 
 
 class TestPyPM(unittest.TestCase):

@@ -12,7 +12,7 @@ class  IpfsClient:
     endpoints = ['pin', 'add_mod', 'reg', 'mod', 'pins']
     """Simple IPFS client using requests library only."""
     node_name = 'ipfs.node'
-    host_options = ['https://ipfs.modc2.com', '0.0.0.0', node_name]
+    host_options = [ '0.0.0.0', node_name]
     def __init__(self, url: str = None):
         self.set_url(url)
         self.session = requests.Session()
@@ -25,7 +25,8 @@ class  IpfsClient:
                     response = requests.post(f"{url}/id", timeout=2)
                     if response.status_code == 200:
                         break
-                except requests.exceptions.RequestException:
+                except Exception:
+                    print(f"Could not connect to IPFS node at {url}, trying next option...")
                     pass
         self.url = url 
         print(f"Using IPFS node at {self.url}")
@@ -270,6 +271,19 @@ class  IpfsClient:
 
     def __str__(self):
         return f"IpfsClient(url={self.url})"
+    
+    def valid_cid(self, cid: str) -> bool:
+        """Validate if a string is a valid IPFS CID.
+        
+        Args:
+            cid: String to validate
+
+        """
+        try:
+            self.get(cid)
+            return True
+        except Exception:
+            return False
 
     # def syncenv(self):
     #     """Ensure that the IPFS environment is set up."""

@@ -25,12 +25,12 @@ interface Transaction {
 interface TransactionCardProps {
   tx: Transaction
   idx: number
+  isExpanded?: boolean
 }
 
-export function TransactionCard({ tx, idx }: TransactionCardProps) {
+export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCardProps) {
   const { client } = userContext()
   const hasCollapsibleContent = tx.params || tx.result !== undefined
-  const [isExpanded, setIsExpanded] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [isKeyHovered, setIsKeyHovered] = useState(false)
   const [isCidHovered, setIsCidHovered] = useState(false)
@@ -41,6 +41,8 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
   const [isKeyCopyHovered, setIsKeyCopyHovered] = useState(false)
   const [isCidCopyHovered, setIsCidCopyHovered] = useState(false)
   const [isSignatureCopyHovered, setIsSignatureCopyHovered] = useState(false)
+  const [isParamsQrHovered, setIsParamsQrHovered] = useState(false)
+  const [isResultsQrHovered, setIsResultsQrHovered] = useState(false)
   
   const hasResults = tx.result !== undefined
   const hasParams = tx.params !== null && tx.params !== undefined
@@ -141,6 +143,8 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
   const keyColor = text2color(tx.key)
   const cidColor = text2color(tx.cid || '')
   const signatureColor = text2color(tx.signature || '')
+  const paramsColor = text2color('params')
+  const resultsColor = text2color('results')
 
   return (
     <div 
@@ -153,7 +157,6 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
         height: 'auto',
         boxShadow: `0 4px 20px ${cardBorderColor}40`
       }}
-      onClick={() => hasCollapsibleContent && setIsExpanded(!isExpanded)}
     >
       <div className="p-5 h-full flex flex-col">
         <div className="flex flex-wrap gap-2.5 items-center">
@@ -309,35 +312,59 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
               <div className="flex gap-2 border-b-2 border-gray-800/50">
                 <button
                   onClick={(e) => { e.stopPropagation(); setActiveTab('params'); }}
-                  className={`flex-1 px-4 py-2.5 font-semibold text-sm transition-all rounded-t-lg ${
+                  className={`flex-1 px-4 py-2.5 font-semibold text-sm transition-all rounded-t-lg flex items-center justify-center gap-2 ${
                     activeTab === 'params' 
                       ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/10' 
                       : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/30'
                   }`}
                   style={{ height: '42px' }}
                 >
-                  PARAMS
+                  <span>PARAMS</span>
+                  <CopyButton text={JSON.stringify(tx.params, null, 2)} size="sm" />
+                  <div 
+                    className="relative"
+                    onMouseEnter={() => setIsParamsQrHovered(true)}
+                    onMouseLeave={() => setIsParamsQrHovered(false)}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: paramsColor }} />
+                    {isParamsQrHovered && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: paramsColor }}>
+                        <QRCode value={JSON.stringify(tx.params, null, 2)} size={100} color={paramsColor} />
+                      </div>
+                    )}
+                  </div>
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setActiveTab('results'); }}
-                  className={`flex-1 px-4 py-2.5 font-semibold text-sm transition-all rounded-t-lg ${
+                  className={`flex-1 px-4 py-2.5 font-semibold text-sm transition-all rounded-t-lg flex items-center justify-center gap-2 ${
                     activeTab === 'results' 
                       ? 'text-green-400 border-b-2 border-green-400 bg-green-500/10' 
                       : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/30'
                   }`}
                   style={{ height: '42px' }}
                 >
-                  RESULTS
+                  <span>RESULTS</span>
+                  <CopyButton text={typeof tx.result === 'object' ? JSON.stringify(tx.result, null, 2) : String(tx.result)} size="sm" />
+                  <div 
+                    className="relative"
+                    onMouseEnter={() => setIsResultsQrHovered(true)}
+                    onMouseLeave={() => setIsResultsQrHovered(false)}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: resultsColor }} />
+                    {isResultsQrHovered && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: resultsColor }}>
+                        <QRCode value={typeof tx.result === 'object' ? JSON.stringify(tx.result, null, 2) : String(tx.result)} size={100} color={resultsColor} />
+                      </div>
+                    )}
+                  </div>
                 </button>
               </div>
             )}
             
             {hasParams && (!hasResults || activeTab === 'params') && (
               <div className="bg-black/30 border-2 border-gray-800/60 rounded-xl overflow-hidden shadow-lg">
-                <div className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-gray-900/60 to-gray-800/40" style={{ height: '42px' }}>
-                  <span className="text-cyan-400 font-semibold text-sm">PARAMS</span>
-                  <CopyButton text={JSON.stringify(tx.params, null, 2)} size="sm" />
-                </div>
                 <div className="p-4 bg-black/40 border-t-2 border-gray-800/50 max-h-96 overflow-y-auto overflow-x-auto">
                   {renderValue(tx.params)}
                 </div>
@@ -346,10 +373,6 @@ export function TransactionCard({ tx, idx }: TransactionCardProps) {
             
             {hasResults && (!hasParams || activeTab === 'results') && (
               <div className="bg-black/30 border-2 border-gray-800/60 rounded-xl overflow-hidden shadow-lg">
-                <div className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-gray-900/60 to-gray-800/40" style={{ height: '42px' }}>
-                  <span className="text-green-400 font-semibold text-sm">RESULT</span>
-                  <CopyButton text={typeof tx.result === 'object' ? JSON.stringify(tx.result, null, 2) : String(tx.result)} size="sm" />
-                </div>
                 <div className="p-4 bg-black/40 border-t-2 border-gray-800/50 max-h-96 overflow-y-auto overflow-x-auto">
                   {renderValue(tx.result)}
                 </div>

@@ -49,6 +49,11 @@ class Mod:
             "core": self.mod_path + '/core',
             "local": os.getcwd()
         }
+
+        # if any of the orbits do not exist create them
+        for orbit, path in self.paths['orbit'].items():
+            if not os.path.exists(path):
+                os.makedirs(path, exist_ok=True)
         self.paths['home'] = self.homepath  = os.path.expanduser('~')
         self.paths = self.munch(self.paths)
         config =self.config()
@@ -779,8 +784,8 @@ class Mod:
             obj = self.mod(obj)
         elif hasattr(self, obj):
             obj = getattr(self, obj)
-        else:
-            raise Exception(f'Object {obj} not found')
+        elif self.obj_exists(obj):
+            obj = self.obj(obj)
         return  inspect.getsource(obj)
     
     def call(self,fn: str = 'api/edit',  params: Dict[str, Any] = {}, timeout=30, wait=True, return_cid=False,  **_kwargs): 
@@ -817,7 +822,7 @@ class Mod:
 
 
     def key_address(self, key:str = None , **kwargs) -> str:
-        return self.get_key(key).key_address(key, **kwargs)
+        return self.get_key(key).key2address(**kwargs).get(key, key)
     
 
     
@@ -875,6 +880,8 @@ class Mod:
         if not include_hidden: 
             fns = [f for f in fns if not f.startswith('__') and not f.startswith('_')]  
         return sorted(fns)
+    
+
 
 
     def cid(self, mod=None , **kwargs) -> Union[str, Dict[str, str]]:
@@ -1266,7 +1273,7 @@ class Mod:
             for anchor_name in anchor_names:
                 for f in files:
                     if f.endswith('/' + anchor_name + '.' + file_type):
-                        result_options.append(f)
+                        return f
         if len(result_options) > 0:
             result_options = sorted(result_options, key=lambda x: len(x))
             result = result_options[0]
@@ -1319,7 +1326,7 @@ class Mod:
         path = '_'.join(path_chunks)
         return path
 
-    file_types = ['py', 'yaml', 'json', 'yml']
+    file_types = ['py']
     ignore_suffixes = ['/src', '/core']
     def process_path(self, x,  ) -> str:
         for k in self.ignore_suffixes: 
@@ -1403,11 +1410,7 @@ class Mod:
         v = False
         if k_lower == search:
             v =  True
-        elif search in k_lower:
-            v =  True
         elif all([search_chunk in k_lower.split('.') for search_chunk in search.split('.')]):
-            v =  True
-        elif all([search_chunk in k_lower for search_chunk in search.split('.')]):
             v =  True
         elif k_lower.endswith('.' + search):
             v =  True
@@ -1458,6 +1461,8 @@ class Mod:
         """
         if mod == None or mod == self.name:
             return self.paths["lib"]
+        if key is not None:
+            return self.paths["orbit"]["outer"] + '/' + self.key_address(key) + '/' + mod.replace('.', '/')
         tree = self.tree()
         tree_options = list(self.search(search=mod, tree=tree).values())
         if len(tree_options) == 0:

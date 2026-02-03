@@ -135,8 +135,6 @@ export class Auth {
 
     let signatureData: string = this.signatureData(authData);
     authData.dataHash = this.hash(signatureData);
-    console.log(authData, 'authData in token function');
-
     // Sign with appropriate wallet adapter based on wallet mode
     if (wallet_mode === 'metamask') {
       authData.signature = await this.signWithMetamask(signatureData);
@@ -144,9 +142,6 @@ export class Auth {
       // Always sign with client key (local key) for local mode
       authData.signature = await this.signLocal(signatureData);
     }
-
-    console.log(authData, 'authData after signing in token function');
-
     return this.base64urlEncode(JSON.stringify(authData));
   }
 

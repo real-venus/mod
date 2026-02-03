@@ -98,7 +98,6 @@ class Key:
             private_key = self.from_mnemonic(mnemonic, crypto_type=crypto_type).private_key
         elif private_key is None:
             # generate a new keypair if no private key is provided
-            print('generating new keypair')
             private_key = self.new_key(crypto_type=crypto_type).private_key
         if type(private_key) == str:
             private_key = str2bytes(private_key)
@@ -256,7 +255,7 @@ class Key:
                     key2path[kn] =  full_path  
         return key2path
     
-    def key2address(self, search=None, crypto_type=None,  **kwargs):
+    def key2address(self, crypto_type=None,  **kwargs):
         crypto_type = self.get_crypto_type(crypto_type)
         key2path = self.key2path(crypto_type=crypto_type)
         key2address = {}
@@ -421,6 +420,12 @@ class Key:
         mnemonic =  bip39_generate(words, self.language_code)
         assert bip39_validate(mnemonic, self.language_code), """Invalid mnemonic, please provide a valid mnemonic"""
         return mnemonic
+    
+    def from_uri(self, uri: str, crypto_type=crypto_type) -> 'Key': 
+        """
+        Create a Key for given derivation path
+        """
+        return self.derive_path(uri, crypto_type=crypto_type)
         
     def from_mnemonic(self, mnemonic: str = None, crypto_type=crypto_type) -> 'Key':
         """
@@ -633,8 +638,6 @@ class Key:
     def decrypt(self, data, password=None, key=None):  
         return self.get_encryption_key(password=password, key=key).decrypt(data)
 
-    def password_circuit(self, x):
-        return
 
     def time(self ):
         return int(time.time())
@@ -648,6 +651,7 @@ class Key:
             x =  self.hash(str(x * x + 2 * x + 1))
             self.put('password', x)
         return x
+    
 
     def get_encryption_key(self,  password:str=None, key:Optional[str]=None):
         """

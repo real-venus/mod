@@ -29,16 +29,6 @@ export default function UsersPage() {
     return ''
   })
 
-  const [excludedAddresses, setExcludedAddresses] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('user_explorer_excluded')
-      return saved ? JSON.parse(saved) : []
-    }
-    return []
-  })
-
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
-
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('user_explorer_search', localSearchTerm)
@@ -51,20 +41,10 @@ export default function UsersPage() {
     }
   }, [columns])
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('user_explorer_excluded', JSON.stringify(excludedAddresses))
-    }
-  }, [excludedAddresses])
-
   const filterUsersBySearch = (list: UserType[], searchTerm: string) => {
     if (!searchTerm) return list
     const lowerTerm = searchTerm.toLowerCase()
     return list.filter(u => u.key?.toLowerCase().includes(lowerTerm))
-  }
-
-  const filterUsersByExclusion = (list: UserType[]) => {
-    return list.filter(u => !excludedAddresses.includes(u.key))
   }
 
   const fetchAll = async () => {
@@ -75,8 +55,7 @@ export default function UsersPage() {
       const raw = (await client.call('users', {})) as UserType[]
       const allUsers = Array.isArray(raw) ? raw : []
       const searchFiltered = filterUsersBySearch(allUsers, localSearchTerm)
-      const filtered = filterUsersByExclusion(searchFiltered)
-      setUsers(filtered)
+      setUsers(searchFiltered)
     } catch (err: any) {
       console.error('Error fetching users:', err)
       setError(err?.message || 'Failed to load users')
@@ -87,19 +66,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchAll()
-  }, [client, localSearchTerm, excludedAddresses])
-
-  const toggleAddressExclusion = (address: string) => {
-    setExcludedAddresses(prev => 
-      prev.includes(address) 
-        ? prev.filter(a => a !== address)
-        : [...prev, address]
-    )
-  }
-
-  const clearAllExclusions = () => {
-    setExcludedAddresses([])
-  }
+  }, [client, localSearchTerm])
 
   const gridColsClass = {
     1: 'grid-cols-1',
@@ -108,27 +75,10 @@ export default function UsersPage() {
     4: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
   }[columns] || 'grid-cols-1 md:grid-cols-2'
 
-  // Get all unique addresses for the filter dropdown
-  const [allAddresses, setAllAddresses] = useState<string[]>([])
-  
-  useEffect(() => {
-    const fetchAllAddresses = async () => {
-      try {
-        if (!client) return
-        const raw = (await client.call('users', {})) as UserType[]
-        const addresses = Array.isArray(raw) ? raw.map(u => u.key) : []
-        setAllAddresses(addresses)
-      } catch (err) {
-        console.error('Error fetching addresses:', err)
-      }
-    }
-    fetchAllAddresses()
-  }, [client])
-
   return (
     <div className={'min-h-screen bg-black text-white transition-all duration-300 pl-20'}>
       <main className="flex-1 px-2 pt-0 pb-0" role="main">
-        <div className="mx-auto max-w-7xl mb-6">
+        <div className="mx-auto mb-6" style={{ width: '90%', maxWidth: 'none' }}>
           <div className="flex items-center gap-4 mb-4">
             <div className="relative flex-1">
               <input
@@ -146,58 +96,11 @@ export default function UsersPage() {
                 <MagnifyingGlassIcon className="w-6 h-6 text-green-400" />
               </div>
             </div>
-
-            <div className="relative">
-              <button
-                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                className="px-6 py-4 bg-black/50 border-2 border-purple-500/40 rounded-xl text-white font-bold uppercase hover:border-purple-500/60 transition-all backdrop-blur-xl"
-                style={{
-                  boxShadow: '0 0 20px rgba(168, 85, 247, 0.3)',
-                  fontFamily: 'IBM Plex Mono, monospace'
-                }}
-              >
-                FILTER ({excludedAddresses.length})
-              </button>
-
-              {showFilterDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-96 max-h-96 overflow-y-auto bg-black/95 border-2 border-purple-500/60 rounded-xl p-4 z-50 backdrop-blur-xl" style={{ boxShadow: '0 0 30px rgba(168, 85, 247, 0.4)' }}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold uppercase text-purple-300">Exclude Addresses</h3>
-                    {excludedAddresses.length > 0 && (
-                      <button
-                        onClick={clearAllExclusions}
-                        className="px-3 py-1 text-xs font-bold uppercase bg-red-500/20 border border-red-500/60 rounded text-red-300 hover:bg-red-500/30 transition-all"
-                      >
-                        Clear All
-                      </button>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    {allAddresses.map(address => (
-                      <label
-                        key={address}
-                        className="flex items-center gap-3 p-2 rounded hover:bg-white/5 cursor-pointer transition-all"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={excludedAddresses.includes(address)}
-                          onChange={() => toggleAddressExclusion(address)}
-                          className="w-4 h-4 accent-purple-500"
-                        />
-                        <code className="text-sm font-mono text-gray-300">
-                          {address.substring(0, 10)}...{address.substring(address.length - 8)}
-                        </code>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
         {error && (
-          <div className="mx-auto max-w-7xl mb-4">
+          <div className="mx-auto mb-4" style={{ width: '90%', maxWidth: 'none' }}>
             <div className="p-4 border-2 border-red-500/60 bg-gradient-to-r from-red-500/20 to-pink-500/20 rounded-xl flex items-start justify-between backdrop-blur-xl shadow-lg">
               <div className="flex-1">
                 <div className="text-red-300 font-bold mb-1 text-lg uppercase tracking-wide">ERROR</div>
@@ -223,7 +126,7 @@ export default function UsersPage() {
         )}
 
         {!loading && users.length === 0 && !error && (
-          <div className="mx-auto max-w-4xl text-center py-12">
+          <div className="mx-auto text-center py-12" style={{ width: '90%', maxWidth: 'none' }}>
             <div className="mb-6 inline-bloc p-6 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20 rounded-2xl border-2 border-purple-500/40 shadow-xl backdrop-blur-xl">
               <Users className="w-16 h-16 text-purple-300" strokeWidth={2} />
             </div>
@@ -239,7 +142,7 @@ export default function UsersPage() {
           </div>
         )}
 
-        <div className={`mx-auto max-w-7xl grid ${gridColsClass} gap-6`}>
+        <div className={`mx-auto grid ${gridColsClass} gap-6`} style={{ width: '90%', maxWidth: 'none' }}>
           {users.map((user) => (
             <div
               key={user.key}

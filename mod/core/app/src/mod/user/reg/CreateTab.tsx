@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Plus, Trash2, Link as LinkIcon } from 'lucide-react'
+import { userContext } from '@/mod/context'
 
 interface TabField {
   label: string
@@ -8,6 +9,7 @@ interface TabField {
 }
 
 export const CreateTab = () => {
+  const { client } = userContext()
   const [tabs, setTabs] = useState<TabField[]>([
     { label: '', url: '' }
   ])
@@ -28,10 +30,72 @@ export const CreateTab = () => {
     setTabs(newTabs)
   }
 
-  const saveTabs = () => {
+  const inferNameFromUrl = async (url: string): Promise<string> => {
+    // Check if it's a CID (starts with Qm or baf)
+    if (url.match(/^(Qm[a-zA-Z0-9]{44}|baf[a-zA-Z0-9]+)$/)) {
+      try {
+        if (!client) return ''
+        const data = await client.call('get', { cid: url })
+        if (typeof data === 'object' && data.name) {
+          return data.name
+        }
+      } catch (err) {
+        console.error('Failed to fetch CID data:', err)
+      }
+    }
+    
+    // For git URLs, extract repo name
+    if (url.includes('github.com') || url.includes('gitlab.com') || url.includes('bitbucket.org')) {
+      let name = url.split('/').pop() || ''
+      name = name.endsWith('.git') ? name.slice(0, -4) : name
+      return name.toLowerCase()
+    }
+    
+    return ''
+  }
+
+  const handleUrlChange = async (index: number, value: string) => {
+    updateTab(index, 'url', value)
+    
+    // Auto-infer name if label is empty
+    if (!tabs[index].label && value.trim()) {
+      const inferredName = await inferNameFromUrl(value.trim())
+      if (inferredName) {
+        updateTab(index, 'label', inferredName)
+      }
+    }
+  }
+
+  const saveTabs = async () => {
     const validTabs = tabs.filter(t => t.label && t.url)
+    
+    // Process each tab through reg_url if it's a CID or git URL
+    const processedTabs = await Promise.all(
+      validTabs.map(async (tab) => {
+        try {
+          if (!client) return tab
+          
+          // Check if URL is a CID or git URL that needs processing
+          if (tab.url.match(/^(Qm[a-zA-Z0-9]{44}|baf[a-zA-Z0-9]+)$/) || 
+              tab.url.includes('github.com') || 
+              tab.url.includes('gitlab.com')) {
+            
+            const result = await client.call('reg_url', { url: tab.url })
+            return {
+              label: tab.label,
+              url: result.url || tab.url,
+              cid: result.cid || tab.url
+            }
+          }
+        } catch (err) {
+          console.error('Failed to process tab:', err)
+        }
+        return tab
+      })
+    )
+    
     if (typeof window !== 'undefined') {
-      localStorage.setItem('user_custom_tabs', JSON.stringify(validTabs))
+      localStorage.setItem('user_custom_tabs', JSON.stringify(processedTabs))
       alert('Tabs saved successfully!')
     }
   }
@@ -69,8 +133,8 @@ export const CreateTab = () => {
                   <input
                     type="text"
                     value={tab.url}
-                    onChange={(e) => updateTab(index, 'url', e.target.value)}
-                    placeholder="https://github.com/user/repo or any URL"
+                    onChange={(e) => handleUrlChange(index, e.target.value)}
+                    placeholder="https://github.com/user/repo, CID, or any URL"
                     className="w-full bg-black/60 border border-cyan-500/40 rounded px-3 py-2 pl-10 text-cyan-300 font-mono text-sm placeholder-cyan-600/50 focus:outline-none focus:border-cyan-500"
                   />
                   <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-500/70" size={16} />

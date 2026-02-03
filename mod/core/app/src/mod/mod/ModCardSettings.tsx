@@ -1,7 +1,8 @@
 'use client'
 
-import { Settings, Grid3x3, Grid2x2, LayoutGrid, User, Filter, ChevronDown } from 'lucide-react'
+import { Settings, Grid3x3, Grid2x2, LayoutGrid, Filter, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
+import { OwnerFilter } from './explore/OwnerFilter'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 
@@ -10,10 +11,10 @@ interface ModCardSettingsProps {
   onSortChange: (sort: SortKey) => void
   columns: number
   onColumnsChange: (columns: number) => void
-  userFilter: string
-  onUserFilterChange: (filter: string) => void
-  showMyModsOnly: boolean
-  onShowMyModsOnlyChange: (show: boolean) => void
+  owners?: string[]
+  selectedOwners?: string[]
+  onToggleOwner?: (owner: string) => void
+  onClearFilters?: () => void
 }
 
 export function ModCardSettings({
@@ -21,10 +22,10 @@ export function ModCardSettings({
   onSortChange,
   columns,
   onColumnsChange,
-  userFilter,
-  onUserFilterChange,
-  showMyModsOnly,
-  onShowMyModsOnlyChange,
+  owners = [],
+  selectedOwners = [],
+  onToggleOwner = () => {},
+  onClearFilters = () => {},
 }: ModCardSettingsProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -88,32 +89,16 @@ export function ModCardSettings({
                 </div>
               </div>
 
-              <div>
-                <label className="text-purple-300 font-bold text-sm uppercase tracking-wide mb-2 block">
-                  Filter by User
-                </label>
-                <input
-                  type="text"
-                  value={userFilter}
-                  onChange={(e) => onUserFilterChange(e.target.value)}
-                  placeholder="Enter user key..."
-                  className="w-full px-3 py-2 bg-black/50 border-2 border-purple-500/40 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/60"
-                />
-              </div>
-
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showMyModsOnly}
-                    onChange={(e) => onShowMyModsOnlyChange(e.target.checked)}
-                    className="w-5 h-5 rounded border-2 border-purple-500/40 bg-black/50 checked:bg-purple-500 checked:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              {owners.length > 0 && (
+                <div>
+                  <OwnerFilter
+                    owners={owners}
+                    selectedOwners={selectedOwners}
+                    onToggleOwner={onToggleOwner}
+                    onClearFilters={onClearFilters}
                   />
-                  <span className="text-purple-300 font-bold text-sm uppercase tracking-wide">
-                    My Modules Only
-                  </span>
-                </label>
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </>

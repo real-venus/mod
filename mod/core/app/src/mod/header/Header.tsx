@@ -2,7 +2,7 @@
 
 import { WalletHeader } from '@/mod/wallet/WalletHeader'
 import { TreasuryHeader } from '@/mod/header/TreasuryHeader'
-import { UsersIcon, CubeIcon, TableCellsIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, PlusIcon, Bars3Icon } from '@heroicons/react/24/outline'
+import { UsersIcon, CubeIcon, TableCellsIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, WrenchScrewdriverIcon, Bars3Icon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { NetworkSelector } from '@/mod/network/NetworkSelector'
@@ -22,13 +22,14 @@ const defaultNavigation = [
   { id: 'mods', name: 'Mods', href: '/mod/explore', icon: CubeIcon, color: '#3b82f6', hasHoverSearch: true },
   { id: 'users', name: 'Users', href: '/user/explore', icon: UsersIcon, color: '#10b981', hasHoverSearch: true },
   { id: 'transactions', name: 'Transactions', href: '/transactions', icon: TableCellsIcon, color: '#f59e0b', hasHoverSearch: true },
+  { id: 'buidl', name: 'Buidl', href: '/buidl', icon: WrenchScrewdriverIcon, color: '#a855f7' },
   { id: 'split', name: 'Split Screen', component: 'SplitScreen', color: '#a855f7' },
   { id: 'treasury', name: 'Treasury', component: 'TreasuryHeader', color: '#10b981' },
   { id: 'network', name: 'Network', component: 'NetworkSelector', color: '#3b82f6' },
   { id: 'wallet', name: 'Wallet', component: 'WalletHeader', color: '#f59e0b' },
 ]
 
-function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection, isSplitScreen, toggleSplitScreen, setOrientation, showOrientationMenu, setShowOrientationMenu, showTabMenu, setShowTabMenu, isEditMode, setIsEditMode, isHeaderCollapsed }: any) {
+function SortableHeaderItem({ item, pathname, isSplitScreen, toggleSplitScreen, setOrientation, showOrientationMenu, setShowOrientationMenu, showTabMenu, setShowTabMenu, isEditMode, setIsEditMode, isHeaderCollapsed }: any) {
   const router = useRouter()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: !isEditMode })
   
@@ -49,7 +50,7 @@ function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection,
     
     if (item.component === 'SplitScreen') {
       return (
-        <div className="relative" onMouseEnter={() => setHoveredSection('Split Screen')} onMouseLeave={() => setHoveredSection(null)}>
+        <div className="relative">
           {!isSplitScreen ? (
             <button onClick={() => setShowOrientationMenu(!showOrientationMenu)} className="flex items-center justify-center rounded-xl p-3 border-2 border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/10 transition-all backdrop-blur-sm" style={{ height: '60px', width: '60px', boxShadow: '0 0 15px rgba(168, 85, 247, 0.2)' }}>
               <Squares2X2Icon className="w-8 h-8" style={{ color: '#a855f7' }} />
@@ -59,13 +60,6 @@ function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection,
               <Squares2X2Icon className="w-8 h-8" style={{ color: '#f87171' }} />
             </button>
           )}
-          <AnimatePresence>
-            {hoveredSection === 'Split Screen' && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.15 }} className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none z-50">
-                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-purple-500/30 whitespace-nowrap text-sm font-medium">Split Screen<div className="absolute bottom-full left-1/2 -translate-x-1/2 border-8 border-transparent border-b-gray-900" /></div>
-              </motion.div>
-            )}
-          </AnimatePresence>
           {showOrientationMenu && (
             <div className="absolute top-full left-0 mt-2 bg-gray-900 border border-purple-500/30 rounded-lg shadow-xl overflow-hidden z-50">
               <button onClick={() => { setOrientation('vertical'); toggleSplitScreen(); setShowOrientationMenu(false) }} className="w-full px-4 py-3 text-left text-white hover:bg-purple-500/20 transition-colors flex items-center gap-3 border-b border-gray-800"><Squares2X2Icon className="w-5 h-5" /><span className="text-sm font-medium">Vertical Split</span></button>
@@ -81,40 +75,19 @@ function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection,
       
       if (item.hasHoverSearch) {
         return (
-          <div className="relative" onMouseEnter={() => setHoveredSection(item.name)} onMouseLeave={() => setHoveredSection(null)}>
+          <div className="relative">
             <Link href={item.href} className={`flex items-center justify-center rounded-xl p-3 transition-all backdrop-blur-sm ${isActive ? 'bg-opacity-20 border-2 shadow-lg' : 'border-2 border-white/20 hover:border-white/40 hover:bg-white/10'}`} style={{ height: '60px', width: '60px', backgroundColor: isActive ? `${item.color}33` : undefined, borderColor: isActive ? `${item.color}4D` : undefined, boxShadow: isActive ? `0 0 20px ${item.color}33` : '0 0 10px rgba(255,255,255,0.05)' }}>
               <item.icon className="w-8 h-8" style={{ color: isActive ? item.color : '#9ca3af' }} />
             </Link>
-            <AnimatePresence>
-              {hoveredSection === item.name && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.15 }} className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50">
-                  <HoverSearchBar
-                    title={item.name}
-                    placeholder={`Search ${item.name.toLowerCase()}...`}
-                    onSearch={(term) => {
-                      console.log(`Searching ${item.name}:`, term)
-                    }}
-                    redirectPath={item.href}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         )
       }
       
       return (
-        <div className="relative" onMouseEnter={() => setHoveredSection(item.name)} onMouseLeave={() => setHoveredSection(null)}>
+        <div className="relative">
           <Link href={item.href} className={`flex items-center justify-center rounded-xl p-3 transition-all backdrop-blur-sm ${isActive ? 'bg-opacity-20 border-2 shadow-lg' : 'border-2 border-white/20 hover:border-white/40 hover:bg-white/10'}`} style={{ height: '60px', width: '60px', backgroundColor: isActive ? `${item.color}33` : undefined, borderColor: isActive ? `${item.color}4D` : undefined, boxShadow: isActive ? `0 0 20px ${item.color}33` : '0 0 10px rgba(255,255,255,0.05)' }}>
             <item.icon className="w-8 h-8" style={{ color: isActive ? item.color : '#9ca3af' }} />
           </Link>
-          <AnimatePresence>
-            {hoveredSection === item.name && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.15 }} className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none z-50">
-                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border whitespace-nowrap text-sm font-medium" style={{ borderColor: `${item.color}4D` }}>{item.name}<div className="absolute bottom-full left-1/2 -translate-x-1/2 border-8 border-transparent border-b-gray-900" /></div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       )
     }
@@ -131,7 +104,6 @@ function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection,
 export function Header() {
   const pathname = usePathname()
   const { user } = userContext()
-  const [hoveredSection, setHoveredSection] = useState<string | null>(null)
   const { isSplitScreen, toggleSplitScreen, setOrientation } = useSplitScreenContext()
   const [showOrientationMenu, setShowOrientationMenu] = useState(false)
   const [showTabMenu, setShowTabMenu] = useState(false)
@@ -168,8 +140,6 @@ export function Header() {
                   key={item.id}
                   item={item}
                   pathname={pathname}
-                  hoveredSection={hoveredSection}
-                  setHoveredSection={setHoveredSection}
                   isSplitScreen={isSplitScreen}
                   toggleSplitScreen={toggleSplitScreen}
                   setOrientation={setOrientation}

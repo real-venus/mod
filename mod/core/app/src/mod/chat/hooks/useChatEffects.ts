@@ -65,6 +65,19 @@ export function useChatEffects({
           }
         })
       }
+      
+      // CHECK FOR KWARGS AND ADD MISSING PARAMS
+      const hasKwargs = inputKeys.some(k => k === 'kwargs')
+      if (hasKwargs) {
+        // Get all possible params from schema that aren't already in defaultParams
+        Object.entries(functionSchema.input).forEach(([key, value]: [string, any]) => {
+          if (key !== 'self' && key !== 'cls' && key !== 'kwargs' && !(key in defaultParams)) {
+            // Add param with empty value if not specified
+            defaultParams[key] = value.value !== '_empty' ? value.value : ''
+          }
+        })
+      }
+      
       setDefaultParams(defaultParams)
       setParams(defaultParams)
       

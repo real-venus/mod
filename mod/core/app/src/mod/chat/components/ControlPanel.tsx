@@ -2,6 +2,7 @@
 
 import { ModuleFunctionSelector } from './ModuleFunctionSelector'
 import { UnifiedInputPanel } from './UnifiedInputPanel'
+import { useState, useMemo } from 'react'
 
 interface ControlPanelProps {
   selectedModule: string
@@ -74,47 +75,60 @@ export function ControlPanel({
     }
   }
 
+  // Check if function has code in schema
+  const functionHasCode = useMemo(() => {
+    if (!selectedFunction || !schema || !schema[selectedFunction]) return false
+    return !!schema[selectedFunction]?.content
+  }, [selectedFunction, schema])
+
+  const [activeTab, setActiveTab] = useState<'chat' | 'params' | 'code'>('chat')
+
+  // Auto-switch to code tab if code exists and not already on a tab
+  useMemo(() => {
+    if (functionHasCode && activeTab === 'chat') {
+      // Don't auto-switch, just make it available
+    }
+  }, [functionHasCode, activeTab])
+
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ fontSize: '1.2rem' }}>
-      <div className="border-t-2 border-white/10 bg-black/40 backdrop-blur-sm flex flex-col" style={{ minHeight: '400px' }}>
-        <div className="px-6 pt-6 pb-6">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div style={{ width: '100%', maxWidth: '800px' }}>
-              <ModuleFunctionSelector
-                selectedModule={selectedModule}
-                setSelectedModule={setSelectedModule}
-                selectedFunction={selectedFunction}
-                setSelectedFunction={setSelectedFunction}
-                modules={modules}
-                functions={functions}
-                onEnterPress={handleModFnEnterPress}
-              />
-            </div>
-          </div>
-          
-          <div className="flex justify-center gap-3">
-            <div style={{ width: '100%', maxWidth: '800px' }}>
-              <UnifiedInputPanel
-                input={input}
-                setInput={setInput}
-                selectedInputParam={selectedInputParam}
-                setSelectedInputParam={setSelectedInputParam}
-                wait={wait}
-                setWait={setWait}
-                isLoading={isLoading}
-                selectedModule={selectedModule}
-                selectedFunction={selectedFunction}
-                inputParamOptions={inputParamOptions}
-                handleSubmit={handleSubmit}
-                onCancel={onCancel}
-                params={params}
-                handleParamChange={handleParamChange}
-                handleResetParams={handleResetParams}
-                schema={schema}
-              />
-            </div>
-          </div>
+    <div className="h-full flex flex-col p-4 bg-black/95 backdrop-blur-xl" style={{ fontSize: '1rem' }}>
+      {/* ModuleFunctionSelector and Chat/Params on same line */}
+      <div className="flex gap-4 mb-4">
+        <div className="flex-1">
+          <ModuleFunctionSelector
+            selectedModule={selectedModule}
+            setSelectedModule={setSelectedModule}
+            selectedFunction={selectedFunction}
+            setSelectedFunction={setSelectedFunction}
+            modules={modules}
+            functions={functions}
+            onEnterPress={handleModFnEnterPress}
+          />
         </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <UnifiedInputPanel
+          input={input}
+          setInput={setInput}
+          selectedInputParam={selectedInputParam}
+          setSelectedInputParam={setSelectedInputParam}
+          wait={wait}
+          setWait={setWait}
+          isLoading={isLoading}
+          selectedModule={selectedModule}
+          selectedFunction={selectedFunction}
+          inputParamOptions={inputParamOptions}
+          handleSubmit={handleSubmit}
+          onCancel={onCancel}
+          params={params}
+          handleParamChange={handleParamChange}
+          handleResetParams={handleResetParams}
+          schema={schema}
+          functionHasCode={functionHasCode}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
       </div>
     </div>
   )

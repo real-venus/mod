@@ -5,9 +5,8 @@ import tempfile
 import shutil
 
 # Add parent directory to path to import the module
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from pyenv.mod import Mod
+import mod as m
+Mod = m.mod('envpy')
 
 
 class TestPyenv:
@@ -40,7 +39,7 @@ class TestPyenv:
     
     def test_list_environments(self, temp_pyenv):
         """Test listing environments"""
-        result = temp_pyenv.list_envs()
+        result = temp_pyenv.ls()
         assert result['success'] == True
         assert 'environments' in result
         assert 'default' in result['environments']
@@ -54,13 +53,13 @@ class TestPyenv:
     def test_remove_environment(self, temp_pyenv):
         """Test removing an environment"""
         temp_pyenv.create('test_env')
-        result = temp_pyenv.rm_env('test_env', delete_files=True)
+        result = temp_pyenv.rm('test_env', delete_files=True)
         assert result['success'] == True
         assert temp_pyenv.exists('test_env') == False
     
     def test_cannot_remove_default(self, temp_pyenv):
         """Test that default environment cannot be removed"""
-        result = temp_pyenv.rm_env('default')
+        result = temp_pyenv.rm('default')
         assert result['success'] == False
         assert 'Cannot remove default' in result['message']
     

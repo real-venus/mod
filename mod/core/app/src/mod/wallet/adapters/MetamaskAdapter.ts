@@ -19,11 +19,15 @@ export class MetamaskAdapter implements WalletAdapter {
     this.provider = null
   }
 
-  async signIn(): Promise<void> {
+  async signIn(index?:number): Promise<void> {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-    if (!accounts || accounts.length === 0) throw new Error('No accounts found')
+    let accountAddress: string = accounts[0]
+    if (index !== undefined && index >= 0 && index < accounts.length) {
+      accountAddress = accounts[index]
+    }
+    console.log('Connected account:', accountAddress)
     localStorage.setItem('wallet_mode', 'metamask')
-    localStorage.setItem('wallet_address', accounts[0])
+    localStorage.setItem('wallet_address', accountAddress)
     localStorage.setItem('wallet_type', 'ethereum')
     this.provider = new ethers.BrowserProvider(window.ethereum)
   }

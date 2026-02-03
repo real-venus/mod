@@ -339,19 +339,8 @@ if __name__ == "__main__":
                 return pd.DataFrame()
         
         return pd.DataFrame(stats)
-
-    def namespace(self, search=None, max_age=None, update=False, **kwargs) -> dict:
-        """Get namespace mapping of PM2 processes."""
-        path = 'namespace.json'
-        namespace = self.store.get(path, None, max_age=max_age, update=update)
-        
-        if namespace is None:
-            processes = self.servers(search=search)
-            namespace = {proc: f'pm2:{proc}' for proc in processes}
-            self.store.put(path, namespace)
-        
-        return namespace
-
+    
+    
     def save(self):
         """Save PM2 process list for resurrection."""
         result = subprocess.run(['pm2', 'save'], capture_output=True, text=True)

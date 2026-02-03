@@ -10,6 +10,7 @@ from Crypto.Cipher import AES
 class DiffieHellman:
     """
     Safe Diffie–Hellman over RFC 3526 MODP groups with HKDF + AES-GCM.
+    Improved with better error handling, validation, and security features.
     """
 
     def __init__(self, key: 'Key' = None, group_size: int = 2048, crypto_type: str = 'sr25519'):
@@ -60,23 +61,26 @@ class DiffieHellman:
     # --- Key / RNG helpers ---
 
     def _get_key(self, key, crypto_type='sr25519'):
-        # Kept for compatibility with your codebase; not used for RNG by default.
         if key is None and hasattr(self, 'key'):
             return self.key
         return c.get_key(key, crypto_type=crypto_type)
 
     def _generate_private_exponent(self) -> int:
-        # Use CSPRNG. If you *must* tie to identity, derive with HKDF(PRK=key_bytes).
+        """Generate cryptographically secure private exponent."""
         return 2 + secrets.randbelow(self.q - 3)
 
     # --- Public API ---
 
     def get_public_value(self) -> int:
+        """Return the public value for key exchange."""
         return self._Y
 
     # --- Core math ---
 
     def _validate_peer_public(self, Y: int) -> None:
+        """Validate peer's public value with comprehensive checks."""
+        if not isinstance(Y, int):
+            raise TypeError("Peer public value must be an integer")
         if not (2 <= Y <= self.p - 2):
             raise ValueError("Peer public value out of range")
         # Subgroup check: Y^q ≡ 1 mod p for safe primes
@@ -84,8 +88,9 @@ class DiffieHellman:
             raise ValueError("Peer public value not in prime-order subgroup")
 
     def compute_shared_secret(self, other_public_value: int) -> bytes:
+        """Compute shared secret from peer's public value."""
         self._validate_peer_public(other_public_value)
-        Z = pow(other_public_value, self._x, self.p)  # raw DH shared secret (int)
+        Z = pow(other_public_value, self._x, self.p)
         # Serialize with fixed length to avoid length leaks
         zs = Z.to_bytes((self.p.bit_length() + 7) // 8, 'big')
         return zs
@@ -94,12 +99,14 @@ class DiffieHellman:
 
     @staticmethod
     def _hkdf_extract(salt: Optional[bytes], ikm: bytes, hashmod=hashlib.sha256) -> bytes:
+        """HKDF Extract step."""
         if salt is None:
             salt = b'\x00' * hashmod().digest_size
         return hmac.new(salt, ikm, hashmod).digest()
 
     @staticmethod
     def _hkdf_expand(prk: bytes, info: bytes, L: int, hashmod=hashlib.sha256) -> bytes:
+        """HKDF Expand step."""
         n = (L + hashmod().digest_size - 1) // hashmod().digest_size
         if n > 255:
             raise ValueError("Cannot expand to more than 255 blocks")
@@ -112,6 +119,7 @@ class DiffieHellman:
 
     def derive_key(self, other_public_value: int, *, salt: Optional[bytes] = None,
                    info: Optional[bytes] = None, key_length: int = 32) -> bytes:
+        """Derive encryption key using HKDF."""
         if info is None:
             info = b"DH-MODP-HKDF-AESGCM"
         shared = self.compute_shared_secret(other_public_value)
@@ -121,12 +129,13 @@ class DiffieHellman:
     # --- Encrypt / Decrypt (AES-GCM, 128-bit tag) ---
 
     def encrypt(self, data, other_public_value: int, *, aad: Optional[bytes] = None) -> str:
+        """Encrypt data using AES-GCM with derived key."""
         if not isinstance(data, (bytes, bytearray)):
             data = str(data).encode('utf-8')
-        # Fresh salt per session (helps with key separation if reuse occurs)
+        # Fresh salt per session
         salt = os.urandom(32)
         key = self.derive_key(other_public_value, salt=salt, key_length=32)
-        nonce = os.urandom(12)  # 96-bit nonce recommended for GCM
+        nonce = os.urandom(12)  # 96-bit nonce for GCM
         cipher = AES.new(key, AES.MODE_GCM, nonce=nonce, mac_len=16)
         if aad:
             cipher.update(aad)
@@ -136,6 +145,7 @@ class DiffieHellman:
         return base64.b64encode(blob).decode('ascii')
 
     def decrypt(self, token_b64: str, other_public_value: int, *, aad: Optional[bytes] = None) -> str:
+        """Decrypt data using AES-GCM with derived key."""
         blob = base64.b64decode(token_b64)
         if len(blob) < 32 + 12 + 16:
             raise ValueError("Ciphertext too short")
@@ -149,18 +159,23 @@ class DiffieHellman:
         pt = cipher.decrypt_and_verify(ct, tag)
         return pt.decode('utf-8')
 
+    # --- Handshake ---
+
+    def handshake(self, public_value: int) -> bool:
+        """Verify handshake by computing shared secret."""
+        try:
+            self._validate_peer_public(public_value)
+            self.compute_shared_secret(public_value)
+            return True
+        except (ValueError, TypeError) as e:
+            print(f"Handshake failed: {e}")
+            return False
+
     # --- Self-test ---
 
-
-    def hand_shake(self,public_value:str) -> bool:
-        A = self.get_public_value()
-        B = int(public_value)
-
-        a_secret = self.compute_shared_secret(B)
-        b_secret = public_key.compute_shared_secret(A)
-        return a_secret == b_secret
     @staticmethod
     def test():
+        """Comprehensive test of DH key exchange and encryption."""
         alice = DiffieHellman('alice')
         bob = DiffieHellman('bob')
         A = alice.get_public_value()

@@ -27,40 +27,62 @@ class Tool:
               trials = 4,
             
               **kwargs) -> List[str]:
-    """
-    Generate a valid JSON based on the error message and query.
-    """
-    for t in range(trials):
-        prompt = f'''
-╔══════════════════════════════════════════════════════════╗
-║                    MODCARD 95 STYLE                      ║
-╠══════════════════════════════════════════════════════════╣
-║ ┌──────────────────────────────────────────────────────┐ ║
-║ │ TASK                                                 │ ║
-║ │ {self.task}                                          │ ║
-║ └──────────────────────────────────────────────────────┘ ║
-║ ┌──────────────────────────────────────────────────────┐ ║
-║ │ CONTENT                                              │ ║
-║ │ {content}                                            │ ║
-║ └──────────────────────────────────────────────────────┘ ║
-║ ┌──────────────────────────────────────────────────────┐ ║
-║ │ OUTPUT FORMAT                                        │ ║
-║ │ {self.anchors[0]}{self.output_format}{self.anchors[1]} │ ║
-║ └──────────────────────────────────────────────────────┘ ║
-║ ┌──────────────────────────────────────────────────────┐ ║
-║ │ HISTORY                                              │ ║
-║ │ {history}                                            │ ║
-║ └──────────────────────────────────────────────────────┘ ║
-╚══════════════════════════════════════════════════════════╝
-        '''
+        """
+        Generate a valid JSON based on the error message and query.
+        """
+        for t in range(trials):
+            prompt = f'''
+    ╔══════════════════════════════════════════════════════════╗
+    ║                    MODCARD 95 STYLE                      ║
+    ╠══════════════════════════════════════════════════════════╣
+    ║ ┌──────────────────────────────────────────────────────┐ ║
+    ║ │ TASK                                                 │ ║
+    ║ │ {self.task}                                          │ ║
+    ║ └──────────────────────────────────────────────────────┘ ║
+    ║ ┌──────────────────────────────────────────────────────┐ ║
+    ║ │ CONTENT                                              │ ║
+    ║ │ {content}                                            │ ║
+    ║ └──────────────────────────────────────────────────────┘ ║
+    ║ ┌──────────────────────────────────────────────────────┐ ║
+    ║ │ OUTPUT FORMAT                                        │ ║
+    ║ │ {self.anchors[0]}{self.output_format}{self.anchors[1]} │ ║
+    ║ └──────────────────────────────────────────────────────┘ ║
+    ║ ┌──────────────────────────────────────────────────────┐ ║
+    ║ │ HISTORY                                              │ ║
+    ║ │ {history}                                            │ ║
+    ║ └──────────────────────────────────────────────────────┘ ║
+    ╚══════════════════════════════════════════════════════════╝
+            '''
+            try:
+                result = self.model.forward(prompt, stream=True)
+                result = self.process(result)
+                return json.loads(result['data'])
+            except json.JSONDecodeError as e:
+                history.append(str(e))
+        raise ValueError("Failed to process JSON after multiple attempts.")
+    
+
+    def process(self, result: str) -> Dict[str, Any]:
+        """
+        Process the model output to extract JSON content.
+        
+        Args:
+            result: The raw output from the model
+            
+        Returns:
+            A dictionary containing the extracted JSON data
+        """
+        start_anchor, end_anchor = self.anchors
+        start_idx = result.find(start_anchor)
+        end_idx = result.find(end_anchor, start_idx + len(start_anchor))
+        if start_idx == -1 or end_idx == -1:
+            raise ValueError("Output does not contain the required anchors.")
+        json_content = result[start_idx + len(start_anchor):end_idx].strip()
         try:
-            result = self.model.forward(prompt, stream=True)
-            result = self.process(result)
-            return json.loads(result['data'])
+            data = json.loads(json_content)
+            return {"data": data}
         except json.JSONDecodeError as e:
-            history.append(str(e))
-    raise ValueError("Failed to process JSON after multiple attempts.")
-        return json.loads(json_str)
+            raise ValueError(f"Failed to decode JSON content: {e}")
 
     def test(self, content: str = {'fam': 1, 'daweg': ['fam', 1]}, query: str = 'most relevant', model: str = None, **kwargs) -> List[str]:
         """
