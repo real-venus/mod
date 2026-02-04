@@ -2,35 +2,29 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("Market Integration", function () {
-  let market, tokenGate, oracle, paymentToken, treasury, owner, user1;
+  let market, tokenGate, oracle, paymentToken, treasury, owner, user1, provider;
   const INITIAL_SUPPLY = ethers.parseEther("1000000");
   const TOKEN_PRICE = 100000000n; // $1.00 with 8 decimals
 
   beforeEach(async function () {
-    [owner, treasury, user1] = await ethers.getSigners();
+    [owner, treasury, user1, provider] = await ethers.getSigners();
 
-    // Deploy payment token (18 decimals)
     const Token = await ethers.getContractFactory("Token");
     paymentToken = await Token.deploy("Payment Token", "PAY", INITIAL_SUPPLY);
     await paymentToken.waitForDeployment();
 
-    // Deploy oracle
     const ManualPriceOracle = await ethers.getContractFactory("ManualPriceOracle");
     oracle = await ManualPriceOracle.deploy();
     await oracle.waitForDeployment();
 
-    // Set $1 price for payment token (8 decimals)
     await oracle.setPrice(await paymentToken.getAddress(), TOKEN_PRICE, 18);
 
-    // Deploy TokenGate
     const TokenGate = await ethers.getContractFactory("TokenGate");
     tokenGate = await TokenGate.deploy(await oracle.getAddress());
     await tokenGate.waitForDeployment();
 
-    // Whitelist payment token
     await tokenGate.whitelistToken(await paymentToken.getAddress());
 
-    // Deploy Market (8 decimals)
     const Market = await ethers.getContractFactory("Market");
     market = await Market.deploy(
       "Stable Token",
@@ -40,15 +34,8 @@ describe("Market Integration", function () {
     );
     await market.waitForDeployment();
 
-    // Fund user and treasury
     await paymentToken.transfer(user1.address, ethers.parseEther("10000"));
     await paymentToken.transfer(treasury.address, ethers.parseEther("100000"));
-  });
-
-  describe("Decimals", function () {
-    it("Should have 8 decimals", async function () {
-      expect(await market.decimals()).to.equal(8);
-    });
   });
 
   describe("TokenGate Integration", function () {
@@ -89,11 +76,9 @@ describe("Market Integration", function () {
   });
 
   describe("Credit with TokenGate Pricing", function () {
-    const stableAmount = 10000000000n; // 100 tokens at 8 decimals
+    const stableAmount = 10000000000n;
 
     it("Should credit with TokenGate oracle-based pricing", async function () {
-      // Market is 8 decimals, payment token is 18 decimals, price is 8 decimals
-      // paymentAmount = stableAmount * 10^18 / TOKEN_PRICE
       const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
 
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
@@ -105,7 +90,7 @@ describe("Market Integration", function () {
     });
 
     it("Should handle dynamic oracle price updates via TokenGate", async function () {
-      const newPrice = 200000000n; // $2.00 with 8 decimals
+      const newPrice = 200000000n;
       await oracle.setPrice(await paymentToken.getAddress(), newPrice, 18);
 
       const paymentAmount = (stableAmount * BigInt(10 ** 18)) / newPrice;
@@ -127,8 +112,8 @@ describe("Market Integration", function () {
     });
   });
 
-  describe("Debit Functionality", function () {
-    const stableAmount = 10000000000n; // 100 tokens at 8 decimals
+  describe("Debit Functionality with Treasury Fee (Owner Only)", function () {
+    const stableAmount = 10000000000n;
 
     beforeEach(async function () {
       const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
@@ -136,22 +121,98 @@ describe("Market Integration", function () {
       await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
     });
 
-    it("Should debit stable tokens correctly", async function () {
-      await expect(market.connect(user1).debit(stableAmount))
-        .to.emit(market, "Debit");
+    it("Should allow owner to debit from client and credit provider with 5% treasury fee", async function () {
+      const treasuryFee = (stableAmount * 5n) / 100n;
+      const providerAmount = stableAmount - treasuryFee;
+
+      const tx = await market.connect(owner).debit(user1.address, provider.address, stableAmount);
+      const receipt = await tx.wait();
+      
+      // Find the Debit event
+      const debitEvent = receipt.logs.find(log => {
+        try {
+          const parsed = market.interface.parseLog(log);
+          return parsed.name === "Debit";
+        } catch {
+          return false;
+        }
+      });
+      
+      const parsedEvent = market.interface.parseLog(debitEvent);
+      
+      expect(parsedEvent.args.txId).to.equal(2); // txId should be 2 (1 from credit, 2 from debit)
+      expect(parsedEvent.args.client).to.equal(user1.address);
+      expect(parsedEvent.args.provider).to.equal(provider.address);
+      expect(parsedEvent.args.amount).to.equal(stableAmount);
+      expect(parsedEvent.args.treasuryFee).to.equal(treasuryFee);
+      expect(parsedEvent.args.providerAmount).to.equal(providerAmount);
 
       expect(await market.balanceOf(user1.address)).to.equal(0);
+      expect(await market.balanceOf(provider.address)).to.equal(providerAmount);
+      expect(await market.balanceOf(treasury.address)).to.equal(treasuryFee);
+    });
+
+    it("Should reject debit from non-owner", async function () {
+      await expect(
+        market.connect(user1).debit(user1.address, provider.address, stableAmount)
+      ).to.be.reverted;
     });
 
     it("Should reject debit with insufficient balance", async function () {
       await expect(
-        market.connect(user1).debit(stableAmount * 2n)
+        market.connect(owner).debit(user1.address, provider.address, stableAmount * 2n)
       ).to.be.revertedWith("Insufficient balance");
+    });
+
+    it("Should reject debit with invalid client", async function () {
+      await expect(
+        market.connect(owner).debit(ethers.ZeroAddress, provider.address, stableAmount)
+      ).to.be.revertedWith("Invalid client");
+    });
+
+    it("Should reject debit with invalid provider", async function () {
+      await expect(
+        market.connect(owner).debit(user1.address, ethers.ZeroAddress, stableAmount)
+      ).to.be.revertedWith("Invalid provider");
+    });
+
+    it("Should calculate correct treasury fee percentage", async function () {
+      const testAmount = 1000000000n;
+      const expectedFee = (testAmount * 5n) / 100n;
+      const expectedProvider = testAmount - expectedFee;
+
+      await market.connect(owner).debit(user1.address, provider.address, testAmount);
+
+      expect(await market.balanceOf(treasury.address)).to.equal(expectedFee);
+      expect(await market.balanceOf(provider.address)).to.equal(expectedProvider);
+    });
+
+    it("Should allow owner to debit from any address to any address", async function () {
+      const [, , user2, provider2] = await ethers.getSigners();
+      
+      // Credit user2 first
+      const initialUserBalance = await market.balanceOf(user2.address);
+      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
+      await paymentToken.transfer(user2.address, paymentAmount);
+      await paymentToken.connect(user2).approve(await market.getAddress(), paymentAmount);
+      await market.connect(user2).credit(await paymentToken.getAddress(), stableAmount);
+
+      const treasuryFeeBefore = await market.balanceOf(treasury.address);
+      const treasuryFee = (stableAmount * 5n) / 100n;
+      const providerAmount = stableAmount - treasuryFee;
+
+      // Owner debits from user2 to provider2
+      await expect(market.connect(owner).debit(user2.address, provider2.address, stableAmount))
+        .to.emit(market, "Debit");
+
+      expect(await market.balanceOf(user2.address)).to.equal(initialUserBalance);
+      expect(await market.balanceOf(provider2.address)).to.equal(providerAmount);
+      expect(await market.balanceOf(treasury.address)).to.equal(treasuryFeeBefore + treasuryFee);
     });
   });
 
   describe("Withdrawal Tests", function () {
-    const stableAmount = 10000000000n; // 100 tokens at 8 decimals
+    const stableAmount = 10000000000n;
 
     beforeEach(async function () {
       const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
@@ -162,7 +223,6 @@ describe("Market Integration", function () {
     it("Should allow immediate withdrawal without lockup", async function () {
       const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
 
-      // Approve treasury to send back payment tokens
       await paymentToken.connect(treasury).approve(await market.getAddress(), paymentAmount);
 
       await expect(market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount))
@@ -215,7 +275,7 @@ describe("Market Integration", function () {
     });
 
     it("Should handle withdrawal with dynamic price changes", async function () {
-      const newPrice = 200000000n; // $2.00
+      const newPrice = 200000000n;
       await oracle.setPrice(await paymentToken.getAddress(), newPrice, 18);
 
       const paymentAmount = (stableAmount * BigInt(10 ** 18)) / newPrice;

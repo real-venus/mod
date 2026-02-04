@@ -106,20 +106,6 @@ export function TreasuryHeader() {
               <CopyButton text={treasuryAddress} size="sm" />
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-white/10 mb-2">
-              <span className="text-xs text-white/50 uppercase font-bold">USDC TVL</span>
-              <span className="text-sm text-purple-400 font-mono font-bold">
-                ${usdcBalance}
-              </span>
-            </div>
-            
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-white/50 uppercase font-bold">USDT TVL</span>
-              <span className="text-sm text-purple-400 font-mono font-bold">
-                ${usdtBalance}
-              </span>
-            </div>
-            
             <div className="flex items-center justify-between pt-2 border-t border-white/10">
               <span className="text-xs text-white/50 uppercase font-bold">TOTAL USD</span>
               <span className="text-sm text-green-400 font-mono font-bold">

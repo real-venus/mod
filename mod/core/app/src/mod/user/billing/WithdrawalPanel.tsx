@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { userContext } from '@/mod/context'
-import { ArrowDownTrayIcon, AlertCircle, CheckCircle, Zap, RefreshCw } from 'lucide-react'
+import { ArrowDownTrayIcon, CheckCircle, Zap, RefreshCw } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { Market } from '@/mod/network/Market'
 import modConfig from '@/app/mod.json'
 import { ethers } from 'ethers'
@@ -164,7 +165,7 @@ export const WithdrawalPanel: React.FC = () => {
               <div className="text-blue-500/70 font-bold text-sm uppercase mb-2">Total Balance</div>
               <div className="text-blue-500 font-black text-4xl">${totalBalance.toFixed(2)}</div>
             </div>
-            <ArrowDownTrayIcon size={48} className="text-blue-500/30" />
+            <ArrowDownTrayIcon className="w-12 h-12 text-blue-500/30" />
           </div>
         </div>
 
@@ -181,7 +182,7 @@ export const WithdrawalPanel: React.FC = () => {
                 className="p-3 bg-green-500/20 border-2 border-green-500/50 rounded-lg hover:bg-green-500/30 hover:border-green-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Refresh Balance"
               >
-                <RefreshCw size={24} className={`text-green-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-6 h-6 text-green-500 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
@@ -191,7 +192,7 @@ export const WithdrawalPanel: React.FC = () => {
       {/* Withdrawal Form */}
       <div className="p-6 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-red-500/10 border-2 border-purple-500/50 rounded-xl shadow-2xl">
         <h2 className="text-2xl font-black text-purple-500 uppercase mb-6 flex items-center gap-2">
-          <ArrowDownTrayIcon size={24} />
+          <ArrowDownTrayIcon className="w-6 h-6" />
           Withdraw Credit
         </h2>
 
@@ -237,12 +238,12 @@ export const WithdrawalPanel: React.FC = () => {
           >
             {isProcessing ? (
               <>
-                <Zap size={20} className="animate-spin" />
+                <Zap className="w-5 h-5 animate-spin" />
                 <span>PROCESSING...</span>
               </>
             ) : (
               <>
-                <ArrowDownTrayIcon size={20} />
+                <ArrowDownTrayIcon className="w-5 h-5" />
                 <span>WITHDRAW TO WALLET</span>
               </>
             )}
@@ -304,12 +305,12 @@ export const WithdrawalPanel: React.FC = () => {
           <div className="flex items-center gap-3 text-base font-mono uppercase font-bold mb-4">
             {error ? (
               <>
-                <AlertCircle size={20} className="text-red-500" />
+                <AlertCircle className="w-5 h-5 text-red-500" />
                 <span className="text-red-500">ERROR</span>
               </>
             ) : (
               <>
-                <CheckCircle size={20} className="text-emerald-500" />
+                <CheckCircle className="w-5 h-5 text-emerald-500" />
                 <span className="text-emerald-500">SUCCESS</span>
               </>
             )}

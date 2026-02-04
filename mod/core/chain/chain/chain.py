@@ -414,8 +414,7 @@ class Mod:
             Formatted balance
         """
         decimals = self.decimals
-        token = token.lower()
-        if token != 'eth':
+        if token != 'ETH':
             chain_config = self.config['deployments'][self.network]['contracts']
             if token in chain_config:
                 token_address = chain_config[token]['address']
