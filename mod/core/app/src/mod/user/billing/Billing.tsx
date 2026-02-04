@@ -55,6 +55,7 @@ export const Billing: React.FC = () => {
         
         let balance = await marketContract.balanceOf(user.key)
         let decimals = await marketContract.decimals()
+        console.log('Fetched decimals:', Number(decimals))
         decimals = Number(decimals) + 10
         balance = parseFloat(ethers.formatUnits(balance, decimals))
     

@@ -58,11 +58,7 @@ class  Api:
         """
         return bool(self.cid(mod=mod, key=key))
 
-    def verify_mod(self, mod: str = 'store', key=None) -> bool:
-        assert 'signature' in mod, f'Mod {mod} has no signature'
-        signature = mod.pop('signature', None)
-        assert signature is not None, f'Mod {mod} has no signature'
-        return self.key.verify(mod, signature=signature, address=mod['key'])
+
 
     def mod(self, mod='api', key=None, schema=False,  expand = False, **kwargs) -> Dict[str, Any]:
         """
@@ -201,7 +197,6 @@ class  Api:
         return  self.registry().get(self.key_address(key), {}).get(mod, default)
     
     def reg_info(self, mod:dict):
-        assert self.verify_mod(mod), "Mod verification failed"
         mod = self.get(mod) if isinstance(mod, str) else mod
         cid = mod['cid'] if 'cid' in mod else self.add(mod)
         registry = m.get(self.registry_path, {})

@@ -12,11 +12,20 @@ import mod as m
 
 class Registry:
 
-    def __init__(self):
+    folder_path = '~/.mod/api/registry'
+    def __init__(self ):
+
         self.store = m.mod('ipfs')()
         self.registry_path = self.path('registry.json')
 
 
+
+    def path(self, path:str) -> str:
+        """Get content from a specific path in IPFS.
+        
+        Args:
+        """
+        return self.folder_path + '/' + path
 
     def rm_mod(self, mod: m.Mod='store', key=None) -> bool:
         """Remove a mod Mod from IPFS.

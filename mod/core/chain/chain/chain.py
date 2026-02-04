@@ -397,6 +397,8 @@ class Mod:
             balance = token_contract.functions.balanceOf(address).call()
 
         return self.format_balance(balance, token=token)
+    
+        # default
     bal = balance
     def format_balance(self, balance: int, token='ETH') -> float:
         """Format balance from wei to human-readable.
@@ -420,6 +422,7 @@ class Mod:
                     abi=token_abi
                     )
                 decimals = token_contract.functions.decimals().call()
+                print(f'Token {token} has {decimals} decimals')
         return balance / (10 ** decimals)
 
 

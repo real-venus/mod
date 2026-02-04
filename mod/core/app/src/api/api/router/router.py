@@ -14,7 +14,7 @@ class Router:
     threads = {}
     cid2future = {}
 
-    folder_path = m.abspath('~/.mod/api')
+    folder_path = m.abspath('~/.mod/api/router')
     def __init__(self, store='ipfs', key=None, auth='auth.v0'):
         self.store = store
         self.key = m.key(key )
@@ -35,6 +35,7 @@ class Router:
                 params: Dict[str, Any] = {}, 
                 token = None, 
                 wait=False,
+                key = None,
                 return_cid = False,
                 timeout=1000, **extra_params) -> Any:
         """
