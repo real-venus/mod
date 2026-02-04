@@ -6,6 +6,7 @@ import { CopyButton } from '@/mod/ui/CopyButton'
 import modConfig from '@/app/mod.json'
 import { ethers } from 'ethers'
 import { useRouter } from 'next/navigation'
+import { Market } from '@/mod/network/Market'
 
 export function TreasuryHeader() {
   const router = useRouter()
@@ -14,6 +15,7 @@ export function TreasuryHeader() {
   const [showTreasuryDetails, setShowTreasuryDetails] = useState(false)
   const [usdcBalance, setUsdcBalance] = useState('0')
   const [usdtBalance, setUsdtBalance] = useState('0')
+  const market = new Market(modConfig.chain?.testnet)
 
   useEffect(() => {
     const network = 'testnet'
@@ -32,32 +34,7 @@ export function TreasuryHeader() {
         const provider = new ethers.BrowserProvider(window.ethereum)
         
         const network = 'testnet'
-        const chainConfig = modConfig.chain?.[network]
-        
-        const usdcAddress = chainConfig?.contracts?.USDC?.address
-        const usdtAddress = chainConfig?.contracts?.USDT?.address
-        
-        let totalUsd = 0
-        
-        if (usdcAddress) {
-          const ERC20ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)']
-          const usdcContract = new ethers.Contract(usdcAddress, ERC20ABI, provider)
-          const balance = await usdcContract.balanceOf(treasuryAddress)
-          const decimals = await usdcContract.decimals()
-          const usdc = parseFloat(ethers.formatUnits(balance, decimals))
-          setUsdcBalance(usdc.toFixed(2))
-          totalUsd += usdc
-        }
-        
-        if (usdtAddress) {
-          const ERC20ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)']
-          const usdtContract = new ethers.Contract(usdtAddress, ERC20ABI, provider)
-          const balance = await usdtContract.balanceOf(treasuryAddress)
-          const decimals = await usdtContract.decimals()
-          const usdt = parseFloat(ethers.formatUnits(balance, decimals))
-          setUsdtBalance(usdt.toFixed(2))
-          totalUsd += usdt
-        }
+        let  totalUsd = await market.checkBalance(treasuryAddress, 'Market')
         
         setTotalUsdValue(totalUsd.toFixed(2))
       } catch (error) {

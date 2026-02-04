@@ -385,8 +385,7 @@ class Mod:
         Returns:
             Stable token balance
         """
-        address = self.addy(address)
-        chain_config = self.config['deployments'][self.network]['contracts']
+
         if token == 'ETH':
             addr = address or self.account.address
             print(f'Getting ETH balance for {addr}')
@@ -394,12 +393,22 @@ class Mod:
         else:
             cfg =  self.contracts_config()[token.lower()]
             token_contract = self.w3.eth.contract(
-                address=Web3.to_checksum_address(cfg['address']),
+                address=cfg['address'],
                 abi=self.ipfs.get(cfg['abi'])
                 )
+            print(f'Getting {token} balance for {address} at {cfg["address"]}')
             balance = token_contract.functions.balanceOf(address).call()
 
-        return self.format_balance(balance, token=token)
+        return self.format_balance(balance)
+    
+    def credits(self, address: str=None) -> int:
+        """Get stable token balance.
+        Args:
+            address: Address to query
+        Returns:
+            Stable token balance
+        """
+        return self.balance(token='MARKET', address=address)
     
         # default
     bal = balance
@@ -528,6 +537,64 @@ class Mod:
         }
 
     # ==================== TOKENGATE FUNCTIONS ====================
+
+    def debit(self, client, provider, amount): 
+        """Debit stable tokens from client to provider.
+        
+        Args:
+            client: Client address
+            provider: Provider address
+            amount: Amount to debit
+        Returns:
+            Transaction receipt
+        """
+        market = self.contracts.get('market')
+        if not market:
+            raise ValueError('Market contract not loaded')
+        amount = int(amount * 10**self.decimals)
+        client = Web3.to_checksum_address(client)
+        provider = Web3.to_checksum_address(provider)
+        tx = market.functions.debit(client, provider, amount).build_transaction({
+            'from': self.account.address,
+            'nonce': self.w3.eth.get_transaction_count(self.account.address)
+        })
+        signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+        return self.w3.eth.wait_for_transaction_receipt(tx_hash)
+    
+
+    def treasury(self) -> str:
+        """Get treasury address.
+        
+        Returns:
+            Treasury address
+        """
+        market = self.contracts.get('market')
+        if not market:
+            raise ValueError('Market contract not loaded')
+        return market.functions.treasury().call()
+    def totalTreasuryFeesAccrued(self) -> int:
+        """Get total market treasury fees accrued.
+        
+        Returns:
+            Total fees
+        """
+        market = self.contracts.get('market')
+        if not market:
+            raise ValueError('Market contract not loaded')
+        value =  market.functions.totalTreasuryFeesAccrued().call()
+        return self.format_balance(value, token='MARKET')
+
+    def getUnclaimedTreasuryFeesUSD(self) -> int:
+        """Get total market treasury fees.
+        
+        Returns:
+            Total fees
+        """
+        market = self.contracts.get('market')
+        if not market:
+            raise ValueError('Market contract not loaded')
+        return market.functions.getUnclaimedTreasuryFeesUSD().call()
 
 
     def tokens(self) -> List[str]:

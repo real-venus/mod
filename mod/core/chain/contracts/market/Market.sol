@@ -21,15 +21,15 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
     uint256 public nextTransactionId = 1;
     uint256 public constant TREASURY_FEE_PERCENT = 5; // 5% treasury fee
     
-    // Track total USDC fees accrued by treasury (claimed + unclaimed)
-    mapping(address => uint256) public totalTreasuryFeesAccrued; // token => total fees
+    // Track total USDC fees accrued by treasury as a single uint256
+    uint256 public totalTreasuryFeesAccrued;
     
     event Credit(uint256 indexed txId, address indexed user, uint256 amount, address paymentToken, uint256 paidAmount);
     event Debit(uint256 indexed txId, address indexed client, address indexed provider, uint256 amount, uint256 treasuryFee, uint256 providerAmount);
     event Withdrawal(uint256 indexed txId, address indexed user, uint256 amount, address paymentToken, uint256 receivedAmount);
     event TreasuryUpdated(address indexed newTreasury);
     event TokenGateUpdated(address indexed newTokenGate);
-    event TreasuryFeeAccrued(address indexed token, uint256 feeAmount, uint256 totalAccrued);
+    event TreasuryFeeAccrued(uint256 feeAmount, uint256 totalAccrued);
     
     constructor(
         string memory name,
@@ -98,9 +98,8 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         _mint(treasury, treasuryFee);
         
         // Track total treasury fees accrued (in stable token terms)
-        // This represents the USD value of fees (since stable token is pegged to USD)
-        totalTreasuryFeesAccrued[address(this)] += treasuryFee;
-        emit TreasuryFeeAccrued(address(this), treasuryFee, totalTreasuryFeesAccrued[address(this)]);
+        totalTreasuryFeesAccrued += treasuryFee;
+        emit TreasuryFeeAccrued(treasuryFee, totalTreasuryFeesAccrued);
         
         // Mint provider amount to provider
         _mint(provider, providerAmount);
@@ -133,7 +132,7 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
      * This includes both claimed (treasury balance) and unclaimed fees
      */
     function getTotalTreasuryFeesUSD() external view returns (uint256) {
-        return totalTreasuryFeesAccrued[address(this)];
+        return totalTreasuryFeesAccrued;
     }
     
     /**
@@ -147,9 +146,8 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
      * @dev Get unclaimed treasury fees (total accrued - current balance)
      */
     function getUnclaimedTreasuryFeesUSD() external view returns (uint256) {
-        uint256 totalAccrued = totalTreasuryFeesAccrued[address(this)];
         uint256 currentBalance = balanceOf(treasury);
-        return totalAccrued > currentBalance ? totalAccrued - currentBalance : 0;
+        return totalTreasuryFeesAccrued > currentBalance ? totalTreasuryFeesAccrued - currentBalance : 0;
     }
     
     function getBalance(address user) external view returns (uint256) {
