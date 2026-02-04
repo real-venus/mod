@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { timeAgo, shorten, text2color } from '@/mod/utils'
-import { CubeIcon, HashtagIcon, KeyIcon, QrCodeIcon } from '@heroicons/react/24/outline'
+import { CubeIcon, HashtagIcon, KeyIcon, QrCodeIcon, UserIcon } from '@heroicons/react/24/outline'
 import { userContext } from '@/mod/context'
 import { Key } from '@/mod/key'
 import { QRCode } from '@/mod/ui/QRCode'
+import Link from 'next/link'
 
 interface Transaction {
   fn: string
@@ -20,6 +21,8 @@ interface Transaction {
   delta?: number
   client?: string
   cost?: number
+  module?: string
+  owner?: string
 }
 
 interface TransactionCardProps {
@@ -43,6 +46,9 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
   const [isSignatureCopyHovered, setIsSignatureCopyHovered] = useState(false)
   const [isParamsQrHovered, setIsParamsQrHovered] = useState(false)
   const [isResultsQrHovered, setIsResultsQrHovered] = useState(false)
+  const [isOwnerHovered, setIsOwnerHovered] = useState(false)
+  const [isOwnerQrHovered, setIsOwnerQrHovered] = useState(false)
+  const [isOwnerCopyHovered, setIsOwnerCopyHovered] = useState(false)
   
   const hasResults = tx.result !== undefined
   const hasParams = tx.params !== null && tx.params !== undefined
@@ -145,6 +151,7 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
   const signatureColor = text2color(tx.signature || '')
   const paramsColor = text2color('params')
   const resultsColor = text2color('results')
+  const ownerColor = text2color(tx.owner || tx.module || '')
 
   return (
     <div 
@@ -160,11 +167,13 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
     >
       <div className="p-5 h-full flex flex-col">
         <div className="flex flex-wrap gap-2.5 items-center">
-          <div className="flex items-center gap-2 bg-black/30 border-2 rounded-xl px-4 py-2 shadow-sm hover:shadow-md transition-all" style={{ borderColor: `${txColor}60`, height: '42px' }}>
-            <CubeIcon className="w-5 h-5" style={{ color: txColor }} />
-            <code className="text-sm font-mono font-semibold" style={{ color: txColor }}>{tx.fn}</code>
-            <CopyButton text={tx.fn} size="sm" />
-          </div>
+          <Link href={`/mod/${tx.fn}/${tx.owner || tx.module || tx.key}`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 bg-black/30 border-2 rounded-xl px-4 py-2 shadow-sm hover:shadow-md transition-all hover:scale-105" style={{ borderColor: `${txColor}60`, height: '42px' }}>
+              <CubeIcon className="w-5 h-5" style={{ color: txColor }} />
+              <code className="text-sm font-mono font-semibold" style={{ color: txColor }}>{tx.fn}</code>
+              <CopyButton text={tx.fn} size="sm" />
+            </div>
+          </Link>
 
           <span className={`${statusColors.text} font-bold text-sm px-4 py-2 bg-black/30 rounded-xl border-2 ${statusColors.border} flex items-center justify-center shadow-sm`} style={{ height: '42px' }}>
             {getStatusEmoji(tx.status)}
@@ -173,6 +182,43 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
           <span className="bg-black/30 border-2 border-green-900/60 px-4 py-2 rounded-xl font-mono text-green-400 text-sm font-bold flex items-center shadow-sm" style={{ height: '42px' }}>
             ${costUsd.toFixed(4)}
           </span>
+
+          {(tx.owner || tx.module) && (
+            <Link href={`/user/${tx.owner || tx.module}`} onClick={(e) => e.stopPropagation()}>
+              <div 
+                className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/owner shadow-md hover:scale-105"
+                style={{
+                  borderColor: `${ownerColor}40`,
+                  backgroundColor: (isOwnerHovered || isOwnerCopyHovered) ? `${ownerColor}25` : 'rgba(0, 0, 0, 0.3)',
+                  height: '42px'
+                }}
+                onMouseEnter={() => setIsOwnerHovered(true)}
+                onMouseLeave={() => setIsOwnerHovered(false)}
+                title={tx.owner || tx.module}
+              >
+                <UserIcon className="w-4 h-4" style={{ color: ownerColor }} />
+                <span className="text-xs font-mono font-bold" style={{ color: ownerColor }}>OWNER</span>
+                <div
+                  onMouseEnter={() => setIsOwnerCopyHovered(true)}
+                  onMouseLeave={() => setIsOwnerCopyHovered(false)}
+                >
+                  <CopyButton text={tx.owner || tx.module || ''} size="sm" showValueOnHover={true} />
+                </div>
+                <div 
+                  className="relative ml-1"
+                  onMouseEnter={() => setIsOwnerQrHovered(true)}
+                  onMouseLeave={() => setIsOwnerQrHovered(false)}
+                >
+                  <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: ownerColor }} />
+                  {isOwnerQrHovered && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: ownerColor }}>
+                      <QRCode value={tx.owner || tx.module || ''} size={100} color={ownerColor} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Link>
+          )}
 
           {tx.cid && (
             <div 
@@ -211,37 +257,39 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
           )}
 
           {tx.key && (
-            <div 
-              className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
-              style={{
-                borderColor: `${keyColor}40`,
-                backgroundColor: (isKeyHovered || isKeyCopyHovered) ? `${keyColor}25` : 'rgba(0, 0, 0, 0.3)',
-                height: '42px'
-              }}
-              onMouseEnter={() => setIsKeyHovered(true)}
-              onMouseLeave={() => setIsKeyHovered(false)}
-              title={tx.key}
-            >
-              <KeyIcon className="w-4 h-4" style={{ color: keyColor }} />
-              <div
-                onMouseEnter={() => setIsKeyCopyHovered(true)}
-                onMouseLeave={() => setIsKeyCopyHovered(false)}
-              >
-                <CopyButton text={tx.key} size="sm" showValueOnHover={true} />
-              </div>
+            <Link href={`/user/${tx.key}`} onClick={(e) => e.stopPropagation()}>
               <div 
-                className="relative ml-1"
-                onMouseEnter={() => setIsKeyQrHovered(true)}
-                onMouseLeave={() => setIsKeyQrHovered(false)}
+                className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
+                style={{
+                  borderColor: `${keyColor}40`,
+                  backgroundColor: (isKeyHovered || isKeyCopyHovered) ? `${keyColor}25` : 'rgba(0, 0, 0, 0.3)',
+                  height: '42px'
+                }}
+                onMouseEnter={() => setIsKeyHovered(true)}
+                onMouseLeave={() => setIsKeyHovered(false)}
+                title={tx.key}
               >
-                <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: keyColor }} />
-                {isKeyQrHovered && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: keyColor }}>
-                    <QRCode value={tx.key} size={100} color={keyColor} />
-                  </div>
-                )}
+                <UserIcon className="w-4 h-4" style={{ color: keyColor }} />
+                <div
+                  onMouseEnter={() => setIsKeyCopyHovered(true)}
+                  onMouseLeave={() => setIsKeyCopyHovered(false)}
+                >
+                  <CopyButton text={tx.key} size="sm" showValueOnHover={true} />
+                </div>
+                <div 
+                  className="relative ml-1"
+                  onMouseEnter={() => setIsKeyQrHovered(true)}
+                  onMouseLeave={() => setIsKeyQrHovered(false)}
+                >
+                  <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: keyColor }} />
+                  {isKeyQrHovered && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: keyColor }}>
+                      <QRCode value={tx.key} size={100} color={keyColor} />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            </Link>
           )}
 
           {tx.delta !== undefined && (

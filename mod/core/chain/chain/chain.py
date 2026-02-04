@@ -114,6 +114,9 @@ class Mod:
             name = name.lower()
             address = info['address']
             abi = self.ipfs.get(info.get('abi'))
+            if abi == None: 
+                m.print(f'ABI not found for {name} at {info.get("abi")}', color='red')
+                continue
             self.load_contract(name, address, abi)
 
     # ==================== BLOCTIME FUNCTIONS ====================
@@ -777,6 +780,7 @@ class Mod:
 
     def deploy(self, network: str = 'ganache'):
         """Deploy contracts."""
+        self.compile()
         deployment =  os.system(f'cd {self.path} && npm run deploy:{network}')
         config = m.config('chain')
         apimap = self.abimap()

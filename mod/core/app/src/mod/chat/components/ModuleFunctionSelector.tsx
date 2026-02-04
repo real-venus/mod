@@ -5,6 +5,7 @@ import { text2color } from '@/mod/utils'
 import { QRCode } from '@/mod/ui/QRCode'
 import { useRouter } from 'next/navigation'
 import { QrCodeIcon } from '@heroicons/react/24/outline'
+import { userContext } from '@/mod/context'
 
 interface ModuleFunctionSelectorProps {
   selectedModule: string
@@ -14,6 +15,8 @@ interface ModuleFunctionSelectorProps {
   modules: any[]
   functions: string[]
   onEnterPress?: () => void
+  selectedOwner?: string
+  setSelectedOwner?: (value: string) => void
 }
 
 export function ModuleFunctionSelector({
@@ -23,13 +26,18 @@ export function ModuleFunctionSelector({
   setSelectedFunction,
   modules,
   functions,
-  onEnterPress
+  onEnterPress,
+  selectedOwner,
+  setSelectedOwner
 }: ModuleFunctionSelectorProps) {
+  const { client } = userContext()
   const [inputValue, setInputValue] = useState('')
   const [showModuleSuggestions, setShowModuleSuggestions] = useState(false)
   const [showFunctionSuggestions, setShowFunctionSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [showQR, setShowQR] = useState(false)
+  const [ownerModules, setOwnerModules] = useState<any[]>([])
+  const [loadingOwnerMods, setLoadingOwnerMods] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -41,6 +49,10 @@ export function ModuleFunctionSelector({
     return selectedModule ? text2color(selectedModule) : '#06b6d4'
   }, [selectedModule])
 
+  const ownerColor = useMemo(() => {
+    return selectedOwner ? text2color(selectedOwner) : '#f59e0b'
+  }, [selectedOwner])
+
   const selectedModuleInfo = useMemo(() => {
     return modules.find(m => m.name === selectedModule)
   }, [selectedModule, modules])
@@ -51,6 +63,28 @@ export function ModuleFunctionSelector({
       ? `${window.location.origin}/mod/${selectedModuleInfo.name}/${selectedModuleInfo.key}`
       : ''
   }, [selectedModuleInfo])
+
+  const uniqueOwners = useMemo(() => {
+    const owners = new Set(modules.map(m => m.key).filter(Boolean))
+    return Array.from(owners)
+  }, [modules])
+
+  useEffect(() => {
+    const fetchOwnerModules = async () => {
+      if (!selectedOwner || !client) return
+      setLoadingOwnerMods(true)
+      try {
+        const userData = await client.call('user', { key: selectedOwner, expand: true })
+        setOwnerModules(userData.mods || [])
+      } catch (err) {
+        console.error('Failed to fetch owner modules:', err)
+        setOwnerModules([])
+      } finally {
+        setLoadingOwnerMods(false)
+      }
+    }
+    fetchOwnerModules()
+  }, [selectedOwner, client])
 
   const handleQRClick = () => {
     if (modulePageUrl) {
@@ -91,12 +125,13 @@ export function ModuleFunctionSelector({
 
   const filteredModules = useMemo(() => {
     if (!inputValue || inputValue.includes('/')) return []
-    return modules
+    const modsToFilter = selectedOwner ? ownerModules : modules
+    return modsToFilter
       .map(m => ({ ...m, distance: calculateDistance(m.name, inputValue) }))
       .filter(m => m.distance < 0.8)
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 8)
-  }, [inputValue, modules])
+  }, [inputValue, modules, ownerModules, selectedOwner])
 
   const filteredFunctions = useMemo(() => {
     if (!inputValue.includes('/')) return []
@@ -184,6 +219,11 @@ export function ModuleFunctionSelector({
     }
   }
 
+  const handleRemoveOwner = () => {
+    if (setSelectedOwner) setSelectedOwner('')
+    inputRef.current?.focus()
+  }
+
   const handleRemoveModule = () => {
     setSelectedModule('')
     setSelectedFunction('')
@@ -211,52 +251,86 @@ export function ModuleFunctionSelector({
   }
 
   return (
-    <div className="flex gap-3 items-center w-full relative">
-      <div className="flex-1 flex gap-2 items-center bg-black border-2 border-purple-500/40 px-4 py-3 rounded-lg relative">
-        {selectedModule && (
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '1.1rem', backgroundColor: `${moduleColor}30`, borderColor: `${moduleColor}60`, border: '2px solid', color: 'white' }}>
-            <span>{selectedModule}</span>
-            <button onClick={handleRemoveModule} className="hover:text-red-400 transition-colors" type="button">✕</button>
-          </div>
-        )}
-        {selectedFunction && (
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '1.1rem', backgroundColor: `${functionColor}30`, borderColor: `${functionColor}60`, border: '2px solid', color: 'white' }}>
-            <span>{selectedFunction}</span>
-            <button onClick={handleRemoveFunction} className="hover:text-red-400 transition-colors" type="button">✕</button>
-          </div>
-        )}
-        <input ref={inputRef} type="text" value={inputValue} onChange={handleInputChange} onKeyDown={handleKeyDown} placeholder={selectedModule && selectedFunction ? '' : 'module/function'} className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-500 text-lg" style={{ fontFamily: 'IBM Plex Mono, monospace' }} />
-        {selectedModuleInfo && (
-          <button type="button" onClick={handleQRClick} onMouseEnter={() => setShowQR(true)} onMouseLeave={() => setShowQR(false)} className="p-2 bg-black/60 rounded-lg border-2 transition-all hover:scale-105 cursor-pointer flex items-center gap-2" style={{ borderColor: moduleColor }}>
-            <QrCodeIcon className="w-5 h-5" style={{ color: moduleColor }} />
-            <div className="w-8 h-8"><QRCode value={modulePageUrl} size={32} color={moduleColor} /></div>
-          </button>
-        )}
-        {showQR && selectedModuleInfo && (
-          <div className="absolute right-0 top-full mt-2 px-4 py-3 rounded-lg border-2 text-sm font-mono whitespace-nowrap z-50 shadow-2xl pointer-events-none" style={{ backgroundColor: 'rgba(0, 0, 0, 0.95)', borderColor: moduleColor, color: moduleColor, boxShadow: `0 0 20px ${moduleColor}40` }}>
-            <div className="space-y-1"><div><strong>Module:</strong> {selectedModuleInfo.name}</div><div><strong>Owner:</strong> {selectedModuleInfo.key?.slice(0, 8)}...{selectedModuleInfo.key?.slice(-6)}</div><div className="text-xs opacity-75 mt-2">Click QR to visit page</div></div>
-          </div>
-        )}
-        {showModuleSuggestions && filteredModules.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-purple-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto">
-            {filteredModules.map((mod, idx) => (
-              <button key={mod.name} type="button" onClick={() => selectModule(mod.name)} className={`w-full text-left px-4 py-3 text-white border-b border-purple-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${idx === selectedIndex ? 'bg-purple-500/40' : 'hover:bg-purple-500/30'}`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-                <div className="flex flex-col gap-1"><span>{mod.name}</span>{mod.key && <span className="text-purple-400 text-xs font-mono">owner: {mod.key.slice(0, 8)}...{mod.key.slice(-6)}</span>}</div>
-                <span className="text-xs text-cyan-400 font-mono">~{mod.distance.toFixed(2)}</span>
-              </button>
+    <div className="space-y-3">
+      {setSelectedOwner && (
+        <div className="flex gap-2 items-center">
+          <label className="text-sm font-bold" style={{ color: ownerColor, fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}>Owner:</label>
+          <select
+            value={selectedOwner || ''}
+            onChange={(e) => setSelectedOwner(e.target.value)}
+            className="flex-1 border-2 bg-black/40 px-4 py-2 rounded-lg text-sm font-bold backdrop-blur-sm focus:outline-none focus:ring-2"
+            style={{ borderColor: `${ownerColor}40`, color: ownerColor, fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+          >
+            <option value="">All Owners</option>
+            {uniqueOwners.map((owner) => (
+              <option key={owner} value={owner}>
+                {owner.slice(0, 8)}...{owner.slice(-6)}
+              </option>
             ))}
-          </div>
-        )}
-        {showFunctionSuggestions && filteredFunctions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-cyan-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto">
-            {filteredFunctions.map((fn, idx) => (
-              <button key={fn.name} type="button" onClick={() => selectFunction(fn.name)} className={`w-full text-left px-4 py-3 text-white border-b border-cyan-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${idx === selectedIndex ? 'bg-cyan-500/40' : 'hover:bg-cyan-500/30'}`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-                <span>{fn.name}</span><span className="text-xs text-orange-400 font-mono">~{fn.distance.toFixed(2)}</span>
-              </button>
-            ))}
-          </div>
-        )}
+          </select>
+        </div>
+      )}
+
+      <div className="flex gap-3 items-center w-full relative">
+        <div className="flex-1 flex gap-2 items-center bg-black border-2 border-purple-500/40 px-4 py-3 rounded-lg relative">
+          {selectedOwner && (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '1.1rem', backgroundColor: `${ownerColor}30`, borderColor: `${ownerColor}60`, border: '2px solid', color: 'white' }}>
+              <span>{selectedOwner.slice(0, 8)}...{selectedOwner.slice(-6)}</span>
+              <button onClick={handleRemoveOwner} className="hover:text-red-400 transition-colors" type="button">✕</button>
+            </div>
+          )}
+          {selectedModule && (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '1.1rem', backgroundColor: `${moduleColor}30`, borderColor: `${moduleColor}60`, border: '2px solid', color: 'white' }}>
+              <span>{selectedModule}</span>
+              <button onClick={handleRemoveModule} className="hover:text-red-400 transition-colors" type="button">✕</button>
+            </div>
+          )}
+          {selectedFunction && (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '1.1rem', backgroundColor: `${functionColor}30`, borderColor: `${functionColor}60`, border: '2px solid', color: 'white' }}>
+              <span>{selectedFunction}</span>
+              <button onClick={handleRemoveFunction} className="hover:text-red-400 transition-colors" type="button">✕</button>
+            </div>
+          )}
+          <input ref={inputRef} type="text" value={inputValue} onChange={handleInputChange} onKeyDown={handleKeyDown} placeholder={selectedModule && selectedFunction ? '' : 'module/function'} className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-500 text-lg" style={{ fontFamily: 'IBM Plex Mono, monospace' }} />
+          {selectedModuleInfo && (
+            <button type="button" onClick={handleQRClick} onMouseEnter={() => setShowQR(true)} onMouseLeave={() => setShowQR(false)} className="p-2 bg-black/60 rounded-lg border-2 transition-all hover:scale-105 cursor-pointer flex items-center gap-2" style={{ borderColor: moduleColor }}>
+              <QrCodeIcon className="w-5 h-5" style={{ color: moduleColor }} />
+              <div className="w-8 h-8"><QRCode value={modulePageUrl} size={32} color={moduleColor} /></div>
+            </button>
+          )}
+          {showQR && selectedModuleInfo && (
+            <div className="absolute right-0 top-full mt-2 px-4 py-3 rounded-lg border-2 text-sm font-mono whitespace-nowrap z-50 shadow-2xl pointer-events-none" style={{ backgroundColor: 'rgba(0, 0, 0, 0.95)', borderColor: moduleColor, color: moduleColor, boxShadow: `0 0 20px ${moduleColor}40` }}>
+              <div className="space-y-1"><div><strong>Module:</strong> {selectedModuleInfo.name}</div><div><strong>Owner:</strong> {selectedModuleInfo.key?.slice(0, 8)}...{selectedModuleInfo.key?.slice(-6)}</div><div><strong>CID:</strong> {selectedModuleInfo.cid?.slice(0, 12)}...{selectedModuleInfo.cid?.slice(-8)}</div><div className="text-xs opacity-75 mt-2">Click QR to visit page</div></div>
+            </div>
+          )}
+          {showModuleSuggestions && filteredModules.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-purple-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto">
+              {loadingOwnerMods && <div className="p-4 text-center text-purple-400">Loading modules...</div>}
+              {filteredModules.map((mod, idx) => (
+                <button key={mod.name} type="button" onClick={() => selectModule(mod.name)} className={`w-full text-left px-4 py-3 text-white border-b border-purple-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${idx === selectedIndex ? 'bg-purple-500/40' : 'hover:bg-purple-500/30'}`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                  <div className="flex flex-col gap-1"><span>{mod.name}</span>{mod.key && <span className="text-purple-400 text-xs font-mono">owner: {mod.key.slice(0, 8)}...{mod.key.slice(-6)}</span>}{mod.cid && <span className="text-cyan-400 text-xs font-mono">cid: {mod.cid.slice(0, 12)}...{mod.cid.slice(-8)}</span>}</div>
+                  <span className="text-xs text-cyan-400 font-mono">~{mod.distance.toFixed(2)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {showFunctionSuggestions && filteredFunctions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-cyan-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto">
+              {filteredFunctions.map((fn, idx) => (
+                <button key={fn.name} type="button" onClick={() => selectFunction(fn.name)} className={`w-full text-left px-4 py-3 text-white border-b border-cyan-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${idx === selectedIndex ? 'bg-cyan-500/40' : 'hover:bg-cyan-500/30'}`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                  <span>{fn.name}</span><span className="text-xs text-orange-400 font-mono">~{fn.distance.toFixed(2)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {selectedFunction && selectedModule && (
+        <div className="text-sm font-mono" style={{ color: functionColor }}>
+          <span className="font-bold">Cost:</span> {modules.find(m => m.name === selectedModule)?.schema?.[selectedFunction]?.cost || 0} tokens
+        </div>
+      )}
     </div>
   )
 }

@@ -35,7 +35,7 @@ class Router:
                 params: Dict[str, Any] = {}, 
                 token = None, 
                 wait=False,
-                key = None,
+                owner = None,
                 return_cid = False,
                 timeout=1000, **extra_params) -> Any:
         """
@@ -49,8 +49,6 @@ class Router:
             Result of the function call
         """
         task = self.task_data( fn=fn, params=params, timeout=timeout)
-        if token == None:
-            token = self.auth.token(data=task, key=self.key)
         task['key'] =  self.auth.verify(token)['key']
         task['token'] = token
         task['cid'] = self.store.put(task)
@@ -278,9 +276,10 @@ class Router:
             if mod_name in m.servers():
                 result = m.fn('client/call')(fn=task['fn'], params=params, timeout=task['timeout'])
             else:
-                assert mod in m.config('api').get('expose_mods', []), f'Mod {mod_name} is not exposed via the API'
-                allowed_fns = self.get_fns(mod)
-                assert fn_name in allowed_fns, f'Function {fn_name} not allowed in mod {mod_name}. Allowed functions: {allowed_fns}'
+                if task['key'] != self.key.address:
+                    assert mod in m.config('api').get('mods', []), f'Mod {mod_name} is not exposed via the API'
+                    allowed_fns = self.get_fns(mod)
+                    assert fn_name in allowed_fns, f'Function {fn_name} not allowed in mod {mod_name}. Allowed functions: {allowed_fns}'
                 result = m.fn(fn_name)(**params)
             task['status'] = 'success'
         except Exception as e:

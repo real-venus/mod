@@ -38,7 +38,7 @@ export class Market {
   }
 
   async getTokenABI(tokenAddress: string): Promise<any> {
-    if (tokenAddress.toLowerCase() === this.config.contracts.MARKET.address.toLowerCase()) {
+    if (tokenAddress.toLowerCase() === this.config.contracts.Market.address.toLowerCase()) {
       return MarketABI.abi
     }
     return TokenABI.abi
@@ -53,7 +53,7 @@ export class Market {
       const tokenContract = new ethers.Contract(tokenAddress, abi, provider)
       const balance = await tokenContract.balanceOf(userAddress)
       const decimals = await this.getTokenDecimals(tokenAddress)
-
+      console.log(`Balance for ${tokenType} at ${tokenAddress}:`, balance.toString())
       return parseFloat(ethers.formatUnits(balance, decimals))
     } catch (error) {
       console.error('Error checking balance:', error)
@@ -116,6 +116,27 @@ export class Market {
       return receipt
     } catch (error) {
       console.error('Error adding market credit:', error)
+      throw error
+    }
+  }
+
+  async withdrawMarketCredit(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const signer = await provider.getSigner()
+      const marketAddress = this.config.contracts.Market.address
+      const tokenAddress = this.getTokenAddress(tokenType)
+      
+      const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)
+      const decimals = await this.getTokenDecimals(tokenAddress)
+      const amountInWei = ethers.parseUnits(amount.toString(), decimals)
+      
+      const tx = await marketContract.withdraw(tokenAddress, amountInWei)
+      const receipt = await tx.wait()
+      
+      return receipt
+    } catch (error) {
+      console.error('Error withdrawing market credit:', error)
       throw error
     }
   }

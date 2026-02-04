@@ -5,12 +5,14 @@ import { useState } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { QRCode } from '@/mod/ui/QRCode'
 import { text2color } from '@/mod/utils'
-import { ArrowPathIcon, ChevronDownIcon, ClockIcon, QrCodeIcon } from '@heroicons/react/24/outline'
+import { ArrowPathIcon, ChevronDownIcon, ClockIcon, QrCodeIcon, CreditCardIcon } from '@heroicons/react/24/outline'
 import { Auth } from '@/mod/client/auth'
 import WalletCreditDisplay from './WalletCreditDisplay'
+import { useRouter } from 'next/navigation'
 
 export default function WalletInfoTabs() {
   const { user } = userContext()
+  const router = useRouter()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [showBalanceDropdown, setShowBalanceDropdown] = useState(false)
   const [tokenExpiry, setTokenExpiry] = useState<string | null>(null)
@@ -59,6 +61,10 @@ export default function WalletInfoTabs() {
     } finally {
       setIsRefreshing(false)
     }
+  }
+
+  const handleTopUp = () => {
+    router.push(`/user/${user.key}?tab=billing`)
   }
 
   useState(() => {
@@ -135,13 +141,24 @@ export default function WalletInfoTabs() {
 
         <div className="p-3 rounded-lg border-2 transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}60` }}>
           <div className="flex items-center justify-between mb-2">
-            <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">Balance</div>
-            <button
-              onClick={() => setShowBalanceDropdown(!showBalanceDropdown)}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-all"
-            >
-              <ChevronDownIcon className={`w-4 h-4 transition-transform ${showBalanceDropdown ? 'rotate-180' : ''}`} />
-            </button>
+            <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">Credits</div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleTopUp}
+                className="flex items-center gap-1 px-3 py-1 rounded border transition-all hover:scale-105 active:scale-95"
+                style={{ borderColor: userColor, color: userColor, backgroundColor: `${userColor}20` }}
+                title="Top Up Credits"
+              >
+                <CreditCardIcon className="w-4 h-4" />
+                <span className="text-xs font-bold">TOP UP</span>
+              </button>
+              <button
+                onClick={() => setShowBalanceDropdown(!showBalanceDropdown)}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-all"
+              >
+                <ChevronDownIcon className={`w-4 h-4 transition-transform ${showBalanceDropdown ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
           </div>
           {showBalanceDropdown && (
             <div className="space-y-2 mb-2">

@@ -94,10 +94,11 @@ export default function Chat() {
         callParams[chatState.selectedInputParam] = chatState.input.trim()
       }
 
-      await chatState.client.call('call', {
+      await  chatState.client.call('call', {
         fn: `${chatState.selectedModule}/${chatState.selectedFunction}`,
         params: callParams,
-        wait: chatState.wait
+        wait: chatState.wait,
+        token: chatState.client.token
       }, 0, {}, chatState.timeout * 1000)
 
       if (transactionsPanelRef.current) {

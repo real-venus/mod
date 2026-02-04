@@ -339,25 +339,25 @@ class Mod:
             include_hidden=False):
         path = self.abspath(path)
         # filter only directories
-        paths = [os.path.join(path, d) for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
+        paths = []
+        for path in self.ls(path):
+            if not self.filter_path(path, include_hidden=include_hidden):
+                continue
+            if os.path.isdir(path):
+                paths.append(path)
+                if depth > 1 :
+                    paths.extend(self.folders(path, depth=depth-1, search=search, include_hidden=include_hidden))
         # avoid hidden folders
-        paths = list(filter(lambda f:self.filter_path(f, include_hidden=include_hidden), paths))
-        if depth > 1:
-            for p in paths:
-                paths.extend(self.folders(p, depth=depth-1, recursive=recursive, search=search, include_hidden=include_hidden))
-
+        paths = list(filter(lambda f:self.filter_path(f, include_hidden=include_hidden, search=search), paths))
         paths = list(sorted(set(paths)))
         return paths
             
-    dirs = folders
+
 
     def files(self, 
               path='./', 
               search:str = None, 
-              endswith:str = None,
               include_hidden:bool = False, 
-              relative = False, # relative to the current working directory
-              startswith:str = None,
               depth=10,
               **kwargs) -> List[str]:
         """
@@ -374,12 +374,10 @@ class Mod:
             for path in self.ls(path):
                 files.extend(self.files(path, depth=depth-1) if os.path.isdir(path) else [path])
         files =  list(filter(lambda f:os.path.isfile(f), files))
-        files = list(filter(lambda f:self.filter_path(f, include_hidden=include_hidden), files))
-        if search != None:
-            files = [f for f in files if search in f]
+        files = list(filter(lambda f:self.filter_path(f, include_hidden=include_hidden, search=search), files))
         return sorted(files)
 
-    def filter_path(self, path, include_hidden=False):
+    def filter_path(self, path, include_hidden=False, search=None):
         if not include_hidden:
             if '/.' in path:
                 return False
@@ -387,16 +385,9 @@ class Mod:
             for af in self.avoid_folders:
                 if f'/{af}' in path:
                     return False
+        if search != None and search not in path:
+            return False
         return True
-
-    def modfiles(self, mod=None, relative=1, **kwargs) -> List[str]:
-        mod = mod or 'mod'
-        dirpath = self.dirpath(mod)
-        files =  self.files(path=dirpath, **kwargs)
-        if relative:
-            files = [f.replace(dirpath + '/', '') for f in files]
-        return files
-    mf = modfiles
 
     def envs(self, key:str = None, **kwargs) -> None:
         return self.get_key(key, **kwargs).envs()
@@ -793,9 +784,9 @@ class Mod:
         params = {
             'fn': fn,
             'params': params,
-
         }
-        return self.fn('client/call')('api/call', params=params, timeout=timeout, wait=wait, return_cid=return_cid)
+        token = self.fn('auth.v0/token')()
+        return self.fn('client/call')('api/call', params=params, timeout=timeout, wait=wait, return_cid=return_cid, token=token)
 
     def cache(self, path:str, max_age: int = 60, default=None, directory: str = '~/.mod/cache'):
         '''
@@ -1418,7 +1409,7 @@ class Mod:
             v =  True
         return v
 
-    def search(self, search=None, tree=None, depth=1, max_depth=4 , orbit='all' ,**kwargs) -> Dict[str, str]:
+    def search(self, search=None, tree=None, depth=1, max_depth=6 , orbit='all' ,**kwargs) -> Dict[str, str]:
         """
         search the tree for a mod
         """
@@ -1501,21 +1492,6 @@ class Mod:
         assert self.mod_exists , f'Mod {name} not found after creation from cid {cid}'
         return {'name': name, 'path': path, 'msg': 'Mod Created from cid', 'cid': cid}
 
-    def addgit(self,  repo , name=None, update=True, orbit='outer'):
-        """
-        make a new mod from a git repo
-        """
-        name = name or repo.split('/')[-1].replace('.git', '')
-        mods_path = self.paths["orbit"]["outer"]
-        dirpath = mods_path + '/' + name.replace('.', '/')
-        mod_name = dirpath.split('/')[-1]
-        self.cmd(f'git clone {repo} {dirpath}')
-        files = self.files(dirpath)
-        has_python_files = any([f.endswith('.py') for f in files])
-        if not has_python_files:
-            self.put_text( dirpath + '/'+ mod_name +'.py', self.code('base'))
-        self.orbit(orbit,update=True)
-        return self.files(dirpath)
 
     def new(self, name='test_base', base='base',  orbit='inner', update=True):
         """

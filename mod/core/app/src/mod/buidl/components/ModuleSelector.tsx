@@ -10,6 +10,7 @@ interface ModuleSelectorProps {
   selectedModule?: string
   filterByOwner?: string
   allowOwnerSelection?: boolean
+  allowOwnerSwap?: boolean
 }
 
 const ui = {
@@ -21,13 +22,15 @@ const ui = {
   purple: '#a855f7',
 }
 
-export default function ModuleSelector({ onSelect, selectedModule, filterByOwner, allowOwnerSelection = false }: ModuleSelectorProps) {
+export default function ModuleSelector({ onSelect, selectedModule, filterByOwner, allowOwnerSelection = false, allowOwnerSwap = false }: ModuleSelectorProps) {
   const { client, user } = userContext()
   const [modules, setModules] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedOwner, setSelectedOwner] = useState<string>(filterByOwner || '')
   const [allOwners, setAllOwners] = useState<string[]>([])
+  const [newOwner, setNewOwner] = useState<string>('')
+  const [swapMode, setSwapMode] = useState(false)
 
   useEffect(() => {
     const fetchModules = async () => {
@@ -35,16 +38,13 @@ export default function ModuleSelector({ onSelect, selectedModule, filterByOwner
       
       setLoading(true)
       try {
-        // If selectedOwner is provided, fetch user's modules
         if (selectedOwner) {
           const userData = await client.call('user', { key: selectedOwner, expand: true })
           setModules(userData.mods || [])
         } else {
-          // Otherwise fetch all modules
           const allMods = await client.call('mods', {})
           setModules(allMods || [])
           
-          // Extract unique owners for filter
           if (allowOwnerSelection) {
             const owners = Array.from(new Set(allMods.map((m: any) => m.key).filter(Boolean)))
             setAllOwners(owners as string[])
@@ -60,6 +60,25 @@ export default function ModuleSelector({ onSelect, selectedModule, filterByOwner
 
     fetchModules()
   }, [client, selectedOwner, allowOwnerSelection])
+
+  const handleOwnerSwap = async (modKey: string) => {
+    if (!newOwner || !client) return
+    
+    try {
+      await client.call('update_mod_owner', { 
+        mod_key: modKey, 
+        new_owner: newOwner 
+      })
+      
+      // Refresh modules after swap
+      const userData = await client.call('user', { key: selectedOwner, expand: true })
+      setModules(userData.mods || [])
+      setNewOwner('')
+      setSwapMode(false)
+    } catch (err) {
+      console.error('Failed to swap owner:', err)
+    }
+  }
 
   const filteredModules = modules.filter(mod => 
     mod.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -102,6 +121,38 @@ export default function ModuleSelector({ onSelect, selectedModule, filterByOwner
         </div>
       )}
 
+      {allowOwnerSwap && (
+        <div>
+          <button
+            onClick={() => setSwapMode(!swapMode)}
+            className="px-4 py-2 rounded-lg border-2 font-bold transition-all"
+            style={{
+              backgroundColor: swapMode ? `${ui.purple}40` : `${ui.purple}20`,
+              borderColor: ui.purple,
+              color: ui.purple
+            }}
+          >
+            {swapMode ? 'Cancel Owner Swap' : 'Swap Owners'}
+          </button>
+          {swapMode && (
+            <div className="mt-2">
+              <input
+                type="text"
+                value={newOwner}
+                onChange={(e) => setNewOwner(e.target.value)}
+                placeholder="Enter new owner address"
+                className="w-full px-4 py-3 rounded-lg border-2 outline-none"
+                style={{
+                  backgroundColor: ui.panel,
+                  borderColor: ui.border,
+                  color: ui.text
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="relative">
         <input
           type="text"
@@ -125,23 +176,37 @@ export default function ModuleSelector({ onSelect, selectedModule, filterByOwner
           </div>
         ) : (
           filteredModules.map((mod) => (
-            <button
-              key={mod.key}
-              onClick={() => onSelect(mod.name)}
-              className="w-full text-left px-4 py-3 rounded-lg border-2 transition-all"
-              style={{
-                backgroundColor: selectedModule === mod.name ? `${ui.purple}20` : ui.panel,
-                borderColor: selectedModule === mod.name ? ui.purple : ui.border,
-                color: ui.text
-              }}
-            >
-              <div className="font-bold" style={{ color: selectedModule === mod.name ? ui.purple : ui.text }}>
-                {mod.name}
-              </div>
-              <div className="text-sm font-mono mt-1" style={{ color: ui.textDim }}>
-                {mod.key?.slice(0, 8)}...{mod.key?.slice(-6)}
-              </div>
-            </button>
+            <div key={mod.key} className="flex items-center gap-2">
+              <button
+                onClick={() => onSelect(mod.name)}
+                className="flex-1 text-left px-4 py-3 rounded-lg border-2 transition-all"
+                style={{
+                  backgroundColor: selectedModule === mod.name ? `${ui.purple}20` : ui.panel,
+                  borderColor: selectedModule === mod.name ? ui.purple : ui.border,
+                  color: ui.text
+                }}
+              >
+                <div className="font-bold" style={{ color: selectedModule === mod.name ? ui.purple : ui.text }}>
+                  {mod.name}
+                </div>
+                <div className="text-sm font-mono mt-1" style={{ color: ui.textDim }}>
+                  {mod.key?.slice(0, 8)}...{mod.key?.slice(-6)}
+                </div>
+              </button>
+              {swapMode && newOwner && (
+                <button
+                  onClick={() => handleOwnerSwap(mod.key)}
+                  className="px-4 py-3 rounded-lg border-2 font-bold transition-all"
+                  style={{
+                    backgroundColor: `${ui.purple}20`,
+                    borderColor: ui.purple,
+                    color: ui.purple
+                  }}
+                >
+                  Swap
+                </button>
+              )}
+            </div>
           ))
         )}
       </div>

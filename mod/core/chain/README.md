@@ -12,7 +12,7 @@
 BlocTime Protocol is a comprehensive DeFi system that revolutionizes staking rewards through marketplace revenue sharing:
 
 - **BlocTime Staking**: Lock tokens → Earn BlocTime tokens (multiplier-based) → Claim treasury rewards
-- **Market**: NFT-based marketplace for rentable resources with automatic treasury funding
+- **Market**: Multi-token marketplace with **immediate withdrawals** and automatic treasury funding
 - **Registry**: Module management → Ownership tracking → Availability control
 - **Treasury**: Multi-token revenue collection → Proportional distribution to governance token holders
 - **Perms**: Role-based access control for system operations
@@ -22,12 +22,21 @@ BlocTime Protocol is a comprehensive DeFi system that revolutionizes staking rew
 
 **Every marketplace transaction automatically funds staker rewards** - no manual intervention, no inflation, pure revenue sharing.
 
+### ⚡ NEW: Immediate Withdrawals
+
+**No lockup periods on marketplace deposits!** Users can:
+- Deposit tokens to get stable credits
+- Use credits for marketplace transactions
+- **Withdraw remaining balance INSTANTLY** (0.1% fee)
+- No waiting, no vesting, complete liquidity
+
 ## 📚 Documentation
 
 - **[WHITEPAPER](./docs/TECHPAPER.tex)**: Complete technical whitepaper with mathematical models
 - **[NON-TECHNICAL GUIDE](./docs/NONTECHPAPER.md)**: Easy-to-understand overview
 - **[DEPLOYMENT GUIDE](./docs/DEPLOYMENT.md)**: Step-by-step deployment on any EVM chain
 - **[CONTRIBUTING](./docs/CONTRIBUTING.md)**: Contribution guidelines
+- **[API REFERENCE](./docs/API_REFERENCE.md)**: Complete contract API documentation
 
 ## 🧪 Testing
 
@@ -38,6 +47,7 @@ npm test
 # Run specific test suites
 npx hardhat test test/BlocTime.test.js
 npx hardhat test test/Market.test.js
+npx hardhat test test/MarketWithdrawal.test.js  # NEW: Immediate withdrawal tests
 npx hardhat test test/Registry.test.js
 npx hardhat test test/Treasury.test.js
 npx hardhat test test/Perms.test.js
@@ -53,7 +63,7 @@ npx hardhat coverage
 ### Test Coverage
 
 ✅ **BlocTime**: Multiplier points, staking/unstaking, treasury rewards, proportional distribution  
-✅ **Market**: NFT-based rentals, marketplace operations, fee collection  
+✅ **Market**: Multi-token credits, immediate withdrawals, fee collection  
 ✅ **Registry**: Module registration, updates, deactivation, user count management  
 ✅ **Treasury**: Multi-token funding, proportional distribution, owner withdrawal  
 ✅ **Perms**: Role-based access control, permission management  
@@ -71,7 +81,7 @@ npx hardhat coverage
 
 ```bash
 # Clone and navigate
-cd /root/mod/mod/core/chain/bloctime
+cd /root/mod/mod/core/chain
 
 # Environment setup
 cp .env.example .env
@@ -138,17 +148,19 @@ User_Rewards = (user_bloctime / total_bloctime) × treasury × distribution_pct
 Distribution_pct = 50% (configurable)
 ```
 
-### Marketplace Fees
+### Marketplace Fees & Withdrawals
 
 ```
-Primary Rental:
-  Cost = blocks × price_per_block
+Credit:
+  Cost = stable_amount / token_price
   Treasury_Fee = Cost × 0.025
-  Owner_Receives = Cost - Treasury_Fee
+  User_Receives = stable_amount
 
-Secondary Sale:
-  Treasury_Fee = Sale_Price × 0.025
-  Seller_Receives = Sale_Price - Treasury_Fee
+Withdrawal (NEW):
+  Payment_Amount = stable_amount / token_price
+  Withdrawal_Fee = Payment_Amount × 0.001 (0.1%)
+  User_Receives = Payment_Amount - Withdrawal_Fee
+  Processing_Time = IMMEDIATE
 ```
 
 ## 🔒 Security Features
@@ -169,6 +181,7 @@ Secondary Sale:
 ✅ **Transparent Calculations**: All formulas on-chain  
 ✅ **No Inflation**: Rewards from real revenue only  
 ✅ **Lock Enforcement**: Cannot unstake before period ends  
+✅ **Immediate Liquidity**: Withdraw marketplace deposits anytime  
 
 ## 🎯 Production Readiness
 
@@ -178,7 +191,7 @@ Secondary Sale:
 - [x] BlocTime token minting based on lock duration multipliers
 - [x] Point-wise monotonic multiplier curves with linear interpolation
 - [x] Treasury reward distribution proportional to BlocTime holdings
-- [x] NFT-based marketplace with automatic treasury funding
+- [x] Multi-token marketplace with **immediate withdrawals**
 - [x] Multi-token treasury with proportional distribution
 - [x] Role-based access control via Perms contract
 - [x] Oracle integration (Chainlink, Pyth, Manual)
@@ -201,17 +214,33 @@ The system is production-ready and can be deployed immediately to:
 ```
 BlocTime Protocol
 ├── BlocTime.sol          # Staking + BlocTime token minting
-├── Market.sol            # NFT-based marketplace
+├── Market.sol            # Multi-token marketplace with instant withdrawals
 ├── Registry.sol          # Module registration
 ├── Treasury.sol          # Multi-token revenue distribution
 ├── Perms.sol             # Role-based access control
 ├── Token.sol             # ERC20 token implementation
+├── TokenGate.sol         # Token whitelist & oracle management
 └── oracles/
     ├── IOracleAdapter.sol    # Oracle interface
     ├── ChainlinkAdapter.sol  # Chainlink price feeds
     ├── PythAdapter.sol       # Pyth Network integration
     └── ManualPriceOracle.sol # Manual price setting
 ```
+
+## 🌟 What's New
+
+### Immediate Withdrawals
+- **Zero lockup** on marketplace deposits
+- **0.1% withdrawal fee** (vs 2.5% deposit fee)
+- **Instant processing** - no waiting periods
+- **Full liquidity** - withdraw anytime
+- **Comprehensive tests** - MarketWithdrawal.test.js
+
+### Benefits
+- **User-friendly**: No capital lockup
+- **Flexible**: Use marketplace or withdraw
+- **Fair**: Low withdrawal fee
+- **Secure**: Same security guarantees
 
 ## 📝 License
 
@@ -226,6 +255,7 @@ See [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for guidelines
 - **Technical Whitepaper**: [TECHPAPER.tex](./docs/TECHPAPER.tex)
 - **Non-Technical Guide**: [NONTECHPAPER.md](./docs/NONTECHPAPER.md)
 - **Deployment Guide**: [DEPLOYMENT.md](./docs/DEPLOYMENT.md)
+- **API Reference**: [API_REFERENCE.md](./docs/API_REFERENCE.md)
 - **Tests**: [test/](./test/) directory
 - **Contracts**: [contracts/](./contracts/) directory
 
