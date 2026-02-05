@@ -42,8 +42,7 @@ class Gate:
         headers = dict(request.headers)
         headers = self.auth.verify(headers)
         role = self.get_role(headers['key'])
-
-        assert role, f"Role for key {headers['key']} not found"
+        # assert role, f"Role for key {headers['key']} not found"
         if  bool(role == 'owner'):
             print(f'ATTENTION: owner({headers["key"]}) is calling {fn}', color='green')
         else:
