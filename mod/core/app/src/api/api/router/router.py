@@ -13,16 +13,24 @@ import mod as m
 class Router:
     threads = {}
     cid2future = {}
-
     folder_path = m.abspath('~/.mod/api/router')
-    def __init__(self, store='ipfs', key=None, auth='auth.v0'):
+
+
+    def __init__(self, store='ipfs', key=None, auth='auth.v0', chain='chain'):
         self.store = store
         self.key = m.key(key )
         self.calls_path = self.path('calls')
+        self.chain = m.mod(chain)()
         self.auth = m.mod(auth)()
         self.threads['sync'] = m.thread(self.sync_loop)
 
-        
+    def get(self, cid: str) -> Dict[str, Any]:
+        return self.store.get(cid)
+    
+    def put(self, data: Dict[str, Any]) -> str:
+        return self.store.put(data)
+
+
     def path(self, path:str) -> str:
         """Get content from a specific path in IPFS.
         
@@ -37,7 +45,8 @@ class Router:
                 wait=False,
                 owner = None,
                 return_cid = False,
-                timeout=1000, **extra_params) -> Any:
+                timeout=1000, 
+                **extra_params) -> Any:
         """
         Call a function from a mod Mod in IPFS.
         Args:
@@ -51,6 +60,8 @@ class Router:
         task = self.task_data( fn=fn, params=params, timeout=timeout)
         task['key'] =  self.auth.verify(token)['key']
         task['token'] = token
+        mod_name = '/'.join(fn.split('/')[:-1]) if '/' in fn else fn
+        task['owner'] = owner or m.info(mod_name)['key'] 
         task['cid'] = self.store.put(task)
         m.put(self.task_path(task), task)
         future =  m.submit(self.run_task, params=task ,  timeout=timeout)
@@ -128,9 +139,17 @@ class Router:
     
     h = txs
 
-
-    def call_paths(self):
-        return glob.glob(self.calls_path+'/**/*.json', recursive=True)
+    def call_paths(self, max_age= None):
+        paths =  glob.glob(self.calls_path+'/**/*.json', recursive=True)
+        if max_age is not None:
+            current_time = time.time()
+            filtered_paths = []
+            for path in paths:
+                file_mod_time = os.path.getmtime(path)
+                if (current_time - file_mod_time) <= max_age:
+                    filtered_paths.append(path)
+            paths = filtered_paths
+        return paths
 
     def reset_calls(self):
         for path in self.call_paths():
@@ -187,30 +206,74 @@ class Router:
         return self.call(fn= mod + '/' + fn, params=params, time=time, cost=cost, signature=signature, **kwargs)
 
 
-    def sync(self):
-        n_tasks = len(list(self.cid2future.values()))
+    last_time_sync = 0
+
+    def is_it_time_to_sync(self, name: str, interval:int=10) -> bool:
+        current_time = m.time()
+        interval = self.intervals.get(name, interval)
+        path = self.path('last_time_' + name)
+        last_time = m.get(path, m.time())
+        time_lapsed = current_time - last_time
+        result = bool(time_lapsed > interval)
+        if result:
+            m.put(path, current_time)
+        return result
+    
+    def sync_info(self):
+        fns = ['sync_tasks', 'sync_ious']
+        sync_info = {}
+        for fn in fns:
+            last_time = getattr(self, f'last_time_{fn}', 0)
+            sync_info[fn] = {
+                'last_time': last_time,
+                'since_last': int(m.time() - last_time),
+                'interval': self.intervals.get(fn, None),
+                'count': self.sync_counts.get(fn, 0),
+            }
+        return sync_info
+    
+
+    def n_tasks(self):
+        return len(list(self.cid2future.values()))
+    
+            
+    def sync_tasks(self):
+        self.last_time_sync = m.time()
+        n_tasks = self.n_tasks()
         if n_tasks == 0:
             return True
         else:
-            print(f"Syncing {n_tasks} tasks...")
             future2path = {future: path for path, future in self.cid2future.items()}
-        # check completed futures
+
         for future in m.as_completed(future2path.keys(), timeout=10):
             path = future2path.pop(future)
             try:
                 print(f"Result({path})")
-                result = future.result()
             except Exception as e:
                 print(f"Error in future for path {path}: {e}")
                 pass
             # remove from cid2future
             self.cid2future.pop(path, None)
 
-    
-    def sync_loop(self, sync_interval=5):
+    intervals = {
+        'sync_loop': 1,
+        'sync_tasks': 5,
+        'sync_ious': 60,
+    }
+    sync_counts = {}
+    def sync_loop(self):
         while True:
-            time.sleep(sync_interval)
-            self.sync()
+            time.sleep(self.intervals['sync_loop'])
+            fns = ['sync_tasks', 'sync_ious']
+            for fn in fns:
+                if self.is_it_time_to_sync(fn):
+                    try:
+                        getattr(self, fn)()
+                        self.sync_counts[fn] = self.sync_counts.get(fn, 0) + 1
+                    except Exception as e:
+                        print(f'Error in sync_loop for {fn}: {e}')
+                        continue
+                    
 
     def wait_for_task(self, task, wait_frequency=0.2):
         task_path =  self.task_path(task)
@@ -240,8 +303,6 @@ class Router:
         fns =  list(set(fns + helper_fns))
         return fns
 
-
-
     def kill_task(self, cid: str) -> bool:
         """
         Kill a running task by its CID.
@@ -256,6 +317,8 @@ class Router:
 
     def tasks(self) -> bool:
         return list(self.cid2future.keys())
+    
+
 
     def run_task(self, **task:dict) -> Any:
         """
@@ -318,7 +381,6 @@ class Router:
             self._store = store
         return {'store': self._store_path}
     
-
     def task_data(self , 
                 fn: str = 'store/ls',  
                 params: Dict[str, Any] = {}, 
@@ -342,3 +404,55 @@ class Router:
             'time': m.time(), 
             'cost': cost,
         }
+    
+    def ious(self, cost_only=False):
+        ious  = {}
+        for tx in self.txs(df=0):
+            if tx['status'] != 'success':
+                continue
+            if not 'owner' in tx or tx['owner'] is None:
+                continue
+            if 'payment_hash' in tx:
+                continue
+            if 'cid' not in tx:
+                tx['cid'] = self.store.put(tx)
+            cid = tx['cid']
+            tx = self.get(cid)
+            if not tx['key'] in ious:
+                ious[tx['key']] = {}
+            if not tx['owner'] in ious[tx['key']]:
+                ious[tx['key']][tx['owner']] = []
+            tx['cid'] = cid
+            print(f'Adding IOU tx: client={tx["key"]} provider={tx["owner"]} cost={tx["cost"]} cid={cid}')
+            ious[tx['key']][tx['owner']] += [tx]
+
+        if cost_only:
+            for client in ious.keys():
+                for owner in ious[client].keys():
+                    total_cost = sum([tx['cost'] for tx in ious[client][owner]])
+                    ious[client][owner] = total_cost
+        return ious
+    
+
+    def update_tx(self, tx, new_data: dict):
+        tx_data = self.get(tx['cid'])
+        tx_data.update(new_data)
+        if not 'path' in tx:
+            tx['path'] = self.task_path(tx)
+        tx_data['cid'] = self.store.put(tx_data)
+        m.put(tx['path'], tx_data)
+        return tx_data
+
+    def sync_ious(self):
+        for client, prov2txs in  self.ious().items():
+            for prov, txs in prov2txs.items():
+                amount = sum([tx['cost'] for tx in txs])
+                payment_hash = self.chain.debit(client, prov, amount)
+                print(f'Syncing IOU: Debiting {amount} from {client} to {prov} for {len(txs)} txs --> tx: {payment_hash}')
+                for tx in txs:
+                    self.update_tx(tx, {'payment_hash': payment_hash})
+                    print(f'Synced tx: {tx["cid"]}')
+
+        return True
+    
+

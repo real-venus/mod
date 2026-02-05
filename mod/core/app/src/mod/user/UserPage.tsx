@@ -14,17 +14,19 @@ import { Admin } from '@/mod/user/admin/Admin'
 import { Portfolio } from '@/mod/user/portfolio/Portfolio'
 import { Billing } from '@/mod/user/billing'
 import Create from '@/mod/user/create'
+import { Txs } from '@/mod/user/txs'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
 import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
-type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create'
+type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create' | 'txs'
 
 const DEFAULT_TABS: { id: TabType; label: string; color: string }[] = [
   { id: 'transfer', label: 'transfer', color: 'blue' },
   { id: 'mods', label: 'mods', color: 'purple' },
   { id: 'portfolio', label: 'portfolio', color: 'indigo' },
+  { id: 'txs', label: 'txs', color: 'cyan' },
   { id: 'claim', label: 'claim', color: 'pink' },
   { id: 'admin', label: 'admin', color: 'red' },
   { id: 'contracts', label: 'contracts', color: 'cyan' },
@@ -53,13 +55,6 @@ export default function UserPage() {
   const [userTabs, setUserTabs] = useState<{ id: TabType; label: string; color: string }[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('user_page_tabs')
-      if (saved) {
-        try {
-          return JSON.parse(saved)
-        } catch (e) {
-          return DEFAULT_TABS
-        }
-      }
     }
     return DEFAULT_TABS
   })
@@ -84,7 +79,7 @@ export default function UserPage() {
       setLoading(true)
       setError(null)
       try {
-        const data = await client.call('user', { key: userKey ,  expand: true })
+        const data = await client.call('user', { key: userKey , expand: true, update:false })
         setUserData(data as UserType)
         
         if (user?.key && typeof window !== 'undefined' && window.ethereum) {
@@ -97,7 +92,7 @@ export default function UserPage() {
             const marketAddress = chainConfig.contracts.Market.address
             const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, provider)
             
-            let balance = await marketContract.balanceOf(user.key)
+            let balance = await marketContract.balanceOf(user.key, 'Market')
             let decimals = await marketContract.decimals()
             decimals = Number(decimals) + 10
             balance = parseFloat(ethers.formatUnits(balance, decimals))
@@ -195,6 +190,7 @@ export default function UserPage() {
             {activeTab === 'admin' && user && <Admin userData={userData} />}
             {activeTab === 'contracts' &&  user && <ContractsInterface />}
             {activeTab === 'billing' &&  user && <Billing />}
+            {activeTab === 'txs' &&  user && <Txs userData={userData} />}
           </div>
         </div>
       </main>

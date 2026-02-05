@@ -6,7 +6,7 @@ import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { text2color } from '@/mod/utils'
 
 interface ModuleSelectorProps {
-  onSelect: (moduleName: string) => void
+  onSelect: (moduleName: string, ownerKey?: string) => void
   selectedModule?: string
   filterByOwner?: string
   allowOwnerSelection?: boolean
@@ -31,6 +31,7 @@ export default function ModuleSelector({ onSelect, selectedModule, filterByOwner
   const [allOwners, setAllOwners] = useState<string[]>([])
   const [newOwner, setNewOwner] = useState<string>('')
   const [swapMode, setSwapMode] = useState(false)
+  const [moduleOwnerMap, setModuleOwnerMap] = useState<{[key: string]: string[]}>({})
 
   useEffect(() => {
     const fetchModules = async () => {
@@ -48,6 +49,20 @@ export default function ModuleSelector({ onSelect, selectedModule, filterByOwner
           if (allowOwnerSelection) {
             const owners = Array.from(new Set(allMods.map((m: any) => m.key).filter(Boolean)))
             setAllOwners(owners as string[])
+            
+            // Build map of module names to their owners
+            const ownerMap: {[key: string]: string[]} = {}
+            allMods.forEach((mod: any) => {
+              if (mod.name && mod.key) {
+                if (!ownerMap[mod.name]) {
+                  ownerMap[mod.name] = []
+                }
+                if (!ownerMap[mod.name].includes(mod.key)) {
+                  ownerMap[mod.name].push(mod.key)
+                }
+              }
+            })
+            setModuleOwnerMap(ownerMap)
           }
         }
       } catch (err) {
@@ -175,39 +190,69 @@ export default function ModuleSelector({ onSelect, selectedModule, filterByOwner
             {selectedOwner ? 'No modules owned by this address' : 'No modules found'}
           </div>
         ) : (
-          filteredModules.map((mod) => (
-            <div key={mod.key} className="flex items-center gap-2">
-              <button
-                onClick={() => onSelect(mod.name)}
-                className="flex-1 text-left px-4 py-3 rounded-lg border-2 transition-all"
-                style={{
-                  backgroundColor: selectedModule === mod.name ? `${ui.purple}20` : ui.panel,
-                  borderColor: selectedModule === mod.name ? ui.purple : ui.border,
-                  color: ui.text
-                }}
-              >
-                <div className="font-bold" style={{ color: selectedModule === mod.name ? ui.purple : ui.text }}>
-                  {mod.name}
+          filteredModules.map((mod) => {
+            const hasMultipleOwners = moduleOwnerMap[mod.name]?.length > 1
+            const [selectedModOwner, setSelectedModOwner] = useState<string>(mod.key)
+            
+            return (
+              <div key={`${mod.name}-${mod.key}`} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onSelect(mod.name, selectedModOwner)}
+                    className="flex-1 text-left px-4 py-3 rounded-lg border-2 transition-all"
+                    style={{
+                      backgroundColor: selectedModule === mod.name ? `${ui.purple}20` : ui.panel,
+                      borderColor: selectedModule === mod.name ? ui.purple : ui.border,
+                      color: ui.text
+                    }}
+                  >
+                    <div className="font-bold" style={{ color: selectedModule === mod.name ? ui.purple : ui.text }}>
+                      {mod.name}
+                      {hasMultipleOwners && <span className="ml-2 text-xs" style={{ color: ui.textDim }}>({moduleOwnerMap[mod.name].length} owners)</span>}
+                    </div>
+                    <div className="text-sm font-mono mt-1" style={{ color: ui.textDim }}>
+                      {selectedModOwner?.slice(0, 8)}...{selectedModOwner?.slice(-6)}
+                    </div>
+                  </button>
+                  {swapMode && newOwner && (
+                    <button
+                      onClick={() => handleOwnerSwap(mod.key)}
+                      className="px-4 py-3 rounded-lg border-2 font-bold transition-all"
+                      style={{
+                        backgroundColor: `${ui.purple}20`,
+                        borderColor: ui.purple,
+                        color: ui.purple
+                      }}
+                    >
+                      Swap
+                    </button>
+                  )}
                 </div>
-                <div className="text-sm font-mono mt-1" style={{ color: ui.textDim }}>
-                  {mod.key?.slice(0, 8)}...{mod.key?.slice(-6)}
-                </div>
-              </button>
-              {swapMode && newOwner && (
-                <button
-                  onClick={() => handleOwnerSwap(mod.key)}
-                  className="px-4 py-3 rounded-lg border-2 font-bold transition-all"
-                  style={{
-                    backgroundColor: `${ui.purple}20`,
-                    borderColor: ui.purple,
-                    color: ui.purple
-                  }}
-                >
-                  Swap
-                </button>
-              )}
-            </div>
-          ))
+                
+                {hasMultipleOwners && (
+                  <div className="ml-4">
+                    <label className="text-xs font-bold mb-1 block" style={{ color: ui.textDim }}>Select Owner:</label>
+                    <select
+                      value={selectedModOwner}
+                      onChange={(e) => setSelectedModOwner(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border-2 outline-none text-sm"
+                      style={{
+                        backgroundColor: ui.panel,
+                        borderColor: ui.border,
+                        color: ui.text
+                      }}
+                    >
+                      {moduleOwnerMap[mod.name].map((ownerKey) => (
+                        <option key={ownerKey} value={ownerKey}>
+                          {ownerKey.slice(0, 8)}...{ownerKey.slice(-6)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )
+          })
         )}
       </div>
     </div>

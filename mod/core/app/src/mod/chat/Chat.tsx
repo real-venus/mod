@@ -98,7 +98,7 @@ export default function Chat() {
         fn: `${chatState.selectedModule}/${chatState.selectedFunction}`,
         params: callParams,
         wait: chatState.wait,
-        token: chatState.client.token
+        token: chatState.client.token,
       }, 0, {}, chatState.timeout * 1000)
 
       if (transactionsPanelRef.current) {

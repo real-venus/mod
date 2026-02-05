@@ -145,7 +145,7 @@ class Mod:
                 'nonce': self.w3.eth.get_transaction_count(self.account.address)
             })
             signed = self.w3.eth.account.sign_transaction(approve_tx, self.account.key)
-            self.w3.eth.send_raw_transaction(signed.rawTransaction)
+            self.w3.eth.send_raw_transaction(signed.raw_transaction)
         
         # Stake
         tx = bloctime.functions.stake(amount, lock_blocks).build_transaction({
@@ -153,7 +153,7 @@ class Mod:
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
     def unstake(self, stake_id: int) -> Dict[str, Any]:
@@ -174,7 +174,7 @@ class Mod:
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
     def get_stake_position(self, address: Optional[str] = None, stake_id: int = 0) -> Dict[str, Any]:
@@ -218,7 +218,7 @@ class Mod:
 
     # ==================== MARKET FUNCTIONS ====================
 
-    def credit(self, payment_token: str, stable_amount: int) -> Dict[str, Any]:
+    def credit(self, stable_amount: str, payment_token: int = 'usdt') -> Dict[str, Any]:
         """Buy stable tokens with whitelisted payment token.
         
         Args:
@@ -233,61 +233,44 @@ class Mod:
             raise ValueError('Market contract not loaded')
         
         # Get price from TokenGate
+        #
+        payment_token = self.contracts_config().get(payment_token)['address']
+        print('Using payment token at address:', payment_token)
         tokengate = self.contracts.get('tokengate')
-        if tokengate:
-            price_info = tokengate.functions.getTokenPrice(payment_token).call()
-            token_price = price_info[0]
-            token_decimals = price_info[1]
-            
-            # Calculate payment amount
-            payment_amount = (stable_amount * (10 ** token_decimals)) // token_price
-            
-            # Approve payment token
-            token = self.w3.eth.contract(
-                address=Web3.to_checksum_address(payment_token),
-                abi=[{"constant":False,"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"}]
-            )
-            approve_tx = token.functions.approve(
-                market.address, payment_amount
-            ).build_transaction({
-                'from': self.account.address,
-                'nonce': self.w3.eth.get_transaction_count(self.account.address)
-            })
-            signed = self.w3.eth.account.sign_transaction(approve_tx, self.account.key)
-            self.w3.eth.send_raw_transaction(signed.rawTransaction)
-        
+
+        price_info = tokengate.functions.getTokenPrice(payment_token).call()
+        token_price = price_info[0]
+        token_decimals = price_info[1]
+        # Calculate payment amount
+        payment_amount = ((stable_amount * (10 ** token_decimals)) // token_price) ** token_decimals
+
+        # Approve payment token
+        token = self.w3.eth.contract(
+            address=Web3.to_checksum_address(payment_token),
+            abi=[{"constant":False,"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"}]
+        )
+        approve_tx = token.functions.approve(
+            market.address, payment_amount
+        ).build_transaction({
+            'from': self.account.address,
+            'nonce': self.w3.eth.get_transaction_count(self.account.address)
+        })
+        signed = self.w3.eth.account.sign_transaction(approve_tx, self.account.key)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+        # wait for approval to be mined
+        print(f'Waiting for approval tx to be mined -> {tx_hash.hex()}')
+        print(self.w3.eth.wait_for_transaction_receipt(tx_hash))
+    
+        # wait a bit for the approval to be mined
+        # stable_amount = int(stable_amount * 10**self.decimals)
         # Credit stable tokens
         tx = market.functions.credit(payment_token, stable_amount).build_transaction({
             'from': self.account.address,
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
-        return self.w3.eth.wait_for_transaction_receipt(tx_hash)
-
-    def debit(self, user:str, stable_amount: int) -> Dict[str, Any]:
-        """Burn stable tokens.
-        
-        Args:
-            stable_amount: Amount to burn
-            
-        Returns:
-            Transaction receipt
-        """
-        market = self.contracts.get('market')
-        if not market:
-            raise ValueError('Market contract not loaded')
-        stable_amount = int(stable_amount * 10**self.decimals)
-        # assert the user 
-        user = Web3.to_checksum_address(user)
-        # 
-        tx = market.functions.debit(user, stable_amount).build_transaction({
-            'from': self.account.address,
-            'nonce': self.w3.eth.get_transaction_count(self.account.address)
-        })
-        signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
-        return self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+        return tx_hash.hex()
 
     # ==================== REGISTRY FUNCTIONS ====================
 
@@ -376,7 +359,16 @@ class Mod:
         contract_map = {k.lower(): v for k, v in contract_map.items()}
         return contract_map
     
-    def balance(self, token='ETH',  address: str=None) -> int:
+    def is_address(self, address: str) -> bool:
+        """Check if string is a valid Ethereum address.
+        
+        Args:
+            address: Address to check
+        """
+        return Web3.is_address(address)
+
+
+    def balance(self,  address: str=None, token='market') -> int:
         """Get stable token balance.
         
         Args:
@@ -385,6 +377,10 @@ class Mod:
         Returns:
             Stable token balance
         """
+        if not self.is_address(address):
+            address = m.key(address).address
+
+        address = Web3.to_checksum_address(address)
 
         if token == 'ETH':
             addr = address or self.account.address
@@ -560,6 +556,32 @@ class Mod:
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
         tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+        self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        # wait for finalize
+        return '0x'+tx_hash.hex()
+    
+
+    def transfer(self, to: str, amount: int, token='market') -> Dict[str, Any]:
+        """Transfer stable tokens to another address.
+        
+        Args:
+            to: Recipient address
+            amount: Amount to transfer
+            
+        Returns:
+            Transaction receipt
+        """
+        market = self.contracts.get(token)
+        if not market:
+            raise ValueError('Market contract not loaded')
+        amount = int(amount * 10**self.decimals)
+        to = Web3.to_checksum_address(to)
+        tx = market.functions.transfer(to, amount).build_transaction({
+            'from': self.account.address,
+            'nonce': self.w3.eth.get_transaction_count(self.account.address)
+        })
+        signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
     
 
@@ -627,7 +649,7 @@ class Mod:
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
     def is_token_whitelisted(self, token_address: str) -> bool:
@@ -692,7 +714,7 @@ class Mod:
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(approve_tx, self.account.key)
-        self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.w3.eth.send_raw_transaction(signed.raw_transaction)
         
         # Fund treasury
         tx = treasury.functions.fundTreasury(token_address, amount).build_transaction({
@@ -700,7 +722,7 @@ class Mod:
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
     def withdraw_from_treasury(self, token_address: str) -> Dict[str, Any]:
@@ -721,7 +743,7 @@ class Mod:
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
     def get_claimable_amount(self, holder: str, token: str) -> int:

@@ -11,9 +11,11 @@
 
 MOD Protocol is a **decentralized function marketplace** where developers publish code modules and earn money every time someone uses them. Think **GitHub meets AWS Lambda meets Crypto**.
 
-- **For Developers:** Monetize your code with zero infrastructure
-- **For Users:** Pay only for what you use, no subscriptions
-- **For Everyone:** Verifiable, composable, unstoppable applications
+### Why MOD?
+
+- **For Developers:** Monetize your code with zero infrastructure - write once, earn forever
+- **For Users:** Pay only for what you use, no subscriptions or vendor lock-in
+- **For Everyone:** Verifiable, composable, unstoppable applications built on cryptographic trust
 
 ## ⚡ Quick Start
 
@@ -27,23 +29,25 @@ npm run dev
 # Open http://localhost:3000
 ```
 
+**That's it!** You're now running a decentralized function marketplace.
+
 ## ✨ Key Features
 
 ### 🔐 Multi-Wallet Support
-- **Polkadot** (Subwallet) - Substrate chains
-- **Ethereum** (Metamask) - EVM chains  
+- **Polkadot** (Subwallet) - Substrate chains with SR25519 signatures
+- **Ethereum** (Metamask) - EVM chains with ECDSA signing
 - **Solana** (Phantom) - High-performance execution
-- **Local** - Browser-based key management with signing/verification
+- **Local** - Browser-based key management with full signing/verification
 
 ### 💬 Interactive Chat Interface
-- **Module Selector** - Browse and select from available modules with autocomplete
+- **Module Selector** - Browse and select from available modules with smart autocomplete
 - **Schema Editor** - Configure parameters with JSON schema validation
 - **Transaction Panel** - Real-time transaction tracking with cost display
 - **Resizable Layout** - Drag-and-drop split screen for optimal workflow
 
 ### 🛡️ Security First
 - **Auto-Verification** - Every signature verified immediately after signing
-- **Message Signing** - Sign messages with your private key
+- **Message Signing** - Sign messages with your private key (SR25519/ECDSA)
 - **Signature Verification** - Verify signatures from other users
 - **Client-side Keys** - Your keys never leave your device
 
@@ -133,7 +137,7 @@ docker-compose down
 **Blockchain:**
 - @polkadot/api - Substrate interaction
 - ethers - Ethereum integration
-- Cryptographic signing/verification
+- Cryptographic signing/verification (SR25519, ECDSA)
 
 **Storage:**
 - IPFS - Decentralized content storage
@@ -142,7 +146,7 @@ docker-compose down
 ## 🔒 Security Best Practices
 
 1. ✅ **Always verify signatures** before trusting them
-2. ✅ **Check auto-verify results** after signing messages  
+2. ✅ **Check auto-verify results** after signing messages
 3. ✅ **Never share private keys** - they stay in your browser
 4. ✅ **Read what you sign** - understand the message content
 5. ✅ **Use HTTPS in production** - protect data in transit
@@ -164,7 +168,7 @@ docker-compose down
 - [User Profile Module](./src/mod/user/README.md) - Sign/Verify guide
 - [One Pager](./docs/onepager.md) - Quick overview
 - [Whitepaper](./docs/whitepaper.md) - Technical deep dive
-- [API Mechanics](../../api/docs/API_MECHANICS.md) - Backend architecture
+- [API Mechanics](./src/api/api/docs/API_MECHANICS.md) - Backend architecture
 
 ## 🚀 Deployment
 
@@ -190,7 +194,7 @@ docker run -p 3000:3000 mod-app
 
 ## 📊 Transaction Cost Display
 
-All transactions now display their cost in USD. The cost field is automatically included in transaction cards with a default value of $0.00 if not specified.
+All transactions display their cost in USD. The cost field is automatically included in transaction cards with a default value of $0.00 if not specified.
 
 **Features:**
 - 💰 Real-time cost display on every transaction

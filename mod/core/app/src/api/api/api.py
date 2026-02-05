@@ -22,9 +22,8 @@ class  Api:
         self.key = m.key(key)
         self.registry_path = self.path('registry.json')
         self.set_router(router=router, store=store)
-        self.threads['sync_loop'] = m.thread(self.sync_loop)
 
-    def set_router(self, router, store='ipfs', fns = ['call', 'txs' ]):
+    def set_router(self, router, store='ipfs', fns = ['call', 'txs', 'sync_info' ]):
         self.router = m.mod(router)(store=store)
         for fn in fns:
             setattr(self, fn, getattr(self.router, fn))
@@ -345,7 +344,7 @@ class  Api:
         if self.is_ipfs_url(mod):
             return self.reg_ipfs(mod)
         elif self.is_git_url(mod):
-            return self.reg_url(mod, key=key, comment=comment, public=public)
+            return self.reg_git(mod, key=key, comment=comment)
         info = self.get_info(mod=mod, key=key, comment=comment, public=public)
         info['cid'] = self.reg_info(info) 
         self.update()
@@ -691,48 +690,4 @@ class  Api:
     def is_owner(self, address:str):
         return m.is_owner(address)
     
-
-    def sync_loop(self, interval=10):
-        while True:
-            try:
-                self.sync_iou()
-            except Exception as e:
-                print(f'Error in sync_loop: {e}')
-            time.sleep(interval)
-    
-    def ious(self):
-        txs = self.txs(df=0)
-        ious_txs_path = self.path('ious_txs.json')
-        existing_ious_txs = m.get(ious_txs_path, [])
-        txs = [tx for tx in txs if tx['cid'] not in existing_ious_txs]
-        ious  = []
-        for tx in txs:
-            tx = self.get(tx['cid'])
-            print(tx)
-            cost = tx['cost']
-            client = tx['key'].lower()
-            owner = tx['owner'].lower()
-            ious.append({'from': client, 'to': owner, 'amount': cost})
-        iou_map = {}
-        for iou in ious:
-            if not iou['from'] in iou_map:
-                iou_map[iou['from']] = {}
-            if not iou['to'] in iou_map[iou['from']]:
-                iou_map[iou['from']][iou['to']] = 0
-            iou_map[iou['from']][iou['to']] += iou['amount']
-        if len(txs) > 0:
-            print(f'Found {len(txs)} new IOU txs')
-            existing_ious_txs.extend([tx['cid'] for tx in txs])
-            m.put(ious_txs_path, existing_ious_txs)
-        return iou_map
-    
-
-    def sync_iou(self):
-        iou_map = self.ious()
-        for client_addr, provider_map in iou_map.items():
-            for provider_addr, amount in provider_map.items():
-                try:
-                    self.chain.debit(client_addr, provider_addr, amount)
-                except Exception as e:
-                    print(f'Error syncing IOU from {client_addr} to {provider_addr} for amount {amount}: {e}')
-        return iou_map
+   

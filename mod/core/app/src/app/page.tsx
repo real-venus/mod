@@ -20,7 +20,7 @@ const MATRIX_CHARS = '01ΞΨΩαβγδεζηθικλμνξοπρστυφχψω�
 export default function Home() {
   const [matrixRain, setMatrixRain] = useState<string[][]>([])
   const [pattern, setPattern] = useState(0)
-  const [glitchText, setGlitchText] = useState('MODCHAIN')
+  const [glitchText, setGlitchText] = useState('SHARE ANYTHING')
 
   useEffect(() => {
     const cols = Math.floor(window.innerWidth / 20)
@@ -44,11 +44,11 @@ export default function Home() {
     }, 2000)
 
     const glitchInterval = setInterval(() => {
-      const glitchChars = 'MODCHAIN!@#$%^&*()_+-=[]{}|;:,.<>?/~`'
+      const glitchChars = 'SHARE ANYTHING!@#$%^&*()_+-=[]{}|;:,.<>?/~`'
       setGlitchText(prev => 
         Math.random() > 0.7 ? 
         prev.split('').map(c => glitchChars[Math.floor(Math.random() * glitchChars.length)]).join('') :
-        'MODCHAIN'
+        'SHARE ANYTHING'
       )
     }, 150)
 
@@ -61,7 +61,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden font-mono">
-      {/* Ising Model Background */}
+      {/* Matrix Rain Background */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="flex gap-1 text-green-500 text-xs">
           {matrixRain.map((col, i) => (
@@ -107,11 +107,11 @@ export default function Home() {
               {glitchText}
             </span>
             <span className="relative">
-              MODCHAIN
+              SHARE ANYTHING
             </span>
           </div>
           <div className="text-center text-white text-lg mt-3 tracking-[0.5em]">
-            ▓▒░ DECENTRALIZED MODULE REGISTRY ░▒▓
+            ▓▒░ FRICTIONLESS TOOL ECONOMY ░▒▓
           </div>
         </motion.div>
 
@@ -125,29 +125,36 @@ export default function Home() {
         >
           <pre className="text-white text-sm leading-relaxed">
 {`╔═══════════════════════════════════════════════════════════╗
-║  MODCHAIN: BLOCKCHAIN MODULE REGISTRY                     ║
+║  THE FRICTIONLESS ECONOMY OF SHARING                      ║
 ╠═══════════════════════════════════════════════════════════╣
 ║                                                           ║
-║  WHAT:                                                    ║
-║  • Decentralized app store - NO gatekeepers               ║
-║  • Software modules on-chain (immutable)                  ║
-║  • Cryptographically verified & tamper-proof              ║
-║  • Permissionless publishing                              ║
+║  SHARE ANY TOOL:                                          ║
+║  • Physical tools (drill, camera, car)                    ║
+║  • Digital tools (AI models, APIs, code)                  ║
+║  • Virtual tools (game items, NFTs, assets)               ║
+║  • Services (skills, time, expertise)                     ║
 ║                                                           ║
-║  HOW:                                                     ║
-║  1. Create MOD                                            ║
-║  2. Sign cryptographically                                ║
-║  3. Publish to blockchain                                 ║
-║  4. Users verify & install trustlessly                    ║
-║  5. Zero middlemen                                        ║
+║  BARTER WITH CRYPTO:                                      ║
+║  • Instant peer-to-peer exchange                          ║
+║  • No middlemen, no fees                                  ║
+║  • Cryptographically verified trades                      ║
+║  • Smart contracts enforce fairness                       ║
 ║                                                           ║
-║  WHY:                                                     ║
-║  • Code is law                                            ║
-║  • Cryptography = freedom                                 ║
-║  • Decentralization prevents control                      ║
-║  • Build without permission                               ║
+║  HOW IT WORKS:                                            ║
+║  1. List your tool (real or digital)                      ║
+║  2. Set your price in crypto                              ║
+║  3. Others discover & request access                      ║
+║  4. Trade happens trustlessly on-chain                    ║
+║  5. Earn passive income from your stuff                   ║
 ║                                                           ║
-║  TL;DR: npm + blockchain = unstoppable distribution       ║
+║  WHY IT'S DOPE:                                           ║
+║  • Turn idle assets into income                           ║
+║  • Access tools without buying them                       ║
+║  • Build reputation through trades                        ║
+║  • Global marketplace, local impact                       ║
+║  • Ownership stays with you                               ║
+║                                                           ║
+║  TL;DR: Airbnb + Uber + Crypto = Share Everything         ║
 ╚═══════════════════════════════════════════════════════════╝`}
           </pre>
         </motion.div>
@@ -162,7 +169,7 @@ export default function Home() {
               href="/chat"
               className="px-8 py-4 border-2 border-cyan-400 bg-cyan-400/10 text-white font-bold hover:bg-cyan-400 hover:text-black transition-all relative overflow-hidden group bloc rounded-lg"
             >
-              <span className="relative z-10">> CHAT_INTERFACE</span>
+              <span className="relative z-10">> START_SHARING</span>
             </Link>
           </motion.div>
           
@@ -174,7 +181,7 @@ export default function Home() {
               href="/user/explore"
               className="px-8 py-4 border-2 border-purple-500 bg-purple-500/10 text-white font-bold hover:bg-purple-500 hover:text-black transition-all bloc rounded-lg"
             >
-              > JOIN_NETWORK
+              > EXPLORE_TOOLS
             </Link>
           </motion.div>
         </div>

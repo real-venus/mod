@@ -145,7 +145,7 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
     /**
      * @dev Get unclaimed treasury fees (total accrued - current balance)
      */
-    function getUnclaimedTreasuryFeesUSD() external view returns (uint256) {
+    function getUnclaimedTreasuryFFeesUSD() external view returns (uint256) {
         uint256 currentBalance = balanceOf(treasury);
         return totalTreasuryFeesAccrued > currentBalance ? totalTreasuryFeesAccrued - currentBalance : 0;
     }

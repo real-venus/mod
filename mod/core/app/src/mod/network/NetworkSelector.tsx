@@ -48,7 +48,6 @@ export function NetworkSelector() {
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(DEFAULT_NETWORKS[0])
   const [showDetails, setShowDetails] = useState(false)
   const [networkStatuses, setNetworkStatuses] = useState<Record<string, 'online' | 'offline' | 'checking'>>({})
-  const [isHovering, setIsHovering] = useState(false)
 
   useEffect(() => {
     const savedNetworks = localStorage.getItem('custom_networks')
@@ -67,15 +66,6 @@ export function NetworkSelector() {
 
     checkNetworkStatuses()
   }, [])
-
-  useEffect(() => {
-    if (!isHovering) {
-      const timer = setTimeout(() => {
-        setShowDetails(false)
-      }, 200)
-      return () => clearTimeout(timer)
-    }
-  }, [isHovering])
 
   const checkNetworkStatuses = async () => {
     const statuses: Record<string, 'online' | 'offline' | 'checking'> = {}
@@ -109,7 +99,6 @@ export function NetworkSelector() {
     setSelectedNetwork(network)
     localStorage.setItem('selected_network', network.id)
     setShowDetails(false)
-    setIsHovering(false)
   }
 
   const getStatusIcon = (networkId: string) => {
@@ -122,13 +111,8 @@ export function NetworkSelector() {
   return (
     <div className="relative">
       <div
-        onMouseEnter={() => {
-          setIsHovering(true)
-          setShowDetails(true)
-        }}
-        onMouseLeave={() => {
-          setIsHovering(false)
-        }}
+        onMouseEnter={() => setShowDetails(true)}
+        onMouseLeave={() => setShowDetails(false)}
         className="cursor-pointer"
       >
         <motion.div
@@ -153,106 +137,96 @@ export function NetworkSelector() {
 
         <AnimatePresence>
           {showDetails && (
-            <>
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowDetails(false)
-                  setIsHovering(false)
-                }}
-              />
-              <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                className="absolute right-0 mt-2 w-96 bg-gradient-to-br from-gray-900/95 via-black/95 to-gray-900/95 backdrop-blur-xl border-2 border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
-                onMouseEnter={() => setIsHovering(true)}
-                onMouseLeave={() => setIsHovering(false)}
-              >
-                <div className="p-5 border-b-2 border-white/10 bg-gradient-to-r from-transparent via-white/5 to-transparent">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <motion.div 
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: selectedNetwork.color }}
-                      />
-                      <span 
-                        className="font-black text-xl uppercase tracking-wider"
-                        style={{ color: selectedNetwork.color }}
-                      >
-                        {selectedNetwork.name}
-                      </span>
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="absolute right-0 mt-2 w-96 bg-gradient-to-br from-gray-900/95 via-black/95 to-gray-900/95 backdrop-blur-xl border-2 border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
+              onMouseEnter={() => setShowDetails(true)}
+              onMouseLeave={() => setShowDetails(false)}
+            >
+              <div className="p-5 border-b-2 border-white/10 bg-gradient-to-r from-transparent via-white/5 to-transparent">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <motion.div 
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: selectedNetwork.color }}
+                    />
+                    <span 
+                      className="font-black text-xl uppercase tracking-wider"
+                      style={{ color: selectedNetwork.color }}
+                    >
+                      {selectedNetwork.name}
+                    </span>
+                  </div>
+                  {getStatusIcon(selectedNetwork.id)}
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all">
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 font-bold">RPC URL</div>
+                      <div className="text-sm text-white font-mono break-all">{selectedNetwork.url}</div>
                     </div>
-                    {getStatusIcon(selectedNetwork.id)}
+                    <CopyButton text={selectedNetwork.url} size="sm" />
                   </div>
                   
-                  <div className="space-y-3">
+                  {selectedNetwork.chainId && (
                     <div className="flex items-center justify-between bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all">
                       <div className="flex-1">
-                        <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 font-bold">RPC URL</div>
-                        <div className="text-sm text-white font-mono break-all">{selectedNetwork.url}</div>
+                        <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 font-bold">Chain ID</div>
+                        <div className="text-sm text-white font-mono">{selectedNetwork.chainId}</div>
                       </div>
-                      <CopyButton text={selectedNetwork.url} size="sm" />
+                      <CopyButton text={selectedNetwork.chainId} size="sm" />
                     </div>
-                    
-                    {selectedNetwork.chainId && (
-                      <div className="flex items-center justify-between bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all">
-                        <div className="flex-1">
-                          <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 font-bold">Chain ID</div>
-                          <div className="text-sm text-white font-mono">{selectedNetwork.chainId}</div>
-                        </div>
-                        <CopyButton text={selectedNetwork.chainId} size="sm" />
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all">
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 font-bold">Network ID</div>
-                        <div className="text-sm text-white font-mono">{selectedNetwork.id}</div>
-                      </div>
-                      <CopyButton text={selectedNetwork.id} size="sm" />
+                  )}
+                  
+                  <div className="flex items-center justify-between bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all">
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 font-bold">Network ID</div>
+                      <div className="text-sm text-white font-mono">{selectedNetwork.id}</div>
                     </div>
+                    <CopyButton text={selectedNetwork.id} size="sm" />
                   </div>
                 </div>
+              </div>
 
-                <div className="max-h-64 overflow-y-auto">
-                  {networks.map((network) => (
-                    <motion.button
-                      key={network.id}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleNetworkChange(network)
-                      }}
-                      whileHover={{ x: 4 }}
-                      className={`w-full flex items-center justify-between gap-3 px-5 py-4 transition-all hover:bg-white/10 ${
-                        selectedNetwork.id === network.id ? 'bg-white/10' : ''
-                      }`}
-                      style={{
-                        borderLeft: selectedNetwork.id === network.id ? `4px solid ${network.color}` : '4px solid transparent'
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: network.color }}
-                        />
-                        <span 
-                          className="font-bold text-sm uppercase tracking-wide"
-                          style={{ color: network.color }}
-                        >
-                          {network.name}
-                        </span>
-                      </div>
-                      {getStatusIcon(network.id)}
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            </>
+              <div className="max-h-64 overflow-y-auto">
+                {networks.map((network) => (
+                  <motion.button
+                    key={network.id}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleNetworkChange(network)
+                    }}
+                    whileHover={{ x: 4 }}
+                    className={`w-full flex items-center justify-between gap-3 px-5 py-4 transition-all hover:bg-white/10 ${
+                      selectedNetwork.id === network.id ? 'bg-white/10' : ''
+                    }`}
+                    style={{
+                      borderLeft: selectedNetwork.id === network.id ? `4px solid ${network.color}` : '4px solid transparent'
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: network.color }}
+                      />
+                      <span 
+                        className="font-bold text-sm uppercase tracking-wide"
+                        style={{ color: network.color }}
+                      >
+                        {network.name}
+                      </span>
+                    </div>
+                    {getStatusIcon(network.id)}
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
