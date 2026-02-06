@@ -1,3 +1,4 @@
+"use client";
 import { WalletAdapter } from '../types'
 import { ethers } from 'ethers'
 

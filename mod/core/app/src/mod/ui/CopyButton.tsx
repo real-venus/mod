@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useState } from 'react'
 import { ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline'

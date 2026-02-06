@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { WalletHeader } from '@/mod/wallet/WalletHeader'
 import { TreasuryHeader } from '@/mod/header/TreasuryHeader'

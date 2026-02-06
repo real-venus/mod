@@ -634,10 +634,8 @@ class  Api:
             user['mods'] = self.get(user['mods'])
         return user
 
-    def edit(self, query:str = 'make the readme better', mod='app',  key=None,  api=None, **kwargs) -> Dict[str, Any]:
-        if api != None:
-            return self.call('api/edit', {'mod': mod, 'query': query}, api=api, key=key)
-        m.fn('dev/forward')( query=query, mod=mod, safety=False, **kwargs)
+    def edit(self, query:str = 'make the readme better', mod='app',  key=None,   steps=20, **kwargs) -> Dict[str, Any]:
+        m.fn('dev/forward')( query=query, mod=mod, safety=False, key=key, steps=steps, **kwargs)
         return self.reg(mod=mod, key=key, comment=query)
 
     def files(self, mod='store', search=None, **kwargs):

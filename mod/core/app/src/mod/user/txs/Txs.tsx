@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useRef } from 'react'
 import { TransactionsPanel } from '@/mod/chat/transactions/TransactionsPanel'

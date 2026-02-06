@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { BuildingLibraryIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'

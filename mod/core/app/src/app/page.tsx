@@ -1,8 +1,10 @@
-'use client'
+"use client";
 
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+
+export const dynamic = 'force-dynamic'
 
 const ASCII_PATTERNS = [
   '░▒▓█▓▒░',

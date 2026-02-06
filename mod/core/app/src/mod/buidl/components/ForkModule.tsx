@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useState } from 'react'
 import { CodeBracketIcon as CodeBracketIcon, ArrowPathIcon as Loader2, CheckCircleIcon as CheckCircle, ExclamationCircleIcon as AlertCircle } from '@heroicons/react/24/outline'

@@ -1,3 +1,4 @@
+"use client";
 import { createHash } from 'crypto';
 import {Key} from '@/mod/key';
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'

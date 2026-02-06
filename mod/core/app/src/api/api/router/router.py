@@ -212,7 +212,7 @@ class Router:
         fns = ['sync_tasks', 'sync_ious']
         sync_info = {}
         for fn in fns:
-            last_time = getattr(self, f'last_time_{fn}', 0)
+            last_time = m.get(self.path('last_time_' + fn)) or 0
             sync_info[fn] = {
                 'last_time': last_time,
                 'since_last': int(m.time() - last_time),
@@ -257,11 +257,12 @@ class Router:
             current_time = m.time()
             interval = self.intervals.get(name, interval)
             path = self.path('last_time_' + name)
-            last_time = float(m.get(path, m.time()))
+            last_time = float(m.get(path, 0))
             time_lapsed = current_time - last_time
             result = bool(time_lapsed > interval)
             if result:
                 m.put(path, current_time)
+            print(f'Can sync {name}? {result} (time lapsed: {time_lapsed:.2f}s, interval: {interval}s)')
             return result
     
         while True:

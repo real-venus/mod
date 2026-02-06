@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Auth } from '@/mod/client/auth';
 import { TokenRefreshManager } from '@/mod/client/tokenRefresh';

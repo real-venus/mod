@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useRef, useEffect, useState } from 'react'
 import { useChatState } from './hooks/useChatState'

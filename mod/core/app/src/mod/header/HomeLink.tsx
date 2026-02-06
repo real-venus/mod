@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import Link from 'next/link'
 import { HomeIcon } from '@heroicons/react/24/outline'

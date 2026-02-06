@@ -4,7 +4,7 @@ import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 import modConfig from '@/app/mod.json'
 
 function getEthereumProvider(): ethers.BrowserProvider {
-  if (!window.ethereum) {
+  if (typeof window === 'undefined' || !window.ethereum) {
     throw new Error('No Ethereum provider found. Please install MetaMask or another wallet.')
   }
   return new ethers.BrowserProvider(window.ethereum)

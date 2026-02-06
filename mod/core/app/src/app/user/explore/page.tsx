@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { useEffect, useState } from 'react'
 import { Loading } from '@/mod/ui/Loading'
@@ -7,6 +7,8 @@ import { UserType } from '@/mod/types'
 import { userContext } from '@/mod/context'
 import { X, RotateCcw, Users } from 'lucide-react'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+
+export const dynamic = 'force-dynamic'
 
 type SortKey = 'recent' | 'name' | 'balance' | 'modules'
 

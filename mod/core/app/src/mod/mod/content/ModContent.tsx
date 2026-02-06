@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { CopyButton } from '@/mod/ui/CopyButton'

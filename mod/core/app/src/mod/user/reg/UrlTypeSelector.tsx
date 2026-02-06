@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import { useState, useEffect } from 'react'
 import { Github, Database, HardDrive, Cloud, Coins } from 'lucide-react'
 

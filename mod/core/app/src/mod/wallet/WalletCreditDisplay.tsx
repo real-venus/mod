@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import React from 'react'
 
@@ -10,7 +10,7 @@ interface WalletCreditDisplayProps {
 
 const WalletCreditDisplay: React.FC<WalletCreditDisplayProps> = ({
   credits = 0,
-  label = 'Credits',
+  label = 'Market Tokens',
   className = '',
 }) => {
   const formatCredits = (value: number | string): string => {

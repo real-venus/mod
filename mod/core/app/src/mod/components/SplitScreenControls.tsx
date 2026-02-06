@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useSplitScreenContext } from '@/mod/context/SplitScreenContext'
 import { Squares2X2Icon, XMarkIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline'

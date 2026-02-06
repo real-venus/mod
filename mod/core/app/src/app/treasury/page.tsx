@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useState, useEffect } from 'react'
 import { BuildingLibraryIcon, ArrowTrendingUpIcon, BanknotesIcon, ChartBarIcon } from '@heroicons/react/24/outline'
@@ -6,6 +6,8 @@ import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { motion } from 'framer-motion'
+
+export const dynamic = 'force-dynamic'
 
 export default function TreasuryPage() {
   const [treasuryAddress, setTreasuryAddress] = useState('')

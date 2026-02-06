@@ -1,3 +1,5 @@
+"use client";
+
 import { CheckCircleIcon, StarIcon as CrownIcon, PlusIcon, ServerIcon, TrashIcon, XCircleIcon } from '@heroicons/react/24/outline'
 
 import { useState, useEffect } from 'react'

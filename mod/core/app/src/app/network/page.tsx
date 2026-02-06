@@ -1,9 +1,11 @@
-'use client'
+"use client";
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline'
 import { CopyButton } from '@/mod/ui/CopyButton'
+
+export const dynamic = 'force-dynamic'
 
 interface NetworkConfig {
   id: string

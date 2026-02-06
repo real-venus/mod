@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import { useState, useEffect } from 'react'
 import { Copy, CheckCircle, FileSignature } from 'lucide-react'
 import { Key } from '@/mod/key'

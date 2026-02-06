@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import React, { useEffect, useState } from 'react';
 import { userContext } from '@/mod/context/UserContext';
 import { Auth } from '@/mod/client/auth';

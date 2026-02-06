@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import ModulePage from '@/mod/mod/ModulePage'
 

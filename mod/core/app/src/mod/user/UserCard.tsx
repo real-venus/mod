@@ -1,4 +1,5 @@
-'use client'
+"use client";
+
 import { text2color, shorten } from '@/mod/utils'
 import { KeyIcon, CubeIcon, SparklesIcon, ClockIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import { UserType } from '@/mod/types'

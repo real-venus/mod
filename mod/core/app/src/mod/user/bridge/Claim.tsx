@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import React, { useState, useEffect } from 'react'
 import { Gift, Loader2, CheckCircle, AlertCircle, Coins } from 'lucide-react'
 import { userContext } from '@/mod/context/UserContext'

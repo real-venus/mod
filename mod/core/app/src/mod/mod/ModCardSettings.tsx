@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { Settings, Grid3x3, Grid2x2, LayoutGrid, Filter, ChevronDown } from 'lucide-react'
 import { useState } from 'react'

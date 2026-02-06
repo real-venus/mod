@@ -1,3 +1,5 @@
+"use client";
+
 import { Auth, AuthHeaders } from './auth';
 
 export class TokenRefreshManager {

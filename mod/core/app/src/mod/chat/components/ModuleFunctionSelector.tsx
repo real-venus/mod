@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { text2color } from '@/mod/utils'

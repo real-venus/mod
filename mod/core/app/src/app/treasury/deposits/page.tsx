@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useState, useEffect } from 'react'
 import { BuildingLibraryIcon, ArrowDownTrayIcon, ClockIcon, UserIcon } from '@heroicons/react/24/outline'
@@ -6,6 +6,8 @@ import { ethers, EventLog } from 'ethers'
 import modConfig from '@/app/mod.json'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { motion } from 'framer-motion'
+
+export const dynamic = 'force-dynamic'
 
 interface DepositEvent {
   funder: string

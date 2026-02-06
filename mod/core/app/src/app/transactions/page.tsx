@@ -1,7 +1,9 @@
-'use client'
+"use client";
 
 import { useRef } from 'react'
 import { TransactionsPanel } from '@/mod/chat/transactions/TransactionsPanel'
+
+export const dynamic = 'force-dynamic'
 
 export default function TransactionsPage() {
   const panelRef = useRef<{ handleSync: () => void } | null>(null)

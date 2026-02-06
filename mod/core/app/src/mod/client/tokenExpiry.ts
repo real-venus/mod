@@ -1,3 +1,4 @@
+"use client";
 import { Auth } from './auth';
 
 export class TokenExpiryHandler {

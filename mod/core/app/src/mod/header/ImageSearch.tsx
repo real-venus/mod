@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { useState } from 'react'
 import { MagnifyingGlassIcon, PhotoIcon } from '@heroicons/react/24/outline'

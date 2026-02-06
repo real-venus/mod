@@ -1,6 +1,8 @@
 import dynamic from 'next/dynamic';
 import React from 'react'
 
+export const dynamicParams = true
+
 const ModulePage = dynamic(
   () => import('@/mod/mod/explore/ModExplorePage'),
   { 

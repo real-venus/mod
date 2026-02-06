@@ -1,3 +1,5 @@
+"use client";
+
 import {Auth} from './auth';
 import {Key} from '@/mod/key';
 

@@ -47,10 +47,10 @@ export const shorten = (str: string, start = 8, end = 8): string => {
 
 export const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
-    if (navigator.clipboard && window.isSecureContext) {
+    if (typeof window !== 'undefined' && navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text)
       return true
-    } else {
+    } else if (typeof document !== 'undefined') {
       const textArea = document.createElement('textarea')
       textArea.value = text
       textArea.style.position = 'fixed'
@@ -63,6 +63,7 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
       textArea.remove()
       return success
     }
+    return false
   } catch (err) {
     console.error('Failed to copy:', err)
     return false

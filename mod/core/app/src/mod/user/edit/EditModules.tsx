@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import { UserType } from '@/mod/types'
 import ModCard from '@/mod/mod/ModCard'
 import { UpdateMod } from '@/mod/user/UpdateMod'

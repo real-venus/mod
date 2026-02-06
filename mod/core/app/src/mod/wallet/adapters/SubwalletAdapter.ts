@@ -1,3 +1,5 @@
+"use client";
+
 import { WalletAdapter } from '../types'
 import { cryptoWaitReady } from '@polkadot/util-crypto'
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp'

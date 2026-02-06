@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { userContext } from '@/mod/context/UserContext'
 import { useState } from 'react'
@@ -141,13 +141,13 @@ export default function WalletInfoTabs() {
 
         <div className="p-3 rounded-lg border-2 transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}60` }}>
           <div className="flex items-center justify-between mb-2">
-            <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">Credits</div>
+            <div className="text-sm text-gray-400 font-bold uppercase tracking-wider">Market Tokens</div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleTopUp}
                 className="flex items-center gap-1 px-3 py-1 rounded border transition-all hover:scale-105 active:scale-95"
                 style={{ borderColor: userColor, color: userColor, backgroundColor: `${userColor}20` }}
-                title="Top Up Credits"
+                title="Top Up Market Tokens"
               >
                 <CreditCardIcon className="w-4 h-4" />
                 <span className="text-xs font-bold">TOP UP</span>

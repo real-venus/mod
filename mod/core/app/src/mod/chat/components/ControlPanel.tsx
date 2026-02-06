@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { ModuleFunctionSelector } from './ModuleFunctionSelector'
 import { UnifiedInputPanel } from './UnifiedInputPanel'

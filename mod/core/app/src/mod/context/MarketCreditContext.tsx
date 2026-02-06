@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { userContext } from './UserContext'
@@ -31,7 +31,7 @@ export function MarketCreditProvider({ children }: { children: ReactNode }) {
       const credit = await manager.checkMarketAllowance(user.key, 'USDC')
       setMarketCredit(credit)
     } catch (error) {
-      console.error('Failed to fetch market credit:', error)
+      console.error('Failed to fetch market tokens:', error)
       setMarketCredit(0)
     } finally {
       setLoading(false)
