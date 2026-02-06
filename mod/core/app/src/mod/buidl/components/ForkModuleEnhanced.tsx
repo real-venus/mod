@@ -8,7 +8,7 @@ import { MagnifyingGlassIcon, DocumentDuplicateIcon, CubeIcon, ArrowDownTrayIcon
 import Client from '@/mod/client'
 
 export default function ForkModuleEnhanced() {
-  const { user, network } = userContext()
+  const { user } = userContext()
   const [modules, setModules] = useState<any[]>([])
   const [filteredModules, setFilteredModules] = useState<any[]>([])
   const [search, setSearch] = useState('')
@@ -22,7 +22,9 @@ export default function ForkModuleEnhanced() {
     const fetchModules = async () => {
       try {
         setLoading(true)
-        const client = new Client(network?.url ?? undefined)
+        // Use NEXT_PUBLIC_API_URL instead of network.url to avoid WebSocket/CORS issues
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || undefined
+        const client = new Client(apiUrl)
         const mods = await client.call('module',  {})
         setModules(Array.isArray(mods) ? mods : [])
         setFilteredModules(Array.isArray(mods) ? mods : [])
@@ -35,7 +37,7 @@ export default function ForkModuleEnhanced() {
       }
     }
     fetchModules()
-  }, [network])
+  }, [])
 
   useEffect(() => {
     if (!search.trim()) {
@@ -55,10 +57,22 @@ export default function ForkModuleEnhanced() {
     if (!modName || !user?.key) return
     setForking(modName)
     try {
-      // TODO: Implement fork API call
-      console.log('Forking module:', modName)
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Use NEXT_PUBLIC_API_URL instead of network.url to avoid WebSocket/CORS issues
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || undefined
+      const client = new Client(apiUrl)
+      await client.call('call', {
+        fn: 'api/fork',
+        params: {
+          mod: modName,
+          key: user?.key,
+          comment: `Forked from ${modName}`,
+          public: false
+        },
+        url: 'api'
+      })
       setForked(prev => new Set(prev).add(modName))
+    } catch (err) {
+      console.error('Failed to fork module:', err)
     } finally {
       setForking(null)
     }

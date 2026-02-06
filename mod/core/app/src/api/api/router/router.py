@@ -247,10 +247,11 @@ class Router:
     intervals = {
         'sync_loop': 1,
         'sync_tasks': 5,
-        'sync_ious': 60,
+        'sync_ious': 10,
     }
     sync_counts = {}
     def sync_loop(self):
+
 
 
         def cansync(name: str, interval:int=10) -> bool:
@@ -344,10 +345,6 @@ class Router:
             if mod_name in m.servers():
                 result = m.fn('client/call')(fn=task['fn'], params=params, timeout=task['timeout'])
             else:
-                if task['key'] != self.key.address:
-                    assert mod in m.config('api').get('mods', []), f'Mod {mod_name} is not exposed via the API'
-                    allowed_fns = self.get_fns(mod)
-                    assert fn_name in allowed_fns, f'Function {fn_name} not allowed in mod {mod_name}. Allowed functions: {allowed_fns}'
                 result = m.fn(fn_name)(**params)
             task['status'] = 'success'
         except Exception as e:

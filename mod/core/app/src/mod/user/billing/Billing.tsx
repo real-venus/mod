@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { userContext } from '@/mod/context'
-import { DollarSign, CreditCard, AlertCircle, CheckCircle, Zap, RefreshCw } from 'lucide-react'
+import { DollarSign, CreditCard, AlertCircle, CheckCircle, Zap, RefreshCw, ArrowRightLeft } from 'lucide-react'
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 import { MarketAllowanceManager } from '@/mod/network/marketAllowance'
 import { Market } from '@/mod/network/Market'
@@ -12,6 +12,7 @@ import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 import WithdrawalPanel from './WithdrawalPanel'
 
 type TokenType = 'USDC' | 'USDT'
+type TabType = 'add' | 'withdraw' | 'transfer'
 
 export const Billing: React.FC = () => {
   const { user, client } = userContext()
@@ -28,7 +29,10 @@ export const Billing: React.FC = () => {
   const [selectedToken, setSelectedToken] = useState<TokenType>('USDC')
   const [useClientAddress, setUseClientAddress] = useState(false)
   const [transferAddress, setTransferAddress] = useState<string>('')
-  const [showWithdrawal, setShowWithdrawal] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabType>('add')
+  const [transferRecipient, setTransferRecipient] = useState<string>('')
+  const [transferAmount, setTransferAmount] = useState<string>('')
+  const [isTransferring, setIsTransferring] = useState(false)
 
   useEffect(() => {
     const network = 'testnet'
@@ -49,10 +53,10 @@ export const Billing: React.FC = () => {
 
   const fetchCredit = async () => {
     if (!user?.key || !market || !allowanceManager) return
-    
+
     try {
       setIsRefreshing(true)
-      const balance = await market.checkBalance(user.key, 'Market')
+      const balance = await market.checkMarketBalance(user.key)
       setMarketCredit(balance)
       
       const currentAllowance = await allowanceManager.checkMarketAllowance(user.key, selectedToken)
@@ -119,13 +123,56 @@ export const Billing: React.FC = () => {
     }
   }
 
+  const handleTransfer = async () => {
+    if (!transferAmount || !transferRecipient || !market) {
+      setBillingError('Please enter recipient address and amount')
+      return
+    }
+
+    if (!ethers.isAddress(transferRecipient)) {
+      setBillingError('Invalid recipient address')
+      return
+    }
+
+    const amount = parseFloat(transferAmount)
+    if (amount <= 0) {
+      setBillingError('Amount must be greater than 0')
+      return
+    }
+
+    if (amount > marketCredit) {
+      setBillingError('Insufficient balance')
+      return
+    }
+
+    setIsTransferring(true)
+    setBillingError(null)
+    setSuccess(null)
+
+    try {
+      await market.transferMarketCredit(transferRecipient, amount)
+
+      await fetchCredit()
+
+      setSuccess(`Successfully transferred $${amount.toFixed(2)} to ${transferRecipient.slice(0, 8)}...${transferRecipient.slice(-6)}!`)
+      setTransferAmount('')
+      setTransferRecipient('')
+    } catch (err: any) {
+      let msg = err?.message || String(err)
+      if (msg.toLowerCase().includes('cancel')) msg = 'Transaction cancelled by user.'
+      setBillingError(msg)
+    } finally {
+      setIsTransferring(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex gap-4 mb-6">
         <button
-          onClick={() => setShowWithdrawal(false)}
+          onClick={() => setActiveTab('add')}
           className={`px-6 py-3 rounded-lg font-bold uppercase transition-all ${
-            !showWithdrawal
+            activeTab === 'add'
               ? 'bg-green-500/20 border-2 border-green-500 text-green-400'
               : 'bg-black/40 border-2 border-white/20 text-white/60 hover:border-white/40'
           }`}
@@ -134,9 +181,9 @@ export const Billing: React.FC = () => {
           Add Credit
         </button>
         <button
-          onClick={() => setShowWithdrawal(true)}
+          onClick={() => setActiveTab('withdraw')}
           className={`px-6 py-3 rounded-lg font-bold uppercase transition-all ${
-            showWithdrawal
+            activeTab === 'withdraw'
               ? 'bg-purple-500/20 border-2 border-purple-500 text-purple-400'
               : 'bg-black/40 border-2 border-white/20 text-white/60 hover:border-white/40'
           }`}
@@ -144,10 +191,136 @@ export const Billing: React.FC = () => {
           <ArrowDownTrayIcon className="inline mr-2 w-5 h-5" />
           Withdraw
         </button>
+        <button
+          onClick={() => setActiveTab('transfer')}
+          className={`px-6 py-3 rounded-lg font-bold uppercase transition-all ${
+            activeTab === 'transfer'
+              ? 'bg-blue-500/20 border-2 border-blue-500 text-blue-400'
+              : 'bg-black/40 border-2 border-white/20 text-white/60 hover:border-white/40'
+          }`}
+        >
+          <ArrowRightLeft className="inline mr-2" size={20} />
+          Transfer
+        </button>
       </div>
 
-      {showWithdrawal ? (
+      {activeTab === 'withdraw' ? (
         <WithdrawalPanel />
+      ) : activeTab === 'transfer' ? (
+        <>
+          <div className="p-6 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-red-500/10 border-2 border-yellow-500/50 rounded-xl shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-yellow-500/70 font-bold text-sm uppercase mb-2">Current Balance</div>
+                <div className="text-yellow-500 font-black text-5xl">${marketCredit.toFixed(2)}</div>
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-3 bg-yellow-500/20 border-2 border-yellow-500/50 rounded-lg hover:bg-yellow-500/30 hover:border-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh Balance"
+                >
+                  <RefreshCw size={24} className={`text-yellow-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+                <ArrowRightLeft size={64} className="text-yellow-500/30" />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 bg-gradient-to-br from-blue-500/10 via-cyan-500/10 to-teal-500/10 border-2 border-blue-500/50 rounded-xl shadow-2xl">
+            <h2 className="text-2xl font-black text-blue-500 uppercase mb-6 flex items-center gap-2">
+              <ArrowRightLeft size={24} />
+              Transfer Credit
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-blue-500 font-bold text-sm uppercase mb-2 block">
+                  Recipient Address
+                </label>
+                <input
+                  type="text"
+                  value={transferRecipient}
+                  onChange={(e) => setTransferRecipient(e.target.value)}
+                  disabled={isTransferring}
+                  placeholder="0x..."
+                  className="w-full bg-black/60 border-2 border-blue-500/40 rounded-lg px-4 py-3 text-blue-300 font-mono text-sm placeholder-blue-600/50 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="text-blue-500 font-bold text-sm uppercase mb-2 block">
+                  Amount (USD)
+                </label>
+                <input
+                  type="number"
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value)}
+                  disabled={isTransferring}
+                  min="0"
+                  step="0.01"
+                  placeholder="10.00"
+                  className="w-full bg-black/60 border-2 border-blue-500/40 rounded-lg px-4 py-3 text-blue-300 font-mono text-lg placeholder-blue-600/50 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 transition-all"
+                />
+              </div>
+
+              <button
+                onClick={handleTransfer}
+                disabled={!transferAmount || !transferRecipient || isTransferring}
+                className="w-full py-4 border-2 border-blue-500/60 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-400 hover:bg-blue-500/30 hover:border-blue-500 hover:scale-[1.02] transition-all duration-300 rounded-xl font-mono uppercase font-black text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3 shadow-lg"
+              >
+                {isTransferring ? (
+                  <>
+                    <ArrowRightLeft size={20} className="animate-spin" />
+                    <span>TRANSFERRING...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowRightLeft size={20} />
+                    <span>TRANSFER CREDIT</span>
+                  </>
+                )}
+              </button>
+
+              <div className="text-blue-500/60 text-sm space-y-2">
+                <p><strong>Transfer Credit:</strong> Send your market credit to another address.</p>
+                <p>• The recipient will receive the credit instantly on-chain</p>
+                <p>• This will prompt you once in MetaMask to confirm the transfer</p>
+                <p>• Make sure to verify the recipient address before confirming</p>
+              </div>
+            </div>
+          </div>
+
+          {(success || billingError) && (
+            <div
+              className={`p-6 rounded-xl border-2 shadow-2xl ${
+                billingError
+                  ? 'from-red-500/10 border-red-500/40 bg-gradient-to-br'
+                  : 'from-emerald-500/10 border-emerald-500/40 bg-gradient-to-br'
+              }`}
+            >
+              <div className="flex items-center gap-3 text-base font-mono uppercase font-bold mb-4">
+                {billingError ? (
+                  <>
+                    <AlertCircle size={20} className="text-red-500" />
+                    <span className="text-red-500">ERROR</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={20} className="text-emerald-500" />
+                    <span className="text-emerald-500">SUCCESS</span>
+                  </>
+                )}
+              </div>
+              <div className={`font-mono text-base bg-black/60 p-4 rounded-lg border-2 ${
+                billingError ? 'text-red-400 border-red-500/30' : 'text-emerald-400 border-emerald-500/30'
+              } whitespace-pre-wrap font-bold`}>
+                {billingError || success}
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <>
           <div className="p-6 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-red-500/10 border-2 border-yellow-500/50 rounded-xl shadow-2xl">

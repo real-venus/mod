@@ -4,9 +4,21 @@ import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 import modConfig from '@/app/mod.json'
 
 function getEthereumProvider(): ethers.BrowserProvider {
-  if (typeof window === 'undefined' || !window.ethereum) {
+  if (typeof window === 'undefined') {
+    throw new Error('Window is undefined - running in server context')
+  }
+
+  if (!window.ethereum) {
     throw new Error('No Ethereum provider found. Please install MetaMask or another wallet.')
   }
+
+  // Safari-specific debugging
+  const userAgent = navigator.userAgent.toLowerCase()
+  const isSafari = userAgent.includes('safari') && !userAgent.includes('chrome')
+  if (isSafari) {
+    console.log('[Safari] Ethereum provider detected:', !!window.ethereum)
+  }
+
   return new ethers.BrowserProvider(window.ethereum)
 }
 
@@ -55,7 +67,7 @@ export class Market {
     try {
       const provider = getEthereumProvider()
       const tokenAddress = this.getTokenAddress(tokenType)
-      
+
       const abi = await this.getTokenABI(tokenAddress)
       const tokenContract = new ethers.Contract(tokenAddress, abi, provider)
       const balance = await tokenContract.balanceOf(userAddress)
@@ -65,6 +77,36 @@ export class Market {
     } catch (error) {
       console.error('Error checking balance:', error)
       throw error
+    }
+  }
+
+  async checkMarketBalance(userAddress: string): Promise<number> {
+    try {
+      if (typeof window === 'undefined' || !window.ethereum) {
+        console.warn('No Ethereum provider available')
+        return 0
+      }
+
+      const provider = getEthereumProvider()
+      const marketAddress = this.config.contracts.Market.address
+
+      if (!marketAddress) {
+        console.error('Market address not found in config')
+        return 0
+      }
+
+      const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, provider)
+
+      // Market contract uses 18 decimals (like ETH)
+      const balance = await marketContract.balanceOf(userAddress)
+      const balanceFormatted = parseFloat(ethers.formatUnits(balance, 18))
+
+      console.log(`Market balance for ${userAddress}:`, balanceFormatted)
+      return balanceFormatted
+    } catch (error) {
+      console.error('Error checking market balance:', error)
+      // Return 0 instead of throwing to prevent UI breaks
+      return 0
     }
   }
 
@@ -133,17 +175,37 @@ export class Market {
       const signer = await provider.getSigner()
       const marketAddress = this.config.contracts.Market.address
       const tokenAddress = this.getTokenAddress(tokenType)
-      
+
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)
       const decimals = await this.getTokenDecimals(tokenAddress)
       const amountInWei = ethers.parseUnits(amount.toString(), decimals)
-      
+
       const tx = await marketContract.withdraw(tokenAddress, amountInWei)
       const receipt = await tx.wait()
-      
+
       return receipt
     } catch (error) {
       console.error('Error withdrawing market credit:', error)
+      throw error
+    }
+  }
+
+  async transferMarketCredit(toAddress: string, amount: number): Promise<any> {
+    try {
+      const provider = getEthereumProvider()
+      const signer = await provider.getSigner()
+      const marketAddress = this.config.contracts.Market.address
+
+      const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)
+      // Market credit uses 18 decimals (like ETH)
+      const amountInWei = ethers.parseUnits(amount.toString(), 18)
+
+      const tx = await marketContract.transfer(toAddress, amountInWei)
+      const receipt = await tx.wait()
+
+      return receipt
+    } catch (error) {
+      console.error('Error transferring market credit:', error)
       throw error
     }
   }

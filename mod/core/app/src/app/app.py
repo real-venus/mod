@@ -9,6 +9,7 @@ class App:
             mod = 'app', 
             prod =False, 
             build = False,
+            public = False,
             api_port=8000, 
              **kwargs):
         if not m.server_exists('api'):
@@ -18,6 +19,10 @@ class App:
             m.build(mod)
         cwd = m.dirpath(mod) 
         working_dir = '/app'
+        if prod:
+            cmd = 'npm run build && npm run start'
+        else:   
+            cmd = 'npm run dev'
         return m.fn('pm/run')(
                     name=mod, 
                     volumes=[f'{cwd}:/app','/app/node_modules', '~/.mod:/root/.mod', '~/mod:/root/mod', '/app/.next'], 
@@ -25,23 +30,15 @@ class App:
                     image=f'{mod}:latest',
                     working_dir=working_dir,
                     port=port, 
-                    cmd='npm run dev',
-                    env={'NEXT_PUBLIC_API_URL':  'https://api.modc2.com' if prod else f'http://localhost:{api_port}'}, 
+                    cmd=cmd,
+                    env={'NEXT_PUBLIC_API_URL':  'https://api.modc2.com' if public else f'http://localhost:{api_port}'}, 
                     **kwargs
                     )
-
-    def edit(self, text='so i want you to have the transactions tab be you calling the history by calling the call function with fn=api/h and params={}', *extra_text, **kwargs):
-        text += ' '.join(extra_text) 
-        content =  str(m.fn('api/h')()[:2])
-        text += content
-        return m.edit('app', *text, **kwargs)
-
 
     def build(self, cmd='npm run build', agent='dev', steps=5, mod='app'):
         import subprocess
         path = m.dp(mod)
         cmd = f'cd {path} && {cmd}'
-       
 
         for _ in range(steps):
             _agent = m.mod(agent)()

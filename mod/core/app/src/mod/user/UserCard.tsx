@@ -27,57 +27,93 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
 
   const CardContent = () => (
     <div
-      className="relative border-2 rounded-xl font-mono transition-all cursor-pointer backdrop-blur-sm overflow-hidden group"
+      className="relative border-2 rounded-2xl font-mono transition-all duration-500 cursor-pointer backdrop-blur-md overflow-hidden group"
       style={{
         fontFamily: 'IBM Plex Mono, Courier New, monospace',
-        backgroundColor: colorWithOpacity(userColor, 0.03),
+        backgroundColor: colorWithOpacity(userColor, 0.05),
         borderColor: userColor,
         boxShadow: isHovered
-          ? `0 0 40px ${colorWithOpacity(userColor, 0.3)}, 0 0 80px ${colorWithOpacity(userColor, 0.12)}`
-          : `0 0 20px ${colorWithOpacity(userColor, 0.18)}`
+          ? `0 0 50px ${colorWithOpacity(userColor, 0.4)}, 0 0 100px ${colorWithOpacity(userColor, 0.15)}, inset 0 0 30px ${colorWithOpacity(userColor, 0.08)}`
+          : `0 0 25px ${colorWithOpacity(userColor, 0.2)}, 0 4px 12px rgba(0, 0, 0, 0.4)`,
+        transform: isHovered ? 'translateY(-2px)' : 'translateY(0)'
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500"
+        className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700"
         style={{
-          background: `radial-gradient(circle at 50% 50%, ${colorWithOpacity(userColor, 0.25)}, transparent 70%)`
+          background: `radial-gradient(circle at 50% 50%, ${colorWithOpacity(userColor, 0.35)}, transparent 70%)`
         }}
       />
 
-      <div className="relative p-5">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="relative">
-                <KeyIcon className="w-10 h-10 transition-all duration-300 group-hover:rotate-12" style={{ color: userColor }} />
-                <div 
-                  className="absolute inset-0 blur-xl opacity-40 group-hover:opacity-60 transition-opacity"
+      <div
+        className="absolute inset-0 opacity-5"
+        style={{
+          backgroundImage: `linear-gradient(${userColor}22 1px, transparent 1px), linear-gradient(90deg, ${userColor}22 1px, transparent 1px)`,
+          backgroundSize: '20px 20px'
+        }}
+      />
+
+      <div className="relative p-6">
+        <div className="flex items-start gap-5">
+          <div className="flex-1 space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="relative group/icon">
+                <div
+                  className="absolute inset-0 blur-2xl opacity-50 group-hover:opacity-70 transition-opacity duration-500"
                   style={{ backgroundColor: userColor }}
                 />
+                <div
+                  className="relative p-2.5 rounded-xl border-2 bg-black/60 backdrop-blur-sm transition-all duration-300 group-hover/icon:scale-110 group-hover/icon:rotate-12"
+                  style={{ borderColor: userColor }}
+                >
+                  <KeyIcon className="w-8 h-8 transition-all duration-300" style={{ color: userColor }} />
+                </div>
               </div>
-              
-              <div 
-                className="flex items-center gap-2 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-4 py-2 flex-1 shadow-lg"
+
+              <div
+                className="flex items-center gap-2.5 bg-gradient-to-br from-black/70 via-black/60 to-black/50 rounded-xl px-4 py-3 flex-1 shadow-xl border border-white/5 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl"
                 onMouseEnter={() => setIsCopyHovered(true)}
                 onMouseLeave={() => setIsCopyHovered(false)}
+                style={{
+                  boxShadow: isCopyHovered
+                    ? `0 0 30px ${colorWithOpacity(userColor, 0.25)}, 0 4px 16px rgba(0, 0, 0, 0.5)`
+                    : '0 4px 12px rgba(0, 0, 0, 0.3)'
+                }}
               >
-                <code className="text-lg font-bold font-mono tracking-wide" style={{ color: userColor }}>
+                <code
+                  className="text-lg font-bold font-mono tracking-wide transition-all duration-300"
+                  style={{
+                    color: userColor,
+                    textShadow: `0 0 10px ${colorWithOpacity(userColor, 0.5)}`
+                  }}
+                >
                   {isCopyHovered ? userKey : `${userKey.substring(0, 6)}...${userKey.substring(userKey.length - 6)}`}
                 </code>
                 <CopyButton text={userKey} size="sm" showValueOnHover={false} />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <div 
-                className="flex items-center gap-1.5 bg-gradient-to-r from-black/50 to-black/30 rounded-lg px-2 py-1.5 transition-all relative group/key shadow-md hover:scale-105"
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div
+                className="flex items-center gap-2 bg-gradient-to-br from-black/70 via-black/60 to-black/50 rounded-xl px-3 py-2 transition-all duration-300 relative group/key shadow-lg hover:scale-105 border border-white/5 backdrop-blur-sm"
                 onMouseEnter={() => setIsKeyHovered(true)}
                 onMouseLeave={() => setIsKeyHovered(false)}
                 title={(user.crypto_type || 'sr25519').toLowerCase()}
+                style={{
+                  boxShadow: isKeyHovered
+                    ? `0 0 25px ${colorWithOpacity(userColor, 0.2)}`
+                    : '0 2px 8px rgba(0, 0, 0, 0.3)'
+                }}
               >
-                <code className="text-sm font-mono font-bold" style={{ color: userColor }}>
+                <code
+                  className="text-sm font-mono font-bold"
+                  style={{
+                    color: userColor,
+                    textShadow: `0 0 8px ${colorWithOpacity(userColor, 0.4)}`
+                  }}
+                >
                   {(user.crypto_type || 'sr25519').toLowerCase()}
                 </code>
                 <div
@@ -86,27 +122,27 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
                 >
                   <CopyButton text={user.crypto_type || 'sr25519'} size="sm" showValueOnHover={true} />
                 </div>
-                <div 
+                <div
                   className="relative ml-1"
                   onMouseEnter={() => setIsKeyQrHovered(true)}
                   onMouseLeave={() => setIsKeyQrHovered(false)}
                 >
-                  <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: userColor }} />
+                  <QrCodeIcon className="h-4 w-4 cursor-pointer transition-transform hover:scale-110" style={{ color: userColor }} />
                   {isKeyQrHovered && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: userColor }}>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2.5 bg-black/95 rounded-xl border-2 z-50 shadow-2xl backdrop-blur-md" style={{ borderColor: userColor }}>
                       <QRCode value={user.crypto_type || 'sr25519'} size={100} color={userColor} />
                     </div>
                   )}
                 </div>
-                
+
                 {isKeyHovered && !isKeyQrHovered && !isKeyCopyHovered && (
                   <div
-                    className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
+                    className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-xl border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200"
                     style={{
                       backgroundColor: 'rgba(0, 0, 0, 0.95)',
                       borderColor: userColor,
                       color: userColor,
-                      boxShadow: `0 0 20px ${colorWithOpacity(userColor, 0.25)}`
+                      boxShadow: `0 0 25px ${colorWithOpacity(userColor, 0.3)}`
                     }}
                   >
                     {user.crypto_type || 'sr25519'}
@@ -115,18 +151,28 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
               </div>
 
               {user.mods && user.mods.length > 0 && (
-                <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
-                  <CubeIcon className="w-4 h-4" style={{ color: '#a855f7' }} />
-                  <code className="text-sm font-mono font-bold" style={{ color: '#a855f7' }}>
+                <div
+                  className="flex items-center gap-2 bg-gradient-to-br from-purple-950/50 via-purple-900/40 to-pink-900/40 rounded-xl px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 border border-purple-500/20 backdrop-blur-sm group/mods"
+                  style={{
+                    boxShadow: '0 2px 8px rgba(168, 85, 247, 0.15)'
+                  }}
+                >
+                  <CubeIcon className="w-4 h-4 transition-transform group-hover/mods:rotate-12" style={{ color: '#a855f7' }} />
+                  <code className="text-sm font-mono font-bold" style={{ color: '#a855f7', textShadow: '0 0 10px rgba(168, 85, 247, 0.4)' }}>
                     {user.mods.length}
                   </code>
                 </div>
               )}
 
               {user.balance !== undefined && (
-                <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-900/30 to-teal-900/30 rounded-lg px-2 py-1.5 shadow-md transition-all hover:scale-105">
-                  <ClockIcon className="w-4 h-4" style={{ color: '#10b981' }} />
-                  <code className="text-sm font-mono font-bold" style={{ color: '#10b981' }}>
+                <div
+                  className="flex items-center gap-2 bg-gradient-to-br from-emerald-950/50 via-emerald-900/40 to-teal-900/40 rounded-xl px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 border border-emerald-500/20 backdrop-blur-sm group/balance"
+                  style={{
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.15)'
+                  }}
+                >
+                  <ClockIcon className="w-4 h-4 transition-transform group-hover/balance:rotate-12" style={{ color: '#10b981' }} />
+                  <code className="text-sm font-mono font-bold" style={{ color: '#10b981', textShadow: '0 0 10px rgba(16, 185, 129, 0.4)' }}>
                     {user.balance.toLocaleString()}
                   </code>
                 </div>
@@ -134,22 +180,38 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
             </div>
           </div>
 
-          <div 
-            className="flex flex-col items-center gap-2 relative"
+          <div
+            className="flex flex-col items-center gap-2 relative group/qr"
             onMouseEnter={() => setIsQrHovered(true)}
             onMouseLeave={() => setIsQrHovered(false)}
           >
-            <div className="p-2 bg-black/60 rounded-lg border-2" style={{ borderColor: userColor }}>
-              <QRCode value={websiteUrl} size={120} color={userColor} />
+            <div
+              className="relative p-3 bg-gradient-to-br from-black/80 via-black/70 to-black/60 rounded-xl border-2 shadow-xl backdrop-blur-sm transition-all duration-500 group-hover/qr:scale-105"
+              style={{
+                borderColor: userColor,
+                boxShadow: isQrHovered
+                  ? `0 0 40px ${colorWithOpacity(userColor, 0.4)}, 0 8px 24px rgba(0, 0, 0, 0.5)`
+                  : `0 0 20px ${colorWithOpacity(userColor, 0.2)}, 0 4px 16px rgba(0, 0, 0, 0.4)`
+              }}
+            >
+              <div
+                className="absolute inset-0 rounded-xl opacity-0 group-hover/qr:opacity-100 transition-opacity duration-500"
+                style={{
+                  background: `radial-gradient(circle at center, ${colorWithOpacity(userColor, 0.1)}, transparent 70%)`
+                }}
+              />
+              <div className="relative">
+                <QRCode value={websiteUrl} size={120} color={userColor} />
+              </div>
             </div>
             {isQrHovered && (
               <div
-                className="absolute top-full mt-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
+                className="absolute top-full mt-2 px-4 py-2 rounded-xl border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200"
                 style={{
                   backgroundColor: 'rgba(0, 0, 0, 0.95)',
                   borderColor: userColor,
                   color: userColor,
-                  boxShadow: `0 0 20px ${colorWithOpacity(userColor, 0.25)}`
+                  boxShadow: `0 0 25px ${colorWithOpacity(userColor, 0.3)}`
                 }}
               >
                 {websiteUrl}

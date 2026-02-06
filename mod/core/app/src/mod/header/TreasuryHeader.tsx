@@ -34,7 +34,7 @@ export function TreasuryHeader() {
         const provider = new ethers.BrowserProvider(window.ethereum)
         
         const network = 'testnet'
-        let  totalUsd = await market.checkBalance(treasuryAddress, 'Market')
+        let  totalUsd = await market.checkMarketBalance(treasuryAddress)
         
         setTotalUsdValue(totalUsd.toFixed(2))
       } catch (error) {

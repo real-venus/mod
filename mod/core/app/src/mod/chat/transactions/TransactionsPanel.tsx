@@ -28,33 +28,82 @@ interface TransactionsPanelProps {
   showStats?: boolean
 }
 
-function Stats24h({ transactions }: { transactions: Transaction[] }) {
-  const now = Date.now() / 1000
-  const last24h = now - (24 * 60 * 60)
-  const txs = transactions.filter((tx: any) => {
-    const t = typeof tx.time === 'string' ? parseInt(tx.time) : tx.time
-    return t >= last24h
+function Stats24h() {
+  const { client } = userContext()
+  const [stats, setStats] = useState({
+    total: 0, success: 0, errors: 0, pending: 0,
+    cost: 0, avgDelta: 0, uniqueModules: 0, uniqueUsers: 0
   })
+  const [loading, setLoading] = useState(true)
 
-  const success = txs.filter((tx: any) => tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete').length
-  const errors = txs.filter((tx: any) => tx.status === 'error' || tx.status === 'failed' || tx.status === 'cancelled').length
-  const pending = txs.filter((tx: any) => tx.status === 'pending' || tx.status === 'running').length
-  const cost = txs.reduce((sum: number, tx: any) => sum + (tx.cost || 0), 0)
-  const withDelta = txs.filter((tx: any) => tx.delta !== undefined)
-  const avgDelta = withDelta.length > 0 ? withDelta.reduce((sum: number, tx: any) => sum + tx.delta, 0) / withDelta.length : 0
-  const uniqueModules = new Set(txs.map((tx: any) => tx.module).filter(Boolean)).size
-  const uniqueUsers = new Set(txs.map((tx: any) => tx.client || tx.key).filter(Boolean)).size
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!client) return
+      setLoading(true)
+      try {
+        // Fetch ALL transactions for stats calculation
+        const result = await client.call('txs', { df: 0, n: 10000, page: 0 })
+        const transactions = Array.isArray(result) ? result : []
+
+        const now = Date.now() / 1000
+        const last24h = now - (24 * 60 * 60)
+        const txs = transactions.filter((tx: any) => {
+          const t = typeof tx.time === 'string' ? parseInt(tx.time) : tx.time
+          return t >= last24h
+        })
+
+        const success = txs.filter((tx: any) => tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete').length
+        const errors = txs.filter((tx: any) => tx.status === 'error' || tx.status === 'failed' || tx.status === 'cancelled').length
+        const pending = txs.filter((tx: any) => tx.status === 'pending' || tx.status === 'running').length
+        const cost = txs.reduce((sum: number, tx: any) => sum + (tx.cost || 0), 0)
+        const withDelta = txs.filter((tx: any) => tx.delta !== undefined)
+        const avgDelta = withDelta.length > 0 ? withDelta.reduce((sum: number, tx: any) => sum + tx.delta, 0) / withDelta.length : 0
+        const uniqueModules = new Set(txs.map((tx: any) => tx.module).filter(Boolean)).size
+        const uniqueUsers = new Set(txs.map((tx: any) => tx.client || tx.key).filter(Boolean)).size
+
+        setStats({ total: txs.length, success, errors, pending, cost, avgDelta, uniqueModules, uniqueUsers })
+      } catch (err) {
+        console.error('Failed to fetch stats:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStats()
+    const interval = setInterval(fetchStats, 30000)
+    return () => clearInterval(interval)
+  }, [client])
 
   const items = [
-    { v: txs.length.toLocaleString(), c: '#06b6d4', l: 'txs', icon: '⚡' },
-    { v: success.toLocaleString(), c: '#22c55e', l: 'success', icon: '✓' },
-    { v: errors.toLocaleString(), c: '#ef4444', l: 'errors', icon: '✗' },
-    { v: pending.toLocaleString(), c: '#eab308', l: 'pending', icon: '●' },
-    { v: `${avgDelta.toFixed(2)}s`, c: '#f97316', l: 'avg time', icon: '⏱' },
-    { v: `$${cost.toFixed(4)}`, c: '#a855f7', l: 'total cost', icon: '💰' },
-    { v: uniqueModules.toLocaleString(), c: '#14b8a6', l: 'modules', icon: '📦' },
-    { v: uniqueUsers.toLocaleString(), c: '#ec4899', l: 'users', icon: '👥' },
+    { v: stats.total.toLocaleString(), c: '#06b6d4', l: 'txs', icon: '⚡' },
+    { v: stats.success.toLocaleString(), c: '#22c55e', l: 'success', icon: '✓' },
+    { v: stats.errors.toLocaleString(), c: '#ef4444', l: 'errors', icon: '✗' },
+    { v: stats.pending.toLocaleString(), c: '#eab308', l: 'pending', icon: '●' },
+    { v: `${stats.avgDelta.toFixed(2)}s`, c: '#f97316', l: 'avg time', icon: '⏱' },
+    { v: `$${stats.cost.toFixed(4)}`, c: '#a855f7', l: 'total cost', icon: '💰' },
+    { v: stats.uniqueModules.toLocaleString(), c: '#14b8a6', l: 'modules', icon: '📦' },
+    { v: stats.uniqueUsers.toLocaleString(), c: '#ec4899', l: 'users', icon: '👥' },
   ]
+
+  if (loading) {
+    return (
+      <div className="flex gap-3 flex-wrap px-0 py-4 border-b-2 bg-gradient-to-br from-black/40 via-black/30 to-transparent rounded-xl backdrop-blur-sm" style={{ borderColor: colorWithOpacity('#06b6d4', 0.2) }}>
+        <span className="text-xs font-bold text-cyan-500/60 self-center mr-2 ml-3 uppercase tracking-wider">24h Stats</span>
+        {items.map((item, i) => (
+          <div
+            key={i}
+            className="bg-gradient-to-br from-black/70 to-black/50 border-2 rounded-xl px-4 py-2.5 flex flex-col items-center min-w-[80px] animate-pulse"
+            style={{
+              borderColor: colorWithOpacity(item.c, 0.3),
+            }}
+          >
+            <div className="h-5 bg-gray-800 rounded w-10 mb-1" />
+            <div className="h-3 bg-gray-800 rounded w-12" />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="flex gap-3 flex-wrap px-0 py-4 border-b-2 bg-gradient-to-br from-black/40 via-black/30 to-transparent rounded-xl backdrop-blur-sm" style={{ borderColor: colorWithOpacity('#06b6d4', 0.2) }}>
@@ -252,7 +301,7 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
         {/* 24h Stats - below search bar */}
         {showStats && (
           <div className="mt-4">
-            <Stats24h transactions={filteredTransactions} />
+            <Stats24h />
           </div>
         )}
 

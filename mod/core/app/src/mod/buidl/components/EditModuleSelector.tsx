@@ -8,14 +8,16 @@ import { MagnifyingGlassIcon, PencilSquareIcon, CubeIcon, ChevronRightIcon } fro
 import Client from '@/mod/client'
 
 export default function EditModuleSelector() {
-  const { user, network } = userContext()
+  const { user } = userContext()
   const [modules, setModules] = useState<any[]>([])
   const [filteredModules, setFilteredModules] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedModule, setSelectedModule] = useState<any>(null)
-  const [editCode, setEditCode] = useState('')
+  const [editQuery, setEditQuery] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [result, setResult] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const userColor = user?.key ? text2color(user.key) : '#3b82f6'
 
@@ -24,7 +26,9 @@ export default function EditModuleSelector() {
       if (!user?.key) return
       try {
         setLoading(true)
-        const client = new Client(network as unknown as string ?? undefined)
+        // Use NEXT_PUBLIC_API_URL instead of network.url to avoid WebSocket/CORS issues
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || undefined
+        const client = new Client(apiUrl)
         const mods = await client.call('module/modules', { key: user.key })
         setModules(Array.isArray(mods) ? mods : [])
       } catch (err) {
@@ -36,7 +40,7 @@ export default function EditModuleSelector() {
       }
     }
     fetchModules()
-  }, [user?.key, network])
+  }, [user?.key])
 
   useEffect(() => {
     if (!search.trim()) {
@@ -52,16 +56,35 @@ export default function EditModuleSelector() {
 
   const handleSelectModule = async (mod: any) => {
     setSelectedModule(mod)
-    setEditCode(mod.code || mod.content || '# Module code will appear here')
+    setEditQuery('')
+    setResult(null)
+    setError(null)
   }
 
-  const handleSave = async () => {
-    if (!selectedModule) return
+  const handleEdit = async () => {
+    if (!selectedModule || !editQuery.trim()) return
     setIsSaving(true)
+    setError(null)
+    setResult(null)
     try {
-      // TODO: Implement save API call
-      console.log('Saving module:', selectedModule.name, editCode)
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Use NEXT_PUBLIC_API_URL instead of network.url to avoid WebSocket/CORS issues
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || undefined
+      const client = new Client(apiUrl)
+      const response = await client.call('call', {
+        fn: 'api/edit',
+        params: {
+          query: editQuery,
+          mod: selectedModule.name || selectedModule.module,
+          key: user?.key,
+          steps: 20
+        },
+        url: 'api'
+      })
+      setResult(response)
+      setEditQuery('')
+    } catch (err: any) {
+      console.error('Failed to edit module:', err)
+      setError(err?.message || 'Failed to edit module')
     } finally {
       setIsSaving(false)
     }
@@ -96,41 +119,62 @@ export default function EditModuleSelector() {
           </div>
         </div>
 
-        {/* Code editor */}
-        <textarea
-          value={editCode}
-          onChange={(e) => setEditCode(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border-2 bg-transparent text-green-400 placeholder-gray-700 outline-none transition-all duration-300 font-mono text-sm resize-none leading-relaxed"
-          style={{
-            borderColor: `${userColor}30`,
-            backgroundColor: `${userColor}03`,
-            fontFamily: 'IBM Plex Mono, Courier New, monospace',
-            minHeight: '400px',
-          }}
-          spellCheck={false}
-        />
+        {/* Edit query input */}
+        <div className="space-y-3">
+          <textarea
+            value={editQuery}
+            onChange={(e) => setEditQuery(e.target.value)}
+            placeholder="Describe the changes you want to make to this module..."
+            className="w-full px-4 py-3 rounded-xl border-2 bg-transparent text-white placeholder-gray-600 outline-none transition-all duration-300 font-mono text-sm resize-none leading-relaxed"
+            style={{
+              borderColor: `${userColor}30`,
+              backgroundColor: `${userColor}03`,
+              fontFamily: 'IBM Plex Mono, Courier New, monospace',
+              minHeight: '150px',
+            }}
+            spellCheck={false}
+          />
 
-        {/* Save button */}
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="w-full py-3 rounded-xl border-2 font-bold text-sm tracking-wider uppercase transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40"
-          style={{
-            borderColor: userColor,
-            color: userColor,
-            backgroundColor: `${userColor}08`,
-            fontFamily: 'IBM Plex Mono, Courier New, monospace',
-          }}
-        >
-          {isSaving ? (
-            <span className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              Saving...
-            </span>
-          ) : (
-            'Save Changes'
-          )}
-        </button>
+          {/* Edit button */}
+          <button
+            onClick={handleEdit}
+            disabled={isSaving || !editQuery.trim()}
+            className="w-full py-3 rounded-xl border-2 font-bold text-sm tracking-wider uppercase transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40"
+            style={{
+              borderColor: userColor,
+              color: userColor,
+              backgroundColor: `${userColor}08`,
+              fontFamily: 'IBM Plex Mono, Courier New, monospace',
+            }}
+          >
+            {isSaving ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                Editing...
+              </span>
+            ) : (
+              'Apply Changes'
+            )}
+          </button>
+        </div>
+
+        {/* Result display */}
+        {result && (
+          <div className="p-4 rounded-xl border-2" style={{ borderColor: `${userColor}40`, backgroundColor: `${userColor}05` }}>
+            <div className="font-bold mb-2" style={{ color: userColor }}>Edit Result:</div>
+            <pre className="text-sm text-gray-400 overflow-x-auto font-mono">
+              {JSON.stringify(result, null, 2)}
+            </pre>
+          </div>
+        )}
+
+        {/* Error display */}
+        {error && (
+          <div className="p-4 rounded-xl border-2 border-red-500/40 bg-red-500/10">
+            <div className="font-bold mb-2 text-red-500">Error:</div>
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
       </div>
     )
   }

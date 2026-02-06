@@ -1,13 +1,21 @@
 "use client";
 
 import { useState, useEffect } from 'react'
-import { BuildingLibraryIcon, ArrowTrendingUpIcon, BanknotesIcon, ChartBarIcon } from '@heroicons/react/24/outline'
+import { BuildingLibraryIcon, ArrowTrendingUpIcon, BanknotesIcon, ChartBarIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { motion } from 'framer-motion'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts'
 
 export const dynamic = 'force-dynamic'
+
+interface RevenueDataPoint {
+  timestamp: number
+  date: string
+  revenue: number
+  totalBalance: number
+}
 
 export default function TreasuryPage() {
   const [treasuryAddress, setTreasuryAddress] = useState('')
@@ -17,6 +25,10 @@ export default function TreasuryPage() {
   const [loading, setLoading] = useState(true)
   const [ownerPercentage, setOwnerPercentage] = useState('0')
   const [governanceToken, setGovernanceToken] = useState('')
+  const [revenueHistory, setRevenueHistory] = useState<RevenueDataPoint[]>([])
+  const [totalRevenue, setTotalRevenue] = useState('0')
+  const [dailyAverage, setDailyAverage] = useState('0')
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
 
   useEffect(() => {
     const network = 'testnet'
@@ -73,7 +85,37 @@ export default function TreasuryPage() {
         
         setOwnerPercentage((Number(ownerPct) / 100).toFixed(2))
         setGovernanceToken(govToken)
-        
+
+        // Update revenue history
+        const newDataPoint: RevenueDataPoint = {
+          timestamp: Date.now(),
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          revenue: usdc + usdt,
+          totalBalance: usdc + usdt
+        }
+
+        setRevenueHistory(prev => {
+          const updated = [...prev, newDataPoint]
+          // Keep last 30 data points
+          const limited = updated.slice(-30)
+
+          // Calculate total revenue and daily average
+          if (limited.length > 1) {
+            const firstBalance = limited[0].totalBalance
+            const lastBalance = limited[limited.length - 1].totalBalance
+            const revenueGenerated = lastBalance - firstBalance
+            setTotalRevenue(Math.max(0, revenueGenerated).toFixed(2))
+
+            const timeSpan = (limited[limited.length - 1].timestamp - limited[0].timestamp) / (1000 * 60 * 60 * 24) // days
+            const avgPerDay = timeSpan > 0 ? revenueGenerated / timeSpan : 0
+            setDailyAverage(Math.max(0, avgPerDay).toFixed(2))
+          }
+
+          return limited
+        })
+
+        setLastUpdate(new Date())
+
       } catch (error) {
         console.error('Error fetching treasury data:', error)
       } finally {
@@ -129,6 +171,85 @@ export default function TreasuryPage() {
             <CopyButton text={treasuryAddress} size="lg" />
           </div>
         </motion.div>
+
+        {/* Revenue Chart */}
+        {revenueHistory.length > 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-2 border-purple-500/30 rounded-xl p-6 backdrop-blur-xl"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <ArrowTrendingUpIcon className="w-8 h-8 text-purple-400" />
+                <h2 className="text-2xl font-bold text-white">Revenue Over Time</h2>
+              </div>
+              <div className="flex items-center gap-2 text-purple-300 text-sm">
+                <ClockIcon className="w-4 h-4" />
+                <span>Updated: {lastUpdate.toLocaleTimeString()}</span>
+              </div>
+            </div>
+
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={revenueHistory}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#9ca3af"
+                    tick={{ fill: '#9ca3af', fontSize: 12 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    stroke="#9ca3af"
+                    tick={{ fill: '#9ca3af', fontSize: 12 }}
+                    tickFormatter={(value) => `$${value.toFixed(0)}`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1f2937',
+                      border: '2px solid #a855f7',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                    formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, 'Balance']}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="totalBalance"
+                    stroke="#a855f7"
+                    strokeWidth={3}
+                    fill="url(#colorRevenue)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-purple-500/30">
+              <div>
+                <p className="text-purple-300 text-xs uppercase tracking-wide mb-1">Total Revenue</p>
+                <p className="text-2xl font-bold text-white">${totalRevenue}</p>
+              </div>
+              <div>
+                <p className="text-purple-300 text-xs uppercase tracking-wide mb-1">Daily Average</p>
+                <p className="text-2xl font-bold text-white">${dailyAverage}</p>
+              </div>
+              <div>
+                <p className="text-purple-300 text-xs uppercase tracking-wide mb-1">Data Points</p>
+                <p className="text-2xl font-bold text-white">{revenueHistory.length}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -17,14 +17,13 @@ export default function ForkModule() {
   const { client, user } = userContext()
   const [sourceModule, setSourceModule] = useState('')
   const [newModName, setNewModName] = useState('')
-  const [githubUrl, setGithubUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleFork = async () => {
-    if (!sourceModule || !newModName || !githubUrl || !client) return
-    
+    if (!sourceModule || !client) return
+
     setLoading(true)
     setError(null)
     setResult(null)
@@ -33,14 +32,14 @@ export default function ForkModule() {
       const response = await client.call('call', {
         fn: 'api/fork',
         params: {
-          source: sourceModule,
-          mod: newModName,
-          url: githubUrl,
-          key: user?.key
+          mod: sourceModule,
+          key: user?.key,
+          comment: newModName ? `Forked as ${newModName}` : undefined,
+          public: false
         },
         url: 'api'
       })
-      
+
       setResult(response)
     } catch (err: any) {
       setError(err?.message || 'Failed to fork module')
@@ -72,30 +71,13 @@ export default function ForkModule() {
 
         <div>
           <label className="block text-sm font-bold mb-2" style={{ color: ui.textDim }}>
-            New Module Name
+            Comment (Optional)
           </label>
           <input
             type="text"
             value={newModName}
             onChange={(e) => setNewModName(e.target.value)}
-            placeholder="my-forked-module"
-            className="w-full px-4 py-3 rounded-lg border-2 outline-none"
-            style={{
-              backgroundColor: ui.panel,
-              borderColor: ui.border,
-              color: ui.text
-            }}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-bold mb-2" style={{ color: ui.textDim }}>
-            GitHub Repository URL
-          </label>
-          <input
-            type="text"
-            onChange={(e) => setGithubUrl(e.target.value)}
-            placeholder="https://github.com/username/forked-repo"
+            placeholder="Fork description or new name"
             className="w-full px-4 py-3 rounded-lg border-2 outline-none"
             style={{
               backgroundColor: ui.panel,
@@ -107,7 +89,7 @@ export default function ForkModule() {
 
         <button
           onClick={handleFork}
-          disabled={!sourceModule || !newModName || !githubUrl || loading}
+          disabled={!sourceModule || loading}
           className="w-full py-4 rounded-lg font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-3"
           style={{
             backgroundColor: `${ui.purple}20`,
@@ -124,7 +106,7 @@ export default function ForkModule() {
           ) : (
             <>
               <CodeBracketIcon className="w-5 h-5" />
-              <span>FORK MODULE FROM GITHUB</span>
+              <span>FORK MODULE</span>
             </>
           )}
         </button>

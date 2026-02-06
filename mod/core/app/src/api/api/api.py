@@ -17,9 +17,10 @@ class  Api:
     folder_path = m.abspath('~/.mod/api')
     threads = {}
 
-    def __init__(self,  key=None, store = 'ipfs', chain='chain', router='api.router'):
+    def __init__(self,  key=None, store = 'ipfs', chain='chain', router='api.router', auth='auth.v0'):
         self.store = store
         self.key = m.key(key)
+        self.auth = m.mod(auth)()
         self.registry_path = self.path('registry.json')
         self.set_router(router=router, store=store)
 
@@ -69,6 +70,8 @@ class  Api:
             mod =  self.get(cid) 
         else:
             return {}
+        if mod['name'].startswith(mod['key'].lower()+'.'):
+            mod['name'] = mod['name'][len(mod['key'].lower())+1:]
         mod['schema'] = self.get(mod['schema']) if schema else mod['schema']
         mod['content'] = self.content(mod['content'], expand=expand) if expand else mod['content']
         mod['cid'] = cid
@@ -235,30 +238,44 @@ class  Api:
     def is_git_url(self, url: str) -> bool:
         return 'github.com' in url or 'gitlab.com' in url
 
-    def reg_git(self, 
-                    url: str, 
-                    name=None, 
-                    signature = None, 
-                    key=None, 
-                    comment=None, 
+    def reg_git(self,
+                    url: str,
+                    name=None,
+                    signature = None,
+                    key=None,
+                    comment=None,
                     orbit='outer',
                     payload = False,
-                    external = True) -> Dict[str, Any]:
+                    external = True,
+                    token=None) -> Dict[str, Any]:
 
         """
         Register a mod Mod from a URL in IPFS.
         Args:
             url: URL to fetch mod data from
-            mod:  Mod str
+            name: Optional custom name for the module
             signature: Optional signature for verification
             key: Key object or address string
             comment: Optional comment about the registration
+            token: Authentication token for verification
         Returns:
             Dictionary with registration info
         """
+        # Verify token if provided
+        if token:
+            try:
+                verified_data = self.auth.verify(token)
+                verified_key = verified_data['key']
+                if not key:
+                    key = verified_key
+                if key and self.key_address(key) != self.key_address(verified_key):
+                    raise ValueError(f"Token key mismatch: token key={verified_key}, provided key={key}")
+            except Exception as e:
+                raise ValueError(f"Token verification failed: {str(e)}")
+
         key = self.key_address(key)
         assert self.is_git_url(url), f'Unsupported URL for reg_git: {url}'
-        name = name or url.split('/')[-1].split('.git')[0] 
+        name = name or url.split('/')[-1].split('.git')[0]
         # assert not m.mod_exists(mod), f'Mod {mod} already exists. Please choose a different mod name or deregister the existing mod first.'
         name = name.lower()
         dirpath = m.paths.orbit[orbit]
@@ -324,11 +341,13 @@ class  Api:
         return False
     
 
-    def reg(self, 
-                mod : Union[str, dict] = 'store', 
-                key=None,  
-                comment=None, 
+    def reg(self,
+                mod : Union[str, dict] = 'store',
+                key=None,
+                comment=None,
                 public= False,
+                token=None,
+                name=None,
                 ) -> Dict[str, Any]:
         """
         Register or update a mod Mod in IPFS.
@@ -337,16 +356,36 @@ class  Api:
             key: Key object or address string
             comment: Optional comment about the registration
             update: Whether to force update from IPFS
+            token: Authentication token for verification
+            name: Optional custom name for the module
         Returns:
             Dictionary with registration info
 
         """
+        # Verify token if provided
+        if token:
+            try:
+                verified_data = self.auth.verify(token)
+                verified_key = verified_data['key']
+                # Use the key from the token if no explicit key provided
+                if not key:
+                    key = verified_key
+                # Verify the key matches the token
+                if key and self.key_address(key) != self.key_address(verified_key):
+                    raise ValueError(f"Token key mismatch: token key={verified_key}, provided key={key}")
+            except Exception as e:
+                raise ValueError(f"Token verification failed: {str(e)}")
+
+        # Handle URL-based registration
         if self.is_ipfs_url(mod):
             return self.reg_ipfs(mod)
         elif self.is_git_url(mod):
-            return self.reg_git(mod, key=key, comment=comment)
-        info = self.get_info(mod=mod, key=key, comment=comment, public=public)
-        info['cid'] = self.reg_info(info) 
+            return self.reg_git(mod, key=key, comment=comment, name=name)
+
+        # Use custom name if provided
+        mod_name = name if name else mod
+        info = self.get_info(mod=mod_name, key=key, comment=comment, public=public)
+        info['cid'] = self.reg_info(info)
         self.update()
         return info
 
@@ -634,6 +673,25 @@ class  Api:
             user['mods'] = self.get(user['mods'])
         return user
 
+
+    def fork(self, mod:str, key=None, comment=None, public=False) -> Dict[str, Any]:
+        """
+        Fork a mod Mod in IPFS by creating a new registration with the same content but a different name.
+        Args:
+            mod: Name of the mod to fork
+            new_mod: Name of the new forked mod
+            key: Key object or address string
+            comment: Optional comment about the fork
+        Returns:
+            Dictionary with registration info for the new forked mod
+        """
+        
+        oriignal_path = m.dp(mod)
+        key_address = self.key_address(key)
+        new_path = m.paths.orbit['outer'] + '/' + key_address + '/' + mod
+        shutil.copytree(oriignal_path, new_path)
+        return self.reg(mod=key_address+'.'+mod, key=key, comment=comment, public=public)
+    
     def edit(self, query:str = 'make the readme better', mod='app',  key=None,   steps=20, **kwargs) -> Dict[str, Any]:
         m.fn('dev/forward')( query=query, mod=mod, safety=False, key=key, steps=steps, **kwargs)
         return self.reg(mod=mod, key=key, comment=query)
@@ -688,4 +746,6 @@ class  Api:
     def is_owner(self, address:str):
         return m.is_owner(address)
     
-   
+
+    def balance(self, address:str=None, token:str='market'):
+        return self.chain.balance(address, token)
