@@ -26,7 +26,7 @@ class App:
                     working_dir=working_dir,
                     port=port, 
                     cmd='npm run dev',
-                    env={'NEXT_PUBLIC_API_URL':  'https://api.modc2.com' if prod else f'http://0.0.0.0:{api_port}'}, 
+                    env={'NEXT_PUBLIC_API_URL':  'https://api.modc2.com' if prod else f'http://localhost:{api_port}'}, 
                     **kwargs
                     )
 

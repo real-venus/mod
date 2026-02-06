@@ -1,6 +1,6 @@
 "use client";
 
-import { text2color, shorten } from '@/mod/utils'
+import { text2color, shorten, colorWithOpacity } from '@/mod/utils'
 import { KeyIcon, CubeIcon, SparklesIcon, ClockIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import { UserType } from '@/mod/types'
 import Link from 'next/link'
@@ -26,21 +26,23 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
   const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/user/${userKey}` : ''
 
   const CardContent = () => (
-    <div 
+    <div
       className="relative border-2 rounded-xl font-mono transition-all cursor-pointer backdrop-blur-sm overflow-hidden group"
-      style={{ 
+      style={{
         fontFamily: 'IBM Plex Mono, Courier New, monospace',
-        backgroundColor: `${userColor}08`,
+        backgroundColor: colorWithOpacity(userColor, 0.03),
         borderColor: userColor,
-        boxShadow: isHovered ? `0 0 40px ${userColor}50, 0 0 80px ${userColor}20` : `0 0 20px ${userColor}30`
+        boxShadow: isHovered
+          ? `0 0 40px ${colorWithOpacity(userColor, 0.3)}, 0 0 80px ${colorWithOpacity(userColor, 0.12)}`
+          : `0 0 20px ${colorWithOpacity(userColor, 0.18)}`
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div 
+      <div
         className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500"
         style={{
-          background: `radial-gradient(circle at 50% 50%, ${userColor}40, transparent 70%)`
+          background: `radial-gradient(circle at 50% 50%, ${colorWithOpacity(userColor, 0.25)}, transparent 70%)`
         }}
       />
 
@@ -98,13 +100,13 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
                 </div>
                 
                 {isKeyHovered && !isKeyQrHovered && !isKeyCopyHovered && (
-                  <div 
+                  <div
                     className="absolute bottom-full left-0 mb-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
                     style={{
                       backgroundColor: 'rgba(0, 0, 0, 0.95)',
                       borderColor: userColor,
                       color: userColor,
-                      boxShadow: `0 0 20px ${userColor}40`
+                      boxShadow: `0 0 20px ${colorWithOpacity(userColor, 0.25)}`
                     }}
                   >
                     {user.crypto_type || 'sr25519'}
@@ -141,13 +143,13 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
               <QRCode value={websiteUrl} size={120} color={userColor} />
             </div>
             {isQrHovered && (
-              <div 
+              <div
                 className="absolute top-full mt-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
                 style={{
                   backgroundColor: 'rgba(0, 0, 0, 0.95)',
                   borderColor: userColor,
                   color: userColor,
-                  boxShadow: `0 0 20px ${userColor}40`
+                  boxShadow: `0 0 20px ${colorWithOpacity(userColor, 0.25)}`
                 }}
               >
                 {websiteUrl}

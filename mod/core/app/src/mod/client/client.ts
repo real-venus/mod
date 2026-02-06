@@ -20,65 +20,95 @@ export class Client {
 
 
   public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, cost = 0, headers: any = {}, timeout: number = 30000, onCancel?: () => void): Promise<any> {
-    let body: string | FormData;    
+    let body: string | FormData;
     headers = { token: this.token || ''};
     body = JSON.stringify(params);
     headers['Content-Type'] = 'application/json';
     headers['Accept'] = 'application/json';
-    headers['Access-Control-Request-Method']
     const url: string = `${this.url}/${fn}`;
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
+
     if (onCancel) {
       onCancel = () => {
         controller.abort();
         clearTimeout(timeoutId);
       };
     }
-    
+
     try {
+      console.log('[Safari Debug] Making request to:', url);
+      console.log('[Safari Debug] Headers:', headers);
+      console.log('[Safari Debug] Body:', body);
+      console.log('[Safari Debug] Browser:', navigator.userAgent);
+
       const response = await fetch(url, {
         method: 'POST',
         headers: headers,
         body: body,
         signal: controller.signal,
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-cache',
       });
 
       clearTimeout(timeoutId);
-      
+
+      console.log('[Safari Debug] Response status:', response.status);
+      console.log('[Safari Debug] Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Safari Debug] Error response body:', errorText);
+
         if (response.status === 401) {
           throw new Error('Unauthorized access - please check your authentication credentials.');
         } else if (response.status === 404) {
           throw new Error('Resource not found - please check the URL or function name.');
         } else if (response.status === 500) {
-          throw new Error('Internal server error - please try again later.');
+          throw new Error(`Internal server error - ${errorText}`);
         } else {
-          throw new Error(`Unexpected error - status code: ${response.status}`);
+          throw new Error(`HTTP ${response.status}: ${errorText || 'Unknown error'}`);
         }
       }
-      
+
       const contentType = response.headers.get('Content-Type');
+      console.log('[Safari Debug] Content-Type:', contentType);
+
       if (contentType?.includes('text/event-stream')) {
         return this.handleStream(response);
       }
       if (contentType?.includes('application/json')) {
         let result = await response.json();
+        console.log('[Safari Debug] JSON response:', result);
         if (result && result.success === false) {
           let error_msg = JSON.stringify(result);
           throw new Error(`API Error: ${error_msg}`);
         }
         return result;
       }
-      return await response.text();
+      const textResult = await response.text();
+      console.log('[Safari Debug] Text response:', textResult);
+      return textResult;
     } catch (error: any) {
       clearTimeout(timeoutId);
+
+      console.error('[Safari Debug] ========== FETCH ERROR ==========');
+      console.error('[Safari Debug] Error name:', error.name);
+      console.error('[Safari Debug] Error message:', error.message);
+      console.error('[Safari Debug] Error stack:', error.stack);
+      console.error('[Safari Debug] URL:', url);
+      console.error('[Safari Debug] Headers:', headers);
+      console.error('[Safari Debug] Body:', body);
+      console.error('[Safari Debug] ================================');
+
       if (error.name === 'AbortError') {
         throw new Error('Request cancelled or timed out');
       }
-      console.error('Request failed:', error);
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        throw new Error(`Network error - Safari blocked the request. Check: 1) CORS headers on server, 2) URL is correct (${url}), 3) Server is running. Error: ${error.message}`);
+      }
       throw error;
     }
   }

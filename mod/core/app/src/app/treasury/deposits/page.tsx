@@ -127,7 +127,7 @@ export default function TreasuryDepositsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-4 mb-8"
         >
-          <div className="w-16 h-16 flex items-center justify-center bg-purple-500/20 border-2 border-purple-500/60 rounded-xl">
+          <div className="w-16 h-16 flex items-center justify-center bg-purple-500/20 border-2 border-purple-500/60 rounded-xl backdrop-blur-sm">
             <ArrowDownTrayIcon className="w-10 h-10 text-purple-400" />
           </div>
           <div>

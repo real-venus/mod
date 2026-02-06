@@ -1,5 +1,5 @@
 "use client";
-import { text2color, shorten, time2str } from '@/mod/utils'
+import { text2color, shorten, time2str, colorWithOpacity } from '@/mod/utils'
 import { KeyIcon, CubeIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import { ModuleType } from '@/mod/types'
 import Link from 'next/link'
@@ -32,21 +32,23 @@ export default function ModCard({ mod }: ModCardProps) {
   
   return (
     <Link href={`/mod/${mod.name}/${mod.key}`}>
-      <div 
+      <div
         className="relative border-2 rounded-xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:shadow-2xl hover:scale-[1.02] overflow-visible group"
-        style={{ 
+        style={{
           fontFamily: 'IBM Plex Mono, Courier New, monospace',
-          backgroundColor: `${modColor}08`,
+          backgroundColor: colorWithOpacity(modColor, 0.03),
           borderColor: modColor,
-          boxShadow: isHovered ? `0 0 40px ${modColor}50, 0 0 80px ${modColor}20` : `0 0 20px ${modColor}30`
+          boxShadow: isHovered
+            ? `0 0 40px ${colorWithOpacity(modColor, 0.3)}, 0 0 80px ${colorWithOpacity(modColor, 0.12)}`
+            : `0 0 20px ${colorWithOpacity(modColor, 0.18)}`
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div 
+        <div
           className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500"
           style={{
-            background: `radial-gradient(circle at 50% 50%, ${modColor}40, transparent 70%)`
+            background: `radial-gradient(circle at 50% 50%, ${colorWithOpacity(modColor, 0.25)}, transparent 70%)`
           }}
         />
 

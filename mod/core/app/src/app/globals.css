@@ -8,13 +8,34 @@
   * {
     @apply border-border;
   }
+
+  /* Force dark color scheme for consistent rendering across browsers */
+  :root {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
     @apply bg-black text-white;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
-  
+
   code, pre, .mono {
     font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace;
+  }
+
+  /* Safari-specific fixes for backdrop filters */
+  @supports (-webkit-backdrop-filter: none) or (backdrop-filter: none) {
+    .backdrop-blur-sm {
+      -webkit-backdrop-filter: blur(0.125rem);
+      backdrop-filter: blur(0.125rem);
+    }
+
+    .backdrop-blur-xl {
+      -webkit-backdrop-filter: blur(1.5rem);
+      backdrop-filter: blur(1.5rem);
+    }
   }
 }
 

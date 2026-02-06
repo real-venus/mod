@@ -161,16 +161,22 @@ export default function NetworkPage() {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 3000)
 
+        console.log(`[Safari Debug] Checking network: ${network.name} at ${network.url}`)
+
         const response = await fetch(network.url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-          signal: controller.signal
+          signal: controller.signal,
+          mode: 'cors',
+          cache: 'no-cache',
         })
 
         clearTimeout(timeoutId)
+        console.log(`[Safari Debug] Network ${network.name} status: ${response.status}`)
         return { ...network, status: response.ok ? 'online' : 'offline' }
-      } catch (error) {
+      } catch (error: any) {
+        console.error(`[Safari Debug] Network ${network.name} error:`, error.name, error.message)
         return { ...network, status: 'offline' }
       }
     }
