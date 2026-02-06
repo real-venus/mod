@@ -18,6 +18,7 @@ interface Transaction {
   signature: string
   result?: any
   cid?: string
+  hash?: string
   delta?: number
   client?: string
   cost?: number
@@ -37,12 +38,15 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
   const [isCancelling, setIsCancelling] = useState(false)
   const [isKeyHovered, setIsKeyHovered] = useState(false)
   const [isCidHovered, setIsCidHovered] = useState(false)
+  const [isHashHovered, setIsHashHovered] = useState(false)
   const [isSignatureHovered, setIsSignatureHovered] = useState(false)
   const [isCidQrHovered, setIsCidQrHovered] = useState(false)
+  const [isHashQrHovered, setIsHashQrHovered] = useState(false)
   const [isKeyQrHovered, setIsKeyQrHovered] = useState(false)
   const [isSignatureQrHovered, setIsSignatureQrHovered] = useState(false)
   const [isKeyCopyHovered, setIsKeyCopyHovered] = useState(false)
   const [isCidCopyHovered, setIsCidCopyHovered] = useState(false)
+  const [isHashCopyHovered, setIsHashCopyHovered] = useState(false)
   const [isSignatureCopyHovered, setIsSignatureCopyHovered] = useState(false)
   const [isParamsQrHovered, setIsParamsQrHovered] = useState(false)
   const [isResultsQrHovered, setIsResultsQrHovered] = useState(false)
@@ -148,6 +152,7 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
   const showCancelButton = (tx.status === 'running' || tx.status === 'pending') && tx.cid
   const keyColor = text2color(tx.key)
   const cidColor = text2color(tx.cid || '')
+  const hashColor = text2color(tx.hash || tx.cid || '')
   const signatureColor = text2color(tx.signature || '')
   const paramsColor = text2color('params')
   const resultsColor = text2color('results')
@@ -220,36 +225,37 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
             </Link>
           )}
 
-          {tx.cid && (
+          {(tx.hash || tx.cid) && (
             <div 
-              className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/cid shadow-md hover:scale-105"
+              className="flex items-center gap-1.5 bg-black/30 border-2 rounded-xl px-2 py-1.5 transition-all relative group/hash shadow-md hover:scale-105"
               style={{
-                borderColor: `${cidColor}40`,
-                backgroundColor: (isCidHovered || isCidCopyHovered) ? `${cidColor}25` : 'rgba(0, 0, 0, 0.3)',
+                borderColor: `${hashColor}40`,
+                backgroundColor: (isHashHovered || isHashCopyHovered) ? `${hashColor}25` : 'rgba(0, 0, 0, 0.3)',
                 height: '42px'
               }}
-              onMouseEnter={() => setIsCidHovered(true)}
-              onMouseLeave={() => setIsCidHovered(false)}
-              title={tx.cid}
+              onMouseEnter={() => setIsHashHovered(true)}
+              onMouseLeave={() => setIsHashHovered(false)}
+              title={tx.hash || tx.cid}
             >
-              <code className="text-sm font-mono font-bold" style={{ color: cidColor }}>
+              <HashtagIcon className="w-4 h-4" style={{ color: hashColor }} />
+              <code className="text-sm font-mono font-bold" style={{ color: hashColor }}>
                 ●●●●●●
               </code>
               <div
-                onMouseEnter={() => setIsCidCopyHovered(true)}
-                onMouseLeave={() => setIsCidCopyHovered(false)}
+                onMouseEnter={() => setIsHashCopyHovered(true)}
+                onMouseLeave={() => setIsHashCopyHovered(false)}
               >
-                <CopyButton text={tx.cid} size="sm" showValueOnHover={true} />
+                <CopyButton text={tx.hash || tx.cid || ''} size="sm" showValueOnHover={true} />
               </div>
               <div 
                 className="relative ml-1"
-                onMouseEnter={() => setIsCidQrHovered(true)}
-                onMouseLeave={() => setIsCidQrHovered(false)}
+                onMouseEnter={() => setIsHashQrHovered(true)}
+                onMouseLeave={() => setIsHashQrHovered(false)}
               >
-                <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: cidColor }} />
-                {isCidQrHovered && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: cidColor }}>
-                    <QRCode value={tx.cid} size={100} color={cidColor} />
+                <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: hashColor }} />
+                {isHashQrHovered && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: hashColor }}>
+                    <QRCode value={tx.hash || tx.cid || ''} size={100} color={hashColor} />
                   </div>
                 )}
               </div>

@@ -36,3 +36,7 @@ class Memory:
         return True
 
 
+    def update(self, data:dict):
+        assert isinstance(data, dict), 'Data must be a dictionary'
+        self.memory.update(data)
+        return self.memory

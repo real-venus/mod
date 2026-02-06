@@ -30,7 +30,7 @@ export default function ModulePage() {
 
 
   // if mod has no app, remove app from availableTabs
-  if (mod && !mod.app) {
+  if (mod && !mod.url_app) {
     const index = availableTabs.indexOf('app')
     if (index > -1) {
       availableTabs.splice(index, 1)
@@ -125,7 +125,7 @@ export default function ModulePage() {
           </div>
 
           <div className="flex flex-wrap gap-3 mb-6 bg-black p-4 rounded-xl">
-            {(availableTabs as const).map((tab) => {
+            {availableTabs.map((tab) => {
               const isActive = activeTab === tab
               const color = tabColors[tab as keyof typeof tabColors]
               return (
@@ -151,7 +151,7 @@ export default function ModulePage() {
             <div className="bg-black p-6 rounded-xl">
               {activeTab === 'content' && <ModContent mod={mod} />}
               {activeTab === 'api' && <ModApi mod={mod} />}
-              {activeTab === 'app' && mod.app&& <ModApp mod={mod} moduleColor={moduleColor} />}
+              {activeTab === 'app' && mod.url_app && <ModApp mod={mod} moduleColor={moduleColor} />}
               {activeTab === 'versions' && <ModVersions mod={mod} />}
               {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
               {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}

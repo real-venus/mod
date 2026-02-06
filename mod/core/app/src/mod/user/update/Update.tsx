@@ -10,7 +10,7 @@ import {
 import { userContext } from '@/mod/context/UserContext'
 import { ModuleType } from '@/mod/types'
 
-export const Update: React.FC = (defaultMod : string = '') => {
+export const Update: React.FC<{ defaultMod?: string }> = ({ defaultMod = "" }) => {
   const { network, user, client } = userContext()
   const [onchainMods, setOnchainMods] = useState<ModuleType[]>([])
   const [allMods, setAllMods] = useState<ModuleType[]>([])
@@ -18,6 +18,8 @@ export const Update: React.FC = (defaultMod : string = '') => {
   const [modName, setModName] = useState('')
   const [modId, setModId] = useState<string | null>(null)
   const [modData, setModData] = useState('')
+  const [modUrl, setModUrl] = useState('')
+  const [modTake, setModTake] = useState<number>(0)
   const [response, setResponse] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +43,7 @@ export const Update: React.FC = (defaultMod : string = '') => {
       try {
         const response = await client.call('mods', {})
         setAllMods(response)
-        const onchain = response.filter((mod: ModuleType) => mod.net != 'local')
+        const onchain = response.filter((mod: ModuleType) => mod.network != 'local')
         setOnchainMods(onchain)
       } catch (err) {
         console.error('Failed to fetch modules:', err)
@@ -54,6 +56,8 @@ export const Update: React.FC = (defaultMod : string = '') => {
     setModName(mod.name || '')
     setModData(mod.cid || '')
     setModId(String(mod.id || 0))
+    setModUrl((mod as any).url || '')
+    setModTake((mod as any).take || 0)
   }
 
   const handleModSelect = (modName: string) => {
@@ -66,6 +70,7 @@ export const Update: React.FC = (defaultMod : string = '') => {
 
   const fetchBalance = async (address: string) => {
     try {
+      if (!network) return
       const formatedBalance: string = (await network.balance(address)).toFixed(6)
       setBalance(formatedBalance)
     } catch (err) {
@@ -100,6 +105,7 @@ export const Update: React.FC = (defaultMod : string = '') => {
   const executeUpdateOnchain = async () => {
     if (!modName || !modData) return setError('Please fill in all required fields')
     if (!walletAddress) return setError('No wallet connected')
+    if (!network) return setError('Network not initialized')
 
     setIsLoading(true)
     setError(null)
@@ -110,8 +116,9 @@ export const Update: React.FC = (defaultMod : string = '') => {
         walletAddress,
         modName,
         modData,
+        modUrl,
+        modTake,
         parseInt(modId || '0')
-
       )
 
       setResponse({

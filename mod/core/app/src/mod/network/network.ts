@@ -94,7 +94,7 @@ export class Network
     async deregister(walletAddress: string, modId:number) : Promise<any> {
       await this.connect()
       if (!this.api) throw new Error('API not connected')
-      const tx = this.api.tx.modules.registerModule(name, data, url, take)
+      const tx = this.api.tx.modules.deregisterModule(modId)
       const result = await this.submitTx(tx, walletAddress)
       await this.disconnect()
       return result;

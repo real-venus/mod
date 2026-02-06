@@ -1,4 +1,4 @@
-'use client'
+"use client"
 
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
@@ -15,7 +15,8 @@ const ASCII_PATTERNS = [
   '▲▼◄►',
 ]
 
-const MATRIX_CHARS = '01ΞΨΩαβγδεζηθικλμνξοπρστυφχψω░▒▓█<>{}[]|/\\'
+const MATRIX_CHARS =
+  '01ΞΨΩαβγδεζηθικλμνξοπρστυφχψω░▒▓█<>{}[]|/\\'
 
 export default function Home() {
   const [matrixRain, setMatrixRain] = useState<string[][]>([])
@@ -25,18 +26,35 @@ export default function Home() {
   useEffect(() => {
     const cols = Math.floor(window.innerWidth / 20)
     const rows = 30
-    const rain = Array(cols).fill(0).map(() => 
-      Array(rows).fill(0).map(() => MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)])
-    )
+
+    const rain = Array(cols)
+      .fill(0)
+      .map(() =>
+        Array(rows)
+          .fill(0)
+          .map(
+            () =>
+              MATRIX_CHARS[
+                Math.floor(Math.random() * MATRIX_CHARS.length)
+              ]
+          )
+      )
+
     setMatrixRain(rain)
 
     const interval = setInterval(() => {
-      setMatrixRain(prev => prev.map(col => {
-        const newCol = [...col]
-        newCol.shift()
-        newCol.push(MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)])
-        return newCol
-      }))
+      setMatrixRain(prev =>
+        prev.map(col => {
+          const newCol = [...col]
+          newCol.shift()
+          newCol.push(
+            MATRIX_CHARS[
+              Math.floor(Math.random() * MATRIX_CHARS.length)
+            ]
+          )
+          return newCol
+        })
+      )
     }, 100)
 
     const patternInterval = setInterval(() => {
@@ -44,11 +62,21 @@ export default function Home() {
     }, 2000)
 
     const glitchInterval = setInterval(() => {
-      const glitchChars = 'MODCHAIN!@#$%^&*()_+-=[]{}|;:,.<>?/~`'
-      setGlitchText(prev => 
-        Math.random() > 0.7 ? 
-        prev.split('').map(c => glitchChars[Math.floor(Math.random() * glitchChars.length)]).join('') :
-        'MODCHAIN'
+      const glitchChars =
+        'MODCHAIN!@#$%^&*()_+-=[]{}|;:,.<>?/~`'
+
+      setGlitchText(prev =>
+        Math.random() > 0.7
+          ? prev
+              .split('')
+              .map(
+                () =>
+                  glitchChars[
+                    Math.floor(Math.random() * glitchChars.length)
+                  ]
+              )
+              .join('')
+          : 'MODCHAIN'
       )
     }, 150)
 
@@ -60,6 +88,8 @@ export default function Home() {
   }, [])
 
   return (
+    // …rest of your JSX unchanged
+
     <div className="min-h-screen bg-black relative overflow-hidden font-mono">
       {/* Ising Model Background */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">

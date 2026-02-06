@@ -1,173 +1,143 @@
 'use client'
 
 import { useState } from 'react'
-import { PlusIcon, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
-import { userContext } from '@/mod/context'
-
-const ui = {
-  bg: '#0b0b0b',
-  panel: '#121212',
-  border: '#2a2a2a',
-  text: '#e7e7e7',
-  textDim: '#a8a8a8',
-  green: '#10b981',
-}
-
-const inferNameFromUrl = async (url: string, client: any): Promise<string> => {
-  // Check if it's a CID (IPFS hash)
-  if (url.match(/^(Qm[a-zA-Z0-9]{44}|baf[a-zA-Z0-9]+)$/)) {
-    try {
-      if (!client) return ''
-      const data = await client.call('get', { cid: url })
-      if (typeof data === 'object' && data.name) {
-        return data.name
-      }
-    } catch (err) {
-      console.error('Failed to fetch CID data:', err)
-    }
-  }
-  
-  // For git URLs, extract repo name
-  if (url.includes('github.com') || url.includes('gitlab.com') || url.includes('bitbucket.org')) {
-    let name = url.split('/').pop() || ''
-    name = name.endsWith('.git') ? name.slice(0, -4) : name
-    return name.toLowerCase()
-  }
-  
-  return ''
-}
+import { userContext } from '@/mod/context/UserContext'
+import { text2color } from '@/mod/utils'
+import { motion } from 'framer-motion'
+import { SparklesIcon, CodeBracketIcon, TagIcon, DocumentTextIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline'
 
 export default function CreateModule() {
-  const { client, user } = userContext()
-  const [githubUrl, setGithubUrl] = useState('')
-  const [modName, setModName] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { user } = userContext()
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [code, setCode] = useState('')
+  const [tags, setTags] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
 
-  const handleUrlChange = async (value: string) => {
-    setGithubUrl(value)
-    
-    // Auto-infer name if URL is provided
-    if (value.trim() && !modName) {
-      const inferredName = await inferNameFromUrl(value.trim(), client)
-      if (inferredName) {
-        setModName(inferredName)
-      }
-    }
-  }
+  const userColor = user?.key ? text2color(user.key) : '#a855f7'
 
-  const handleCreate = async () => {
-    if (!githubUrl || !client) return
-    
-    setLoading(true)
-    setError(null)
-    setResult(null)
-
+  const handleSubmit = async () => {
+    if (!name.trim()) return
+    setIsSubmitting(true)
     try {
-      const response = await client.call('call', {
-        fn: 'api/reg',
-        params: {
-          mod: modName || undefined,
-          url: githubUrl,
-          key: user?.key
-        },
-        url: 'api'
-      })
-      
-      setResult(response)
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create module')
+      // TODO: Implement module creation API call
+      console.log('Creating module:', { name, description, code, tags })
+      await new Promise(resolve => setTimeout(resolve, 1500))
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
   }
+
+  const inputStyle = (fieldName: string) => ({
+    borderColor: focusedField === fieldName ? userColor : 'rgba(255,255,255,0.08)',
+    backgroundColor: focusedField === fieldName ? `${userColor}05` : 'rgba(255,255,255,0.02)',
+    boxShadow: focusedField === fieldName ? `0 0 20px ${userColor}10` : 'none',
+  })
+
+  const fields = [
+    { name: 'name', label: 'Module Name', icon: SparklesIcon, placeholder: 'my-awesome-module', value: name, onChange: setName, type: 'input' },
+    { name: 'description', label: 'Description', icon: DocumentTextIcon, placeholder: 'What does this module do?', value: description, onChange: setDescription, type: 'textarea', rows: 3 },
+    { name: 'code', label: 'Code', icon: CodeBracketIcon, placeholder: '# Write your module code here...\ndef forward(self, x):\n    return x', value: code, onChange: setCode, type: 'code', rows: 12 },
+    { name: 'tags', label: 'Tags', icon: TagIcon, placeholder: 'ai, ml, utility (comma separated)', value: tags, onChange: setTags, type: 'input' },
+  ]
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-bold mb-2" style={{ color: ui.textDim }}>
-            GitHub Repository URL or IPFS CID
+    <div className="space-y-5">
+      {fields.map((field, index) => (
+        <motion.div
+          key={field.name}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3, delay: index * 0.08 }}
+        >
+          <label className="flex items-center gap-2 mb-2">
+            <field.icon className="w-4 h-4" style={{ color: userColor }} />
+            <span 
+              className="text-sm font-bold uppercase tracking-wider"
+              style={{ color: `${userColor}90`, fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+            >
+              {field.label}
+            </span>
           </label>
-          <input
-            type="text"
-            value={githubUrl}
-            onChange={(e) => handleUrlChange(e.target.value)}
-            placeholder="https://github.com/username/repo or Qm..."
-            className="w-full px-4 py-3 rounded-lg border-2 outline-none"
-            style={{
-              backgroundColor: ui.panel,
-              borderColor: ui.border,
-              color: ui.text
-            }}
-          />
-        </div>
+          {field.type === 'input' ? (
+            <input
+              type="text"
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
+              onFocus={() => setFocusedField(field.name)}
+              onBlur={() => setFocusedField(null)}
+              placeholder={field.placeholder}
+              className="w-full px-4 py-3 rounded-xl border-2 bg-transparent text-white placeholder-gray-600 outline-none transition-all duration-300 font-mono text-sm"
+              style={inputStyle(field.name)}
+            />
+          ) : field.type === 'code' ? (
+            <textarea
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
+              onFocus={() => setFocusedField(field.name)}
+              onBlur={() => setFocusedField(null)}
+              placeholder={field.placeholder}
+              rows={field.rows}
+              className="w-full px-4 py-3 rounded-xl border-2 bg-transparent text-green-400 placeholder-gray-700 outline-none transition-all duration-300 font-mono text-sm resize-none leading-relaxed"
+              style={{
+                ...inputStyle(field.name),
+                fontFamily: 'IBM Plex Mono, Courier New, monospace',
+              }}
+              spellCheck={false}
+            />
+          ) : (
+            <textarea
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
+              onFocus={() => setFocusedField(field.name)}
+              onBlur={() => setFocusedField(null)}
+              placeholder={field.placeholder}
+              rows={field.rows}
+              className="w-full px-4 py-3 rounded-xl border-2 bg-transparent text-white placeholder-gray-600 outline-none transition-all duration-300 font-mono text-sm resize-none"
+              style={inputStyle(field.name)}
+            />
+          )}
+        </motion.div>
+      ))}
 
-        <div>
-          <label className="block text-sm font-bold mb-2" style={{ color: ui.textDim }}>
-            Module Name (optional - auto-inferred from URL)
-          </label>
-          <input
-            type="text"
-            value={modName}
-            onChange={(e) => setModName(e.target.value)}
-            placeholder="my-awesome-module"
-            className="w-full px-4 py-3 rounded-lg border-2 outline-none"
-            style={{
-              backgroundColor: ui.panel,
-              borderColor: ui.border,
-              color: ui.text
-            }}
-          />
-        </div>
-
+      {/* Submit Button */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.4 }}
+        className="pt-4"
+      >
         <button
-          onClick={handleCreate}
-          disabled={!githubUrl || loading}
-          className="w-full py-4 rounded-lg font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+          onClick={handleSubmit}
+          disabled={!name.trim() || isSubmitting}
+          className="group relative w-full py-4 rounded-xl border-2 font-bold text-base tracking-wider uppercase transition-all duration-300 overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
-            backgroundColor: `${ui.green}20`,
-            borderColor: ui.green,
-            color: ui.green,
-            border: '2px solid'
+            borderColor: userColor,
+            color: userColor,
+            backgroundColor: `${userColor}08`,
+            fontFamily: 'IBM Plex Mono, Courier New, monospace',
           }}
         >
-          {loading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>CREATING...</span>
-            </>
-          ) : (
-            <>
-              <PlusIcon className="w-5 h-5" />
-              <span>CREATE MODULE</span>
-            </>
-          )}
+          <div 
+            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            style={{ background: `linear-gradient(135deg, ${userColor}10, transparent, ${userColor}10)` }}
+          />
+          <div className="relative flex items-center justify-center gap-3">
+            {isSubmitting ? (
+              <>
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <span>Creating...</span>
+              </>
+            ) : (
+              <>
+                <ArrowUpTrayIcon className="w-5 h-5" />
+                <span>Create Module</span>
+              </>
+            )}
+          </div>
         </button>
-      </div>
-
-      {result && (
-        <div className="p-4 rounded-lg border-2" style={{ backgroundColor: `${ui.green}10`, borderColor: ui.green }}>
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="w-5 h-5" style={{ color: ui.green }} />
-            <span className="font-bold" style={{ color: ui.green }}>MODULE CREATED</span>
-          </div>
-          <pre className="text-sm overflow-x-auto" style={{ color: ui.textDim }}>
-            {JSON.stringify(result, null, 2)}
-          </pre>
-        </div>
-      )}
-
-      {error && (
-        <div className="p-4 rounded-lg border-2" style={{ backgroundColor: '#ef444410', borderColor: '#ef4444' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-5 h-5" style={{ color: '#ef4444' }} />
-            <span className="font-bold" style={{ color: '#ef4444' }}>ERROR</span>
-          </div>
-          <p style={{ color: '#ef4444' }}>{error}</p>
-        </div>
-      )}
+      </motion.div>
     </div>
   )
 }

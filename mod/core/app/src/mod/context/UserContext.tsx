@@ -1,8 +1,8 @@
-'use client'
+"use client"
+
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { Key } from '@/mod/key'
 import { cryptoWaitReady } from '@polkadot/util-crypto'
-import  Client from '@/mod/client'
+import Client from '@/mod/client'
 import { Auth } from '@/mod/client/auth'
 import { UserType } from '@/mod/types'
 import { Network } from '@/mod/network/network'
@@ -17,107 +17,151 @@ interface UserContextType {
   connectClient: () => Promise<void>
 }
 
-const UserContext = createContext<UserContextType | undefined>(undefined)
+const UserContext = createContext<UserContextType | null>(null)
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserType | null>(null)
-  const [authLoading, setAuthLoading] = useState(true)
   const [client, setClient] = useState<Client | null>(null)
-  const [network, setNetwork] = useState<Network| null>(null)
+  const [network, setNetwork] = useState<Network | null>(null)
+  const [authLoading, setAuthLoading] = useState(false)
 
-  // Initialize from localStorage on mount
+  /**
+   * Client-only initialization
+   */
   useEffect(() => {
-    const initializeAuth = async () => {
+    let cancelled = false
+
+    const init = async () => {
       try {
-        setNetwork(new Network('test'))
+        setAuthLoading(true)
+
+        // Guard: browser only
+        if (typeof window === 'undefined') return
+
         await cryptoWaitReady()
-        
-        // Check if user data exists in localStorage
-        const storedUserData = localStorage.getItem('user_data')
+        if (cancelled) return
+
+        setNetwork(new Network('test'))
+
+        const storedUser = localStorage.getItem('user_data')
         const walletMode = localStorage.getItem('wallet_mode')
         const walletAddress = localStorage.getItem('wallet_address')
-        let  walletToken = localStorage.getItem('wallet_token')
-        
-        if (storedUserData && walletMode && walletAddress) {
-          // Restore user session from localStorage
-          const userData = JSON.parse(storedUserData)
-          setUser(userData)
-          
-          // Regenerate token and client
+        let walletToken = localStorage.getItem('wallet_token')
+
+        if (storedUser && walletMode && walletAddress) {
+          const parsedUser = JSON.parse(storedUser) as UserType
+          setUser(parsedUser)
+
           if (!walletToken) {
             const auth = new Auth()
             walletToken = await auth.token('', walletAddress, walletMode)
             localStorage.setItem('wallet_token', walletToken)
           }
-          setClient(new Client(undefined, walletToken))
 
+          if (!cancelled) {
+            setClient(new Client(undefined, walletToken))
+          }
         }
-      } catch (error) {
-        console.error('Failed to restore auth session:', error)
+      } catch (err) {
+        console.error('Auth restore failed:', err)
         localStorage.removeItem('user_data')
+        localStorage.removeItem('wallet_token')
       } finally {
-        setAuthLoading(false)
+        if (!cancelled) setAuthLoading(false)
       }
     }
-    
-    initializeAuth()
+
+    init()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const signIn = async () => {
-    try {
-      await cryptoWaitReady()
-  
-      const wallet_mode = localStorage.getItem('wallet_mode') || 'local'
-      const wallet_address = localStorage.getItem('wallet_address') 
-      const wallet_type = localStorage.getItem('wallet_type') || 'edcsa'
+  const connectClient = async () => {
+    if (typeof window === 'undefined') return
 
-      const auth = new Auth()
-      const token = await auth.token('',wallet_address, wallet_mode)
-      localStorage.setItem('wallet_token', token)
+    await cryptoWaitReady()
 
-      setClient(new Client(undefined, token))
-      let balance = 0
-      if (!network) {
-        throw new Error('Network not initialized')
-      }      
-      const userData = {
-        key: wallet_address,
-        crypto_type: wallet_type,
-        wallet_mode: wallet_mode,
-        token: token,
-        balance: balance,
-        
-      }
-      setUser(userData)
-      
-      // Persist to localStorage
-      localStorage.setItem('user_data', JSON.stringify(userData))
-    } catch (error) {
-      console.error('Failed to sign in:', error)
-      throw error
+    const walletAddress = localStorage.getItem('wallet_address')
+    const walletMode = localStorage.getItem('wallet_mode') || 'local'
+
+    if (!walletAddress) {
+      throw new Error('Wallet address not found')
     }
+
+    const auth = new Auth()
+    const token = await auth.token('', walletAddress, walletMode)
+
+    localStorage.setItem('wallet_token', token)
+    setClient(new Client(undefined, token))
+  }
+
+  const signIn = async () => {
+    if (typeof window === 'undefined') return
+
+    await cryptoWaitReady()
+
+    const walletMode = localStorage.getItem('wallet_mode') || 'local'
+    const walletAddress = localStorage.getItem('wallet_address')
+    const walletType = localStorage.getItem('wallet_type') || 'ecdsa'
+
+    if (!walletAddress) {
+      throw new Error('Wallet address missing')
+    }
+
+    const auth = new Auth()
+    const token = await auth.token('', walletAddress, walletMode)
+
+    localStorage.setItem('wallet_token', token)
+
+    const userData: UserType = {
+      key: walletAddress,
+      crypto_type: walletType,
+      wallet_mode: walletMode,
+      token,
+      balance: 0,
+    }
+
+    setUser(userData)
+    setClient(new Client(undefined, token))
+
+    localStorage.setItem('user_data', JSON.stringify(userData))
   }
 
   const signOut = () => {
     setUser(null)
     setClient(null)
-    localStorage.removeItem('wallet_mode')
-    localStorage.removeItem('wallet_password')
-    localStorage.removeItem('wallet_address')
-    localStorage.removeItem('user_data')
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('wallet_mode')
+      localStorage.removeItem('wallet_password')
+      localStorage.removeItem('wallet_address')
+      localStorage.removeItem('wallet_token')
+      localStorage.removeItem('user_data')
+    }
   }
 
   return (
-    <UserContext.Provider value={{ user, signIn, signOut, authLoading, client , network }}>
+    <UserContext.Provider
+      value={{
+        user,
+        signIn,
+        signOut,
+        authLoading,
+        client,
+        network,
+        connectClient,
+      }}
+    >
       {children}
     </UserContext.Provider>
   )
 }
 
 export const userContext = () => {
-  const context = useContext(UserContext)
-  if (context === undefined) {
-    throw new Error('userContext must be used within an UserProvider')
+  const ctx = useContext(UserContext)
+  if (!ctx) {
+    throw new Error('userContext must be used within UserProvider')
   }
-  return context
+  return ctx
 }

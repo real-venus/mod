@@ -113,11 +113,14 @@ class Mod:
         for name, info in contracts.items():
             name = name.lower()
             address = info['address']
-            abi = self.ipfs.get(info.get('abi'))
-            if abi == None: 
-                m.print(f'ABI not found for {name} at {info.get("abi")}', color='red')
+            try:
+                abi = self.ipfs.get(info.get('abi'))
+                if abi == None: 
+                    m.print(f'ABI not found for {name} at {info.get("abi")}', color='red')
+                    continue
+                self.load_contract(name, address, abi)
+            except Exception as e :
                 continue
-            self.load_contract(name, address, abi)
 
     # ==================== BLOCTIME FUNCTIONS ====================
 
@@ -366,6 +369,14 @@ class Mod:
             address: Address to check
         """
         return Web3.is_address(address)
+    
+
+    def balances(self, token='market'):
+        """
+        all of the balances of a token
+        """
+
+        balance_map = {}
 
 
     def balance(self,  address: str=None, token='market') -> int:

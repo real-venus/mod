@@ -1,3 +1,4 @@
+from unittest import result
 import mod as m
 import os
 
@@ -36,8 +37,28 @@ class App:
         return m.edit('app', *text, **kwargs)
 
 
-    def fix(self, cmd='npm run build '):
-        output = os.system(cmd)
-        query ='fix the build' + f' output: {output}'
-        agent = m.mod('dev')(query=query,tools = ['edit_file'], path=m.dp('app'))
-        return query
+    def build(self, cmd='npm run build', agent='dev', steps=5, mod='app'):
+        import subprocess
+        path = m.dp(mod)
+        cmd = f'cd {path} && {cmd}'
+       
+
+        for _ in range(steps):
+            _agent = m.mod(agent)()
+            process = subprocess.Popen(
+                cmd,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+            output = ''
+            for line in process.stdout:
+                print(line, end='')  # Print the line as it is received
+                output += line  # Append the line to the output variable
+            output_text = f'output: {output}'
+            print('fixing with output:', output_text)
+            query ='fix the build' + f' output: {output}'
+            _agent.forward(query=query, path=path)
+
+        return output

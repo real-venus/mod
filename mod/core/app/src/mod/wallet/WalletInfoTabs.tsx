@@ -22,7 +22,7 @@ export default function WalletInfoTabs() {
   
   if (!user) return null
   
-  const userColor = text2color(user.key)
+  const userColor = text2color(user.key || '')
 
   const getTokenExpiry = () => {
     const token = localStorage.getItem('wallet_token')
@@ -123,7 +123,7 @@ export default function WalletInfoTabs() {
             <code className="font-mono text-sm break-all" style={{ color: userColor }}>
               {user.key}
             </code>
-            <CopyButton text={user.key} size="sm" showValueOnHover={true} />
+            <CopyButton text={user.key || ''} size="sm" showValueOnHover={true} />
             <div 
               className="relative"
               onMouseEnter={() => setIsAddressQrHovered(true)}
@@ -132,7 +132,7 @@ export default function WalletInfoTabs() {
               <QrCodeIcon className="h-5 w-5 cursor-pointer" style={{ color: userColor }} />
               {isAddressQrHovered && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: userColor }}>
-                  <QRCode value={user.key} size={120} color={userColor} />
+                  <QRCode value={user.key || ''} size={120} color={userColor} />
                 </div>
               )}
             </div>

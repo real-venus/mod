@@ -208,17 +208,6 @@ class Router:
 
     last_time_sync = 0
 
-    def is_it_time_to_sync(self, name: str, interval:int=10) -> bool:
-        current_time = m.time()
-        interval = self.intervals.get(name, interval)
-        path = self.path('last_time_' + name)
-        last_time = m.get(path, m.time())
-        time_lapsed = current_time - last_time
-        result = bool(time_lapsed > interval)
-        if result:
-            m.put(path, current_time)
-        return result
-    
     def sync_info(self):
         fns = ['sync_tasks', 'sync_ious']
         sync_info = {}
@@ -262,12 +251,27 @@ class Router:
     }
     sync_counts = {}
     def sync_loop(self):
+
+
+        def cansync(name: str, interval:int=10) -> bool:
+            current_time = m.time()
+            interval = self.intervals.get(name, interval)
+            path = self.path('last_time_' + name)
+            last_time = float(m.get(path, m.time()))
+            time_lapsed = current_time - last_time
+            result = bool(time_lapsed > interval)
+            if result:
+                m.put(path, current_time)
+            return result
+    
         while True:
+            print('running loop')
             time.sleep(self.intervals['sync_loop'])
             fns = ['sync_tasks', 'sync_ious']
             for fn in fns:
-                if self.is_it_time_to_sync(fn):
+                if cansync(fn):
                     try:
+                        print(f'running {fn}')
                         getattr(self, fn)()
                         self.sync_counts[fn] = self.sync_counts.get(fn, 0) + 1
                     except Exception as e:
@@ -405,6 +409,9 @@ class Router:
             'cost': cost,
         }
     
+    def is_tx_settled(self, tx):
+        return 'payment_hash' in tx
+    
     def ious(self, cost_only=False):
         ious  = {}
         for tx in self.txs(df=0):
@@ -412,12 +419,15 @@ class Router:
                 continue
             if not 'owner' in tx or tx['owner'] is None:
                 continue
-            if 'payment_hash' in tx:
+            if self.is_tx_settled(tx):
                 continue
             if 'cid' not in tx:
                 tx['cid'] = self.store.put(tx)
             cid = tx['cid']
             tx = self.get(cid)
+
+            # from and to 
+            
             if not tx['key'] in ious:
                 ious[tx['key']] = {}
             if not tx['owner'] in ious[tx['key']]:

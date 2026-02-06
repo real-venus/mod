@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { Pencil } from 'lucide-react'
 
 export function EditModules({ userData }: { userData: UserType }) {
-  const { mods } = userData
+  const mods = userData?.mods ?? []
   const [selectedMod, setSelectedMod] = useState<any>(null)
 
   return (

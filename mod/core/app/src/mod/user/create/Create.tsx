@@ -25,6 +25,7 @@ export const Create: React.FC = () => {
   const [walletAddress, setWalletAddress] = useState('')
   const [balance, setBalance] = useState<string>('0')
   const [mode, setMode] = useState<'register' | 'update'>('register')
+  const [selectedModId, setSelectedModId] = useState<number>(0)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -55,6 +56,7 @@ export const Create: React.FC = () => {
     setModData(mod.cid || '')
     setModUrl(mod.url || '')
     setTake(String(mod.take || 0))
+    setSelectedModId(mod.id || 0)
   }
 
   const handleModSelect = (modName: string) => {
@@ -65,6 +67,7 @@ export const Create: React.FC = () => {
       setModData('')
       setModUrl('')
       setTake('0')
+      setSelectedModId(0)
     } else {
       setMode('update')
       const mod = myMods.find(m => m.name === modName)
@@ -73,6 +76,7 @@ export const Create: React.FC = () => {
   }
 
   const fetchBalance = async (address: string) => {
+    if (!network) return
     try {
       const formatedBalance: string = (await network.balance(address)).toFixed(6)
       setBalance(formatedBalance)
@@ -84,6 +88,7 @@ export const Create: React.FC = () => {
   const executeRegister = async () => {
     if (!modName || !modData || !modUrl) return setError('Please fill in all required fields')
     if (!walletAddress) return setError('No wallet connected')
+    if (!network) return setError('Network not available')
 
     setIsLoading(true)
     setError(null)
@@ -123,6 +128,7 @@ export const Create: React.FC = () => {
   const executeUpdate = async () => {
     if (!modName || !modData || !modUrl) return setError('Please fill in all required fields')
     if (!walletAddress) return setError('No wallet connected')
+    if (!network) return setError('Network not available')
 
     setIsLoading(true)
     setError(null)
@@ -134,7 +140,8 @@ export const Create: React.FC = () => {
         modName,
         modData,
         modUrl,
-        parseInt(take)
+        parseInt(take),
+        selectedModId
       )
 
       setResponse({

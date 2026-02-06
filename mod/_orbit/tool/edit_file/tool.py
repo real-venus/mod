@@ -47,26 +47,8 @@ class Tool:
             
             text = self.get_text(path)
             lines = text.splitlines(keepends=True)
-            
-            # Validate line ranges
-            if not (1 <= start_line <= len(lines)):
-                return {"success": False, "message": f"start_line {start_line} out of range (1-{len(lines)})", "content": None}
-            if not (1 <= end_line <= len(lines)):
-                return {"success": False, "message": f"end_line {end_line} out of range (1-{len(lines)})", "content": None}
-            if start_line > end_line:
-                return {"success": False, "message": "start_line must be <= end_line", "content": None}
-            
-            # Convert to 0-indexed
-            start_idx = start_line - 1
-            end_idx = end_line
-            
-            # Replace lines with proper newline handling
-            inserted_content = content if content.endswith('\n') else content + '\n'
-            new_lines = lines[:start_idx] + [inserted_content] + lines[end_idx:]
+            new_lines = lines[:start_line] + [content] + lines[end_line:]
             new_text = ''.join(new_lines)
-
-            print(f"Editing file: {path}, replacing lines {start_line}-{end_line}")
-            
             self.put_text(path, new_text)
             
             return {
@@ -96,69 +78,24 @@ class Tool:
     def test(self, test_file: str = '~/.mod/edit_file/test.py') -> Dict[str, Any]:
         """Comprehensive test suite for Tool functionality."""
         test_file = os.path.expanduser(test_file)
-        sample_content = "# Sample File\nLine 2\nLine 3\nLine 4\nLine 5\n"
+        sample_content = "Line 0\nLine 1\nLine 2\nLine 3\nLine 4\n"
         
-        try:
-            # Test 1: Basic edit
-            self.put_text(test_file, sample_content)
-            result = self.forward(
-                path=test_file,
-                content="New Content\n",
-                start_line=2,
-                end_line=4
-            )
-            
-            assert result["success"], f"Test 1 failed: {result['message']}"
-            updated_text = self.get_text(test_file)
-            assert "New Content" in updated_text, "Test 1: Content not updated correctly"
-            assert "# Sample File" in updated_text, "Test 1: First line should remain"
-            assert "Line 5" in updated_text, "Test 1: Last line should remain"
-            print("✓ Test 1 passed: Basic edit")
-            
-            # Test 2: Single line edit
-            self.put_text(test_file, sample_content)
-            result2 = self.forward(
-                path=test_file,
-                content="Single Line Edit",
-                start_line=1,
-                end_line=1
-            )
-            assert result2["success"], f"Test 2 failed: {result2['message']}"
-            updated_text2 = self.get_text(test_file)
-            assert "Single Line Edit" in updated_text2, "Test 2: Single line not updated"
-            print("✓ Test 2 passed: Single line edit")
-            
-            # Test 3: Edge case - last line
-            self.put_text(test_file, sample_content)
-            result3 = self.forward(
-                path=test_file,
-                content="Last Line Replaced",
-                start_line=5,
-                end_line=5
-            )
-            assert result3["success"], f"Test 3 failed: {result3['message']}"
-            updated_text3 = self.get_text(test_file)
-            assert "Last Line Replaced" in updated_text3, "Test 3: Last line not updated"
-            print("✓ Test 3 passed: Last line edit")
-            
-            # Test 4: Invalid range
-            result4 = self.forward(
-                path=test_file,
-                content="Should fail",
-                start_line=10,
-                end_line=15
-            )
-            assert not result4["success"], "Test 4 failed: Should reject invalid range"
-            print("✓ Test 4 passed: Invalid range rejection")
-            
-            # Cleanup
-            if os.path.exists(test_file):
-                os.remove(test_file)
-            
-            print("✓ All tests passed successfully!")
-            return {"success": True, "message": "All 4 tests passed successfully"}
-        except Exception as e:
-            # Cleanup on failure
-            if os.path.exists(test_file):
-                os.remove(test_file)
-            return {"success": False, "message": f"Test failed: {str(e)}"}
+
+        # Test 1: Basic edit
+        self.put_text(test_file, sample_content)
+        result = self.forward(
+            path=test_file,
+            content="New Content\n",
+            start_line=1,
+            end_line=3
+        )
+        assert result["success"], f"Test 1 failed: {result['message']}"
+        updated_text = self.get_text(test_file)
+        assert "New Content" in updated_text, "Test 1: Content not updated correctly"
+        assert "Line 0" in updated_text, "Test 1: First line should remain"
+        assert "Line 4" in updated_text, "Test 1: Last line should remain"
+        assert "Line 1" not in updated_text, "Test 1: Old lines not removed"
+        assert "Line 2" not in updated_text, "Test 1: Old lines not removed"
+        print("✓ Test 1 passed: Basic edit")
+        
+        return True

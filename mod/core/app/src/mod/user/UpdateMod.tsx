@@ -52,6 +52,7 @@ export const UpdateMod: React.FC<UpdateModProps> = ({ mod }) => {
   }, [mod])
 
   const fetchBalance = async (address: string) => {
+    if (!network) return
     try {
       const formatedBalance: string = (await network.balance(address)).toFixed(6)
       setBalance(formatedBalance)
@@ -63,6 +64,7 @@ export const UpdateMod: React.FC<UpdateModProps> = ({ mod }) => {
   const executeUpdate = async () => {
     if (!modName || !modData || !modUrl) return setError('Please fill in all required fields')
     if (!walletAddress) return setError('No wallet connected')
+    if (!network) return setError('Network not available')
 
     setIsLoading(true)
     setError(null)
@@ -74,7 +76,8 @@ export const UpdateMod: React.FC<UpdateModProps> = ({ mod }) => {
         modName,
         modData,
         modUrl,
-        parseInt(take)
+        parseInt(take),
+        mod.id || 0
       )
 
       setResponse({

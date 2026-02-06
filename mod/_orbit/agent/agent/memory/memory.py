@@ -8,6 +8,11 @@ class Memory:
         else:
             self.memory[k] = v
         return self.memory
+    
+    def update(self, data:dict):
+        assert isinstance(data, dict), 'Data must be a dictionary'
+        self.memory.update(data)
+        return self.memory
 
     def clear(self):
         self.memory = {}
@@ -15,6 +20,10 @@ class Memory:
 
     def get(self, key=None):
         return self.memory.get(key, None) if key != None else self.memory
+    
+
+    def forward(self):
+        return str(self.get())
 
     def keys(self):
         return list(self.memory.keys())

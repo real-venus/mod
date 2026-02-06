@@ -136,6 +136,7 @@ export default function ContractsInterface() {
     
     setLoadingMods(true)
     try {
+      if (!window.ethereum) throw new Error('MetaMask not detected')
       const provider = new ethers.BrowserProvider(window.ethereum)
       const registryContract = new ethers.Contract(contract.address, contract.abi, provider)
       const modIds = await registryContract.getUserMods(user.key)
@@ -174,6 +175,7 @@ export default function ContractsInterface() {
       const contract = contracts['Registry']
       if (!contract?.abi || !contract?.address) throw new Error('Registry contract not loaded')
       
+      if (!window.ethereum) throw new Error('MetaMask not detected')
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
       const registryContract = new ethers.Contract(contract.address, contract.abi, signer)
@@ -259,6 +261,7 @@ export default function ContractsInterface() {
         return ''
       })
       
+      if (!window.ethereum) throw new Error('MetaMask not detected')
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
       const contractInstance = new ethers.Contract(contract.address, contract.abi, signer)
@@ -282,7 +285,7 @@ export default function ContractsInterface() {
     }
   }
 
-  const selectedFunctionData = getContractFunctions().find(f => f.name === selectedFunction)
+  const selectedFunctionData = getContractFunctions().find((f: any) => f.name === selectedFunction)
   const selectedContractData = selectedContract ? contracts[selectedContract] : null
   const filteredContracts = Object.entries(contracts).filter(([key, contract]) =>
     contract.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -497,7 +500,7 @@ export default function ContractsInterface() {
                 className="w-full bg-black/80 border border-purple-500/50 rounded-lg px-4 py-4 text-white text-base font-bold focus:border-purple-400 focus:outline-none transition-all"
               >
                 <option value="">⚡ select function...</option>
-                {getContractFunctions().map(func => (
+                {getContractFunctions().map((func: any) => (
                   <option key={func.name} value={func.name}>
                     {func.name}
                   </option>

@@ -3,6 +3,13 @@ import TokenABI from '@/mod/contracts/abi/token/Token.sol/Token.json'
 import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 import modConfig from '@/app/mod.json'
 
+function getEthereumProvider(): ethers.BrowserProvider {
+  if (!window.ethereum) {
+    throw new Error('No Ethereum provider found. Please install MetaMask or another wallet.')
+  }
+  return new ethers.BrowserProvider(window.ethereum)
+}
+
 export class Market {
   private config: any
 
@@ -12,12 +19,12 @@ export class Market {
 
   public getTokenAddress(tokenType: string): string {
     const network = 'testnet'
-    const chainConfig = modConfig.chain?.[network]
+    const chainConfig = modConfig.chain?.[network] as any
     if (!chainConfig) {
       throw new Error('Chain config not found')
     }
     
-    const tokenAddress = chainConfig.contracts[tokenType]?.address
+    const tokenAddress = (chainConfig.contracts as Record<string, any>)[tokenType]?.address
     if (!tokenAddress) {
       throw new Error(`Token ${tokenType} not found in config`)
     }
@@ -27,7 +34,7 @@ export class Market {
 
   public async getTokenDecimals(tokenAddress: string): Promise<number> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const tokenContract = new ethers.Contract(tokenAddress, TokenABI.abi, provider)
       const decimals = await tokenContract.decimals()
       return Number(decimals)
@@ -46,7 +53,7 @@ export class Market {
 
   async checkBalance(userAddress: string, tokenType: string = 'USDC'): Promise<number> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const tokenAddress = this.getTokenAddress(tokenType)
       
       const abi = await this.getTokenABI(tokenAddress)
@@ -63,7 +70,7 @@ export class Market {
 
   async checkMarketAllowance(userAddress: string, tokenType: string = 'USDC'): Promise<number> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const tokenAddress = this.getTokenAddress(tokenType)
       const marketAddress = this.config.contracts.Market.address
       
@@ -80,7 +87,7 @@ export class Market {
 
   async increaseMarketAllowance(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const signer = await provider.getSigner()
       const tokenAddress = this.getTokenAddress(tokenType)
       const marketAddress = this.config.contracts.Market.address
@@ -101,7 +108,7 @@ export class Market {
 
   async addMarketCredit(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const signer = await provider.getSigner()
       const marketAddress = this.config.contracts.Market.address
       const tokenAddress = this.getTokenAddress(tokenType)
@@ -122,7 +129,7 @@ export class Market {
 
   async withdrawMarketCredit(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const signer = await provider.getSigner()
       const marketAddress = this.config.contracts.Market.address
       const tokenAddress = this.getTokenAddress(tokenType)

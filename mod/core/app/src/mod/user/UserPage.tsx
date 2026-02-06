@@ -190,7 +190,7 @@ export default function UserPage() {
             {activeTab === 'admin' && user && <Admin userData={userData} />}
             {activeTab === 'contracts' &&  user && <ContractsInterface />}
             {activeTab === 'billing' &&  user && <Billing />}
-            {activeTab === 'txs' &&  user && <Txs userData={userData} />}
+            {activeTab === 'txs' &&  user && <Txs />}
           </div>
         </div>
       </main>

@@ -17,7 +17,7 @@ import {
   FilmIcon,
   MusicalNoteIcon,
   ArchiveBoxIcon,
-  ArrowUpDown,
+  ArrowsUpDownIcon,
 } from '@heroicons/react/24/outline'
 import { ModuleType } from '@/mod/types'
 import { userContext } from '@/mod/context'
@@ -317,7 +317,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
       }
     }
     const el = codeRefs.current[node.path]
-    if (el) el.scrollIntoView({ behavior: 'smooth', bloc: 'start' })
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const copyFileContent = (node: FileNode) => {

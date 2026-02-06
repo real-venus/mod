@@ -62,14 +62,7 @@ class Client:
             "Accept": "application/json",
             "Content-Type": "application/json",
         })
-        print(f'Sending request to {url} with params {params} and headers {headers}')
-        try:
-            response = requests.post( url, json=params,  headers=headers, timeout=timeout, stream=stream)
-        except requests.exceptions.ConnectionError as e:
-            mod_name = self.get_mod_from_url(url)
-            url = url.replace('0.0.0.0', mod_name)
-            response = requests.post( url, json=params,  headers=headers, timeout=timeout, stream=stream)
-        # step 5: handle the response
+        response = requests.post( url, json=params,  headers=headers, timeout=timeout, stream=stream)
         if response.status_code != 200:
             raise Exception(response.text)
         if 'text/event-stream' in response.headers.get('Content-Type', ''):

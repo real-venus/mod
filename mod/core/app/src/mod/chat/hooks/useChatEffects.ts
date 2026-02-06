@@ -16,16 +16,30 @@ export function useChatEffects({
   setDefaultParams,
   setParams,
   setSelectedInputParam
-}: any) {
+}: {
+  client: any
+  modules: any[]
+  selectedModule: string
+  selectedFunction: string
+  schema: any
+  input: string
+  selectedInputParam: string
+  setModules: (mods: any[]) => void
+  setFunctions: (fns: string[]) => void
+  setSchema: (schema: any) => void
+  setDefaultParams: (params: Record<string, any>) => void
+  setParams: (params: any) => void
+  setSelectedInputParam: (param: string) => void
+}) {
   
   useEffect(() => {
     const fetchModules = async () => {
       if (!client) return
       try {
         const mods = await client.call('mods', {})
-        const sortedMods = Array.isArray(mods) ? mods.sort((a, b) => a.name.localeCompare(b.name)) : []
+        const sortedMods = Array.isArray(mods) ? mods.sort((a: any, b: any) => a.name.localeCompare(b.name)) : []
         setModules(sortedMods)
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Failed to fetch modules:', err)
       }
     }
@@ -37,15 +51,15 @@ export function useChatEffects({
       setFunctions([])
       return
     }
-    const mod = modules.find(m => m.name === selectedModule)
+    const mod = modules.find((m: any) => m.name === selectedModule)
     if (mod?.schema) {
       if (typeof mod.schema === 'string'){
-        let promise = client.call('get', { cid: mod.schema })
-        promise.then((schema) => {
-          const fnNames = Object.keys(schema).filter((fn: string) => fn !== 'self' && fn !== 'cls').sort()
+        const promise = client.call('get', { cid: mod.schema })
+        promise.then((fetchedSchema: any) => {
+          const fnNames = Object.keys(fetchedSchema).filter((fn: string) => fn !== 'self' && fn !== 'cls').sort()
           setFunctions(fnNames)
-          setSchema(schema)
-        }).catch((err) => {
+          setSchema(fetchedSchema)
+        }).catch((err: unknown) => {
           console.error('Failed to fetch module schema:', err)
         })    
       }
@@ -56,7 +70,7 @@ export function useChatEffects({
     if (selectedFunction && schema && schema[selectedFunction]) {
       const functionSchema = schema[selectedFunction]
       const defaultParams: Record<string, any> = {}
-      const inputKeys = Object.keys(functionSchema.input || {}).filter(k => k !== 'self' && k !== 'cls')
+      const inputKeys = Object.keys(functionSchema.input || {}).filter((k: string) => k !== 'self' && k !== 'cls')
       
       if (functionSchema.input) {
         Object.entries(functionSchema.input).forEach(([key, value]: [string, any]) => {
@@ -66,13 +80,10 @@ export function useChatEffects({
         })
       }
       
-      // CHECK FOR KWARGS AND ADD MISSING PARAMS
-      const hasKwargs = inputKeys.some(k => k === 'kwargs')
+      const hasKwargs = inputKeys.some((k: string) => k === 'kwargs')
       if (hasKwargs) {
-        // Get all possible params from schema that aren't already in defaultParams
         Object.entries(functionSchema.input).forEach(([key, value]: [string, any]) => {
           if (key !== 'self' && key !== 'cls' && key !== 'kwargs' && !(key in defaultParams)) {
-            // Add param with empty value if not specified
             defaultParams[key] = value.value !== '_empty' ? value.value : ''
           }
         })
@@ -95,7 +106,7 @@ export function useChatEffects({
 
   useEffect(() => {
     if (!input && selectedInputParam) {
-      setParams(prev => {
+      setParams((prev: Record<string, any>) => {
         const newParams = { ...prev }
         if (schema && schema[selectedFunction] && schema[selectedFunction].input[selectedInputParam]) {
           const defaultValue = schema[selectedFunction].input[selectedInputParam].value
@@ -106,7 +117,7 @@ export function useChatEffects({
         return newParams
       })
     } else if (input && selectedInputParam) {
-      setParams(prev => ({ ...prev, [selectedInputParam]: input }))
+      setParams((prev: Record<string, any>) => ({ ...prev, [selectedInputParam]: input }))
     }
   }, [input, selectedInputParam])
 }

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { userContext } from '@/mod/context'
-import { BatteryLoader } from '@/mod/ui/BatteryLoader'
 import { TransactionCard } from './TransactionCard'
+import { text2color } from '@/mod/utils'
+import { ArrowPathIcon, FunnelIcon, MagnifyingGlassIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 
 interface Transaction {
   fn: string
@@ -14,223 +15,319 @@ interface Transaction {
   signature: string
   result?: any
   cid?: string
+  hash?: string
   delta?: number
   client?: string
   cost?: number
+  module?: string
+  owner?: string
 }
 
-export const TransactionsPanel = forwardRef((props, ref) => {
+interface TransactionsPanelProps {
+  hideTitle?: boolean
+  showStats?: boolean
+}
+
+function Stats24h({ transactions }: { transactions: Transaction[] }) {
+  const now = Date.now() / 1000
+  const last24h = now - (24 * 60 * 60)
+  const txs = transactions.filter((tx: any) => {
+    const t = typeof tx.time === 'string' ? parseInt(tx.time) : tx.time
+    return t >= last24h
+  })
+
+  const success = txs.filter((tx: any) => tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete').length
+  const errors = txs.filter((tx: any) => tx.status === 'error' || tx.status === 'failed' || tx.status === 'cancelled').length
+  const pending = txs.filter((tx: any) => tx.status === 'pending' || tx.status === 'running').length
+  const cost = txs.reduce((sum: number, tx: any) => sum + (tx.cost || 0), 0)
+  const withDelta = txs.filter((tx: any) => tx.delta !== undefined)
+  const avgDelta = withDelta.length > 0 ? withDelta.reduce((sum: number, tx: any) => sum + tx.delta, 0) / withDelta.length : 0
+  const uniqueModules = new Set(txs.map((tx: any) => tx.module).filter(Boolean)).size
+  const uniqueUsers = new Set(txs.map((tx: any) => tx.client || tx.key).filter(Boolean)).size
+
+  const items = [
+    { v: txs.length.toLocaleString(), c: '#06b6d4', l: 'txs' },
+    { v: success.toLocaleString(), c: '#22c55e', l: '✓' },
+    { v: errors.toLocaleString(), c: '#ef4444', l: '✗' },
+    { v: pending.toLocaleString(), c: '#eab308', l: '◌' },
+    { v: `${avgDelta.toFixed(2)}s`, c: '#f97316', l: 'avg' },
+    { v: `$${cost.toFixed(4)}`, c: '#a855f7', l: 'cost' },
+    { v: uniqueModules.toLocaleString(), c: '#14b8a6', l: 'mods' },
+    { v: uniqueUsers.toLocaleString(), c: '#ec4899', l: 'users' },
+  ]
+
+  return (
+    <div className="flex gap-2 flex-wrap px-0 py-3 border-b border-cyan-500/20 bg-black/30 rounded-lg">
+      <span className="text-[10px] text-gray-600 self-center mr-1 ml-2">24h</span>
+      {items.map((item, i) => (
+        <div
+          key={i}
+          className="bg-black/50 border rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[60px]"
+          style={{ borderColor: `${item.c}30` }}
+        >
+          <span className="text-sm font-black font-mono" style={{ color: item.c }}>{item.v}</span>
+          <span className="text-[9px]" style={{ color: `${item.c}80` }}>{item.l}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export const TransactionsPanel = forwardRef<{ handleSync: () => void }, TransactionsPanelProps>(function TransactionsPanel({ hideTitle = false, showStats = false }, ref) {
   const { client } = userContext()
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [showOnlyMyTx, setShowOnlyMyTx] = useState(false)
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(10)
-  const [totalPages, setTotalPages] = useState(0)
-  const [isHovered, setIsHovered] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
-  const [expandedTxKey, setExpandedTxKey] = useState<string | null>(null)
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
+  const [pageSize] = useState(50)
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
+  const [totalCount, setTotalCount] = useState(0)
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!client) return
     setLoading(true)
+    setError(null)
     try {
-      const result = await client.call('txs', { df: 0, n: pageSize, page: page })
-      setTransactions(Array.isArray(result) ? result : [])
-      if (result && result.length === pageSize) {
-        setHasMore(true)
-      } else {
-        setHasMore(false)
-        setTotalPages(page + 1)
-      }
-    } catch (err) {
+      const result = await client.call('txs', { df: 0, n: pageSize, page })
+      const txs = Array.isArray(result) ? result : []
+      setTransactions(txs)
+      setTotalCount(txs.length)
+    } catch (err: any) {
       console.error('Failed to fetch transactions:', err)
-      setTransactions([])
-      setHasMore(false)
+      setError(err?.message || 'Failed to load transactions')
     } finally {
       setLoading(false)
     }
-  }
-
-  const fetchExpandedTxStatus = async () => {
-    if (!client || !expandedTxKey) return
-    try {
-      const result = await client.call('txs', { df: 0, n: pageSize, page: page })
-      if (Array.isArray(result)) {
-        setTransactions(result)
-      }
-    } catch (err) {
-      console.error('Failed to poll transaction status:', err)
-    }
-  }
-
-  useEffect(() => {
-    fetchTransactions()
   }, [client, page, pageSize])
 
-  useEffect(() => {
-    if (expandedTxKey) {
-      const interval = setInterval(() => {
-        fetchExpandedTxStatus()
-      }, 1000)
-      setPollingInterval(interval)
-      return () => {
-        if (interval) clearInterval(interval)
-      }
-    } else {
-      if (pollingInterval) {
-        clearInterval(pollingInterval)
-        setPollingInterval(null)
-      }
-    }
-  }, [expandedTxKey])
-
-  const handleSync = () => {
-    setPage(0)
-    fetchTransactions()
-  }
-
   useImperativeHandle(ref, () => ({
-    handleSync
+    handleSync: () => {
+      fetchTransactions()
+    }
   }))
 
-  const myClientKey = ''
+  useEffect(() => {
+    fetchTransactions()
+  }, [fetchTransactions])
 
-  const filteredTransactions = transactions.filter(tx => {
-    if (showOnlyMyTx && tx.client !== myClientKey) return false
-    if (!searchTerm) return true
-    const search = searchTerm.toLowerCase()
-    return tx.fn.toLowerCase().includes(search) || 
-           tx.client?.toLowerCase().includes(search) ||
-           tx.status.toLowerCase().includes(search) ||
-           tx.signature?.toLowerCase().includes(search) ||
-           tx.key?.toLowerCase().includes(search) ||
-           tx.cid?.toLowerCase().includes(search)
-  })
+  // Auto-refresh every 10s
+  useEffect(() => {
+    if (!autoRefresh) return
+    const interval = setInterval(fetchTransactions, 10000)
+    return () => clearInterval(interval)
+  }, [autoRefresh, fetchTransactions])
 
-  const handleCardClick = (txKey: string) => {
-    // Only toggle expansion, don't show in chat
-    setExpandedTxKey(txKey === expandedTxKey ? null : txKey)
+  // Filter and sort
+  useEffect(() => {
+    let filtered = [...transactions]
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      filtered = filtered.filter(tx =>
+        (tx.fn && tx.fn.toLowerCase().includes(q)) ||
+        (tx.key && tx.key.toLowerCase().includes(q)) ||
+        (tx.cid && tx.cid.toLowerCase().includes(q)) ||
+        (tx.hash && tx.hash.toLowerCase().includes(q)) ||
+        (tx.module && tx.module.toLowerCase().includes(q)) ||
+        (tx.owner && tx.owner.toLowerCase().includes(q)) ||
+        (tx.status && tx.status.toLowerCase().includes(q))
+      )
+    }
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(tx => {
+        if (statusFilter === 'success') return tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete'
+        if (statusFilter === 'error') return tx.status === 'error' || tx.status === 'failed' || tx.status === 'cancelled'
+        if (statusFilter === 'pending') return tx.status === 'pending' || tx.status === 'running'
+        return true
+      })
+    }
+
+    filtered.sort((a, b) => {
+      const timeA = parseInt(a.time) || 0
+      const timeB = parseInt(b.time) || 0
+      return sortOrder === 'newest' ? timeB - timeA : timeA - timeB
+    })
+
+    setFilteredTransactions(filtered)
+  }, [transactions, searchQuery, statusFilter, sortOrder])
+
+  const handleToggleExpand = (idx: number) => {
+    setExpandedIdx(expandedIdx === idx ? null : idx)
   }
 
+  const successCount = transactions.filter(tx => tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete').length
+  const errorCount = transactions.filter(tx => tx.status === 'error' || tx.status === 'failed' || tx.status === 'cancelled').length
+  const pendingCount = transactions.filter(tx => tx.status === 'pending' || tx.status === 'running').length
+  const totalCost = transactions.reduce((sum, tx) => sum + (tx.cost || 0), 0)
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex flex-col h-full bg-black/95 backdrop-blur-md rounded-lg border-2 border-cyan-400/30">
-        <div 
-          className={`border-b rounded-t-lg backdrop-blur-sm transition-all ${
-            isHovered ? 'bg-gradient-to-br from-slate-900/70 to-slate-800/50 border-cyan-400/40 shadow-lg' : 'bg-gradient-to-br from-slate-900/50 to-slate-800/30 border-slate-700/40'
-          }`}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          <div className="p-3 bg-gradient-to-r from-slate-950/80 to-slate-900/70">
-            <div className="flex gap-2 items-center">
-              <input
-                type="text"
-                placeholder="🔍 search transactions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 px-3 py-1.5 bg-slate-900/70 border border-slate-600/50 rounded text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-400/50 focus:border-cyan-400/60 transition-all backdrop-blur-sm font-medium shadow-inner"
-                style={{ fontFamily: 'IBM Plex Mono, monospace', height: '36px' }}
-              />
-              <button
-                onClick={() => setShowOnlyMyTx(!showOnlyMyTx)}
-                className={`px-3 py-1.5 border rounded font-semibold text-sm transition-all backdrop-blur-sm shadow ${
-                  showOnlyMyTx 
-                    ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 border-purple-400/60 shadow-purple-500/20' 
-                    : 'bg-slate-800/50 border-slate-600/50 hover:bg-slate-700/50 hover:border-slate-500/60 shadow-slate-500/10'
-                } text-white`}
-                title="Toggle only my transactions"
-                style={{ fontFamily: 'IBM Plex Mono, monospace', height: '36px' }}
-              >
-                {showOnlyMyTx ? '✓ my tx' : 'my tx'}
-              </button>
-              <button
-                onClick={handleSync}
-                className="px-3 py-1.5 bg-gradient-to-r from-emerald-500/20 to-green-500/20 border border-emerald-400/50 rounded text-white text-sm hover:from-emerald-500/30 hover:to-green-500/30 hover:border-emerald-300/60 transition-all font-semibold backdrop-blur-sm shadow shadow-emerald-500/10"
-                title="Sync transactions"
-                style={{ fontFamily: 'IBM Plex Mono, monospace', height: '36px' }}
-              >
-                🔄 sync
-              </button>
-            </div>
+    <div className="flex flex-col h-full bg-black/40" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+      {/* Header */}
+      <div className="flex-shrink-0 p-4 border-b-2 border-cyan-500/30 bg-black/60">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            {!hideTitle && (
+              <h2 className="text-lg font-black text-cyan-400 tracking-wider uppercase">⚡ Transactions</h2>
+            )}
+            <span className="text-xs bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 px-2 py-1 rounded-lg font-bold">
+              {filteredTransactions.length}/{totalCount}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg border-2 transition-all ${
+                autoRefresh
+                  ? 'bg-green-500/20 border-green-500/40 text-green-400'
+                  : 'bg-gray-500/20 border-gray-500/40 text-gray-400'
+              }`}
+              title={autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+            >
+              {autoRefresh ? '● live' : '○ paused'}
+            </button>
+            <button
+              onClick={fetchTransactions}
+              disabled={loading}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border-2 bg-cyan-500/20 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/30 transition-all disabled:opacity-50"
+              title="Refresh"
+            >
+              <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border-2 bg-purple-500/20 border-purple-500/40 text-purple-400 hover:bg-purple-500/30 transition-all"
+              title={`Sort: ${sortOrder}`}
+            >
+              {sortOrder === 'newest' ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronUpIcon className="w-4 h-4" />}
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/50 scrollbar-track-slate-800/30 p-3">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <BatteryLoader />
-            </div>
-          ) : (
-            filteredTransactions.map((tx, idx) => (
-              <div key={`${tx.client}-${idx}`} onClick={() => handleCardClick(tx.key)}>
-                <TransactionCard 
-                  tx={tx} 
-                  idx={idx} 
-                  isExpanded={tx.key === expandedTxKey}
-                />
-              </div>
-            ))
-          )}
-
-          {!loading && filteredTransactions.length === 0 && (
-            <div className="text-white text-center py-10 border border-dashed border-slate-600/40 rounded-lg bg-slate-900/30 text-sm">
-              {searchTerm ? '🔍 No transactions match your search' : showOnlyMyTx ? '📭 No transactions from you yet' : '📭 No transactions yet'}
-            </div>
-          )}
+        {/* Search and filter */}
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="search transactions..."
+              className="w-full bg-black/40 border-2 border-gray-700/40 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:border-cyan-500/50 focus:outline-none transition-all font-mono"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-black/40 border-2 border-gray-700/40 rounded-lg px-3 py-2 text-sm text-gray-300 focus:border-cyan-500/50 focus:outline-none transition-all font-mono cursor-pointer"
+          >
+            <option value="all">all</option>
+            <option value="success">success</option>
+            <option value="error">error</option>
+            <option value="pending">pending</option>
+          </select>
         </div>
 
-        <div 
-          className={`border-t rounded-b-lg backdrop-blur-sm transition-all ${
-            isHovered ? 'bg-gradient-to-br from-slate-900/70 to-slate-800/50 border-cyan-400/40 shadow-lg' : 'bg-gradient-to-br from-slate-900/50 to-slate-800/30 border-slate-700/40'
-          }`}
-        >
-          <div className="p-3 bg-gradient-to-r from-slate-950/80 to-slate-900/70">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(Math.max(0, page - 1))}
-                  disabled={page === 0}
-                  className="px-3 py-1.5 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/50 rounded text-white text-sm hover:from-cyan-500/30 hover:to-blue-500/30 hover:border-cyan-300/60 transition-all font-semibold disabled:opacity-30 disabled:cursor-not-allowed backdrop-blur-sm shadow shadow-cyan-500/10"
-                  style={{ fontFamily: 'IBM Plex Mono, monospace', height: '36px' }}
-                >
-                  ← prev
-                </button>
-                <span className="text-white font-mono text-sm px-3 py-1.5 bg-slate-800/50 rounded border border-slate-600/40 font-semibold shadow-sm" style={{ height: '36px', display: 'flex', alignItems: 'center' }}>
-                  Page {page + 1}{hasMore ? '+' : ''}
-                </span>
-                <button
-                  onClick={() => setPage(page + 1)}
-                  disabled={!hasMore}
-                  className="px-3 py-1.5 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/50 rounded text-white text-sm hover:from-cyan-500/30 hover:to-blue-500/30 hover:border-cyan-300/60 transition-all font-semibold disabled:opacity-30 disabled:cursor-not-allowed backdrop-blur-sm shadow shadow-cyan-500/10"
-                  style={{ fontFamily: 'IBM Plex Mono, monospace', height: '36px' }}
-                >
-                  next →
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-white font-medium text-sm">Per page:</label>
-                <select
-                  value={pageSize}
-                  onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
-                  className="px-3 py-1.5 bg-slate-900/70 border border-slate-600/50 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400/50 focus:border-cyan-400/60 transition-all backdrop-blur-sm font-medium shadow-inner"
-                  style={{ fontFamily: 'IBM Plex Mono, monospace', height: '36px' }}
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
-              </div>
+        {/* 24h Stats - below search bar */}
+        {showStats && (
+          <div className="mt-3">
+            <Stats24h transactions={transactions} />
+          </div>
+        )}
+
+        {/* Quick stats bar (non-24h, always shown) */}
+        {!showStats && (
+          <div className="flex gap-2 mt-3 flex-wrap">
+            <div className="flex items-center gap-1.5 bg-black/40 border border-green-500/30 rounded-lg px-3 py-1.5">
+              <span className="text-green-400 text-xs font-bold">✓ {successCount}</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-black/40 border border-red-500/30 rounded-lg px-3 py-1.5">
+              <span className="text-red-400 text-xs font-bold">✗ {errorCount}</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-black/40 border border-yellow-500/30 rounded-lg px-3 py-1.5">
+              <span className="text-yellow-400 text-xs font-bold">● {pendingCount}</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-black/40 border border-green-900/40 rounded-lg px-3 py-1.5">
+              <span className="text-green-400 text-xs font-bold">${totalCost.toFixed(4)}</span>
             </div>
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Transaction list */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-1">
+        {error && (
+          <div className="p-4 bg-red-500/10 border-2 border-red-500/40 rounded-xl mb-4">
+            <p className="text-red-400 text-sm font-mono">{error}</p>
+            <button
+              onClick={fetchTransactions}
+              className="mt-2 px-3 py-1 bg-red-500/20 border border-red-500/40 rounded-lg text-red-400 text-xs font-bold hover:bg-red-500/30 transition-all"
+            >
+              retry
+            </button>
+          </div>
+        )}
+
+        {loading && transactions.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-cyan-400 border-t-transparent" />
+            <span className="text-gray-500 text-sm font-mono">loading transactions...</span>
+          </div>
+        )}
+
+        {!loading && filteredTransactions.length === 0 && !error && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <span className="text-4xl">📭</span>
+            <span className="text-gray-500 text-sm font-mono">
+              {searchQuery || statusFilter !== 'all' ? 'no matching transactions' : 'no transactions yet'}
+            </span>
+            {(searchQuery || statusFilter !== 'all') && (
+              <button
+                onClick={() => { setSearchQuery(''); setStatusFilter('all') }}
+                className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/40 rounded-lg text-cyan-400 text-xs font-bold hover:bg-cyan-500/30 transition-all"
+              >
+                clear filters
+              </button>
+            )}
+          </div>
+        )}
+
+        {filteredTransactions.map((tx, idx) => (
+          <div key={tx.cid || tx.hash || idx} onClick={() => handleToggleExpand(idx)}>
+            <TransactionCard
+              tx={tx}
+              idx={idx}
+              isExpanded={expandedIdx === idx}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination */}
+      {totalCount >= pageSize && (
+        <div className="flex-shrink-0 p-3 border-t-2 border-cyan-500/30 bg-black/60 flex items-center justify-between">
+          <button
+            onClick={() => setPage(Math.max(0, page - 1))}
+            disabled={page === 0}
+            className="px-4 py-2 bg-cyan-500/20 border-2 border-cyan-500/40 rounded-lg text-cyan-400 text-xs font-bold hover:bg-cyan-500/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            ← prev
+          </button>
+          <span className="text-gray-500 text-xs font-mono">page {page + 1}</span>
+          <button
+            onClick={() => setPage(page + 1)}
+            disabled={filteredTransactions.length < pageSize}
+            className="px-4 py-2 bg-cyan-500/20 border-2 border-cyan-500/40 rounded-lg text-cyan-400 text-xs font-bold hover:bg-cyan-500/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            next →
+          </button>
+        </div>
+      )}
     </div>
   )
 })
-
-TransactionsPanel.displayName = 'TransactionsPanel'

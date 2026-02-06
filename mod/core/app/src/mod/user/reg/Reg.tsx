@@ -7,6 +7,7 @@ import { stringToU8a, u8aToHex } from '@polkadot/util'
 import ModCard from '@/mod/mod/ModCard'
 import { ModuleType } from '@/mod/types'
 import { UrlTypeSelector, UrlType } from './UrlTypeSelector'
+import { Key } from '@/mod/key'
 
 type FieldType = 'string' | 'int' | 'float' | 'bytes' | 'dict' | 'bool'
 
@@ -17,7 +18,7 @@ interface CustomField {
 }
 
 export const Reg = ( ) => {
-  const { client, localKey, network } = userContext()
+  const { client, network } = userContext()
   const [isSubwalletEnabled, setIsSubwalletEnabled] = useState(false)
   const [modUrl, setModUrl] = useState('')
   const [urlType, setUrlType] = useState<UrlType>('git')
@@ -76,7 +77,7 @@ export const Reg = ( ) => {
     updateFieldValue('name', name)
   }
 
-  const handleNameChange = (e) => {
+  const handleNameChange = (e: any) => {
     const newName = e.target.value || ''
     setModName(newName)
     updateFieldValue('name', newName)
@@ -125,6 +126,17 @@ export const Reg = ( ) => {
     return payload
   }
 
+  const getLocalKey = (): Key | null => {
+    try {
+      const password = localStorage.getItem('wallet_password') || ''
+      const cryptoType = localStorage.getItem('wallet_type') || 'ecdsa'
+      return new Key(password, cryptoType as any)
+    } catch (err) {
+      console.error('Failed to get local key:', err)
+      return null
+    }
+  }
+
   const handleCreateModuleLocal = async () => {
     if (!modUrl.trim()) {
       setError('Please enter a valid URL or hash')
@@ -167,6 +179,7 @@ export const Reg = ( ) => {
           throw new Error('SubWallet signing not available')
         }
       } else if (isLocalWallet) {
+        const localKey = getLocalKey()
         if (!localKey) {
           throw new Error('Local key not found. Please sign in with Local Key.')
         }
@@ -199,7 +212,7 @@ export const Reg = ( ) => {
         created: timestamp,
         updated: timestamp,
         collateral: 0,
-        net: 'local'
+        network: 'local'
       }
       
       setCreatedMod(newMod)
@@ -260,6 +273,7 @@ export const Reg = ( ) => {
         selectedMod.name + '/' + walletAddress,
         selectedMod.cid || '',
         selectedMod.url || '0.0.0.0:8888',
+        collateral,
       )
 
       const timestamp = Date.now()

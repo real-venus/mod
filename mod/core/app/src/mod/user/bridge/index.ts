@@ -1,1 +1,1 @@
-export { Claim } from './Bridge'
+export { Claim } from './Claim'

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { userContext } from '@/mod/context'
 import { LoginHeader } from './LoginHeader'
+import { Key } from '@/mod/key'
+import { cryptoWaitReady } from '@polkadot/util-crypto'
 
 export function LocalKeyManager() {
   const { signIn, authLoading } = userContext()
@@ -19,7 +21,12 @@ export function LocalKeyManager() {
     }
 
     try {
-      await signIn(mnemonic.trim())
+      await cryptoWaitReady()
+      const key = new Key(mnemonic.trim())
+      localStorage.setItem('wallet_mode', 'local')
+      localStorage.setItem('wallet_address', key.address)
+      localStorage.setItem('wallet_type', key.crypto_type)
+      await signIn()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in')
     }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CodeBracketIcon, Loader2, CheckCircle, AlertCircle } from '@heroicons/react/24/outline'
+import { CodeBracketIcon as CodeBracketIcon, ArrowPathIcon as Loader2, CheckCircleIcon as CheckCircle, ExclamationCircleIcon as AlertCircle } from '@heroicons/react/24/outline'
 import { userContext } from '@/mod/context'
 
 const ui = {

@@ -17,7 +17,7 @@ export default function ModCard({ mod }: ModCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isKeyHovered, setIsKeyHovered] = useState(false)
   const [isCidHovered, setIsCidHovered] = useState(false)
-  const [isQrHovered, setIsQrHovered] = useState(false)
+  const [isNameQrHovered, setIsNameQrHovered] = useState(false)
   const [isKeyQrHovered, setIsKeyQrHovered] = useState(false)
   const [isCidQrHovered, setIsCidQrHovered] = useState(false)
   const [isKeyCopyHovered, setIsKeyCopyHovered] = useState(false)
@@ -33,7 +33,7 @@ export default function ModCard({ mod }: ModCardProps) {
   return (
     <Link href={`/mod/${mod.name}/${mod.key}`}>
       <div 
-        className="relative border-2 rounded-xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:shadow-2xl hover:scale-[1.02] overflow-hidden group"
+        className="relative border-2 rounded-xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:shadow-2xl hover:scale-[1.02] overflow-visible group"
         style={{ 
           fontFamily: 'IBM Plex Mono, Courier New, monospace',
           backgroundColor: `${modColor}08`,
@@ -67,6 +67,18 @@ export default function ModCard({ mod }: ModCardProps) {
                     {mod.name}
                   </code>
                   <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
+                  <div 
+                    className="relative ml-1"
+                    onMouseEnter={() => setIsNameQrHovered(true)}
+                    onMouseLeave={() => setIsNameQrHovered(false)}
+                  >
+                    <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: modColor }} />
+                    {isNameQrHovered && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-[9999] shadow-2xl" style={{ borderColor: modColor }}>
+                        <QRCode value={websiteUrl} size={100} color={modColor} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -98,7 +110,7 @@ export default function ModCard({ mod }: ModCardProps) {
                   >
                     <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: cidColor }} />
                     {isCidQrHovered && mod.cid && (
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: cidColor }}>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-[9999] shadow-2xl" style={{ borderColor: cidColor }}>
                         <QRCode value={mod.cid} size={100} color={cidColor} />
                       </div>
                     )}
@@ -127,36 +139,13 @@ export default function ModCard({ mod }: ModCardProps) {
                   >
                     <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: keyColor }} />
                     {isKeyQrHovered && (
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: keyColor }}>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-[9999] shadow-2xl" style={{ borderColor: keyColor }}>
                         <QRCode value={mod.key} size={100} color={keyColor} />
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div 
-              className="flex flex-col items-center gap-2 relative"
-              onMouseEnter={() => setIsQrHovered(true)}
-              onMouseLeave={() => setIsQrHovered(false)}
-            >
-              <div className="p-2 bg-black/60 rounded-lg border-2" style={{ borderColor: modColor }}>
-                <QRCode value={websiteUrl} size={120} color={modColor} />
-              </div>
-              {isQrHovered && (
-                <div 
-                  className="absolute top-full mt-2 px-4 py-2 rounded-lg border-2 text-xs font-mono whitespace-nowrap z-50 shadow-2xl"
-                  style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                    borderColor: modColor,
-                    color: modColor,
-                    boxShadow: `0 0 20px ${modColor}40`
-                  }}
-                >
-                  {websiteUrl}
-                </div>
-              )}
             </div>
           </div>
         </div>

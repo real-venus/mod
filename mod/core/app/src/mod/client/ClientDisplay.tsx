@@ -6,26 +6,32 @@ import { CopyButton } from '@/mod/ui/CopyButton'
 import { shorten } from '@/mod/utils'
 
 export function ClientDisplay() {
-  const { user } = userContext()
+  const { user, client } = userContext()
   const [showGenerator, setShowGenerator] = useState(false)
-  const [newMnemonic, setNewMnemonic] = useState('')
+  const [newKeyInfo, setNewKeyInfo] = useState<{ address: string; public_key: string; private_key: string } | null>(null)
 
   const generateNewKey = async () => {
     try {
       const { Key } = await import('@/mod/key')
-      const newKey = new Key()
-      setNewMnemonic(newKey.mnemonic)
+      const randomSeed = crypto.getRandomValues(new Uint8Array(32))
+      const password = Array.from(randomSeed).map(b => b.toString(16).padStart(2, '0')).join('')
+      const newKey = new Key(password)
+      setNewKeyInfo({
+        address: newKey.address,
+        public_key: newKey.public_key,
+        private_key: password,
+      })
       setShowGenerator(true)
     } catch (err) {
       console.error('Failed to generate key:', err)
     }
   }
 
-  if (!user?.client) return null
+  if (!client) return null
 
-  const clientUrl = user.client.url
-  const clientKey = user.client.key?.address || user.key
-  const clientPrivateKey = user.client.key?.private_key || ''
+  const clientUrl = client.url
+  const clientKey = user?.key || ''
+  const clientPrivateKey = ''
 
   return (
     <div className="space-y-4 p-6 bg-black/60 border-2 border-green-500/40 rounded-xl backdrop-blur-sm">
@@ -36,7 +42,7 @@ export function ClientDisplay() {
           className="px-4 py-2 bg-green-500/20 text-green-400 border-2 border-green-500/40 hover:bg-green-500/30 rounded-lg transition-all font-bold"
           style={{ fontFamily: 'IBM Plex Mono, monospace', textTransform: 'lowercase' }}
         >
-          🔑 generate new key
+          \uD83D\uDD11 generate new key
         </button>
       </div>
 
@@ -66,14 +72,24 @@ export function ClientDisplay() {
         </div>
       </div>
 
-      {showGenerator && newMnemonic && (
+      {showGenerator && newKeyInfo && (
         <div className="mt-4 p-4 bg-yellow-500/10 border-2 border-yellow-500/40 rounded-lg">
-          <h4 className="text-yellow-400 font-bold mb-2" style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.8rem' }}>⚠️ new key generated</h4>
-          <p className="text-yellow-300 text-xs mb-3">save this mnemonic phrase securely. you will need it to access this key.</p>
-          <div className="bg-black/60 border border-yellow-500/30 rounded-lg p-3">
-            <div className="flex items-start gap-2">
-              <span className="text-yellow-200 font-mono text-sm flex-1 break-all">{newMnemonic}</span>
-              <CopyButton text={newMnemonic} size="sm" />
+          <h4 className="text-yellow-400 font-bold mb-2" style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.8rem' }}>\u26A0\uFE0F new key generated</h4>
+          <p className="text-yellow-300 text-xs mb-3">save this seed securely. you will need it to access this key.</p>
+          <div className="space-y-2">
+            <div className="bg-black/60 border border-yellow-500/30 rounded-lg p-3">
+              <label className="text-yellow-400 text-xs block mb-1">Address</label>
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-200 font-mono text-sm flex-1 break-all">{newKeyInfo.address}</span>
+                <CopyButton text={newKeyInfo.address} size="sm" />
+              </div>
+            </div>
+            <div className="bg-black/60 border border-yellow-500/30 rounded-lg p-3">
+              <label className="text-yellow-400 text-xs block mb-1">Seed (Private)</label>
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-200 font-mono text-sm flex-1 break-all">{newKeyInfo.private_key}</span>
+                <CopyButton text={newKeyInfo.private_key} size="sm" />
+              </div>
             </div>
           </div>
         </div>

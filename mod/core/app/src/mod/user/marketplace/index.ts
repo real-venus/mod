@@ -1,2 +1,2 @@
-import { BlocktimeMarketplace } from './BlocktimeMarketplace'
+import BlocktimeMarketplace from './BlocktimeMarketplace'
 export default BlocktimeMarketplace

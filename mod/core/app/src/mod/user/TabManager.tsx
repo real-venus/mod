@@ -36,7 +36,6 @@ function SortableTab({ tab, onRemove, isEditMode }: { tab: Tab; onRemove: (id: T
   return (
     <div
       ref={setNodeRef}
-      style={style}
       {...attributes}
       {...listeners}
       className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600/20 to-cyan-600/20 border-2 rounded-xl transition-all hover:scale-105 hover:shadow-lg"

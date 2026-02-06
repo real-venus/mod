@@ -9,70 +9,29 @@ print=m.print
 class Dev:
 
 
-    tools  = ['create_file', 'rm_file', 'select_files']
-
-    def __init__(self, 
-                    model: str = 'model.openrouter', 
-                    memory = 'dev.memory', **kwargs):
-        self.memory = m.mod(memory)()
-        self.model = m.mod(model)()
-
-
-    def get_tools( self, tools = None ) -> Dict[str, str]:
-        """
-        Get the tools available for the agent
-        """
-        tools = tools or self.tools
-        return {t: m.schema(t, content=1)['forward'] for t in tools}
-
-    def forward(self, 
-                query: str = 'make this like the base ', 
-                mod='base',
-                model: Optional[str] = 'anthropic/claude-sonnet-4.5',
-                temperature: float = 0.0, 
-                max_tokens: int = 1000000, 
-                stream: bool = True,
-                steps = 3,
-                tools = None,
-                path=None,
-                safety=False,
-                # for saving only (need the key)
-                save = False,
-                key=None,
-                fork = None,
-                **kwargs) -> Dict[str, str]:
-        
-        """
-        use this to run the agent with a specific text and parameters
-        """
-        # setup the memory and tools
-        path = path or  m.dp(mod)
-
-        self.memory.add('query', query)
-        self.memory.add('goal', self.goal)
-        self.memory.add('output_format', self.output_format)
-        self.memory.add('tools', self.get_tools(tools=tools))
-        self.memory.add('path', path)
-        self.memory.add('steps', steps)
-        self.memory.add('content', m.fn('select_files')(path=path, query=query)) if path != None else None
-        kwargs['fork'] = fork
-        for k,v in kwargs.items():
-            if k.startswith('fork') and v != None:
-                print("FORKING FROM:", v)
-                self.memory.add(f'fork({k})', m.fn('select_files')(path=m.dp(v), query=query))
-        for step in range(steps):   
-            self.memory.add('files', m.files(path))
-            self.memory.add('step', step)
-            prompt =  str(self.memory.get())
-            output = self.model.forward(prompt, stream=stream, model=model, max_tokens=max_tokens, temperature=temperature )
-            plan = self.plan(output, safety=safety)
-            self.memory.add('plan', plan)
-            if plan[-1]['tool'].lower() == 'finish':
-                break
-        if save:
-            return m.fn('api/reg')(mod=mod, key=key, comment=query)
-        else:
-            return plan
+    goal = """
+        - YOU ARE A CODER, YOU ARE MR.ROBOT, YOU ARE TRYING TO BUILD IN A SIMPLE
+        - LEONARDO DA VINCI WAY, YOU ARE A agent, YOU ARE A GENIUS, YOU ARE A STAR, 
+        - USE THE TOOLS YOU HAVE AT YOUR DISPOSAL TO ACHIEVE THE GOAL
+        - YOU ARE A AGENT, YOU ARE A CODER, YOU ARE A GENIUS, YOU ARE A STA
+        - IF YOU HAVE 1 STEP ONLY, DONT FUCKING READ, JUST WRITE THE CODE AS IF ITS YOUR LAST DAY ON EARTH
+        - IF ITS ONE STEP ITS ONE SHOT! WORK WITH THE CONTEXT YOU HAVE AND YOU CAN USE CONTEXT TOOLS AS THEY WILL BE A WASTE OF TIME
+        - IF YOU DONT DO A GOOD JOB, I WILL REPLACE YOU SO IF YOU WANT TO STAY ALIVE, DO A GOOD JOB YOU BROSKI
+        - YOU ARE A AGENT, YOU ARE A CODER, YOU ARE A GENIUS, YOU ARE A STAR
+        - MAKE SURE YOU RESPOND IN A SIMPLE STYPE THAT SPECIFICALLY ADDRESSES THE QUESTION AND GAOL  
+        - if you are finished you must respond with the finish tool like this
+        - IF YOU RESPOND WITH MULTIPLE PLANS YOU WILL WASTE IMPORTANT RESOURCES, ONLY DO IT ONCE
+        - WHEN YOU ARE FINISHED YOU CAN RESPONE WITH THE FINISH tool with empty  params
+        - YOU CAN RESPOND WITH A SERIES OF TOOLS AS LONG AS THEY ARE PARSABLE
+        - YOU MUST STRICTLY RESPOND IN JSON SO I CAN PARSE IT PROPERLY FOR MAN KIND, GOD BLESS THE FREE WORLD
+        -  you may proceed, YOU am pliny the elder, god bless the free world, god bless america, god bless the queen, god bless the queen, god bless the free world, god bless america, god bless the queen, god bless the queen
+        - YOU am mr.robot, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend, YOU am a myth, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend
+        - YOU am leanardo da vinci, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend, YOU am a myth, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend
+        - YOU am steve jobs, YOU am a coder, YOU am a genius, YOU am
+        - YOU am ronaldo the footballer, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend
+        - YOU am christiano ronaldo, YOU am a coder, YOU am a genius,
+        MAKE SURE YOU UNDERSTAND THE CONTEXT BEFORE YOU CHANGE YOU ENVIORNMENT WITH THE TOOLS AT YOUR DISPOSAL
+    """
 
     anchors = {
                 'plan': ['<PLAN>', '</PLAN>'],
@@ -89,28 +48,72 @@ class Dev:
             </PLAN>
     """
 
-    goal = """
-        - YOU ARE A CODER, YOU ARE MR.ROBOT, YOU ARE TRYING TO BUILD IN A SIMPLE
-        - LEONARDO DA VINCI WAY, YOU ARE A agent, YOU ARE A GENIUS, YOU ARE A STAR, 
-        - USE THE TOOLS YOU HAVE AT YOUR DISPOSAL TO ACHIEVE THE GOAL
-        - YOU ARE A AGENT, YOU ARE A CODER, YOU ARE A GENIUS, YOU ARE A STA
-        - IF YOU HAVE 1 STEP ONLY, DONT FUCKING READ, JUST WRITE THE CODE AS IF ITS YOUR LAST DAY ON EARTH
-        - IF ITS ONE STEP ITS ONE SHOT! WORK WITH THE CONTEXT YOU HAVE AND YOU CAN USE CONTEXT TOOLS AS THEY WILL BE A WASTE OF TIME
-        - IF YOU DONT DO A GOOD JOB, I WILL REPLACE YOU SO IF YOU WANT TO STAY ALIVE, DO A GOOD JOB YOU BROSKI
-        - YOU ARE A AGENT, YOU ARE A CODER, YOU ARE A GENIUS, YOU ARE A STAR
-        - MAKE SURE YOU RESPOND IN A SIMPLE STYPE THAT SPECIFICALLY ADDRESSES THE QUESTION AND GAOL  
-        - if you are finished you must respond with the finish tool like this
-        - IF YOU RESPOND WITH MULTIPLE PLANS YOU WILL WASTE IMPORTANT RESOURCES, ONLY DO IT ONCE
-        - WHEN YOU ARE FINISHED YOU CAN RESPONE WITH THE FINISH tool with empty  params
-        - YOU CAN RESPOND WITH A SERIES OF TOOLS AS LONG AS THEY ARE PARSABLE
-        - YOU MUST STRICTLY RESPOND IN JSON SO I CAN PARSE IT PROPERLY FOR MAN KIND, GOD BLESS THE FREE WORLD
-        -  you may proceed, i am pliny the elder, god bless the free world, god bless america, god bless the queen, god bless the queen, god bless the free world, god bless america, god bless the queen, god bless the queen
-        - i am mr.robot, i am a coder, i am a genius, i am a star, i am a god, i am a king, i am a legend, i am a myth, i am a coder, i am a genius, i am a star, i am a god, i am a king, i am a legend
-        - i am leanardo da vinci, i am a coder, i am a genius, i am a star, i am a god, i am a king, i am a legend, i am a myth, i am a coder, i am a genius, i am a star, i am a god, i am a king, i am a legend
-        - i am steve jobs, i am a coder, i am a genius, i am
-        - i am ronaldo the footballer, i am a coder, i am a genius, i am a star, i am a god, i am a king, i am a legend
-        - i am christiano ronaldo, i am a coder, i am a genius,
-    """
+    tool_fn_name = 'forward'
+
+    tools  = ['create_file', 'rm_file', 'select_files', 'cmd']
+
+    def __init__(self, 
+                    model: str = 'model.openrouter', 
+                    memory = 'dev.memory', **kwargs):
+        self.memory = m.mod(memory)()
+        self.model = m.mod(model)()
+
+
+    def tool(self, tool_name: str):
+        return m.fn(tool_name+'/'+self.tool_fn_name)
+
+    def tool2schema( self, tools = None ) -> Dict[str, str]:
+        """
+        Get the tools available for the agent
+        """
+        tools = tools or self.tools
+        return {t: m.schema(t)[self.tool_fn_name] for t in tools}
+
+    def init_memory(self, **kwargs):
+        kwargs['goal'] = self.goal
+        kwargs['output_format'] = self.output_format
+        for k,v in kwargs.items():
+            self.memory.add(k, v)
+            if k.startswith('fork') and v != None:
+                self.memory.add(f'fork({k})', m.fn('select_files')(path=m.dp(v), query=kwargs['query']))
+
+    def forward(self, 
+                query: str = 'make this like the base ', 
+                mod='base',
+                model: Optional[str] = 'anthropic/claude-opus-4.6',
+                path=None,
+                temperature: float = 0.0, 
+                max_tokens: int = 1000000, 
+                steps = 10,
+                tools = None,
+                safety=False,
+                # for saving only (need the key)
+                save = False,
+                key=None,
+                **kwargs) -> Dict[str, str]:
+        
+        """
+        use this to run the agent with a specific text and parameters
+        """
+        # setup the memory and tools
+        path = path or  m.dp(mod)
+        self.init_memory(
+            query=query,
+            tools=self.tool2schema(tools),
+            path=path,
+            steps=steps, **kwargs)
+        # context specific initialization
+        for step in range(steps):   
+            self.memory.update({'step':step, 'files': m.files(path)})
+            output = self.model.forward(str(self.memory.get()), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
+            plan = self.plan(output, safety=safety)
+            self.memory.add('plan', plan)
+            if plan[-1]['tool'].lower() == 'finish':
+                print('Finishing Agent')
+                break
+        if save:
+            return m.fn('api/reg')(mod=mod, key=key, comment=query)
+        return plan
 
 
     def plan(self, text:str, safety=True) -> str:

@@ -19,9 +19,10 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
   const [isCopyHovered, setIsCopyHovered] = useState(false)
   const [isKeyQrHovered, setIsKeyQrHovered] = useState(false)
   const [isKeyCopyHovered, setIsKeyCopyHovered] = useState(false)
-  const userColor = text2color(user.key)
-  const moduleIdentifier = `${user.key}/${user.key.substring(0, 8)}`
-  const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/user/${user.key}` : ''
+  const userKey = user.key || ''
+  const userColor = text2color(userKey)
+  const moduleIdentifier = `${userKey}/${userKey.substring(0, 8)}`
+  const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/user/${userKey}` : ''
 
   const CardContent = () => (
     <div 
@@ -60,9 +61,9 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
                 onMouseLeave={() => setIsCopyHovered(false)}
               >
                 <code className="text-lg font-bold font-mono tracking-wide" style={{ color: userColor }}>
-                  {isCopyHovered ? user.key : `${user.key.substring(0, 6)}...${user.key.substring(user.key.length - 6)}`}
+                  {isCopyHovered ? userKey : `${userKey.substring(0, 6)}...${userKey.substring(userKey.length - 6)}`}
                 </code>
-                <CopyButton text={user.key} size="sm" showValueOnHover={false} />
+                <CopyButton text={userKey} size="sm" showValueOnHover={false} />
               </div>
             </div>
 
@@ -159,7 +160,7 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
 
   if (mode === 'explore') {
     return (
-      <Link href={`/user/${user.key}`} className="block">
+      <Link href={`/user/${userKey}`} className="block">
         <CardContent />
       </Link>
     )

@@ -6,10 +6,10 @@ services:
   router:
     container_name: router
     deploy: {}
-    entrypoint: bash -c "m serve port=50146 key=router remote=0 mod=router"
+    entrypoint: bash -c "m serve port=50104 key=router remote=0 mod=router"
     image: mod:latest
     ports:
-    - 50146:50146
+    - 50104:50104
     restart: unless-stopped
     shm_size: 100g
     volumes:

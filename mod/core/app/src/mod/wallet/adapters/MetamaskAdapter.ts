@@ -20,6 +20,9 @@ export class MetamaskAdapter implements WalletAdapter {
   }
 
   async signIn(index?:number): Promise<void> {
+    if (!window.ethereum) {
+      throw new Error('MetaMask is not installed')
+    }
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
     let accountAddress: string = accounts[0]
     if (index !== undefined && index >= 0 && index < accounts.length) {

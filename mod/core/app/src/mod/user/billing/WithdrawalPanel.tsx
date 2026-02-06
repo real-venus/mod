@@ -1,8 +1,7 @@
-'use client'
+import { CheckCircle, RefreshCw, Zap, Download as ArrowDownTrayIcon } from 'lucide-react'
 
 import { useState, useEffect } from 'react'
 import { userContext } from '@/mod/context'
-import { ArrowDownTrayIcon, CheckCircle, Zap, RefreshCw } from 'lucide-react'
 import { AlertCircle } from 'lucide-react'
 import { Market } from '@/mod/network/Market'
 import modConfig from '@/app/mod.json'
@@ -49,6 +48,10 @@ export const WithdrawalPanel: React.FC = () => {
       setTotalBalance(balance)
 
       // Get withdrawable amount (unlocked deposits)
+      if (!window.ethereum) {
+        setError('No Ethereum provider found. Please install MetaMask.')
+        return
+      }
       const provider = new ethers.BrowserProvider(window.ethereum)
       const marketAddress = modConfig.chain.testnet.contracts.Market.address
       const MarketABI = (await import('@/mod/contracts/abi/market/Market.sol/Market.json')).default
@@ -111,6 +114,10 @@ export const WithdrawalPanel: React.FC = () => {
     setSuccess(null)
 
     try {
+      if (!window.ethereum) {
+        setError('No Ethereum provider found. Please install MetaMask.')
+        return
+      }
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
       const marketAddress = modConfig.chain.testnet.contracts.Market.address

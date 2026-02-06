@@ -2,26 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import { userContext } from '@/mod/context'
-import { motion } from 'framer-motion'
 
-interface TransactionStats {
-  total24h: number
-  totalAllTime: number
-  successRate: number
+interface Stats {
+  total: number
+  success: number
+  errors: number
+  pending: number
+  cost: number
   avgDelta: number
-  totalCost24h: number
-  totalRevenue24h: number
+  uniqueModules: number
+  uniqueUsers: number
 }
 
 export function TransactionStats() {
   const { client } = userContext()
-  const [stats, setStats] = useState<TransactionStats>({
-    total24h: 0,
-    totalAllTime: 0,
-    successRate: 0,
-    avgDelta: 0,
-    totalCost24h: 0,
-    totalRevenue24h: 0
+  const [stats, setStats] = useState<Stats>({
+    total: 0, success: 0, errors: 0, pending: 0,
+    cost: 0, avgDelta: 0, uniqueModules: 0, uniqueUsers: 0
   })
   const [loading, setLoading] = useState(true)
 
@@ -35,24 +32,20 @@ export function TransactionStats() {
         
         const now = Date.now() / 1000
         const last24h = now - (24 * 60 * 60)
+        const txs = transactions.filter((tx: any) => tx.time >= last24h)
         
-        const txs24h = transactions.filter(tx => tx.time >= last24h)
-        const successTxs = transactions.filter(tx => tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete')
-        const txsWithDelta = transactions.filter(tx => tx.delta !== undefined)
-        
-        const totalCost24h = txs24h.reduce((sum, tx) => sum + (tx.cost || 0), 0)
-        const totalRevenue24h = txs24h.reduce((sum, tx) => sum + (tx.cost || 0), 0)
-        
-        setStats({
-          total24h: txs24h.length,
-          totalAllTime: transactions.length,
-          successRate: transactions.length > 0 ? (successTxs.length / transactions.length) * 100 : 0,
-          avgDelta: txsWithDelta.length > 0 ? txsWithDelta.reduce((sum, tx) => sum + tx.delta, 0) / txsWithDelta.length : 0,
-          totalCost24h,
-          totalRevenue24h
-        })
+        const success = txs.filter((tx: any) => tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete').length
+        const errors = txs.filter((tx: any) => tx.status === 'error' || tx.status === 'failed' || tx.status === 'cancelled').length
+        const pending = txs.filter((tx: any) => tx.status === 'pending' || tx.status === 'running').length
+        const cost = txs.reduce((sum: number, tx: any) => sum + (tx.cost || 0), 0)
+        const withDelta = txs.filter((tx: any) => tx.delta !== undefined)
+        const avgDelta = withDelta.length > 0 ? withDelta.reduce((sum: number, tx: any) => sum + tx.delta, 0) / withDelta.length : 0
+        const uniqueModules = new Set(txs.map((tx: any) => tx.module).filter(Boolean)).size
+        const uniqueUsers = new Set(txs.map((tx: any) => tx.client || tx.key).filter(Boolean)).size
+
+        setStats({ total: txs.length, success, errors, pending, cost, avgDelta, uniqueModules, uniqueUsers })
       } catch (err) {
-        console.error('Failed to fetch transaction stats:', err)
+        console.error('Failed to fetch stats:', err)
       } finally {
         setLoading(false)
       }
@@ -63,23 +56,24 @@ export function TransactionStats() {
     return () => clearInterval(interval)
   }, [client])
 
-  const metrics = [
-    { label: 'LAST 24H', value: stats.total24h.toLocaleString(), color: '#06b6d4', subtext: 'transactions' },
-    { label: 'ALL TIME', value: stats.totalAllTime.toLocaleString(), color: '#a855f7', subtext: 'total transactions' },
-    { label: 'SUCCESS RATE', value: `${stats.successRate.toFixed(1)}%`, color: '#22c55e', subtext: 'completion rate' },
-    { label: 'AVG DURATION', value: `${stats.avgDelta.toFixed(2)}s`, color: '#f97316', subtext: 'average time' },
-    { label: 'COST 24H', value: `$${stats.totalCost24h.toFixed(4)}`, color: '#ef4444', subtext: 'last 24 hours' },
-    { label: 'REVENUE 24H', value: `$${stats.totalRevenue24h.toFixed(4)}`, color: '#14b8a6', subtext: 'last 24 hours' },
+  const items = [
+    { v: stats.total.toLocaleString(), c: '#06b6d4', l: 'txs' },
+    { v: stats.success.toLocaleString(), c: '#22c55e', l: '✓' },
+    { v: stats.errors.toLocaleString(), c: '#ef4444', l: '✗' },
+    { v: stats.pending.toLocaleString(), c: '#eab308', l: '◌' },
+    { v: `${stats.avgDelta.toFixed(2)}s`, c: '#f97316', l: 'avg' },
+    { v: `$${stats.cost.toFixed(4)}`, c: '#a855f7', l: 'cost' },
+    { v: stats.uniqueModules.toLocaleString(), c: '#14b8a6', l: 'mods' },
+    { v: stats.uniqueUsers.toLocaleString(), c: '#ec4899', l: 'users' },
   ]
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        {metrics.map((metric, idx) => (
-          <div key={idx} className="bg-black/60 border-2 rounded-xl p-4 animate-pulse" style={{ borderColor: `${metric.color}40` }}>
-            <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
-            <div className="h-8 bg-gray-700 rounded w-full mb-1"></div>
-            <div className="h-3 bg-gray-700 rounded w-1/2"></div>
+      <div className="flex gap-2 flex-wrap px-4 py-3">
+        {items.map((_, i) => (
+          <div key={i} className="bg-black/60 border rounded-lg px-3 py-2 animate-pulse" style={{ borderColor: '#333', minWidth: 70 }}>
+            <div className="h-5 bg-gray-800 rounded w-10 mb-1" />
+            <div className="h-3 bg-gray-800 rounded w-6" />
           </div>
         ))}
       </div>
@@ -87,36 +81,17 @@ export function TransactionStats() {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-      {metrics.map((metric, idx) => (
-        <motion.div
-          key={idx}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: idx * 0.1 }}
-          className="bg-black/60 border-2 rounded-xl p-4 hover:scale-105 transition-all"
-          style={{ 
-            borderColor: `${metric.color}40`,
-            boxShadow: `0 0 20px ${metric.color}20`
-          }}
+    <div className="flex gap-2 flex-wrap px-4 py-3 border-b border-cyan-500/20 bg-black/30">
+      <span className="text-[10px] text-gray-600 self-center mr-1">24h</span>
+      {items.map((item, i) => (
+        <div
+          key={i}
+          className="bg-black/50 border rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[60px]"
+          style={{ borderColor: `${item.c}30` }}
         >
-          <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: `${metric.color}80` }}>
-            {metric.label}
-          </div>
-          <div 
-            className="text-2xl font-black mb-1"
-            style={{ 
-              color: metric.color,
-              fontFamily: 'IBM Plex Mono, monospace',
-              textShadow: `0 0 10px ${metric.color}40`
-            }}
-          >
-            {metric.value}
-          </div>
-          <div className="text-xs" style={{ color: `${metric.color}60` }}>
-            {metric.subtext}
-          </div>
-        </motion.div>
+          <span className="text-sm font-black font-mono" style={{ color: item.c }}>{item.v}</span>
+          <span className="text-[9px]" style={{ color: `${item.c}80` }}>{item.l}</span>
+        </div>
       ))}
     </div>
   )

@@ -27,7 +27,7 @@ export class TreasuryAllowanceManager {
 
   private async getTokenDecimals(tokenAddress: string): Promise<number> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = new ethers.BrowserProvider((window as any).ethereum)
       const tokenContract = new ethers.Contract(tokenAddress, TokenABI.abi, provider)
       const decimals = await tokenContract.decimals()
       return Number(decimals)
@@ -39,7 +39,7 @@ export class TreasuryAllowanceManager {
 
   async checkTreasuryAllowance(userAddress: string, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<number> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = new ethers.BrowserProvider((window as any).ethereum)
       const tokenAddress = this.getTokenAddress(tokenType)
       const treasuryAddress = this.config.contracts.Treasury.address
       
@@ -56,7 +56,7 @@ export class TreasuryAllowanceManager {
 
   async setTreasuryAllowance(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = new ethers.BrowserProvider((window as any).ethereum)
       const signer = await provider.getSigner()
       const tokenAddress = this.getTokenAddress(tokenType)
       const treasuryAddress = this.config.contracts.Treasury.address
@@ -77,7 +77,7 @@ export class TreasuryAllowanceManager {
 
   async getTreasuryBalance(userAddress: string, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<number> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = new ethers.BrowserProvider((window as any).ethereum)
       const tokenAddress = this.getTokenAddress(tokenType)
       
       const tokenContract = new ethers.Contract(tokenAddress, TokenABI.abi, provider)

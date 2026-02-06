@@ -1,8 +1,8 @@
-'use client'
+import { CheckCircleIcon, StarIcon as CrownIcon, PlusIcon, ServerIcon, TrashIcon, XCircleIcon } from '@heroicons/react/24/outline'
 
 import { useState, useEffect } from 'react'
 import { userContext } from '@/mod/context/UserContext'
-import { ServerIcon, CheckCircleIcon, XCircleIcon, CrownIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
+import Client from '@/mod/client'
 
 const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -45,8 +45,9 @@ export default function HostsPage() {
   }
 
   const checkHost = async (url: string, index: number) => {
+    if (!client) return;
     try {
-      const tempClient = { ...client, url }
+      const tempClient = new Client(url, client!.token)
       const response = await tempClient.call('mod', {})
       
       setHosts(prev => {

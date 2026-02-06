@@ -55,7 +55,7 @@ export class TokenExpiryHandler {
     }
 
     try {
-      const isExpired = this.auth.isTokenExpired(token);
+      const isExpired = this.isTokenExpired(token);
       if (isExpired) {
         this.handleExpiredToken();
       }
@@ -116,7 +116,7 @@ export class TokenExpiryHandler {
       const age = currentTime - tokenTime;
       
       // Check if token age exceeds maxAge minus buffer
-      return age >= (this.auth['maxAge'] - bufferSeconds);
+      return age >= ((this.auth as any)['maxAge'] - bufferSeconds);
     } catch (error) {
       return true; // Treat invalid tokens as expired
     }

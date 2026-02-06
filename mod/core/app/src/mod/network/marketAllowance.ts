@@ -3,6 +3,13 @@ import TokenABI from '@/mod/contracts/abi/token/Token.sol/Token.json'
 import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 import modConfig from '@/app/mod.json'
 
+function getEthereumProvider(): ethers.BrowserProvider {
+  if (!window.ethereum) {
+    throw new Error('No Ethereum provider found. Please install MetaMask or another wallet.')
+  }
+  return new ethers.BrowserProvider(window.ethereum)
+}
+
 export class MarketAllowanceManager {
   private config: any
 
@@ -27,7 +34,7 @@ export class MarketAllowanceManager {
 
   private async getTokenDecimals(tokenAddress: string): Promise<number> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const tokenContract = new ethers.Contract(tokenAddress, TokenABI.abi, provider)
       const decimals = await tokenContract.decimals()
       return Number(decimals)
@@ -39,7 +46,7 @@ export class MarketAllowanceManager {
 
   async checkMarketAllowance(userAddress: string, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<number> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const tokenAddress = this.getTokenAddress(tokenType)
       const marketAddress = this.config.contracts.Market.address
       
@@ -56,7 +63,7 @@ export class MarketAllowanceManager {
 
   async increaseMarketAllowance(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const signer = await provider.getSigner()
       const tokenAddress = this.getTokenAddress(tokenType)
       const marketAddress = this.config.contracts.Market.address
@@ -77,7 +84,7 @@ export class MarketAllowanceManager {
 
   async addMarketCredit(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = getEthereumProvider()
       const signer = await provider.getSigner()
       const marketAddress = this.config.contracts.Market.address
       const tokenAddress = this.getTokenAddress(tokenType)

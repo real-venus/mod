@@ -6,10 +6,11 @@ export class Client {
   public url: string;
   public token: string | undefined;
   public auth: Auth;
+  public key?: Key;
   private keyRotationCallback?: () => void;
 
   constructor(url?: string, token?: string) {
-    this.url = url || process.env.NEXT_PUBLIC_API_URL || config.api_url || 'http://localhost:8000';
+    this.url = url || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     console.log('Client initialized with URL:', this.url);
     this.auth = new Auth(undefined);
     this.token = token;

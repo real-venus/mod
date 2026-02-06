@@ -1,27 +1,42 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { userContext } from '@/mod/context/UserContext'
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { stringToU8a, u8aToHex } from '@polkadot/util'
 import { Loader2, Upload } from 'lucide-react'
+import { Key } from '@/mod/key'
+import { cryptoWaitReady } from '@polkadot/util-crypto'
 
 export default function CreateModPage() {
   const router = useRouter()
-  const { client, localKey } = userContext()
+  const { client } = userContext()
   const [modName, setModName] = useState('')
   const [modUrl, setModUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubwalletEnabled, setIsSubwalletEnabled] = useState(false)
   const [walletAddress, setWalletAddress] = useState('')
+  const [localKey, setLocalKey] = useState<Key | null>(null)
 
-  useState(() => {
-    const walletMode = localStorage.getItem('wallet_mode')
-    const address = localStorage.getItem('wallet_address')
-    setIsSubwalletEnabled(walletMode === 'subwallet')
-    setWalletAddress(address || '')
-  })
+  useEffect(() => {
+    const init = async () => {
+      await cryptoWaitReady()
+      const walletMode = localStorage.getItem('wallet_mode')
+      const address = localStorage.getItem('wallet_address')
+      setIsSubwalletEnabled(walletMode === 'subwallet')
+      setWalletAddress(address || '')
+
+      if (walletMode === 'local') {
+        const password = localStorage.getItem('wallet_password')
+        if (password) {
+          const key = new Key(password)
+          setLocalKey(key)
+        }
+      }
+    }
+    init()
+  }, [])
 
   const handleCreate = async () => {
     if (!modName.trim() || !modUrl.trim()) {

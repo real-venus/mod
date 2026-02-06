@@ -255,7 +255,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
       }
     }
     const el = codeRefs.current[node.path];
-    if (el) el.scrollIntoView({ behavior: 'smooth', bloc: 'start' });
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   useEffect(() => {

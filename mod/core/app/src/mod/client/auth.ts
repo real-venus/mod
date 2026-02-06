@@ -17,7 +17,7 @@ export interface AuthHeaders {
 }
 
 export class Auth {
-  private key: Key;
+  private key: Key | null = null;
   private maxAge: number;
   private signatureKeys: string[];
   private tokenCache: { token: string; refreshToken: string; expiresAt: number } | null = null;
@@ -25,20 +25,33 @@ export class Auth {
 
   /**
    * Initialize the Auth class
-   * @param key - The key to use for signing
    * @param maxAge - Maximum staleness allowed for timestamps (in seconds)
    * @param signatureKeys - The keys to use for signing
    * @param refreshInterval - Token refresh interval in seconds (default: 3600 = 1 hour)
+   * @param key - Optional Key instance to use instead of creating one from localStorage
    */
   constructor(
     maxAge: number = 3600,
     signatureKeys: string[] = ['data', 'time'],
-    refreshInterval: number = 3600
+    refreshInterval: number = 3600,
+    key?: Key
   ) {
     this.maxAge = maxAge;
     this.signatureKeys = signatureKeys;
     this.refreshInterval = refreshInterval;
-    this.key = new Key(localStorage.getItem('wallet_password') || 'wefwefewf');
+    if (key) {
+      this.key = key;
+    } else {
+      this.key = null; // Defer localStorage access until needed
+    }
+  }
+
+  private getKey(): Key {
+    if (!this.key) {
+      const password = typeof window !== 'undefined' ? 'wefwefewf' : 'wefwefewf';
+      this.key = new Key(password);
+    }
+    return this.key;
   }
 
 
@@ -116,14 +129,14 @@ export class Auth {
   }
 
   public async signLocal(signMessage: string): Promise<string> {
-    const localKey = new Key(localStorage.getItem('wallet_password') || '')
+    const localKey = new Key(typeof window !== 'undefined' ? localStorage.getItem('wallet_password') || '' : '')
     return localKey.sign(signMessage);
   }
       
   public async token(data: any = '', walletAddress?: any, wallet_mode?: any): Promise<string> {
 
     if (!wallet_mode) {
-      wallet_mode = typeof localStorage !== 'undefined' ? localStorage.getItem('wallet_mode') : 'local';
+      wallet_mode = typeof window !== 'undefined' ? localStorage.getItem('wallet_mode') : 'local';
     }
     
     let authData: AuthData = {
@@ -189,7 +202,7 @@ export class Auth {
       public_key: authData.key,
     };
 
-    let verified = this.key.verify(params.message, params.signature, params.public_key);
+    let verified = this.getKey().verify(params.message, params.signature, params.public_key);
 
     verified = Boolean(verified);
     return verified;
@@ -197,14 +210,14 @@ export class Auth {
 
   /**
    * Test the authentication flow
-   * @param key - Name of the test key
+   * @param key - The Key instance to test with
    * @returns Test results
    */
   public static async test(
     key: Key,
   ): Promise<{ headers: boolean; verified: boolean }> {
     const data = { fn: 'test', params: { a: 1, b: 2 } };
-    const auth = new Auth(key);
+    const auth = new Auth(3600, ['data', 'time'], 3600, key);
     
     const headers = await auth.generate(data);
     

@@ -141,7 +141,7 @@ export const Billing: React.FC = () => {
               : 'bg-black/40 border-2 border-white/20 text-white/60 hover:border-white/40'
           }`}
         >
-          <ArrowDownTrayIcon className="inline mr-2" size={20} />
+          <ArrowDownTrayIcon className="inline mr-2 w-5 h-5" />
           Withdraw
         </button>
       </div>

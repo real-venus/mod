@@ -1,5 +1,5 @@
 export interface WalletAdapter {
-  connect(): Promise<void>
+  connect(): Promise<void | { address: string; publicKey: string }>
   disconnect(): Promise<void>
   signIn(): Promise<void>
   isAvailable(): Promise<boolean>
