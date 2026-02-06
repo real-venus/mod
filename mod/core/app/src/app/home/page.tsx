@@ -162,7 +162,7 @@ export default function Home() {
               href="/chat"
               className="px-8 py-4 border-2 border-cyan-400 bg-cyan-400/10 text-white font-bold hover:bg-cyan-400 hover:text-black transition-all relative overflow-hidden group bloc rounded-lg"
             >
-              <span className="relative z-10">> CHAT_INTERFACE</span>
+              <span className="relative z-10"> CHAT_INTERFACE</span>
             </Link>
           </motion.div>
           
@@ -174,7 +174,7 @@ export default function Home() {
               href="/user/explore"
               className="px-8 py-4 border-2 border-purple-500 bg-purple-500/10 text-white font-bold hover:bg-purple-500 hover:text-black transition-all bloc rounded-lg"
             >
-              > JOIN_NETWORK
+               JOIN_NETWORK
             </Link>
           </motion.div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { BuildingLibraryIcon, ArrowDownTrayIcon, ClockIcon, UserIcon } from '@heroicons/react/24/outline'
-import { ethers } from 'ethers'
+import { ethers, EventLog } from 'ethers'
 import modConfig from '@/app/mod.json'
 import { CopyButton } from '@/mod/ui/CopyButton'
 import { motion } from 'framer-motion'
@@ -33,6 +33,7 @@ export default function TreasuryDepositsPage() {
 
   useEffect(() => {
     const fetchDeposits = async () => {
+      if (typeof window === 'undefined') return;
       if (!treasuryAddress || typeof window.ethereum === 'undefined') return
       
       try {
@@ -52,10 +53,12 @@ export default function TreasuryDepositsPage() {
         const filter = treasuryContract.filters.TreasuryFunded()
         const events = await treasuryContract.queryFilter(filter, fromBlock, currentBlock)
         
+        
+        const parsedEvents = events.filter((e): e is EventLog => 'args' in e);
         const depositEvents: DepositEvent[] = await Promise.all(
-          events.map(async (event) => {
+          parsedEvents.map(async (event) => {
             const block = await event.getBlock()
-            const args = event.args as any
+            const args = event.args
             
             let tokenSymbol = 'UNKNOWN'
             let decimals = 18

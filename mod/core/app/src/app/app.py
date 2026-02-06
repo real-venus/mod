@@ -36,6 +36,8 @@ class App:
         return m.edit('app', *text, **kwargs)
 
 
-    def fix(self):
-        # i want to know which files have cid as content ids
-        return m.edit(m.logs('app') + '\n\n' + 'fix it given the logs')
+    def fix(self, cmd='npm run build '):
+        output = os.system(cmd)
+        query ='fix the build' + f' output: {output}'
+        agent = m.mod('dev')(query=query,tools = ['edit_file'], path=m.dp('app'))
+        return query

@@ -197,7 +197,6 @@ export default function NetworkPage() {
         backgroundColor: `${network.color}08`,
         borderColor: `${network.color}60`,
         boxShadow: `0 0 20px ${network.color}30`,
-        ringColor: network.color
       }}
     >
       {network.comingSoon && (
