@@ -70,7 +70,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiConfig config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider chains={chains} initialChain={ganache}>
+        <RainbowKitProvider chains={chains} initialChain={base}>
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>

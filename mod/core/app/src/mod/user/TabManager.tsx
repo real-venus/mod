@@ -6,7 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create'
+type TabType = 'mods' | 'sign' | 'transfer' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create'
 
 interface Tab {
   id: TabType
@@ -38,11 +38,13 @@ function SortableTab({ tab, onRemove, isEditMode }: { tab: Tab; onRemove: (id: T
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600/20 to-cyan-600/20 border-2 rounded-xl transition-all hover:scale-105 hover:shadow-lg"
+      className="flex items-center gap-2 px-5 py-3 backdrop-blur-sm border-2 rounded-xl transition-all hover:scale-105 hover:shadow-2xl"
       style={{
         ...style,
-        borderColor: `${tab.color}60`,
-        boxShadow: `0 0 15px ${tab.color}30`
+        background: `linear-gradient(135deg, ${tab.color}15 0%, ${tab.color}30 100%)`,
+        borderColor: `${tab.color}90`,
+        boxShadow: `0 0 20px ${tab.color}40, 0 0 40px ${tab.color}20`,
+        color: tab.color
       }}
     >
       <span className="font-bold uppercase text-sm" style={{ color: tab.color }}>{tab.label}</span>
@@ -110,13 +112,15 @@ export function TabManager({ userTabs, onTabsChange, availableTabs }: TabManager
       <div className="flex gap-3 items-center">
         <button
           onClick={toggleEditMode}
-          className={`px-6 py-3 border-2 rounded-xl transition-all font-bold uppercase text-sm shadow-lg backdrop-blur-sm ${
-            isEditMode 
-              ? 'bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-400 border-green-500/40 hover:border-green-500/60' 
-              : 'bg-gradient-to-r from-orange-600/20 to-yellow-600/20 text-orange-400 border-orange-500/40 hover:border-orange-500/60'
+          className={`px-6 py-3 border-2 rounded-xl transition-all duration-300 font-bold uppercase text-sm backdrop-blur-sm hover:scale-[1.02] ${
+            isEditMode
+              ? 'bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-400 border-green-500 hover:border-green-400'
+              : 'bg-gradient-to-r from-orange-600/20 to-yellow-600/20 text-orange-400 border-orange-500 hover:border-orange-400'
           }`}
           style={{
-            boxShadow: isEditMode ? '0 0 20px rgba(34, 197, 94, 0.2)' : '0 0 20px rgba(251, 146, 60, 0.2)'
+            boxShadow: isEditMode
+              ? '0 0 25px rgba(34, 197, 94, 0.3), 0 0 50px rgba(34, 197, 94, 0.15)'
+              : '0 0 25px rgba(251, 146, 60, 0.3), 0 0 50px rgba(251, 146, 60, 0.15)'
           }}
         >
           {isEditMode ? '✓ Exit Edit' : '✏️ Edit Mode'}
@@ -124,8 +128,8 @@ export function TabManager({ userTabs, onTabsChange, availableTabs }: TabManager
       </div>
 
       {isOpen && (
-        <div className="mt-4 p-6 bg-black/95 border-2 border-purple-500/50 rounded-xl backdrop-blur-xl shadow-2xl" style={{
-          boxShadow: '0 0 30px rgba(168, 85, 247, 0.3)'
+        <div className="mt-4 p-6 bg-gradient-to-br from-black/95 to-purple-950/20 border-2 border-purple-500/60 rounded-xl backdrop-blur-xl shadow-2xl" style={{
+          boxShadow: '0 0 40px rgba(168, 85, 247, 0.4), 0 0 80px rgba(168, 85, 247, 0.2)'
         }}>
           <h3 className="text-xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">Active Tabs</h3>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -148,9 +152,9 @@ export function TabManager({ userTabs, onTabsChange, availableTabs }: TabManager
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search tabs..."
-                  className="w-full px-4 py-3 pl-12 bg-black/50 border-2 border-cyan-500/40 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500/60 transition-all"
+                  className="w-full px-4 py-3 pl-12 bg-black/60 border-2 border-cyan-500/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition-all backdrop-blur-sm"
                   style={{
-                    boxShadow: '0 0 15px rgba(6, 182, 212, 0.2)'
+                    boxShadow: '0 0 20px rgba(6, 182, 212, 0.3)'
                   }}
                 />
                 <MagnifyingGlassIcon className="w-5 h-5 text-cyan-400 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -161,21 +165,23 @@ export function TabManager({ userTabs, onTabsChange, availableTabs }: TabManager
                   <button
                     key={tab.id}
                     onClick={() => addTab(tab)}
-                    className="flex items-center gap-2 px-5 py-3 bg-black/50 border-2 rounded-xl hover:scale-105 transition-all"
+                    className="flex items-center gap-2 px-5 py-3 backdrop-blur-sm border-2 rounded-xl hover:scale-105 transition-all duration-300"
                     style={{
-                      borderColor: `${tab.color}40`,
-                      boxShadow: `0 0 10px ${tab.color}20`
+                      background: `linear-gradient(135deg, ${tab.color}10 0%, ${tab.color}20 100%)`,
+                      borderColor: `${tab.color}60`,
+                      boxShadow: `0 0 15px ${tab.color}30`,
+                      color: tab.color
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = `${tab.color}80`
-                      e.currentTarget.style.boxShadow = `0 0 20px ${tab.color}40`
+                      e.currentTarget.style.borderColor = tab.color
+                      e.currentTarget.style.boxShadow = `0 0 25px ${tab.color}50, 0 0 50px ${tab.color}25`
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = `${tab.color}40`
-                      e.currentTarget.style.boxShadow = `0 0 10px ${tab.color}20`
+                      e.currentTarget.style.borderColor = `${tab.color}60`
+                      e.currentTarget.style.boxShadow = `0 0 15px ${tab.color}30`
                     }}
                   >
-                    <span className="font-bold uppercase text-sm" style={{ color: `${tab.color}90` }}>{tab.label}</span>
+                    <span className="font-bold uppercase text-sm" style={{ color: tab.color }}>{tab.label}</span>
                     <PlusIcon className="w-5 h-5" style={{ color: tab.color }} />
                   </button>
                 ))}

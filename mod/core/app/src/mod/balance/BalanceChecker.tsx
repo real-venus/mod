@@ -2,17 +2,11 @@
 
 import { useState } from 'react'
 import { userContext } from '@/mod/context'
-import { ethers } from 'ethers'
 
-const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)']
-
-const TOKENS = [
-  { symbol: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 },
-  { symbol: 'USDT', address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6 }
-]
+const TOKENS = ['ETH', 'USDC', 'USDT', 'MARKET']
 
 export function BalanceChecker() {
-  const { user } = userContext()
+  const { user, client } = userContext()
   const [balances, setBalances] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -23,25 +17,27 @@ export function BalanceChecker() {
       return
     }
 
+    if (!client) {
+      setError('Client not initialized')
+      return
+    }
+
     setLoading(true)
     setError('')
-    const results: Record<string, string> = {}
 
     try {
-      const provider = new ethers.JsonRpcProvider('https://eth.llamarpc.com')
-      
-      for (const token of TOKENS) {
-        try {
-          const contract = new ethers.Contract(token.address, ERC20_ABI, provider)
-          const balance = await contract.balanceOf(user.key)
-          const formatted = ethers.formatUnits(balance, token.decimals)
-          results[token.symbol] = parseFloat(formatted).toFixed(2)
-        } catch (err) {
-          results[token.symbol] = 'Error'
-        }
+      // Use API to get all balances - works on all browsers without MetaMask
+      const results = await client.call('get_balances', {
+        address: user.key,
+        tokens: TOKENS
+      })
+
+      const formattedBalances: Record<string, string> = {}
+      for (const [token, balance] of Object.entries(results)) {
+        formattedBalances[token] = typeof balance === 'number' ? balance.toFixed(2) : '0.00'
       }
 
-      setBalances(results)
+      setBalances(formattedBalances)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch balances')
     } finally {
@@ -74,14 +70,21 @@ export function BalanceChecker() {
       {Object.keys(balances).length > 0 && (
         <div className="space-y-2">
           {TOKENS.map(token => (
-            <div key={token.symbol} className="flex justify-between p-3 bg-green-500/10 border border-green-500 rounded-lg">
-              <span className="text-green-500 font-bold">{token.symbol}</span>
-              <span className="text-green-500 font-mono">${balances[token.symbol] || '0.00'} USD</span>
+            <div key={token} className="flex justify-between p-3 bg-green-500/10 border border-green-500 rounded-lg">
+              <span className="text-green-500 font-bold">{token}</span>
+              <span className="text-green-500 font-mono">
+                {token === 'ETH' ? `${balances[token] || '0.000000'}` : `$${balances[token] || '0.00'}`}
+              </span>
             </div>
           ))}
           <div className="flex justify-between p-3 bg-green-500/20 border-2 border-green-500 rounded-lg mt-4">
-            <span className="text-green-500 font-black">TOTAL</span>
-            <span className="text-green-500 font-black">${Object.values(balances).reduce((sum, val) => sum + (parseFloat(val) || 0), 0).toFixed(2)} USD</span>
+            <span className="text-green-500 font-black">TOTAL USD</span>
+            <span className="text-green-500 font-black">
+              ${Object.entries(balances)
+                .filter(([token]) => token !== 'ETH')
+                .reduce((sum, [, val]) => sum + (parseFloat(val) || 0), 0)
+                .toFixed(2)}
+            </span>
           </div>
         </div>
       )}

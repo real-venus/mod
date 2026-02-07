@@ -247,6 +247,16 @@ export const Billing: React.FC = () => {
                   placeholder="0x..."
                   className="w-full bg-black/60 border-2 border-blue-500/40 rounded-lg px-4 py-3 text-blue-300 font-mono text-sm placeholder-blue-600/50 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 transition-all"
                 />
+                {transferRecipient && !ethers.isAddress(transferRecipient) && (
+                  <div className="mt-2 text-xs text-red-400 font-mono">
+                    ✗ Invalid Ethereum address
+                  </div>
+                )}
+                {transferRecipient && ethers.isAddress(transferRecipient) && (
+                  <div className="mt-2 text-xs text-emerald-400 font-mono">
+                    ✓ Valid address
+                  </div>
+                )}
               </div>
 
               <div>
@@ -263,11 +273,21 @@ export const Billing: React.FC = () => {
                   placeholder="10.00"
                   className="w-full bg-black/60 border-2 border-blue-500/40 rounded-lg px-4 py-3 text-blue-300 font-mono text-lg placeholder-blue-600/50 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 transition-all"
                 />
+                {transferAmount && parseFloat(transferAmount) > marketCredit && (
+                  <div className="mt-2 text-xs text-red-400 font-mono">
+                    ✗ Amount exceeds your balance (${marketCredit.toFixed(2)})
+                  </div>
+                )}
+                {transferAmount && parseFloat(transferAmount) > 0 && parseFloat(transferAmount) <= marketCredit && (
+                  <div className="mt-2 text-xs text-emerald-400 font-mono">
+                    ✓ Valid amount
+                  </div>
+                )}
               </div>
 
               <button
                 onClick={handleTransfer}
-                disabled={!transferAmount || !transferRecipient || isTransferring}
+                disabled={!transferAmount || !transferRecipient || isTransferring || parseFloat(transferAmount) > marketCredit || !ethers.isAddress(transferRecipient) || parseFloat(transferAmount) <= 0}
                 className="w-full py-4 border-2 border-blue-500/60 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-400 hover:bg-blue-500/30 hover:border-blue-500 hover:scale-[1.02] transition-all duration-300 rounded-xl font-mono uppercase font-black text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3 shadow-lg"
               >
                 {isTransferring ? (

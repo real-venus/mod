@@ -6,6 +6,7 @@ import Client from '@/mod/client'
 import { Auth } from '@/mod/client/auth'
 import { UserType } from '@/mod/types'
 import { Network } from '@/mod/network/network'
+import { TokenExpiryHandler } from '@/mod/client/tokenExpiry'
 
 interface UserContextType {
   user: UserType | null
@@ -16,6 +17,8 @@ interface UserContextType {
   client: Client | null
   connectClient: () => Promise<void>
   balances: (token?: string) => Promise<Record<string, number>>
+  showTokenExpiryModal: boolean
+  setShowTokenExpiryModal: (show: boolean) => void
 }
 
 const UserContext = createContext<UserContextType | null>(null)
@@ -25,6 +28,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [client, setClient] = useState<Client | null>(null)
   const [network, setNetwork] = useState<Network | null>(null)
   const [authLoading, setAuthLoading] = useState(false)
+  const [showTokenExpiryModal, setShowTokenExpiryModal] = useState(false)
+  const [expiryHandler, setExpiryHandler] = useState<TokenExpiryHandler | null>(null)
 
   /**
    * Client-only initialization
@@ -77,6 +82,38 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cancelled = true
     }
   }, [])
+
+  /**
+   * Token expiry monitoring - starts when user is authenticated
+   */
+  useEffect(() => {
+    if (!user) {
+      // Stop monitoring if user logs out
+      if (expiryHandler) {
+        expiryHandler.stopMonitoring()
+        setExpiryHandler(null)
+      }
+      return
+    }
+
+    // Initialize token expiry handler
+    const auth = new Auth()
+    const handler = new TokenExpiryHandler(
+      auth,
+      () => {
+        // Callback when token expires and needs manual renewal
+        setShowTokenExpiryModal(true)
+      },
+      60000 // Check every minute
+    )
+
+    handler.startMonitoring()
+    setExpiryHandler(handler)
+
+    return () => {
+      handler.stopMonitoring()
+    }
+  }, [user])
 
   const connectClient = async () => {
     if (typeof window === 'undefined') return
@@ -175,6 +212,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         network,
         connectClient,
         balances,
+        showTokenExpiryModal,
+        setShowTokenExpiryModal,
       }}
     >
       {children}

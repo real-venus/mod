@@ -268,7 +268,7 @@ class Router:
     
         while True:
             print('running loop')
-            time.sleep(self.intervals['sync_loop'])
+            time.sleep(1)
             fns = ['sync_tasks', 'sync_ious']
             for fn in fns:
                 if cansync(fn):
@@ -278,7 +278,6 @@ class Router:
                         self.sync_counts[fn] = self.sync_counts.get(fn, 0) + 1
                     except Exception as e:
                         print(f'Error in sync_loop for {fn}: {e}')
-                        continue
                     
 
     def wait_for_task(self, task, wait_frequency=0.2):
@@ -323,8 +322,6 @@ class Router:
 
     def tasks(self) -> bool:
         return list(self.cid2future.keys())
-    
-
 
     def run_task(self, **task:dict) -> Any:
         """

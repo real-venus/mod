@@ -11,15 +11,13 @@ import { QRCode } from '@/mod/ui/QRCode'
 import { text2color } from '@/mod/utils'
 import { Auth } from '@/mod/client/auth'
 import WalletCreditDisplay from './WalletCreditDisplay'
-import { MarketAllowanceManager } from '@/mod/network/marketAllowance'
-import { Market } from '@/mod/network/Market'
 import modConfig from '@/app/mod.json'
 import { ethers } from 'ethers'
 
 type TokenType = 'USDC' | 'USDT'
 
 export function WalletHeader() {
-  const { user, signOut } = userContext()
+  const { user, signOut, client } = userContext()
   const [isHovered, setIsHovered] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -30,6 +28,8 @@ export function WalletHeader() {
   const [isTokenQrHovered, setIsTokenQrHovered] = useState(false)
   const [showTopUpForm, setShowTopUpForm] = useState(false)
   const [marketCredit, setMarketCredit] = useState<number>(0)
+  const [tokenBalances, setTokenBalances] = useState<Record<string, number>>({})
+  const [showAllBalances, setShowAllBalances] = useState(false)
   const [selectedToken, setSelectedToken] = useState<TokenType>('USDC')
   const [topUpAmount, setTopUpAmount] = useState<string>('')
   const [isProcessing, setIsProcessing] = useState(false)
@@ -130,31 +130,23 @@ export function WalletHeader() {
   }
 
   const fetchMarketCredit = async () => {
-    if (!user?.key) return
+    if (!user?.key || !client) return
 
     try {
       setIsRefreshing(true)
-      const network = 'testnet'
-      const chainConfig = modConfig.chain?.[network]
-      if (!chainConfig) {
-        console.warn('Chain config not found')
-        setMarketCredit(0)
-        return
-      }
 
-      // Check if ethereum provider is available (Safari compatibility)
-      if (typeof window === 'undefined' || !window.ethereum) {
-        console.warn('Ethereum provider not available')
-        setMarketCredit(0)
-        return
-      }
+      // Use API to get all balances - works on all browsers without MetaMask
+      const balances = await client.call('get_balances', {
+        address: user.key,
+        tokens: ['ETH', 'USDC', 'USDT', 'MARKET']
+      })
 
-      const market = new Market(chainConfig)
-      const balance = await market.checkMarketBalance(user.key)
-      setMarketCredit(balance)
+      setTokenBalances(balances || {})
+      setMarketCredit(balances?.MARKET || 0)
     } catch (err) {
-      console.error('Error fetching market credit:', err)
+      console.error('Error fetching balances:', err)
       setMarketCredit(0)
+      setTokenBalances({})
     } finally {
       setIsRefreshing(false)
     }
@@ -177,20 +169,41 @@ export function WalletHeader() {
     setTopUpSuccess(null)
 
     try {
-      const network = 'testnet'
-      const chainConfig = modConfig.chain?.[network]
-      if (!chainConfig) {
-        throw new Error('Chain config not found')
+      const walletMode = user?.wallet_mode || localStorage.getItem('wallet_mode') || 'local'
+
+      if (walletMode === 'local' && client) {
+        // Use API for local key transactions - works on all browsers
+        const result = await client.call('credit', {
+          stable_amount: amount,
+          payment_token: selectedToken.toLowerCase()
+        })
+
+        if (result.error) {
+          throw new Error(result.error)
+        }
+
+        await fetchMarketCredit()
+        setTopUpSuccess(`Successfully added $${amount.toFixed(2)} using ${selectedToken}!`)
+      } else {
+        // Use MetaMask for web3 wallet transactions
+        if (typeof window === 'undefined' || !window.ethereum) {
+          throw new Error('MetaMask is required for web3 wallet mode')
+        }
+
+        const { MarketAllowanceManager } = await import('@/mod/network/marketAllowance')
+        const network = 'testnet'
+        const chainConfig = modConfig.chain?.[network]
+        if (!chainConfig) {
+          throw new Error('Chain config not found')
+        }
+
+        const allowanceManager = new MarketAllowanceManager(chainConfig)
+        await allowanceManager.increaseMarketAllowance(user.key, amount, selectedToken)
+        await allowanceManager.addMarketCredit(user.key, amount, selectedToken)
+        await fetchMarketCredit()
+        setTopUpSuccess(`Successfully added $${amount.toFixed(2)} using ${selectedToken}!`)
       }
 
-      const allowanceManager = new MarketAllowanceManager(chainConfig)
-
-      await allowanceManager.increaseMarketAllowance(user.key, amount, selectedToken)
-      await allowanceManager.addMarketCredit(user.key, amount, selectedToken)
-
-      await fetchMarketCredit()
-
-      setTopUpSuccess(`Successfully added $${amount.toFixed(2)} using ${selectedToken}!`)
       setTopUpAmount('')
       setTimeout(() => {
         setShowTopUpForm(false)
@@ -233,18 +246,41 @@ export function WalletHeader() {
     setTopUpSuccess(null)
 
     try {
-      const network = 'testnet'
-      const chainConfig = modConfig.chain?.[network]
-      if (!chainConfig) {
-        throw new Error('Chain config not found')
+      const walletMode = user?.wallet_mode || localStorage.getItem('wallet_mode') || 'local'
+
+      if (walletMode === 'local' && client) {
+        // Use API for local key transactions - works on all browsers
+        const result = await client.call('transfer', {
+          to: transferRecipient,
+          amount: amount,
+          token: 'market'
+        })
+
+        if (result.error) {
+          throw new Error(result.error)
+        }
+
+        await fetchMarketCredit()
+        setTopUpSuccess(`Successfully transferred $${amount.toFixed(2)} to ${transferRecipient.slice(0, 8)}...${transferRecipient.slice(-6)}!`)
+      } else {
+        // Use MetaMask for web3 wallet transactions
+        if (typeof window === 'undefined' || !window.ethereum) {
+          throw new Error('MetaMask is required for web3 wallet mode')
+        }
+
+        const { Market } = await import('@/mod/network/Market')
+        const network = 'testnet'
+        const chainConfig = modConfig.chain?.[network]
+        if (!chainConfig) {
+          throw new Error('Chain config not found')
+        }
+
+        const market = new Market(chainConfig)
+        await market.transferMarketCredit(transferRecipient, amount)
+        await fetchMarketCredit()
+        setTopUpSuccess(`Successfully transferred $${amount.toFixed(2)} to ${transferRecipient.slice(0, 8)}...${transferRecipient.slice(-6)}!`)
       }
 
-      const market = new Market(chainConfig)
-      await market.transferMarketCredit(transferRecipient, amount)
-
-      await fetchMarketCredit()
-
-      setTopUpSuccess(`Successfully transferred $${amount.toFixed(2)} to ${transferRecipient.slice(0, 8)}...${transferRecipient.slice(-6)}!`)
       setTransferAmount('')
       setTransferRecipient('')
       setTimeout(() => {
@@ -453,16 +489,47 @@ export function WalletHeader() {
                 >
                   ${marketCredit.toFixed(2)}
                 </div>
-                <div className="text-[10px] text-gray-600 font-mono opacity-50">
-                  {user.balance?.toLocaleString() || 0} NET
-                </div>
+                <button
+                  onClick={() => setShowAllBalances(!showAllBalances)}
+                  className="text-[10px] text-gray-500 hover:text-gray-300 font-mono transition-colors flex items-center gap-1"
+                >
+                  {showAllBalances ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+                  All
+                </button>
               </div>
 
-              {typeof window !== 'undefined' && !window.ethereum && (
-                <div className="text-[10px] text-yellow-500/70 bg-yellow-500/5 border border-yellow-500/20 rounded px-2 py-1 mb-2 font-mono">
-                  ⚠ MetaMask required
-                </div>
-              )}
+              <div className="text-[10px] text-gray-500/70 bg-gray-500/5 border border-gray-500/20 rounded px-2 py-1 mb-2 font-mono">
+                Mode: {user?.wallet_mode === 'local' ? '🔑 Local Key' : '🦊 MetaMask'}
+              </div>
+
+              {/* All Token Balances */}
+              <AnimatePresence>
+                {showAllBalances && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="mb-2 overflow-hidden"
+                  >
+                    <div className="space-y-1 pt-2 border-t border-white/10">
+                      {Object.entries(tokenBalances).map(([token, balance]) => (
+                        <div
+                          key={token}
+                          className="flex items-center justify-between px-2 py-1 bg-black/40 rounded text-[10px]"
+                        >
+                          <span className="font-bold text-gray-400">{token}</span>
+                          <span className="font-mono text-gray-300">
+                            {token === 'MARKET' || token === 'USDC' || token === 'USDT'
+                              ? `$${balance.toFixed(2)}`
+                              : balance.toFixed(6)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Top Up Form */}
               <AnimatePresence>

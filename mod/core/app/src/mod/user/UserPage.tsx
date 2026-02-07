@@ -7,7 +7,6 @@ import { UserType } from '@/mod/types'
 import { Loading } from '@/mod/ui/Loading'
 import { UserCard } from '@/mod/user/UserCard'
 import Transfer from '@/mod/user/transfer'
-import ClaimMod from '@/mod/user/claim'
 import Mods from '@/mod/user/mods'
 import ContractsInterface from '@/mod/user/contracts/Contracts'
 import { Admin } from '@/mod/user/admin/Admin'
@@ -20,17 +19,16 @@ import modConfig from '@/app/mod.json'
 import MarketABI from '@/mod/contracts/abi/market/Market.sol/Market.json'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
-type TabType = 'mods' | 'sign' | 'transfer' | 'claim' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create' | 'txs'
+type TabType = 'mods' | 'sign' | 'transfer' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create' | 'txs'
 
 const DEFAULT_TABS: { id: TabType; label: string; color: string }[] = [
-  { id: 'transfer', label: 'transfer', color: 'blue' },
-  { id: 'mods', label: 'mods', color: 'purple' },
-  { id: 'portfolio', label: 'portfolio', color: 'indigo' },
-  { id: 'txs', label: 'txs', color: 'cyan' },
-  { id: 'claim', label: 'claim', color: 'pink' },
-  { id: 'admin', label: 'admin', color: 'red' },
-  { id: 'contracts', label: 'contracts', color: 'cyan' },
-  { id: 'billing', label: 'billing', color: 'yellow' },
+  { id: 'transfer', label: 'transfer', color: '#3b82f6' },
+  { id: 'mods', label: 'mods', color: '#a855f7' },
+  { id: 'portfolio', label: 'portfolio', color: '#6366f1' },
+  { id: 'txs', label: 'txs', color: '#06b6d4' },
+  { id: 'admin', label: 'admin', color: '#ef4444' },
+  { id: 'contracts', label: 'contracts', color: '#14b8a6' },
+  { id: 'billing', label: 'billing', color: '#eab308' },
 ]
 
 export default function UserPage() {
@@ -153,9 +151,12 @@ export default function UserPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search tabs..."
-                className="w-full px-4 py-3 pl-12 bg-black/60 border-2 border-white/30 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/60 transition-all font-mono"
+                className="w-full px-4 py-3 pl-12 bg-gradient-to-r from-black/60 to-purple-950/20 backdrop-blur-sm border-2 border-purple-500/40 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-500/30 transition-all font-mono shadow-lg"
+                style={{
+                  boxShadow: '0 0 20px rgba(168, 85, 247, 0.2)'
+                }}
               />
-              <MagnifyingGlassIcon className="w-5 h-5 text-white/60 absolute left-4 top-1/2 -translate-y-1/2" />
+              <MagnifyingGlassIcon className="w-5 h-5 text-purple-400 absolute left-4 top-1/2 -translate-y-1/2" />
             </div>
           )}
 
@@ -164,11 +165,21 @@ export default function UserPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 rounded-xl font-black text-base uppercase transition-all duration-300 ${
+                className={`px-6 py-3 rounded-xl font-black text-base uppercase transition-all duration-300 backdrop-blur-sm ${
                   activeTab === tab.id
-                    ? 'bg-white text-black border-2 border-white scale-105 shadow-lg'
-                    : 'bg-black text-white/60 border-2 border-white/30 hover:border-white/50 hover:text-white/80 hover:scale-105'
+                    ? 'scale-[1.05] shadow-2xl border-2'
+                    : 'bg-black/40 text-white/60 border-2 border-white/20 hover:border-white/40 hover:text-white/90 hover:scale-[1.02] hover:shadow-lg'
                 }`}
+                style={
+                  activeTab === tab.id
+                    ? {
+                        background: `linear-gradient(135deg, ${tab.color}20 0%, ${tab.color}40 100%)`,
+                        borderColor: tab.color,
+                        color: tab.color,
+                        boxShadow: `0 0 30px ${tab.color}40, 0 0 60px ${tab.color}20`
+                      }
+                    : undefined
+                }
               >
                 {tab.label}
               </button>
@@ -181,11 +192,10 @@ export default function UserPage() {
             </div>
           )}
 
-          <div className="bg-black border-2 border-white/30 rounded p-6">
+          <div className="bg-gradient-to-br from-black/60 to-black/80 border-2 border-white/30 rounded-xl p-6 backdrop-blur-sm shadow-xl">
             {activeTab === 'mods' && <Mods userData={userData} />}
             {activeTab === 'portfolio' &&  user && <Portfolio />}
             {activeTab === 'transfer' &&  user && <Transfer />}
-            {activeTab === 'claim' &&  user && <ClaimMod />}
             {activeTab === 'create' &&  user && <Create />}
             {activeTab === 'admin' && user && <Admin userData={userData} />}
             {activeTab === 'contracts' &&  user && <ContractsInterface />}
