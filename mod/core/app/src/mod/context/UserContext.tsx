@@ -15,6 +15,7 @@ interface UserContextType {
   authLoading: boolean
   client: Client | null
   connectClient: () => Promise<void>
+  balances: (token?: string) => Promise<Record<string, number>>
 }
 
 const UserContext = createContext<UserContextType | null>(null)
@@ -141,6 +142,28 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  const balances = async (token: string = 'market'): Promise<Record<string, number>> => {
+    if (!client) {
+      throw new Error('Client not initialized')
+    }
+
+    try {
+      console.log(`Fetching all balances for token: ${token}`)
+
+      // Call backend API to get all balances for the token
+      const result = await client.call('balances', { token })
+
+      if (result && typeof result === 'object') {
+        return result as Record<string, number>
+      }
+
+      throw new Error('Invalid response format from balances API')
+    } catch (err) {
+      console.error(`Failed to get balances for token ${token}:`, err)
+      throw err
+    }
+  }
+
   return (
     <UserContext.Provider
       value={{
@@ -151,6 +174,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         client,
         network,
         connectClient,
+        balances,
       }}
     >
       {children}

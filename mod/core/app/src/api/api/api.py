@@ -748,4 +748,183 @@ class  Api:
     
 
     def balance(self, address:str=None, token:str='market'):
+        """Get balance for a specific address and token.
+
+        Args:
+            address: Address to query
+            token: Token symbol (default 'market')
+
+        Returns:
+            Balance as float
+        """
         return self.chain.balance(address, token)
+
+    def get_balances(self, address:str=None, tokens:list=None):
+        """Get balances for multiple tokens for a single address.
+
+        Args:
+            address: Address to query (uses server key if None)
+            tokens: List of token symbols (default ['ETH', 'USDC', 'USDT', 'MARKET'])
+
+        Returns:
+            Dictionary mapping token symbols to balances
+        """
+        if tokens is None:
+            tokens = ['ETH', 'USDC', 'USDT', 'MARKET']
+
+        balances = {}
+        for token in tokens:
+            try:
+                balances[token] = self.chain.balance(address, token)
+            except Exception as e:
+                print(f'Error getting balance for {token}: {e}')
+                balances[token] = 0
+
+        return balances
+
+    def balances(self, token:str='market', from_block:int=0, to_block:int=None, weeks:int=2):
+        """Get all user balances for a specific token by scanning Transfer events.
+
+        Args:
+            token: Token symbol (default 'market')
+            from_block: Starting block to scan for holders (default: calculated from weeks)
+            to_block: Ending block to scan (default: latest)
+            weeks: Number of weeks to look back (default: 2)
+
+        Returns:
+            Dictionary mapping all holder addresses to their balances
+        """
+        return self.chain.balances(token=token, from_block=from_block, to_block=to_block, weeks=weeks)
+
+    def scan_holders(self, token:str='market', weeks:int=2, from_block:int=0, to_block:int=None):
+        """Scan blockchain for all token holders over a time period.
+
+        Args:
+            token: Token symbol to scan (default 'market')
+            weeks: Number of weeks to look back (default: 2)
+            from_block: Starting block (default: calculated from weeks)
+            to_block: Ending block (default: latest)
+
+        Returns:
+            Dictionary with holder data including:
+            - holders: Dict mapping addresses to balances
+            - total_holders: Number of unique holders
+            - from_block: Starting block scanned
+            - to_block: Ending block scanned
+        """
+        holders = self.chain.scan_token_holders(
+            token=token,
+            from_block=from_block,
+            to_block=to_block,
+            weeks=weeks
+        )
+
+        return {
+            'holders': holders,
+            'total_holders': len(holders),
+            'token': token.upper(),
+            'weeks': weeks
+        }
+
+    def transfer(self, to:str, amount:float, token:str='market'):
+        """Transfer tokens to another address using server-side key.
+
+        Args:
+            to: Recipient address
+            amount: Amount to transfer
+            token: Token symbol (default 'market')
+
+        Returns:
+            Transaction receipt
+        """
+        return self.chain.transfer(to=to, amount=amount, token=token)
+
+    def credit(self, stable_amount:float, payment_token:str='usdt'):
+        """Buy stable tokens with whitelisted payment token using server-side key.
+
+        Args:
+            stable_amount: Amount of stable tokens to buy
+            payment_token: Payment token symbol (default 'usdt')
+
+        Returns:
+            Transaction hash
+        """
+        return self.chain.credit(stable_amount=stable_amount, payment_token=payment_token)
+
+    def register(self, mod:str=None):
+        """Register a mod on-chain using server-side key.
+
+        Args:
+            mod: Mod name or identifier
+
+        Returns:
+            Registration info
+        """
+        if mod:
+            return self.chain.reg(name=mod)
+        return {'error': 'mod parameter required'}
+
+    def raw_transfer(self, to:str, amount:float, token:str='market', wait:bool=True):
+        """Transfer tokens using raw transaction (local key signing).
+
+        Args:
+            to: Recipient address
+            amount: Amount to transfer
+            token: Token symbol (default 'market')
+            wait: Wait for confirmation (default True)
+
+        Returns:
+            Transaction result with hash and receipt
+        """
+        return self.chain.raw_transfer(to=to, amount=amount, token=token, wait=wait)
+
+    def raw_credit(self, stable_amount:float, payment_token:str='usdt', wait:bool=True):
+        """Buy stable tokens using raw transactions (local key signing).
+
+        Args:
+            stable_amount: Amount of stable tokens to buy
+            payment_token: Payment token symbol (default 'usdt')
+            wait: Wait for confirmation (default True)
+
+        Returns:
+            Transaction results with approve and credit hashes
+        """
+        return self.chain.raw_credit(stable_amount=stable_amount, payment_token=payment_token, wait=wait)
+
+    def build_transaction(self, to:str, data:str='0x', value:int=0, gas:int=None):
+        """Build a raw transaction for client-side signing.
+
+        Args:
+            to: Recipient address
+            data: Transaction data (hex string)
+            value: ETH value in wei
+            gas: Gas limit (auto-estimated if None)
+
+        Returns:
+            Unsigned transaction dictionary
+        """
+        return self.chain.build_transaction(to=to, data=data, value=value, gas=gas)
+
+    def send_raw_transaction(self, signed_tx:str):
+        """Send a pre-signed raw transaction.
+
+        Args:
+            signed_tx: Signed transaction hex string
+
+        Returns:
+            Transaction hash
+        """
+        return self.chain.send_raw_transaction(signed_tx)
+
+    def encode_function_call(self, contract:str, function:str, args:list):
+        """Encode a contract function call for transaction data.
+
+        Args:
+            contract: Contract name (e.g., 'market')
+            function: Function name (e.g., 'transfer')
+            args: List of function arguments
+
+        Returns:
+            Encoded data as hex string
+        """
+        return self.chain.encode_function_call(contract, function, args)

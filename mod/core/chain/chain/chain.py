@@ -14,6 +14,9 @@ from typing import Dict, Any, Optional, List, Union
 import json
 import os
 import mod as m
+import requests
+from eth_account import Account
+from eth_account.signers.local import LocalAccount
 
 class Mod:
     """Simplified Chain Interface for New Contract Architecture."""
@@ -371,14 +374,6 @@ class Mod:
         return Web3.is_address(address)
     
 
-    def balances(self, token='market'):
-        """
-        all of the balances of a token
-        """
-
-        balance_map = {}
-
-
     def balance(self,  address: str=None, token='market') -> int:
         """Get stable token balance.
         
@@ -407,7 +402,155 @@ class Mod:
             balance = token_contract.functions.balanceOf(address).call()
 
         return self.format_balance(balance)
-    
+
+    def balances(self, address: str=None, tokens: list=None, token:str='market', from_block:int=0, to_block:int=None, weeks:int=2) -> dict:
+        """Get balances for a single address across multiple tokens, or all holders for a single token.
+
+        Args:
+            address: Address to query (if provided, returns balances for this address across multiple tokens)
+            tokens: List of token symbols (default ['ETH', 'USDC', 'USDT', 'MARKET'])
+            token: Token symbol for getting all holders (used when address is None)
+            from_block: Starting block to scan for holders (default: calculated from weeks)
+            to_block: Ending block to scan (default: latest)
+            weeks: Number of weeks to look back (default: 2)
+
+        Returns:
+            Dictionary mapping token symbols to balances (if address provided)
+            OR dictionary mapping addresses to balances (if getting all holders for a token)
+        """
+        if address:
+            # Get balances for a single address across multiple tokens
+            if tokens is None:
+                tokens = ['ETH', 'USDC', 'USDT', 'MARKET']
+
+            balances = {}
+            for tok in tokens:
+                try:
+                    balances[tok] = self.balance(address, tok)
+                except Exception as e:
+                    print(f'Error getting balance for {tok}: {e}')
+                    balances[tok] = 0
+            return balances
+        else:
+            # Get all holders for a single token by scanning Transfer events
+            return self.scan_token_holders(token=token, from_block=from_block, to_block=to_block, weeks=weeks)
+
+    def scan_token_holders(self, token:str='market', from_block:int=0, to_block:int=None, weeks:int=2, block_time:int=2, batch_size:int=10000) -> dict:
+        """Scan blockchain for all token holders by analyzing Transfer events.
+
+        Args:
+            token: Token symbol to scan (default 'market')
+            from_block: Starting block number (default: calculated from weeks)
+            to_block: Ending block number (default: latest)
+            weeks: Number of weeks to look back (default: 2)
+            block_time: Average block time in seconds for Base chain (default: 2)
+            batch_size: Number of blocks to scan per batch (default: 10000)
+
+        Returns:
+            Dictionary mapping addresses to their token balances
+        """
+        # Get token contract info
+        token_lower = token.lower()
+        cfg = self.contracts_config().get(token_lower)
+        if not cfg:
+            raise ValueError(f'Token {token} not found in config')
+
+        token_address = cfg['address']
+        token_abi = self.ipfs.get(cfg['abi'])
+        token_contract = self.w3.eth.contract(
+            address=Web3.to_checksum_address(token_address),
+            abi=token_abi
+        )
+
+        # Calculate block range
+        if to_block is None:
+            to_block = self.w3.eth.block_number
+
+        if from_block == 0:
+            # Calculate blocks for the time period
+            # Base chain: ~2 second block time
+            seconds_in_period = weeks * 7 * 24 * 60 * 60
+            blocks_in_period = seconds_in_period // block_time
+            from_block = max(0, to_block - blocks_in_period)
+
+        total_blocks = to_block - from_block
+        m.print(f'Scanning {token.upper()} transfers from block {from_block} to {to_block} ({total_blocks:,} blocks)', color='cyan')
+
+        # Scan in batches to avoid RPC limits
+        all_events = []
+        current_block = from_block
+
+        while current_block <= to_block:
+            batch_end = min(current_block + batch_size - 1, to_block)
+
+            try:
+                m.print(f'Fetching events from block {current_block:,} to {batch_end:,}...', color='yellow')
+
+                # Transfer event signature: Transfer(address indexed from, address indexed to, uint256 value)
+                transfer_filter = token_contract.events.Transfer.create_filter(
+                    fromBlock=current_block,
+                    toBlock=batch_end
+                )
+
+                # Get events for this batch
+                events = transfer_filter.get_all_entries()
+                all_events.extend(events)
+                m.print(f'  Found {len(events)} events in this batch', color='green')
+
+            except Exception as e:
+                m.print(f'Error fetching events for blocks {current_block}-{batch_end}: {e}', color='red')
+                # Try with smaller batch size if failed
+                if batch_size > 1000:
+                    m.print(f'Retrying with smaller batch size...', color='yellow')
+                    return self.scan_token_holders(token, from_block, to_block, weeks, block_time, batch_size=batch_size // 2)
+                raise
+
+            current_block = batch_end + 1
+
+        m.print(f'Total events found: {len(all_events):,}', color='green')
+
+        # Build balance map by tracking all transfers
+        balances = {}
+        zero_address = '0x0000000000000000000000000000000000000000'
+
+        for event in all_events:
+            from_addr = event['args']['from']
+            to_addr = event['args']['to']
+            value = event['args']['value']
+
+            # Subtract from sender (unless it's a mint from zero address)
+            if from_addr != zero_address:
+                from_addr_lower = from_addr.lower()
+                if from_addr_lower not in balances:
+                    balances[from_addr_lower] = 0
+                balances[from_addr_lower] -= value
+
+            # Add to receiver (unless it's a burn to zero address)
+            if to_addr != zero_address:
+                to_addr_lower = to_addr.lower()
+                if to_addr_lower not in balances:
+                    balances[to_addr_lower] = 0
+                balances[to_addr_lower] += value
+
+        # Get current balances for all addresses that had transfers
+        m.print(f'Fetching current balances for {len(balances):,} addresses...', color='yellow')
+        final_balances = {}
+
+        for i, addr in enumerate(balances.keys()):
+            try:
+                if (i + 1) % 100 == 0:
+                    m.print(f'  Progress: {i + 1}/{len(balances)} addresses checked', color='cyan')
+
+                current_balance = token_contract.functions.balanceOf(Web3.to_checksum_address(addr)).call()
+                if current_balance > 0:
+                    final_balances[addr] = self.format_balance(current_balance, token=token.upper())
+            except Exception as e:
+                m.print(f'Error getting balance for {addr}: {e}', color='red')
+                continue
+
+        m.print(f'Found {len(final_balances):,} addresses with non-zero balances', color='green')
+        return final_balances
+
     def credits(self, address: str=None) -> int:
         """Get stable token balance.
         Args:
@@ -895,4 +1038,364 @@ class Mod:
     def ganache(self, port: int = 8545):
         """Start Ganache."""
         return os.system(f'cd {self.path} && docker-compose up -d ganache')
+
+    # ==================== RAW TRANSACTION FUNCTIONS ====================
+
+    def rpc_call(self, method: str, params: list = None) -> Dict[str, Any]:
+        """Make a raw JSON-RPC call to the Ethereum node.
+
+        Args:
+            method: RPC method name (e.g., 'eth_sendRawTransaction')
+            params: List of parameters for the method
+
+        Returns:
+            JSON-RPC response
+        """
+        if params is None:
+            params = []
+
+        payload = {
+            'jsonrpc': '2.0',
+            'method': method,
+            'params': params,
+            'id': 1
+        }
+
+        response = requests.post(self.rpc_url, json=payload, headers={'Content-Type': 'application/json'})
+        response.raise_for_status()
+        result = response.json()
+
+        if 'error' in result:
+            raise Exception(f"RPC Error: {result['error']}")
+
+        return result.get('result')
+
+    def get_nonce(self, address: str) -> int:
+        """Get transaction nonce for an address using raw RPC.
+
+        Args:
+            address: Ethereum address
+
+        Returns:
+            Current nonce
+        """
+        return int(self.rpc_call('eth_getTransactionCount', [address, 'latest']), 16)
+
+    def get_gas_price(self) -> int:
+        """Get current gas price using raw RPC.
+
+        Returns:
+            Gas price in wei
+        """
+        return int(self.rpc_call('eth_gasPrice'), 16)
+
+    def estimate_gas(self, transaction: Dict[str, Any]) -> int:
+        """Estimate gas for a transaction using raw RPC.
+
+        Args:
+            transaction: Transaction dictionary
+
+        Returns:
+            Estimated gas
+        """
+        return int(self.rpc_call('eth_estimateGas', [transaction]), 16)
+
+    def build_transaction(self,
+                         to: str,
+                         data: str = '0x',
+                         value: int = 0,
+                         gas: int = None,
+                         gas_price: int = None,
+                         nonce: int = None,
+                         chain_id: int = None) -> Dict[str, Any]:
+        """Build a raw transaction dictionary.
+
+        Args:
+            to: Recipient address
+            data: Transaction data (hex string)
+            value: ETH value in wei
+            gas: Gas limit (auto-estimated if None)
+            gas_price: Gas price in wei (auto-fetched if None)
+            nonce: Transaction nonce (auto-fetched if None)
+            chain_id: Chain ID (uses network default if None)
+
+        Returns:
+            Transaction dictionary ready for signing
+        """
+        # Get chain ID
+        if chain_id is None:
+            chain_id = int(self.rpc_call('eth_chainId'), 16)
+
+        # Build base transaction
+        tx = {
+            'to': Web3.to_checksum_address(to),
+            'value': hex(value),
+            'data': data,
+            'chainId': hex(chain_id)
+        }
+
+        # Get nonce if not provided
+        if nonce is None:
+            nonce = self.get_nonce(self.account.address)
+        tx['nonce'] = hex(nonce)
+
+        # Get gas price if not provided
+        if gas_price is None:
+            gas_price = self.get_gas_price()
+        tx['gasPrice'] = hex(gas_price)
+
+        # Estimate gas if not provided
+        if gas is None:
+            gas = self.estimate_gas(tx)
+        tx['gas'] = hex(gas)
+
+        return tx
+
+    def sign_transaction(self, transaction: Dict[str, Any], private_key: str = None) -> str:
+        """Sign a transaction with a private key.
+
+        Args:
+            transaction: Transaction dictionary
+            private_key: Private key (uses default account if None)
+
+        Returns:
+            Signed transaction as hex string
+        """
+        if private_key is None:
+            private_key = self.account.key
+        else:
+            # Handle string private key
+            if isinstance(private_key, str):
+                if not private_key.startswith('0x'):
+                    private_key = '0x' + private_key
+
+        # Create account from private key
+        account: LocalAccount = Account.from_key(private_key)
+
+        # Sign the transaction
+        signed = account.sign_transaction(transaction)
+
+        # Return raw transaction as hex
+        return signed.rawTransaction.hex()
+
+    def send_raw_transaction(self, signed_tx: str) -> str:
+        """Send a signed raw transaction using JSON-RPC.
+
+        Args:
+            signed_tx: Signed transaction hex string
+
+        Returns:
+            Transaction hash
+        """
+        if not signed_tx.startswith('0x'):
+            signed_tx = '0x' + signed_tx
+
+        tx_hash = self.rpc_call('eth_sendRawTransaction', [signed_tx])
+        return tx_hash
+
+    def wait_for_transaction(self, tx_hash: str, timeout: int = 120, poll_interval: int = 2) -> Dict[str, Any]:
+        """Wait for a transaction to be mined using raw RPC.
+
+        Args:
+            tx_hash: Transaction hash
+            timeout: Maximum wait time in seconds
+            poll_interval: Polling interval in seconds
+
+        Returns:
+            Transaction receipt
+        """
+        import time
+
+        if not tx_hash.startswith('0x'):
+            tx_hash = '0x' + tx_hash
+
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            try:
+                receipt = self.rpc_call('eth_getTransactionReceipt', [tx_hash])
+                if receipt is not None:
+                    return receipt
+            except Exception as e:
+                m.print(f'Error getting receipt: {e}', color='red')
+
+            time.sleep(poll_interval)
+
+        raise TimeoutError(f'Transaction {tx_hash} not mined within {timeout} seconds')
+
+    def raw_transfer(self,
+                    to: str,
+                    amount: float,
+                    token: str = 'market',
+                    private_key: str = None,
+                    gas: int = None,
+                    wait: bool = True) -> Dict[str, Any]:
+        """Transfer tokens using raw transaction (no web3.py dependency).
+
+        Args:
+            to: Recipient address
+            amount: Amount to transfer
+            token: Token symbol (default 'market')
+            private_key: Private key to sign with (uses default if None)
+            gas: Gas limit (auto-estimated if None)
+            wait: Wait for transaction to be mined
+
+        Returns:
+            Transaction hash or receipt (if wait=True)
+        """
+        # Get token contract info
+        token_lower = token.lower()
+        cfg = self.contracts_config().get(token_lower)
+        if not cfg:
+            raise ValueError(f'Token {token} not found in config')
+
+        token_address = cfg['address']
+
+        # Encode transfer function call
+        # transfer(address to, uint256 amount)
+        # Function selector: 0xa9059cbb
+        amount_wei = int(amount * 10**self.decimals)
+        to_padded = to[2:].zfill(64) if to.startswith('0x') else to.zfill(64)
+        amount_hex = hex(amount_wei)[2:].zfill(64)
+        data = f"0xa9059cbb{to_padded}{amount_hex}"
+
+        # Build transaction
+        tx = self.build_transaction(
+            to=token_address,
+            data=data,
+            value=0,
+            gas=gas
+        )
+
+        m.print(f'Transferring {amount} {token.upper()} to {to}...', color='cyan')
+
+        # Sign transaction
+        signed_tx = self.sign_transaction(tx, private_key)
+
+        # Send transaction
+        tx_hash = self.send_raw_transaction(signed_tx)
+        m.print(f'Transaction sent: {tx_hash}', color='green')
+
+        if wait:
+            m.print('Waiting for confirmation...', color='yellow')
+            receipt = self.wait_for_transaction(tx_hash)
+            m.print('Transaction confirmed!', color='green')
+            return {
+                'hash': tx_hash,
+                'receipt': receipt,
+                'status': 'success' if receipt.get('status') == '0x1' else 'failed'
+            }
+
+        return {'hash': tx_hash, 'status': 'pending'}
+
+    def raw_credit(self,
+                   stable_amount: float,
+                   payment_token: str = 'usdt',
+                   private_key: str = None,
+                   wait: bool = True) -> Dict[str, Any]:
+        """Buy stable tokens using raw transactions.
+
+        Args:
+            stable_amount: Amount of stable tokens to buy
+            payment_token: Payment token symbol
+            private_key: Private key to sign with
+            wait: Wait for transactions to be mined
+
+        Returns:
+            Transaction results
+        """
+        # Get market contract
+        market_cfg = self.contracts_config().get('market')
+        market_address = market_cfg['address']
+
+        # Get payment token contract
+        payment_cfg = self.contracts_config().get(payment_token.lower())
+        payment_address = payment_cfg['address']
+
+        # Get token price from TokenGate
+        tokengate = self.contracts.get('tokengate')
+        price_info = tokengate.functions.getTokenPrice(payment_address).call()
+        token_price = price_info[0]
+        token_decimals = price_info[1]
+
+        # Calculate payment amount
+        payment_amount = int((stable_amount * (10 ** token_decimals)) // token_price)
+
+        m.print(f'Step 1: Approving {payment_amount / (10**token_decimals)} {payment_token.upper()}...', color='cyan')
+
+        # Build approve transaction
+        # approve(address spender, uint256 amount)
+        # Function selector: 0x095ea7b3
+        spender_padded = market_address[2:].zfill(64)
+        amount_hex = hex(payment_amount)[2:].zfill(64)
+        approve_data = f"0x095ea7b3{spender_padded}{amount_hex}"
+
+        approve_tx = self.build_transaction(
+            to=payment_address,
+            data=approve_data,
+            value=0
+        )
+
+        # Sign and send approve
+        signed_approve = self.sign_transaction(approve_tx, private_key)
+        approve_hash = self.send_raw_transaction(signed_approve)
+
+        if wait:
+            approve_receipt = self.wait_for_transaction(approve_hash)
+            m.print(f'Approval confirmed: {approve_hash}', color='green')
+
+        m.print(f'Step 2: Crediting {stable_amount} stable tokens...', color='cyan')
+
+        # Build credit transaction
+        # credit(address token, uint256 amount)
+        # Function selector: 0x6bff1c3e (you'll need to check your contract ABI)
+        # For now, using the web3 method - you can extract the data field from it
+        market = self.contracts.get('market')
+        credit_call = market.functions.credit(payment_address, int(stable_amount * 10**self.decimals))
+        credit_data = credit_call._encode_transaction_data()
+
+        credit_tx = self.build_transaction(
+            to=market_address,
+            data=credit_data,
+            value=0
+        )
+
+        # Sign and send credit
+        signed_credit = self.sign_transaction(credit_tx, private_key)
+        credit_hash = self.send_raw_transaction(signed_credit)
+
+        if wait:
+            credit_receipt = self.wait_for_transaction(credit_hash)
+            m.print(f'Credit confirmed: {credit_hash}', color='green')
+
+            return {
+                'approve_hash': approve_hash,
+                'credit_hash': credit_hash,
+                'status': 'success'
+            }
+
+        return {
+            'approve_hash': approve_hash,
+            'credit_hash': credit_hash,
+            'status': 'pending'
+        }
+
+    def encode_function_call(self, contract_name: str, function_name: str, args: list) -> str:
+        """Encode a function call for a contract.
+
+        Args:
+            contract_name: Name of contract (e.g., 'market')
+            function_name: Name of function
+            args: List of arguments
+
+        Returns:
+            Encoded data as hex string
+        """
+        contract = self.contracts.get(contract_name.lower())
+        if not contract:
+            raise ValueError(f'Contract {contract_name} not found')
+
+        func = getattr(contract.functions, function_name)
+        call = func(*args)
+        return call._encode_transaction_data()
 
