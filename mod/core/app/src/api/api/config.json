@@ -1,0 +1,26 @@
+{
+    "port": 8000,
+    "fns" :  [
+                "mods",
+                "names", 
+                "reg", 
+                "edit",
+                "mod",
+                "versions",
+                "txs",
+                "call",
+                "get",
+                "users", 
+                "user", 
+                "n", 
+                "info",
+                "balance",
+                "versions",
+                "reg_url",
+                "reg_from_info",
+                "hardware",
+                "servers", 
+                "server_exists",
+                "reg_payload"
+                 ]
+}

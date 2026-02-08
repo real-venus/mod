@@ -12,7 +12,7 @@ interface ModVersionsProps {
 }
 
 interface Version {
-  cid: string
+  data: string
   comment: string | null
   updated: string
 }
@@ -43,10 +43,10 @@ export default function ModVersions({ mod }: ModVersionsProps) {
     fetchVersions()
   }, [client, mod.key])
 
-  const handleSetVersion = async (cid: string, versionNum: number) => {
+  const handleSetVersion = async (data: string, versionNum: number) => {
     if (!client || !mod.key) return
     try {
-      await client.call('set_version', { key: mod.key, mod: mod.name, cid })
+      await client.call('set_version', { key: mod.key, mod: mod.name, data })
     } catch (err: any) {
       alert(`Failed to set version: ${err?.message || 'Unknown error'}`)
     }
@@ -114,16 +114,16 @@ export default function ModVersions({ mod }: ModVersionsProps) {
                     <div className="flex items-center gap-1 bg-black/40 border border-green-500/30 rounded px-2 py-1">
                       <Hash className="w-4 h-4 flex-shrink-0" style={{ color: '#10b981' }} />
                       <code className="text-xs font-mono" style={{ color: '#10b981' }}>
-                        {ver.cid.slice(0, 12)}...{ver.cid.slice(-8)}
+                        {ver.data.slice(0, 12)}...{ver.data.slice(-8)}
                       </code>
-                      <CopyButton text={ver.cid} size="sm" />
+                      <CopyButton text={ver.data} size="sm" />
                     </div>
                     {ver.comment && (
                       <p className="text-xs truncate" style={{ color: `${modColor}80` }}>{ver.comment}</p>
                     )}
                   </div>
                   <button
-                    onClick={() => handleSetVersion(ver.cid, originalIdx)}
+                    onClick={() => handleSetVersion(ver.data, originalIdx)}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2 flex-shrink-0 border"
                     style={{ backgroundColor: '#10b981', color: '#fff', borderColor: '#10b981' }}
                   >

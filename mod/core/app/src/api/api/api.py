@@ -454,7 +454,7 @@ class  Api:
         import datetime
         return datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
-    def versions(self, mod='app' , key=None, df=False, n=1000, update=False, max_age=2) -> List[Dict[str, Any]]:
+    def versions(self, mod='app' , key=None, df=False, n=1000, update=True, max_age=None) -> List[Dict[str, Any]]:
 
         if self.store.valid_cid (mod):
             mod_info = self.get(mod)
@@ -470,10 +470,11 @@ class  Api:
 
             if cid != None:
                 while current_n < n:
-                    info = self.mod(cid, key=key)
+                    info = self.get(cid)
+                    print(info)
                     content =  self.get(info['content'])
                     prev_cid = info.get('prev', None)
-                    result.append({'cid': info['cid'], 'comment':  content.get('comment', ''), 'updated': self.timestamp2utc(info['updated']) })
+                    result.append({'data': content['data'], 'comment':  content.get('comment', ''), 'updated': self.timestamp2utc(info['updated']) })
                     if prev_cid == None:
                         break
                     else:
