@@ -20,6 +20,12 @@ export class Client {
 
 
   public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, cost = 0, headers: any = {}, timeout: number = 30000, onCancel?: () => void): Promise<any> {
+    
+    // if / in fn, treat as path and do not append to url
+    if (fn.includes('/')) {
+      params = {fn: fn, params: params, token: this.token || '', wait:true};
+      fn = 'call';
+    }
     let body: string | FormData;
     headers = { token: this.token || ''};
     body = JSON.stringify(params);

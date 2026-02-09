@@ -148,13 +148,15 @@ export function WalletHeader() {
     try {
       setIsRefreshing(true)
 
-      // Use API to get all balances - works on all browsers without MetaMask
-      const balances = await client.call('get_balances', {
+      // Use chain/balance API endpoint to get credit balance
+      const result = await client.call('api/get_balances', {
         address: user.key,
-        tokens: ['ETH', 'USDC', 'USDT', 'MARKET']
       })
+      console.log('Balance API result:', result)
 
-      setTokenBalances(balances || {})
+      // Parse the balance response
+      const balances = result
+      setTokenBalances(balances)
       setMarketCredit(balances?.MARKET || 0)
     } catch (err) {
       console.error('Error fetching balances:', err)
@@ -338,17 +340,22 @@ export function WalletHeader() {
     <div className="flex items-center gap-2">
         <button
           onClick={() => setIsHovered(!isHovered)}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-green-500/40 hover:border-green-500/60 hover:bg-green-500/10 transition-all backdrop-blur-sm group"
-          style={{ height: '60px', boxShadow: '0 0 15px rgba(16, 185, 129, 0.2)' }}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 hover:scale-[1.02] transition-all backdrop-blur-sm group active:scale-95"
+          style={{
+            height: '60px',
+            borderColor: `${userColor}60`,
+            backgroundColor: `${userColor}10`,
+            boxShadow: `0 0 20px ${userColor}30`
+          }}
           title={address}
         >
           <div className="relative">
             <WalletIcon className="w-7 h-7" style={{ color: userColor }} />
             <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black animate-pulse" />
           </div>
-          <div className="flex flex-col items-start">
-            <span className="text-xs text-gray-400 font-bold uppercase tracking-wide">Wallet</span>
-            <code className="text-sm font-mono font-bold" style={{ color: userColor }}>
+          <div className="flex flex-col items-start gap-0.5">
+            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Wallet</span>
+            <code className="text-sm font-mono font-black" style={{ color: userColor }}>
               {shortAddress}
             </code>
           </div>
@@ -357,7 +364,7 @@ export function WalletHeader() {
               e.stopPropagation()
               copyAddress()
             }}
-            className="ml-2 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+            className="ml-1 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 active:scale-90"
             style={{
               backgroundColor: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)'
             }}
@@ -398,10 +405,10 @@ export function WalletHeader() {
               }}
             >
               {/* Header */}
-              <div className="sticky top-0 z-10 flex justify-between items-center p-4 border-b backdrop-blur-xl" style={{ borderColor: `${userColor}30`, backgroundColor: 'rgba(0, 0, 0, 0.9)' }}>
-                <div className="flex flex-col">
+              <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-4 border-b backdrop-blur-xl" style={{ borderColor: `${userColor}30`, backgroundColor: 'rgba(0, 0, 0, 0.95)' }}>
+                <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">
-                    <code className="text-lg font-bold font-mono tracking-wider" style={{ color: userColor }}>
+                    <code className="text-xl font-black font-mono tracking-wider" style={{ color: userColor }}>
                       {shortAddress}
                     </code>
                     <button
@@ -427,16 +434,16 @@ export function WalletHeader() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-gray-500 uppercase tracking-widest">Credit</span>
-                    <span className="text-sm font-mono font-bold text-yellow-400">
+                  <div className="flex items-center gap-2 px-2 py-1 rounded-lg" style={{ backgroundColor: `${userColor}10` }}>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Credit</span>
+                    <span className="text-base font-mono font-black text-yellow-400">
                       ${marketCredit.toFixed(2)}
                     </span>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsHovered(false)}
-                  className="p-2 rounded-lg hover:bg-white/10 transition-all"
+                  className="p-2 rounded-lg hover:bg-white/10 transition-all active:scale-95"
                   style={{ color: userColor }}
                 >
                   <XMarkIcon className="w-6 h-6" />
@@ -444,152 +451,143 @@ export function WalletHeader() {
               </div>
 
             {/* Wallet Mode */}
-            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-              <div className="text-xs text-gray-400 font-bold uppercase tracking-widest">Mode</div>
+            <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
+              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Mode</div>
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                <div className="font-mono text-xs font-bold px-3 py-1 rounded-lg" style={{ color: userColor, backgroundColor: `${userColor}15` }}>
+                <div className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg" style={{ color: userColor, backgroundColor: `${userColor}15` }}>
                   {walletMode || 'local'}
                 </div>
               </div>
             </div>
 
-            {/* Network Selector */}
+{/* Action Tabs */}
             <div className="px-5 py-4 border-b border-white/10">
-              <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-3">Network</div>
-              <select
-                value={selectedNetwork.id}
-                onChange={(e) => {
-                  const network = NETWORKS.find(n => n.id === e.target.value)
-                  if (network) handleNetworkChange(network)
-                }}
-                className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-green-500 transition-all cursor-pointer"
-                style={{ color: selectedNetwork.color }}
-              >
-                {NETWORKS.map((network) => (
-                  <option key={network.id} value={network.id} style={{ backgroundColor: '#000' }}>
-                    {network.name}
-                  </option>
-                ))}
-              </select>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: selectedNetwork.color }} />
-                <span className="text-xs text-gray-500 font-mono">Connected</span>
-              </div>
-            </div>
+              <div className="flex gap-2 mb-4">
+                {/* ADD BUTTON */}
+                <button
+                  onClick={() => {
+                    setShowTopUpForm(!showTopUpForm)
+                    setShowTransferForm(false)
+                  }}
+                  className={`flex-1 flex flex-col items-center justify-center gap-2 py-4 px-4 rounded-xl font-black text-sm uppercase transition-all duration-300 backdrop-blur-sm border-2 ${
+                    showTopUpForm
+                      ? 'scale-[1.02] shadow-2xl'
+                      : 'bg-black/40 text-white/60 border-white/20 hover:border-white/40 hover:text-white/90 hover:scale-[1.02] hover:shadow-lg'
+                  }`}
+                  style={
+                    showTopUpForm
+                      ? {
+                          background: 'linear-gradient(135deg, #10b98120 0%, #10b98140 100%)',
+                          borderColor: '#10b981',
+                          color: '#10b981',
+                          boxShadow: '0 0 30px #10b98140, 0 0 60px #10b98120'
+                        }
+                      : undefined
+                  }
+                >
+                  <CreditCardIcon className="w-6 h-6" />
+                  <span>ADD</span>
+                </button>
 
-            {/* Auth Token */}
-            <div className="px-5 py-4 border-b border-white/10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs text-gray-400 font-bold uppercase tracking-widest">Token</div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <ClockIcon className="w-3.5 h-3.5 text-gray-500" />
-                    <span className="text-xs font-mono font-bold text-gray-500">{tokenExpiry || getTokenExpiry()}</span>
-                  </div>
+                {/* SEND BUTTON */}
+                <button
+                  onClick={() => {
+                    setShowTransferForm(!showTransferForm)
+                    setShowTopUpForm(false)
+                  }}
+                  className={`flex-1 flex flex-col items-center justify-center gap-2 py-4 px-4 rounded-xl font-black text-sm uppercase transition-all duration-300 backdrop-blur-sm border-2 ${
+                    showTransferForm
+                      ? 'scale-[1.02] shadow-2xl'
+                      : 'bg-black/40 text-white/60 border-white/20 hover:border-white/40 hover:text-white/90 hover:scale-[1.02] hover:shadow-lg'
+                  }`}
+                  style={
+                    showTransferForm
+                      ? {
+                          background: 'linear-gradient(135deg, #3b82f620 0%, #3b82f640 100%)',
+                          borderColor: '#3b82f6',
+                          color: '#3b82f6',
+                          boxShadow: '0 0 30px #3b82f640, 0 0 60px #3b82f620'
+                        }
+                      : undefined
+                  }
+                >
+                  <ArrowsRightLeftIcon className="w-6 h-6" />
+                  <span>SEND</span>
+                </button>
+
+                {/* TOKEN BUTTON */}
+                <div className="flex-1 relative">
                   <button
-                    onClick={() => {
+                    onClick={handleRefreshToken}
+                    disabled={isRefreshing}
+                    className="w-full h-full flex flex-col items-center justify-center gap-1 py-4 px-4 rounded-xl font-black text-sm uppercase transition-all duration-300 backdrop-blur-sm border-2 bg-black/40 text-white/60 border-white/20 hover:border-white/40 hover:text-white/90 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-50"
+                    style={{
+                      background: 'linear-gradient(135deg, #a855f720 0%, #a855f740 100%)',
+                      borderColor: '#a855f7',
+                      color: '#a855f7',
+                    }}
+                  >
+                    <ArrowPathIcon className={`w-6 h-6 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <span className="text-xs">TOKEN</span>
+                    <div className="flex items-center gap-1">
+                      <ClockIcon className="w-3 h-3" />
+                      <span className="text-[10px] font-mono">{tokenExpiry || getTokenExpiry()}</span>
+                    </div>
+                  </button>
+                  {/* Copy Button Overlay */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
                       const token = typeof window !== 'undefined' ? localStorage.getItem('wallet_token') || '' : ''
                       navigator.clipboard.writeText(token)
                       setCopied(true)
                       setTimeout(() => setCopied(false), 2000)
                     }}
-                    className="p-1.5 rounded-lg transition-all hover:bg-white/10 active:scale-95"
-                    style={{ color: userColor }}
+                    className="absolute top-2 right-2 p-1 rounded-md transition-all hover:bg-white/20 active:scale-95"
+                    style={{ color: '#a855f7' }}
                     title="Copy Token"
                   >
                     <ClipboardDocumentIcon className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={handleRefreshToken}
-                    disabled={isRefreshing}
-                    className="p-1.5 rounded-lg transition-all hover:bg-white/10 active:scale-95 disabled:opacity-50"
-                    style={{ color: userColor }}
-                    title="Rotate Token"
-                  >
-                    <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  </button>
+                  {copied && (
+                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-green-400 font-mono font-bold whitespace-nowrap">
+                      ✓ COPIED
+                    </div>
+                  )}
                 </div>
               </div>
-              <code className="font-mono text-sm text-gray-400 block break-all leading-relaxed">
-                {typeof window !== 'undefined' ? localStorage.getItem('wallet_token')?.substring(0, 16) + '...' + localStorage.getItem('wallet_token')?.slice(-12) : ''}
-              </code>
-              {copied && (
-                <div className="text-xs text-green-400 mt-2 text-center font-mono">✓ COPIED</div>
-              )}
-            </div>
 
-            {/* Market Credit Balance */}
-            <div className="p-4 border-b border-white/10">
-              <div className="flex items-center justify-between mb-4">
+              {/* Balance Display */}
+              <div className="flex items-center justify-between mb-3">
                 <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Balance</div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={fetchMarketCredit}
-                    disabled={isRefreshing}
-                    className="p-1 rounded transition-all hover:scale-110 active:scale-95 disabled:opacity-50 opacity-40 hover:opacity-100"
-                    style={{ color: userColor }}
-                    title="Refresh Balance"
-                  >
-                    <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowTopUpForm(!showTopUpForm)
-                      setShowTransferForm(false)
-                    }}
-                    className="flex items-center gap-1 px-2 py-1 rounded transition-all hover:scale-105 active:scale-95 opacity-60 hover:opacity-100"
-                    style={{ color: userColor, backgroundColor: `${userColor}15` }}
-                    title="Top Up"
-                  >
-                    <CreditCardIcon className="w-3 h-3" />
-                    <span className="text-[10px] font-bold tracking-wider">ADD</span>
-                    {showTopUpForm ? (
-                      <ChevronUpIcon className="w-3 h-3" />
-                    ) : (
-                      <ChevronDownIcon className="w-3 h-3" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowTransferForm(!showTransferForm)
-                      setShowTopUpForm(false)
-                    }}
-                    className="flex items-center gap-1 px-2 py-1 rounded transition-all hover:scale-105 active:scale-95 opacity-60 hover:opacity-100"
-                    style={{ color: '#3b82f6', backgroundColor: '#3b82f615' }}
-                    title="Transfer"
-                  >
-                    <ArrowsRightLeftIcon className="w-3 h-3" />
-                    <span className="text-[10px] font-bold tracking-wider">SEND</span>
-                    {showTransferForm ? (
-                      <ChevronUpIcon className="w-3 h-3" />
-                    ) : (
-                      <ChevronDownIcon className="w-3 h-3" />
-                    )}
-                  </button>
-                </div>
+                <button
+                  onClick={fetchMarketCredit}
+                  disabled={isRefreshing}
+                  className="p-1.5 rounded-lg transition-all hover:bg-white/10 active:scale-95 disabled:opacity-50"
+                  style={{ color: userColor }}
+                  title="Refresh Balance"
+                >
+                  <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
               </div>
 
-              <div className="flex items-baseline justify-between mb-1">
+              <div className="flex items-center justify-between mb-3">
                 <div
-                  className="font-mono text-4xl font-black tracking-tighter bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 bg-clip-text text-transparent"
+                  className="font-mono text-5xl font-black tracking-tighter bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 bg-clip-text text-transparent"
                   style={{
-                    textShadow: `0 0 20px ${userColor}40`
+                    textShadow: `0 0 30px ${userColor}40`
                   }}
                 >
                   ${marketCredit.toFixed(2)}
                 </div>
                 <button
                   onClick={() => setShowAllBalances(!showAllBalances)}
-                  className="text-[10px] text-gray-500 hover:text-gray-300 font-mono transition-colors flex items-center gap-1"
+                  className="text-[10px] text-gray-500 hover:text-gray-300 font-bold transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/10"
                 >
-                  {showAllBalances ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+                  {showAllBalances ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
                   All
                 </button>
-              </div>
-
-              <div className="text-[10px] text-gray-500/70 bg-gray-500/5 border border-gray-500/20 rounded px-2 py-1 mb-2 font-mono">
-                Mode: {user?.wallet_mode === 'local' ? '🔑 Local Key' : '🦊 MetaMask'}
               </div>
 
               {/* All Token Balances */}
@@ -600,16 +598,16 @@ export function WalletHeader() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="mb-2 overflow-hidden"
+                    className="overflow-hidden"
                   >
-                    <div className="space-y-1 pt-2 border-t border-white/10">
+                    <div className="space-y-1.5 pt-3 mt-3 border-t border-white/20">
                       {Object.entries(tokenBalances).map(([token, balance]) => (
                         <div
                           key={token}
-                          className="flex items-center justify-between px-2 py-1 bg-black/40 rounded text-[10px]"
+                          className="flex items-center justify-between px-3 py-2 bg-black/60 rounded-lg border border-white/10 hover:bg-black/80 transition-all"
                         >
-                          <span className="font-bold text-gray-400">{token}</span>
-                          <span className="font-mono text-gray-300">
+                          <span className="font-bold text-xs text-gray-400 uppercase tracking-wider">{token}</span>
+                          <span className="font-mono text-sm font-bold text-gray-200">
                             {token === 'MARKET' || token === 'USDC' || token === 'USDT'
                               ? `$${balance.toFixed(2)}`
                               : balance.toFixed(6)}
@@ -629,15 +627,15 @@ export function WalletHeader() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="mt-3 pt-3 border-t border-white/10 space-y-3 overflow-hidden"
+                    className="mt-4 pt-4 border-t border-white/20 space-y-3 overflow-hidden"
                   >
                     <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block tracking-wider">Token</label>
+                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block tracking-wider">Payment Token</label>
                       <select
                         value={selectedToken}
                         onChange={(e) => setSelectedToken(e.target.value as TokenType)}
-                        className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-green-500 transition-all"
-                        style={{ color: userColor }}
+                        className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2.5 text-sm font-bold font-mono focus:outline-none focus:border-opacity-50 transition-all"
+                        style={{ color: userColor, borderColor: `${userColor}40` }}
                       >
                         <option value="USDC">USDC</option>
                         <option value="USDT">USDT</option>
@@ -645,7 +643,7 @@ export function WalletHeader() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block tracking-wider">Amount</label>
+                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block tracking-wider">Amount (USD)</label>
                       <input
                         type="number"
                         value={topUpAmount}
@@ -654,15 +652,15 @@ export function WalletHeader() {
                         min="0"
                         step="0.01"
                         placeholder="10.00"
-                        className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-xs font-mono placeholder-gray-700 focus:outline-none focus:border-green-500 disabled:opacity-50 transition-all"
-                        style={{ color: userColor }}
+                        className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2.5 text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-opacity-50 disabled:opacity-50 transition-all"
+                        style={{ color: userColor, borderColor: `${userColor}40` }}
                       />
                     </div>
 
                     <button
                       onClick={handleTopUpTransaction}
                       disabled={!topUpAmount || isProcessing}
-                      className="w-full py-2.5 border rounded-lg font-mono uppercase font-bold text-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 tracking-wider"
+                      className="w-full py-3 border-2 rounded-lg font-mono uppercase font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 tracking-wider"
                       style={{
                         borderColor: userColor,
                         color: userColor,
@@ -671,25 +669,25 @@ export function WalletHeader() {
                     >
                       {isProcessing ? (
                         <>
-                          <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
                           <span>PROCESSING</span>
                         </>
                       ) : (
                         <>
-                          <CreditCardIcon className="w-3.5 h-3.5" />
+                          <CreditCardIcon className="w-4 h-4" />
                           <span>ADD CREDIT</span>
                         </>
                       )}
                     </button>
 
                     {topUpError && (
-                      <div className="text-[10px] text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2 font-mono">
+                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2.5 font-mono">
                         {topUpError}
                       </div>
                     )}
 
                     {topUpSuccess && (
-                      <div className="text-[10px] text-green-400 bg-green-500/5 border border-green-500/20 rounded-lg px-3 py-2 font-mono">
+                      <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2.5 font-mono">
                         {topUpSuccess}
                       </div>
                     )}
@@ -705,22 +703,22 @@ export function WalletHeader() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="mt-3 pt-3 border-t border-white/10 space-y-3 overflow-hidden"
+                    className="mt-4 pt-4 border-t border-white/20 space-y-3 overflow-hidden"
                   >
                     <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block tracking-wider">Recipient</label>
+                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block tracking-wider">Recipient Address</label>
                       <input
                         type="text"
                         value={transferRecipient}
                         onChange={(e) => setTransferRecipient(e.target.value)}
                         disabled={isTransferring}
                         placeholder="0x..."
-                        className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-xs font-mono placeholder-gray-700 focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all text-blue-400"
+                        className="w-full bg-black/60 border border-blue-500/40 rounded-lg px-3 py-2.5 text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500/60 disabled:opacity-50 transition-all text-blue-400"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block tracking-wider">Amount</label>
+                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block tracking-wider">Amount (USD)</label>
                       <input
                         type="number"
                         value={transferAmount}
@@ -729,14 +727,14 @@ export function WalletHeader() {
                         min="0"
                         step="0.01"
                         placeholder="10.00"
-                        className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-xs font-mono placeholder-gray-700 focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all text-blue-400"
+                        className="w-full bg-black/60 border border-blue-500/40 rounded-lg px-3 py-2.5 text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500/60 disabled:opacity-50 transition-all text-blue-400"
                       />
                     </div>
 
                     <button
                       onClick={handleTransfer}
                       disabled={!transferAmount || !transferRecipient || isTransferring}
-                      className="w-full py-2.5 border rounded-lg font-mono uppercase font-bold text-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 tracking-wider"
+                      className="w-full py-3 border-2 rounded-lg font-mono uppercase font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 tracking-wider"
                       style={{
                         borderColor: '#3b82f6',
                         color: '#3b82f6',
@@ -745,25 +743,25 @@ export function WalletHeader() {
                     >
                       {isTransferring ? (
                         <>
-                          <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
                           <span>SENDING</span>
                         </>
                       ) : (
                         <>
-                          <ArrowsRightLeftIcon className="w-3.5 h-3.5" />
+                          <ArrowsRightLeftIcon className="w-4 h-4" />
                           <span>SEND CREDIT</span>
                         </>
                       )}
                     </button>
 
                     {topUpError && (
-                      <div className="text-[10px] text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2 font-mono">
+                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2.5 font-mono">
                         {topUpError}
                       </div>
                     )}
 
                     {topUpSuccess && (
-                      <div className="text-[10px] text-green-400 bg-green-500/5 border border-green-500/20 rounded-lg px-3 py-2 font-mono">
+                      <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2.5 font-mono">
                         {topUpSuccess}
                       </div>
                     )}
@@ -773,27 +771,54 @@ export function WalletHeader() {
             </div>
 
             {/* Key Type */}
-            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Crypto</div>
-              <div className="font-mono text-[10px] font-bold text-gray-600">{user.crypto_type || 'ecdsa'}</div>
+            <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
+              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Crypto Type</div>
+              <div className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 text-gray-400">
+                {user.crypto_type || 'ecdsa'}
+              </div>
             </div>
 
             {/* Actions */}
-            <div className="p-2">
+            <div className="px-4 py-3 border-b border-white/10 space-y-2">
               <button
                 onClick={handleGoToProfile}
-                className="w-full flex items-center gap-3 px-4 py-3 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all text-sm font-medium"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all text-sm font-medium active:scale-95"
               >
                 <UserCircleIcon className="w-5 h-5" />
                 <span>My Profile</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all text-sm font-medium"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all text-sm font-medium active:scale-95"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
                 <span>Sign Out</span>
               </button>
+            </div>
+
+            {/* Network Selector - Bottom */}
+            <div className="px-4 py-3 bg-black/40">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: selectedNetwork.color }} />
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Network</span>
+                </div>
+                <select
+                  value={selectedNetwork.id}
+                  onChange={(e) => {
+                    const network = NETWORKS.find(n => n.id === e.target.value)
+                    if (network) handleNetworkChange(network)
+                  }}
+                  className="flex-1 bg-black/60 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-opacity-50 transition-all cursor-pointer"
+                  style={{ color: selectedNetwork.color, borderColor: `${selectedNetwork.color}40` }}
+                >
+                  {NETWORKS.map((network) => (
+                    <option key={network.id} value={network.id} style={{ backgroundColor: '#000' }}>
+                      {network.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </motion.div>
           </div>
