@@ -252,8 +252,6 @@ class Router:
     sync_counts = {}
     def sync_loop(self):
 
-
-
         def cansync(name: str, interval:int=10) -> bool:
             current_time = m.time()
             interval = self.intervals.get(name, interval)
@@ -269,7 +267,7 @@ class Router:
         while True:
             print('running loop')
             time.sleep(1)
-            fns = ['sync_tasks', 'sync_ious']
+            fns = ['sync_tasks']
             for fn in fns:
                 if cansync(fn):
                     try:

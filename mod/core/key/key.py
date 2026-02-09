@@ -3,20 +3,13 @@ from typing import Union, Optional
 import time
 import os
 import binascii
-import re
-import secrets
-import base64
-import hashlib
-import nacl.bindings
 import copy
-import nacl.public
+import web3
 from scalecodec.base import ScaleBytes
 from bip39 import bip39_to_mini_secret, bip39_generate, bip39_validate
 import sr25519
-from sr25519 import pair_from_ed25519_secret_key
 import ed25519_zebra
 import mod as m
-import re
 from hashlib import blake2b
 import json
 from scalecodec.types import Bytes
@@ -653,6 +646,9 @@ class Key:
         return x
     
 
+    def to_checksum_address(self, address):
+        return web3.Web3.to_checksum_address(address)
+    lowercase2checksum = to_checksum_address
     def get_encryption_key(self,  password:str=None, key:Optional[str]=None):
         """
         get the encryption key

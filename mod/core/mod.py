@@ -1340,8 +1340,9 @@ class Mod:
     def get_tree(self, 
                 path:Optional[str]=None, 
                 search:Optional[str]=None, 
-                depth=4, 
-                update=False,  
+                depth=1, 
+                update=False,
+                key = None, 
                 local_cache = True,
                 **kwargs) -> Dict[str, str]: 
         """
@@ -1349,8 +1350,11 @@ class Mod:
         params: 
             
         """
-
-        path = path or self.paths["core"]
+        if key is not None:
+            key_address = self.key_address(key)
+            path = self.paths["orbit"]["outer"] + '/' + key_address
+        else:
+            path = path or self.paths["core"]
         relpath = self.hash(self.relpath(path))
         cache_path = self.abspath(f'~/.mod/tree/{relpath}/depth_{depth}.json')
         if update:
@@ -1383,7 +1387,10 @@ class Mod:
 
         tree = {k: self.abspath(v) for k,v in tree.items()}
         if search:
-            return self.search(search=search, tree=tree, **kwargs)
+            tree = self.search(search=search, tree=tree, key=key, **kwargs)
+        if key is not None:
+            print(f'Filtering tree for key {key} with address {key_address}')
+            tree = {k.replace(key_address.lower() + '.', ''):v for k,v in tree.items() }
         return tree
 
     def core_tree(self, search=None, depth=8,  **kwargs): 
@@ -1401,6 +1408,8 @@ class Mod:
         v = False
         if k_lower == search:
             v =  True
+        elif k_lower.split('.')[0].startswith('0x') and k_lower.endswith('.' + search):
+            v =  True
         elif all([search_chunk in k_lower.split('.') for search_chunk in search.split('.')]):
             v =  True
         elif k_lower.endswith('.' + search):
@@ -1409,14 +1418,17 @@ class Mod:
             v =  True
         return v
 
-    def search(self, search=None, tree=None, depth=1, max_depth=6 , orbit='all' ,**kwargs) -> Dict[str, str]:
+    def search(self, search=None, tree=None, depth=1, max_depth=6 , key=None, orbit='all' ,**kwargs) -> Dict[str, str]:
         """
         search the tree for a mod
         """
         search = search.lower().replace('/', '.')  
-        tree = tree or self.tree(depth=depth, orbit=orbit, **kwargs)
+        tree = tree or self.tree(depth=depth, orbit=orbit, key=key, **kwargs)
         if search == None:
             return tree
+        if key is not None:
+            key_address = self.key_address(key)
+            tree = {k:v for k,v in tree.items() if k.startswith(key_address)}
         # 1 exact match
         tree_options = list(filter(lambda k: self.filter_fn(k, search), tree.keys()))
         if len(tree_options) >= 1:
@@ -1435,6 +1447,7 @@ class Mod:
             search=None, 
             depth=1,
             orbit = 'all', 
+            key=None,
             **kwargs):
         """
         get the full tree of the mods, local and core
@@ -1442,7 +1455,7 @@ class Mod:
         tree = {}
         orbits = self.orbits if orbit == 'all' else [orbit]
         for orbit in orbits:
-            tree.update(self.orbit(orbit, search=search, depth=depth, **kwargs))
+            tree.update(self.orbit(orbit, search=search, depth=depth, key=key, **kwargs))
         tree = dict(sorted(tree.items(), key=lambda item: item[0]))
         return tree
 

@@ -690,6 +690,8 @@ class  Api:
         oriignal_path = m.dp(mod)
         key_address = self.key_address(key)
         new_path = m.paths.orbit['outer'] + '/' + key_address + '/' + mod
+        if os.path.exists(new_path):
+            shutil.rmtree(new_path)
         shutil.copytree(oriignal_path, new_path)
         return self.reg(mod=key_address+'.'+mod, key=key, comment=comment, public=public)
     
