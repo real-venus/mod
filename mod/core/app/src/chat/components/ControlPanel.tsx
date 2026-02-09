@@ -62,23 +62,22 @@ export function ControlPanel({
   }, [functionHasCode, activeTab])
 
   return (
-    <div className="h-full flex flex-col p-4 bg-black/95 backdrop-blur-xl" style={{ fontSize: '1rem' }}>
-      {/* ModuleFunctionSelector and Chat/Params on same line */}
-      <div className="flex gap-4 mb-4">
-        <div className="flex-1">
-          <ModuleFunctionSelector
-            selectedModule={selectedModule}
-            setSelectedModule={setSelectedModule}
-            selectedFunction={selectedFunction}
-            setSelectedFunction={setSelectedFunction}
-            modules={modules}
-            functions={functions}
-            onEnterPress={handleModFnEnterPress}
-          />
-        </div>
+    <div className="h-full flex flex-col p-4 gap-4 bg-black/95 backdrop-blur-xl" style={{ fontSize: '1rem' }}>
+      {/* Module/Function Selector */}
+      <div className="flex-shrink-0">
+        <ModuleFunctionSelector
+          selectedModule={selectedModule}
+          setSelectedModule={setSelectedModule}
+          selectedFunction={selectedFunction}
+          setSelectedFunction={setSelectedFunction}
+          modules={modules}
+          functions={functions}
+          onEnterPress={handleModFnEnterPress}
+        />
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      {/* Input Panel - takes remaining space */}
+      <div className="flex-1 min-h-0">
         <UnifiedInputPanel
           input={input}
           setInput={setInput}

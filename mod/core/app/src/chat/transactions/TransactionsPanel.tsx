@@ -44,9 +44,6 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [totalCount, setTotalCount] = useState(0)
   const [uniqueOwners, setUniqueOwners] = useState<string[]>([])
-  const [isHovered, setIsHovered] = useState(false)
-
-  const panelColor = '#06b6d4' // cyan as primary color
 
   const fetchTransactions = useCallback(async () => {
     if (!client) return
@@ -127,204 +124,124 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
   const totalCost = filteredTransactions.reduce((sum, tx) => sum + (tx.cost || 0), 0)
   const hasFilters = ownerFilter !== 'all' || statusFilter !== 'all' || searchQuery
 
-  const StatBadge = ({ value, label, color }: { value: number | string, label: string, color: string }) => (
-    <div 
-      className="flex items-center gap-2 rounded-xl px-4 py-2.5 border-2 transition-all hover:scale-105 shadow-lg"
-      style={{
-        backgroundColor: colorWithOpacity(color, 0.1),
-        borderColor: colorWithOpacity(color, 0.4),
-      }}
-    >
-      <span className="text-lg font-bold" style={{ color }}>{value}</span>
-      <span className="text-xs uppercase tracking-wider" style={{ color: colorWithOpacity(color, 0.7) }}>{label}</span>
-    </div>
-  )
-
   return (
-    <div 
-      className="flex flex-col h-full relative border-2 rounded-2xl font-mono transition-all backdrop-blur-sm overflow-hidden"
-      style={{
-        fontFamily: 'IBM Plex Mono, Courier New, monospace',
-        backgroundColor: colorWithOpacity(panelColor, 0.05),
-        borderColor: panelColor,
-        boxShadow: isHovered
-          ? `0 0 50px ${colorWithOpacity(panelColor, 0.35)}, 0 0 100px ${colorWithOpacity(panelColor, 0.15)}`
-          : `0 0 25px ${colorWithOpacity(panelColor, 0.2)}`
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Glow effect */}
-      <div
-        className="absolute inset-0 opacity-0 hover:opacity-15 transition-opacity duration-500 rounded-2xl pointer-events-none"
-        style={{
-          background: `radial-gradient(circle at 50% 50%, ${colorWithOpacity(panelColor, 0.3)}, transparent 70%)`
-        }}
-      />
-
-      {/* Header */}
-      <div 
-        className="flex-shrink-0 p-5 border-b-2 backdrop-blur-xl relative"
-        style={{ 
-          borderColor: colorWithOpacity(panelColor, 0.3),
-          background: `linear-gradient(to right, ${colorWithOpacity(panelColor, 0.1)}, ${colorWithOpacity('#3b82f6', 0.1)})`
-        }}
-      >
-        {/* Top row - count and controls */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div 
-              className="flex items-center gap-2 rounded-xl px-5 py-3 border-2 shadow-xl"
-              style={{
-                backgroundColor: colorWithOpacity(panelColor, 0.15),
-                borderColor: colorWithOpacity(panelColor, 0.5),
-              }}
-            >
-              <span className="text-2xl font-bold" style={{ color: panelColor }}>{filteredTransactions.length}</span>
-              <span style={{ color: colorWithOpacity(panelColor, 0.5) }}>/</span>
-              <span className="text-lg" style={{ color: colorWithOpacity(panelColor, 0.7) }}>{totalCount}</span>
-            </div>
-          </div>
-          
+    <div className="flex flex-col h-full bg-neutral-950 font-mono">
+      {/* Compact Single-Line Header */}
+      <div className="flex-shrink-0 px-4 py-3 border-b border-neutral-800 bg-gradient-to-b from-neutral-900/80 to-transparent">
+        <div className="flex items-center gap-3">
+          {/* Transaction count */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              className="px-4 py-2.5 text-sm font-bold rounded-xl border-2 transition-all hover:scale-105"
-              style={{
-                backgroundColor: autoRefresh ? colorWithOpacity('#22c55e', 0.15) : colorWithOpacity('#6b7280', 0.1),
-                borderColor: autoRefresh ? colorWithOpacity('#22c55e', 0.5) : colorWithOpacity('#6b7280', 0.3),
-                color: autoRefresh ? '#4ade80' : '#9ca3af'
-              }}
-            >
-              {autoRefresh ? '● Live' : '○ Paused'}
-            </button>
-            
-            <button
-              onClick={fetchTransactions}
-              disabled={loading}
-              className="p-2.5 rounded-xl border-2 transition-all hover:scale-105 disabled:opacity-50"
-              style={{
-                backgroundColor: colorWithOpacity(panelColor, 0.1),
-                borderColor: colorWithOpacity(panelColor, 0.4),
-                color: panelColor
-              }}
-            >
-              <ArrowPathIcon className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            
-            <button
-              onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
-              className="p-2.5 rounded-xl border-2 transition-all hover:scale-105"
-              style={{
-                backgroundColor: colorWithOpacity('#a855f7', 0.1),
-                borderColor: colorWithOpacity('#a855f7', 0.4),
-                color: '#a855f7'
-              }}
-            >
-              {sortOrder === 'newest' ? <ChevronDownIcon className="w-5 h-5" /> : <ChevronUpIcon className="w-5 h-5" />}
-            </button>
+            <span className="text-2xl font-bold text-cyan-400">{filteredTransactions.length}</span>
+            <span className="text-neutral-600 text-sm font-semibold uppercase tracking-wide">txs</span>
           </div>
-        </div>
 
-        {/* Search */}
-        <div className="relative mb-4">
-          <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: colorWithOpacity(panelColor, 0.5) }} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search transactions..."
-            className="w-full rounded-xl pl-12 pr-4 py-3 text-sm font-medium border-2 focus:outline-none transition-all"
-            style={{
-              backgroundColor: colorWithOpacity(panelColor, 0.05),
-              borderColor: colorWithOpacity(panelColor, 0.3),
-              color: '#e5e7eb'
-            }}
-          />
-        </div>
+          {/* Search - compressed */}
+          <div className="relative flex-1 max-w-xs">
+            <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search..."
+              className="w-full rounded-lg bg-neutral-900 border border-neutral-800 pl-8 pr-3 py-1.5 text-sm text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-cyan-500/50 transition-all"
+            />
+          </div>
 
-        {/* Filters */}
-        <div className="flex gap-3 flex-wrap">
+          {/* Filters - compressed */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-xl px-4 py-2.5 text-sm font-bold border-2 cursor-pointer focus:outline-none transition-all hover:scale-105"
-            style={{
-              backgroundColor: colorWithOpacity('#22c55e', 0.1),
-              borderColor: colorWithOpacity('#22c55e', 0.4),
-              color: '#4ade80'
-            }}
+            className="rounded-lg bg-neutral-900 border border-neutral-800 px-2.5 py-1.5 text-sm text-neutral-400 cursor-pointer focus:outline-none hover:bg-neutral-800 transition-all"
           >
-            <option value="all">All Status</option>
-            <option value="success">✓ Success</option>
-            <option value="error">✗ Errors</option>
-            <option value="pending">◉ Pending</option>
+            <option value="all">All</option>
+            <option value="success">✓ OK</option>
+            <option value="error">✗ Err</option>
+            <option value="pending">◉ Run</option>
           </select>
 
-          <select
-            value={ownerFilter}
-            onChange={(e) => setOwnerFilter(e.target.value)}
-            className="rounded-xl px-4 py-2.5 text-sm font-bold border-2 cursor-pointer focus:outline-none transition-all hover:scale-105"
-            style={{
-              backgroundColor: colorWithOpacity('#a855f7', 0.1),
-              borderColor: colorWithOpacity('#a855f7', 0.4),
-              color: '#c084fc'
-            }}
-          >
-            <option value="all">All Owners</option>
-            {uniqueOwners.map(owner => (
-              <option key={owner} value={owner}>
-                {owner.substring(0, 8)}...{owner.substring(owner.length - 6)}
-              </option>
-            ))}
-          </select>
+          {uniqueOwners.length > 0 && (
+            <select
+              value={ownerFilter}
+              onChange={(e) => setOwnerFilter(e.target.value)}
+              className="rounded-lg bg-neutral-900 border border-neutral-800 px-2.5 py-1.5 text-sm text-neutral-400 cursor-pointer focus:outline-none hover:bg-neutral-800 transition-all max-w-[120px]"
+            >
+              <option value="all">Owners</option>
+              {uniqueOwners.map(owner => (
+                <option key={owner} value={owner}>
+                  {owner.substring(0, 6)}...
+                </option>
+              ))}
+            </select>
+          )}
 
           {hasFilters && (
             <button
               onClick={() => { setOwnerFilter('all'); setStatusFilter('all'); setSearchQuery('') }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all hover:scale-105"
-              style={{
-                backgroundColor: colorWithOpacity('#ef4444', 0.1),
-                borderColor: colorWithOpacity('#ef4444', 0.4),
-                color: '#f87171'
-              }}
+              className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all"
+              title="Clear filters"
             >
               <XMarkIcon className="w-4 h-4" />
-              Clear
             </button>
           )}
-        </div>
 
-        {/* Stats */}
-        {!showStats && (
-          <div className="flex gap-3 mt-4 flex-wrap">
-            <StatBadge value={successCount} label="success" color="#22c55e" />
-            <StatBadge value={errorCount} label="errors" color="#ef4444" />
-            <StatBadge value={pendingCount} label="pending" color="#f59e0b" />
-            <StatBadge value={`$${totalCost.toFixed(4)}`} label="cost" color="#a855f7" />
+          {/* Stats */}
+          <div className="flex gap-2.5 ml-auto text-sm font-semibold">
+            <span className="flex items-center gap-1 text-green-400">
+              <span className="text-base">{successCount}</span>
+              <span className="text-xs">✓</span>
+            </span>
+            <span className="flex items-center gap-1 text-red-400">
+              <span className="text-base">{errorCount}</span>
+              <span className="text-xs">✗</span>
+            </span>
+            <span className="flex items-center gap-1 text-yellow-400">
+              <span className="text-base">{pendingCount}</span>
+              <span className="text-xs">◉</span>
+            </span>
           </div>
-        )}
+
+          {/* Controls */}
+          <div className="flex items-center gap-1.5 ml-2 border-l border-neutral-700 pl-2">
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`px-2.5 py-1.5 text-sm font-semibold rounded-lg transition-all ${
+                autoRefresh
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700'
+              }`}
+              title="Auto-refresh"
+            >
+              {autoRefresh ? '● Live' : '○'}
+            </button>
+
+            <button
+              onClick={fetchTransactions}
+              disabled={loading}
+              className="p-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-cyan-400 transition-all disabled:opacity-50"
+              title="Refresh"
+            >
+              <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button
+              onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+              className="p-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-cyan-400 transition-all"
+              title={sortOrder === 'newest' ? 'Newest first' : 'Oldest first'}
+            >
+              {sortOrder === 'newest' ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronUpIcon className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Transaction list */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {error && (
-          <div 
-            className="p-5 rounded-xl mb-4 border-2"
-            style={{
-              backgroundColor: colorWithOpacity('#ef4444', 0.1),
-              borderColor: colorWithOpacity('#ef4444', 0.4)
-            }}
-          >
-            <p className="text-red-400 text-sm font-mono mb-3">{error}</p>
+          <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 mb-3">
+            <p className="text-red-400 text-sm mb-3 font-medium">{error}</p>
             <button
               onClick={fetchTransactions}
-              className="px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all hover:scale-105"
-              style={{
-                backgroundColor: colorWithOpacity('#ef4444', 0.2),
-                borderColor: colorWithOpacity('#ef4444', 0.5),
-                color: '#f87171'
-              }}
+              className="px-4 py-2 rounded-lg bg-red-500/20 text-red-400 text-sm font-semibold hover:bg-red-500/30 transition-all"
             >
               Retry
             </button>
@@ -332,35 +249,24 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
         )}
 
         {loading && transactions.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 gap-4">
-            <div 
-              className="animate-spin rounded-full h-12 w-12 border-4"
-              style={{ 
-                borderColor: colorWithOpacity(panelColor, 0.3),
-                borderTopColor: panelColor
-              }}
-            />
-            <span className="text-gray-400 text-sm font-medium">Loading transactions...</span>
+          <div className="flex items-center justify-center py-12 gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-neutral-700 border-t-cyan-500" />
+            <span className="text-neutral-400 text-base font-medium">Loading transactions...</span>
           </div>
         )}
 
         {!loading && filteredTransactions.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center py-16 gap-4">
-            <span className="text-5xl">📭</span>
-            <span className="text-gray-400 text-sm font-medium">
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <span className="text-4xl">📭</span>
+            <span className="text-neutral-400 text-base font-medium">
               {hasFilters ? 'No matching transactions' : 'No transactions yet'}
             </span>
             {hasFilters && (
               <button
                 onClick={() => { setSearchQuery(''); setStatusFilter('all'); setOwnerFilter('all') }}
-                className="px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all hover:scale-105"
-                style={{
-                  backgroundColor: colorWithOpacity(panelColor, 0.1),
-                  borderColor: colorWithOpacity(panelColor, 0.4),
-                  color: panelColor
-                }}
+                className="px-4 py-2 rounded-lg bg-neutral-800 text-neutral-300 text-sm font-semibold hover:bg-neutral-700 transition-all mt-2"
               >
-                Clear filters
+                Clear all filters
               </button>
             )}
           </div>
@@ -379,35 +285,19 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
 
       {/* Pagination */}
       {totalCount >= pageSize && (
-        <div 
-          className="flex-shrink-0 p-5 border-t-2 flex items-center justify-between"
-          style={{ 
-            borderColor: colorWithOpacity(panelColor, 0.3),
-            background: `linear-gradient(to right, ${colorWithOpacity(panelColor, 0.05)}, ${colorWithOpacity('#3b82f6', 0.05)})`
-          }}
-        >
+        <div className="flex-shrink-0 p-3 border-t border-neutral-800 flex items-center justify-between bg-gradient-to-t from-neutral-900/80 to-transparent">
           <button
             onClick={() => setPage(Math.max(0, page - 1))}
             disabled={page === 0}
-            className="px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all hover:scale-105 disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: colorWithOpacity(panelColor, 0.1),
-              borderColor: colorWithOpacity(panelColor, 0.4),
-              color: panelColor
-            }}
+            className="px-4 py-2 rounded-lg bg-neutral-800 text-neutral-400 text-sm font-semibold hover:bg-neutral-700 hover:text-cyan-400 transition-all disabled:opacity-30 disabled:hover:text-neutral-400"
           >
-            ← Prev
+            ← Previous
           </button>
-          <span className="text-gray-400 text-sm font-bold">Page {page + 1}</span>
+          <span className="text-neutral-400 text-sm font-medium">Page {page + 1}</span>
           <button
             onClick={() => setPage(page + 1)}
             disabled={filteredTransactions.length < pageSize}
-            className="px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all hover:scale-105 disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: colorWithOpacity(panelColor, 0.1),
-              borderColor: colorWithOpacity(panelColor, 0.4),
-              color: panelColor
-            }}
+            className="px-4 py-2 rounded-lg bg-neutral-800 text-neutral-400 text-sm font-semibold hover:bg-neutral-700 hover:text-cyan-400 transition-all disabled:opacity-30 disabled:hover:text-neutral-400"
           >
             Next →
           </button>

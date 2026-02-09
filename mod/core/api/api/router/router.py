@@ -336,11 +336,11 @@ class Router:
         # avoid recursion
         assert not task['fn'].endswith('/call'), "Function name cannot end with '/call'"
         try:
-            mod_name , fn_name = task['fn'].split('/', 1)
+            mod_name =  '.'.join(task['fn'].split('/')[:-1])
             if mod_name in m.servers():
                 result = m.fn('client/call')(fn=task['fn'], params=params, timeout=task['timeout'])
             else:
-                result = m.fn(fn_name)(**params)
+                result = m.fn(task['fn'])(**params)
             task['status'] = 'success'
         except Exception as e:
             result = m.detailed_error(e)
