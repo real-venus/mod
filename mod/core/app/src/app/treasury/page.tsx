@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { BuildingLibraryIcon, ArrowTrendingUpIcon, BanknotesIcon, ChartBarIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
-import { CopyButton } from '@/mod/ui/CopyButton'
+import { CopyButton } from '@/ui/CopyButton'
 import { motion } from 'framer-motion'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts'
 
@@ -139,7 +139,7 @@ export default function TreasuryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black p-8">
+    <div className="min-h-screen bg-black p-8 pt-24">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <motion.div

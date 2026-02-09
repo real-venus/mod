@@ -1,6 +1,6 @@
 "use client";
 
-import ModulePage from '@/mod/mod/ModulePage'
+import ModulePage from '@/mod/ModulePage'
 
 export default function  ModulePageWrapper() {
   return (

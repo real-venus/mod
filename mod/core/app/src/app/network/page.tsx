@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline'
-import { CopyButton } from '@/mod/ui/CopyButton'
+import { CopyButton } from '@/ui/CopyButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -258,7 +258,7 @@ export default function NetworkPage() {
   )
 
   return (
-    <div className="min-h-screen bg-black text-white p-8">
+    <div className="min-h-screen bg-black text-white p-8 pt-24">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-black uppercase tracking-wider mb-2 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">

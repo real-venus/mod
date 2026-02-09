@@ -5,20 +5,22 @@ import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { CubeIcon } from '@heroicons/react/24/outline'
 
-import { Header } from '@/mod/header/Header'
-import { UserProvider } from '@/mod/context'
-import { SearchProvider } from '@/mod/context/SearchContext'
+import Header from '@/header/Header'
+import { WalletHeader } from '@/wallet/WalletHeader'
+import { UserProvider } from '@/context'
+import { SearchProvider } from '@/context/SearchContext'
 import {
   SplitScreenProvider,
   useSplitScreenContext,
-} from '@/mod/context/SplitScreenContext'
-import { ControlPanelProvider } from '@/mod/context/ControlPanelContext'
-import { MarketCreditProvider } from '@/mod/context/MarketCreditContext'
+} from '@/context/SplitScreenContext'
+import { ControlPanelProvider } from '@/context/ControlPanelContext'
+import { MarketCreditProvider } from '@/context/MarketCreditContext'
 import {
   LayoutProvider,
   useLayoutContext,
-} from '@/mod/context/LayoutContext'
-import { SplitScreenControls } from '@/mod/components/SplitScreenControls'
+} from '@/context/LayoutContext'
+import { ThemeProvider } from '@/context/ThemeContext'
+import { SplitScreenControls } from '@/components/SplitScreenControls'
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const {
@@ -86,11 +88,21 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         </button>
       </div>
 
+      {/* Header Icons - Centered */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3">
+        <Header />
+      </div>
+
+      {/* Wallet Header - Top Right */}
+      <div
+        className="fixed top-4 right-4 z-[70]"
+      >
+        <WalletHeader />
+      </div>
+
       {/* Main content */}
       <div className="flex-1 flex flex-col" style={{ marginLeft: '80px' }}>
-        {isHeaderMode && !isHeaderCollapsed && <Header />}
-
-        <main className="flex-1 overflow-hidden flex">
+        <main className="flex-1 overflow-auto flex">
           {isSplitScreen ? (
             <div className={`w-full h-full ${containerClass}`}>
               <div
@@ -124,18 +136,20 @@ export default function Providers({
   children: React.ReactNode
 }) {
   return (
-    <UserProvider>
-      <MarketCreditProvider>
-        <SearchProvider>
-          <SplitScreenProvider>
-            <ControlPanelProvider>
-              <LayoutProvider>
-                <LayoutContent>{children}</LayoutContent>
-              </LayoutProvider>
-            </ControlPanelProvider>
-          </SplitScreenProvider>
-        </SearchProvider>
-      </MarketCreditProvider>
-    </UserProvider>
+    <ThemeProvider>
+      <UserProvider>
+        <MarketCreditProvider>
+          <SearchProvider>
+            <SplitScreenProvider>
+              <ControlPanelProvider>
+                <LayoutProvider>
+                  <LayoutContent>{children}</LayoutContent>
+                </LayoutProvider>
+              </ControlPanelProvider>
+            </SplitScreenProvider>
+          </SearchProvider>
+        </MarketCreditProvider>
+      </UserProvider>
+    </ThemeProvider>
   )
 }

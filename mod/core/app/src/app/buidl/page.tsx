@@ -1,6 +1,6 @@
 "use client"
 
-import BuidlPage from '@/mod/buidl/BuidlPage'
+import BuidlPage from '@/buidl/BuidlPage'
 
 export const dynamic = 'force-dynamic'
 

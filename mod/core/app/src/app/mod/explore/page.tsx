@@ -4,7 +4,7 @@ import React from 'react'
 export const dynamicParams = true
 
 const ModulePage = dynamic(
-  () => import('@/mod/mod/explore/ModExplorePage'),
+  () => import('@/mod/explore/ModExplorePage'),
   { 
     ssr: false
   }

@@ -1,0 +1,20 @@
+networks:
+  default:
+    external: true
+    name: modnet
+services:
+  claude:
+    container_name: claude
+    deploy: {}
+    entrypoint: bash -c "m serve port=50115 key=claude remote=0 mod=claude"
+    image: claude
+    ports:
+    - 50115:50115
+    restart: unless-stopped
+    shm_size: 100g
+    volumes:
+    - ~/mod:/root/mod
+    - ~/.mod:/root/.mod
+    - ~/mod/mod/_orbit/claude:/root/mod/mod/_orbit/claude
+    working_dir: /root/mod/mod/_orbit/claude
+version: '3.8'

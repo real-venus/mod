@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from 'react'
-import  UserPage  from '@/mod/user/UserPage'
+import  UserPage  from '@/user/UserPage'
 
 export default function UserPageWrapper() {
   const transactionsPanelRef = useRef<{ handleSync: () => void } | null>(null)

@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from 'react'
-import { Loading } from '@/mod/ui/Loading'
-import { UserCard } from '@/mod/user/UserCard'
-import { UserType } from '@/mod/types'
-import { userContext } from '@/mod/context'
+import { Loading } from '@/ui/Loading'
+import { UserCard } from '@/user/UserCard'
+import { UserType } from '@/types'
+import { userContext } from '@/context'
 import { X, RotateCcw, Users } from 'lucide-react'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
