@@ -326,11 +326,6 @@ export function ModuleFunctionSelector({
         </div>
       </div>
 
-      {selectedFunction && selectedModule && (
-        <div className="text-sm font-mono" style={{ color: functionColor }}>
-          <span className="font-bold">Cost:</span> {modules.find(m => m.name === selectedModule)?.schema?.[selectedFunction]?.cost || 0} tokens
-        </div>
-      )}
     </div>
   )
 }

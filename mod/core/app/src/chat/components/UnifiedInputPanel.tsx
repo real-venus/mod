@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SchemaParamsPanel } from './SchemaParamsPanel'
 import type { UnifiedInputPanelProps } from '../types'
+import { TransactionsPanel } from '../transactions/TransactionsPanel'
+import { TransactionCard } from '../transactions/TransactionCard'
+import { userContext } from '@/context/UserContext'
 
 export function UnifiedInputPanel({
   input, setInput, selectedInputParam, setSelectedInputParam,
@@ -11,9 +14,69 @@ export function UnifiedInputPanel({
   params, handleParamChange, handleResetParams, schema,
   functionHasCode = false,
   activeTab = 'chat',
-  setActiveTab = () => {}
+  setActiveTab = () => {},
+  transactionsPanelRef
 }: UnifiedInputPanelProps) {
   const [showParamDropdown, setShowParamDropdown] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [showNotification, setShowNotification] = useState(false)
+  const [currentTransaction, setCurrentTransaction] = useState<any>(null)
+  const { client } = userContext()
+
+  // Fetch pending transaction count and current transaction
+  useEffect(() => {
+    if (!client) return
+
+    const fetchTransactions = async () => {
+      try {
+        const result = await client.call('txs', { df: 0, n: 50, page: 0 })
+        const txs = Array.isArray(result) ? result : []
+        const pending = txs.filter((tx: any) =>
+          tx.status === 'pending'
+        ).length
+
+        // Find the most recent transaction (first one in list)
+        const latestTx = txs[0]
+
+        // Update current transaction if it's running/pending or just finished
+        if (latestTx && (latestTx.status === 'running' || latestTx.status === 'pending')) {
+          setCurrentTransaction(latestTx)
+        } else if (currentTransaction && latestTx?.cid === currentTransaction.cid) {
+          // Update if the same transaction finished
+          setCurrentTransaction(latestTx)
+        }
+
+        // Show notification if pending count increased
+        if (pending > pendingCount && pendingCount > 0) {
+          setShowNotification(true)
+          setTimeout(() => setShowNotification(false), 3000)
+        }
+
+        setPendingCount(pending)
+      } catch (err) {
+        console.error('Failed to fetch pending transactions:', err)
+      }
+    }
+
+    fetchTransactions()
+    const interval = setInterval(fetchTransactions, 2000)
+    return () => clearInterval(interval)
+  }, [client, pendingCount, currentTransaction])
+
+  // Clear current transaction when starting a new one
+  useEffect(() => {
+    if (isLoading) {
+      setCurrentTransaction({
+        fn: `${selectedModule}/${selectedFunction}`,
+        params: params,
+        status: 'pending',
+        time: String(Math.floor(Date.now() / 1000)),
+        key: '',
+        signature: '',
+        module: selectedModule,
+      })
+    }
+  }, [isLoading, selectedModule, selectedFunction, params])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -35,43 +98,76 @@ export function UnifiedInputPanel({
   const functionCode = schema?.[selectedFunction]?.content || ''
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Tab bar */}
-      <div className="flex-shrink-0 flex gap-3 items-center justify-between border-b border-neutral-700/50 pb-3 mb-3">
-        <div className="flex gap-2">
+    <div className="h-full flex flex-col relative">
+      {/* Notification Toast */}
+      {showNotification && (
+        <div className="absolute top-4 right-4 z-50 animate-slideIn">
+          <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-6 py-3 rounded-2xl shadow-2xl border-2 border-amber-400/50 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl animate-pulse">⚡</span>
+              <div>
+                <div className="font-bold text-sm">New Transaction</div>
+                <div className="text-xs opacity-90">{pendingCount} pending</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab bar - Wallet style */}
+      <div className="flex-shrink-0 flex gap-2 items-center justify-between pb-3 mb-3">
+        <div className="flex gap-2 p-1 rounded-xl bg-black/60 border border-neutral-800">
           <button
             type="button"
             onClick={() => setActiveTab('chat')}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all uppercase tracking-wide ${
               activeTab === 'chat'
-                ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-md'
-                : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'
+                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
+                : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
             }`}
           >
-            Chat
+            💬 Chat
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('params')}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all uppercase tracking-wide ${
               activeTab === 'params'
-                ? 'bg-gradient-to-br from-purple-500 to-pink-600 text-white shadow-md'
-                : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'
+                ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
+                : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
             }`}
           >
-            Params
+            ⚙️ Params
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('txs')}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all uppercase tracking-wide ${
+              activeTab === 'txs'
+                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
+                : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              📊 TXS
+              {pendingCount > 0 && (
+                <span className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-black text-xs font-black rounded-full min-w-[24px] h-6 px-2 flex items-center justify-center border-2 border-white shadow-lg">
+                  {pendingCount}
+                </span>
+              )}
+            </span>
           </button>
           {functionHasCode && (
             <button
               type="button"
               onClick={() => setActiveTab('code')}
-              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all uppercase tracking-wide ${
                 activeTab === 'code'
-                  ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md'
-                  : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200'
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
+                  : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
               }`}
             >
-              Code
+              💻 Code
             </button>
           )}
         </div>
@@ -81,18 +177,20 @@ export function UnifiedInputPanel({
             <button
               type="button"
               onClick={onCancel}
-              className="px-5 py-2 text-sm font-semibold rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-md flex items-center gap-2"
+              className="px-8 py-4 text-lg font-black rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all border-2 border-red-400/50 shadow-lg shadow-red-500/30 flex items-center gap-3 uppercase tracking-wide transform hover:scale-105 active:scale-95"
             >
-              <span className="animate-pulse">⏹</span> Cancel
+              <span className="animate-pulse text-2xl">⏹</span>
+              <span>Cancel</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={(e) => handleSubmit(e as any)}
-              className="px-5 py-2 text-sm font-semibold rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+              className="px-8 py-4 text-lg font-black rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 transition-all border-2 border-cyan-400/50 shadow-lg shadow-cyan-500/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3 uppercase tracking-wide transform hover:scale-105 active:scale-95"
               disabled={!selectedModule || !selectedFunction}
             >
-              <span>⚡</span> Send
+              <span className="text-2xl">⚡</span>
+              <span>Send</span>
             </button>
           )}
         </div>
@@ -100,24 +198,23 @@ export function UnifiedInputPanel({
 
       {/* Tab content */}
       {activeTab === 'chat' ? (
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-2 min-h-0">
-          {/* Param selector row - outside textarea */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-3 min-h-0 overflow-hidden">
+          {/* Param selector row - wallet style */}
           {inputParamOptions.length > 0 && (
-            <div className="flex-shrink-0 flex items-center gap-2 px-1">
-              <label className="text-xs text-neutral-500 font-medium">Input param:</label>
+            <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg bg-black/60 border border-neutral-800">
+              <label className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Input:</label>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowParamDropdown(!showParamDropdown)}
-                  className="px-3 py-1.5 text-xs font-mono rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-300 hover:bg-neutral-700 hover:border-neutral-500 transition-all flex items-center gap-2"
+                  className="px-3 py-1 text-xs font-mono font-bold rounded-lg bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/30 transition-all flex items-center gap-2 uppercase"
                   disabled={isLoading}
                 >
-                  <span className="text-cyan-400">→</span>
                   <span>{selectedInputParam || inputParamOptions[0] || 'param'}</span>
-                  <span className="text-neutral-500">▼</span>
+                  <span className="text-xs">▼</span>
                 </button>
                 {showParamDropdown && (
-                  <div className="absolute top-full mt-1 left-0 min-w-[160px] bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl overflow-hidden z-50">
+                  <div className="absolute top-full mt-1 left-0 min-w-[160px] bg-black/95 border border-cyan-500/50 rounded-lg shadow-xl overflow-hidden z-50">
                     {inputParamOptions.map(param => (
                       <button
                         key={param}
@@ -126,7 +223,7 @@ export function UnifiedInputPanel({
                           setSelectedInputParam(param)
                           setShowParamDropdown(false)
                         }}
-                        className="w-full text-left px-4 py-2 text-sm font-mono hover:bg-neutral-800 text-neutral-300 border-b border-neutral-800 last:border-b-0 transition-all"
+                        className="w-full text-left px-4 py-2 text-sm font-mono font-bold hover:bg-cyan-500/20 text-cyan-400 border-b border-neutral-800 last:border-b-0 transition-all uppercase"
                       >
                         {param}
                       </button>
@@ -137,36 +234,79 @@ export function UnifiedInputPanel({
             </div>
           )}
 
-          {/* Textarea - clean, no overlapping elements */}
-          <div className="flex-1 min-h-0">
+          {/* Textarea - wallet style */}
+          <div className="flex-shrink-0" style={{ height: '200px' }}>
             <textarea
               value={input}
               onChange={(e) => handleInputChangeWithSync(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter your message... (Shift+Enter for new line, Enter to send)"
-              className="w-full h-full bg-neutral-900 border border-neutral-700 text-neutral-200 px-4 py-3 rounded-lg text-sm font-mono focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 placeholder-neutral-600 resize-none"
+              placeholder="enter message..."
+              className="w-full h-full bg-black/60 border border-neutral-800 text-neutral-200 px-4 py-3 rounded-xl text-sm font-mono focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 placeholder-neutral-600 resize-none transition-all"
               disabled={isLoading}
             />
           </div>
+
+          {/* Current Results Section */}
+          {currentTransaction && (
+            <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-y-auto">
+              <div className="flex-shrink-0 flex items-center gap-2 px-2">
+                <span className="text-emerald-400 text-sm">📊</span>
+                <h3 className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider">Current Results</h3>
+              </div>
+              <div className="flex-shrink-0 animate-slideIn">
+                <TransactionCard
+                  tx={currentTransaction}
+                  idx={0}
+                  isExpanded={false}
+                />
+              </div>
+            </div>
+          )}
         </form>
       ) : activeTab === 'params' ? (
-        <div className="flex-1 overflow-y-auto min-h-0">
-          {selectedFunction && schema?.[selectedFunction] && (
-            <SchemaParamsPanel
-              selectedFunction={selectedFunction}
-              schema={schema}
-              params={params}
-              handleParamChange={handleParamChangeWithSync}
-              handleResetParams={handleResetParams}
-              numColumns={2}
-            />
+        <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-1">
+            {selectedFunction && schema?.[selectedFunction] && (
+              <SchemaParamsPanel
+                selectedFunction={selectedFunction}
+                schema={schema}
+                params={params}
+                handleParamChange={handleParamChangeWithSync}
+                handleResetParams={handleResetParams}
+                numColumns={2}
+              />
+            )}
+          </div>
+
+          {/* Current Results Section */}
+          {currentTransaction && (
+            <div className="flex-shrink-0 flex flex-col gap-2 border-t border-neutral-800 pt-3">
+              <div className="flex items-center gap-2 px-2">
+                <span className="text-emerald-400 text-sm">📊</span>
+                <h3 className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider">Current Results</h3>
+              </div>
+              <div className="animate-slideIn">
+                <TransactionCard
+                  tx={currentTransaction}
+                  idx={0}
+                  isExpanded={false}
+                />
+              </div>
+            </div>
           )}
+        </div>
+      ) : activeTab === 'txs' ? (
+        <div className="flex-1 overflow-hidden min-h-0">
+          <TransactionsPanel ref={transactionsPanelRef} hideTitle={true} />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-4">
-            <h3 className="text-neutral-400 text-xs font-semibold mb-3 uppercase tracking-wide">Function Code</h3>
-            <pre className="bg-black border border-neutral-800 rounded-lg p-3 overflow-x-auto text-xs text-neutral-300 font-mono">
+          <div className="bg-black/60 border border-neutral-800 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-emerald-400 text-sm">💻</span>
+              <h3 className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider">Function Code</h3>
+            </div>
+            <pre className="bg-black border border-neutral-800 rounded-lg p-3 overflow-x-auto text-xs text-neutral-300 font-mono leading-relaxed">
               <code>{functionCode || 'No code available'}</code>
             </pre>
           </div>

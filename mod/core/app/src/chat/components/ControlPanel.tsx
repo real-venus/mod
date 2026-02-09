@@ -52,7 +52,7 @@ export function ControlPanel({
     return !!schema[selectedFunction]?.content
   }, [selectedFunction, schema])
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'params' | 'code'>('chat')
+  const [activeTab, setActiveTab] = useState<'chat' | 'params' | 'code' | 'txs'>('chat')
 
   // Auto-switch to code tab if code exists and not already on a tab
   useMemo(() => {
@@ -98,6 +98,7 @@ export function ControlPanel({
           functionHasCode={functionHasCode}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          transactionsPanelRef={transactionsPanelRef}
         />
       </div>
     </div>

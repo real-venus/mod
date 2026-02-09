@@ -247,3 +247,19 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(16, 185, 129, 0.6) rgba(0, 0, 0, 0.3);
 }
+
+/* Notification slide-in animation */
+@keyframes slideIn {
+  0% {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.4s ease-out;
+}

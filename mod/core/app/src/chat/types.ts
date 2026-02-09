@@ -178,8 +178,9 @@ export interface UnifiedInputPanelProps {
   handleResetParams: () => void
   schema: ModuleSchema | null
   functionHasCode?: boolean
-  activeTab?: 'chat' | 'params' | 'code'
-  setActiveTab?: (tab: 'chat' | 'params' | 'code') => void
+  activeTab?: 'chat' | 'params' | 'code' | 'txs'
+  setActiveTab?: (tab: 'chat' | 'params' | 'code' | 'txs') => void
+  transactionsPanelRef?: React.RefObject<{ handleSync: () => void }>
 }
 
 export interface SchemaParamsPanelProps {
