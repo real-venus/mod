@@ -38,9 +38,9 @@ export function CodeTab({
         />
       </div>
 
-      <div className="flex-1 bg-neutral-950/60 border border-neutral-800/50 rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm">
+      <div className="flex-1 bg-neutral-950/60 border border-neutral-800/30 rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800/50">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800/30">
           <div className="flex items-center gap-3">
             <span className="text-lg">💻</span>
             <div className="flex flex-col">

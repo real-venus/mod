@@ -148,8 +148,26 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
 
       {/* Enhanced Header */}
       <div className="flex items-center gap-3 px-4 py-3">
+        {/* Client (from) and Owner (to) - moved to left */}
+        <div className="flex flex-col gap-0.5 min-w-[110px]">
+          {tx.client && (
+            <span className="text-xs text-gray-500 font-medium">
+              {tx.client.slice(0, 6)}...{tx.client.slice(-4)}
+            </span>
+          )}
+          {(tx.owner || tx.key) && (
+            <Link
+              href={`/user/${tx.owner || tx.key}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-base text-gray-300 hover:text-gray-100 font-semibold transition-colors"
+            >
+              {(tx.owner || tx.key).slice(0, 6)}...{(tx.owner || tx.key).slice(-4)}
+            </Link>
+          )}
+        </div>
+
         {/* Status indicator */}
-        <div className="flex items-center gap-2 min-w-[120px]">
+        <div className="flex items-center gap-2 min-w-[100px]">
           <span className={`w-2.5 h-2.5 rounded-full ${status.dot} flex-shrink-0 ${isInProgress ? 'animate-pulse' : ''}`} />
           <span className={`text-xs font-bold uppercase tracking-wider ${status.text}`}>
             {status.displayStatus}
@@ -165,17 +183,6 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
         >
           {tx.fn}
         </Link>
-
-        {/* Owner/Key */}
-        {(tx.owner || tx.key) && (
-          <Link
-            href={`/user/${tx.owner || tx.key}`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-sm text-gray-500 hover:text-gray-300 truncate font-medium"
-          >
-            {(tx.owner || tx.key).slice(0, 8)}...{(tx.owner || tx.key).slice(-4)}
-          </Link>
-        )}
 
         {/* Spacer */}
         <div className="flex-1" />

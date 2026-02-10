@@ -16,12 +16,14 @@ interface ChatTabProps {
   setSelectedInputParam: (param: string) => void
   inputParamOptions: string[]
   isLoading: boolean
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e?: React.FormEvent) => void
+  onCancel: () => void
+  canSubmit: boolean
   fetchedSchemas?: Map<string, ModuleSchema>
 }
 
 /**
- * Chat tab content - function selector + message input + recent transaction
+ * Chat tab content - function selector + message input + send button + recent transaction
  */
 export function ChatTab({
   selectedModules,
@@ -34,6 +36,8 @@ export function ChatTab({
   inputParamOptions,
   isLoading,
   onSubmit,
+  onCancel,
+  canSubmit,
   fetchedSchemas
 }: ChatTabProps) {
   const [showParamDropdown, setShowParamDropdown] = useState(false)
@@ -80,11 +84,11 @@ export function ChatTab({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex-1 flex flex-col gap-2 min-h-0 overflow-auto">
-      {/* All inputs in one row */}
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit(e); }} className="flex-1 flex flex-col gap-2 min-h-0 overflow-auto">
+      {/* All inputs in one row with send button */}
       <div className="flex-shrink-0 flex gap-2 items-start">
         {/* Function selector */}
-        <div className="w-64">
+        <div className="w-56">
           <FunctionSelector
             selectedModules={selectedModules}
             selectedFunction={selectedFunction}
@@ -95,16 +99,16 @@ export function ChatTab({
 
         {/* Param selector */}
         {inputParamOptions.length > 0 && (
-          <div className="w-40 relative">
+          <div className="w-32 relative">
             <button
               type="button"
               onClick={() => setShowParamDropdown(!showParamDropdown)}
-              className="w-full px-4 py-4 text-base font-semibold rounded-2xl bg-neutral-950/60 border border-neutral-800/50 hover:border-neutral-700/50 text-white transition-all flex items-center justify-between backdrop-blur-sm"
+              className="w-full px-3 py-4 text-sm font-semibold rounded-2xl bg-neutral-950/60 border border-neutral-800/50 hover:border-neutral-700/50 text-white transition-all flex items-center justify-between backdrop-blur-sm"
               disabled={isLoading}
               style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
             >
               <span className="truncate">{selectedInputParam || inputParamOptions[0] || 'param'}</span>
-              <span className="text-sm text-neutral-500 ml-1">▼</span>
+              <span className="text-xs text-neutral-500 ml-1">▼</span>
             </button>
             {showParamDropdown && (
               <div className="absolute top-full mt-2 left-0 right-0 bg-neutral-950/98 border border-neutral-800/60 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.6)] overflow-hidden z-50 backdrop-blur-xl">
@@ -116,7 +120,7 @@ export function ChatTab({
                       setSelectedInputParam(param)
                       setShowParamDropdown(false)
                     }}
-                    className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-white/10 text-white border-b border-neutral-800/40 last:border-b-0 transition-all"
+                    className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-white/10 text-white border-b border-neutral-800/40 last:border-b-0 transition-all"
                     style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
                   >
                     {param}
@@ -135,7 +139,7 @@ export function ChatTab({
             onKeyDown={handleKeyDown}
             placeholder="enter message..."
             rows={1}
-            className="w-full bg-neutral-950/60 border border-neutral-800/50 text-white px-5 py-4 rounded-2xl text-sm focus:outline-none focus:border-neutral-700/50 placeholder-gray-600 resize-none transition-all backdrop-blur-sm"
+            className="w-full bg-neutral-950/60 border border-neutral-800/50 text-white px-4 py-4 rounded-2xl text-sm focus:outline-none focus:border-neutral-700/50 placeholder-gray-600 resize-none transition-all backdrop-blur-sm"
             disabled={isLoading}
             style={{
               fontFamily: 'SF Pro Display, -apple-system, sans-serif',
@@ -144,6 +148,31 @@ export function ChatTab({
               minHeight: '56px'
             }}
           />
+        </div>
+
+        {/* Send/Cancel button - Large with gradient */}
+        <div className="flex-shrink-0">
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-10 py-4 text-base font-bold rounded-2xl bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-[0_8px_24px_rgba(239,68,68,0.4)] flex items-center gap-3"
+              style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em', minHeight: '56px' }}
+            >
+              <span className="text-2xl">⏹</span>
+              <span>CANCEL</span>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="px-10 py-4 text-base font-bold rounded-2xl bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white hover:from-purple-700 hover:via-violet-700 hover:to-fuchsia-700 transition-all shadow-[0_8px_24px_rgba(147,51,234,0.5)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3"
+              disabled={!canSubmit}
+              style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em', minHeight: '56px' }}
+            >
+              <span className="text-2xl">⚡</span>
+              <span>SEND</span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -23,13 +23,20 @@ interface Transaction {
   owner?: string
 }
 
+interface Module {
+  name: string
+  key: string
+  cid?: string
+}
+
 interface TransactionsPanelProps {
   hideTitle?: boolean
   showStats?: boolean
   initialStatusFilter?: string
+  selectedModules?: Module[]
 }
 
-export const TransactionsPanel = forwardRef<{ handleSync: () => void }, TransactionsPanelProps>(function TransactionsPanel({ hideTitle = false, showStats = false, initialStatusFilter = 'all' }, ref) {
+export const TransactionsPanel = forwardRef<{ handleSync: () => void }, TransactionsPanelProps>(function TransactionsPanel({ hideTitle = false, showStats = false, initialStatusFilter = 'all', selectedModules = [] }, ref) {
   const { client } = userContext()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
@@ -92,6 +99,30 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
 
   useEffect(() => {
     let filtered = [...transactions]
+
+    // Filter by selected modules
+    if (selectedModules.length > 0) {
+      const moduleNames = new Set(selectedModules.map(m => m.name.toLowerCase()))
+      const moduleKeys = new Set(selectedModules.map(m => m.key.toLowerCase()))
+      filtered = filtered.filter(tx => {
+        if (tx.fn) {
+          const moduleName = tx.fn.split('/')[0].toLowerCase()
+          // Check function name matches
+          if (!moduleNames.has(moduleName)) return false
+
+          // Only filter by owner if we can match it
+          const ownerOrKey = tx.owner || tx.key
+          if (ownerOrKey) {
+            return moduleKeys.has(ownerOrKey.toLowerCase())
+          }
+
+          // If no owner, just match by function name
+          return true
+        }
+        return false
+      })
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       filtered = filtered.filter(tx =>
@@ -121,7 +152,7 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
       return sortOrder === 'newest' ? timeB - timeA : timeA - timeB
     })
     setFilteredTransactions(filtered)
-  }, [transactions, searchQuery, statusFilter, ownerFilter, sortOrder])
+  }, [transactions, searchQuery, statusFilter, ownerFilter, sortOrder, selectedModules])
 
   const handleToggleExpand = (idx: number) => {
     setExpandedIdx(expandedIdx === idx ? null : idx)

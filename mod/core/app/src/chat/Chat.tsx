@@ -133,8 +133,8 @@ export default function Chat() {
   return (
     <div className="relative flex h-full w-full bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 overflow-hidden">
       <div className="w-full h-full p-6">
-        <div className="w-full h-full max-w-7xl mx-auto rounded-2xl border-2 border-neutral-800/50 bg-black/40 backdrop-blur-xl shadow-2xl overflow-hidden">
-          <div className="h-full flex flex-col p-4 gap-4 bg-black/95 backdrop-blur-xl">
+        <div className="w-full h-full max-w-7xl mx-auto rounded-2xl bg-black/40 backdrop-blur-xl shadow-2xl overflow-hidden">
+          <div className="h-full flex flex-col p-4 gap-3 bg-black/95 backdrop-blur-xl">
 
             {/* Module Selector - Top */}
             <div className="flex-shrink-0">
@@ -145,7 +145,7 @@ export default function Chat() {
               />
             </div>
 
-            {/* Tab Bar with Send/Cancel */}
+            {/* Tab Bar - Full width */}
             <TabBar
               activeTab={activeTab}
               setActiveTab={setActiveTab}
@@ -158,7 +158,7 @@ export default function Chat() {
             />
 
             {/* Tab Content */}
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-hidden">
               {activeTab === 'chat' && (
                 <ChatTab
                   selectedModules={chatState.selectedModules}
@@ -171,6 +171,8 @@ export default function Chat() {
                   inputParamOptions={inputParamOptions}
                   isLoading={chatState.isLoading}
                   onSubmit={handleSubmit}
+                  onCancel={handleCancel}
+                  canSubmit={canSubmit}
                   fetchedSchemas={fetchedSchemas}
                 />
               )}
@@ -184,6 +186,10 @@ export default function Chat() {
                   params={chatState.params}
                   handleParamChange={handleParamChange}
                   handleResetParams={handleResetParams}
+                  isLoading={chatState.isLoading}
+                  onSubmit={handleSubmit}
+                  onCancel={handleCancel}
+                  canSubmit={canSubmit}
                   fetchedSchemas={fetchedSchemas}
                 />
               )}
@@ -198,7 +204,12 @@ export default function Chat() {
                 />
               )}
 
-              {activeTab === 'txs' && <TxsTab ref={transactionsPanelRef} />}
+              {activeTab === 'txs' && (
+                <TxsTab
+                  ref={transactionsPanelRef}
+                  selectedModules={chatState.selectedModules}
+                />
+              )}
             </div>
 
           </div>
