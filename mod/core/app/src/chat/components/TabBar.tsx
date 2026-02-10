@@ -27,65 +27,67 @@ export function TabBar({
   hasCode = false
 }: TabBarProps) {
   return (
-    <div className="flex-shrink-0 flex gap-2 items-center justify-between pb-3 mb-3">
+    <div className="flex-shrink-0 flex gap-3 items-center justify-between">
       {/* Tabs */}
-      <div className="flex gap-2 p-1 rounded-xl bg-black/60 border border-neutral-800">
+      <div className="flex gap-1.5 p-1.5 rounded-2xl bg-neutral-900/40 backdrop-blur-sm border border-neutral-800/50">
         <button
           type="button"
           onClick={() => setActiveTab('chat')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all uppercase tracking-wide ${
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${
             activeTab === 'chat'
-              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
+              ? 'bg-white/10 text-white shadow-lg'
               : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
           }`}
+          style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
         >
-          💬 Chat
+          💬 CHAT
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('params')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all uppercase tracking-wide ${
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${
             activeTab === 'params'
-              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
+              ? 'bg-white/10 text-white shadow-lg'
               : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
           }`}
+          style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
         >
-          ⚙️ Params
+          ⚙️ PARAMS
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('code')}
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+            activeTab === 'code'
+              ? 'bg-white/10 text-white shadow-lg'
+              : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
+          }`}
+          style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+        >
+          💻 CODE
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('txs')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all uppercase tracking-wide ${
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${
             activeTab === 'txs'
-              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
+              ? 'bg-white/10 text-white shadow-lg'
               : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
           }`}
+          style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
         >
           <span className="flex items-center gap-2">
             📊 TXS
             {pendingCount > 0 && (
-              <span className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-black text-xs font-black rounded-full min-w-[24px] h-6 px-2 flex items-center justify-center border-2 border-white shadow-lg">
+              <span className="bg-white text-black text-xs font-bold rounded-full min-w-[22px] h-5 px-1.5 flex items-center justify-center shadow-sm">
                 {pendingCount}
               </span>
             )}
           </span>
         </button>
-
-        {hasCode && (
-          <button
-            type="button"
-            onClick={() => setActiveTab('code')}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all uppercase tracking-wide ${
-              activeTab === 'code'
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
-                : 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
-            }`}
-          >
-            💻 Code
-          </button>
-        )}
       </div>
 
       {/* Send/Cancel button */}
@@ -94,20 +96,22 @@ export function TabBar({
           <button
             type="button"
             onClick={onCancel}
-            className="px-8 py-4 text-lg font-black rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all border-2 border-red-400/50 shadow-lg shadow-red-500/30 flex items-center gap-3 uppercase tracking-wide transform hover:scale-105 active:scale-95"
+            className="px-8 py-3.5 text-base font-semibold rounded-2xl bg-white/10 text-white hover:bg-white/15 transition-all border border-white/10 shadow-lg flex items-center gap-3 transform hover:scale-[1.02] active:scale-98"
+            style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
           >
-            <span className="animate-pulse text-2xl">⏹</span>
-            <span>Cancel</span>
+            <span className="text-xl">⏹</span>
+            <span>CANCEL</span>
           </button>
         ) : (
           <button
             type="button"
             onClick={onSubmit}
-            className="px-8 py-4 text-lg font-black rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 transition-all border-2 border-cyan-400/50 shadow-lg shadow-cyan-500/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3 uppercase tracking-wide transform hover:scale-105 active:scale-95"
+            className="px-12 py-4.5 text-lg font-semibold rounded-2xl bg-white text-black hover:bg-neutral-100 transition-all shadow-[0_4px_16px_rgba(255,255,255,0.15)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3 transform hover:scale-[1.02] active:scale-[0.98]"
             disabled={!canSubmit}
+            style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
           >
             <span className="text-2xl">⚡</span>
-            <span>Send</span>
+            <span>SEND</span>
           </button>
         )}
       </div>

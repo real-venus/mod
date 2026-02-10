@@ -32,6 +32,8 @@ export interface Module {
   schema?: string | ModuleSchema
   owner?: string
   version?: string
+  updated?: number
+  created?: number
 }
 
 // Message Types

@@ -9,12 +9,12 @@ interface TxsTabProps {
 }
 
 /**
- * Transactions tab content - displays transaction history
+ * Transactions tab content - displays only deployed/completed transactions
  */
 export const TxsTab = forwardRef<TransactionsPanelRef, TxsTabProps>((props, ref) => {
   return (
     <div className="flex-1 overflow-hidden min-h-0">
-      <TransactionsPanel ref={ref} hideTitle={true} />
+      <TransactionsPanel ref={ref} hideTitle={true} initialStatusFilter="success" />
     </div>
   )
 })

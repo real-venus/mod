@@ -30,6 +30,8 @@ export function FunctionSelector({
   const [selectedIndex, setSelectedIndex] = useState(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
 
   const functionColor = useMemo(() => {
     return selectedFunction ? text2color(selectedFunction) : '#8b5cf6'
@@ -125,10 +127,24 @@ export function FunctionSelector({
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setSelectedIndex(prev => Math.min(prev + 1, filteredFunctions.length - 1))
+      setSelectedIndex(prev => {
+        const newIndex = Math.min(prev + 1, filteredFunctions.length - 1)
+        // Scroll to the selected item
+        setTimeout(() => {
+          itemRefs.current.get(newIndex)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        }, 0)
+        return newIndex
+      })
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setSelectedIndex(prev => Math.max(prev - 1, 0))
+      setSelectedIndex(prev => {
+        const newIndex = Math.max(prev - 1, 0)
+        // Scroll to the selected item
+        setTimeout(() => {
+          itemRefs.current.get(newIndex)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        }, 0)
+        return newIndex
+      })
     } else if (e.key === 'Enter') {
       e.preventDefault()
       if (filteredFunctions.length > 0 && filteredFunctions[selectedIndex]) {
@@ -157,6 +173,7 @@ export function FunctionSelector({
     setIsDropdownOpen(false)
     setSearchQuery('')
     setSelectedIndex(0)
+    itemRefs.current.clear()
   }
 
   // Close dropdown when clicking outside
@@ -182,59 +199,75 @@ export function FunctionSelector({
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Dropdown Button */}
-      <button
-        type="button"
-        onClick={openDropdown}
-        className="w-full flex gap-2 items-center bg-black/60 border border-neutral-800 hover:border-cyan-500/50 px-3 py-2 rounded-lg transition-all"
-      >
-        <label className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider flex-shrink-0 pointer-events-none">
-          Function:
-        </label>
-
-        {/* Selected function display */}
-        {selectedFunction ? (
-          <div
-            className="flex items-center gap-2 px-3 py-1 rounded-full font-bold border-2 pointer-events-none"
+      {/* Selection Bar with Integrated Search */}
+      <div className="w-full flex gap-3 items-center justify-between bg-neutral-950/60 border border-neutral-800/50 hover:border-neutral-700/50 px-6 py-4 rounded-2xl transition-all backdrop-blur-sm">
+        {isDropdownOpen ? (
+          // Search input when dropdown is open
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onKeyDown={handleKeyDown}
+            placeholder="search functions..."
+            className="flex-1 bg-transparent text-white text-lg font-semibold focus:outline-none placeholder-neutral-600"
             style={{
-              fontFamily: 'IBM Plex Mono, monospace',
-              fontSize: '0.9rem',
-              backgroundColor: `${functionColor}30`,
-              borderColor: `${functionColor}60`,
-              color: 'white'
+              fontFamily: 'SF Pro Display, -apple-system, sans-serif',
+              letterSpacing: '-0.01em',
+              color: functionColor
             }}
-          >
-            <span>{selectedFunction}</span>
-          </div>
+            autoFocus
+          />
         ) : (
-          <span className="text-gray-500 text-sm flex-1 text-left" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-            select function...
-          </span>
+          // Selected function display when dropdown is closed
+          <button
+            type="button"
+            onClick={openDropdown}
+            className="flex-1 text-left"
+          >
+            {selectedFunction ? (
+              <span
+                className="font-semibold text-lg"
+                style={{
+                  fontFamily: 'SF Pro Display, -apple-system, sans-serif',
+                  letterSpacing: '-0.01em',
+                  color: functionColor
+                }}
+              >
+                {selectedFunction}
+              </span>
+            ) : (
+              <span className="text-neutral-600 text-lg" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}>
+                select function...
+              </span>
+            )}
+          </button>
         )}
 
         {/* Dropdown arrow */}
-        <span className="ml-auto text-neutral-500 text-xs">▼</span>
-      </button>
+        <button
+          type="button"
+          onClick={isDropdownOpen ? closeDropdown : openDropdown}
+          className="text-neutral-500 text-sm transition-transform"
+          style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        >
+          ▼
+        </button>
+      </div>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu - Functions List Only */}
       {isDropdownOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-cyan-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md overflow-hidden">
-          {/* Search input */}
-          <div className="sticky top-0 p-3 bg-black/90 border-b border-cyan-500/30">
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onKeyDown={handleKeyDown}
-              placeholder="search functions..."
-              className="w-full bg-neutral-900 border border-neutral-700 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500/50 placeholder-gray-500"
-              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
-            />
-          </div>
-
-          {/* Function list */}
-          <div className="max-h-80 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-3 bg-neutral-950/98 border border-neutral-800/60 rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.6)] z-50 backdrop-blur-xl overflow-hidden">
+          {/* Function list - Scrollable */}
+          <div
+            ref={listRef}
+            className="overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent hover:scrollbar-thumb-neutral-600/50"
+            style={{
+              maxHeight: 'calc(100vh - 200px)',
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(64, 64, 64, 0.5) transparent'
+            }}
+          >
             {filteredFunctions.length === 0 ? (
               <div className="px-4 py-8 text-center text-neutral-500">
                 {searchQuery ? 'No matching functions' : 'No functions available'}
@@ -243,24 +276,28 @@ export function FunctionSelector({
               filteredFunctions.map(({ name, moduleName, owner, distance }, idx) => (
                 <button
                   key={name}
+                  ref={(el) => {
+                    if (el) itemRefs.current.set(idx, el)
+                    else itemRefs.current.delete(idx)
+                  }}
                   type="button"
                   onClick={() => selectFunction(name)}
-                  className={`w-full text-left px-4 py-3 text-white border-b border-cyan-500/30 last:border-b-0 transition-all font-bold flex justify-between items-center ${
-                    idx === selectedIndex ? 'bg-cyan-500/40' : 'hover:bg-cyan-500/30'
+                  className={`w-full text-left px-5 py-4 text-white border-b border-neutral-800/40 last:border-b-0 transition-all font-medium flex justify-between items-center ${
+                    idx === selectedIndex ? 'bg-neutral-800/60' : 'hover:bg-neutral-900/60'
                   }`}
-                  style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+                  style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
                 >
-                  <div className="flex flex-col gap-1">
-                    <span>{name}</span>
-                    <span className="text-cyan-400 text-xs font-mono">from: {moduleName}</span>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-base font-semibold">{name}</span>
+                    <span className="text-neutral-500 text-xs">from: {moduleName}</span>
                     {owner && (
-                      <span className="text-purple-400 text-xs font-mono">
-                        owner: {owner.slice(0, 8)}...{owner.slice(-6)}
+                      <span className="text-neutral-600 text-xs">
+                        {owner.slice(0, 8)}...{owner.slice(-6)}
                       </span>
                     )}
                   </div>
-                  {searchQuery && (
-                    <span className="text-xs text-orange-400 font-mono">~{distance.toFixed(2)}</span>
+                  {searchQuery && distance > 0 && (
+                    <span className="text-xs text-neutral-600 font-medium">~{distance.toFixed(2)}</span>
                   )}
                 </button>
               ))

@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useRef, useMemo } from 'react'
-import { text2color } from '@/utils'
+import { text2color, shorten, colorWithOpacity } from '@/utils'
+import { QrCodeIcon } from '@heroicons/react/24/outline'
+import { CopyButton } from '@/ui/CopyButton'
+import { QRCode } from '@/ui/QRCode'
 import type { Module } from '../types'
 
 interface ModuleSelectorProps {
@@ -107,35 +110,73 @@ export function ModuleSelector({
     inputRef.current?.focus()
   }
 
+  const [cidQrHovered, setCidQrHovered] = useState<string | null>(null)
+
   return (
     <div className="relative">
-      <div className="flex gap-2 items-center bg-black border-2 border-purple-500/40 px-4 py-3 rounded-lg">
+      <div className="flex flex-col gap-2 bg-black border-2 border-purple-500/40 px-4 py-3 rounded-lg">
         {/* Selected module pills */}
-        {selectedModules.map(module => {
-          const color = text2color(module.name)
-          return (
-            <div
-              key={module.name}
-              className="flex items-center gap-2 px-3 py-1 rounded-full font-bold border-2"
-              style={{
-                fontFamily: 'IBM Plex Mono, monospace',
-                fontSize: '1.1rem',
-                backgroundColor: `${color}30`,
-                borderColor: `${color}60`,
-                color: 'white'
-              }}
-            >
-              <span>{module.name}</span>
-              <button
-                onClick={() => removeModule(module)}
-                className="hover:text-red-400 transition-colors"
-                type="button"
-              >
-                ✕
-              </button>
-            </div>
-          )
-        })}
+        {selectedModules.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {selectedModules.map(module => {
+              const color = text2color(module.name)
+              const keyColor = text2color(module.key)
+              const cidColor = text2color(module.cid || '')
+
+              return (
+                <div
+                  key={module.name}
+                  className="relative border-2 rounded-xl font-mono transition-all backdrop-blur-sm overflow-visible group"
+                  style={{
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    backgroundColor: colorWithOpacity(color, 0.08),
+                    borderColor: color,
+                  }}
+                >
+                  <div className="px-3 py-2 flex items-center gap-2">
+                    {/* Module Name */}
+                    <code className="text-base font-black tracking-wide" style={{ color: color }}>
+                      {module.name}
+                    </code>
+
+                    {/* Owner Key - Copyable */}
+                    <div className="flex items-center gap-1 bg-gradient-to-r from-black/60 to-black/40 rounded-lg px-2 py-1">
+                      <code className="text-xs font-mono font-bold" style={{ color: keyColor }}>
+                        {shorten(module.key, 4, 4)}
+                      </code>
+                      <CopyButton text={module.key} size="sm" showValueOnHover={false} />
+                    </div>
+
+                    {/* CID QR Code */}
+                    {module.cid && (
+                      <div
+                        className="relative flex-shrink-0"
+                        onMouseEnter={() => setCidQrHovered(module.name)}
+                        onMouseLeave={() => setCidQrHovered(null)}
+                      >
+                        <QrCodeIcon className="h-4 w-4 cursor-pointer hover:scale-110 transition-transform" style={{ color: cidColor }} />
+                        {cidQrHovered === module.name && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 bg-black/95 rounded-xl border-2 z-[9999] shadow-2xl" style={{ borderColor: cidColor }}>
+                            <QRCode value={module.cid} size={120} color={cidColor} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Remove Button */}
+                    <button
+                      onClick={() => removeModule(module)}
+                      className="ml-1 hover:text-red-400 transition-colors text-white/70"
+                      type="button"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Input for adding modules */}
         <input
@@ -144,7 +185,7 @@ export function ModuleSelector({
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder={selectedModules.length === 0 ? 'select modules...' : ''}
+          placeholder={selectedModules.length === 0 ? 'select modules...' : 'add more modules...'}
           className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-500 text-lg"
           style={{ fontFamily: 'IBM Plex Mono, monospace' }}
         />

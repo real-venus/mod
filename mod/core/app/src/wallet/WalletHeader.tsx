@@ -20,12 +20,30 @@ interface NetworkConfig {
   id: string
   name: string
   color: string
+  logo?: string
+  comingSoon?: boolean
 }
 
 const NETWORKS: NetworkConfig[] = [
   { id: 'local', name: 'Local Ganache', color: '#10b981' },
-  { id: 'base-sepolia', name: 'Base Sepolia', color: '#0052ff' },
-  { id: 'base-mainnet', name: 'Base Mainnet', color: '#0052ff' }
+  {
+    id: 'base-sepolia',
+    name: 'Base Sepolia',
+    color: '#0052ff',
+    logo: 'https://avatars.githubusercontent.com/u/108554348?s=280&v=4'
+  },
+  {
+    id: 'base-mainnet',
+    name: 'Base Mainnet',
+    color: '#0052ff',
+    logo: 'https://avatars.githubusercontent.com/u/108554348?s=280&v=4'
+  },
+  {
+    id: 'solana',
+    name: 'Solana',
+    color: '#9945ff',
+    comingSoon: true
+  }
 ]
 
 export function WalletHeader() {
@@ -341,6 +359,10 @@ export function WalletHeader() {
   }, [])
 
   const handleNetworkChange = (network: NetworkConfig) => {
+    if (network.comingSoon) {
+      alert('Solana support coming soon!')
+      return
+    }
     setSelectedNetwork(network)
     localStorage.setItem('selected_network', network.id)
   }
@@ -460,13 +482,47 @@ export function WalletHeader() {
                 </button>
               </div>
 
-            {/* Wallet Mode */}
-            <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
-              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Mode</div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                <div className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg" style={{ color: userColor, backgroundColor: `${userColor}15` }}>
-                  {walletMode || 'local'}
+            {/* Wallet Mode & Network */}
+            <div className="px-5 py-3 border-b border-white/10">
+              <div className="flex items-center justify-between gap-4">
+                {/* Mode */}
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Mode</div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    <div className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg" style={{ color: userColor, backgroundColor: `${userColor}15` }}>
+                      {walletMode || 'local'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Network Dropdown */}
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Network</div>
+                  <select
+                    value={selectedNetwork.id}
+                    onChange={(e) => handleNetworkChange(NETWORKS.find(n => n.id === e.target.value)!)}
+                    className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg border transition-all focus:outline-none cursor-pointer"
+                    style={{
+                      color: selectedNetwork.color,
+                      backgroundColor: `${selectedNetwork.color}15`,
+                      borderColor: `${selectedNetwork.color}40`
+                    }}
+                  >
+                    {NETWORKS.map((network) => (
+                      <option
+                        key={network.id}
+                        value={network.id}
+                        disabled={network.comingSoon}
+                        style={{
+                          backgroundColor: '#000',
+                          color: network.color
+                        }}
+                      >
+                        {network.name} {network.comingSoon ? '(Soon)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -509,7 +565,7 @@ export function WalletHeader() {
                   className={`flex-1 flex flex-col items-center justify-center gap-2 py-4 px-4 rounded-xl font-black text-sm uppercase transition-all duration-300 backdrop-blur-sm border-2 ${
                     showTransferForm
                       ? 'scale-[1.02] shadow-2xl'
-                      : 'bg-black/40 text-white/60 border-white/20 hover:border-white/40 hover:text-white/90 hover:scale-[1.02] hover:shadow-lg'
+                      : 'hover:scale-[1.02] hover:shadow-lg'
                   }`}
                   style={
                     showTransferForm
@@ -519,7 +575,11 @@ export function WalletHeader() {
                           color: '#3b82f6',
                           boxShadow: '0 0 30px #3b82f640, 0 0 60px #3b82f620'
                         }
-                      : undefined
+                      : {
+                          background: 'linear-gradient(135deg, #3b82f610 0%, #3b82f620 100%)',
+                          borderColor: '#3b82f640',
+                          color: '#3b82f6'
+                        }
                   }
                 >
                   <ArrowsRightLeftIcon className="w-6 h-6" />
@@ -792,16 +852,8 @@ export function WalletHeader() {
               </AnimatePresence>
             </div>
 
-            {/* Key Type */}
-            <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
-              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Crypto Type</div>
-              <div className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 text-gray-400">
-                {user.crypto_type || 'ecdsa'}
-              </div>
-            </div>
-
             {/* Actions */}
-            <div className="px-4 py-3 border-b border-white/10 space-y-2">
+            <div className="px-4 py-3 space-y-2">
               <button
                 onClick={handleGoToProfile}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all text-sm font-medium active:scale-95"
@@ -816,31 +868,6 @@ export function WalletHeader() {
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
                 <span>Sign Out</span>
               </button>
-            </div>
-
-            {/* Network Selector - Bottom */}
-            <div className="px-4 py-3 bg-black/40">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: selectedNetwork.color }} />
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Network</span>
-                </div>
-                <select
-                  value={selectedNetwork.id}
-                  onChange={(e) => {
-                    const network = NETWORKS.find(n => n.id === e.target.value)
-                    if (network) handleNetworkChange(network)
-                  }}
-                  className="flex-1 bg-black/60 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-opacity-50 transition-all cursor-pointer"
-                  style={{ color: selectedNetwork.color, borderColor: `${selectedNetwork.color}40` }}
-                >
-                  {NETWORKS.map((network) => (
-                    <option key={network.id} value={network.id} style={{ backgroundColor: '#000' }}>
-                      {network.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           </motion.div>
           </div>

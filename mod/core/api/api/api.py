@@ -225,7 +225,7 @@ class  Api:
             file2cid[file] = cid
         return self.add({'data': self.add(file2cid), 'comment': comment})
     
-    def add_schema(self, mod: str='store', public=False) -> str:
+    def add_schema(self, mod: str='store', public=True) -> str:
         try:
             return self.add(m.schema(mod, public=public))
         except Exception as e:
@@ -345,7 +345,7 @@ class  Api:
                 mod : Union[str, dict] = 'store',
                 key=None,
                 comment=None,
-                public= False,
+                public= True,
                 token=None,
                 name=None,
                 ) -> Dict[str, Any]:
@@ -392,6 +392,20 @@ class  Api:
     def update(self): 
         self.mods(update=1)
 
+    def anchor_file(self, mod:str, key=None) -> Dict[str, Any]:
+        mod = self.mod(mod, key=key)
+        if not mod:
+            return None
+        content = mod.get('content', {})
+        content = self.get(content) 
+        assert 'data' in content, f"Content for mod {mod} is missing 'data' field."
+        file2content = self.get(content['data'])
+        file_name_options = ['mod.py', 'server.py', mod['name']+'.py']
+        for file, content in file2content.items():
+            if any(opt in file for opt in file_name_options):
+                return file
+        return None
+            
     def reg_payload(self, mod: str = 'store', key=None, comment=None) -> Dict[str, Any]:
         """
         Generate registration payload without executing registration.

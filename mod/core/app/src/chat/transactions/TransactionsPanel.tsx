@@ -26,9 +26,10 @@ interface Transaction {
 interface TransactionsPanelProps {
   hideTitle?: boolean
   showStats?: boolean
+  initialStatusFilter?: string
 }
 
-export const TransactionsPanel = forwardRef<{ handleSync: () => void }, TransactionsPanelProps>(function TransactionsPanel({ hideTitle = false, showStats = false }, ref) {
+export const TransactionsPanel = forwardRef<{ handleSync: () => void }, TransactionsPanelProps>(function TransactionsPanel({ hideTitle = false, showStats = false, initialStatusFilter = 'all' }, ref) {
   const { client } = userContext()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
@@ -36,7 +37,7 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
   const [error, setError] = useState<string | null>(null)
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter)
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
   const [page, setPage] = useState(0)
   const [pageSize] = useState(50)

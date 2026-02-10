@@ -745,6 +745,8 @@ class Mod:
         Get function schema of function in self
         '''   
         return self.fnschema(fn, public=public, avoid_arguments=avoid_arguments, **kwargs)['input']
+    
+    
 
     def schema(self, obj = None , search=None , public=True,  verbose=False, **kwargs)->dict:
         '''
@@ -817,7 +819,7 @@ class Mod:
     
 
     
-    def content(self, mod = None , search=None, ignore_folders = ['mods', 'mods', 'private', 'data', '_mods'], depth=10, relative=False,  **kwargs) ->  Dict[str, str]:
+    def content(self, mod = None , ignore_folders = [], depth=10,   **kwargs) ->  Dict[str, str]:
         """
         get the content of the mod as a dict of file path to file content
         return a dict of file path to file content
@@ -825,8 +827,13 @@ class Mod:
         mod = mod or 'mod'
         dirpath = self.abspath(self.dirpath(mod))
         files = self.files(dirpath, depth=depth)
-        content = {self.abspath(f):self.text(f) for f in files}
-        print(dirpath)
+        content = {}
+        for k in files:
+            print(k)
+            try:
+                content[k] = self.text(k)
+            except Exception as e:
+                content[k] = str(self.error(e))
         content = {k[len(dirpath+'/'):]:v for k,v in content.items()}
         content = {k:v for k,v in content.items() if not any(['/'+f+'/' in k for f in ignore_folders])}
         return dict(sorted(content.items(), key=lambda item: item[0]))

@@ -190,8 +190,11 @@ export default function Chat() {
 
               {activeTab === 'code' && (
                 <CodeTab
+                  selectedModules={chatState.selectedModules}
                   selectedFunction={chatState.selectedFunction}
+                  setSelectedFunction={chatState.setSelectedFunction}
                   schema={combinedSchema}
+                  fetchedSchemas={fetchedSchemas}
                 />
               )}
 
