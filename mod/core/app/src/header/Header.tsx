@@ -53,7 +53,7 @@ export default function Header() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-col items-center gap-3">
         {navItems.map((item, index) => {
           const Icon = item.icon;
           const isHovered = hoveredIndex === index;
@@ -78,14 +78,15 @@ export default function Header() {
                   whileHover={{ scale: 1.05, boxShadow: `0 0 25px ${item.color}60` }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Icon
-                    className="w-8 h-8 relative z-10"
+                  <div
                     style={{
                       color: item.color,
                       filter: `drop-shadow(0 0 6px ${item.color})`,
                       transition: 'all 0.2s ease'
                     }}
-                  />
+                  >
+                    <Icon className="w-8 h-8 relative z-10" />
+                  </div>
                 </motion.div>
               </Link>
 
@@ -93,11 +94,11 @@ export default function Header() {
               <AnimatePresence>
                 {isHovered && (
                   <motion.div
-                    initial={{ opacity: 0, y: 5, scale: 0.9 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 5, scale: 0.9 }}
+                    initial={{ opacity: 0, x: -10, scale: 0.9 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: -10, scale: 0.9 }}
                     transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                    className="absolute top-full left-1/2 -translate-x-1/2 mt-3 p-5 rounded-xl backdrop-blur-xl z-50 min-w-[220px]"
+                    className="absolute left-full top-1/2 -translate-y-1/2 ml-3 p-5 rounded-xl backdrop-blur-xl z-50 min-w-[220px]"
                     style={{
                       borderWidth: '2px',
                       borderColor: `${item.color}70`,
@@ -137,8 +138,8 @@ export default function Header() {
                     </div>
                     {/* Arrow */}
                     <div
-                      className="absolute bottom-full left-1/2 -translate-x-1/2 border-[10px] border-transparent"
-                      style={{ borderBottomColor: `${item.color}70` }}
+                      className="absolute right-full top-1/2 -translate-y-1/2 border-[10px] border-transparent"
+                      style={{ borderRightColor: `${item.color}70` }}
                     />
                   </motion.div>
                 )}

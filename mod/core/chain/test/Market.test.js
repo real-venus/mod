@@ -189,7 +189,7 @@ describe("Market Integration", function () {
 
     it("Should allow owner to debit from any address to any address", async function () {
       const [, , user2, provider2] = await ethers.getSigners();
-      
+
       // Credit user2 first
       const initialUserBalance = await market.balanceOf(user2.address);
       const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
@@ -209,6 +209,25 @@ describe("Market Integration", function () {
       expect(await market.balanceOf(provider2.address)).to.equal(providerAmount);
       expect(await market.balanceOf(treasury.address)).to.equal(treasuryFeeBefore + treasuryFee);
     });
+
+    it("Should track total treasury fees accrued correctly", async function () {
+      const treasuryFee = (stableAmount * 5n) / 100n;
+
+      const totalFeesBefore = await market.totalTreasuryFeesAccrued();
+
+      await market.connect(owner).debit(user1.address, provider.address, stableAmount);
+
+      const totalFeesAfter = await market.totalTreasuryFeesAccrued();
+      expect(totalFeesAfter).to.equal(totalFeesBefore + treasuryFee);
+    });
+
+    it("Should verify Market contract holds deposited tokens, not treasury", async function () {
+      const marketBalance = await paymentToken.balanceOf(await market.getAddress());
+      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
+
+      // Market should have received the tokens from the credit
+      expect(marketBalance).to.be.gte(paymentAmount);
+    });
   });
 
   describe("Withdrawal Tests", function () {
@@ -221,10 +240,6 @@ describe("Market Integration", function () {
     });
 
     it("Should allow immediate withdrawal without lockup", async function () {
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
-
-      await paymentToken.connect(treasury).approve(await market.getAddress(), paymentAmount);
-
       await expect(market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount))
         .to.emit(market, "Withdrawal");
 
@@ -235,7 +250,6 @@ describe("Market Integration", function () {
       const userBalanceBefore = await paymentToken.balanceOf(user1.address);
       const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
 
-      await paymentToken.connect(treasury).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
       const userBalanceAfter = await paymentToken.balanceOf(user1.address);
@@ -244,10 +258,6 @@ describe("Market Integration", function () {
     });
 
     it("Should require sufficient balance for withdrawal", async function () {
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
-
-      await paymentToken.connect(treasury).approve(await market.getAddress(), paymentAmount);
-
       await expect(
         market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount * 2n)
       ).to.be.revertedWith("Insufficient balance");
@@ -266,8 +276,6 @@ describe("Market Integration", function () {
     it("Should burn stable tokens on withdrawal", async function () {
       const balanceBefore = await market.balanceOf(user1.address);
 
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
-      await paymentToken.connect(treasury).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
       const balanceAfter = await market.balanceOf(user1.address);
@@ -278,9 +286,6 @@ describe("Market Integration", function () {
       const newPrice = 200000000n;
       await oracle.setPrice(await paymentToken.getAddress(), newPrice, 18);
 
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / newPrice;
-
-      await paymentToken.connect(treasury).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
       expect(await market.balanceOf(user1.address)).to.equal(0);

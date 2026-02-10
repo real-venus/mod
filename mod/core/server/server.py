@@ -17,20 +17,17 @@ print = m.print
 
 class Server:
     
-    # possible attributes in the mod that list the functions to expose
-
+    tag_divider = '::' # the divider to use for tags in mod names, e.g. 'mod::tag1' and 'mod::tag2' will be two servers with the same mod but different tags
     # helper functions that are always exposed are always exposed [WARNING: HELPER FNS SHOULD BE CAREFULLY CHOSEN TO AVOID SECURITY RISKS]
     
     def __init__(
         self, 
         path = '~/.mod/server', # the path to store the server data
-        pm = 'pm', # the process manager to use
+        pm = 'pm.docker', # the process manager to use
         registry = 'server.registry',
-        timeout = 300,
-        **_kwargs):
+        timeout = 300):
         self.store = m.mod('store')(path)
-        self.set_pm(pm)
-        # self.executor = m.mod(executor)()
+        self.pm = self.set_pm(pm)
         self.registry = m.mod(registry)()
         self.timeout = timeout
 
@@ -45,19 +42,10 @@ class Server:
         """
         return self.registry.namespace(search=search, **kwargs)
 
-
-    @property
-    def pm(self):
-        if not hasattr(self, '_pm'):
-            self._pm = m.mod('pm')()
-        return self._pm
-
-    @pm.setter
-    def pm(self, value):
-        self._pm = value
-
     def set_pm(self,  pm: str):
-        self.pm = m.mod(pm)()
+        if pm != None:
+            self.pm = m.mod(pm)()
+        return self.pm
 
     def logs(self, name: str, **kwargs) -> str:
         return self.pm.logs(name, **kwargs)
@@ -98,8 +86,9 @@ class Server:
             return isinstance(m, dict) and all(feature in m for feature in features )    
         mods = self.store.get(path, None, max_age=max_age, update=update)
         if mods == None :
-            urls = self.urls(search=search, **kwargs)
-            futures  = [m.submit(m.call, {"fn":url + '/info'}, timeout=timeout, mode='thread') for url in urls]
+            names = list(self.namespace().keys())
+            print(f'Fetching info for servers: {names}', color='green')
+            futures  = [m.submit(m.call, {"fn":name + '/info'}, timeout=timeout, mode='thread') for name in names]
             mods =  m.wait(futures, timeout=timeout)
             mods = list(filter(module_filter, mods))
             self.store.put(path, mods)
@@ -142,6 +131,19 @@ class Server:
                 getattr(mod_obj, fn)()
                 break
         return True
+    
+    def set_mod(self, name, mod):
+        if mod == None:
+            return
+        setattr(self, name, mod)
+
+    def get_fns(self, mod):
+        config = m.config(mod)
+        if config != None and 'fns' in config:
+            return config['fns']
+        mod_obj = m.mod(mod)
+        fns = [fn for fn in dir(mod_obj) if not fn.startswith('_') and callable(getattr(mod_obj, fn))]
+        return fns
 
     def serve(self, 
               mod: Union[str, 'Module', Any] = None, # the mod in either a string
@@ -150,50 +152,23 @@ class Server:
               fns = None, # list of fns to serve, if none, it will be the endpoints of the mod
               key = None, # the key for the server
               remote = False, # whether to run the server remotely
-              d = True, 
-              pm = 'pm',
+              pm = None,
+              run_mode:str='uvicorn',
               **extra_params 
 
               ):
-
+        
         self.set_pm(pm)
         mod = mod or m.name
         port = self.get_port(port, mod=mod)
         params = {**(params or {}), **extra_params}
         if remote:
-            return self.pm.forward(mod=mod, params=params, port=port, key=key,  daemon=d)
-        self.start_api( mod=mod, key=key, params=params, fns = fns, port=port)
-
-    def get_fns(self, 
-                mod:str, 
-                helper_fns:List[str]=['info', 'forward'],
-                fn_attributes = ['endpoints',  'fns', 'expose',  'exposed', 'functions', 'fns', 'expose_fns']):
-        fns = []
-        config = m.config(mod) or {}
-        mod_obj = m.mod(mod)
-        for fa in fn_attributes:
-            if fa in config: 
-                fns = config[fa]
-            if hasattr(mod_obj, fa) and isinstance(getattr(mod_obj, fa), list):
-                fns = getattr(mod_obj, fa) 
-            if len(fns) > 0:
-                break
-        fns =  list(set(fns + helper_fns))
-        return fns
-
-
-
-    def start_api(self, 
-                mod: Union[str, 'Module', Any]=None,
-                key: Optional[Union[str, 'Module', Any]]=None,
-                params: Optional[dict]=None,
-                fns : Optional[List[str]]=None,
-                port:int=8000, 
-                run_mode:str='uvicorn'):  # Changed default to uvicorn for stability
-        """
-        run the api server
-        """
-
+            return self.pm.forward(mod=mod, params=params, port=port, key=key)
+        
+        name = mod
+        if  self.tag_divider in mod:
+            mod = mod.split(self.tag_divider)[0]
+    
         self.mod = m.mod(mod)(**(params or {}))
         self.key = m.key(key)
         fns = fns or self.get_fns(mod)
@@ -224,7 +199,7 @@ class Server:
 
         self.app.post("/{fn}")(server_fn)
 
-        self.registry.reg(mod, f'http://0.0.0.0:{port}')
+        self.registry.reg(name, f'http://0.0.0.0:{port}')
         if run_mode == 'uvicorn':
             
             uvicorn.run(
@@ -276,3 +251,5 @@ class Server:
         
         else:
             raise Exception(f'Unknown mode {run_mode} for run_api')
+
+

@@ -20,7 +20,7 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
     TokenGate public tokenGate;
     uint256 public nextTransactionId = 1;
     uint256 public constant TREASURY_FEE_PERCENT = 5; // 5% treasury fee
-    
+
     // Track total USDC fees accrued by treasury as a single uint256
     uint256 public totalTreasuryFeesAccrued;
     
@@ -29,7 +29,6 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
     event Withdrawal(uint256 indexed txId, address indexed user, uint256 amount, address paymentToken, uint256 receivedAmount);
     event TreasuryUpdated(address indexed newTreasury);
     event TokenGateUpdated(address indexed newTokenGate);
-    event TreasuryFeeAccrued(uint256 feeAmount, uint256 totalAccrued);
     
     constructor(
         string memory name,
@@ -68,7 +67,7 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         
         uint256 paymentAmount = (stableAmount * (10 ** tokenDecimals)) / tokenPrice;
         
-        IERC20(paymentToken).safeTransferFrom(msg.sender, treasury, paymentAmount);
+        IERC20(paymentToken).safeTransferFrom(msg.sender, this , paymentAmount);
         _mint(msg.sender, stableAmount);
         
         uint256 txId = nextTransactionId++;
@@ -93,14 +92,13 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         
         // Burn from client
         _burn(client, stableAmount);
-        
+
         // Mint treasury fee to treasury
         _mint(treasury, treasuryFee);
-        
+
         // Track total treasury fees accrued (in stable token terms)
         totalTreasuryFeesAccrued += treasuryFee;
-        emit TreasuryFeeAccrued(treasuryFee, totalTreasuryFeesAccrued);
-        
+
         // Mint provider amount to provider
         _mint(provider, providerAmount);
         
@@ -118,21 +116,13 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         require(tokenPrice > 0, "Invalid price");
         
         uint256 withdrawAmount = (stableAmount * (10 ** tokenDecimals)) / tokenPrice;
-        
+
         _burn(msg.sender, stableAmount);
-        IERC20(paymentToken).safeTransferFrom(treasury, msg.sender, withdrawAmount);
+        IERC20(paymentToken).safeTransfer(msg.sender, withdrawAmount);
         
         uint256 txId = nextTransactionId++;
         emit Withdrawal(txId, msg.sender, stableAmount, paymentToken, withdrawAmount);
         return txId;
-    }
-    
-    /**
-     * @dev Get total treasury fees accrued in USD terms (stable token balance)
-     * This includes both claimed (treasury balance) and unclaimed fees
-     */
-    function getTotalTreasuryFeesUSD() external view returns (uint256) {
-        return totalTreasuryFeesAccrued;
     }
     
     /**

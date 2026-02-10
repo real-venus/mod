@@ -49,8 +49,6 @@ describe("Market Withdrawal Tests", function () {
     });
 
     it("Should allow immediate withdrawal without lockup", async function () {
-      await paymentToken.connect(treasury).approve(await market.getAddress(), ethers.parseEther("1000"));
-      
       await expect(market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount))
         .to.emit(market, "Withdrawal");
 
@@ -63,7 +61,6 @@ describe("Market Withdrawal Tests", function () {
       // NO FEE - user gets full amount back
       const expectedReturn = paymentAmount;
 
-      await paymentToken.connect(treasury).approve(await market.getAddress(), ethers.parseEther("1000"));
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
       const userBalanceAfter = await paymentToken.balanceOf(user1.address);
@@ -76,7 +73,7 @@ describe("Market Withdrawal Tests", function () {
 
     it("Should handle multiple deposits and immediate withdrawals", async function () {
       const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
-      
+
       // First deposit
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
@@ -88,7 +85,6 @@ describe("Market Withdrawal Tests", function () {
       expect(await market.balanceOf(user1.address)).to.equal(stableAmount * 2n);
 
       // Withdraw all immediately
-      await paymentToken.connect(treasury).approve(await market.getAddress(), ethers.parseEther("1000"));
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount * 2n);
 
       expect(await market.balanceOf(user1.address)).to.equal(0);
@@ -105,8 +101,6 @@ describe("Market Withdrawal Tests", function () {
     });
 
     it("Should require sufficient balance for withdrawal", async function () {
-      await paymentToken.connect(treasury).approve(await market.getAddress(), ethers.parseEther("1000"));
-      
       await expect(
         market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount * 2n)
       ).to.be.revertedWith("Insufficient balance");
@@ -124,26 +118,24 @@ describe("Market Withdrawal Tests", function () {
 
     it("Should burn stable tokens on withdrawal", async function () {
       const balanceBefore = await market.balanceOf(user1.address);
-      
-      await paymentToken.connect(treasury).approve(await market.getAddress(), ethers.parseEther("1000"));
+
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
       const balanceAfter = await market.balanceOf(user1.address);
       expect(balanceAfter).to.equal(balanceBefore - stableAmount);
     });
 
-    it("Should transfer correct payment amount from treasury", async function () {
-      const treasuryBalanceBefore = await paymentToken.balanceOf(treasury.address);
+    it("Should transfer correct payment amount from Market contract", async function () {
+      const marketBalanceBefore = await paymentToken.balanceOf(await market.getAddress());
       const userBalanceBefore = await paymentToken.balanceOf(user1.address);
 
-      await paymentToken.connect(treasury).approve(await market.getAddress(), ethers.parseEther("1000"));
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
       const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
       // NO FEE - full amount returned
       const expectedReturn = paymentAmount;
-      
-      expect(await paymentToken.balanceOf(treasury.address)).to.equal(treasuryBalanceBefore - paymentAmount);
+
+      expect(await paymentToken.balanceOf(await market.getAddress())).to.equal(marketBalanceBefore - paymentAmount);
       expect(await paymentToken.balanceOf(user1.address)).to.equal(userBalanceBefore + expectedReturn);
     });
   });
@@ -166,7 +158,6 @@ describe("Market Withdrawal Tests", function () {
       const newPrice = 200000000n; // $2
       await oracle.setPrice(await paymentToken.getAddress(), newPrice, 8);
 
-      await paymentToken.connect(treasury).approve(await market.getAddress(), ethers.parseEther("1000"));
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
       // Should use new price for withdrawal
@@ -175,7 +166,7 @@ describe("Market Withdrawal Tests", function () {
 
     it("Should handle multiple users with immediate withdrawals", async function () {
       const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
-      
+
       // User1 deposits
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
@@ -184,8 +175,6 @@ describe("Market Withdrawal Tests", function () {
       await paymentToken.connect(user2).approve(await market.getAddress(), paymentAmount);
       await market.connect(user2).credit(await paymentToken.getAddress(), stableAmount);
 
-      await paymentToken.connect(treasury).approve(await market.getAddress(), ethers.parseEther("10000"));
-      
       // Both can withdraw immediately
       await expect(market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount))
         .to.emit(market, "Withdrawal");

@@ -14,7 +14,10 @@ class Router:
     threads = {}
     cid2future = {}
     folder_path = m.abspath('~/.mod/api/router')
-
+    intervals = {
+        'sync_tasks': 10,
+        # 'sync_ious': 60,
+    }
 
     def __init__(self, store='ipfs', key=None, auth='auth.v0', chain='chain'):
         self.store = store
@@ -209,7 +212,7 @@ class Router:
     last_time_sync = 0
 
     def sync_info(self):
-        fns = ['sync_tasks', 'sync_ious']
+        fns = list(self.intervals.keys())
         sync_info = {}
         for fn in fns:
             last_time = m.get(self.path('last_time_' + fn)) or 0
@@ -244,10 +247,6 @@ class Router:
             # remove from cid2future
             self.cid2future.pop(path, None)
 
-    intervals = {
-        'sync_tasks': 5,
-        'sync_ious': 10,
-    }
     sync_counts = {}
     def sync_loop(self):
 
@@ -276,7 +275,6 @@ class Router:
                     except Exception as e:
                         print(f'Error in sync_loop for {fn}: {e}')
                     
-
     def wait_for_task(self, task, wait_frequency=0.2):
         task_path =  self.task_path(task)
         print(f'Waiting for task {task_path} status={task.get("status","pending")}')

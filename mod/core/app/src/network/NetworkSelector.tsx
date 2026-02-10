@@ -124,7 +124,7 @@ export function NetworkSelector() {
         <motion.div
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="flex items-center justify-center rounded-xl border-2 transition-all backdrop-blur-xl"
+          className="flex items-center justify-center rounded-xl border-2 transition-all backdrop-blur-xl relative"
           style={{
             height: '60px',
             width: '60px',
@@ -132,13 +132,36 @@ export function NetworkSelector() {
             borderColor: `${selectedNetwork.color}60`,
             boxShadow: `0 0 20px ${selectedNetwork.color}30`
           }}
+          title={`Network: ${selectedNetwork.name}`}
         >
-          <motion.div 
+          <motion.div
             animate={{ scale: [1, 1.2, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="w-4 h-4 rounded-full"
-            style={{ backgroundColor: selectedNetwork.color }}
+            className="w-5 h-5 rounded-full"
+            style={{
+              backgroundColor: selectedNetwork.color,
+              filter: `drop-shadow(0 0 6px ${selectedNetwork.color})`
+            }}
           />
+          {/* Connection indicator */}
+          {networkStatuses[selectedNetwork.id] === 'online' && (
+            <div
+              className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black animate-pulse"
+              title="Connected"
+            />
+          )}
+          {networkStatuses[selectedNetwork.id] === 'offline' && (
+            <div
+              className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-black"
+              title="Offline"
+            />
+          )}
+          {networkStatuses[selectedNetwork.id] === 'checking' && (
+            <div
+              className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yellow-500 rounded-full border-2 border-black animate-spin"
+              title="Checking..."
+            />
+          )}
         </motion.div>
 
         <AnimatePresence>

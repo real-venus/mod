@@ -9,7 +9,7 @@ import { ArrowPathIcon, ChevronDownIcon, ClockIcon, QrCodeIcon, CreditCardIcon, 
 import { Auth } from '@/client/auth'
 import WalletCreditDisplay from './WalletCreditDisplay'
 import { useRouter } from 'next/navigation'
-import { Client } from '@/client'
+import Client from '@/client'
 
 type TabType = 'overview' | 'transactions' | 'tokens'
 
@@ -87,10 +87,7 @@ export default function WalletInfoTabs() {
     setIsLoadingTxs(true)
     try {
       const client = new Client()
-      const result = await client.call({
-        fn: 'module.user_history',
-        kwargs: { address: user.key, limit: 10 }
-      })
+      const result = await client.call('api/txs', { address: user.key, limit: 10 })
       if (result?.data) {
         setTransactions(result.data)
       }

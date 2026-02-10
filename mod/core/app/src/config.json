@@ -18,6 +18,7 @@
                 "balance",
                 "versions",
                 "reg_url",
+                "txs",
                 "reg_from_info",
                 "hardware",
                 "servers", 

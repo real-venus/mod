@@ -9,6 +9,7 @@ import 'react-toastify/dist/ReactToastify.css'
 
 import Header from '@/header/Header'
 import { WalletHeader } from '@/wallet/WalletHeader'
+import { NetworkSelector } from '@/network/NetworkSelector'
 import { UserProvider } from '@/context'
 import { SearchProvider } from '@/context/SearchContext'
 import {
@@ -55,11 +56,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-black">
-      {/* Left logo rail */}
+      {/* Left sidebar with header items */}
       <div
-        className="fixed left-0 top-0 h-full flex items-start justify-center pt-4"
-        style={{ width: '80px', zIndex: 50 }}
+        className="fixed left-0 top-0 h-full flex flex-col items-center py-4 gap-3 border-r-2"
+        style={{ width: '80px', zIndex: 50, borderColor: 'rgba(0, 255, 0, 0.25)' }}
       >
+        {/* Logo at top */}
         <button onClick={() => setIsHeaderCollapsed(v => !v)}>
           <motion.div
             className="relative cursor-pointer"
@@ -82,23 +84,27 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                 exit={{ opacity: 0, x: 10 }}
                 className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-green-500/30 whitespace-nowrap text-sm font-medium pointer-events-none"
               >
-                {isHeaderCollapsed ? 'EXPAND HEADER' : 'COLLAPSE HEADER'}
+                {isHeaderCollapsed ? 'EXPAND SIDEBAR' : 'COLLAPSE SIDEBAR'}
                 <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900" />
               </motion.div>
             )}
           </motion.div>
         </button>
+
+        {/* Header navigation items */}
+        {!isHeaderCollapsed && (
+          <div className="flex flex-col gap-3 mt-4">
+            <Header />
+          </div>
+        )}
+
+        {/* Spacer */}
+        <div className="flex-1" />
       </div>
 
-      {/* Header Icons - Centered */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3">
-        <Header />
-      </div>
-
-      {/* Wallet Header - Top Right */}
-      <div
-        className="fixed top-4 right-4 z-[70]"
-      >
+      {/* Top right - Network and Wallet */}
+      <div className="fixed top-4 right-4 z-[70] flex items-center gap-3">
+        <NetworkSelector />
         <WalletHeader />
       </div>
 

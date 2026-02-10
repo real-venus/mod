@@ -40,7 +40,7 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
   const [page, setPage] = useState(0)
   const [pageSize] = useState(50)
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [autoRefresh, setAutoRefresh] = useState(false)
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [totalCount, setTotalCount] = useState(0)
   const [uniqueOwners, setUniqueOwners] = useState<string[]>([])

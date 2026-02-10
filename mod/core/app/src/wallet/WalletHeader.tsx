@@ -317,10 +317,19 @@ export function WalletHeader() {
     }
   }
 
+  // Fetch on mount and set up 10-minute polling
   useEffect(() => {
-    if (user?.key) {
+    if (!user?.key) return
+
+    // Initial fetch
+    fetchMarketCredit()
+
+    // Set up 10-minute interval
+    const interval = setInterval(() => {
       fetchMarketCredit()
-    }
+    }, 10 * 60 * 1000) // 10 minutes
+
+    return () => clearInterval(interval)
   }, [user?.key])
 
   useEffect(() => {
@@ -341,43 +350,40 @@ export function WalletHeader() {
     return <WalletAuthButton />
   }
 
-  // Signed in - show address with expandable side panel
+  // Signed in - show simplified wallet icon with copy button
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
         <button
           onClick={() => setIsHovered(!isHovered)}
-          className="relative flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 hover:scale-[1.02] transition-all backdrop-blur-sm group active:scale-95"
+          className="relative flex items-center justify-center p-3 rounded-xl border-2 hover:scale-[1.05] transition-all backdrop-blur-sm group active:scale-95"
           style={{
-            width: '80px',
-            height: '80px',
+            width: '60px',
+            height: '60px',
             borderColor: `${userColor}60`,
             backgroundColor: `${userColor}10`,
             boxShadow: `0 0 20px ${userColor}30`
           }}
-          title={address}
+          title={`Wallet: ${shortAddress}`}
         >
           <div className="relative">
-            <WalletIcon className="w-7 h-7" style={{ color: userColor }} />
-            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black animate-pulse" />
-          </div>
-          <div className="font-mono text-sm font-black text-yellow-400">
-            ${marketCredit.toFixed(2)}
+            <WalletIcon className="w-8 h-8" style={{ color: userColor, filter: `drop-shadow(0 0 6px ${userColor})` }} />
+            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black animate-pulse" title="Connected" />
           </div>
           <button
             onClick={(e) => {
               e.stopPropagation()
               copyAddress()
             }}
-            className="absolute top-1 right-1 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 active:scale-90"
+            className="absolute top-1 right-1 p-1 rounded-lg transition-all opacity-0 group-hover:opacity-100 active:scale-90"
             style={{
               backgroundColor: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)'
             }}
             title="Copy address"
           >
             {copied ? (
-              <ClipboardDocumentIcon className="w-4 h-4 text-green-400" />
+              <ClipboardDocumentIcon className="w-3.5 h-3.5 text-green-400" />
             ) : (
-              <ClipboardDocumentIcon className="w-4 h-4" style={{ color: userColor }} />
+              <ClipboardDocumentIcon className="w-3.5 h-3.5" style={{ color: userColor }} />
             )}
           </button>
         </button>

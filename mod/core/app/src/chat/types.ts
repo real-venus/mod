@@ -63,7 +63,7 @@ export interface Transaction {
   owner?: string
 }
 
-// State Types
+// Chat State Types
 export interface ChatState {
   // Messages
   messages: Message[]
@@ -76,22 +76,16 @@ export interface ChatState {
   // Loading
   isLoading: boolean
   setIsLoading: (isLoading: boolean) => void
-  streamingContent: string
-  setStreamingContent: (content: string) => void
 
-  // Module Selection
-  selectedModule: string
-  setSelectedModule: (module: string) => void
+  // Module Selection - NOW USING OBJECTS
+  selectedModules: Module[]
+  setSelectedModules: (modules: Module[]) => void
   selectedFunction: string
   setSelectedFunction: (fn: string) => void
 
   // Module Data
-  modules: Module[]
-  setModules: (modules: Module[]) => void
-  functions: string[]
-  setFunctions: (functions: string[]) => void
-  schema: ModuleSchema | null
-  setSchema: (schema: ModuleSchema | null) => void
+  allModules: Module[]
+  setAllModules: (modules: Module[]) => void
 
   // Parameters
   params: Record<string, any>
@@ -109,106 +103,20 @@ export interface ChatState {
   selectedInputParam: string
   setSelectedInputParam: (param: string) => void
 
-  // UI State
-  openDropdown: number | null
-  setOpenDropdown: (index: number | null) => void
-
   // Client
   client: Client | null
 }
 
-export interface ConfigState {
-  dividerPosition: number
-  setDividerPosition: (position: number) => void
-  isDragging: boolean
-  setIsDragging: (dragging: boolean) => void
-  isConfigCollapsed: boolean
-  setIsConfigCollapsed: (collapsed: boolean) => void
-  configOrientation: 'vertical' | 'horizontal' | 'left' | 'top'
-  setConfigOrientation: (orientation: 'vertical' | 'horizontal' | 'left' | 'top') => void
+// Tab Types
+export type TabType = 'chat' | 'params' | 'code' | 'txs'
+
+// UI State
+export interface UIState {
+  activeTab: TabType
+  setActiveTab: (tab: TabType) => void
 }
 
-// Component Props Types
-export interface ControlPanelProps {
-  selectedModule: string
-  setSelectedModule: (value: string) => void
-  selectedFunction: string
-  setSelectedFunction: (value: string) => void
-  modules: Module[]
-  functions: string[]
-  schema: ModuleSchema | null
-  params: Record<string, any>
-  handleParamChange: (key: string, value: string) => void
-  handleResetParams: () => void
-  handleRefresh: () => void
-  configOrientation: 'vertical' | 'horizontal' | 'left' | 'top'
-  setConfigOrientation: (value: 'vertical' | 'horizontal' | 'left' | 'top') => void
-  messages: Message[]
-  messagesEndRef: React.RefObject<HTMLDivElement>
-  input: string
-  setInput: (value: string) => void
-  selectedInputParam: string
-  setSelectedInputParam: (value: string) => void
-  wait: boolean
-  setWait: (value: boolean) => void
-  isLoading: boolean
-  inputParamOptions: string[]
-  handleSubmit: (e: React.FormEvent) => void
-  onCancel: () => void
-  isCollapsed: boolean
-  setIsCollapsed: (value: boolean) => void
-  transactionsPanelRef: React.RefObject<{ handleSync: () => void }>
-}
-
-export interface UnifiedInputPanelProps {
-  input: string
-  setInput: (value: string) => void
-  selectedInputParam: string
-  setSelectedInputParam: (value: string) => void
-  wait: boolean
-  setWait: (value: boolean) => void
-  isLoading: boolean
-  selectedModule: string
-  selectedFunction: string
-  inputParamOptions: string[]
-  handleSubmit: (e: React.FormEvent) => void
-  onCancel: () => void
-  params: Record<string, any>
-  handleParamChange: (key: string, value: string) => void
-  handleResetParams: () => void
-  schema: ModuleSchema | null
-  functionHasCode?: boolean
-  activeTab?: 'chat' | 'params' | 'code' | 'txs'
-  setActiveTab?: (tab: 'chat' | 'params' | 'code' | 'txs') => void
-  transactionsPanelRef?: React.RefObject<{ handleSync: () => void }>
-}
-
-export interface SchemaParamsPanelProps {
-  selectedFunction: string
-  schema: ModuleSchema | null
-  params: Record<string, any>
-  handleParamChange: (key: string, value: string) => void
-  handleResetParams: () => void
-  numColumns?: number
-}
-
-export interface ModuleFunctionSelectorProps {
-  selectedModule: string
-  setSelectedModule: (value: string) => void
-  selectedFunction: string
-  setSelectedFunction: (value: string) => void
-  modules: Module[]
-  functions: string[]
-  onEnterPress?: () => void
-  selectedOwner?: string
-  setSelectedOwner?: (value: string) => void
-}
-
-export interface TransactionsPanelProps {
-  hideTitle?: boolean
-  showStats?: boolean
-}
-
+// Transactions Panel
 export interface TransactionsPanelRef {
   handleSync: () => void
 }
