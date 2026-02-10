@@ -52,6 +52,7 @@ export function WalletHeader() {
   const [transferAmount, setTransferAmount] = useState<string>('')
   const [isTransferring, setIsTransferring] = useState(false)
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(NETWORKS[0])
+  const [balanceRefreshSuccess, setBalanceRefreshSuccess] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
@@ -147,6 +148,7 @@ export function WalletHeader() {
 
     try {
       setIsRefreshing(true)
+      setBalanceRefreshSuccess(false)
 
       // Use chain/balance API endpoint to get credit balance
       const result = await client.call('api/get_balances', {
@@ -158,6 +160,10 @@ export function WalletHeader() {
       const balances = result
       setTokenBalances(balances)
       setMarketCredit(balances?.MARKET || 0)
+
+      // Show success state
+      setBalanceRefreshSuccess(true)
+      setTimeout(() => setBalanceRefreshSuccess(false), 3000)
     } catch (err) {
       console.error('Error fetching balances:', err)
       setMarketCredit(0)
@@ -340,9 +346,10 @@ export function WalletHeader() {
     <div className="flex items-center gap-2">
         <button
           onClick={() => setIsHovered(!isHovered)}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 hover:scale-[1.02] transition-all backdrop-blur-sm group active:scale-95"
+          className="relative flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 hover:scale-[1.02] transition-all backdrop-blur-sm group active:scale-95"
           style={{
-            height: '60px',
+            width: '80px',
+            height: '80px',
             borderColor: `${userColor}60`,
             backgroundColor: `${userColor}10`,
             boxShadow: `0 0 20px ${userColor}30`
@@ -353,27 +360,24 @@ export function WalletHeader() {
             <WalletIcon className="w-7 h-7" style={{ color: userColor }} />
             <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black animate-pulse" />
           </div>
-          <div className="flex flex-col items-start gap-0.5">
-            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Wallet</span>
-            <code className="text-sm font-mono font-black" style={{ color: userColor }}>
-              {shortAddress}
-            </code>
+          <div className="font-mono text-sm font-black text-yellow-400">
+            ${marketCredit.toFixed(2)}
           </div>
           <button
             onClick={(e) => {
               e.stopPropagation()
               copyAddress()
             }}
-            className="ml-1 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 active:scale-90"
+            className="absolute top-1 right-1 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 active:scale-90"
             style={{
               backgroundColor: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)'
             }}
             title="Copy address"
           >
             {copied ? (
-              <ClipboardDocumentIcon className="w-5 h-5 text-green-400" />
+              <ClipboardDocumentIcon className="w-4 h-4 text-green-400" />
             ) : (
-              <ClipboardDocumentIcon className="w-5 h-5" style={{ color: userColor }} />
+              <ClipboardDocumentIcon className="w-4 h-4" style={{ color: userColor }} />
             )}
           </button>
         </button>
@@ -560,34 +564,46 @@ export function WalletHeader() {
 
               {/* Balance Display */}
               <div className="flex items-center justify-between mb-3">
-                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Balance</div>
-                <button
-                  onClick={fetchMarketCredit}
-                  disabled={isRefreshing}
-                  className="p-1.5 rounded-lg transition-all hover:bg-white/10 active:scale-95 disabled:opacity-50"
-                  style={{ color: userColor }}
-                  title="Refresh Balance"
-                >
-                  <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={fetchMarketCredit}
+                    disabled={isRefreshing}
+                    className="p-1.5 rounded-lg transition-all hover:bg-white/10 active:scale-95 disabled:opacity-50"
+                    style={{ color: balanceRefreshSuccess ? '#10b981' : userColor }}
+                    title="Refresh Balance"
+                  >
+                    <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </button>
+                  {balanceRefreshSuccess && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="text-[10px] text-green-400 font-mono font-bold flex items-center gap-1"
+                    >
+                      <span>✓</span>
+                      <span>UPDATED</span>
+                    </motion.div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center justify-between mb-3">
-                <div
+                <motion.div
+                  key={marketCredit}
+                  initial={balanceRefreshSuccess ? { scale: 1.05 } : { scale: 1 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: 0.3 }}
                   className="font-mono text-5xl font-black tracking-tighter bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 bg-clip-text text-transparent"
                   style={{
-                    textShadow: `0 0 30px ${userColor}40`
+                    textShadow: balanceRefreshSuccess
+                      ? `0 0 40px #10b98160, 0 0 20px ${userColor}40`
+                      : `0 0 30px ${userColor}40`
                   }}
                 >
                   ${marketCredit.toFixed(2)}
-                </div>
-                <button
-                  onClick={() => setShowAllBalances(!showAllBalances)}
-                  className="text-[10px] text-gray-500 hover:text-gray-300 font-bold transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/10"
-                >
-                  {showAllBalances ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
-                  All
-                </button>
+                </motion.div>
+
               </div>
 
               {/* All Token Balances */}

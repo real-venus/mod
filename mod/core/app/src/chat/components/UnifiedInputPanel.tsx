@@ -31,19 +31,30 @@ export function UnifiedInputPanel({
       try {
         const result = await client.call('txs', { df: 0, n: 50, page: 0 })
         const txs = Array.isArray(result) ? result : []
-        const pending = txs.filter((tx: any) =>
-          tx.status === 'pending'
-        ).length
 
-        // Find the most recent transaction (first one in list)
-        const latestTx = txs[0]
+        // Count only pending transactions for the badge
+        const pending = txs.filter((tx: any) => tx.status === 'pending').length
 
-        // Update current transaction if it's running/pending or just finished
-        if (latestTx && (latestTx.status === 'running' || latestTx.status === 'pending')) {
-          setCurrentTransaction(latestTx)
-        } else if (currentTransaction && latestTx?.cid === currentTransaction.cid) {
-          // Update if the same transaction finished
-          setCurrentTransaction(latestTx)
+        // Find any running or pending transaction
+        const runningTx = txs.find((tx: any) =>
+          tx.status === 'running' || tx.status === 'pending'
+        )
+
+        // Update current transaction
+        if (runningTx) {
+          // Always show running/pending transactions
+          setCurrentTransaction(runningTx)
+        } else if (currentTransaction) {
+          // Check if the current transaction finished
+          const finishedTx = txs.find((tx: any) =>
+            (tx.cid && tx.cid === currentTransaction.cid) ||
+            (tx.hash && tx.hash === currentTransaction.hash)
+          )
+          if (finishedTx && (finishedTx.status === 'success' || finishedTx.status === 'finished' || finishedTx.status === 'complete' || finishedTx.status === 'error' || finishedTx.status === 'failed')) {
+            // Show finished transaction for 5 seconds then clear
+            setCurrentTransaction(finishedTx)
+            setTimeout(() => setCurrentTransaction(null), 5000)
+          }
         }
 
         // Show notification if pending count increased
@@ -59,7 +70,7 @@ export function UnifiedInputPanel({
     }
 
     fetchTransactions()
-    const interval = setInterval(fetchTransactions, 2000)
+    const interval = setInterval(fetchTransactions, 1000) // Update every second for real-time
     return () => clearInterval(interval)
   }, [client, pendingCount, currentTransaction])
 
@@ -248,10 +259,10 @@ export function UnifiedInputPanel({
 
           {/* Current Results Section */}
           {currentTransaction && (
-            <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-y-auto">
-              <div className="flex-shrink-0 flex items-center gap-2 px-2">
-                <span className="text-emerald-400 text-sm">📊</span>
-                <h3 className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider">Current Results</h3>
+            <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto">
+              <div className="flex-shrink-0 flex items-center gap-2 px-2 py-1">
+                <span className="text-xl">📊</span>
+                <h3 className="text-white text-sm font-black uppercase tracking-widest">Current Results</h3>
               </div>
               <div className="flex-shrink-0 animate-slideIn">
                 <TransactionCard
@@ -280,10 +291,10 @@ export function UnifiedInputPanel({
 
           {/* Current Results Section */}
           {currentTransaction && (
-            <div className="flex-shrink-0 flex flex-col gap-2 border-t border-neutral-800 pt-3">
-              <div className="flex items-center gap-2 px-2">
-                <span className="text-emerald-400 text-sm">📊</span>
-                <h3 className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider">Current Results</h3>
+            <div className="flex-shrink-0 flex flex-col gap-3 border-t border-neutral-800 pt-3">
+              <div className="flex items-center gap-2 px-2 py-1">
+                <span className="text-xl">📊</span>
+                <h3 className="text-white text-sm font-black uppercase tracking-widest">Current Results</h3>
               </div>
               <div className="animate-slideIn">
                 <TransactionCard

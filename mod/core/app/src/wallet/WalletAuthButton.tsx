@@ -9,6 +9,61 @@ import { Key } from '@/key'
 
 type AuthMode = 'local' | 'subwallet' | 'metamask' | 'phantom'
 
+// Wallet Logos as SVG components
+const MetamaskLogo = () => (
+  <svg className="w-6 h-6" viewBox="0 0 318.6 318.6" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M274.1 35.5l-99.5 73.9 18.4-43.6z" fill="#E17726" stroke="#E17726" strokeWidth="1.5"/>
+    <path d="M44.4 35.5l98.7 74.6-17.5-44.3zm193.9 171.3l-26.5 40.6 56.7 15.6 16.3-55.3zm-204.4.9L50.1 263l56.7-15.6-26.5-40.6z" fill="#E27625" stroke="#E27625" strokeWidth="1.5"/>
+    <path d="M103.6 138.2l-15.8 23.9 56.3 2.5-2-60.5zm111.3 0l-39-34.8-1.3 61.2 56.2-2.5zM106.8 247.4l33.8-16.5-29.2-22.8zm71.1-16.5l33.9 16.5-4.7-39.3z" fill="#E27625" stroke="#E27625" strokeWidth="1.5"/>
+    <path d="M211.8 247.4l-33.9-16.5 2.7 22.1-.3 9.3zm-105 0l31.5 14.9-.2-9.3 2.5-22.1z" fill="#D5BFB2" stroke="#D5BFB2" strokeWidth="1.5"/>
+    <path d="M138.8 193.5l-28.2-8.3 19.9-9.1zm40.9 0l8.3-17.4 20 9.1z" fill="#233447" stroke="#233447" strokeWidth="1.5"/>
+    <path d="M106.8 247.4l4.8-40.6-31.3.9zM207 206.8l4.8 40.6 26.5-39.7zm23.8-44.7l-56.2 2.5 5.2 28.9 8.3-17.4 20 9.1zm-120.2 23.1l20-9.1 8.2 17.4 5.3-28.9-56.3-2.5z" fill="#CC6228" stroke="#CC6228" strokeWidth="1.5"/>
+    <path d="M87.8 162.1l23.6 46-.8-22.9zm120.3 23.1l-1 22.9 23.7-46zm-64-20.6l-5.3 28.9 6.6 34.1 1.5-44.9zm30.5 0l-2.7 18 1.2 45 6.7-34.1z" fill="#E27525" stroke="#E27525" strokeWidth="1.5"/>
+    <path d="M179.8 193.5l-6.7 34.1 4.8 3.3 29.2-22.8 1-22.9zm-69.2-8.3l.8 22.9 29.2 22.8 4.8-3.3-6.6-34.1z" fill="#F5841F" stroke="#F5841F" strokeWidth="1.5"/>
+    <path d="M180.3 262.3l.3-9.3-2.5-2.2h-37.7l-2.3 2.2.2 9.3-31.5-14.9 11 9 22.3 15.5h38.3l22.4-15.5 11-9z" fill="#C0AC9D" stroke="#C0AC9D" strokeWidth="1.5"/>
+    <path d="M177.9 230.9l-4.8-3.3h-27.7l-4.8 3.3-2.5 22.1 2.3-2.2h37.7l2.5 2.2z" fill="#161616" stroke="#161616" strokeWidth="1.5"/>
+    <path d="M278.3 114.2l8.5-40.8-12.7-37.9-96.2 71.4 37 31.3 52.3 15.3 11.6-13.5-5-3.6 8-7.3-6.2-4.8 8-6.1zM31.8 73.4l8.5 40.8-5.4 4 8 6.1-6.1 4.8 8 7.3-5 3.6 11.5 13.5 52.3-15.3 37-31.3-96.2-71.4z" fill="#763E1A" stroke="#763E1A" strokeWidth="1.5"/>
+    <path d="M267.2 153.5l-52.3-15.3 15.8 23.9-23.7 46 31.2-.4h46.5zm-163.6-15.3l-52.3 15.3-17.4 54.2h46.4l31.1.4-23.6-46zm71 26.4l3.3-57.7 15.2-41.1h-67.5l15 41.1 3.5 57.7 1.2 18.2.1 44.8h27.7l.2-44.8z" fill="#F5841F" stroke="#F5841F" strokeWidth="1.5"/>
+  </svg>
+)
+
+const PhantomLogo = () => (
+  <svg className="w-6 h-6" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="24" fill="url(#phantom-gradient)"/>
+    <path d="M96 64c0 17.673-14.327 32-32 32s-32-14.327-32-32V32h64v32z" fill="white"/>
+    <circle cx="52" cy="58" r="6" fill="#AB9FF2"/>
+    <circle cx="76" cy="58" r="6" fill="#AB9FF2"/>
+    <defs>
+      <linearGradient id="phantom-gradient" x1="0" y1="0" x2="128" y2="128">
+        <stop stopColor="#AB9FF2"/>
+        <stop offset="1" stopColor="#7C66DC"/>
+      </linearGradient>
+    </defs>
+  </svg>
+)
+
+const SubwalletLogo = () => (
+  <svg className="w-6 h-6" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="100" cy="100" r="100" fill="url(#subwallet-gradient)"/>
+    <path d="M100 40L60 80L100 120L140 80L100 40Z" fill="white"/>
+    <path d="M100 120L60 160L100 200L140 160L100 120Z" fill="white" opacity="0.6"/>
+    <defs>
+      <linearGradient id="subwallet-gradient" x1="0" y1="0" x2="200" y2="200">
+        <stop stopColor="#00E5CC"/>
+        <stop offset="1" stopColor="#00B8D4"/>
+      </linearGradient>
+    </defs>
+  </svg>
+)
+
+const LocalKeyLogo = () => (
+  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="7" cy="7" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+    <path d="M7 11V22M11 15H7M11 19H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M16 8L22 8M19 5L19 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+)
+
 export function WalletAuthButton() {
   const { user, signIn, signOut, authLoading } = userContext()
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -19,6 +74,8 @@ export function WalletAuthButton() {
   const [accounts, setAccounts] = useState<any[]>([])
   const [selectedAccount, setSelectedAccount] = useState<string>('')
   const [isExpanded, setIsExpanded] = useState(false)
+  const [metamaskAccounts, setMetamaskAccounts] = useState<string[]>([])
+  const [selectedMetamaskAccount, setSelectedMetamaskAccount] = useState<string>('')
 
   useEffect(() => {
     const checkWallets = async () => {
@@ -87,7 +144,7 @@ export function WalletAuthButton() {
     }
   }
 
-  const handleMetamaskSignIn = async () => {
+  const handleMetamaskConnect = async () => {
     setLoading(true)
     setError('')
 
@@ -100,15 +157,35 @@ export function WalletAuthButton() {
       if (!accounts || accounts.length === 0) {
         throw new Error('No MetaMask accounts found')
       }
-      console.log('MetaMask accounts:', accounts)
+      setMetamaskAccounts(accounts)
+      if (accounts.length === 1) {
+        setSelectedMetamaskAccount(accounts[0])
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to connect MetaMask')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleMetamaskSignIn = async () => {
+    if (!selectedMetamaskAccount) {
+      setError('Please select a MetaMask account')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
       localStorage.setItem('wallet_mode', 'metamask')
-      localStorage.setItem('wallet_address', accounts[0])
+      localStorage.setItem('wallet_address', selectedMetamaskAccount)
       localStorage.setItem('wallet_type', 'ethereum')
       await signIn()
       setShowAuthModal(false)
       setIsExpanded(false)
     } catch (err: any) {
-      setError(err.message || 'Failed to connect MetaMask')
+      setError(err.message || 'Failed to sign in with MetaMask')
     } finally {
       setLoading(false)
     }
@@ -148,7 +225,11 @@ export function WalletAuthButton() {
     } else if (authMode === 'subwallet') {
       handleSubwalletSignIn()
     } else if (authMode === 'metamask') {
-      handleMetamaskSignIn()
+      if (metamaskAccounts.length === 0) {
+        handleMetamaskConnect()
+      } else {
+        handleMetamaskSignIn()
+      }
     } else if (authMode === 'phantom') {
       handlePhantomSignIn()
     }
@@ -159,6 +240,9 @@ export function WalletAuthButton() {
     setPassword('')
     setError('')
     setIsExpanded(false)
+    setMetamaskAccounts([])
+    setSelectedMetamaskAccount('')
+    setSelectedAccount('')
   }
 
   if (authLoading) {
@@ -197,107 +281,159 @@ export function WalletAuthButton() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="absolute top-full right-0 mt-2 p-6 border-2 border-white/40 rounded-xl shadow-2xl z-50 min-w-[450px] backdrop-blur-xl"
+            className="absolute top-full right-0 mt-2 p-8 border-2 border-white/40 rounded-2xl shadow-2xl z-50 min-w-[500px] backdrop-blur-xl"
             style={{
-              borderRadius: '12px',
-              backgroundColor: 'rgba(0, 0, 0, 0.95)',
-              boxShadow: '0 0 30px rgba(255, 255, 255, 0.2), 0 10px 40px rgba(0, 0, 0, 0.8)'
+              borderRadius: '16px',
+              backgroundColor: 'rgba(0, 0, 0, 0.98)',
+              boxShadow: '0 0 40px rgba(255, 255, 255, 0.3), 0 20px 60px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(255, 255, 255, 0.05)'
             }}
           >
-            <h2 className="text-2xl font-bold text-white mb-4 uppercase tracking-wider text-center">AUTHENTICATE</h2>
-            
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="text-center mb-8">
+              <h2 className="text-4xl font-black text-white mb-3 uppercase tracking-wider relative">
+                <div className="absolute inset-0 blur-2xl opacity-50 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
+              </h2>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <div className="h-px w-12 bg-gradient-to-r from-transparent to-white/30" />
+                <p className="text-xs text-white/60 font-mono uppercase tracking-widest">Select your wallet</p>
+                <div className="h-px w-12 bg-gradient-to-l from-transparent to-white/30" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-8">
               <button
                 onClick={() => { setAuthMode('local'); setError(''); }}
-                className={`px-4 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border-2 ${
+                className={`group relative px-8 py-6 rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.03] active:scale-[0.98] ${
                   authMode === 'local'
-                    ? 'bg-white/10 text-white border-white/60'
-                    : 'bg-black text-white/60 border-white/30 hover:bg-white/5 hover:border-white/40'
+                    ? 'bg-gradient-to-br from-blue-500/30 to-blue-600/30 text-blue-300 border-blue-400 shadow-2xl shadow-blue-500/40'
+                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-white/40 hover:text-white/80'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2">
-                  <KeyIcon className="w-4 h-4" />
-                  <span>LOCAL</span>
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className={`transform transition-transform duration-300 ${authMode === 'local' ? 'scale-110' : 'group-hover:scale-110'}`}>
+                    <LocalKeyLogo />
+                  </div>
+                  <span className="font-black tracking-wider">LOCAL</span>
                 </div>
+                {authMode === 'local' && (
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/10 to-blue-600/10 animate-pulse" />
+                )}
               </button>
+
               <button
                 onClick={() => { setAuthMode('subwallet'); setError(''); }}
-                className={`px-4 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border-2 ${
+                className={`group relative px-8 py-6 rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.03] active:scale-[0.98] ${
                   authMode === 'subwallet'
-                    ? 'bg-white/10 text-white border-white/60'
-                    : 'bg-black text-white/60 border-white/30 hover:bg-white/5 hover:border-white/40'
-                } ${accounts.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    ? 'bg-gradient-to-br from-cyan-500/30 to-cyan-600/30 text-cyan-300 border-cyan-400 shadow-2xl shadow-cyan-500/40'
+                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-white/40 hover:text-white/80'
+                } ${accounts.length === 0 ? 'opacity-40 cursor-not-allowed hover:scale-100' : ''}`}
                 disabled={accounts.length === 0}
               >
-                <div className="flex items-center justify-center gap-2">
-                  <WalletIcon className="w-4 h-4" />
-                  <span>SUBWALLET</span>
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className={`transform transition-transform duration-300 ${authMode === 'subwallet' ? 'scale-110' : 'group-hover:scale-110'}`}>
+                    <SubwalletLogo />
+                  </div>
+                  <span className="font-black tracking-wider">SUBWALLET</span>
                 </div>
+                {authMode === 'subwallet' && (
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-cyan-600/10 animate-pulse" />
+                )}
               </button>
+
               <button
-                onClick={() => { setAuthMode('metamask'); setError(''); }}
-                className={`px-4 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border-2 ${
+                onClick={() => {
+                  setAuthMode('metamask');
+                  setError('');
+                  if (metamaskAccounts.length === 0) {
+                    handleMetamaskConnect();
+                  }
+                }}
+                className={`group relative px-8 py-6 rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.03] active:scale-[0.98] ${
                   authMode === 'metamask'
-                    ? 'bg-white/10 text-white border-white/60'
-                    : 'bg-black text-white/60 border-white/30 hover:bg-white/5 hover:border-white/40'
+                    ? 'bg-gradient-to-br from-orange-500/30 to-orange-600/30 text-orange-300 border-orange-400 shadow-2xl shadow-orange-500/40'
+                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-white/40 hover:text-white/80'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2">
-                  <WalletIcon className="w-4 h-4" />
-                  <span>METAMASK</span>
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className={`transform transition-transform duration-300 ${authMode === 'metamask' ? 'scale-110' : 'group-hover:scale-110'}`}>
+                    <MetamaskLogo />
+                  </div>
+                  <span className="font-black tracking-wider">METAMASK</span>
                 </div>
+                {authMode === 'metamask' && (
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-600/10 animate-pulse" />
+                )}
               </button>
+
               <button
                 onClick={() => { setAuthMode('phantom'); setError(''); }}
-                className={`px-4 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all border-2 ${
+                className={`group relative px-8 py-6 rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.03] active:scale-[0.98] ${
                   authMode === 'phantom'
-                    ? 'bg-white/10 text-white border-white/60'
-                    : 'bg-black text-white/60 border-white/30 hover:bg-white/5 hover:border-white/40'
+                    ? 'bg-gradient-to-br from-purple-500/30 to-purple-600/30 text-purple-300 border-purple-400 shadow-2xl shadow-purple-500/40'
+                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-white/40 hover:text-white/80'
                 }`}
               >
-                <div className="flex items-center justify-center gap-2">
-                  <WalletIcon className="w-4 h-4" />
-                  <span>PHANTOM</span>
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className={`transform transition-transform duration-300 ${authMode === 'phantom' ? 'scale-110' : 'group-hover:scale-110'}`}>
+                    <PhantomLogo />
+                  </div>
+                  <span className="font-black tracking-wider">PHANTOM</span>
                 </div>
+                {authMode === 'phantom' && (
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/10 to-purple-600/10 animate-pulse" />
+                )}
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               {authMode === 'local' ? (
                 <div>
-                  <label className="block text-white/70 mb-2 font-bold text-sm uppercase tracking-wider">PASSWORD</label>
+                  <label className="block text-white/80 mb-3 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                    <div className="w-1 h-4 bg-blue-400 rounded-full" />
+                    PASSWORD
+                  </label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 bg-black border-2 border-white/40 text-white rounded-xl font-mono text-sm focus:outline-none focus:border-white/60 transition-all"
+                    className="w-full px-5 py-4 bg-black/60 border-2 border-white/30 text-white rounded-xl font-mono text-sm focus:outline-none focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/20 transition-all placeholder:text-white/30"
                     placeholder="Enter your password"
                     autoFocus
                   />
                 </div>
               ) : authMode === 'subwallet' ? (
                 <div>
-                  <label className="block text-white/70 mb-2 font-bold text-sm uppercase tracking-wider">SELECT WALLET</label>
+                  <label className="block text-white/80 mb-3 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                    <div className="w-1 h-4 bg-cyan-400 rounded-full" />
+                    SELECT ACCOUNT
+                  </label>
                   {accounts.length === 0 ? (
-                    <div className="p-4 bg-yellow-900/20 border-2 border-yellow-500/40 rounded-xl">
-                      <p className="text-yellow-400 font-bold text-xs">⚠️ No wallet extension detected</p>
+                    <div className="p-5 bg-gradient-to-br from-yellow-900/30 to-yellow-800/20 border-2 border-yellow-500/50 rounded-xl backdrop-blur-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="text-2xl">⚠️</div>
+                        <p className="text-yellow-300 font-bold text-sm">No wallet extension detected</p>
+                      </div>
                     </div>
                   ) : (
-                    <div className="max-h-60 overflow-y-auto bg-black border-2 border-white/40 rounded-xl">
-                      {accounts.map((account) => (
+                    <div className="max-h-64 overflow-y-auto bg-black/60 border-2 border-cyan-500/30 rounded-xl custom-scrollbar">
+                      {accounts.map((account, index) => (
                         <button
                           key={account.address}
                           type="button"
                           onClick={() => setSelectedAccount(account.address)}
-                          className={`w-full text-left px-4 py-3 font-mono text-xs transition-all border-b border-white/20 last:border-b-0 hover:bg-white/5 ${
+                          className={`w-full text-left px-5 py-4 font-mono text-sm transition-all duration-200 border-b border-white/10 last:border-b-0 hover:bg-cyan-500/10 ${
                             selectedAccount === account.address
-                              ? 'bg-white/10 text-white font-bold'
-                              : 'text-white/70'
+                              ? 'bg-gradient-to-r from-cyan-500/20 to-cyan-600/20 text-cyan-300 font-bold border-l-4 border-l-cyan-400'
+                              : 'text-white/70 border-l-4 border-l-transparent'
                           }`}
                         >
-                          <div className="font-bold truncate">{account.meta.name}</div>
-                          <div className="text-xs text-white/50 truncate">
-                            {account.address.slice(0, 12)}...{account.address.slice(-12)}
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${selectedAccount === account.address ? 'bg-cyan-400' : 'bg-white/30'}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-sm truncate">{account.meta.name}</div>
+                              <div className="text-xs text-white/40 truncate mt-0.5">
+                                {account.address.slice(0, 14)}...{account.address.slice(-14)}
+                              </div>
+                            </div>
                           </div>
                         </button>
                       ))}
@@ -305,33 +441,97 @@ export function WalletAuthButton() {
                   )}
                 </div>
               ) : authMode === 'metamask' ? (
-                <div className="p-4 bg-orange-900/20 border-2 border-orange-500/40 rounded-xl">
-                  <p className="text-orange-400 font-bold text-xs">🦊 Click SIGN IN to connect MetaMask</p>
+                <div>
+                  {metamaskAccounts.length === 0 ? (
+                    <div className="p-5 bg-gradient-to-br from-orange-900/30 to-orange-800/20 border-2 border-orange-500/50 rounded-xl backdrop-blur-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="text-2xl">🦊</div>
+                        <div>
+                          <p className="text-orange-300 font-bold text-sm mb-1">Connect MetaMask</p>
+                          <p className="text-orange-200/60 text-xs">Click SIGN IN to connect your wallet</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-white/80 mb-3 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                        <div className="w-1 h-4 bg-orange-400 rounded-full" />
+                        SELECT ACCOUNT
+                      </label>
+                      <div className="max-h-64 overflow-y-auto bg-black/60 border-2 border-orange-500/30 rounded-xl custom-scrollbar">
+                        {metamaskAccounts.map((address, index) => (
+                          <button
+                            key={address}
+                            type="button"
+                            onClick={() => setSelectedMetamaskAccount(address)}
+                            className={`w-full text-left px-5 py-4 font-mono text-sm transition-all duration-200 border-b border-white/10 last:border-b-0 hover:bg-orange-500/10 ${
+                              selectedMetamaskAccount === address
+                                ? 'bg-gradient-to-r from-orange-500/20 to-orange-600/20 text-orange-300 font-bold border-l-4 border-l-orange-400'
+                                : 'text-white/70 border-l-4 border-l-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full ${selectedMetamaskAccount === address ? 'bg-orange-400' : 'bg-white/30'}`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-sm">Account {index + 1}</div>
+                                <div className="text-xs text-white/40 truncate mt-0.5">
+                                  {address.slice(0, 14)}...{address.slice(-14)}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="p-4 bg-purple-900/20 border-2 border-purple-500/40 rounded-xl">
-                  <p className="text-purple-400 font-bold text-xs">👻 Click SIGN IN to connect Phantom</p>
+                <div className="p-5 bg-gradient-to-br from-purple-900/30 to-purple-800/20 border-2 border-purple-500/50 rounded-xl backdrop-blur-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">👻</div>
+                    <div>
+                      <p className="text-purple-300 font-bold text-sm mb-1">Connect Phantom</p>
+                      <p className="text-purple-200/60 text-xs">Click SIGN IN to connect your wallet</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {error && (
-                <div className="text-red-400 font-bold text-xs border-2 border-red-500/40 bg-red-900/20 p-3 rounded-xl">
-                  ❌ {error}
-                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-red-300 font-bold text-sm border-2 border-red-500/50 bg-gradient-to-br from-red-900/30 to-red-800/20 p-4 rounded-xl backdrop-blur-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="text-xl">❌</div>
+                    <div className="flex-1">{error}</div>
+                  </div>
+                </motion.div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
                   disabled={loading || (authMode === 'subwallet' && accounts.length === 0)}
-                  className="flex-1 px-4 py-3 bg-white/10 text-white hover:bg-white/20 border-2 border-white/40 hover:border-white/60 rounded-xl font-bold text-sm uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="flex-1 px-6 py-5 bg-gradient-to-r from-green-500/30 to-emerald-500/30 text-green-300 hover:from-green-500/40 hover:to-emerald-500/40 border-2 border-green-500/60 hover:border-green-400 rounded-xl font-black text-base uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-green-500/30 relative overflow-hidden group"
                 >
-                  {loading ? '⏳ LOADING...' : '🚀 SIGN IN'}
+                  <div className="absolute inset-0 bg-gradient-to-r from-green-400/0 via-green-400/20 to-green-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-3 relative z-10">
+                      <div className="w-5 h-5 border-3 border-green-400/30 border-t-green-400 rounded-full animate-spin" />
+                      <span>LOADING...</span>
+                    </span>
+                  ) : authMode === 'metamask' && metamaskAccounts.length === 0 ? (
+                    <span className="relative z-10">🦊 CONNECT METAMASK</span>
+                  ) : (
+                    <span className="relative z-10">🚀 SIGN IN</span>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={handleModalClose}
-                  className="px-4 py-3 bg-black text-white/70 border-2 border-white/30 hover:bg-white/5 hover:border-white/40 rounded-xl font-bold text-sm uppercase tracking-wider transition-all"
+                  className="px-6 py-5 bg-gradient-to-r from-black/60 to-black/40 text-white/60 border-2 border-white/20 hover:bg-gradient-to-r hover:from-red-500/20 hover:to-red-600/20 hover:border-red-500/40 hover:text-red-300 rounded-xl font-black text-base uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-95"
                 >
                   CANCEL
                 </button>

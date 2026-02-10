@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { CubeIcon } from '@heroicons/react/24/outline'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 import Header from '@/header/Header'
 import { WalletHeader } from '@/wallet/WalletHeader'
@@ -144,6 +146,19 @@ export default function Providers({
               <ControlPanelProvider>
                 <LayoutProvider>
                   <LayoutContent>{children}</LayoutContent>
+                  <ToastContainer
+                    position="bottom-right"
+                    autoClose={3000}
+                    hideProgressBar={false}
+                    newestOnTop={true}
+                    closeOnClick
+                    rtl={false}
+                    pauseOnFocusLoss
+                    draggable
+                    pauseOnHover
+                    theme="dark"
+                    style={{ zIndex: 9999 }}
+                  />
                 </LayoutProvider>
               </ControlPanelProvider>
             </SplitScreenProvider>

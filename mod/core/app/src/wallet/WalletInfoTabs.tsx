@@ -232,7 +232,6 @@ export default function WalletInfoTabs() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <BanknotesIcon className="w-3.5 h-3.5" style={{ color: userColor }} />
-                <span className="text-xs text-gray-400 font-bold uppercase">Balance</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-sm font-bold" style={{ color: userColor }}>

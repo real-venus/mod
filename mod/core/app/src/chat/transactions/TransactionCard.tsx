@@ -32,7 +32,9 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
   const [activeTab, setActiveTab] = useState<'params' | 'results'>('results')
   const [elapsedTime, setElapsedTime] = useState(0)
 
-  const isInProgress = tx.status === 'running' || tx.status === 'pending'
+  // Check if transaction is truly complete - has result means it's done
+  const hasCompleted = tx.result !== undefined && tx.result !== null
+  const isInProgress = (tx.status === 'running' || tx.status === 'pending') && !hasCompleted
 
   // Update elapsed time for running transactions
   useEffect(() => {
@@ -49,38 +51,54 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
     return () => clearInterval(interval)
   }, [isInProgress, tx.time])
 
-  const getStatusStyles = (s: string) => {
-    if (s === 'running') return { 
-      dot: 'bg-blue-500', 
+  const getStatusStyles = (s: string, hasResult: boolean) => {
+    // If transaction has a result, it's complete regardless of status field
+    if (hasResult && (s === 'pending' || s === 'running')) {
+      return {
+        dot: 'bg-emerald-500',
+        text: 'text-emerald-400',
+        bg: 'bg-emerald-500/10',
+        border: 'border-emerald-500/30',
+        glow: 'shadow-[0_0_15px_rgba(16,185,129,0.3)]',
+        displayStatus: 'complete'
+      }
+    }
+
+    if (s === 'running') return {
+      dot: 'bg-blue-500',
       text: 'text-blue-400',
       bg: 'bg-blue-500/10',
       border: 'border-blue-500/30',
-      glow: 'shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+      glow: 'shadow-[0_0_15px_rgba(59,130,246,0.3)]',
+      displayStatus: s
     }
-    if (s === 'pending') return { 
-      dot: 'bg-amber-500', 
+    if (s === 'pending') return {
+      dot: 'bg-amber-500',
       text: 'text-amber-400',
       bg: 'bg-amber-500/10',
       border: 'border-amber-500/30',
-      glow: 'shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+      glow: 'shadow-[0_0_15px_rgba(245,158,11,0.3)]',
+      displayStatus: s
     }
-    if (s === 'success' || s === 'finished' || s === 'complete') return { 
-      dot: 'bg-emerald-500', 
+    if (s === 'success' || s === 'finished' || s === 'complete') return {
+      dot: 'bg-emerald-500',
       text: 'text-emerald-400',
       bg: 'bg-emerald-500/10',
       border: 'border-emerald-500/30',
-      glow: 'shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+      glow: 'shadow-[0_0_15px_rgba(16,185,129,0.3)]',
+      displayStatus: s
     }
-    return { 
-      dot: 'bg-red-500', 
+    return {
+      dot: 'bg-red-500',
       text: 'text-red-400',
       bg: 'bg-red-500/10',
       border: 'border-red-500/30',
-      glow: 'shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+      glow: 'shadow-[0_0_15px_rgba(239,68,68,0.3)]',
+      displayStatus: s
     }
   }
 
-  const status = getStatusStyles(tx.status)
+  const status = getStatusStyles(tx.status, hasCompleted)
   const fnColor = text2color(tx.fn || tx.key)
   const timestamp = parseInt(tx.time)
   const time = isNaN(timestamp) ? tx.time : timeAgo(timestamp * 1000)
@@ -134,7 +152,7 @@ export function TransactionCard({ tx, idx, isExpanded = false }: TransactionCard
         <div className="flex items-center gap-2 min-w-[120px]">
           <span className={`w-2.5 h-2.5 rounded-full ${status.dot} flex-shrink-0 ${isInProgress ? 'animate-pulse' : ''}`} />
           <span className={`text-xs font-bold uppercase tracking-wider ${status.text}`}>
-            {tx.status}
+            {status.displayStatus}
           </span>
         </div>
 

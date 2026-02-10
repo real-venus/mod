@@ -1,5 +1,6 @@
 "use client";
 import { Auth } from './auth';
+import { toast } from 'react-toastify';
 
 export class TokenExpiryHandler {
   private auth: Auth;
@@ -70,30 +71,46 @@ export class TokenExpiryHandler {
    * Handle expired token based on wallet mode
    */
   private handleExpiredToken(): void {
-    const walletMode = typeof localStorage !== 'undefined'
-      ? localStorage.getItem('wallet_mode') || 'local'
-      : 'local';
-
-    if (walletMode === 'local') {
-      // For local keys, auto-refresh silently
-      this.autoRefreshLocalToken();
-    } else {
-      // For wallet browser keys (metamask, subwallet, etc), show popup
-      this.showSignInPopup();
-    }
+    // Always attempt auto-refresh for all wallet modes
+    this.autoRefreshToken();
   }
 
   /**
-   * Auto-refresh token for local keys
+   * Auto-refresh token for all wallet modes
    */
-  private async autoRefreshLocalToken(): Promise<void> {
+  private async autoRefreshToken(): Promise<void> {
     try {
       const walletAddress = localStorage.getItem('wallet_address');
-      const newToken = await this.auth.token('', walletAddress, 'local');
+      const walletMode = localStorage.getItem('wallet_mode') || 'local';
+
+      console.log(`Auto-refreshing token for ${walletMode} wallet...`);
+      const newToken = await this.auth.token('', walletAddress, walletMode);
       localStorage.setItem('wallet_token', newToken);
-      console.log('Token auto-refreshed for local key');
+
+      console.log(`✅ Token auto-refreshed successfully for ${walletMode} wallet`);
+
+      // Update the client with the new token
+      if (typeof window !== 'undefined' && (window as any).__userContextClient) {
+        (window as any).__userContextClient.token = newToken;
+      }
+
+      // Show success notification
+      toast.success('🔐 Session refreshed automatically', {
+        position: 'bottom-right',
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     } catch (error) {
-      console.error('Failed to auto-refresh local token:', error);
+      console.error('Failed to auto-refresh token:', error);
+      // Show error notification
+      toast.error('⚠️ Session refresh failed - please sign in', {
+        position: 'bottom-right',
+        autoClose: 5000,
+      });
+      // Only show popup if auto-refresh fails
       this.showSignInPopup();
     }
   }

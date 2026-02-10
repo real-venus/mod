@@ -245,7 +245,6 @@ class Router:
             self.cid2future.pop(path, None)
 
     intervals = {
-        'sync_loop': 1,
         'sync_tasks': 5,
         'sync_ious': 10,
     }
@@ -267,7 +266,7 @@ class Router:
         while True:
             print('running loop')
             time.sleep(1)
-            fns = ['sync_tasks']
+            fns = list(self.intervals.keys())
             for fn in fns:
                 if cansync(fn):
                     try:

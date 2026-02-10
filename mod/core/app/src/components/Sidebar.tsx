@@ -2,7 +2,8 @@
 
 import { WalletHeader } from '@/wallet/WalletHeader'
 import { TreasuryHeader } from '@/header/TreasuryHeader'
-import { UsersIcon, CubeIcon, TableCellsIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, PlusIcon, Bars3Icon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { Logo } from '@/header/Logo'
+import { UsersIcon, CubeIcon, TableCellsIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, PlusIcon, Bars3Icon, ChevronLeftIcon, ChevronRightIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { NetworkSelector } from '@/network/NetworkSelector'
@@ -129,45 +130,107 @@ export function Sidebar() {
     }
   }
 
+  const mainNavItems = [
+    { id: 'chat', name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon, color: '#a855f7' },
+    { id: 'mods', name: 'Mods', href: '/mod/explore', icon: CubeIcon, color: '#10b981' },
+    { id: 'users', name: 'Users', href: '/user/explore', icon: GlobeAltIcon, color: '#3b82f6' },
+    { id: 'transactions', name: 'Transactions', href: '/transactions', icon: TableCellsIcon, color: '#f59e0b' },
+  ]
+
   return (
-    <aside className={`fixed left-0 top-0 h-full bg-black border-r-2 backdrop-blur-xl transition-all duration-300 z-40 ${isExpanded ? 'w-64' : 'w-20'}`} style={{ borderColor: 'rgba(0, 255, 0, 0.25)' }}>
-      <div className="flex flex-col h-full p-4">
-        <div className="flex items-center justify-between mb-6">
-          {isExpanded && <h2 className="text-xl font-bold text-green-400">Navigation</h2>}
-          <button onClick={() => setIsExpanded(!isExpanded)} className="p-2 rounded-lg border-2 border-green-500/30 hover:border-green-500/50 hover:bg-green-500/10 transition-all">
-            {isExpanded ? <ChevronLeftIcon className="w-5 h-5 text-green-400" /> : <ChevronRightIcon className="w-5 h-5 text-green-400" />}
-          </button>
+    <aside className="fixed left-0 top-0 h-full w-20 bg-black border-r-2 backdrop-blur-xl transition-all duration-300 z-40" style={{ borderColor: 'rgba(0, 255, 0, 0.25)' }}>
+      <div className="flex flex-col h-full p-3">
+        {/* Logo */}
+        <div className="flex items-center justify-center mb-6 mt-2">
+          <Logo />
         </div>
-        
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
-            <div className="flex-1 overflow-y-auto">
-              {items.map((item) => (
-                <SortableSidebarItem
-                  key={item.id}
-                  item={item}
-                  pathname={pathname}
-                  hoveredSection={hoveredSection}
-                  setHoveredSection={setHoveredSection}
-                  isSplitScreen={isSplitScreen}
-                  toggleSplitScreen={toggleSplitScreen}
-                  setOrientation={setOrientation}
-                  showOrientationMenu={showOrientationMenu}
-                  setShowOrientationMenu={setShowOrientationMenu}
-                  showTabMenu={showTabMenu}
-                  setShowTabMenu={setShowTabMenu}
-                  isEditMode={isEditMode}
-                  isExpanded={isExpanded}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-        
-        <button onClick={() => setIsEditMode(!isEditMode)} className={`mt-4 flex items-center ${isExpanded ? 'justify-start gap-3' : 'justify-center'} rounded-xl p-3 border-2 transition-all backdrop-blur-sm w-full ${isEditMode ? 'border-green-500/50 bg-green-500/20' : 'border-white/20 hover:border-white/40 hover:bg-white/10'}`}>
-          <Bars3Icon className="w-6 h-6" style={{ color: isEditMode ? '#10b981' : '#9ca3af' }} />
-          {isExpanded && <span className="text-sm font-medium" style={{ color: isEditMode ? '#10b981' : '#9ca3af' }}>Edit Mode</span>}
-        </button>
+
+        {/* Main Navigation Grid - 3 columns */}
+        <div className="grid grid-cols-1 gap-3 mb-6">
+          {mainNavItems.map((item) => {
+            const isActive = pathname === item.href
+            return (
+              <div key={item.id} className="relative" onMouseEnter={() => setHoveredSection(item.name)} onMouseLeave={() => setHoveredSection(null)}>
+                <Link
+                  href={item.href}
+                  className={`flex items-center justify-center rounded-xl p-3 transition-all backdrop-blur-sm w-full ${
+                    isActive
+                      ? 'bg-opacity-20 border-2 shadow-lg'
+                      : 'border-2 border-white/20 hover:border-white/40 hover:bg-white/10'
+                  }`}
+                  style={{
+                    backgroundColor: isActive ? `${item.color}33` : undefined,
+                    borderColor: isActive ? `${item.color}4D` : undefined,
+                    boxShadow: isActive ? `0 0 20px ${item.color}33` : '0 0 10px rgba(255,255,255,0.05)'
+                  }}
+                >
+                  <item.icon className="w-7 h-7" style={{ color: isActive ? item.color : '#9ca3af' }} />
+                </Link>
+                <AnimatePresence>
+                  {hoveredSection === item.name && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-full ml-2 top-1/2 -translate-y-1/2 pointer-events-none z-50"
+                    >
+                      <div
+                        className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border whitespace-nowrap text-sm font-medium"
+                        style={{ borderColor: `${item.color}4D` }}
+                      >
+                        {item.name}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Bottom utility items */}
+        <div className="flex-1" />
+
+        <div className="space-y-3">
+          <div className="relative" onMouseEnter={() => setHoveredSection('Network')} onMouseLeave={() => setHoveredSection(null)}>
+            <NetworkSelector />
+            <AnimatePresence>
+              {hoveredSection === 'Network' && (
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-full ml-2 top-1/2 -translate-y-1/2 pointer-events-none z-50"
+                >
+                  <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-blue-500/30 whitespace-nowrap text-sm font-medium">
+                    Network
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="relative" onMouseEnter={() => setHoveredSection('Wallet')} onMouseLeave={() => setHoveredSection(null)}>
+            <WalletHeader />
+            <AnimatePresence>
+              {hoveredSection === 'Wallet' && (
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-full ml-2 top-1/2 -translate-y-1/2 pointer-events-none z-50"
+                >
+                  <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-orange-500/30 whitespace-nowrap text-sm font-medium">
+                    Wallet
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
       </div>
     </aside>
   )

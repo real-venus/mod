@@ -87,7 +87,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Token expiry monitoring - starts when user is authenticated
    */
   useEffect(() => {
-    if (!user) {
+    if (!user || !client) {
       // Stop monitoring if user logs out
       if (expiryHandler) {
         expiryHandler.stopMonitoring()
@@ -96,12 +96,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
+    // Expose client globally for token refresh handler to update
+    if (typeof window !== 'undefined') {
+      (window as any).__userContextClient = client
+    }
+
     // Initialize token expiry handler
     const auth = new Auth()
     const handler = new TokenExpiryHandler(
       auth,
       () => {
-        // Callback when token expires and needs manual renewal
+        // Callback when token expires and auto-refresh fails
         setShowTokenExpiryModal(true)
       },
       60000 // Check every minute
@@ -112,8 +117,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       handler.stopMonitoring()
+      if (typeof window !== 'undefined') {
+        delete (window as any).__userContextClient
+      }
     }
-  }, [user])
+  }, [user, client])
 
   const connectClient = async () => {
     if (typeof window === 'undefined') return

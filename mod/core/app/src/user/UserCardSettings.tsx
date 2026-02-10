@@ -78,7 +78,6 @@ export const UserCardSettings = ({
                   className="px-3 py-2 bg-black/40 border border-purple-500/40 rounded-lg text-purple-200 text-sm font-medium focus:outline-none focus:border-purple-400/60 transition-all"
                 >
                   <option value="recent">Recent</option>
-                  <option value="balance">Balance</option>
                   <option value="modules">Modules</option>
                 </select>
               </div>

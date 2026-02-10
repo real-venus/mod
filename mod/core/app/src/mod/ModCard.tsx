@@ -33,44 +33,44 @@ export default function ModCard({ mod }: ModCardProps) {
   return (
     <Link href={`/mod/${mod.name}/${mod.key}`}>
       <div
-        className="relative border-2 rounded-2xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:shadow-2xl hover:scale-[1.02] overflow-visible group"
+        className="relative border-2 rounded-2xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:shadow-2xl overflow-visible group"
         style={{
           fontFamily: 'IBM Plex Mono, Courier New, monospace',
-          backgroundColor: colorWithOpacity(modColor, 0.05),
+          backgroundColor: colorWithOpacity(modColor, 0.08),
           borderColor: modColor,
           boxShadow: isHovered
-            ? `0 0 50px ${colorWithOpacity(modColor, 0.35)}, 0 0 100px ${colorWithOpacity(modColor, 0.15)}`
-            : `0 0 25px ${colorWithOpacity(modColor, 0.2)}`
+            ? `0 0 40px ${colorWithOpacity(modColor, 0.4)}, 0 0 80px ${colorWithOpacity(modColor, 0.2)}, inset 0 0 20px ${colorWithOpacity(modColor, 0.05)}`
+            : `0 0 20px ${colorWithOpacity(modColor, 0.25)}`
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-15 transition-opacity duration-500 rounded-2xl"
+          className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500 rounded-2xl"
           style={{
-            background: `radial-gradient(circle at 50% 50%, ${colorWithOpacity(modColor, 0.3)}, transparent 70%)`
+            background: `radial-gradient(circle at 50% 50%, ${colorWithOpacity(modColor, 0.4)}, transparent 70%)`
           }}
         />
 
-        <div className="relative p-6">
-          <div className="flex items-start gap-5">
-            <div className="flex-1">
-              <div className="flex items-center gap-4 mb-5">
-                <div className="relative">
-                  <CubeIcon className="w-12 h-12 transition-all duration-300 group-hover:rotate-12" style={{ color: modColor }} />
-                  <div 
-                    className="absolute inset-0 blur-xl opacity-50 group-hover:opacity-70 transition-opacity"
+        <div className="relative p-5">
+          <div className="flex items-start gap-4">
+            <div className="flex-1 space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="relative flex-shrink-0">
+                  <CubeIcon className="w-11 h-11 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110" style={{ color: modColor }} />
+                  <div
+                    className="absolute inset-0 blur-xl opacity-60 group-hover:opacity-80 transition-opacity"
                     style={{ backgroundColor: modColor }}
                   />
                 </div>
-                
-                <div className="flex items-center gap-3 bg-gradient-to-r from-black/60 to-black/40 rounded-xl px-5 py-3 flex-1 shadow-xl border border-white/10">
-                  <code className="text-xl font-bold font-mono tracking-wide" style={{ color: modColor }}>
+
+                <div className="flex items-center gap-3 bg-gradient-to-r from-black/70 to-black/50 rounded-xl px-4 py-2.5 flex-1 shadow-lg border border-white/10">
+                  <code className="text-lg font-black font-mono tracking-wide truncate" style={{ color: modColor }}>
                     {mod.name}
                   </code>
                   <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
-                  <div 
-                    className="relative ml-2"
+                  <div
+                    className="relative flex-shrink-0"
                     onMouseEnter={() => setIsNameQrHovered(true)}
                     onMouseLeave={() => setIsNameQrHovered(false)}
                   >
@@ -84,10 +84,10 @@ export default function ModCard({ mod }: ModCardProps) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2 bg-gradient-to-r from-blue-900/40 to-cyan-900/40 rounded-xl px-4 py-2.5 shadow-lg transition-all hover:scale-105 border border-blue-500/30">
-                  <Clock size={18} style={{ color: '#60a5fa' }} />
-                  <span className="text-base font-semibold text-blue-300">{updatedTimeStr}</span>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="flex items-center gap-2 bg-gradient-to-r from-blue-900/50 to-cyan-900/50 rounded-xl px-4 py-2 shadow-lg transition-all hover:scale-105 active:scale-95 border border-blue-500/40">
+                  <Clock size={16} style={{ color: '#60a5fa' }} />
+                  <span className="text-sm font-bold text-blue-300">{updatedTimeStr}</span>
                 </div>
 
                 <div 
