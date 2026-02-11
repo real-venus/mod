@@ -2,13 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { userContext } from '@/context'
-import { MagnifyingGlassIcon, CreditCardIcon, ArrowsRightLeftIcon, ArrowPathIcon, BanknotesIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, CreditCardIcon, ArrowsRightLeftIcon, ArrowPathIcon, BanknotesIcon, FolderIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
 import { ethers } from 'ethers'
 import modConfig from '@/app/mod.json'
 
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)']
 
-type ActionType = 'add' | 'send' | 'token' | 'txs'
+type ActionType = 'add' | 'send' | 'port' | 'token' | 'network' | 'txs'
 
 interface BalanceItem {
   id: string
@@ -70,12 +70,28 @@ export function PortfolioControlBar() {
       action: () => setActiveAction('send')
     },
     {
+      id: 'port',
+      symbol: 'PORT',
+      balance: '',
+      type: 'action',
+      icon: FolderIcon,
+      action: () => setActiveAction('port')
+    },
+    {
       id: 'token',
       symbol: 'TOKEN',
       balance: '',
       type: 'action',
       icon: ArrowPathIcon,
       action: () => fetchBalances()
+    },
+    {
+      id: 'network',
+      symbol: 'NETWORK',
+      balance: '',
+      type: 'action',
+      icon: GlobeAltIcon,
+      action: () => setActiveAction('network')
     },
     {
       id: 'txs',
@@ -138,7 +154,8 @@ export function PortfolioControlBar() {
             } ${activeAction === item.id ? 'bg-purple-500/30' : ''}`}
             style={{
               borderRadius: 0,
-              minWidth: '120px',
+              minWidth: '100px',
+              width: '100px',
               height: '100px'
             }}
           >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useMemo } from 'react'
+import { useRef, useState, useCallback, useMemo, useEffect } from 'react'
 import { useChatState } from './hooks/useChatState'
 import { useModules } from './hooks/useModules'
 import { useFetchedSchemas } from './hooks/useFetchedSchemas'
@@ -10,7 +10,7 @@ import { ChatTab } from './components/tabs/ChatTab'
 import { ParamsTab } from './components/tabs/ParamsTab'
 import { CodeTab } from './components/tabs/CodeTab'
 import { TxsTab } from './components/tabs/TxsTab'
-import type { TabType, TransactionsPanelRef } from './types'
+import type { TabType, TransactionsPanelRef, Transaction } from './types'
 
 /**
  * Main Chat component - refactored for cleaner architecture
@@ -22,6 +22,7 @@ export default function Chat() {
   const chatState = useChatState()
   const [abortController, setAbortController] = useState<AbortController | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('chat')
+  const [recentTransaction, setRecentTransaction] = useState<Transaction | null>(null)
   const transactionsPanelRef = useRef<TransactionsPanelRef>(null)
 
   // Load and manage modules
@@ -49,9 +50,50 @@ export default function Chat() {
       return []
     }
     return Object.keys(combinedSchema[chatState.selectedFunction].input).filter(
-      k => k !== 'self' && k !== 'cls'
+      k => k !== 'self' && k !== 'cls' && k !== 'kwargs'
     )
   }, [chatState.selectedFunction, combinedSchema])
+
+  // Auto-select first parameter when function changes or params load
+  useEffect(() => {
+    if (inputParamOptions.length > 0 && !chatState.selectedInputParam) {
+      chatState.setSelectedInputParam(inputParamOptions[0])
+    }
+  }, [inputParamOptions, chatState.selectedInputParam, chatState.setSelectedInputParam])
+
+  // Fetch most recent transaction for selected module/function
+  useEffect(() => {
+    const fetchRecentTx = async () => {
+      if (!chatState.client || !chatState.selectedFunction || chatState.selectedModules.length === 0) {
+        return
+      }
+
+      try {
+        const module = chatState.selectedModules[0]
+        const fn = `${module.name}/${chatState.selectedFunction}`
+
+        const result = await chatState.client.call('txs', {
+          df: 0,
+          n: 10,
+          page: 0
+        })
+        const txs = Array.isArray(result) ? result : []
+
+        // Filter for transactions matching the current module and function
+        const matchingTx = txs.find((tx: any) =>
+          tx.fn === fn || tx.fn === chatState.selectedFunction
+        )
+
+        if (matchingTx) {
+          setRecentTransaction(matchingTx)
+        }
+      } catch (err) {
+        console.error('Failed to fetch recent transaction:', err)
+      }
+    }
+
+    fetchRecentTx()
+  }, [chatState.client, chatState.selectedFunction, chatState.selectedModules])
 
 
   const handleCancel = useCallback(() => {
@@ -96,6 +138,30 @@ export default function Chat() {
             token: chatState.client.token
           }
         )
+
+        // Fetch the most recent transaction for this module/function
+        try {
+          const result = await chatState.client.call('txs', {
+            df: 0,
+            n: 10, // Fetch more to find the right one
+            page: 0
+          })
+          const txs = Array.isArray(result) ? result : []
+
+          // Filter for transactions matching the current module and function
+          const matchingTx = txs.find((tx: any) =>
+            tx.fn === fn || tx.fn === chatState.selectedFunction
+          )
+
+          if (matchingTx) {
+            setRecentTransaction(matchingTx)
+          } else if (txs.length > 0) {
+            // Fallback to most recent if no exact match
+            setRecentTransaction(txs[0])
+          }
+        } catch (txError) {
+          console.error('Error fetching recent transaction:', txError)
+        }
 
         transactionsPanelRef.current?.handleSync()
       } catch (error) {
@@ -143,10 +209,6 @@ export default function Chat() {
               selectedFunction={chatState.selectedFunction}
               setSelectedFunction={chatState.setSelectedFunction}
               fetchedSchemas={fetchedSchemas}
-              isLoading={chatState.isLoading}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              canSubmit={canSubmit}
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               pendingCount={0}
@@ -161,6 +223,12 @@ export default function Chat() {
                   setInput={chatState.setInput}
                   isLoading={chatState.isLoading}
                   onSubmit={handleSubmit}
+                  onCancel={handleCancel}
+                  canSubmit={canSubmit}
+                  inputParamOptions={inputParamOptions}
+                  selectedInputParam={chatState.selectedInputParam}
+                  setSelectedInputParam={chatState.setSelectedInputParam}
+                  recentTransaction={recentTransaction}
                 />
               )}
 
@@ -171,6 +239,11 @@ export default function Chat() {
                   handleResetParams={handleResetParams}
                   schema={combinedSchema}
                   selectedFunction={chatState.selectedFunction}
+                  isLoading={chatState.isLoading}
+                  onSubmit={handleSubmit}
+                  onCancel={handleCancel}
+                  canSubmit={canSubmit}
+                  recentTransaction={recentTransaction}
                 />
               )}
 

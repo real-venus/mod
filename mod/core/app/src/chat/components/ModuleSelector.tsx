@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo } from 'react'
 import { text2color, shorten, colorWithOpacity } from '@/utils'
-import { QrCodeIcon } from '@heroicons/react/24/outline'
+import { QrCodeIcon, KeyIcon, CubeIcon } from '@heroicons/react/24/outline'
 import { CopyButton } from '@/ui/CopyButton'
 import { QRCode } from '@/ui/QRCode'
 import type { Module } from '../types'
@@ -108,14 +108,16 @@ export function ModuleSelector({
   }
 
   const addModule = (module: Module) => {
-    setSelectedModules([...selectedModules, module])
+    // Limit to one module - replace existing
+    setSelectedModules([module])
     setInputValue('')
     setShowSuggestions(false)
     inputRef.current?.focus()
   }
 
   const removeModule = (module: Module) => {
-    setSelectedModules(selectedModules.filter(m => m.name !== module.name))
+    setSelectedModules([])
+    setInputValue('')
     inputRef.current?.focus()
   }
 
@@ -152,122 +154,113 @@ export function ModuleSelector({
 
   return (
     <div className="relative">
-      <div className="flex flex-col gap-2 bg-black border-2 border-purple-500/40 px-4 py-3 rounded-lg">
-        {/* Selected module pills - sorted by time */}
-        {sortedModules.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {sortedModules.map(module => {
-              const color = text2color(module.name)
-              const keyColor = text2color(module.key)
-              const cidColor = text2color(module.cid || '')
-              const timeAgo = formatTime(module.updated || module.created)
+      <div className="flex items-center gap-3 bg-black border-2 border-purple-500/40 px-5 py-4 rounded-xl">
+        {/* Selected module - single line compact */}
+        {sortedModules.length > 0 ? (
+          sortedModules.map(module => {
+            const color = text2color(module.name)
+            const keyColor = text2color(module.key)
+            const cidColor = text2color(module.cid || '')
+            const timeAgo = formatTime(module.updated || module.created)
 
-              return (
-                <div
-                  key={module.name}
-                  className="relative border-2 rounded-xl font-mono transition-all backdrop-blur-sm overflow-visible group"
-                  style={{
-                    fontFamily: 'IBM Plex Mono, monospace',
-                    backgroundColor: colorWithOpacity(color, 0.08),
-                    borderColor: color,
+            return (
+              <div
+                key={module.name}
+                className="relative flex items-center gap-3 border-2 rounded-xl font-mono transition-all backdrop-blur-sm overflow-visible px-5 py-3 shadow-lg hover:shadow-xl group"
+                style={{
+                  fontFamily: 'IBM Plex Mono, monospace',
+                  backgroundColor: colorWithOpacity(color, 0.12),
+                  borderColor: color,
+                  boxShadow: `0 0 20px ${colorWithOpacity(color, 0.15)}`,
+                }}
+              >
+                {/* Module Name */}
+                <code className="text-lg font-black tracking-wide" style={{ color: color }}>
+                  {module.name}
+                </code>
+
+                {/* Owner Key - Icon with hover effect */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigator.clipboard.writeText(module.key)
                   }}
+                  className="flex items-center justify-center bg-gradient-to-r from-black/70 to-black/50 rounded-lg p-2.5 hover:from-black/90 hover:to-black/70 transition-all cursor-pointer hover:scale-110 border border-white/10 hover:border-white/20 shadow-md"
+                  title={`Copy Key: ${module.key}`}
                 >
-                  <div className="px-3 py-2 flex items-center gap-2">
-                    {/* Module Name */}
-                    <code className="text-base font-black tracking-wide" style={{ color: color }}>
-                      {module.name}
-                    </code>
+                  <KeyIcon className="h-5 w-5 transition-transform group-hover:rotate-12" style={{ color: keyColor }} />
+                </button>
 
-                    {/* Owner Key - Icon */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navigator.clipboard.writeText(module.key)
-                      }}
-                      className="flex items-center gap-1 bg-gradient-to-r from-black/60 to-black/40 rounded-lg px-2 py-1 hover:from-black/80 hover:to-black/60 transition-all cursor-pointer"
-                      title={`Copy: ${module.key}`}
-                    >
-                      <code className="text-xs font-mono font-bold" style={{ color: keyColor }}>
-                        {shorten(module.key, 4, 4)}
-                      </code>
-                      <span className="text-[10px]">📋</span>
-                    </button>
+                {/* CID - Icon with hover effect */}
+                {module.cid && (
+                  <button
+                    onClick={(e) => copyCid(module.cid!, e)}
+                    className="flex items-center justify-center bg-gradient-to-r from-black/70 to-black/50 rounded-lg p-2.5 hover:from-black/90 hover:to-black/70 transition-all cursor-pointer hover:scale-110 border border-white/10 hover:border-white/20 shadow-md"
+                    title={`Copy CID: ${module.cid}`}
+                  >
+                    <CubeIcon className="h-5 w-5 transition-transform group-hover:rotate-12" style={{ color: cidColor }} />
+                  </button>
+                )}
 
-                    {/* CID - Icon */}
-                    {module.cid && (
-                      <button
-                        onClick={(e) => copyCid(module.cid!, e)}
-                        className="flex items-center gap-1 bg-gradient-to-r from-black/60 to-black/40 rounded-lg px-2 py-1 hover:from-black/80 hover:to-black/60 transition-all cursor-pointer"
-                        title={`Copy CID: ${module.cid}`}
-                      >
-                        <code className="text-xs font-mono font-bold" style={{ color: cidColor }}>
-                          {shorten(module.cid, 4, 4)}
-                        </code>
-                        <span className="text-[10px]">📋</span>
-                      </button>
-                    )}
+                {/* QR Code - Clickable with better styling */}
+                {module.cid && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setQrPopupModule(qrPopupModule === module.name ? null : module.name)
+                    }}
+                    className="flex-shrink-0 p-2.5 rounded-lg bg-black/50 hover:bg-black/70 transition-all hover:scale-110 border border-white/10 hover:border-white/20 shadow-md"
+                    title="Show QR Code"
+                  >
+                    <QrCodeIcon className="h-5 w-5 cursor-pointer transition-transform" style={{ color: cidColor }} />
+                  </button>
+                )}
 
-                    {/* QR Code - Clickable */}
-                    {module.cid && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setQrPopupModule(qrPopupModule === module.name ? null : module.name)
-                        }}
-                        className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-all"
-                        title="Show QR Code"
-                      >
-                        <QrCodeIcon className="h-4 w-4 cursor-pointer transition-transform hover:scale-110" style={{ color: cidColor }} />
-                      </button>
-                    )}
+                {/* Time with better styling */}
+                {timeAgo && (
+                  <span className="text-sm font-bold text-neutral-400 font-mono px-3 py-1.5 bg-black/40 rounded-lg border border-white/10">
+                    {timeAgo}
+                  </span>
+                )}
 
-                    {/* Time */}
-                    {timeAgo && (
-                      <span className="text-[10px] text-neutral-500 font-mono">
-                        {timeAgo}
-                      </span>
-                    )}
+                {/* Remove Button with better styling */}
+                <button
+                  onClick={() => removeModule(module)}
+                  className="hover:text-red-400 hover:bg-red-500/10 transition-all text-white/70 text-xl px-2.5 py-1 rounded-lg hover:scale-110 border border-transparent hover:border-red-500/30"
+                  type="button"
+                >
+                  ✕
+                </button>
 
-                    {/* Remove Button */}
-                    <button
-                      onClick={() => removeModule(module)}
-                      className="ml-1 hover:text-red-400 transition-colors text-white/70"
-                      type="button"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  {/* QR Code Popup */}
-                  {qrPopupModule === module.name && module.cid && (
-                    <div
-                      className="absolute top-full left-0 mt-2 p-4 bg-black/98 rounded-xl border-2 z-[9999] shadow-2xl"
-                      style={{ borderColor: cidColor }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="text-xs font-mono text-neutral-400">CID: {shorten(module.cid, 6, 6)}</div>
-                        <QRCode value={module.cid} size={150} color={cidColor} />
-                      </div>
+                {/* QR Code Popup */}
+                {qrPopupModule === module.name && module.cid && (
+                  <div
+                    className="absolute top-full left-0 mt-2 p-4 bg-black/98 rounded-xl border-2 z-[9999] shadow-2xl"
+                    style={{ borderColor: cidColor }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex flex-col gap-2">
+                      <div className="text-xs font-mono text-neutral-400">CID: {shorten(module.cid, 6, 6)}</div>
+                      <QRCode value={module.cid} size={150} color={cidColor} />
                     </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                  </div>
+                )}
+              </div>
+            )
+          })
+        ) : (
+          /* Input for selecting module - only shown when no module selected */
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="select module..."
+            className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-500 text-lg"
+            style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+          />
         )}
-
-        {/* Input for adding modules */}
-        <input
-          ref={inputRef}
-          type="text"
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder={selectedModules.length === 0 ? 'select modules...' : 'add more modules...'}
-          className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-500 text-base text-left"
-          style={{ fontFamily: 'IBM Plex Mono, monospace' }}
-        />
       </div>
 
       {/* Suggestions dropdown */}

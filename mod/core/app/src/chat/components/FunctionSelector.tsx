@@ -203,7 +203,8 @@ export function FunctionSelector({
       <button
         type="button"
         onClick={isDropdownOpen ? closeDropdown : openDropdown}
-        className="h-full w-full px-4 rounded-2xl bg-black/80 border-2 border-white/10 hover:border-purple-500/50 text-white transition-all flex items-center justify-between backdrop-blur-sm group"
+        className="h-full w-full px-6 py-4 rounded-2xl bg-black/80 border-2 border-white/10 hover:border-purple-500/50 text-white transition-all flex items-center justify-between backdrop-blur-sm group"
+        style={{ minHeight: '64px' }}
       >
         {isDropdownOpen ? (
           // Search input when dropdown is open
@@ -215,7 +216,7 @@ export function FunctionSelector({
             onKeyDown={handleKeyDown}
             onClick={(e) => e.stopPropagation()}
             placeholder="search..."
-            className="flex-1 bg-transparent text-white text-sm font-bold focus:outline-none placeholder-neutral-600"
+            className="flex-1 bg-transparent text-white text-lg font-bold focus:outline-none placeholder-neutral-600"
             style={{
               fontFamily: 'SF Pro Display, -apple-system, sans-serif',
               letterSpacing: '-0.01em',
@@ -224,14 +225,14 @@ export function FunctionSelector({
           />
         ) : (
           // Selected function display when dropdown is closed
-          <span className="flex-1 text-left truncate text-sm font-bold">
+          <span className="flex-1 text-left truncate text-lg font-bold">
             {selectedFunction || <span className="text-neutral-600">select...</span>}
           </span>
         )}
 
         {/* Dropdown arrow */}
         <span
-          className={`text-xs text-neutral-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+          className={`text-sm text-neutral-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
         >
           ▼
         </span>
@@ -239,7 +240,7 @@ export function FunctionSelector({
 
       {/* Dropdown Menu - Functions List Only */}
       {isDropdownOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-purple-500/40 rounded-xl shadow-2xl z-[9999] backdrop-blur-xl overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-transparent rounded-xl shadow-2xl z-[9999] backdrop-blur-md overflow-hidden">
           {/* Function list - Scrollable */}
           <div
             ref={listRef}
@@ -264,8 +265,8 @@ export function FunctionSelector({
                   }}
                   type="button"
                   onClick={() => selectFunction(name)}
-                  className={`w-full text-left px-4 py-3 text-white border-b border-white/5 last:border-b-0 transition-all font-medium flex justify-between items-center ${
-                    idx === selectedIndex ? 'bg-purple-500/20' : 'hover:bg-white/5'
+                  className={`w-full text-left px-4 py-3 text-white transition-all font-medium flex justify-between items-center ${
+                    idx === selectedIndex ? 'bg-purple-500/20 backdrop-blur-sm' : 'hover:bg-white/5'
                   }`}
                 >
                   <div className="flex flex-col gap-1">

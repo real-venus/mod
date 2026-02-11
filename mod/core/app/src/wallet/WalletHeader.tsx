@@ -544,7 +544,7 @@ export function WalletHeader() {
 
 {/* Action Tabs */}
             <div className="px-4 py-3 border-b border-neutral-800">
-              <div className="grid grid-cols-5 gap-0">
+              <div className="grid grid-cols-5 gap-2">
                 {/* ADD BUTTON */}
                 <button
                   onClick={() => {
@@ -553,13 +553,12 @@ export function WalletHeader() {
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
                   }}
-                  className={`flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 transition-all text-[10px] font-bold uppercase ${
+                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 ${
                     showTopUpForm
-                      ? 'bg-neutral-800 border-neutral-600 text-green-400'
-                      : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
+                      ? 'bg-gradient-to-br from-green-500/30 to-emerald-500/30 border-green-400 text-green-300 shadow-green-500/50'
+                      : 'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-green-300 hover:border-green-400/60 hover:shadow-green-500/30'
                   }`}
                   style={{
-                    borderRadius: 0,
                     fontFamily: 'IBM Plex Mono, monospace'
                   }}
                 >
@@ -575,13 +574,12 @@ export function WalletHeader() {
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
                   }}
-                  className={`flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 transition-all text-[10px] font-bold uppercase ${
+                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 ${
                     showTransferForm
-                      ? 'bg-neutral-800 border-neutral-600 text-blue-400'
-                      : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
+                      ? 'bg-gradient-to-br from-blue-500/30 to-blue-600/30 border-blue-400 text-blue-300 shadow-blue-500/50'
+                      : 'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-blue-300 hover:border-blue-400/60 hover:shadow-blue-500/30'
                   }`}
                   style={{
-                    borderRadius: 0,
                     fontFamily: 'IBM Plex Mono, monospace'
                   }}
                 >
@@ -597,13 +595,12 @@ export function WalletHeader() {
                     setShowTransferForm(false)
                     setShowTxsTab(false)
                   }}
-                  className={`flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 transition-all text-[10px] font-bold uppercase ${
+                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 ${
                     showPortfolioTab
-                      ? 'bg-neutral-800 border-neutral-600 text-purple-400'
-                      : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
+                      ? 'bg-gradient-to-br from-purple-500/30 to-purple-600/30 border-purple-400 text-purple-300 shadow-purple-500/50'
+                      : 'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-purple-300 hover:border-purple-400/60 hover:shadow-purple-500/30'
                   }`}
                   style={{
-                    borderRadius: 0,
                     fontFamily: 'IBM Plex Mono, monospace'
                   }}
                 >
@@ -615,9 +612,10 @@ export function WalletHeader() {
                 <button
                   onClick={handleRefreshToken}
                   disabled={isRefreshing}
-                  className="flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700 transition-all text-[10px] font-bold uppercase disabled:opacity-50"
+                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 ${
+                    'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30'
+                  }`}
                   style={{
-                    borderRadius: 0,
                     fontFamily: 'IBM Plex Mono, monospace'
                   }}
                 >
@@ -634,13 +632,12 @@ export function WalletHeader() {
                     setShowPortfolioTab(false)
                     if (!showTxsTab) fetchUserTransactions()
                   }}
-                  className={`flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 transition-all text-[10px] font-bold uppercase ${
+                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 ${
                     showTxsTab
-                      ? 'bg-neutral-800 border-neutral-600 text-amber-400'
-                      : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
+                      ? 'bg-gradient-to-br from-amber-500/30 to-orange-500/30 border-amber-400 text-amber-300 shadow-amber-500/50'
+                      : 'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-amber-300 hover:border-amber-400/60 hover:shadow-amber-500/30'
                   }`}
                   style={{
-                    borderRadius: 0,
                     fontFamily: 'IBM Plex Mono, monospace'
                   }}
                 >

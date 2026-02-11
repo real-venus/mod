@@ -302,13 +302,13 @@ export function WalletAuthButton() {
             <div className="grid grid-cols-2 gap-4 mb-8">
               <button
                 onClick={() => { setAuthMode('local'); setError(''); }}
-                className={`group relative px-8 py-6 rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.03] active:scale-[0.98] ${
+                className={`group relative aspect-square rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.05] active:scale-[0.98] shadow-xl ${
                   authMode === 'local'
-                    ? 'bg-gradient-to-br from-blue-500/30 to-blue-600/30 text-blue-300 border-blue-400 shadow-2xl shadow-blue-500/40'
-                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-white/40 hover:text-white/80'
+                    ? 'bg-gradient-to-br from-blue-500/30 to-blue-600/30 text-blue-300 border-blue-400 shadow-blue-500/50'
+                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-blue-400/60 hover:text-blue-300 hover:shadow-blue-500/30'
                 }`}
               >
-                <div className="flex flex-col items-center justify-center gap-3">
+                <div className="flex flex-col items-center justify-center gap-3 h-full">
                   <div className={`transform transition-transform duration-300 ${authMode === 'local' ? 'scale-110' : 'group-hover:scale-110'}`}>
                     <LocalKeyLogo />
                   </div>
@@ -321,14 +321,14 @@ export function WalletAuthButton() {
 
               <button
                 onClick={() => { setAuthMode('subwallet'); setError(''); }}
-                className={`group relative px-8 py-6 rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.03] active:scale-[0.98] ${
+                className={`group relative aspect-square rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.05] active:scale-[0.98] shadow-xl ${
                   authMode === 'subwallet'
-                    ? 'bg-gradient-to-br from-cyan-500/30 to-cyan-600/30 text-cyan-300 border-cyan-400 shadow-2xl shadow-cyan-500/40'
-                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-white/40 hover:text-white/80'
+                    ? 'bg-gradient-to-br from-cyan-500/30 to-cyan-600/30 text-cyan-300 border-cyan-400 shadow-cyan-500/50'
+                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-cyan-400/60 hover:text-cyan-300 hover:shadow-cyan-500/30'
                 } ${accounts.length === 0 ? 'opacity-40 cursor-not-allowed hover:scale-100' : ''}`}
                 disabled={accounts.length === 0}
               >
-                <div className="flex flex-col items-center justify-center gap-3">
+                <div className="flex flex-col items-center justify-center gap-3 h-full">
                   <div className={`transform transition-transform duration-300 ${authMode === 'subwallet' ? 'scale-110' : 'group-hover:scale-110'}`}>
                     <SubwalletLogo />
                   </div>
@@ -347,13 +347,13 @@ export function WalletAuthButton() {
                     handleMetamaskConnect();
                   }
                 }}
-                className={`group relative px-8 py-6 rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.03] active:scale-[0.98] ${
+                className={`group relative aspect-square rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.05] active:scale-[0.98] shadow-xl ${
                   authMode === 'metamask'
-                    ? 'bg-gradient-to-br from-orange-500/30 to-orange-600/30 text-orange-300 border-orange-400 shadow-2xl shadow-orange-500/40'
-                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-white/40 hover:text-white/80'
+                    ? 'bg-gradient-to-br from-orange-500/30 to-orange-600/30 text-orange-300 border-orange-400 shadow-orange-500/50'
+                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-orange-400/60 hover:text-orange-300 hover:shadow-orange-500/30'
                 }`}
               >
-                <div className="flex flex-col items-center justify-center gap-3">
+                <div className="flex flex-col items-center justify-center gap-3 h-full">
                   <div className={`transform transition-transform duration-300 ${authMode === 'metamask' ? 'scale-110' : 'group-hover:scale-110'}`}>
                     <MetamaskLogo />
                   </div>
@@ -366,13 +366,13 @@ export function WalletAuthButton() {
 
               <button
                 onClick={() => { setAuthMode('phantom'); setError(''); }}
-                className={`group relative px-8 py-6 rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.03] active:scale-[0.98] ${
+                className={`group relative aspect-square rounded-2xl font-bold text-base uppercase tracking-wider transition-all duration-300 border-2 hover:scale-[1.05] active:scale-[0.98] shadow-xl ${
                   authMode === 'phantom'
-                    ? 'bg-gradient-to-br from-purple-500/30 to-purple-600/30 text-purple-300 border-purple-400 shadow-2xl shadow-purple-500/40'
-                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-white/40 hover:text-white/80'
+                    ? 'bg-gradient-to-br from-purple-500/30 to-purple-600/30 text-purple-300 border-purple-400 shadow-purple-500/50'
+                    : 'bg-gradient-to-br from-black/60 to-black/40 text-white/50 border-white/20 hover:border-purple-400/60 hover:text-purple-300 hover:shadow-purple-500/30'
                 }`}
               >
-                <div className="flex flex-col items-center justify-center gap-3">
+                <div className="flex flex-col items-center justify-center gap-3 h-full">
                   <div className={`transform transition-transform duration-300 ${authMode === 'phantom' ? 'scale-110' : 'group-hover:scale-110'}`}>
                     <PhantomLogo />
                   </div>

@@ -10,12 +10,6 @@ interface UnifiedControlBarProps {
   setSelectedFunction: (fn: string) => void
   fetchedSchemas?: Map<string, ModuleSchema>
 
-  // Action buttons
-  isLoading: boolean
-  onSubmit: () => void
-  onCancel: () => void
-  canSubmit: boolean
-
   // Tabs
   activeTab: TabType
   setActiveTab: (tab: TabType) => void
@@ -23,7 +17,8 @@ interface UnifiedControlBarProps {
 }
 
 /**
- * Unified control bar combining function selector, tabs, and action button
+ * Unified control bar combining function selector and tabs
+ * Function selector takes 1/3 width, tabs take 2/3 width
  * IBM-style ASCII terminal aesthetics
  */
 export function UnifiedControlBar({
@@ -31,44 +26,23 @@ export function UnifiedControlBar({
   selectedFunction,
   setSelectedFunction,
   fetchedSchemas,
-  isLoading,
-  onSubmit,
-  onCancel,
-  canSubmit,
   activeTab,
   setActiveTab,
   pendingCount = 0
 }: UnifiedControlBarProps) {
-  const handleButtonClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onSubmit()
-  }
 
   return (
-    <div className="flex-shrink-0 flex flex-col gap-3">
-      {/* ┌─ Function Selector + Action Button ─┐ */}
+    <div className="flex-shrink-0">
+      {/* Function Selector (1/3) + Tabs (2/3) in same row */}
       <div
-        className="relative rounded-lg overflow-hidden"
+        className="relative rounded-lg overflow-visible"
         style={{
           fontFamily: 'IBM Plex Mono, Menlo, Monaco, Courier New, monospace',
-          background: 'linear-gradient(135deg, rgba(20,20,20,0.95) 0%, rgba(10,10,10,0.98) 100%)',
         }}
       >
-        {/* ASCII top border */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neutral-600 to-transparent" />
-        <div className="absolute top-0 left-0 w-px h-full bg-gradient-to-b from-neutral-600 via-neutral-700 to-neutral-600" />
-        <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-neutral-600 via-neutral-700 to-neutral-600" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neutral-600 to-transparent" />
-
-        <div className="flex gap-3 items-stretch p-3 border border-neutral-700/50">
-          {/* Function Selector */}
-          <div className="flex-1 relative">
-            <div className="absolute -top-1 -left-1 text-neutral-600 text-xs leading-none select-none">┌─</div>
-            <div className="absolute -top-1 -right-1 text-neutral-600 text-xs leading-none select-none">─┐</div>
-            <div className="absolute -bottom-1 -left-1 text-neutral-600 text-xs leading-none select-none">└─</div>
-            <div className="absolute -bottom-1 -right-1 text-neutral-600 text-xs leading-none select-none">─┘</div>
-
+        <div className="flex gap-3 items-stretch p-1">
+          {/* Function Selector - 1/3 width */}
+          <div className="w-1/3 relative flex items-stretch">
             <FunctionSelector
               selectedModules={selectedModules}
               selectedFunction={selectedFunction}
@@ -77,81 +51,21 @@ export function UnifiedControlBar({
             />
           </div>
 
-          {/* Send/Stop Button */}
-          <div className="flex-shrink-0 relative">
-            {isLoading ? (
-              <button
-                type="button"
-                onClick={onCancel}
-                className="h-full px-8 text-sm font-bold uppercase tracking-widest rounded border-2 border-red-600 bg-red-950/40 text-red-400 hover:bg-red-900/60 hover:text-red-300 transition-all flex items-center justify-center gap-3 relative overflow-hidden group"
-                style={{
-                  fontFamily: 'IBM Plex Mono, monospace',
-                  minHeight: '56px',
-                  letterSpacing: '0.15em'
-                }}
-              >
-                <span className="absolute inset-0 bg-red-600/10 group-hover:bg-red-600/20 transition-all" />
-                <span className="text-xl relative z-10">■</span>
-                <span className="relative z-10">STOP</span>
-                {/* ASCII corner brackets */}
-                <span className="absolute top-0 left-0 text-red-600/60 text-xs leading-none p-0.5">┌</span>
-                <span className="absolute top-0 right-0 text-red-600/60 text-xs leading-none p-0.5">┐</span>
-                <span className="absolute bottom-0 left-0 text-red-600/60 text-xs leading-none p-0.5">└</span>
-                <span className="absolute bottom-0 right-0 text-red-600/60 text-xs leading-none p-0.5">┘</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleButtonClick}
-                disabled={!canSubmit}
-                className="h-full px-8 text-sm font-bold uppercase tracking-widest rounded border-2 border-yellow-600 bg-yellow-950/40 text-yellow-400 hover:bg-yellow-900/60 hover:text-yellow-300 disabled:border-neutral-700 disabled:bg-neutral-900/40 disabled:text-neutral-600 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 relative overflow-hidden group"
-                style={{
-                  fontFamily: 'IBM Plex Mono, monospace',
-                  minHeight: '56px',
-                  letterSpacing: '0.15em'
-                }}
-              >
-                <span className="absolute inset-0 bg-yellow-600/10 group-hover:bg-yellow-600/20 disabled:group-hover:bg-transparent transition-all" />
-                <span className="text-xl relative z-10">⚡</span>
-                <span className="relative z-10">SEND</span>
-                {/* ASCII corner brackets */}
-                <span className="absolute top-0 left-0 text-yellow-600/60 text-xs leading-none p-0.5 group-disabled:text-neutral-700/60">┌</span>
-                <span className="absolute top-0 right-0 text-yellow-600/60 text-xs leading-none p-0.5 group-disabled:text-neutral-700/60">┐</span>
-                <span className="absolute bottom-0 left-0 text-yellow-600/60 text-xs leading-none p-0.5 group-disabled:text-neutral-700/60">└</span>
-                <span className="absolute bottom-0 right-0 text-yellow-600/60 text-xs leading-none p-0.5 group-disabled:text-neutral-700/60">┘</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ┌─ Tab Navigation ─┐ */}
-      <div
-        className="relative rounded-lg overflow-hidden"
-        style={{
-          fontFamily: 'IBM Plex Mono, Menlo, Monaco, Courier New, monospace',
-          background: 'linear-gradient(135deg, rgba(20,20,20,0.95) 0%, rgba(10,10,10,0.98) 100%)',
-        }}
-      >
-        {/* ASCII border */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neutral-600 to-transparent" />
-        <div className="absolute top-0 left-0 w-px h-full bg-gradient-to-b from-neutral-600 via-neutral-700 to-neutral-600" />
-        <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-neutral-600 via-neutral-700 to-neutral-600" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neutral-600 to-transparent" />
-
-        <div className="flex gap-0 border border-neutral-700/50 p-1">
+          {/* Tab Navigation - 2/3 width */}
+          <div className="w-2/3 flex gap-0 p-0">
           {/* CHAT Tab */}
           <button
             type="button"
             onClick={() => setActiveTab('chat')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-widest transition-all relative ${
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl ${
               activeTab === 'chat'
                 ? 'bg-black text-green-400 border-2 border-green-500'
                 : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/30 border-2 border-transparent'
             }`}
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
-              letterSpacing: '0.2em'
+              letterSpacing: '0.2em',
+              minHeight: '64px'
             }}
           >
             {activeTab === 'chat' && (
@@ -170,14 +84,15 @@ export function UnifiedControlBar({
           <button
             type="button"
             onClick={() => setActiveTab('params')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-widest transition-all relative ${
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl ${
               activeTab === 'params'
                 ? 'bg-black text-white border-2 border-white'
                 : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/30 border-2 border-transparent'
             }`}
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
-              letterSpacing: '0.2em'
+              letterSpacing: '0.2em',
+              minHeight: '64px'
             }}
           >
             {activeTab === 'params' && (
@@ -196,14 +111,15 @@ export function UnifiedControlBar({
           <button
             type="button"
             onClick={() => setActiveTab('code')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-widest transition-all relative ${
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl ${
               activeTab === 'code'
                 ? 'bg-black text-white border-2 border-white'
                 : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/30 border-2 border-transparent'
             }`}
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
-              letterSpacing: '0.2em'
+              letterSpacing: '0.2em',
+              minHeight: '64px'
             }}
           >
             {activeTab === 'code' && (
@@ -222,14 +138,15 @@ export function UnifiedControlBar({
           <button
             type="button"
             onClick={() => setActiveTab('outputs')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-widest transition-all relative ${
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl ${
               activeTab === 'outputs'
                 ? 'bg-black text-white border-2 border-white'
                 : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/30 border-2 border-transparent'
             }`}
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
-              letterSpacing: '0.2em'
+              letterSpacing: '0.2em',
+              minHeight: '64px'
             }}
           >
             {activeTab === 'outputs' && (
@@ -250,6 +167,7 @@ export function UnifiedControlBar({
               )}
             </span>
           </button>
+          </div>
         </div>
       </div>
     </div>
