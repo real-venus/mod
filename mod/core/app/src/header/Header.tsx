@@ -7,7 +7,8 @@ import {
   GlobeAltIcon,
   CubeIcon,
   BanknotesIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  PlusCircleIcon
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -25,6 +26,13 @@ const navItems: NavItem[] = [
     icon: ChatBubbleLeftRightIcon,
     features: ['AI Conversations', 'Module Testing', 'Function Calls'],
     color: '#8b5cf6', // purple
+  },
+  {
+    href: '/buidl',
+    label: 'Build',
+    icon: PlusCircleIcon,
+    features: ['Create Module', 'Deploy Code', 'Build APIs'],
+    color: '#ec4899', // pink
   },
   {
     href: '/mod/explore',

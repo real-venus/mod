@@ -110,7 +110,7 @@ export interface ChatState {
 }
 
 // Tab Types
-export type TabType = 'chat' | 'params' | 'code' | 'txs'
+export type TabType = 'chat' | 'params' | 'code' | 'outputs'
 
 // UI State
 export interface UIState {

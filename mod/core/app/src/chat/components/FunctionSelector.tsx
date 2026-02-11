@@ -198,9 +198,13 @@ export function FunctionSelector({
   }, [allFunctions, selectedFunction, setSelectedFunction])
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative h-full" ref={dropdownRef}>
       {/* Selection Bar with Integrated Search */}
-      <div className="w-full flex gap-3 items-center justify-between bg-neutral-950/60 border border-neutral-800/50 hover:border-neutral-700/50 px-6 py-4 rounded-2xl transition-all backdrop-blur-sm">
+      <button
+        type="button"
+        onClick={isDropdownOpen ? closeDropdown : openDropdown}
+        className="h-full w-full px-4 rounded-2xl bg-black/80 border-2 border-white/10 hover:border-purple-500/50 text-white transition-all flex items-center justify-between backdrop-blur-sm group"
+      >
         {isDropdownOpen ? (
           // Search input when dropdown is open
           <input
@@ -209,55 +213,33 @@ export function FunctionSelector({
             value={searchQuery}
             onChange={handleSearchChange}
             onKeyDown={handleKeyDown}
-            placeholder="search functions..."
-            className="flex-1 bg-transparent text-white text-lg font-semibold focus:outline-none placeholder-neutral-600"
+            onClick={(e) => e.stopPropagation()}
+            placeholder="search..."
+            className="flex-1 bg-transparent text-white text-sm font-bold focus:outline-none placeholder-neutral-600"
             style={{
               fontFamily: 'SF Pro Display, -apple-system, sans-serif',
               letterSpacing: '-0.01em',
-              color: functionColor
             }}
             autoFocus
           />
         ) : (
           // Selected function display when dropdown is closed
-          <button
-            type="button"
-            onClick={openDropdown}
-            className="flex-1 text-left"
-          >
-            {selectedFunction ? (
-              <span
-                className="font-semibold text-lg"
-                style={{
-                  fontFamily: 'SF Pro Display, -apple-system, sans-serif',
-                  letterSpacing: '-0.01em',
-                  color: functionColor
-                }}
-              >
-                {selectedFunction}
-              </span>
-            ) : (
-              <span className="text-neutral-600 text-lg" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}>
-                select function...
-              </span>
-            )}
-          </button>
+          <span className="flex-1 text-left truncate text-sm font-bold">
+            {selectedFunction || <span className="text-neutral-600">select...</span>}
+          </span>
         )}
 
         {/* Dropdown arrow */}
-        <button
-          type="button"
-          onClick={isDropdownOpen ? closeDropdown : openDropdown}
-          className="text-neutral-500 text-sm transition-transform"
-          style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        <span
+          className={`text-xs text-neutral-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
         >
           ▼
-        </button>
-      </div>
+        </span>
+      </button>
 
       {/* Dropdown Menu - Functions List Only */}
       {isDropdownOpen && (
-        <div className="absolute top-full left-0 right-0 mt-3 bg-neutral-950/98 border border-neutral-800/60 rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.6)] z-50 backdrop-blur-xl overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-purple-500/40 rounded-xl shadow-2xl z-[9999] backdrop-blur-xl overflow-hidden">
           {/* Function list - Scrollable */}
           <div
             ref={listRef}
@@ -269,7 +251,7 @@ export function FunctionSelector({
             }}
           >
             {filteredFunctions.length === 0 ? (
-              <div className="px-4 py-8 text-center text-neutral-500">
+              <div className="px-4 py-6 text-center text-neutral-500 text-sm">
                 {searchQuery ? 'No matching functions' : 'No functions available'}
               </div>
             ) : (
@@ -282,16 +264,15 @@ export function FunctionSelector({
                   }}
                   type="button"
                   onClick={() => selectFunction(name)}
-                  className={`w-full text-left px-5 py-4 text-white border-b border-neutral-800/40 last:border-b-0 transition-all font-medium flex justify-between items-center ${
-                    idx === selectedIndex ? 'bg-neutral-800/60' : 'hover:bg-neutral-900/60'
+                  className={`w-full text-left px-4 py-3 text-white border-b border-white/5 last:border-b-0 transition-all font-medium flex justify-between items-center ${
+                    idx === selectedIndex ? 'bg-purple-500/20' : 'hover:bg-white/5'
                   }`}
-                  style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
                 >
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-base font-semibold">{name}</span>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold">{name}</span>
                     <span className="text-neutral-500 text-xs">from: {moduleName}</span>
                     {owner && (
-                      <span className="text-neutral-600 text-xs">
+                      <span className="text-neutral-600 text-[10px]">
                         {owner.slice(0, 8)}...{owner.slice(-6)}
                       </span>
                     )}

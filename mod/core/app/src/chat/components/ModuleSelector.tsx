@@ -265,14 +265,14 @@ export function ModuleSelector({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={selectedModules.length === 0 ? 'select modules...' : 'add more modules...'}
-          className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-500 text-lg"
+          className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-500 text-base text-left"
           style={{ fontFamily: 'IBM Plex Mono, monospace' }}
         />
       </div>
 
       {/* Suggestions dropdown */}
       {showSuggestions && filteredModules.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-purple-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-black/95 border-2 border-purple-500/60 rounded-lg shadow-2xl z-[9999] backdrop-blur-md max-h-60 overflow-y-auto">
           {filteredModules.map(({ module, distance }, idx) => {
             const timeAgo = formatTime(module.updated || module.created)
             const timestamp = module.updated || module.created

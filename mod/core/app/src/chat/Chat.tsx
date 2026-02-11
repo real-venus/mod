@@ -5,12 +5,12 @@ import { useChatState } from './hooks/useChatState'
 import { useModules } from './hooks/useModules'
 import { useFetchedSchemas } from './hooks/useFetchedSchemas'
 import { ModuleSelector } from './components/ModuleSelector'
-import { TabBar } from './components/TabBar'
+import { UnifiedControlBar } from './components/UnifiedControlBar'
 import { ChatTab } from './components/tabs/ChatTab'
 import { ParamsTab } from './components/tabs/ParamsTab'
 import { CodeTab } from './components/tabs/CodeTab'
 import { TxsTab } from './components/tabs/TxsTab'
-import type { TabType, TransactionsPanelRef, ModuleSchema } from './types'
+import type { TabType, TransactionsPanelRef } from './types'
 
 /**
  * Main Chat component - refactored for cleaner architecture
@@ -53,11 +53,6 @@ export default function Chat() {
     )
   }, [chatState.selectedFunction, combinedSchema])
 
-  // Check if function has code
-  const functionHasCode = useMemo(() => {
-    if (!chatState.selectedFunction || !combinedSchema) return false
-    return !!combinedSchema[chatState.selectedFunction]?.content
-  }, [chatState.selectedFunction, combinedSchema])
 
   const handleCancel = useCallback(() => {
     if (abortController) {
@@ -99,10 +94,7 @@ export default function Chat() {
             params: callParams,
             wait: chatState.wait,
             token: chatState.client.token
-          },
-          0,
-          {},
-          chatState.timeout * 1000
+          }
         )
 
         transactionsPanelRef.current?.handleSync()
@@ -131,10 +123,10 @@ export default function Chat() {
   const canSubmit = chatState.selectedModules.length > 0 && !!chatState.selectedFunction
 
   return (
-    <div className="relative flex h-full w-full bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 overflow-hidden">
+    <div className="relative flex h-full w-full bg-black overflow-hidden">
       <div className="w-full h-full p-6">
-        <div className="w-full h-full max-w-7xl mx-auto rounded-2xl bg-black/40 backdrop-blur-xl shadow-2xl overflow-hidden">
-          <div className="h-full flex flex-col p-4 gap-3 bg-black/95 backdrop-blur-xl">
+        <div className="w-full h-full max-w-7xl mx-auto overflow-hidden">
+          <div className="h-full flex flex-col p-4 gap-3 bg-black" style={{ fontFamily: 'IBM Plex Mono, Menlo, Monaco, monospace' }}>
 
             {/* Module Selector - Top */}
             <div className="flex-shrink-0">
@@ -145,52 +137,40 @@ export default function Chat() {
               />
             </div>
 
-            {/* Tab Bar - Full width */}
-            <TabBar
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
+            {/* Unified Control Bar - Function selector + Tabs */}
+            <UnifiedControlBar
+              selectedModules={chatState.selectedModules}
+              selectedFunction={chatState.selectedFunction}
+              setSelectedFunction={chatState.setSelectedFunction}
+              fetchedSchemas={fetchedSchemas}
               isLoading={chatState.isLoading}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
               canSubmit={canSubmit}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
               pendingCount={0}
-              hasCode={functionHasCode}
             />
 
             {/* Tab Content */}
-            <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-0">
               {activeTab === 'chat' && (
                 <ChatTab
-                  selectedModules={chatState.selectedModules}
-                  selectedFunction={chatState.selectedFunction}
-                  setSelectedFunction={chatState.setSelectedFunction}
+                  messages={chatState.messages}
                   input={chatState.input}
                   setInput={chatState.setInput}
-                  selectedInputParam={chatState.selectedInputParam}
-                  setSelectedInputParam={chatState.setSelectedInputParam}
-                  inputParamOptions={inputParamOptions}
                   isLoading={chatState.isLoading}
                   onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  canSubmit={canSubmit}
-                  fetchedSchemas={fetchedSchemas}
                 />
               )}
 
               {activeTab === 'params' && (
                 <ParamsTab
-                  selectedModules={chatState.selectedModules}
-                  selectedFunction={chatState.selectedFunction}
-                  setSelectedFunction={chatState.setSelectedFunction}
-                  schema={combinedSchema}
                   params={chatState.params}
                   handleParamChange={handleParamChange}
                   handleResetParams={handleResetParams}
-                  isLoading={chatState.isLoading}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  canSubmit={canSubmit}
-                  fetchedSchemas={fetchedSchemas}
+                  schema={combinedSchema}
+                  selectedFunction={chatState.selectedFunction}
                 />
               )}
 
@@ -198,13 +178,10 @@ export default function Chat() {
                 <CodeTab
                   selectedModules={chatState.selectedModules}
                   selectedFunction={chatState.selectedFunction}
-                  setSelectedFunction={chatState.setSelectedFunction}
-                  schema={combinedSchema}
-                  fetchedSchemas={fetchedSchemas}
                 />
               )}
 
-              {activeTab === 'txs' && (
+              {activeTab === 'outputs' && (
                 <TxsTab
                   ref={transactionsPanelRef}
                   selectedModules={chatState.selectedModules}

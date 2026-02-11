@@ -1252,6 +1252,7 @@ class Mod:
         path = path.replace('/', '.')
         # IF FOR SOME REASON WE ARE SPECIFYING A PATH THAT IS A FILE (NOT IN THE TREE AS THE TREE ONLY HAS FOLDERS)
         path = self.dirpath(path)
+
         # this is rather nuanced, but it basically says that the anchor names are the anchor names plus the path chunks
         # removing the homepath prefix
         anchor_names =  self.anchor_names.copy() + path[len(self.homepath+'/'):].split('/')
@@ -1277,7 +1278,7 @@ class Mod:
             result = result_options[0]
             return result
         if result is None:
-            raise Exception(f'No anchor file found in {path} with anchor names {anchor_names} and file types {self.file_types}')
+            raise Exception(f'No anchor file found in {path} with anchor names {anchor_names} and file types {self.file_types} {files}')
         return result
         
     af = anchor_file
@@ -1361,7 +1362,7 @@ class Mod:
             key_address = self.key_address(key)
             path = self.paths["orbit"]["outer"] + '/' + key_address
         else:
-            path = path or self.paths["core"]
+            path = path or self.paths.orbit.core
         relpath = self.hash(self.relpath(path))
         cache_path = self.abspath(f'~/.mod/tree/{relpath}/depth_{depth}.json')
         if update:
@@ -1485,7 +1486,7 @@ class Mod:
         dirpath = tree_options[0]
         if os.path.isfile(dirpath):
             dirpath = os.path.dirname(dirpath)
-
+        assert os.path.exists(dirpath), f'Dirpath {dirpath} does not exist for mod {mod}'
         return  dirpath
 
     dp = dirpath
@@ -1595,7 +1596,7 @@ class Mod:
     def help(self, mod='mod', query:str = 'what is this', *extra_query, **kwargs):
         query = ' '.join(list(map(str, [query, *extra_query])))
         mod =  mod or mod
-        context = self.context(path=self.paths["core"])
+        context = self.context(path=self.paths.orbit.core)
         return self.mod('agent')().ask(f'given the code {self.code(mod)} and CONTEXT OF mod {context} anster wht following question: {query}', preprocess=False)
     
     def ask(self, *args, **kwargs):
@@ -1603,7 +1604,7 @@ class Mod:
     a = ask
 
     def context(self, path=None):
-        path = path or self.paths["core"]
+        path = path or self.paths.orbit.core
         return self.code()
 
     def import_mod(self, mod:str):
@@ -1801,6 +1802,21 @@ class Mod:
 
     def reg(self, *args, **kwargs):
         return self.fn('api/reg')( *args, **kwargs)
+    
+    def readmes(self, mod=None, depth=3):
+        path = self.dirpath(mod)
+        readmes = []
+        for f in self.files(path, depth=depth):
+            if 'readme' in f.lower():
+                readmes.append(f)
+        return readmes
+    
+    def readme(self, mod=None, depth=3):
+        readmes = self.readmes(mod=mod, depth=depth)
+        if len(readmes) == 0:
+            return None
+        readme = readmes[0]
+        return self.get_text(readme)
 
     def setback(self, *args, **kwargs):
         return self.fn('api/setback')( *args, **kwargs)

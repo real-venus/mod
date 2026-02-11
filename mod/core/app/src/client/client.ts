@@ -19,7 +19,7 @@ export class Client {
   }
 
 
-  public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, cost = 0, headers: any = {}, timeout: number = 30000, onCancel?: () => void): Promise<any> {
+  public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, headers: any = {}, timeout: number = 30000, onCancel?: () => void): Promise<any> {
     
     // if / in fn, treat as path and do not append to url
     if (fn.includes('/')) {

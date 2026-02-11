@@ -17,15 +17,16 @@ class  Api:
     folder_path = m.abspath('~/.mod/api')
     threads = {}
 
-    def __init__(self,  key=None, store = 'ipfs', chain='chain', router='api.router', auth='auth.v0'):
+    def __init__(self,  key=None, store = 'ipfs', chain='chain', router='router', auth='auth.v0'):
         self.store = store
         self.key = m.key(key)
         self.auth = m.mod(auth)()
         self.registry_path = self.path('registry.json')
-        self.set_router(router=router, store=store)
+        self.set_router(router=router)
+        self.client = m.mod('server.client')()
 
-    def set_router(self, router, store='ipfs', fns = ['call', 'txs', 'sync_info' ]):
-        self.router = m.mod(router)(store=store)
+    def set_router(self, router, fns = ['call', 'txs', 'sync_info']):
+        self.router = m.mod(router)()
         for fn in fns:
             setattr(self, fn, getattr(self.router, fn))
 

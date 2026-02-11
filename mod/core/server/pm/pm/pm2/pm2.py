@@ -14,7 +14,7 @@ class PM2:
 
     def __init__(self,  
                 mod='mod',
-                path='~/.mod/server',
+                path='~/.mod/pm2',
                 scripts_path='~/.mod/scripts/serve',
                 registry = 'server.registry',
                 **kwargs):
@@ -51,8 +51,7 @@ class PM2:
         
         dirpath = m.dirpath(mod)
         cwd = cwd or dirpath
-
-        
+        self.registry.reg(name, f'http://0.0.0.0:{port}')
         return self.start_script(
             name=name, 
             script_path=script_path, 
@@ -227,6 +226,10 @@ if __name__ == "__main__":
     def delete(self, name: str) -> Dict[str, str]:
         """Delete a PM2 process."""
         return self.kill(name)
+    
+    def namespace(self, search: Optional[str] = None, **kwargs) -> Dict[str, str]:
+        """Get the namespace of registered servers."""
+        return self.registry.namespace(search=search, **kwargs)
 
     def kill(self, name: str, remove_script: bool = True) -> Dict[str, str]:
         """Kill and remove a PM2 process."""
@@ -236,7 +239,6 @@ if __name__ == "__main__":
         result = subprocess.run(['pm2', 'delete', name], capture_output=True, text=True)
         success = result.returncode == 0
         self.registry.dereg(name)
-        
         # Remove generated scripts
         if remove_script:
             for suffix in ['_serve.py', '_cmd.sh']:
@@ -285,8 +287,8 @@ if __name__ == "__main__":
         """List all running PM2 processes."""
         try:
             result = subprocess.run(
-                ['pm2', 'jlist'], 
-                capture_output=True, 
+                ['pm2', 'jlist'],
+                capture_output=True,
                 text=True
             )
             if result.returncode != 0:
@@ -297,18 +299,122 @@ if __name__ == "__main__":
             m.print(f"Error listing processes: {e}", color='red')
             return []
 
-    def logs(self, name: str, lines: int = 100, follow: bool = False, f=None) -> str:
-        """Get PM2 process logs."""
+    def ls(self, include_logs: bool = True, log_lines: int = 50) -> List[Dict[str, Any]]:
+        """
+        List all PM2 processes with their status and optionally their logs.
+
+        Args:
+            include_logs: Whether to include recent logs for each process
+            log_lines: Number of log lines to include per process
+
+        Returns:
+            List of dictionaries containing process info and logs
+        """
+        try:
+            result = subprocess.run(
+                ['pm2', 'jlist'],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode != 0:
+                return []
+
+            processes = json.loads(result.stdout)
+            process_list = []
+
+            for proc in processes:
+                proc_info = {
+                    'name': proc.get('name', ''),
+                    'pid': proc.get('pid', 0),
+                    'status': proc.get('pm2_env', {}).get('status', ''),
+                    'cpu': proc.get('monit', {}).get('cpu', 0),
+                    'memory': proc.get('monit', {}).get('memory', 0),
+                    'uptime': proc.get('pm2_env', {}).get('pm_uptime', 0),
+                    'restarts': proc.get('pm2_env', {}).get('restart_time', 0)
+                }
+
+                # Include logs if requested
+                if include_logs:
+                    logs = self.logs(proc_info['name'], lines=log_lines, follow=False)
+                    proc_info['logs'] = logs
+
+                process_list.append(proc_info)
+
+            return process_list
+
+        except Exception as e:
+            m.print(f"Error listing processes: {e}", color='red')
+            return []
+
+    def logs(self, name: str, lines: int = 100, follow: bool = False, f=None, blocking: bool = False) -> Union[str, subprocess.Popen]:
+        """
+        Get PM2 process logs by reading log files directly.
+
+        Args:
+            name: Process name
+            lines: Number of lines to show (when not following)
+            follow: Whether to follow logs in real-time
+            f: Alias for follow parameter
+            blocking: Whether to block execution (default False for non-blocking)
+
+        Returns:
+            If blocking=False and follow=True: subprocess.Popen object for managing the process
+            If blocking=True or follow=False: String output of logs
+        """
         follow = f if f is not None else follow
-        cmd = f'pm2 logs {name}'
-        
-        if lines:
-            cmd += f' --lines {lines}'
-        
+
+        # PM2 log files location
+        pm2_home = os.path.expanduser(os.environ.get('PM2_HOME', '~/.pm2'))
+        logs_dir = os.path.join(pm2_home, 'logs')
+        out_log = os.path.join(logs_dir, f'{name}-out.log')
+        error_log = os.path.join(logs_dir, f'{name}-error.log')
+
         if follow:
-            return os.system(cmd)
+            # Use tail -f to follow both log files
+            if blocking:
+                # Blocking mode - old behavior
+                return os.system(f'tail -f {out_log} {error_log}')
+            else:
+                # Non-blocking mode - return Popen process
+                m.print(f"Starting non-blocking log stream for {name}. Use .terminate() on returned process to stop.", color='cyan')
+                process = subprocess.Popen(['tail', '-f', out_log, error_log])
+                return process
         else:
-            return m.cmd(cmd, verbose=False)
+            # Read log files directly
+            logs_output = []
+
+            # Read error log
+            if os.path.exists(error_log):
+                try:
+                    result = subprocess.run(
+                        ['tail', '-n', str(lines), error_log],
+                        capture_output=True,
+                        text=True
+                    )
+                    if result.stdout:
+                        logs_output.append(f"==> {name} error log <==")
+                        logs_output.append(result.stdout)
+                except Exception as e:
+                    logs_output.append(f"Error reading error log: {e}")
+
+            # Read output log
+            if os.path.exists(out_log):
+                try:
+                    result = subprocess.run(
+                        ['tail', '-n', str(lines), out_log],
+                        capture_output=True,
+                        text=True
+                    )
+                    if result.stdout:
+                        logs_output.append(f"==> {name} output log <==")
+                        logs_output.append(result.stdout)
+                except Exception as e:
+                    logs_output.append(f"Error reading output log: {e}")
+
+            if not logs_output:
+                return f"No log files found for {name} in {logs_dir}"
+
+            return '\n'.join(logs_output)
 
     def stats(self, max_age=60, update=False) -> pd.DataFrame:
         """Get PM2 process statistics."""

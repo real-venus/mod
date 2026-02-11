@@ -5,6 +5,7 @@ import { userContext } from '@/context'
 import { ethers } from 'ethers'
 import { Wallet, TrendingUp, DollarSign } from 'lucide-react'
 import modConfig from '@/app/mod.json'
+import { PortfolioControlBar } from './PortfolioControlBar'
 
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)']
 
@@ -148,6 +149,9 @@ export function Portfolio() {
           {loading ? 'REFRESHING...' : 'REFRESH'}
         </button>
       </div>
+
+      {/* Unified Control Bar */}
+      <PortfolioControlBar />
 
       {error && (
         <div className="p-4 bg-red-500/20 border-2 border-red-500 text-red-500 rounded-lg font-mono">

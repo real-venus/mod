@@ -49,20 +49,17 @@ class Client:
         key = self.get_key(key)
         params = {**(params or {}), **extra_kwargs}
         headers = self.auth.headers('', key=key)
-        return self.send_request(url, params, headers, timeout=timeout, stream=stream)
-       
-    forward = call
-    def send_request(self, url:str, params:dict, headers:dict, timeout:int=10, stream:bool=True):
-        """
-        send the request to the server
-        """
+        print(f'Calling {url} with params: {params} and headers: {headers}')
 
         url = f'{self.mode}://{url}' if not url.startswith(self.mode) else url
         headers.update({
             "Accept": "application/json",
             "Content-Type": "application/json",
         })
+
         response = requests.post( url, json=params,  headers=headers, timeout=timeout, stream=stream)
+
+        print(f'Response status code: {response.status_code}', response.text)
         if response.status_code != 200:
             raise Exception(response.text)
         if 'text/event-stream' in response.headers.get('Content-Type', ''):
@@ -80,6 +77,7 @@ class Client:
                     
         return result
 
+    forward = call
     def ping(self, url):
         with requests.Session() as conn: 
             response = conn.post( url)

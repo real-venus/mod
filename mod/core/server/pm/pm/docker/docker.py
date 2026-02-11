@@ -26,6 +26,7 @@ class PM:
         self.mod = mod
         self.image = image or mod
         self.network = network
+        self.registry = m.mod(registry)()
         self.store = m.mod(store)(path)
 
 
@@ -50,8 +51,8 @@ class PM:
         params.update({'port': port, 'key': key or mod, 'remote': False, 'mod': mod})
         dirpath = m.dirpath(mod)
         cmd = f"m serve {self.params2cmd(params)}"
-        
         volumes = volumes or [f'{p}:{self.convert_docker_path(p)}' for p in  [m.lib_path, m.storage_path, dirpath]]
+        self.registry.reg(mod, f'http://0.0.0.0:{port}')
         result = self.run(name=mod, 
                           image=image, 
                           port=port, 
@@ -396,7 +397,13 @@ class PM:
         for child in children:
             print(f'Killing child container {child}')
             self.kill(child, update=update)
+        self.registry.dereg(name)
         return result
+    
+
+
+    
+
     def kill_all(self) -> Dict[str, str]:
         """
         Kill all running containers.
@@ -739,6 +746,9 @@ class PM:
         except Exception as e:
             m.print(f"Error getting ports for container {container_name}: {e}", color='red')
             return {}
+        
+    def namespace(self, update=False):
+        return self.registry.namespace(update=update)
     
     def networks(self) -> List[str]:
         """

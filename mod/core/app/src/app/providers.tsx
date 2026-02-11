@@ -104,7 +104,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Top right - Network and Wallet */}
       <div className="fixed top-4 right-4 z-[70] flex items-center gap-3">
-        <NetworkSelector />
         <WalletHeader />
       </div>
 

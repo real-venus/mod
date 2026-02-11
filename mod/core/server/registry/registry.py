@@ -10,7 +10,7 @@ class Registry:
         """
         Register a server with its address.
         """
-        registry = self.store.get(self.registry_path, {}, max_age=0, update=False)
+        registry = self.store.get(self.registry_path, {})
         registry[name] = address
         self.store.put(self.registry_path, registry)
         return {'status': 'success', 'name': name, 'address': address}

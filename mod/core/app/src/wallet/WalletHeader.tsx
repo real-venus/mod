@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { userContext } from '@/context/UserContext'
-import { WalletIcon, ArrowRightOnRectangleIcon, ClipboardDocumentIcon, UserCircleIcon, ClockIcon, ArrowPathIcon, CreditCardIcon, QrCodeIcon, ChevronDownIcon, ChevronUpIcon, ArrowsRightLeftIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { WalletIcon, ArrowRightOnRectangleIcon, ClipboardDocumentIcon, UserCircleIcon, ClockIcon, ArrowPathIcon, CreditCardIcon, QrCodeIcon, ChevronDownIcon, ChevronUpIcon, ArrowsRightLeftIcon, XMarkIcon, FunnelIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { WalletAuthButton } from './WalletAuthButton'
@@ -13,6 +13,7 @@ import { Auth } from '@/client/auth'
 import WalletCreditDisplay from './WalletCreditDisplay'
 import modConfig from '@/app/mod.json'
 import { ethers } from 'ethers'
+import { TransactionCard } from '@/chat/transactions/TransactionCard'
 
 type TokenType = 'USDC' | 'USDT'
 
@@ -71,6 +72,15 @@ export function WalletHeader() {
   const [isTransferring, setIsTransferring] = useState(false)
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(NETWORKS[0])
   const [balanceRefreshSuccess, setBalanceRefreshSuccess] = useState(false)
+  const [showTxsTab, setShowTxsTab] = useState(false)
+  const [showPortfolioTab, setShowPortfolioTab] = useState(false)
+  const [userTransactions, setUserTransactions] = useState<any[]>([])
+  const [totalCost24h, setTotalCost24h] = useState(0)
+  const [isLoadingTxs, setIsLoadingTxs] = useState(false)
+  const [txsStatusFilter, setTxsStatusFilter] = useState<'all' | 'pending' | 'complete'>('all')
+  const [expandedTxIdx, setExpandedTxIdx] = useState<number | null>(null)
+  const [sidebarWidth, setSidebarWidth] = useState(400)
+  const [isResizing, setIsResizing] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
@@ -356,7 +366,34 @@ export function WalletHeader() {
       const network = NETWORKS.find(n => n.id === savedNetworkId)
       if (network) setSelectedNetwork(network)
     }
+
+    const savedWidth = localStorage.getItem('wallet_sidebar_width')
+    if (savedWidth) {
+      setSidebarWidth(parseInt(savedWidth))
+    }
   }, [])
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = window.innerWidth - e.clientX
+      setSidebarWidth(Math.max(300, Math.min(800, newWidth)))
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      localStorage.setItem('wallet_sidebar_width', sidebarWidth.toString())
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing, sidebarWidth])
 
   const handleNetworkChange = (network: NetworkConfig) => {
     if (network.comingSoon) {
@@ -367,48 +404,75 @@ export function WalletHeader() {
     localStorage.setItem('selected_network', network.id)
   }
 
+  const fetchUserTransactions = async () => {
+    if (!client || !user?.key) return
+
+    setIsLoadingTxs(true)
+    try {
+      const result = await client.call('txs', { df: 0, n: 1000, page: 0, key: user.key })
+      const txs = Array.isArray(result) ? result : []
+
+      // Filter transactions by user (check owner, client, or key fields - case insensitive)
+      const userKey = user.key.toLowerCase()
+      const userTxs = txs.filter((tx: any) => {
+        const owner = tx.owner?.toLowerCase()
+        const client = tx.client?.toLowerCase()
+        const key = tx.key?.toLowerCase()
+
+        return owner === userKey || client === userKey || key === userKey
+      })
+
+      setUserTransactions(userTxs)
+
+      // Calculate total cost for last 24 hours
+      const now = Date.now() / 1000
+      const twentyFourHoursAgo = now - (24 * 60 * 60)
+      const recentCost = userTxs
+        .filter((tx: any) => {
+          const txTime = parseInt(tx.time)
+          return !isNaN(txTime) && txTime >= twentyFourHoursAgo
+        })
+        .reduce((sum: number, tx: any) => sum + (tx.cost || 0), 0)
+
+      setTotalCost24h(recentCost)
+    } catch (err) {
+      console.error('Failed to fetch user transactions:', err)
+      setUserTransactions([])
+      setTotalCost24h(0)
+    } finally {
+      setIsLoadingTxs(false)
+    }
+  }
+
+  useEffect(() => {
+    if (showTxsTab && user?.key) {
+      fetchUserTransactions()
+      // Removed interval - only fetches when tab opens
+    }
+  }, [showTxsTab, user?.key])
+
   // Not signed in - show the auth button
   if (!user) {
     return <WalletAuthButton />
   }
 
-  // Signed in - show simplified wallet icon with copy button
+  // Signed in - show wallet icon only
   return (
-    <div className="flex items-center gap-3">
-        <button
-          onClick={() => setIsHovered(!isHovered)}
-          className="relative flex items-center justify-center p-3 rounded-xl border-2 hover:scale-[1.05] transition-all backdrop-blur-sm group active:scale-95"
-          style={{
-            width: '60px',
-            height: '60px',
-            borderColor: `${userColor}60`,
-            backgroundColor: `${userColor}10`,
-            boxShadow: `0 0 20px ${userColor}30`
-          }}
-          title={`Wallet: ${shortAddress}`}
-        >
-          <div className="relative">
-            <WalletIcon className="w-8 h-8" style={{ color: userColor, filter: `drop-shadow(0 0 6px ${userColor})` }} />
-            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black animate-pulse" title="Connected" />
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              copyAddress()
-            }}
-            className="absolute top-1 right-1 p-1 rounded-lg transition-all opacity-0 group-hover:opacity-100 active:scale-90"
-            style={{
-              backgroundColor: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)'
-            }}
-            title="Copy address"
-          >
-            {copied ? (
-              <ClipboardDocumentIcon className="w-3.5 h-3.5 text-green-400" />
-            ) : (
-              <ClipboardDocumentIcon className="w-3.5 h-3.5" style={{ color: userColor }} />
-            )}
-          </button>
-        </button>
+    <div className="flex items-center gap-0">
+      {/* Wallet Icon - Click to open sidebar */}
+      <button
+        onClick={() => setIsHovered(!isHovered)}
+        className="flex items-center justify-center bg-neutral-900 border-2 border-neutral-800 hover:bg-neutral-800 hover:border-neutral-700 transition-all relative"
+        style={{
+          width: '60px',
+          height: '60px',
+          borderRadius: 0,
+          fontFamily: 'IBM Plex Mono, monospace'
+        }}
+      >
+        <WalletIcon className="w-6 h-6 text-neutral-400" />
+        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500" title="Connected" style={{ borderRadius: 0 }} />
+      </button>
 
       <AnimatePresence>
         {isHovered && (
@@ -429,130 +493,77 @@ export function WalletHeader() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 400, opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              className="fixed top-0 right-0 h-screen w-[400px] shadow-2xl z-[90] overflow-y-auto custom-scrollbar"
+              className={`fixed top-0 right-0 h-screen shadow-2xl z-[90] overflow-y-auto custom-scrollbar font-mono bg-neutral-950 ${isResizing ? 'select-none' : ''}`}
               style={{
+                width: `${sidebarWidth}px`,
                 borderLeft: `2px solid ${userColor}40`,
-                backgroundColor: 'rgba(0, 0, 0, 0.98)',
-                boxShadow: `-30px 0 60px rgba(0, 0, 0, 0.8), 0 0 100px ${userColor}20`
+                boxShadow: `-30px 0 60px rgba(0, 0, 0, 0.8), 0 0 100px ${userColor}20`,
+                cursor: isResizing ? 'ew-resize' : 'default'
               }}
             >
+              {/* Resize Handle */}
+              <div
+                className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-neutral-700 transition-colors z-[100] group"
+                onMouseDown={() => setIsResizing(true)}
+              >
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-12 bg-neutral-800 group-hover:bg-neutral-600 transition-colors" />
+              </div>
+              {isResizing && (
+                <style>{`body { cursor: ew-resize !important; user-select: none; }`}</style>
+              )}
               {/* Header */}
-              <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-4 border-b backdrop-blur-xl" style={{ borderColor: `${userColor}30`, backgroundColor: 'rgba(0, 0, 0, 0.95)' }}>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <code className="text-xl font-black font-mono tracking-wider" style={{ color: userColor }}>
+              <div className="sticky top-0 z-10 px-4 py-3 border-b border-neutral-800 bg-neutral-950">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <code className="text-sm font-bold tracking-wider text-neutral-500 font-mono"
+                      style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+                    >
                       {shortAddress}
                     </code>
-                    <button
-                      onClick={copyAddress}
-                      className="p-1.5 rounded-lg transition-all hover:bg-white/10 active:scale-95"
-                      style={{ color: userColor }}
-                      title="Copy address"
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 border-2 border-neutral-800"
+                      style={{
+                        borderRadius: 0,
+                        fontFamily: 'IBM Plex Mono, monospace'
+                      }}
                     >
-                      <ClipboardDocumentIcon className="w-4 h-4" />
-                    </button>
-                    <div
-                      className="relative"
-                      onMouseEnter={() => setIsAddressQrHovered(true)}
-                      onMouseLeave={() => setIsAddressQrHovered(false)}
-                    >
-                      <button className="p-1.5 rounded-lg transition-all hover:bg-white/10" style={{ color: userColor }} title="Show QR Code">
-                        <QrCodeIcon className="w-4 h-4" />
-                      </button>
-                      {isAddressQrHovered && (
-                        <div className="absolute top-full right-0 mt-2 p-3 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: userColor }}>
-                          <QRCode value={user.key || ''} size={150} color={userColor} />
-                        </div>
-                      )}
+                      <span className="text-xs text-neutral-600 uppercase tracking-wider font-bold">CREDIT</span>
+                      <span className="text-base font-mono font-black text-green-400 tabular-nums">
+                        ${marketCredit.toFixed(2)}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 px-2 py-1 rounded-lg" style={{ backgroundColor: `${userColor}10` }}>
-                    <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Credit</span>
-                    <span className="text-base font-mono font-black text-yellow-400">
-                      ${marketCredit.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsHovered(false)}
-                  className="p-2 rounded-lg hover:bg-white/10 transition-all active:scale-95"
-                  style={{ color: userColor }}
-                >
-                  <XMarkIcon className="w-6 h-6" />
-                </button>
-              </div>
-
-            {/* Wallet Mode & Network */}
-            <div className="px-5 py-3 border-b border-white/10">
-              <div className="flex items-center justify-between gap-4">
-                {/* Mode */}
-                <div className="flex items-center gap-2 flex-1">
-                  <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Mode</div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                    <div className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg" style={{ color: userColor, backgroundColor: `${userColor}15` }}>
-                      {walletMode || 'local'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Network Dropdown */}
-                <div className="flex items-center gap-2">
-                  <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Network</div>
-                  <select
-                    value={selectedNetwork.id}
-                    onChange={(e) => handleNetworkChange(NETWORKS.find(n => n.id === e.target.value)!)}
-                    className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg border transition-all focus:outline-none cursor-pointer"
-                    style={{
-                      color: selectedNetwork.color,
-                      backgroundColor: `${selectedNetwork.color}15`,
-                      borderColor: `${selectedNetwork.color}40`
-                    }}
+                  <button
+                    onClick={() => setIsHovered(false)}
+                    className="p-1 hover:bg-neutral-800 transition-all"
+                    style={{ borderRadius: 0 }}
                   >
-                    {NETWORKS.map((network) => (
-                      <option
-                        key={network.id}
-                        value={network.id}
-                        disabled={network.comingSoon}
-                        style={{
-                          backgroundColor: '#000',
-                          color: network.color
-                        }}
-                      >
-                        {network.name} {network.comingSoon ? '(Soon)' : ''}
-                      </option>
-                    ))}
-                  </select>
+                    <XMarkIcon className="w-4 h-4 text-neutral-500" />
+                  </button>
                 </div>
               </div>
-            </div>
 
 {/* Action Tabs */}
-            <div className="px-5 py-4 border-b border-white/10">
-              <div className="flex gap-2 mb-4">
+            <div className="px-4 py-3 border-b border-neutral-800">
+              <div className="grid grid-cols-5 gap-0">
                 {/* ADD BUTTON */}
                 <button
                   onClick={() => {
                     setShowTopUpForm(!showTopUpForm)
                     setShowTransferForm(false)
+                    setShowTxsTab(false)
+                    setShowPortfolioTab(false)
                   }}
-                  className={`flex-1 flex flex-col items-center justify-center gap-2 py-4 px-4 rounded-xl font-black text-sm uppercase transition-all duration-300 backdrop-blur-sm border-2 ${
+                  className={`flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 transition-all text-[10px] font-bold uppercase ${
                     showTopUpForm
-                      ? 'scale-[1.02] shadow-2xl'
-                      : 'bg-black/40 text-white/60 border-white/20 hover:border-white/40 hover:text-white/90 hover:scale-[1.02] hover:shadow-lg'
+                      ? 'bg-neutral-800 border-neutral-600 text-green-400'
+                      : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
                   }`}
-                  style={
-                    showTopUpForm
-                      ? {
-                          background: 'linear-gradient(135deg, #10b98120 0%, #10b98140 100%)',
-                          borderColor: '#10b981',
-                          color: '#10b981',
-                          boxShadow: '0 0 30px #10b98140, 0 0 60px #10b98120'
-                        }
-                      : undefined
-                  }
+                  style={{
+                    borderRadius: 0,
+                    fontFamily: 'IBM Plex Mono, monospace'
+                  }}
                 >
-                  <CreditCardIcon className="w-6 h-6" />
+                  <CreditCardIcon className="w-5 h-5" />
                   <span>ADD</span>
                 </button>
 
@@ -561,141 +572,139 @@ export function WalletHeader() {
                   onClick={() => {
                     setShowTransferForm(!showTransferForm)
                     setShowTopUpForm(false)
+                    setShowTxsTab(false)
+                    setShowPortfolioTab(false)
                   }}
-                  className={`flex-1 flex flex-col items-center justify-center gap-2 py-4 px-4 rounded-xl font-black text-sm uppercase transition-all duration-300 backdrop-blur-sm border-2 ${
+                  className={`flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 transition-all text-[10px] font-bold uppercase ${
                     showTransferForm
-                      ? 'scale-[1.02] shadow-2xl'
-                      : 'hover:scale-[1.02] hover:shadow-lg'
+                      ? 'bg-neutral-800 border-neutral-600 text-blue-400'
+                      : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
                   }`}
-                  style={
-                    showTransferForm
-                      ? {
-                          background: 'linear-gradient(135deg, #3b82f620 0%, #3b82f640 100%)',
-                          borderColor: '#3b82f6',
-                          color: '#3b82f6',
-                          boxShadow: '0 0 30px #3b82f640, 0 0 60px #3b82f620'
-                        }
-                      : {
-                          background: 'linear-gradient(135deg, #3b82f610 0%, #3b82f620 100%)',
-                          borderColor: '#3b82f640',
-                          color: '#3b82f6'
-                        }
-                  }
+                  style={{
+                    borderRadius: 0,
+                    fontFamily: 'IBM Plex Mono, monospace'
+                  }}
                 >
-                  <ArrowsRightLeftIcon className="w-6 h-6" />
+                  <ArrowsRightLeftIcon className="w-5 h-5" />
                   <span>SEND</span>
                 </button>
 
-                {/* TOKEN BUTTON */}
-                <div className="flex-1 relative">
-                  <button
-                    onClick={handleRefreshToken}
-                    disabled={isRefreshing}
-                    className="w-full h-full flex flex-col items-center justify-center gap-1 py-4 px-4 rounded-xl font-black text-sm uppercase transition-all duration-300 backdrop-blur-sm border-2 bg-black/40 text-white/60 border-white/20 hover:border-white/40 hover:text-white/90 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-50"
-                    style={{
-                      background: 'linear-gradient(135deg, #a855f720 0%, #a855f740 100%)',
-                      borderColor: '#a855f7',
-                      color: '#a855f7',
-                    }}
-                  >
-                    <ArrowPathIcon className={`w-6 h-6 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    <span className="text-xs">TOKEN</span>
-                    <div className="flex items-center gap-1">
-                      <ClockIcon className="w-3 h-3" />
-                      <span className="text-[10px] font-mono">{tokenExpiry || getTokenExpiry()}</span>
-                    </div>
-                  </button>
-                  {/* Copy Button Overlay */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const token = typeof window !== 'undefined' ? localStorage.getItem('wallet_token') || '' : ''
-                      navigator.clipboard.writeText(token)
-                      setCopied(true)
-                      setTimeout(() => setCopied(false), 2000)
-                    }}
-                    className="absolute top-2 right-2 p-1 rounded-md transition-all hover:bg-white/20 active:scale-95"
-                    style={{ color: '#a855f7' }}
-                    title="Copy Token"
-                  >
-                    <ClipboardDocumentIcon className="w-4 h-4" />
-                  </button>
-                  {copied && (
-                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-green-400 font-mono font-bold whitespace-nowrap">
-                      ✓ COPIED
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Balance Display */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={fetchMarketCredit}
-                    disabled={isRefreshing}
-                    className="p-1.5 rounded-lg transition-all hover:bg-white/10 active:scale-95 disabled:opacity-50"
-                    style={{ color: balanceRefreshSuccess ? '#10b981' : userColor }}
-                    title="Refresh Balance"
-                  >
-                    <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  </button>
-                  {balanceRefreshSuccess && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      className="text-[10px] text-green-400 font-mono font-bold flex items-center gap-1"
-                    >
-                      <span>✓</span>
-                      <span>UPDATED</span>
-                    </motion.div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between mb-3">
-                <motion.div
-                  key={marketCredit}
-                  initial={balanceRefreshSuccess ? { scale: 1.05 } : { scale: 1 }}
-                  animate={{ scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="font-mono text-5xl font-black tracking-tighter bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 bg-clip-text text-transparent"
+                {/* PORTFOLIO BUTTON */}
+                <button
+                  onClick={() => {
+                    setShowPortfolioTab(!showPortfolioTab)
+                    setShowTopUpForm(false)
+                    setShowTransferForm(false)
+                    setShowTxsTab(false)
+                  }}
+                  className={`flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 transition-all text-[10px] font-bold uppercase ${
+                    showPortfolioTab
+                      ? 'bg-neutral-800 border-neutral-600 text-purple-400'
+                      : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
+                  }`}
                   style={{
-                    textShadow: balanceRefreshSuccess
-                      ? `0 0 40px #10b98160, 0 0 20px ${userColor}40`
-                      : `0 0 30px ${userColor}40`
+                    borderRadius: 0,
+                    fontFamily: 'IBM Plex Mono, monospace'
                   }}
                 >
-                  ${marketCredit.toFixed(2)}
-                </motion.div>
+                  <WalletIcon className="w-5 h-5" />
+                  <span>PORT</span>
+                </button>
 
+                {/* TOKEN BUTTON */}
+                <button
+                  onClick={handleRefreshToken}
+                  disabled={isRefreshing}
+                  className="flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700 transition-all text-[10px] font-bold uppercase disabled:opacity-50"
+                  style={{
+                    borderRadius: 0,
+                    fontFamily: 'IBM Plex Mono, monospace'
+                  }}
+                >
+                  <ArrowPathIcon className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>TOKEN</span>
+                </button>
+
+                {/* TXS BUTTON */}
+                <button
+                  onClick={() => {
+                    setShowTxsTab(!showTxsTab)
+                    setShowTopUpForm(false)
+                    setShowTransferForm(false)
+                    setShowPortfolioTab(false)
+                    if (!showTxsTab) fetchUserTransactions()
+                  }}
+                  className={`flex flex-col items-center justify-center gap-1 py-4 px-1 border-2 transition-all text-[10px] font-bold uppercase ${
+                    showTxsTab
+                      ? 'bg-neutral-800 border-neutral-600 text-amber-400'
+                      : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
+                  }`}
+                  style={{
+                    borderRadius: 0,
+                    fontFamily: 'IBM Plex Mono, monospace'
+                  }}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>TXS</span>
+                </button>
               </div>
 
-              {/* All Token Balances */}
+              {/* Portfolio Tab Content */}
               <AnimatePresence>
-                {showAllBalances && (
+                {showPortfolioTab && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
+                    className="mt-3 pt-3 border-t border-neutral-800 overflow-hidden"
                   >
-                    <div className="space-y-1.5 pt-3 mt-3 border-t border-white/20">
-                      {Object.entries(tokenBalances).map(([token, balance]) => (
-                        <div
-                          key={token}
-                          className="flex items-center justify-between px-3 py-2 bg-black/60 rounded-lg border border-white/10 hover:bg-black/80 transition-all"
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between px-1 mb-2">
+                        <span className="text-xs text-neutral-600 uppercase tracking-wider font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>TOKEN BALANCES</span>
+                        <button
+                          onClick={fetchMarketCredit}
+                          disabled={isRefreshing}
+                          className="p-1 hover:bg-neutral-800 transition-all disabled:opacity-50"
+                          title="Refresh balances"
+                          style={{ borderRadius: 0 }}
                         >
-                          <span className="font-bold text-xs text-gray-400 uppercase tracking-wider">{token}</span>
-                          <span className="font-mono text-sm font-bold text-gray-200">
-                            {token === 'MARKET' || token === 'USDC' || token === 'USDT'
-                              ? `$${balance.toFixed(2)}`
-                              : balance.toFixed(6)}
-                          </span>
+                          <ArrowPathIcon className={`w-3.5 h-3.5 text-neutral-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+
+                      {Object.entries(tokenBalances).length > 0 ? (
+                        Object.entries(tokenBalances).map(([token, balance]) => (
+                          <div
+                            key={token}
+                            className="flex items-center justify-between px-3 py-2.5 bg-neutral-900 border-2 border-neutral-800 text-xs"
+                            style={{
+                              borderRadius: 0,
+                              fontFamily: 'IBM Plex Mono, monospace'
+                            }}
+                          >
+                            <span className="font-bold text-neutral-500 uppercase tracking-wider">{token}</span>
+                            <span className="font-mono font-bold text-neutral-300 tabular-nums">
+                              {token === 'MARKET' || token === 'USDC' || token === 'USDT'
+                                ? `$${balance.toFixed(2)}`
+                                : balance.toFixed(6)}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 text-neutral-600 text-xs">
+                          {isRefreshing ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                              <span>Loading balances...</span>
+                            </div>
+                          ) : (
+                            'No token balances available'
+                          )}
                         </div>
-                      ))}
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -709,15 +718,18 @@ export function WalletHeader() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="mt-4 pt-4 border-t border-white/20 space-y-3 overflow-hidden"
+                    className="mt-3 pt-3 border-t border-neutral-800 space-y-2 overflow-hidden"
                   >
                     <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block tracking-wider">Payment Token</label>
+                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Token</label>
                       <select
                         value={selectedToken}
                         onChange={(e) => setSelectedToken(e.target.value as TokenType)}
-                        className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2.5 text-sm font-bold font-mono focus:outline-none focus:border-opacity-50 transition-all"
-                        style={{ color: userColor, borderColor: `${userColor}40` }}
+                        className="w-full bg-neutral-900 border-2 border-neutral-800 px-3 py-2 text-sm font-mono focus:outline-none text-neutral-300 hover:border-neutral-700 transition-colors"
+                        style={{
+                          borderRadius: 0,
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
                       >
                         <option value="USDC">USDC</option>
                         <option value="USDT">USDT</option>
@@ -725,7 +737,7 @@ export function WalletHeader() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block tracking-wider">Amount (USD)</label>
+                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Amount</label>
                       <input
                         type="number"
                         value={topUpAmount}
@@ -734,19 +746,21 @@ export function WalletHeader() {
                         min="0"
                         step="0.01"
                         placeholder="10.00"
-                        className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2.5 text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-opacity-50 disabled:opacity-50 transition-all"
-                        style={{ color: userColor, borderColor: `${userColor}40` }}
+                        className="w-full bg-neutral-900 border-2 border-neutral-800 px-3 py-2 text-sm font-mono placeholder-neutral-600 focus:outline-none disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
+                        style={{
+                          borderRadius: 0,
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
                       />
                     </div>
 
                     <button
                       onClick={handleTopUpTransaction}
                       disabled={!topUpAmount || isProcessing}
-                      className="w-full py-3 border-2 rounded-lg font-mono uppercase font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 tracking-wider"
+                      className="w-full py-3 border-2 bg-neutral-900 border-neutral-800 font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all hover:bg-neutral-800 hover:border-neutral-700 flex items-center justify-center gap-2 text-green-400"
                       style={{
-                        borderColor: userColor,
-                        color: userColor,
-                        backgroundColor: `${userColor}15`
+                        borderRadius: 0,
+                        fontFamily: 'IBM Plex Mono, monospace'
                       }}
                     >
                       {isProcessing ? (
@@ -763,13 +777,23 @@ export function WalletHeader() {
                     </button>
 
                     {topUpError && (
-                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2.5 font-mono">
+                      <div className="text-xs text-red-400 bg-neutral-900 border-2 border-neutral-800 px-3 py-2 font-mono"
+                        style={{
+                          borderRadius: 0,
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
+                      >
                         {topUpError}
                       </div>
                     )}
 
                     {topUpSuccess && (
-                      <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2.5 font-mono">
+                      <div className="text-xs text-green-400 bg-neutral-900 border-2 border-neutral-800 px-3 py-2 font-mono"
+                        style={{
+                          borderRadius: 0,
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
+                      >
                         {topUpSuccess}
                       </div>
                     )}
@@ -785,22 +809,26 @@ export function WalletHeader() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="mt-4 pt-4 border-t border-white/20 space-y-3 overflow-hidden"
+                    className="mt-3 pt-3 border-t border-neutral-800 space-y-2 overflow-hidden"
                   >
                     <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block tracking-wider">Recipient Address</label>
+                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Recipient</label>
                       <input
                         type="text"
                         value={transferRecipient}
                         onChange={(e) => setTransferRecipient(e.target.value)}
                         disabled={isTransferring}
                         placeholder="0x..."
-                        className="w-full bg-black/60 border border-blue-500/40 rounded-lg px-3 py-2.5 text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500/60 disabled:opacity-50 transition-all text-blue-400"
+                        className="w-full bg-neutral-900 border-2 border-neutral-800 px-3 py-2 text-sm font-mono placeholder-neutral-600 focus:outline-none disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
+                        style={{
+                          borderRadius: 0,
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
                       />
                     </div>
 
                     <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block tracking-wider">Amount (USD)</label>
+                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Amount</label>
                       <input
                         type="number"
                         value={transferAmount}
@@ -809,18 +837,21 @@ export function WalletHeader() {
                         min="0"
                         step="0.01"
                         placeholder="10.00"
-                        className="w-full bg-black/60 border border-blue-500/40 rounded-lg px-3 py-2.5 text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500/60 disabled:opacity-50 transition-all text-blue-400"
+                        className="w-full bg-neutral-900 border-2 border-neutral-800 px-3 py-2 text-sm font-mono placeholder-neutral-600 focus:outline-none disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
+                        style={{
+                          borderRadius: 0,
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
                       />
                     </div>
 
                     <button
                       onClick={handleTransfer}
                       disabled={!transferAmount || !transferRecipient || isTransferring}
-                      className="w-full py-3 border-2 rounded-lg font-mono uppercase font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 tracking-wider"
+                      className="w-full py-3 border-2 bg-neutral-900 border-neutral-800 font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all hover:bg-neutral-800 hover:border-neutral-700 flex items-center justify-center gap-2 text-blue-400"
                       style={{
-                        borderColor: '#3b82f6',
-                        color: '#3b82f6',
-                        backgroundColor: '#3b82f615'
+                        borderRadius: 0,
+                        fontFamily: 'IBM Plex Mono, monospace'
                       }}
                     >
                       {isTransferring ? (
@@ -837,35 +868,131 @@ export function WalletHeader() {
                     </button>
 
                     {topUpError && (
-                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2.5 font-mono">
+                      <div className="text-xs text-red-400 bg-neutral-900 border-2 border-neutral-800 px-3 py-2 font-mono"
+                        style={{
+                          borderRadius: 0,
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
+                      >
                         {topUpError}
                       </div>
                     )}
 
                     {topUpSuccess && (
-                      <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2.5 font-mono">
+                      <div className="text-xs text-green-400 bg-neutral-900 border-2 border-neutral-800 px-3 py-2 font-mono"
+                        style={{
+                          borderRadius: 0,
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
+                      >
                         {topUpSuccess}
                       </div>
                     )}
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* TXS Tab Content */}
+              <AnimatePresence>
+                {showTxsTab && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="mt-3 pt-3 border-t border-neutral-800 overflow-hidden"
+                  >
+                    <div className="space-y-2">
+                      {/* Header with filter */}
+                      <div className="flex items-center justify-between gap-2 px-1 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-neutral-600 uppercase tracking-wider font-bold">24H</span>
+                          <span className="text-sm font-mono font-bold text-amber-400 tabular-nums">${totalCost24h.toFixed(2)}</span>
+                          <span className="text-xs text-neutral-700">({userTransactions.filter(tx => {
+                            const now = Date.now() / 1000
+                            const twentyFourHoursAgo = now - (24 * 60 * 60)
+                            return parseInt(tx.time) >= twentyFourHoursAgo
+                          }).length})</span>
+                        </div>
+
+                        {/* Filter dropdown */}
+                        <select
+                          value={txsStatusFilter}
+                          onChange={(e) => setTxsStatusFilter(e.target.value as 'all' | 'pending' | 'complete')}
+                          className="px-2 py-1 bg-neutral-900 border border-neutral-800 text-xs text-neutral-400 cursor-pointer focus:outline-none font-mono"
+                        >
+                          <option value="all">All</option>
+                          <option value="pending">Pending</option>
+                          <option value="complete">Complete</option>
+                        </select>
+                      </div>
+
+                      {/* Transactions List */}
+                      <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
+                        {isLoadingTxs ? (
+                          <div className="flex items-center justify-center py-8">
+                            <ArrowPathIcon className="w-5 h-5 animate-spin text-amber-500" />
+                          </div>
+                        ) : userTransactions.length === 0 ? (
+                          <div className="text-center py-8 text-gray-600 text-xs">
+                            No transactions yet
+                          </div>
+                        ) : (
+                          (() => {
+                            // Filter transactions based on status
+                            const filteredTxs = userTransactions.filter(tx => {
+                              if (txsStatusFilter === 'all') return true
+                              if (txsStatusFilter === 'pending') {
+                                return tx.status === 'pending' || tx.status === 'running'
+                              }
+                              if (txsStatusFilter === 'complete') {
+                                return tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete' || tx.status === 'error' || tx.status === 'failed'
+                              }
+                              return true
+                            })
+
+                            return filteredTxs.length === 0 ? (
+                              <div className="text-center py-8 text-gray-600 text-xs">
+                                No {txsStatusFilter} transactions
+                              </div>
+                            ) : (
+                              filteredTxs.slice(0, 20).map((tx, idx) => (
+                                <div
+                                  key={tx.cid || tx.hash || idx}
+                                  onClick={() => setExpandedTxIdx(expandedTxIdx === idx ? null : idx)}
+                                >
+                                  <TransactionCard
+                                    tx={tx}
+                                    idx={idx}
+                                    isExpanded={expandedTxIdx === idx}
+                                    compact={true}
+                                  />
+                                </div>
+                              ))
+                            )
+                          })()
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Actions */}
-            <div className="px-4 py-3 space-y-2">
+            <div className="px-4 py-2 space-y-1 border-t border-neutral-800">
               <button
                 onClick={handleGoToProfile}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all text-sm font-medium active:scale-95"
+                className="w-full flex items-center gap-2 px-3 py-2 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900 transition-all text-xs font-bold uppercase"
               >
-                <UserCircleIcon className="w-5 h-5" />
-                <span>My Profile</span>
+                <UserCircleIcon className="w-4 h-4" />
+                <span>Profile</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all text-sm font-medium active:scale-95"
+                className="w-full flex items-center gap-2 px-3 py-2 text-neutral-500 hover:text-red-400 hover:bg-neutral-900 transition-all text-xs font-bold uppercase"
               >
-                <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                <ArrowRightOnRectangleIcon className="w-4 h-4" />
                 <span>Sign Out</span>
               </button>
             </div>

@@ -44,8 +44,7 @@ export function TreasuryHeader() {
 
     if (treasuryAddress) {
       fetchTreasuryBalance()
-      const interval = setInterval(fetchTreasuryBalance, 30000)
-      return () => clearInterval(interval)
+      // Removed interval - only fetches once
     }
   }, [treasuryAddress])
 

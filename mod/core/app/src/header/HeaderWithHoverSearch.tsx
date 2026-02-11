@@ -5,7 +5,6 @@ import { TreasuryHeader } from '@/header/TreasuryHeader'
 import { UsersIcon, CubeIcon, TableCellsIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, PlusIcon, Bars3Icon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { NetworkSelector } from '@/network/NetworkSelector'
 import { userContext } from '@/context/UserContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
@@ -17,14 +16,12 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, h
 import { CSS } from '@dnd-kit/utilities'
 
 const defaultNavigation = [
-  { id: 'search', name: 'Search', component: 'SearchBar', color: '#d8cc1b' },
   { id: 'chat', name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon, color: '#ef4444' },
   { id: 'mods', name: 'Mods', href: '/mod/explore', icon: CubeIcon, color: '#3b82f6', hasHoverSearch: true },
   { id: 'users', name: 'Users', href: '/user/explore', icon: UsersIcon, color: '#10b981', hasHoverSearch: true },
   { id: 'transactions', name: 'Transactions', href: '/transactions', icon: TableCellsIcon, color: '#f59e0b' },
   { id: 'split', name: 'Split Screen', component: 'SplitScreen', color: '#a855f7' },
   { id: 'treasury', name: 'Treasury', component: 'TreasuryHeader', color: '#10b981' },
-  { id: 'network', name: 'Network', component: 'NetworkSelector', color: '#3b82f6' },
   { id: 'wallet', name: 'Wallet', component: 'WalletHeader', color: '#f59e0b' },
 ]
 
@@ -46,7 +43,6 @@ function SortableHeaderItem({ item, pathname, hoveredSection, setHoveredSection,
   const renderComponent = () => {
     if (item.component === 'SearchBar') return <SearchBar />
     if (item.component === 'TreasuryHeader') return <TreasuryHeader />
-    if (item.component === 'NetworkSelector') return <NetworkSelector />
     if (item.component === 'WalletHeader') return <WalletHeader />
     
     if (item.component === 'SplitScreen') {

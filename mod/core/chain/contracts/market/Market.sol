@@ -61,15 +61,17 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
     function credit(address paymentToken, uint256 stableAmount) external nonReentrant returns (uint256) {
         require(stableAmount > 0, "Invalid amount");
         require(tokenGate.isTokenWhitelisted(paymentToken), "Token not whitelisted");
-        
-        (uint256 tokenPrice, uint8 tokenDecimals,) = tokenGate.getTokenPrice(paymentToken);
+
+        (uint256 tokenPrice, uint8 priceDecimals,) = tokenGate.getTokenPrice(paymentToken);
         require(tokenPrice > 0, "Invalid price");
-        
-        uint256 paymentAmount = (stableAmount * (10 ** tokenDecimals)) / tokenPrice;
-        
-        IERC20(paymentToken).safeTransferFrom(msg.sender, this , paymentAmount);
+
+        // Use 1e18 to convert between stable amount and payment token amount
+        // stableAmount is in 8 decimals, tokenPrice is in priceDecimals (8), payment token is in 18 decimals
+        uint256 paymentAmount = (stableAmount * 1e18) / tokenPrice;
+
+        IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), paymentAmount);
         _mint(msg.sender, stableAmount);
-        
+
         uint256 txId = nextTransactionId++;
         emit Credit(txId, msg.sender, stableAmount, paymentToken, paymentAmount);
         return txId;
@@ -111,15 +113,17 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         require(stableAmount > 0, "Invalid amount");
         require(balanceOf(msg.sender) >= stableAmount, "Insufficient balance");
         require(tokenGate.isTokenWhitelisted(paymentToken), "Token not whitelisted");
-        
-        (uint256 tokenPrice, uint8 tokenDecimals,) = tokenGate.getTokenPrice(paymentToken);
+
+        (uint256 tokenPrice, uint8 priceDecimals,) = tokenGate.getTokenPrice(paymentToken);
         require(tokenPrice > 0, "Invalid price");
-        
-        uint256 withdrawAmount = (stableAmount * (10 ** tokenDecimals)) / tokenPrice;
+
+        // Use 1e18 to convert between stable amount and payment token amount
+        // stableAmount is in 8 decimals, tokenPrice is in priceDecimals (8), payment token is in 18 decimals
+        uint256 withdrawAmount = (stableAmount * 1e18) / tokenPrice;
 
         _burn(msg.sender, stableAmount);
         IERC20(paymentToken).safeTransfer(msg.sender, withdrawAmount);
-        
+
         uint256 txId = nextTransactionId++;
         emit Withdrawal(txId, msg.sender, stableAmount, paymentToken, withdrawAmount);
         return txId;
@@ -148,7 +152,7 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         return tokenGate.isTokenWhitelisted(token);
     }
     
-    function getTokenPrice(address token) external view returns (uint256 price, uint8 decimals, uint256 timestamp) {
+    function getTokenPrice(address token) external view returns (uint256 price, uint8 tokenDecimals, uint256 timestamp) {
         return tokenGate.getTokenPrice(token);
     }
 }

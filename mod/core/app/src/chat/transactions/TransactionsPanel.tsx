@@ -83,19 +83,16 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
     fetchTransactions()
   }, [fetchTransactions])
 
-  // Poll more frequently for pending/running transactions
-  useEffect(() => {
-    if (!autoRefresh) return
-
-    const hasPending = transactions.some(tx =>
-      tx.status === 'pending' || tx.status === 'running'
-    )
-
-    // Poll every 3 seconds if there are pending transactions, otherwise every 10 seconds
-    const pollInterval = hasPending ? 3000 : 10000
-    const interval = setInterval(fetchTransactions, pollInterval)
-    return () => clearInterval(interval)
-  }, [autoRefresh, fetchTransactions, transactions])
+  // Removed automatic polling - only refresh manually or after transactions
+  // useEffect(() => {
+  //   if (!autoRefresh) return
+  //   const hasPending = transactions.some(tx =>
+  //     tx.status === 'pending' || tx.status === 'running'
+  //   )
+  //   const pollInterval = hasPending ? 3000 : 10000
+  //   const interval = setInterval(fetchTransactions, pollInterval)
+  //   return () => clearInterval(interval)
+  // }, [autoRefresh, fetchTransactions, transactions])
 
   useEffect(() => {
     let filtered = [...transactions]

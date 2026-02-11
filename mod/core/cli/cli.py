@@ -90,7 +90,7 @@ class Cli:
         elif m.mod_exists(argv[0]):
             # scenario 8: first argument is a mod name, use default fn
             mod = m.mod(argv.pop(0))(**init_kwargs)
-            fn = argv.pop(1)
+            fn = argv.pop(0)
         else: 
             raise Exception(f'Function was not extracted from {argv} ')
         return getattr(mod, fn)

@@ -45,11 +45,10 @@ export function RecentTransaction() {
     }
   }
 
-  // Poll every 2 seconds
+  // Fetch once on mount - no polling
   useEffect(() => {
     fetchRecentTransaction()
-    const interval = setInterval(fetchRecentTransaction, 2000)
-    return () => clearInterval(interval)
+    // Removed interval - only fetches once
   }, [client])
 
   // Update elapsed time for running transactions
@@ -122,18 +121,17 @@ export function RecentTransaction() {
   const fnColor = text2color(transaction.fn || transaction.key)
   const timestamp = parseInt(transaction.time)
   const time = isNaN(timestamp) ? transaction.time : timeAgo(timestamp * 1000)
-  const cost = transaction.cost?.toFixed(4) || '0.0000'
+  const cost = transaction.cost?.toFixed(2) || '0.00'
 
   const renderValue = (value: any) => {
-    if (value === null || value === undefined) return <span className="text-neutral-600 text-sm">null</span>
+    if (value === null || value === undefined) return <span className="text-neutral-600 text-sm font-mono">null</span>
     if (typeof value === 'object') {
       const jsonString = JSON.stringify(value, null, 2)
       return (
         <div className="relative group">
           <pre
-            className="text-sm text-neutral-200 overflow-auto whitespace-pre leading-relaxed scrollbar-thin"
+            className="text-sm text-green-400 overflow-auto whitespace-pre-wrap leading-relaxed scrollbar-thin font-mono"
             style={{
-              fontFamily: 'SF Mono, Monaco, Consolas, monospace',
               maxHeight: '320px'
             }}
           >
@@ -145,23 +143,23 @@ export function RecentTransaction() {
         </div>
       )
     }
-    return <span className="text-neutral-200 text-sm break-all">{String(value)}</span>
+    return <span className="text-green-400 text-sm break-all font-mono">{String(value)}</span>
   }
 
   return (
     <div className="flex-shrink-0">
       <div
-        className={`border rounded-2xl backdrop-blur-sm transition-all relative overflow-hidden bg-neutral-950/40 border-neutral-800/50`}
-        style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+        className={`border-2 rounded-lg backdrop-blur-sm transition-all relative overflow-hidden bg-black/80 border-purple-500/60 hover:border-purple-500/80`}
+        style={{ fontFamily: 'IBM Plex Mono, monospace' }}
       >
         {/* Progress bar for running/pending transactions */}
         {isInProgress && (
           <>
-            <div className="absolute top-0 left-0 right-0 h-1 bg-neutral-900/50 overflow-hidden rounded-t-2xl">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-purple-900/30 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                className="h-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
                 style={{
-                  width: '30%',
+                  width: '40%',
                   animation: 'slideProgress 2s ease-in-out infinite'
                 }}
               />
@@ -178,11 +176,18 @@ export function RecentTransaction() {
         )}
 
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3.5">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-purple-500/30">
+          {/* Hash/ID with icon */}
+          {(transaction.hash || transaction.cid) && (
+            <div className="flex items-center gap-1">
+              <div className="text-purple-500 text-lg">📄</div>
+              <CopyButton text={transaction.hash || transaction.cid || ''} size="sm" showValueOnHover={true} />
+            </div>
+          )}
+
           {/* Status */}
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${status.dot} ${isInProgress ? 'animate-pulse' : ''}`} />
-            <span className={`text-[11px] font-medium uppercase tracking-wide ${status.text}`}>
+            <span className={`text-xs font-bold uppercase tracking-wider ${status.text}`}>
               {status.displayStatus}
             </span>
           </div>
@@ -190,8 +195,7 @@ export function RecentTransaction() {
           {/* Function name */}
           <Link
             href={`/mod/${transaction.fn}/${transaction.owner || transaction.module || transaction.key}`}
-            className="text-sm font-semibold hover:underline truncate"
-            style={{ color: fnColor }}
+            className="text-sm font-bold hover:underline truncate text-cyan-400 hover:text-cyan-300"
           >
             {transaction.fn}
           </Link>
@@ -200,46 +204,56 @@ export function RecentTransaction() {
           <div className="flex-1" />
 
           {/* Info */}
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-3 text-sm">
+            {/* User Key */}
+            {transaction.key && (
+              <div className="flex items-center gap-1">
+                <div className="text-purple-500 text-sm">👤</div>
+                <CopyButton text={transaction.key} size="sm" showValueOnHover={true} />
+              </div>
+            )}
+
+            {/* Owner */}
+            {transaction.owner && (
+              <div className="flex items-center gap-1">
+                <div className="text-purple-500 text-sm">👑</div>
+                <CopyButton text={transaction.owner} size="sm" showValueOnHover={true} />
+              </div>
+            )}
+
             {/* Cost */}
             <div className="flex items-center gap-1">
-              <span className="text-neutral-500">$</span>
-              <span className="text-green-400 font-semibold tabular-nums">{cost}</span>
+              <span className="text-purple-500">$</span>
+              <span className="text-cyan-400 font-bold">${cost}</span>
             </div>
 
             {/* Duration or Elapsed Time */}
             {isInProgress ? (
               <div className="flex items-center gap-1">
-                <span className="text-neutral-500">⏱</span>
-                <span className="text-white font-semibold tabular-nums">{elapsedTime}s</span>
+                <span className="text-purple-500">⏱</span>
+                <span className="text-cyan-400 font-bold tabular-nums">{elapsedTime}s</span>
               </div>
             ) : transaction.delta !== undefined && (
               <div className="flex items-center gap-1">
-                <span className="text-neutral-500">⏱</span>
-                <span className="text-white/70 font-medium tabular-nums">{transaction.delta.toFixed(1)}s</span>
+                <span className="text-purple-500">⏱</span>
+                <span className="text-cyan-400 font-bold">{transaction.delta.toFixed(1)}s</span>
               </div>
             )}
 
             {/* Time */}
             {!isInProgress && (
-              <span className="text-neutral-600 text-[11px] font-medium">{time}</span>
-            )}
-
-            {/* Copy hash */}
-            {(transaction.hash || transaction.cid) && (
-              <CopyButton text={transaction.hash || transaction.cid || ''} size="sm" />
+              <span className="text-purple-400/60 text-xs font-medium">{time}</span>
             )}
           </div>
         </div>
 
         {/* Result section - only show when complete */}
         {hasCompleted && transaction.result && (
-          <div className="px-4 pb-4 border-t border-neutral-800/50">
-            <div className="flex items-center justify-between mb-2 mt-3">
-              <div className="text-[11px] text-neutral-500 font-semibold uppercase tracking-wide">Result</div>
-              <div className="text-[10px] text-neutral-600 font-medium">Scroll to view more</div>
+          <div className="px-4 pb-4">
+            <div className="flex items-center justify-between mb-2 mt-1">
+              <div className="text-xs text-purple-400 font-bold uppercase tracking-wider">OUTPUT</div>
             </div>
-            <div className="bg-black/40 border border-neutral-800/50 rounded-xl p-4 overflow-hidden">
+            <div className="bg-black border border-purple-500/40 rounded-lg p-4 overflow-auto max-h-64">
               {renderValue(transaction.result)}
             </div>
           </div>
@@ -248,7 +262,7 @@ export function RecentTransaction() {
         {/* Running indicator */}
         {isInProgress && (
           <div className="px-4 pb-3 text-center">
-            <span className="text-xs text-white/70 font-medium animate-pulse">Processing...</span>
+            <span className="text-xs text-cyan-400 font-bold animate-pulse uppercase tracking-wider">Processing...</span>
           </div>
         )}
       </div>

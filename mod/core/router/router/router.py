@@ -16,7 +16,7 @@ class Router:
     folder_path = m.abspath('~/.mod/api/router')
     intervals = {
         'sync_tasks': 10,
-        # 'sync_ious': 60,
+        'sync_ious': 60,
     }
 
     def __init__(self, store='ipfs', key=None, auth='auth.v0', chain='chain'):
@@ -78,17 +78,16 @@ class Router:
 
 
     def task_path(self, data): 
-        path = f'{self.calls_path}/{data["fn"]}/{data["time"]}.json'
-        return m.relpath(path)
+        return m.relpath(f'{self.calls_path}/{data["key"]}/{data["fn"]}/{data["time"]}.json')
 
     def _clear_calls(self):
         shutil.rmtree(self.calls_path) if os.path.exists(self.calls_path) else None
-        assert len(self.call_paths()) == 0, "Failed to clear call paths"
+        assert len(self.task_paths()) == 0, "Failed to clear call paths"
         return True
     
 
     def txs(self, key=None, mod=None, df=1, features=['fn', 'status', 'cid' ], n=10, page=0, expand=1) -> List[Dict[str, Any]]:
-        paths = self.call_paths()
+        paths = self.task_paths()
         calls = []
 
         filter_fn = lambda p : (True if mod is None else mod in p) and (True if key is None else key in p)
@@ -142,8 +141,15 @@ class Router:
     
     h = txs
 
-    def call_paths(self, max_age= None):
-        paths =  glob.glob(self.calls_path+'/**/*.json', recursive=True)
+    def task_paths(self, key=None, mod=None, max_age= None):
+
+        if key is not None:
+            paths = glob.glob(self.calls_path+f'/**/{key}/**/*.json', recursive=True)
+        elif mod is not None:
+            paths = glob.glob(self.calls_path+f'/**/{mod}/**/*.json', recursive=True)
+        else:
+            paths = glob.glob(self.calls_path+f'/**/*.json', recursive=True)
+        
         if max_age is not None:
             current_time = time.time()
             filtered_paths = []
@@ -155,19 +161,19 @@ class Router:
         return paths
 
     def reset_calls(self):
-        for path in self.call_paths():
+        for path in self.task_paths():
             print(f'Removing call path: {path}')
             m.rm(path)
         for future in self.cid2future.values():
             print(f'Cancelling future -> {future}')
             future.cancel()
         self.cid2future = {}
-        assert len(self.call_paths()) == 0, "Failed to reset all call paths"
+        assert len(self.task_paths()) == 0, "Failed to reset all call paths"
         return True
     
 
 
-    def _clear_call_paths(self):
+    def _clear_task_paths(self):
         for cid in self.cid2future.keys():
             print(f'Removing call path: {cid}')
             future = self.cid2future[cid]
@@ -264,7 +270,7 @@ class Router:
     
         while True:
             print('running loop')
-            time.sleep(1)
+            time.sleep(2)
             fns = list(self.intervals.keys())
             for fn in fns:
                 if cansync(fn):

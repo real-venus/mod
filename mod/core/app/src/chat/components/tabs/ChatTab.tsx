@@ -1,52 +1,33 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react'
-import { FunctionSelector } from '../FunctionSelector'
+import { useState, useEffect } from 'react'
 import { TransactionCard } from '../../transactions/TransactionCard'
 import { userContext } from '@/context'
-import type { Module, ModuleSchema, Transaction } from '../../types'
+import type { Message, Transaction } from '../../types'
 
 interface ChatTabProps {
-  selectedModules: Module[]
-  selectedFunction: string
-  setSelectedFunction: (fn: string) => void
+  messages: Message[]
   input: string
   setInput: (value: string) => void
-  selectedInputParam: string
-  setSelectedInputParam: (param: string) => void
-  inputParamOptions: string[]
   isLoading: boolean
   onSubmit: (e?: React.FormEvent) => void
-  onCancel: () => void
-  canSubmit: boolean
-  fetchedSchemas?: Map<string, ModuleSchema>
 }
 
 /**
- * Chat tab content - function selector + message input + send button + recent transaction
+ * Chat tab content - simple message input with IBM ASCII terminal vibe
  */
 export function ChatTab({
-  selectedModules,
-  selectedFunction,
-  setSelectedFunction,
+  messages,
   input,
   setInput,
-  selectedInputParam,
-  setSelectedInputParam,
-  inputParamOptions,
   isLoading,
-  onSubmit,
-  onCancel,
-  canSubmit,
-  fetchedSchemas
+  onSubmit
 }: ChatTabProps) {
-  const [showParamDropdown, setShowParamDropdown] = useState(false)
   const [showRecentTx, setShowRecentTx] = useState(true)
   const [recentTransaction, setRecentTransaction] = useState<Transaction | null>(null)
-  const prevFunctionRef = useRef<string>('')
   const { client } = userContext()
 
-  // Fetch most recent transaction
+  // Fetch most recent transaction - only on mount, no polling
   useEffect(() => {
     const fetchRecentTx = async () => {
       if (!client) return
@@ -62,19 +43,7 @@ export function ChatTab({
     }
 
     fetchRecentTx()
-    const interval = setInterval(fetchRecentTx, 2000)
-    return () => clearInterval(interval)
   }, [client])
-
-  // Only reset to first input param when the function changes
-  useEffect(() => {
-    if (selectedFunction !== prevFunctionRef.current) {
-      prevFunctionRef.current = selectedFunction
-      if (inputParamOptions.length > 0) {
-        setSelectedInputParam(inputParamOptions[0])
-      }
-    }
-  }, [selectedFunction, inputParamOptions, setSelectedInputParam])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -84,113 +53,52 @@ export function ChatTab({
   }
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(e); }} className="flex-1 flex flex-col gap-2 min-h-0 overflow-auto">
-      {/* All inputs in one row with send button */}
-      <div className="flex-shrink-0 flex gap-2 items-start">
-        {/* Function selector */}
-        <div className="w-56">
-          <FunctionSelector
-            selectedModules={selectedModules}
-            selectedFunction={selectedFunction}
-            setSelectedFunction={setSelectedFunction}
-            fetchedSchemas={fetchedSchemas}
-          />
-        </div>
+    <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-visible p-4">
+      {/* Message input - terminal style */}
+      <div
+        className="flex-shrink-0 relative rounded-lg overflow-hidden"
+        style={{
+          fontFamily: 'IBM Plex Mono, Menlo, Monaco, Courier New, monospace',
+          background: 'linear-gradient(135deg, rgba(20,20,20,0.95) 0%, rgba(10,10,10,0.98) 100%)',
+        }}
+      >
+        {/* ASCII border */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neutral-600 to-transparent" />
+        <div className="absolute top-0 left-0 w-px h-full bg-gradient-to-b from-neutral-600 via-neutral-700 to-neutral-600" />
+        <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-neutral-600 via-neutral-700 to-neutral-600" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neutral-600 to-transparent" />
 
-        {/* Param selector */}
-        {inputParamOptions.length > 0 && (
-          <div className="w-32 relative">
-            <button
-              type="button"
-              onClick={() => setShowParamDropdown(!showParamDropdown)}
-              className="w-full px-3 py-4 text-sm font-semibold rounded-2xl bg-neutral-950/60 border border-neutral-800/50 hover:border-neutral-700/50 text-white transition-all flex items-center justify-between backdrop-blur-sm"
-              disabled={isLoading}
-              style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
-            >
-              <span className="truncate">{selectedInputParam || inputParamOptions[0] || 'param'}</span>
-              <span className="text-xs text-neutral-500 ml-1">▼</span>
-            </button>
-            {showParamDropdown && (
-              <div className="absolute top-full mt-2 left-0 right-0 bg-neutral-950/98 border border-neutral-800/60 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.6)] overflow-hidden z-50 backdrop-blur-xl">
-                {inputParamOptions.map(param => (
-                  <button
-                    key={param}
-                    type="button"
-                    onClick={() => {
-                      setSelectedInputParam(param)
-                      setShowParamDropdown(false)
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-white/10 text-white border-b border-neutral-800/40 last:border-b-0 transition-all"
-                    style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
-                  >
-                    {param}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Message input - takes remaining space */}
-        <div className="flex-1">
+        <div className="border border-neutral-700/50 p-1">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="enter message..."
-            rows={1}
-            className="w-full bg-neutral-950/60 border border-neutral-800/50 text-white px-4 py-4 rounded-2xl text-sm focus:outline-none focus:border-neutral-700/50 placeholder-gray-600 resize-none transition-all backdrop-blur-sm"
+            placeholder="> enter message..."
+            rows={4}
+            className="w-full bg-transparent border-2 border-neutral-700/50 text-green-400 px-4 py-3 rounded text-sm focus:outline-none focus:border-green-600/50 placeholder-neutral-700 resize-none transition-all"
             disabled={isLoading}
             style={{
-              fontFamily: 'SF Pro Display, -apple-system, sans-serif',
-              letterSpacing: '-0.01em',
-              lineHeight: '1.4',
-              minHeight: '56px'
+              fontFamily: 'IBM Plex Mono, monospace',
+              letterSpacing: '0.02em',
+              lineHeight: '1.6',
             }}
           />
         </div>
-
-        {/* Send/Cancel button - Large with gradient */}
-        <div className="flex-shrink-0">
-          {isLoading ? (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-10 py-4 text-base font-bold rounded-2xl bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-[0_8px_24px_rgba(239,68,68,0.4)] flex items-center gap-3"
-              style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em', minHeight: '56px' }}
-            >
-              <span className="text-2xl">⏹</span>
-              <span>CANCEL</span>
-            </button>
-          ) : (
-            <button
-              type="submit"
-              className="px-10 py-4 text-base font-bold rounded-2xl bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white hover:from-purple-700 hover:via-violet-700 hover:to-fuchsia-700 transition-all shadow-[0_8px_24px_rgba(147,51,234,0.5)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3"
-              disabled={!canSubmit}
-              style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em', minHeight: '56px' }}
-            >
-              <span className="text-2xl">⚡</span>
-              <span>SEND</span>
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* Recent Transaction Section - no dead space */}
+      {/* Recent Transaction Section */}
       {recentTransaction && (
         <div className="flex-shrink-0">
-          {/* Compact toggle */}
           <button
             type="button"
             onClick={() => setShowRecentTx(!showRecentTx)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-300 transition-all"
-            style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+            className="w-full flex items-center gap-2 px-2 py-1 text-xs font-bold text-neutral-600 hover:text-green-400 transition-all mb-2 uppercase tracking-wider"
+            style={{ fontFamily: 'IBM Plex Mono, monospace' }}
           >
             <span className="text-[10px]">{showRecentTx ? '▼' : '▶'}</span>
-            <span>Recent</span>
+            <span>RECENT TX</span>
           </button>
 
-          {/* Transaction card */}
           {showRecentTx && (
             <TransactionCard
               tx={recentTransaction}
@@ -200,6 +108,6 @@ export function ChatTab({
           )}
         </div>
       )}
-    </form>
+    </div>
   )
 }

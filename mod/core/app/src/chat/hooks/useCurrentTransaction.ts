@@ -71,8 +71,8 @@ export function useCurrentTransaction({
     }
 
     fetchTransactions()
-    const interval = setInterval(fetchTransactions, 1000)
-    return () => clearInterval(interval)
+    // Removed interval - only fetches once
+    // Will update via manual refresh after transactions
   }, [client, currentTransaction])
 
   // Set pending transaction when loading starts

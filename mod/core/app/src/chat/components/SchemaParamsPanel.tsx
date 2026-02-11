@@ -81,12 +81,13 @@ export function SchemaParamsPanel({
   return (
     <div
       ref={panelRef}
-      className="overflow-hidden backdrop-blur-sm transition-all rounded-2xl border border-neutral-800/30 bg-neutral-950/40"
+      className="overflow-hidden backdrop-blur-sm transition-all rounded-lg border-2 border-purple-500/60 bg-black/80"
+      style={{ fontFamily: 'IBM Plex Mono, monospace' }}
     >
       <div>
         {/* Compact header */}
-        <div className="flex justify-between items-center gap-2 px-4 py-3 border-b border-neutral-800/20">
-          <div className="text-sm font-semibold text-neutral-400" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}>
+        <div className="flex justify-between items-center gap-2 px-5 py-4 border-b border-purple-500/30">
+          <div className="text-sm font-bold text-white uppercase tracking-wide">
             {paramEntries.length} parameter{paramEntries.length !== 1 ? 's' : ''}
           </div>
           <div className="flex gap-2">
@@ -96,8 +97,7 @@ export function SchemaParamsPanel({
                   e.stopPropagation()
                   setIsExpanded(!isExpanded)
                 }}
-                className="px-2.5 py-1.5 rounded-lg transition-all text-sm font-medium bg-neutral-800/30 text-neutral-400 hover:bg-neutral-800/50 hover:text-white"
-                style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+                className="px-2 py-1 rounded transition-all text-xs font-bold bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-white"
               >
                 {isExpanded ? '▼' : '▶'}
               </button>
@@ -107,26 +107,24 @@ export function SchemaParamsPanel({
                 e.stopPropagation()
                 toggleColumns()
               }}
-              className="px-2.5 py-1.5 rounded-lg transition-all text-sm font-medium bg-neutral-800/30 text-neutral-400 hover:bg-neutral-800/50 hover:text-white"
-              style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+              className="px-2 py-1 rounded transition-all text-xs font-bold bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-white"
               title="Toggle columns"
             >
-              {columns === 1 ? '=' : '≡'} {columns}col
+              = {columns}col
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 handleResetParams()
               }}
-              className="px-2.5 py-1.5 rounded-lg transition-all text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20"
-              style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+              className="px-2 py-1 rounded transition-all text-xs font-bold bg-neutral-800 text-cyan-400 hover:bg-neutral-700"
             >
-              🔄 reset
+              reset
             </button>
           </div>
         </div>
         <div
-          className="overflow-y-auto px-4 pb-4 scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent"
+          className="overflow-y-auto px-5 pb-4 scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent"
           style={{
             maxHeight: shouldCollapse && !isExpanded ? '300px' : '600px',
             transition: 'max-height 0.3s ease',
@@ -134,10 +132,10 @@ export function SchemaParamsPanel({
             scrollbarColor: 'rgba(64, 64, 64, 0.5) transparent'
           }}
         >
-          <div className={`grid gap-3 ${getGridCols()}`}>
+          <div className={`grid gap-4 ${getGridCols()}`}>
             {paramEntries.map(([key, value]: [string, any]) => (
-              <div key={key} className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-neutral-300" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}>
+              <div key={key} className="flex flex-col gap-2">
+                <label className="text-sm font-bold text-white">
                   {key} <span className="text-neutral-500 text-xs">({value.type})</span>
                 </label>
                 <input
@@ -145,16 +143,13 @@ export function SchemaParamsPanel({
                   value={params[key] ?? ''}
                   onChange={(e) => handleParamChange(key, e.target.value)}
                   placeholder={value.value !== '_empty' ? String(value.value) : 'enter value...'}
-                  className="border text-white px-3 py-3 rounded-xl focus:outline-none focus:border-neutral-600/80 text-base bg-neutral-900/60 border-neutral-800/30 placeholder-neutral-600 hover:border-neutral-700/50 transition-colors"
-                  style={{
-                    fontFamily: 'SF Mono, monospace'
-                  }}
+                  className="border-2 text-neutral-300 px-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 text-sm bg-neutral-900 border-neutral-700 placeholder-neutral-600 hover:border-neutral-600 transition-colors font-mono"
                 />
               </div>
             ))}
             {Object.entries(customParams).map(([key, value]) => (
-              <div key={key} className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-neutral-300 flex justify-between items-center" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}>
+              <div key={key} className="flex flex-col gap-2">
+                <label className="text-sm font-bold text-white flex justify-between items-center">
                   <span>{key} <span className="text-neutral-500 text-xs">(custom)</span></span>
                   <button
                     onClick={() => handleRemoveCustomParam(key)}
@@ -172,44 +167,34 @@ export function SchemaParamsPanel({
                     handleParamChange(key, e.target.value)
                   }}
                   placeholder="enter value..."
-                  className="border text-white px-3 py-3 rounded-xl focus:outline-none focus:border-neutral-600/80 text-base bg-neutral-900/60 border-neutral-800/30 placeholder-neutral-600 hover:border-neutral-700/50 transition-colors"
-                  style={{
-                    fontFamily: 'SF Mono, monospace'
-                  }}
+                  className="border-2 text-neutral-300 px-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 text-sm bg-neutral-900 border-neutral-700 placeholder-neutral-600 hover:border-neutral-600 transition-colors font-mono"
                 />
               </div>
             ))}
           </div>
           {hasKwargs && (
-            <div className="mt-4 p-3 border rounded-xl bg-neutral-900/40 border-neutral-800/30">
-              <h4 className="text-xs font-semibold mb-2 text-neutral-400 uppercase tracking-wide" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '0.05em' }}>Add Custom Parameter</h4>
+            <div className="mt-4 p-4 border-2 rounded-lg bg-neutral-900 border-purple-500/40">
+              <h4 className="text-xs font-bold mb-3 text-neutral-300 uppercase tracking-wider">Add Custom Parameter</h4>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={newParamKey}
                   onChange={(e) => setNewParamKey(e.target.value)}
                   placeholder="key"
-                  className="flex-1 border text-white px-3 py-2.5 rounded-lg focus:outline-none focus:border-neutral-600/80 text-sm bg-neutral-900/60 border-neutral-800/30 placeholder-neutral-600 hover:border-neutral-700/50 transition-colors"
-                  style={{
-                    fontFamily: 'SF Mono, monospace'
-                  }}
+                  className="flex-1 border-2 text-neutral-300 px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500 text-sm bg-neutral-900 border-neutral-700 placeholder-neutral-600 hover:border-neutral-600 transition-colors font-mono"
                 />
                 <input
                   type="text"
                   value={newParamValue}
                   onChange={(e) => setNewParamValue(e.target.value)}
                   placeholder="value"
-                  className="flex-1 border text-white px-3 py-2.5 rounded-lg focus:outline-none focus:border-neutral-600/80 text-sm bg-neutral-900/60 border-neutral-800/30 placeholder-neutral-600 hover:border-neutral-700/50 transition-colors"
-                  style={{
-                    fontFamily: 'SF Mono, monospace'
-                  }}
+                  className="flex-1 border-2 text-neutral-300 px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500 text-sm bg-neutral-900 border-neutral-700 placeholder-neutral-600 hover:border-neutral-600 transition-colors font-mono"
                 />
                 <button
                   onClick={handleAddCustomParam}
-                  className="px-3 py-2.5 rounded-lg transition-all text-sm font-medium bg-neutral-800/40 text-neutral-300 hover:bg-neutral-800/60 hover:text-white"
-                  style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+                  className="px-3 py-2 rounded-lg transition-all text-xs font-bold bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
                 >
-                  ➕ add
+                  add
                 </button>
               </div>
             </div>
