@@ -4,8 +4,11 @@ import { useState, useEffect } from 'react'
 import { userContext } from '@/context/UserContext'
 import { motion } from 'framer-motion'
 import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function CreateModule() {
+  const router = useRouter()
   const { user, client } = userContext()
   const [url, setUrl] = useState('')
   const [name, setName] = useState('')
@@ -154,29 +157,50 @@ export default function CreateModule() {
   }
 
   return (
-    <div className="flex-1 flex flex-col gap-6 min-h-0 overflow-visible p-6">
-      {/* Main Input Container */}
-      <div className="flex-shrink-0 space-y-5">
+    <div className="flex-1 flex flex-col gap-8 min-h-0 overflow-visible p-8">
+      {/* Main Input Container with gradient background */}
+      <div className="flex-shrink-0 space-y-6 relative">
+        {/* Ambient glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-cyan-500/5 rounded-2xl blur-3xl -z-10" />
+
         {/* URL Input */}
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <label className="text-base font-extrabold text-neutral-300 uppercase tracking-[0.2em] flex items-center gap-3" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+              <span className="text-purple-400 text-xl">●</span>
               Repository URL or IPFS CID
             </label>
             {url && (
-              <div
-                className="font-mono text-xs font-bold tracking-widest uppercase px-2 py-0.5 rounded"
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="font-mono text-sm font-bold tracking-widest uppercase px-4 py-2 rounded-lg backdrop-blur-sm"
                 style={{
-                  backgroundColor: isValidInput() ? '#22c55e20' : '#ef444420',
+                  backgroundColor: isValidInput() ? '#22c55e25' : '#ef444425',
                   color: isValidInput() ? '#22c55e' : '#ef4444',
-                  border: `1px solid ${isValidInput() ? '#22c55e40' : '#ef444440'}`,
+                  border: `2px solid ${isValidInput() ? '#22c55e60' : '#ef444460'}`,
+                  boxShadow: isValidInput()
+                    ? '0 0 20px rgba(34, 197, 94, 0.3)'
+                    : '0 0 20px rgba(239, 68, 68, 0.3)',
                 }}
               >
                 {isValidInput() ? `✓ ${getInputType()}` : '✗ Invalid'}
-              </div>
+              </motion.div>
             )}
           </div>
           <div className="relative group">
+            {/* Glow effect on focus */}
+            {focusedField === 'url' && (
+              <div
+                className="absolute inset-0 rounded-2xl blur-2xl transition-opacity"
+                style={{
+                  background: isValidInput()
+                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(16, 185, 129, 0.4))'
+                    : 'linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(147, 51, 234, 0.4))',
+                  opacity: 0.6,
+                }}
+              />
+            )}
             <input
               type="text"
               value={url}
@@ -184,30 +208,51 @@ export default function CreateModule() {
               onFocus={() => setFocusedField('url')}
               onBlur={() => setFocusedField(null)}
               placeholder="user/repo  or  github.com/user/repo.git  or  Qm..."
-              className="w-full border-2 text-green-400 px-5 py-4 rounded-lg focus:outline-none text-base bg-neutral-950/80 placeholder-neutral-700 hover:border-neutral-600 transition-all duration-200 font-mono shadow-lg"
+              className="w-full border-[3px] text-green-400 px-8 py-7 rounded-2xl focus:outline-none text-2xl bg-black/60 backdrop-blur-sm placeholder-neutral-600 hover:border-neutral-500 transition-all duration-300 font-mono shadow-2xl relative z-10"
               style={{
                 borderColor: focusedField === 'url'
                   ? (isValidInput() ? '#22c55e' : '#a855f7')
-                  : 'rgba(115, 115, 115, 0.4)',
+                  : 'rgba(115, 115, 115, 0.3)',
                 fontFamily: 'IBM Plex Mono, monospace',
+                boxShadow: focusedField === 'url'
+                  ? '0 12px 48px rgba(168, 85, 247, 0.5)'
+                  : '0 6px 24px rgba(0, 0, 0, 0.6)',
               }}
             />
           </div>
         </div>
 
         {/* Register Key Input */}
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <label className="text-base font-extrabold text-neutral-300 uppercase tracking-[0.2em] flex items-center gap-3" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+              <span className="text-cyan-400 text-xl">●</span>
               Registration Key
             </label>
             {registerToKey === user?.key && (
-              <span className="font-mono text-xs font-bold text-green-400 px-2 py-0.5 bg-green-400/10 border border-green-400/30 rounded">
+              <motion.span
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="font-mono text-sm font-bold text-green-400 px-4 py-2 bg-green-400/20 border-2 border-green-400/50 rounded-lg backdrop-blur-sm"
+                style={{
+                  boxShadow: '0 0 20px rgba(34, 197, 94, 0.4)',
+                }}
+              >
                 ✓ YOUR KEY
-              </span>
+              </motion.span>
             )}
           </div>
           <div className="relative group">
+            {/* Glow effect on focus */}
+            {focusedField === 'registerToKey' && (
+              <div
+                className="absolute inset-0 rounded-2xl blur-2xl"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.4), rgba(8, 145, 178, 0.4))',
+                  opacity: 0.6,
+                }}
+              />
+            )}
             <input
               type="text"
               value={registerToKey}
@@ -215,25 +260,31 @@ export default function CreateModule() {
               onFocus={() => setFocusedField('registerToKey')}
               onBlur={() => setFocusedField(null)}
               placeholder="0x..."
-              className="w-full border-2 text-cyan-400 px-5 py-4 rounded-lg focus:outline-none text-base bg-neutral-950/80 placeholder-neutral-700 hover:border-neutral-600 transition-all duration-200 font-mono pr-32 shadow-lg"
+              className="w-full border-[3px] text-cyan-400 px-8 py-7 rounded-2xl focus:outline-none text-2xl bg-black/60 backdrop-blur-sm placeholder-neutral-600 hover:border-neutral-500 transition-all duration-300 font-mono pr-64 shadow-2xl relative z-10"
               style={{
-                borderColor: focusedField === 'registerToKey' ? '#06b6d4' : 'rgba(115, 115, 115, 0.4)',
+                borderColor: focusedField === 'registerToKey' ? '#06b6d4' : 'rgba(115, 115, 115, 0.3)',
                 fontFamily: 'IBM Plex Mono, monospace',
+                boxShadow: focusedField === 'registerToKey'
+                  ? '0 12px 48px rgba(6, 182, 212, 0.5)'
+                  : '0 6px 24px rgba(0, 0, 0, 0.6)',
               }}
             />
             {/* Copy and reset buttons */}
             {registerToKey && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-3 z-20">
                 <button
                   onClick={() => copyToClipboard(registerToKey)}
-                  className="font-mono text-xs font-bold tracking-widest uppercase px-3 py-1.5 rounded transition-all hover:bg-cyan-500/20 bg-neutral-900 text-cyan-400 border border-cyan-500/30 hover:border-cyan-500/60"
+                  className="font-mono text-sm font-bold tracking-widest uppercase px-5 py-3 rounded-xl transition-all hover:scale-105 active:scale-95 bg-cyan-500/10 text-cyan-400 border-2 border-cyan-500/40 hover:border-cyan-500/80 hover:bg-cyan-500/20 backdrop-blur-sm"
+                  style={{
+                    boxShadow: '0 4px 16px rgba(6, 182, 212, 0.3)',
+                  }}
                 >
                   COPY
                 </button>
                 {registerToKey !== user?.key && user?.key && (
                   <button
                     onClick={() => setRegisterToKey(user.key || '')}
-                    className="font-mono text-xs font-bold tracking-widest uppercase px-3 py-1.5 rounded transition-all hover:bg-neutral-700 bg-neutral-900 text-neutral-400 border border-neutral-600"
+                    className="font-mono text-sm font-bold tracking-widest uppercase px-5 py-3 rounded-xl transition-all hover:scale-105 active:scale-95 bg-neutral-800/60 text-neutral-400 border-2 border-neutral-600/40 hover:border-neutral-500 hover:bg-neutral-700/60 backdrop-blur-sm"
                   >
                     RESET
                   </button>
@@ -243,28 +294,66 @@ export default function CreateModule() {
           </div>
         </div>
 
-        {/* Register Button */}
-        <button
-          onClick={handleSubmit}
-          disabled={!isValidInput() || isSubmitting || !user || !registerToKey.trim()}
-          className="w-full py-5 rounded-lg font-bold text-xl tracking-widest uppercase transition-all disabled:opacity-30 disabled:cursor-not-allowed border-2 hover:shadow-xl hover:shadow-purple-500/20 hover:scale-[1.01] active:scale-[0.99] mt-2"
-          style={{
-            borderColor: '#a855f7',
-            color: '#a855f7',
-            backgroundColor: '#a855f720',
-            fontFamily: 'IBM Plex Mono, monospace',
-          }}
-        >
-          {isSubmitting ? (
-            <span className="flex items-center justify-center gap-3">
-              <span className="animate-pulse">[</span>
-              <span>REGISTERING</span>
-              <span className="animate-pulse">]</span>
-            </span>
-          ) : (
-            <span>[ REGISTER MODULE ]</span>
+        {/* Register Button - Premium Edition */}
+        <div className="relative mt-6">
+          {/* Epic glow effect */}
+          {!isSubmitting && isValidInput() && user && registerToKey.trim() && (
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/40 via-pink-500/40 to-purple-500/40 rounded-2xl blur-2xl animate-pulse" />
           )}
-        </button>
+
+          <button
+            onClick={handleSubmit}
+            disabled={!isValidInput() || isSubmitting || !user || !registerToKey.trim()}
+            className="w-full py-8 rounded-2xl font-black text-2xl tracking-[0.3em] uppercase transition-all disabled:opacity-20 disabled:cursor-not-allowed border-[3px] hover:shadow-[0_0_60px_rgba(168,85,247,0.6)] hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden group"
+            style={{
+              borderColor: '#a855f7',
+              color: '#a855f7',
+              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(147, 51, 234, 0.25), rgba(168, 85, 247, 0.15))',
+              fontFamily: 'IBM Plex Mono, monospace',
+              boxShadow: '0 8px 32px rgba(168, 85, 247, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            {/* Animated shimmer effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+
+            {/* Animated background gradient on hover */}
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/0 via-purple-600/30 to-pink-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+            {/* Particle effect background */}
+            <div className="absolute inset-0 opacity-30">
+              <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-purple-400 rounded-full animate-ping" style={{ animationDuration: '2s' }} />
+              <div className="absolute top-3/4 right-1/4 w-2 h-2 bg-pink-400 rounded-full animate-ping" style={{ animationDuration: '3s', animationDelay: '1s' }} />
+              <div className="absolute top-1/2 right-1/3 w-2 h-2 bg-purple-400 rounded-full animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.5s' }} />
+            </div>
+
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-5 relative z-10">
+                {/* Spinning loader */}
+                <svg className="animate-spin h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="relative">
+                  <span className="animate-pulse">REGISTERING MODULE</span>
+                  <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent animate-pulse" />
+                </span>
+                <svg className="animate-spin h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </span>
+            ) : (
+              <span className="relative z-10 flex items-center justify-center gap-4">
+                <span className="text-3xl animate-bounce" style={{ animationDuration: '1s' }}>⚡</span>
+                <span className="relative">
+                  REGISTER MODULE
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-purple-400 to-pink-400 group-hover:w-full transition-all duration-500" />
+                </span>
+                <span className="text-3xl animate-bounce" style={{ animationDuration: '1s', animationDelay: '0.1s' }}>⚡</span>
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Output Section - Only show when there's a result/error from submission */}
@@ -272,26 +361,66 @@ export default function CreateModule() {
         {/* Success Output */}
         {result && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-lg border-2 bg-gradient-to-br from-green-950/40 to-black overflow-hidden shadow-xl"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", bounce: 0.4, duration: 0.8 }}
+            className="rounded-2xl border-[3px] bg-gradient-to-br from-green-950/60 via-emerald-950/40 to-black overflow-hidden shadow-2xl relative"
             style={{
-              borderColor: '#22c55e60',
-              fontFamily: 'IBM Plex Mono, monospace'
+              borderColor: '#22c55e',
+              fontFamily: 'IBM Plex Mono, monospace',
+              boxShadow: '0 0 60px rgba(34, 197, 94, 0.4), 0 8px 32px rgba(0, 0, 0, 0.8)',
             }}
           >
-            <div className="px-5 py-4 border-b border-green-500/30 bg-green-900/30">
-              <div className="flex items-center gap-2.5">
-                <CheckCircleIcon className="w-5 h-5 text-green-400" />
-                <span className="font-bold text-sm uppercase tracking-widest text-green-400">
+            {/* Glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent rounded-2xl" />
+
+            <div className="px-6 py-5 border-b-2 border-green-500/40 bg-gradient-to-r from-green-900/50 to-emerald-900/50 backdrop-blur-sm relative">
+              <div className="flex items-center gap-3">
+                <CheckCircleIcon className="w-7 h-7 text-green-400 animate-bounce" style={{ animationDuration: '1s', animationIterationCount: '2' }} />
+                <span className="font-black text-base uppercase tracking-[0.2em] text-green-400">
                   Module Registered Successfully
                 </span>
               </div>
+              {/* Sparkle effect */}
+              <div className="absolute top-2 right-2 text-2xl animate-ping" style={{ animationDuration: '1.5s', animationIterationCount: '3' }}>✨</div>
             </div>
-            <div className="p-5">
-              <pre className="text-xs overflow-x-auto text-green-300/90 leading-relaxed">
-                {JSON.stringify(result, null, 2)}
-              </pre>
+
+            {/* Navigation Button */}
+            {result.name && registerToKey && (
+              <div className="px-6 pt-6 relative">
+                {/* Button glow */}
+                <div className="absolute inset-x-6 top-6 h-16 bg-green-500/30 rounded-xl blur-xl" />
+
+                <Link
+                  href={`/mod/${result.name}/${registerToKey}`}
+                  className="block relative"
+                >
+                  <button className="w-full py-5 px-8 rounded-xl font-black text-xl tracking-[0.2em] uppercase transition-all border-[3px] hover:shadow-[0_0_60px_rgba(34,197,94,0.6)] hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-green-500/20 via-emerald-500/30 to-green-500/20 border-green-500 text-green-400 hover:bg-green-500/40 group relative overflow-hidden">
+                    {/* Shimmer effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+
+                    {/* Animated gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-600/0 via-green-600/30 to-emerald-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                    <span className="relative z-10 flex items-center justify-center gap-4">
+                      <span className="text-3xl group-hover:scale-110 transition-transform">🚀</span>
+                      <span className="relative">
+                        VIEW YOUR MODULE
+                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-green-400 to-emerald-400 group-hover:w-full transition-all duration-500" />
+                      </span>
+                      <span className="text-2xl group-hover:translate-x-1 transition-transform">→</span>
+                    </span>
+                  </button>
+                </Link>
+              </div>
+            )}
+
+            <div className="p-6 relative">
+              <div className="bg-black/60 backdrop-blur-sm rounded-xl p-4 border border-green-500/20">
+                <pre className="text-sm overflow-x-auto text-green-300/90 leading-relaxed">
+                  {JSON.stringify(result, null, 2)}
+                </pre>
+              </div>
             </div>
           </motion.div>
         )}
@@ -299,37 +428,53 @@ export default function CreateModule() {
         {/* Error Output */}
         {error && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-lg border-2 bg-gradient-to-br from-red-950/40 to-black overflow-hidden shadow-xl"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", bounce: 0.4, duration: 0.8 }}
+            className="rounded-2xl border-[3px] bg-gradient-to-br from-red-950/60 via-rose-950/40 to-black overflow-hidden shadow-2xl relative"
             style={{
-              borderColor: '#ef444460',
-              fontFamily: 'IBM Plex Mono, monospace'
+              borderColor: '#ef4444',
+              fontFamily: 'IBM Plex Mono, monospace',
+              boxShadow: '0 0 60px rgba(239, 68, 68, 0.4), 0 8px 32px rgba(0, 0, 0, 0.8)',
             }}
           >
-            <div className="px-5 py-4 border-b border-red-500/30 bg-red-900/30">
-              <div className="flex items-center gap-2.5">
-                <ExclamationCircleIcon className="w-5 h-5 text-red-400" />
-                <span className="font-bold text-sm uppercase tracking-widest text-red-400">
+            {/* Glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent rounded-2xl" />
+
+            <div className="px-6 py-5 border-b-2 border-red-500/40 bg-gradient-to-r from-red-900/50 to-rose-900/50 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <ExclamationCircleIcon className="w-7 h-7 text-red-400 animate-pulse" />
+                <span className="font-black text-base uppercase tracking-[0.2em] text-red-400">
                   Registration Failed
                 </span>
               </div>
             </div>
-            <div className="p-5">
-              <p className="text-sm text-red-300/90 leading-relaxed">{error}</p>
+
+            <div className="p-6">
+              <div className="bg-black/60 backdrop-blur-sm rounded-xl p-5 border border-red-500/20">
+                <p className="text-base text-red-300/90 leading-relaxed font-mono">{error}</p>
+              </div>
             </div>
           </motion.div>
         )}
 
         {/* Connect wallet message */}
         {!user && !result && !error && (
-          <div className="text-center py-12">
-            <div className="inline-block px-6 py-3 border-2 border-neutral-800 rounded-lg bg-neutral-950/60">
-              <p className="text-neutral-500 font-mono text-xs uppercase tracking-widest">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-center py-16"
+          >
+            <div className="inline-block px-8 py-4 border-2 border-neutral-700/50 rounded-xl bg-gradient-to-br from-neutral-900/80 to-black backdrop-blur-sm relative overflow-hidden group">
+              {/* Subtle animated glow */}
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-cyan-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+              <p className="text-neutral-400 font-mono text-sm uppercase tracking-[0.2em] relative z-10">
                 Connect wallet to register modules
               </p>
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

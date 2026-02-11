@@ -30,15 +30,15 @@ export function TabBar({
       <div className="flex gap-0 rounded-2xl bg-neutral-900/40 backdrop-blur-sm border border-neutral-800/50 p-1 overflow-hidden">
         <button
           type="button"
-          onClick={() => setActiveTab('inputs')}
+          onClick={() => setActiveTab('params')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
-            activeTab === 'inputs'
+            activeTab === 'params'
               ? 'bg-transparent text-white border-2 border-white shadow-lg'
               : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5 border-2 border-transparent'
           }`}
           style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
         >
-          📥 INPUTS
+          📥 PARAMS
         </button>
 
         <button

@@ -466,12 +466,12 @@ export function WalletHeader() {
         style={{
           width: '60px',
           height: '60px',
-          borderRadius: 0,
+          borderRadius: '8px',
           fontFamily: 'IBM Plex Mono, monospace'
         }}
       >
         <WalletIcon className="w-6 h-6 text-neutral-400" />
-        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500" title="Connected" style={{ borderRadius: 0 }} />
+        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-sm" title="Connected" />
       </button>
 
       <AnimatePresence>
@@ -544,7 +544,7 @@ export function WalletHeader() {
 
 {/* Action Tabs */}
             <div className="px-4 py-3 border-b border-neutral-800">
-              <div className="grid grid-cols-5 gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
                 {/* ADD BUTTON */}
                 <button
                   onClick={() => {
@@ -553,13 +553,16 @@ export function WalletHeader() {
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
                   }}
-                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 ${
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showTopUpForm
                       ? 'bg-gradient-to-br from-green-500/30 to-emerald-500/30 border-green-400 text-green-300 shadow-green-500/50'
-                      : 'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-green-300 hover:border-green-400/60 hover:shadow-green-500/30'
+                      : 'bg-gradient-to-br from-green-950/40 to-emerald-950/40 border-green-900/60 text-green-600 hover:text-green-300 hover:border-green-400/60 hover:shadow-green-500/30'
                   }`}
                   style={{
-                    fontFamily: 'IBM Plex Mono, monospace'
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderRadius: '8px',
+                    width: '70px',
+                    height: '70px'
                   }}
                 >
                   <CreditCardIcon className="w-5 h-5" />
@@ -574,13 +577,16 @@ export function WalletHeader() {
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
                   }}
-                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 ${
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showTransferForm
                       ? 'bg-gradient-to-br from-blue-500/30 to-blue-600/30 border-blue-400 text-blue-300 shadow-blue-500/50'
-                      : 'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-blue-300 hover:border-blue-400/60 hover:shadow-blue-500/30'
+                      : 'bg-gradient-to-br from-blue-950/40 to-cyan-950/40 border-blue-900/60 text-blue-600 hover:text-blue-300 hover:border-blue-400/60 hover:shadow-blue-500/30'
                   }`}
                   style={{
-                    fontFamily: 'IBM Plex Mono, monospace'
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderRadius: '8px',
+                    width: '70px',
+                    height: '70px'
                   }}
                 >
                   <ArrowsRightLeftIcon className="w-5 h-5" />
@@ -595,13 +601,16 @@ export function WalletHeader() {
                     setShowTransferForm(false)
                     setShowTxsTab(false)
                   }}
-                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 ${
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showPortfolioTab
                       ? 'bg-gradient-to-br from-purple-500/30 to-purple-600/30 border-purple-400 text-purple-300 shadow-purple-500/50'
-                      : 'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-purple-300 hover:border-purple-400/60 hover:shadow-purple-500/30'
+                      : 'bg-gradient-to-br from-purple-950/40 to-fuchsia-950/40 border-purple-900/60 text-purple-600 hover:text-purple-300 hover:border-purple-400/60 hover:shadow-purple-500/30'
                   }`}
                   style={{
-                    fontFamily: 'IBM Plex Mono, monospace'
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderRadius: '8px',
+                    width: '70px',
+                    height: '70px'
                   }}
                 >
                   <WalletIcon className="w-5 h-5" />
@@ -612,11 +621,14 @@ export function WalletHeader() {
                 <button
                   onClick={handleRefreshToken}
                   disabled={isRefreshing}
-                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 ${
-                    'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30'
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 ${
+                    'bg-gradient-to-br from-cyan-950/40 to-teal-950/40 border-cyan-900/60 text-cyan-600 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30'
                   }`}
                   style={{
-                    fontFamily: 'IBM Plex Mono, monospace'
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderRadius: '8px',
+                    width: '70px',
+                    height: '70px'
                   }}
                 >
                   <ArrowPathIcon className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -632,13 +644,16 @@ export function WalletHeader() {
                     setShowPortfolioTab(false)
                     if (!showTxsTab) fetchUserTransactions()
                   }}
-                  className={`aspect-square flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase rounded-xl shadow-lg hover:scale-105 ${
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showTxsTab
                       ? 'bg-gradient-to-br from-amber-500/30 to-orange-500/30 border-amber-400 text-amber-300 shadow-amber-500/50'
-                      : 'bg-gradient-to-br from-black/60 to-black/40 border-neutral-800 text-neutral-500 hover:text-amber-300 hover:border-amber-400/60 hover:shadow-amber-500/30'
+                      : 'bg-gradient-to-br from-amber-950/40 to-orange-950/40 border-amber-900/60 text-amber-600 hover:text-amber-300 hover:border-amber-400/60 hover:shadow-amber-500/30'
                   }`}
                   style={{
-                    fontFamily: 'IBM Plex Mono, monospace'
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderRadius: '8px',
+                    width: '70px',
+                    height: '70px'
                   }}
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

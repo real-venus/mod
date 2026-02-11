@@ -56,22 +56,13 @@ export function ChatTab({
           }}
         >
           <div className="relative">
-            {/* Parameter Selector - Top Left Inside */}
-            <div className="absolute top-1 left-2 z-10">
-              <ParameterSelector
-                parameters={inputParamOptions}
-                selectedParameter={selectedInputParam}
-                setSelectedParameter={setSelectedInputParam}
-              />
-            </div>
-
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder=""
               rows={4}
-              className="w-full bg-transparent text-green-400 pl-24 pr-4 py-3 rounded-xl text-sm focus:outline-none placeholder-neutral-700 resize-none transition-all border-0"
+              className="w-full bg-transparent text-green-400 px-4 py-3 pb-12 rounded-xl text-sm focus:outline-none placeholder-neutral-700 resize-none transition-all border-0"
               disabled={isLoading}
               style={{
                 fontFamily: 'IBM Plex Mono, monospace',
@@ -79,6 +70,15 @@ export function ChatTab({
                 lineHeight: '1.6',
               }}
             />
+
+            {/* Parameter Selector - Bottom Left Inside */}
+            <div className="absolute bottom-2 left-2 z-10">
+              <ParameterSelector
+                parameters={inputParamOptions}
+                selectedParameter={selectedInputParam}
+                setSelectedParameter={setSelectedInputParam}
+              />
+            </div>
           </div>
         </div>
       </div>
