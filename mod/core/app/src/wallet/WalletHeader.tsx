@@ -74,7 +74,7 @@ export function WalletHeader() {
   const [isTransferring, setIsTransferring] = useState(false)
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(NETWORKS[0])
   const [balanceRefreshSuccess, setBalanceRefreshSuccess] = useState(false)
-  const [showTxsTab, setShowTxsTab] = useState(false)
+  const [showTxsTab, setShowTxsTab] = useState(true)  // Default to true - show txs by default
   const [showPortfolioTab, setShowPortfolioTab] = useState(false)
   const [userTransactions, setUserTransactions] = useState<any[]>([])
   const [totalCost24h, setTotalCost24h] = useState(0)
@@ -83,6 +83,7 @@ export function WalletHeader() {
   const [expandedTxIdx, setExpandedTxIdx] = useState<number | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(400)
   const [isResizing, setIsResizing] = useState(false)
+  const [isTokenExpired, setIsTokenExpired] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
@@ -114,7 +115,19 @@ export function WalletHeader() {
   useEffect(() => {
     if (!user) return
     const interval = setInterval(() => {
-      setTokenExpiry(getTokenExpiry())
+      const expiry = getTokenExpiry()
+      setTokenExpiry(expiry)
+
+      // Check if token is expired
+      if (expiry === 'Expired' || expiry === 'Invalid token') {
+        setIsTokenExpired(true)
+      } else {
+        setIsTokenExpired(false)
+        // Clear global expired flag when token is valid
+        if (typeof window !== 'undefined') {
+          (window as any).__tokenExpired = false
+        }
+      }
     }, 1000)
     return () => clearInterval(interval)
   }, [user])
@@ -151,6 +164,11 @@ export function WalletHeader() {
       const newToken = await auth.token('', wallet_address, wallet_mode)
       localStorage.setItem('wallet_token', newToken)
       setTokenExpiry(getTokenExpiry())
+      setIsTokenExpired(false)
+      // Clear global expired flag
+      if (typeof window !== 'undefined') {
+        (window as any).__tokenExpired = false
+      }
     } catch (error) {
       console.error('Failed to refresh token:', error)
     } finally {
@@ -443,12 +461,19 @@ export function WalletHeader() {
     }
   }
 
+  // Fetch transactions on mount since TXS tab is default
+  useEffect(() => {
+    if (user?.key) {
+      fetchUserTransactions()
+    }
+  }, [user?.key])
+
+  // Also fetch when TXS tab is manually opened
   useEffect(() => {
     if (showTxsTab && user?.key) {
       fetchUserTransactions()
-      // Removed interval - only fetches when tab opens
     }
-  }, [showTxsTab, user?.key])
+  }, [showTxsTab])
 
   // Not signed in - show the auth button
   if (!user) {
@@ -470,7 +495,12 @@ export function WalletHeader() {
         }}
       >
         <WalletIcon className="w-6 h-6 text-neutral-400" />
-        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-sm" title="Connected" />
+        <div
+          className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-sm transition-colors ${
+            isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
+          }`}
+          title={isTokenExpired ? 'Token Expired - Click to Refresh' : 'Connected'}
+        />
       </button>
 
       <AnimatePresence>
@@ -564,6 +594,56 @@ export function WalletHeader() {
                   </button>
                 </div>
               </div>
+
+              {/* Token Expired Warning Banner */}
+              <AnimatePresence>
+                {isTokenExpired && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="px-6 py-4 border-b-4 border-yellow-500 bg-gradient-to-br from-yellow-900/40 to-orange-900/40 overflow-hidden"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center animate-pulse">
+                          <svg className="w-7 h-7 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-yellow-400 font-black text-lg uppercase tracking-wider mb-2" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                          TOKEN EXPIRED
+                        </h3>
+                        <p className="text-yellow-200/80 text-sm font-mono mb-3">
+                          Your session token has expired. Click the <strong className="text-yellow-300">TOKEN</strong> button below to refresh and continue.
+                        </p>
+                        <button
+                          onClick={handleRefreshToken}
+                          disabled={isRefreshing}
+                          className="px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border-2 border-yellow-500/60 hover:border-yellow-500 text-yellow-400 font-black text-sm uppercase transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                          style={{
+                            borderRadius: '6px',
+                            fontFamily: 'IBM Plex Mono, monospace',
+                            boxShadow: '0 0 20px rgba(234, 179, 8, 0.3)'
+                          }}
+                        >
+                          {isRefreshing ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin" />
+                              <span>REFRESHING...</span>
+                            </div>
+                          ) : (
+                            <span>🔐 REFRESH TOKEN NOW</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
 {/* Action Tabs */}
             <div className="px-4 py-3 border-b border-neutral-800">

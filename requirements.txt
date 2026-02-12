@@ -2,6 +2,8 @@
 # Network
 # ===================
 fastapi>=0.115.13
+flask>=3.0.0
+flask-cors>=4.0.0
 sse-starlette>=2.1,<2.3.7
 paramiko>=3.5.1
 nest_asyncio>=1.6.0

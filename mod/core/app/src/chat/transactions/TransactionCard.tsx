@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { CopyButton } from '@/ui/CopyButton'
 import { timeAgo, text2color } from '@/utils'
-import Link from 'next/link'
 
 interface Transaction {
   fn: string
@@ -165,13 +164,9 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
         </div>
 
         {/* Function name */}
-        <Link
-          href={`/mod/${tx.fn}/${tx.owner || tx.module || tx.key}`}
-          onClick={(e) => e.stopPropagation()}
-          className={`${compact ? 'text-xs' : 'text-sm'} font-bold hover:underline truncate text-cyan-400 hover:text-cyan-300 flex-1 min-w-0`}
-        >
+        <div className={`${compact ? 'text-xs' : 'text-sm'} font-bold truncate text-cyan-400 flex-1 min-w-0`}>
           {tx.fn}
-        </Link>
+        </div>
 
         {/* Right side info */}
         <div className={`flex items-center gap-2 ${compact ? 'text-xs' : 'text-sm'}`}>

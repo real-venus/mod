@@ -2,6 +2,7 @@
 import os
 import inspect
 import json
+from openai import files
 import yaml
 import shutil
 import time
@@ -818,6 +819,12 @@ class Mod:
         return self.get_key(key).key2address(**kwargs).get(key, key)
     
 
+    def content_files(self, mod = 'store' , search=None, **kwargs) ->  List[str]:
+        """
+        get the content of the mod as a dict of file path to file content
+        return a dict of file path to file content
+        """
+        return self.files(self.dirpath(mod), search=search, **kwargs)
     
     def content(self, mod = None , ignore_folders = [], depth=10,   **kwargs) ->  Dict[str, str]:
         """
@@ -838,7 +845,7 @@ class Mod:
         content = {k:v for k,v in content.items() if not any(['/'+f+'/' in k for f in ignore_folders])}
         return dict(sorted(content.items(), key=lambda item: item[0]))
 
-    def content_files(self, mod = None , **kwargs) ->  Dict[str, str]:
+    def content_files(self, mod = 'store' , **kwargs) ->  Dict[str, str]:
         """
         get the content of the mod as a dict of file path to file content
         return a dict of file path to file content
@@ -1415,10 +1422,6 @@ class Mod:
         k_lower = k.lower()
         v = False
         if k_lower == search:
-            v =  True
-        elif k_lower.split('.')[0].startswith('0x') and k_lower.endswith('.' + search):
-            v =  True
-        elif all([search_chunk in k_lower.split('.') for search_chunk in search.split('.')]):
             v =  True
         elif k_lower.endswith('.' + search):
             v =  True

@@ -94,6 +94,11 @@ export class TokenExpiryHandler {
         (window as any).__userContextClient.token = newToken;
       }
 
+      // Clear expired flag
+      if (typeof window !== 'undefined') {
+        (window as any).__tokenExpired = false;
+      }
+
       // Show success notification
       toast.success('🔐 Session refreshed automatically', {
         position: 'bottom-right',
@@ -105,22 +110,32 @@ export class TokenExpiryHandler {
       });
     } catch (error) {
       console.error('Failed to auto-refresh token:', error);
-      // Show error notification
-      toast.error('⚠️ Session refresh failed - please sign in', {
-        position: 'bottom-right',
-        autoClose: 5000,
-      });
-      // Only show popup if auto-refresh fails
-      this.showSignInPopup();
-    }
-  }
 
-  /**
-   * Show sign-in popup for wallet browser keys
-   */
-  private showSignInPopup(): void {
-    this.stopMonitoring();
-    this.onExpiry();
+      // Set global expired flag for UI to display warning
+      if (typeof window !== 'undefined') {
+        (window as any).__tokenExpired = true;
+      }
+
+      // Show persistent warning notification
+      toast.warning('⚠️ Token Expired - Please refresh using the TOKEN button in your wallet', {
+        position: 'top-center',
+        autoClose: false,
+        closeOnClick: false,
+        closeButton: true,
+        hideProgressBar: false,
+        pauseOnHover: true,
+        draggable: false,
+        style: {
+          background: '#854d0e',
+          border: '3px solid #facc15',
+          fontSize: '16px',
+          fontWeight: 'bold',
+        },
+      });
+
+      // Don't force sign-in popup - just notify
+      console.log('Token expired - user should manually refresh');
+    }
   }
 
   /**

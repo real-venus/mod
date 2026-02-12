@@ -10,6 +10,7 @@ class Mod:
         self.agent = m.mod('dev')()
 
 
-    def forward(self, query:str = 'make the readme better', mod='app',  key=None,  fork=None, **kwargs) -> Dict[str, Any]:
+    def forward(self, mod='app', query:str = 'make the readme better', *extra_query,  key=None,  fork=None, **kwargs) -> Dict[str, Any]:
+        query = query + ' ' + ' '.join(extra_query)
         self.agent.forward( query=query, mod=mod, safety=False, fork=fork, **kwargs)
         return self.api.reg(mod=mod, key=key, comment=query)

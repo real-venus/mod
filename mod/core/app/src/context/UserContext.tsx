@@ -17,8 +17,6 @@ interface UserContextType {
   client: Client | null
   connectClient: () => Promise<void>
   balances: (token?: string) => Promise<Record<string, number>>
-  showTokenExpiryModal: boolean
-  setShowTokenExpiryModal: (show: boolean) => void
 }
 
 const UserContext = createContext<UserContextType | null>(null)
@@ -28,7 +26,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [client, setClient] = useState<Client | null>(null)
   const [network, setNetwork] = useState<Network | null>(null)
   const [authLoading, setAuthLoading] = useState(false)
-  const [showTokenExpiryModal, setShowTokenExpiryModal] = useState(false)
   const [expiryHandler, setExpiryHandler] = useState<TokenExpiryHandler | null>(null)
 
   /**
@@ -107,7 +104,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       auth,
       () => {
         // Callback when token expires and auto-refresh fails
-        setShowTokenExpiryModal(true)
+        // No longer showing modal - user gets notification instead
+        console.log('Token expiry detected - notification shown to user')
       },
       60000 // Check every minute
     )
@@ -220,8 +218,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         network,
         connectClient,
         balances,
-        showTokenExpiryModal,
-        setShowTokenExpiryModal,
       }}
     >
       {children}
