@@ -51,8 +51,8 @@ export function UnifiedControlBar({
             />
           </div>
 
-          {/* Tab Navigation - 2/3 width */}
-          <div className="w-2/3 flex gap-0 p-0">
+          {/* Tab Navigation - Full width */}
+          <div className="flex-1 flex gap-0 p-0">
           {/* CHAT Tab */}
           <button
             type="button"
