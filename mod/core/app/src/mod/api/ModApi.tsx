@@ -120,7 +120,13 @@ export default function ModApi({ mod }: ModApiProps) {
 
         {error && (
           <div className="p-4 rounded-xl border-2 border-red-500/50" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
-            <p className="text-red-400 text-sm font-mono">{error}</p>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-red-400 font-bold text-sm uppercase">Error</h4>
+              <CopyButton text={error} />
+            </div>
+            <pre className="text-red-400 text-sm font-mono overflow-x-auto whitespace-pre-wrap break-words max-h-96 overflow-y-auto p-3 rounded-lg bg-black/30">
+              {error}
+            </pre>
           </div>
         )}
 
@@ -130,9 +136,47 @@ export default function ModApi({ mod }: ModApiProps) {
               <h4 className="text-lg font-black" style={{ color: modColor, fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}>Result</h4>
               <CopyButton text={JSON.stringify(result, null, 2)} />
             </div>
-            <pre className="text-sm overflow-x-auto p-3 rounded-lg" style={{ backgroundColor: '#0a0a0a', color: modColor }}>
-              <code>{JSON.stringify(result, null, 2)}</code>
-            </pre>
+            {(() => {
+              // Check if result is a base64 image string
+              const isBase64Image = typeof result === 'string' && result.startsWith('data:image/');
+              // Check if result is an image URL
+              const isImageUrl = typeof result === 'string' && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(result);
+              // Check if result object has an image field
+              const hasImageField = typeof result === 'object' && result !== null &&
+                (result.image || result.url || result.data) &&
+                (typeof result.image === 'string' && (result.image.startsWith('data:image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(result.image)) ||
+                 typeof result.url === 'string' && (result.url.startsWith('data:image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(result.url)) ||
+                 typeof result.data === 'string' && (result.data.startsWith('data:image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(result.data)));
+
+              const imageSource = isBase64Image || isImageUrl ? result :
+                                hasImageField ? (result.image || result.url || result.data) : null;
+
+              if (imageSource) {
+                return (
+                  <div className="space-y-3">
+                    <div className="rounded-lg overflow-hidden border-2" style={{ borderColor: `${modColor}40`, backgroundColor: '#0a0a0a' }}>
+                      <img
+                        src={imageSource as string}
+                        alt="Result"
+                        className="w-full h-auto"
+                        style={{ maxHeight: 'none' }}
+                      />
+                    </div>
+                    {hasImageField && (
+                      <pre className="text-sm overflow-x-auto p-3 rounded-lg" style={{ backgroundColor: '#0a0a0a', color: modColor }}>
+                        <code>{JSON.stringify(result, null, 2)}</code>
+                      </pre>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <pre className="text-sm overflow-x-auto p-3 rounded-lg" style={{ backgroundColor: '#0a0a0a', color: modColor }}>
+                  <code>{JSON.stringify(result, null, 2)}</code>
+                </pre>
+              );
+            })()}
           </div>
         )}
       </div>

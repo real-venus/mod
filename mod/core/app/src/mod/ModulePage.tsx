@@ -7,7 +7,8 @@ import { ModuleType } from '@/types'
 import { userContext } from '@/context'
 import { ModContent, ModApi, ModApp } from '@/mod'
 import ModCard from '@/mod/ModCard'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, ChevronDown } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { text2color } from '@/utils'
 import UpdateMod from '@/user/UpdateMod'
 import ModEdit from '@/mod/edit/ModEdit'
@@ -17,6 +18,7 @@ const defaultTab = 'api'
 const availableTabs = ['api', 'app', 'versions', 'content', 'edit']
 export default function ModulePage() {
   const params = useParams()
+  const router = useRouter()
   const { client, user } = userContext()
   const modName = params.mod as string
   const modKey = params.key as string
@@ -25,6 +27,8 @@ export default function ModulePage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>(defaultTab)
   const [myMod, setMyMod] = useState(false)
+  const [allModVersions, setAllModVersions] = useState<ModuleType[]>([])
+  const [selectedOwnerIndex, setSelectedOwnerIndex] = useState(0)
 
   const moduleColor = mod ? text2color(mod.name || mod.key) : '#ffffff'
 
@@ -55,7 +59,7 @@ export default function ModulePage() {
           return
         }
         console.log('Fetching mod:', modName, modKey)
-        const data = await client.call('mod', { mod: modName, key: modKey, expand: true, schema: true })
+        const data = await client.call('mod', { mod: modName, key: modKey, expand: true })
         console.log('Fetched mod data:', data)
         if (user?.key && data.key === user.key) {
           setMyMod(true)
@@ -63,6 +67,21 @@ export default function ModulePage() {
           setMyMod(false)
         }
         setMod(data as ModuleType)
+
+        // Fetch all versions of this module by different owners
+        try {
+          const allVersions = await client.call('mods', { search: modName })
+          const sameNameMods = (Array.isArray(allVersions) ? allVersions : [])
+            .filter((m: any) => m.name === modName)
+          setAllModVersions(sameNameMods)
+
+          // Set selected owner index based on current mod key
+          const currentIndex = sameNameMods.findIndex((m: any) => m.key === modKey)
+          setSelectedOwnerIndex(currentIndex >= 0 ? currentIndex : 0)
+        } catch (err) {
+          console.error('Failed to fetch all mod versions:', err)
+          setAllModVersions([data as ModuleType])
+        }
       } catch (err: any) {
         console.error('Failed to fetch mod:', err)
       } finally {
@@ -70,7 +89,7 @@ export default function ModulePage() {
       }
     }
     fetchMod()
-  }, [modName, modKey, client])
+  }, [modName, modKey, client, user])
 
   if (loading) {
     return (
@@ -116,6 +135,10 @@ export default function ModulePage() {
       edit: { r: 236, g: 72, b: 153 }
     }
 
+  const handleOwnerChange = (newOwnerKey: string) => {
+    router.push(`/mod/${modName}/${newOwnerKey}`)
+  }
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <main className="flex-1 px-6 py-8">
@@ -123,6 +146,40 @@ export default function ModulePage() {
           <div className="mb-8">
             <ModCard mod={mod} card_enabled={false} />
           </div>
+
+          {/* Owner Toggle - Show when multiple owners exist for this module */}
+          {allModVersions.length > 1 && (
+            <div className="mb-6 flex items-center gap-3">
+              <span className="text-sm font-bold text-gray-400 uppercase tracking-wide">
+                Owner:
+              </span>
+              <div className="relative">
+                <select
+                  value={modKey}
+                  onChange={(e) => handleOwnerChange(e.target.value)}
+                  className="px-4 py-2 rounded-xl border-2 bg-black/80 text-white font-mono text-sm font-bold focus:outline-none transition-all appearance-none pr-10"
+                  style={{
+                    borderColor: moduleColor,
+                    backgroundColor: `${moduleColor}15`,
+                    boxShadow: `0 0 20px ${moduleColor}30`
+                  }}
+                >
+                  {allModVersions.map((version, idx) => (
+                    <option key={version.key} value={version.key}>
+                      {version.key.slice(0, 8)}...{version.key.slice(-6)} {version.updated ? `(Updated: ${new Date(version.updated * 1000).toLocaleDateString()})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none w-4 h-4"
+                  style={{ color: moduleColor }}
+                />
+              </div>
+              <span className="text-xs text-gray-500">
+                {allModVersions.length} version{allModVersions.length !== 1 ? 's' : ''} available
+              </span>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-3 mb-6 bg-black p-4 rounded-xl">
             {availableTabs.map((tab) => {

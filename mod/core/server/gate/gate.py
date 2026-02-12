@@ -1,16 +1,13 @@
 from typing import *
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from sse_starlette.sse import EventSourceResponse
 import os
 import hashlib
 import os
 import pandas as pd
 import json
 import inspect
-import asyncio
 import time
 import mod as m
+
 
 print = m.print
 
@@ -31,7 +28,7 @@ class Gate:
         self.set_mod(mod=mod)
     
 
-    def forward(self, fn:str, request, mod:Any=None) -> dict:
+    def forward(self, fn:str, headers:dict, params:dict, mod:Any=None) -> dict:
         """
         process the request
         """
@@ -39,26 +36,19 @@ class Gate:
         assert not isinstance(fn, str) or fn != '', "Function name cannot be empty"
         print(f'Gate forwarding request to function: {fn}', color='green')
         info = mod.info()
-        headers = dict(request.headers)
         headers = self.auth.verify(headers)
+        print(f'Headers after auth verification: {headers}', color='green')
         role = self.get_role(headers['key'])
         # assert role, f"Role for key {headers['key']} not found"
         if  bool(role == 'owner'):
             print(f'ATTENTION: owner({headers["key"]}) is calling {fn}', color='green')
         else:
             assert fn in info['fns'], f"Function {fn} not in fns={info['fns']}"
-        params = asyncio.run(request.json())
         params = json.loads(params) if isinstance(params, str) else params
         self.print_request({'fn': fn, 'params': params, 'client': headers.get('key', ''), 'time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())})
         fn_obj = self.get_fn_obj(fn, mod=mod)
         result = fn_obj(**params) if callable(fn_obj) else fn_obj
-        if self.is_generator(result):
-            def generator_wrapper(generator):
-                for item in generator:
-                    yield item
-            return  EventSourceResponse(generator_wrapper(result))
-        else:
-            return result
+        return result
 
 
     def get_role(self, user:str) -> str:

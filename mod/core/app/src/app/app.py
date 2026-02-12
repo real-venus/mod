@@ -3,8 +3,6 @@ import os
 
 class App:
     
-
-
     def run_caddy(self):
         caddyfile_path = os.path.join(m.dirpath('app'), 'Caddyfile')
         return os.system(f'caddy run --config {caddyfile_path}')

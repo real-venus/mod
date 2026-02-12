@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { userContext } from '@/context/UserContext'
-import { WalletIcon, ArrowRightOnRectangleIcon, ClipboardDocumentIcon, UserCircleIcon, ClockIcon, ArrowPathIcon, CreditCardIcon, QrCodeIcon, ChevronDownIcon, ChevronUpIcon, ArrowsRightLeftIcon, XMarkIcon, FunnelIcon } from '@heroicons/react/24/outline'
+import { WalletIcon, ArrowRightOnRectangleIcon, ClipboardDocumentIcon, ClockIcon, ArrowPathIcon, CreditCardIcon, QrCodeIcon, ChevronDownIcon, ChevronUpIcon, ArrowsRightLeftIcon, XMarkIcon, FunnelIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { WalletAuthButton } from './WalletAuthButton'
@@ -51,6 +51,8 @@ export function WalletHeader() {
   const { user, signOut, client } = userContext()
   const [isHovered, setIsHovered] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copiedAddress, setCopiedAddress] = useState(false)
+  const [copiedCredit, setCopiedCredit] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [tokenExpiry, setTokenExpiry] = useState<string | null>(null)
   const [tokenDuration] = useState<number>(3600)
@@ -132,7 +134,11 @@ export function WalletHeader() {
     if (address) {
       navigator.clipboard.writeText(address)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setCopiedAddress(true)
+      setTimeout(() => {
+        setCopied(false)
+        setCopiedAddress(false)
+      }, 2000)
     }
   }
 
@@ -154,13 +160,6 @@ export function WalletHeader() {
 
   const handleSignOut = () => {
     signOut()
-    setIsHovered(false)
-  }
-
-  const handleGoToProfile = () => {
-    if (address) {
-      router.push(`/user/${address}`)
-    }
     setIsHovered(false)
   }
 
@@ -512,32 +511,56 @@ export function WalletHeader() {
                 <style>{`body { cursor: ew-resize !important; user-select: none; }`}</style>
               )}
               {/* Header */}
-              <div className="sticky top-0 z-10 px-4 py-3 border-b border-neutral-800 bg-neutral-950">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <code className="text-sm font-bold tracking-wider text-neutral-500 font-mono"
-                      style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+              <div className="sticky top-0 z-10 px-6 py-6 border-b border-neutral-800 bg-neutral-950">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 flex-1">
+                    <button
+                      onClick={copyAddress}
+                      className={`text-lg font-bold tracking-wider font-mono hover:text-neutral-300 hover:bg-neutral-900 transition-all cursor-pointer px-4 py-3 border-2 ${
+                        copiedAddress
+                          ? 'border-green-500 bg-green-500/20 text-green-400'
+                          : 'border-neutral-800 hover:border-neutral-700 text-neutral-500'
+                      }`}
+                      style={{ fontFamily: 'IBM Plex Mono, monospace', borderRadius: 0 }}
+                      title="Click to copy full address"
                     >
-                      {shortAddress}
-                    </code>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 border-2 border-neutral-800"
+                      {copiedAddress ? 'COPIED!' : shortAddress}
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(marketCredit.toFixed(2))
+                        setCopied(true)
+                        setCopiedCredit(true)
+                        setTimeout(() => {
+                          setCopied(false)
+                          setCopiedCredit(false)
+                        }, 2000)
+                      }}
+                      className={`flex items-center gap-3 px-4 py-3 bg-neutral-900 border-2 transition-all cursor-pointer ${
+                        copiedCredit
+                          ? 'border-green-500 bg-green-500/20'
+                          : 'border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800'
+                      }`}
                       style={{
                         borderRadius: 0,
                         fontFamily: 'IBM Plex Mono, monospace'
                       }}
+                      title="Click to copy credit amount"
                     >
-                      <span className="text-xs text-neutral-600 uppercase tracking-wider font-bold">CREDIT</span>
-                      <span className="text-base font-mono font-black text-green-400 tabular-nums">
+                      <span className={`text-sm uppercase tracking-wider font-bold ${copiedCredit ? 'text-green-400' : 'text-neutral-600'}`}>
+                        {copiedCredit ? 'COPIED!' : 'CREDIT'}
+                      </span>
+                      <span className={`text-xl font-mono font-black tabular-nums ${copiedCredit ? 'text-green-300' : 'text-green-400'}`}>
                         ${marketCredit.toFixed(2)}
                       </span>
-                    </div>
+                    </button>
                   </div>
                   <button
                     onClick={() => setIsHovered(false)}
-                    className="p-1 hover:bg-neutral-800 transition-all"
+                    className="p-2 hover:bg-neutral-800 transition-all"
                     style={{ borderRadius: 0 }}
                   >
-                    <XMarkIcon className="w-4 h-4 text-neutral-500" />
+                    <XMarkIcon className="w-5 h-5 text-neutral-500" />
                   </button>
                 </div>
               </div>
@@ -994,15 +1017,8 @@ export function WalletHeader() {
             {/* Actions */}
             <div className="px-4 py-2 space-y-1 border-t border-neutral-800">
               <button
-                onClick={handleGoToProfile}
-                className="w-full flex items-center gap-2 px-3 py-2 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900 transition-all text-xs font-bold uppercase"
-              >
-                <UserCircleIcon className="w-4 h-4" />
-                <span>Profile</span>
-              </button>
-              <button
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-2 px-3 py-2 text-neutral-500 hover:text-red-400 hover:bg-neutral-900 transition-all text-xs font-bold uppercase"
+                className="w-full flex items-center gap-2 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-neutral-900 transition-all text-xs font-bold uppercase"
               >
                 <ArrowRightOnRectangleIcon className="w-4 h-4" />
                 <span>Sign Out</span>

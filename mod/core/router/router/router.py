@@ -265,11 +265,9 @@ class Router:
             result = bool(time_lapsed > interval)
             if result:
                 m.put(path, current_time)
-            print(f'Can sync {name}? {result} (time lapsed: {time_lapsed:.2f}s, interval: {interval}s)')
             return result
     
         while True:
-            print('running loop')
             time.sleep(2)
             fns = list(self.intervals.keys())
             for fn in fns:

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { text2color } from '@/utils'
 import type { Module } from '../types'
+import { userContext } from '@/context'
 
 interface CompactModuleSelectorProps {
   selectedModules: Module[]
@@ -19,11 +20,14 @@ export function CompactModuleSelector({
   setSelectedModules,
   allModules
 }: CompactModuleSelectorProps) {
+  const { client } = userContext()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
+  const [searchResults, setSearchResults] = useState<Module[]>([])
+  const [isSearching, setIsSearching] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -60,37 +64,60 @@ export function CompactModuleSelector({
     return matrix[s2.length][s1.length] / Math.max(s1.length, s2.length)
   }
 
-  // Get unique owners
+  // Fetch modules from server when search query changes
+  useEffect(() => {
+    const fetchModules = async () => {
+      if (!client) return
+
+      setIsSearching(true)
+      try {
+        const params: any = {}
+        if (searchQuery.trim()) {
+          params.search = searchQuery.trim()
+        }
+        if (ownerFilter !== 'all') {
+          params.key = ownerFilter
+        }
+
+        const mods = await client.call('mods', params)
+        const moduleList = Array.isArray(mods) ? mods : []
+        setSearchResults(moduleList.sort((a, b) => a.name.localeCompare(b.name)))
+      } catch (err) {
+        console.error('Failed to search modules:', err)
+        setSearchResults([])
+      } finally {
+        setIsSearching(false)
+      }
+    }
+
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+      if (isDropdownOpen) {
+        fetchModules()
+      }
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery, ownerFilter, client, isDropdownOpen])
+
+  // Get unique owners from current results
   const uniqueOwners = useMemo(() => {
+    const modules = searchResults.length > 0 ? searchResults : allModules
     const owners = new Set<string>()
-    allModules.forEach(m => {
+    modules.forEach(m => {
       if (m.key) owners.add(m.key)
     })
     return Array.from(owners)
-  }, [allModules])
+  }, [searchResults, allModules])
 
-  // Filter modules based on search query and owner
+  // Use search results when available, otherwise use all modules
   const filteredModules = useMemo(() => {
-    let modules = allModules
+    const modules = isDropdownOpen && (searchQuery.trim() || ownerFilter !== 'all')
+      ? searchResults
+      : allModules
 
-    // Filter by owner first
-    if (ownerFilter !== 'all') {
-      modules = modules.filter(m => m.key === ownerFilter)
-    }
-
-    if (!searchQuery.trim()) {
-      // Show all modules when no search query
-      return modules
-        .map(m => ({ module: m, distance: 0 }))
-        .sort((a, b) => a.module.name.localeCompare(b.module.name))
-    }
-
-    // Filter by search query
-    return modules
-      .map(m => ({ module: m, distance: calculateDistance(m.name, searchQuery) }))
-      .filter(({ distance }) => distance < 0.8)
-      .sort((a, b) => a.distance - b.distance)
-  }, [searchQuery, ownerFilter, allModules])
+    return modules.map(m => ({ module: m, distance: 0 }))
+  }, [searchResults, allModules, isDropdownOpen, searchQuery, ownerFilter])
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
@@ -221,7 +248,7 @@ export function CompactModuleSelector({
                 value={ownerFilter}
                 onChange={(e) => setOwnerFilter(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full bg-black/30 border-none text-purple-300 text-xs font-mono px-2 py-1.5 rounded-lg focus:outline-none backdrop-blur-sm"
+                className="w-full bg-black/30 border-2 border-purple-500/40 text-purple-300 text-xs font-mono px-2 py-1.5 rounded-lg focus:outline-none backdrop-blur-sm transition-all hover:border-purple-500/60"
               >
                 <option value="all">All Owners</option>
                 {uniqueOwners.map(owner => (
@@ -242,7 +269,12 @@ export function CompactModuleSelector({
               scrollbarColor: 'rgba(64, 64, 64, 0.5) transparent'
             }}
           >
-            {filteredModules.length === 0 ? (
+            {isSearching ? (
+              <div className="px-4 py-8 text-center">
+                <div className="text-purple-400 text-2xl mb-2">🔍</div>
+                <div className="text-white text-sm font-bold">Searching modules...</div>
+              </div>
+            ) : filteredModules.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <div className="text-purple-400 text-2xl mb-2">📦</div>
                 <div className="text-white text-sm font-bold mb-1">

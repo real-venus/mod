@@ -1,7 +1,6 @@
 from typing import *
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from sse_starlette.sse import EventSourceResponse
+from flask import Flask, request, Response
+from flask_cors import CORS
 import os
 import hashlib
 import os
@@ -9,10 +8,8 @@ import pandas as pd
 import json
 import inspect
 from functools import partial
-import asyncio
 import time
 import mod as m
-import uvicorn
 print = m.print
 
 class Server:
@@ -21,9 +18,9 @@ class Server:
     # helper functions that are always exposed are always exposed [WARNING: HELPER FNS SHOULD BE CAREFULLY CHOSEN TO AVOID SECURITY RISKS]
     
     def __init__(
-        self, 
+        self,
         path = '~/.mod/server', # the path to store the server data
-        pm = 'pm.docker', # the process manager to use
+        pm = 'pm.pm2', # the process manager to use
         registry = 'server.registry',
         timeout = 300):
         self.store = m.mod('store')(path)
@@ -153,7 +150,7 @@ class Server:
               key = None, # the key for the server
               remote = False, # whether to run the server remotely
               pm = None,
-              run_mode:str='uvicorn',
+              run_mode:str='flask',
               **extra_params 
 
               ):
@@ -175,81 +172,44 @@ class Server:
         
         def get_info(mod, **kwargs):
             info = m.info(mod, **kwargs)
+            info['key'] = self.key.address
             info['fns'] = fns
             return info
         
-        self.mod.info = partial(get_info, mod=mod, key=self.key)
+        self.mod.info = partial(get_info, mod=mod)
         self.gate = m.mod('gate')(mod=self.mod)
-        self.app = FastAPI()
+        self.app = Flask(__name__)
+        CORS(self.app)
 
-        cors_params = {
-            "allow_origins": ["*"],
-            "allow_credentials": True,
-            "allow_methods": ["*"],
-            "allow_headers": ["*"],
-        }
-        self.app.add_middleware(CORSMiddleware, **cors_params)
-
-        def server_fn(fn: str, request: Request):
+        @self.app.route("/<path:fn>", methods=['POST'])
+        def server_fn(fn):
             try:
-                result = self.gate.forward(fn=fn, request=request, mod=self.mod)
+                headers = dict(request.headers)
+                params = request.get_json()
+                print(f'Received request for function: {fn} with params: {params} and headers: {headers}', color='green')
+                result = self.gate.forward(fn=fn, headers=headers, params=params, mod=self.mod)
+
+                # Handle generator/streaming responses
+                if inspect.isgenerator(result):
+                    def generate():
+                        for item in result:
+                            yield f"data: {json.dumps(item)}\n\n"
+                    return Response(generate(), mimetype='text/event-stream')
+                else:
+                    return result
             except Exception as e:
                 result = m.detailed_error(e)
-            return result
-
-        self.app.post("/{fn}")(server_fn)
+                print(f'Error in server function {fn}: {result} {e}', color='red')
+                return result
 
         self.registry.reg(name, f'http://0.0.0.0:{port}')
-        if run_mode == 'uvicorn':
-            
-            uvicorn.run(
-                self.app,
+        if run_mode == 'flask':
+            self.app.run(
                 host="0.0.0.0",
                 port=port,
-                log_level="info",
+                debug=False,
             )
-
-        elif run_mode == 'hypercorn':
-            from hypercorn.config import Config
-            from hypercorn.asyncio import serve
-            import signal
-            
-            config = Config()
-            config.bind = [f"0.0.0.0:{port}"]
-            config.graceful_timeout = 10.0
-            config.shutdown_timeout = 15.0
-            
-            shutdown_event = asyncio.Event()
-            
-            def signal_handler(*args):
-                shutdown_event.set()
-            
-            async def run_server():
-                # Use the existing event loop if available, otherwise let asyncio manage it
-                loop = asyncio.get_running_loop()
-                
-                # Set up signal handlers
-                for sig in (signal.SIGINT, signal.SIGTERM):
-                    try:
-                        loop.add_signal_handler(sig, signal_handler)
-                    except NotImplementedError:
-                        # Windows doesn't support add_signal_handler
-                        signal.signal(sig, signal_handler)
-                
-                try:
-                    await serve(self.app, config, shutdown_trigger=shutdown_event.wait)
-                except Exception as e:
-                    print(f"Server error: {e}")
-                finally:
-                    # Clean shutdown
-                    shutdown_event.set()
-            
-            try:
-                asyncio.run(run_server())
-            except KeyboardInterrupt:
-                print("Server shutdown requested")
-        
         else:
-            raise Exception(f'Unknown mode {run_mode} for run_api')
+            raise Exception(f'Unknown run_mode: {run_mode}. Only "flask" is supported.')
 
 

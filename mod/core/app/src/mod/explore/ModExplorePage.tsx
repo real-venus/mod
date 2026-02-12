@@ -98,8 +98,28 @@ export default function ModExplorePage() {
         setError('Client not initialized')
         return
       }
-      const raw = (await client.call('mods', { search: searchTermToUse })) as ModuleType[]
+
+      // Build search parameters
+      const params: any = {}
+      if (searchTermToUse) {
+        params.search = searchTermToUse
+      }
+
+      // Add owner filter if only one owner is selected
+      // (Multiple owners still need client-side filtering)
+      if (selectedOwners.length === 1) {
+        params.key = selectedOwners[0]
+      }
+
+      console.log('Fetching modules with params:', params)
+      console.log('Selected owners:', selectedOwners)
+
+      const raw = (await client.call('mods', params)) as ModuleType[]
       const allMods = Array.isArray(raw) ? raw : []
+
+      console.log('Server returned modules:', allMods.length)
+      console.log('Search term:', searchTermToUse)
+
       const sorted = sortModules(allMods)
       setMods(sorted)
     } catch (err: any) {
@@ -112,7 +132,7 @@ export default function ModExplorePage() {
 
   useEffect(() => {
     fetchAll()
-  }, [client, searchTermToUse, sort])
+  }, [client, searchTermToUse, sort, selectedOwners])
 
   const uniqueOwners = useMemo(() => {
     const owners = new Set<string>()
@@ -226,6 +246,27 @@ export default function ModExplorePage() {
             <div className="text-purple-300 text-3xl mb-6 font-black uppercase tracking-wide">
               {searchTermToUse || selectedOwners.length > 0 ? 'NO MODULES MATCH YOUR FILTERS' : 'NO MODULES YET'}
             </div>
+            {(searchTermToUse || selectedOwners.length > 0) && (
+              <div className="text-neutral-400 text-sm space-y-2">
+                {searchTermToUse && (
+                  <div>Search: <span className="text-blue-400 font-mono">"{searchTermToUse}"</span></div>
+                )}
+                {selectedOwners.length > 0 && (
+                  <div>Owners: <span className="text-purple-400 font-mono">{selectedOwners.length} selected</span></div>
+                )}
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      setLocalSearchTerm('')
+                      clearOwnerFilters()
+                    }}
+                    className="px-6 py-2 bg-purple-500/20 border-2 border-purple-500/40 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-all font-bold text-sm uppercase"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -12,6 +12,7 @@ interface UseModulesProps {
   setParams: (params: Record<string, any>) => void
   setDefaultParams: (params: Record<string, any>) => void
   selectedFunction: string
+  searchQuery?: string
 }
 
 /**
@@ -25,16 +26,17 @@ export function useModules({
   setSelectedModules,
   setParams,
   setDefaultParams,
-  selectedFunction
+  selectedFunction,
+  searchQuery = ''
 }: UseModulesProps) {
 
-  // Load all modules on mount
+  // Load all modules on mount and when search query changes
   useEffect(() => {
     const loadModules = async () => {
       if (!client) return
 
       try {
-        const mods = await client.call('mods', {})
+        const mods = await client.call('mods', { search: searchQuery })
         const sortedModules = Array.isArray(mods) ? sortModules(mods) : []
         setAllModules(sortedModules)
 
@@ -49,7 +51,7 @@ export function useModules({
     }
 
     loadModules()
-  }, [client])
+  }, [client, searchQuery])
 
   // Load schemas for selected modules
   useEffect(() => {

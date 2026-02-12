@@ -63,14 +63,14 @@ export function SchemaParamsPanel({
     handleParamChange(key, '')
   }
 
-  if (!selectedFunction || !schema || !schema[selectedFunction]) {
+  if (!selectedFunction || !schema || !schema[selectedFunction] || !schema[selectedFunction].input) {
     return null
   }
 
-  const paramEntries = Object.entries(schema[selectedFunction].input)
+  const paramEntries = Object.entries(schema[selectedFunction].input || {})
     .filter(([key]) => key !== 'self' && key !== 'cls' && key !== 'kwargs')
-  
-  const hasKwargs = Object.keys(schema[selectedFunction].input).includes('kwargs')
+
+  const hasKwargs = Object.keys(schema[selectedFunction].input || {}).includes('kwargs')
   
   const getGridCols = () => {
     return columns === 1 ? 'grid-cols-1' : 'grid-cols-2'

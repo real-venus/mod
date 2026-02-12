@@ -77,6 +77,8 @@ class Auth:
     def verify(self, headers: str) -> dict:
         if isinstance(headers, str):
             headers = json.loads(self._base64url_decode(headers))
+        if 'Token' in headers:
+            headers['token'] = headers.pop('Token')
         if 'token' in headers:
             token = headers['token']
             headers = json.loads(self._base64url_decode(token))

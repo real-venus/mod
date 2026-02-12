@@ -1226,7 +1226,7 @@ class Mod:
         return mod_exists
 
     def logs(self, *args, **kwargs):
-        return self.fn('pm/logs')(*args, **kwargs)
+        return self.fn('server/logs')(*args, **kwargs)
 
     def cwd(self, mod=None):
         return self.dirpath(mod) if mod else os.getcwd() 

@@ -1,6 +1,5 @@
 
 from typing import *
-import asyncio
 import json
 import requests
 import os
@@ -49,8 +48,6 @@ class Client:
         key = self.get_key(key)
         params = {**(params or {}), **extra_kwargs}
         headers = self.auth.headers('', key=key)
-        print(f'Calling {url} with params: {params} and headers: {headers}')
-
         url = f'{self.mode}://{url}' if not url.startswith(self.mode) else url
         headers.update({
             "Accept": "application/json",
@@ -59,9 +56,8 @@ class Client:
 
         response = requests.post( url, json=params,  headers=headers, timeout=timeout, stream=stream)
 
-        print(f'Response status code: {response.status_code}', response.text)
         if response.status_code != 200:
-            raise Exception(response.text)
+            return response.text
         if 'text/event-stream' in response.headers.get('Content-Type', ''):
             print('Streaming response...')
             result = self.stream_generator(response)

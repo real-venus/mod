@@ -48,6 +48,8 @@ class PM2:
             key=key,
             extra_params=params
         )
+
+        print(m.get_text(script_path), 'is the script path')
         
         dirpath = m.dirpath(mod)
         cwd = cwd or dirpath

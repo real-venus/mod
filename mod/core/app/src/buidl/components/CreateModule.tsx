@@ -166,15 +166,15 @@ export default function CreateModule() {
         {/* URL Input */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <label className="text-base font-extrabold text-neutral-300 uppercase tracking-[0.2em] flex items-center gap-3" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-              <span className="text-purple-400 text-xl">●</span>
+            <label className="text-lg font-black uppercase tracking-[0.25em] flex items-center gap-3 bg-gradient-to-r from-purple-400 via-pink-400 to-purple-500 bg-clip-text text-transparent" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+              <span className="text-purple-400 text-2xl animate-pulse">●</span>
               Repository URL or IPFS CID
             </label>
             {url && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="font-mono text-sm font-bold tracking-widest uppercase px-4 py-2 rounded-lg backdrop-blur-sm"
+                className="font-mono text-sm font-bold tracking-widest uppercase px-4 py-2 rounded-xl backdrop-blur-sm"
                 style={{
                   backgroundColor: isValidInput() ? '#22c55e25' : '#ef444425',
                   color: isValidInput() ? '#22c55e' : '#ef4444',
@@ -192,12 +192,12 @@ export default function CreateModule() {
             {/* Glow effect on focus */}
             {focusedField === 'url' && (
               <div
-                className="absolute inset-0 rounded-2xl blur-2xl transition-opacity"
+                className="absolute inset-0 rounded-3xl blur-2xl transition-opacity"
                 style={{
                   background: isValidInput()
-                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(16, 185, 129, 0.4))'
-                    : 'linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(147, 51, 234, 0.4))',
-                  opacity: 0.6,
+                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.5), rgba(16, 185, 129, 0.5))'
+                    : 'linear-gradient(135deg, rgba(168, 85, 247, 0.5), rgba(236, 72, 153, 0.5))',
+                  opacity: 0.7,
                 }}
               />
             )}
@@ -208,15 +208,15 @@ export default function CreateModule() {
               onFocus={() => setFocusedField('url')}
               onBlur={() => setFocusedField(null)}
               placeholder="user/repo  or  github.com/user/repo.git  or  Qm..."
-              className="w-full border-[3px] text-green-400 px-8 py-7 rounded-2xl focus:outline-none text-2xl bg-black/60 backdrop-blur-sm placeholder-neutral-600 hover:border-neutral-500 transition-all duration-300 font-mono shadow-2xl relative z-10"
+              className="w-full border-[3px] text-green-400 px-8 py-7 rounded-3xl focus:outline-none text-2xl bg-black/95 backdrop-blur-sm placeholder-neutral-600 hover:border-purple-500/60 transition-all duration-300 font-mono shadow-2xl relative z-10"
               style={{
                 borderColor: focusedField === 'url'
                   ? (isValidInput() ? '#22c55e' : '#a855f7')
-                  : 'rgba(115, 115, 115, 0.3)',
+                  : '#a855f7',
                 fontFamily: 'IBM Plex Mono, monospace',
                 boxShadow: focusedField === 'url'
-                  ? '0 12px 48px rgba(168, 85, 247, 0.5)'
-                  : '0 6px 24px rgba(0, 0, 0, 0.6)',
+                  ? '0 12px 48px rgba(168, 85, 247, 0.6), 0 0 30px rgba(168, 85, 247, 0.4)'
+                  : '0 6px 24px rgba(168, 85, 247, 0.3), 0 0 20px rgba(168, 85, 247, 0.2)',
               }}
             />
           </div>
@@ -225,15 +225,15 @@ export default function CreateModule() {
         {/* Register Key Input */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <label className="text-base font-extrabold text-neutral-300 uppercase tracking-[0.2em] flex items-center gap-3" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-              <span className="text-cyan-400 text-xl">●</span>
+            <label className="text-lg font-black uppercase tracking-[0.25em] flex items-center gap-3 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-500 bg-clip-text text-transparent" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+              <span className="text-cyan-400 text-2xl animate-pulse" style={{ animationDelay: '0.5s' }}>●</span>
               Registration Key
             </label>
             {registerToKey === user?.key && (
               <motion.span
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="font-mono text-sm font-bold text-green-400 px-4 py-2 bg-green-400/20 border-2 border-green-400/50 rounded-lg backdrop-blur-sm"
+                className="font-mono text-sm font-bold text-green-400 px-4 py-2 bg-green-400/20 border-2 border-green-400/50 rounded-xl backdrop-blur-sm"
                 style={{
                   boxShadow: '0 0 20px rgba(34, 197, 94, 0.4)',
                 }}
@@ -246,10 +246,10 @@ export default function CreateModule() {
             {/* Glow effect on focus */}
             {focusedField === 'registerToKey' && (
               <div
-                className="absolute inset-0 rounded-2xl blur-2xl"
+                className="absolute inset-0 rounded-3xl blur-2xl"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.4), rgba(8, 145, 178, 0.4))',
-                  opacity: 0.6,
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.5), rgba(59, 130, 246, 0.5))',
+                  opacity: 0.7,
                 }}
               />
             )}
@@ -260,13 +260,13 @@ export default function CreateModule() {
               onFocus={() => setFocusedField('registerToKey')}
               onBlur={() => setFocusedField(null)}
               placeholder="0x..."
-              className="w-full border-[3px] text-cyan-400 px-8 py-7 rounded-2xl focus:outline-none text-2xl bg-black/60 backdrop-blur-sm placeholder-neutral-600 hover:border-neutral-500 transition-all duration-300 font-mono pr-64 shadow-2xl relative z-10"
+              className="w-full border-[3px] text-cyan-400 px-8 py-7 rounded-3xl focus:outline-none text-2xl bg-black/95 backdrop-blur-sm placeholder-neutral-600 hover:border-cyan-500/60 transition-all duration-300 font-mono pr-64 shadow-2xl relative z-10"
               style={{
-                borderColor: focusedField === 'registerToKey' ? '#06b6d4' : 'rgba(115, 115, 115, 0.3)',
+                borderColor: focusedField === 'registerToKey' ? '#06b6d4' : '#06b6d4',
                 fontFamily: 'IBM Plex Mono, monospace',
                 boxShadow: focusedField === 'registerToKey'
-                  ? '0 12px 48px rgba(6, 182, 212, 0.5)'
-                  : '0 6px 24px rgba(0, 0, 0, 0.6)',
+                  ? '0 12px 48px rgba(6, 182, 212, 0.6), 0 0 30px rgba(6, 182, 212, 0.4)'
+                  : '0 6px 24px rgba(6, 182, 212, 0.3), 0 0 20px rgba(6, 182, 212, 0.2)',
               }}
             />
             {/* Copy and reset buttons */}
