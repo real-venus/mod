@@ -1,0 +1,32 @@
+networks:
+  default:
+    external: true
+    name: modnet
+services:
+  ipfs:
+    container_name: ipfs
+    deploy: {}
+    entrypoint: bash -c "m serve port=50067 key=ipfs remote=0 mod=ipfs"
+    image: mod:latest
+    ports:
+    - 50067:50067
+    restart: unless-stopped
+    shm_size: 100g
+    volumes:
+    - ~/mod:/root/mod
+    - ~/.mod:/root/.mod
+    - ~/mod/mod/orbit/ipfs:/root/mod/mod/orbit/ipfs
+    working_dir: /root/mod/mod/orbit/ipfs
+  ipfs.node:
+    container_name: ipfs.node
+    image: ipfs/kubo:release
+    networks:
+    - default
+    ports:
+    - 5001:5001
+    - 4001:4001
+    - 8080:8080
+    restart: unless-stopped
+    volumes:
+    - ~/.ipfs/data:/data/ipfs
+version: '3.8'

@@ -33,6 +33,15 @@ class Server:
         self.registry.dereg(name)
         return {'status': 'killed', 'name': name}
     
+    def kill_all(self):
+        servers = self.servers()
+        for server in servers:
+            self.kill(server)
+        return {'status': 'killed all', 'servers': servers}
+    
+    killall = kill_all
+    
+    
     def namespace(self, search: Optional[str] = None,  **kwargs) -> Dict[str, str]:
         """
         Get the namespace of registered servers, optionally filtered by a search string.
@@ -188,19 +197,10 @@ class Server:
                 params = request.get_json()
                 print(f'Received request for function: {fn} with params: {params} and headers: {headers}', color='green')
                 result = self.gate.forward(fn=fn, headers=headers, params=params, mod=self.mod)
-
-                # Handle generator/streaming responses
-                if inspect.isgenerator(result):
-                    def generate():
-                        for item in result:
-                            yield f"data: {json.dumps(item)}\n\n"
-                    return Response(generate(), mimetype='text/event-stream')
-                else:
-                    return result
             except Exception as e:
                 result = m.detailed_error(e)
-                print(f'Error in server function {fn}: {result} {e}', color='red')
-                return result
+                m.print(f'Error in server function {fn}: {result} {e}', color='red')
+            return result
 
         self.registry.reg(name, f'http://0.0.0.0:{port}')
         if run_mode == 'flask':

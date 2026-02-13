@@ -226,9 +226,13 @@ class  Api:
             file2cid[file] = cid
         return self.add({'data': self.add(file2cid), 'comment': comment})
     
+    def wrap(self, mod: str):
+        return m.fn('wrap/forward')(mod)
+    
     def add_schema(self, mod: str='store', public=True) -> str:
+        schema = self.wrap(mod)
         try:
-            return self.add(m.schema(mod, public=public))
+            return self.add(schema)
         except Exception as e:
             return self.add({})
 
@@ -237,17 +241,14 @@ class  Api:
         return url
 
     def is_git_url(self, url: str) -> bool:
-        return 'github.com' in url or 'gitlab.com' in url
+        return 'github.com' in url or 'gitlab.com' in url or ('/' in url and len(url.split('/')) == 2)
 
     def reg_git(self,
                     url: str,
                     name=None,
-                    signature = None,
                     key=None,
                     comment=None,
                     orbit='outer',
-                    payload = False,
-                    external = True,
                     token=None) -> Dict[str, Any]:
 
         """
@@ -263,18 +264,13 @@ class  Api:
             Dictionary with registration info
         """
         # Verify token if provided
-        if token:
-            try:
-                verified_data = self.auth.verify(token)
-                verified_key = verified_data['key']
-                if not key:
-                    key = verified_key
-                if key and self.key_address(key) != self.key_address(verified_key):
-                    raise ValueError(f"Token key mismatch: token key={verified_key}, provided key={key}")
-            except Exception as e:
-                raise ValueError(f"Token verification failed: {str(e)}")
 
-        key = self.key_address(key)
+        if token:
+            verified_data = self.auth.verify(token)
+            key = verified_data['key']
+        else:
+            key = self.key_address(key)
+
         assert self.is_git_url(url), f'Unsupported URL for reg_git: {url}'
         name = name or url.split('/')[-1].split('.git')[0]
         # assert not m.mod_exists(mod), f'Mod {mod} already exists. Please choose a different mod name or deregister the existing mod first.'
@@ -306,25 +302,30 @@ class  Api:
             m.put_text(filepath, file_content)
         return self.reg_info(mod_info)
 
-    def get_info(self, mod='store', key=None, comment=None, public=False) -> Dict[str, Any]:
+    def get_info(self, mod='store',  key=None, name=None,  comment=None, public=False) -> Dict[str, Any]:
         """
         Register mod Mod data in IPFS.
         """
         current_time = m.time()
         key = self.key_address(key)
         prev_info = self.mod(mod, key=key)
+        schema = self.add_schema(mod=mod, public=public)
         content_cid = self.add_content(mod=mod, comment=comment)
         prev_content_cid = prev_info.get('content', None)
+
+        if len(schema) == 0:
+            print(f'Warning: Schema for mod {mod} is empty. Please ensure the mod has a valid schema for better compatibility and functionality.', color='yellow')
+        schema = m.fn('wrap/forward')(mod)
         if content_cid == str(prev_content_cid):
             prev_info.pop('cid', None)
             return prev_info  # No changes, return existing info
         return {
                 'content': content_cid,
-                'schema': self.add_schema(mod, public=public),
+                'schema': schema,
                 'prev': prev_info.get('cid', None), # previous state
                 'created':  prev_info.get('created', current_time),  # created timestamp
                 'updated': current_time, 
-                'name': prev_info.get('name', mod),  # mod name
+                'name': name or prev_info.get('name', mod),  # mod name
                 'key': prev_info.get('key', key),
                 'url': self.get_url(mod),
             }
@@ -364,28 +365,16 @@ class  Api:
 
         """
         # Verify token if provided
-        if token:
-            try:
-                verified_data = self.auth.verify(token)
-                verified_key = verified_data['key']
-                # Use the key from the token if no explicit key provided
-                if not key:
-                    key = verified_key
-                # Verify the key matches the token
-                if key and self.key_address(key) != self.key_address(verified_key):
-                    raise ValueError(f"Token key mismatch: token key={verified_key}, provided key={key}")
-            except Exception as e:
-                raise ValueError(f"Token verification failed: {str(e)}")
 
         # Handle URL-based registration
         if self.is_ipfs_url(mod):
             return self.reg_ipfs(mod)
         elif self.is_git_url(mod):
             return self.reg_git(mod, key=key, comment=comment, name=name)
-
+        if token:
+            key = self.auth.verify(token)['key']
         # Use custom name if provided
-        mod_name = name if name else mod
-        info = self.get_info(mod=mod_name, key=key, comment=comment, public=public)
+        info = self.get_info(mod=mod, key=key, comment=comment, public=public, name=name)
         info['cid'] = self.reg_info(info)
         self.update()
         return info
@@ -509,18 +498,28 @@ class  Api:
 
     v = versions
 
-    def regall(self, key=None, depth=1,  comment=None, public=False) -> Dict[str, Any]:
+    def regall(self, key=None, depth=1,  comment=None, public=False, timeout=30) -> Dict[str, Any]:
         """
         Register all mods in the local environment to IPFS.
         Args:
             key: Key object or address string
             comment: Optional comment about the registration
-        Returns:
+        Returns:) 
             Dictionary with registration info for all mods
         """
+        futures = []
         for mod in m.mods(depth=depth):
+            futures.append(m.submit(self.reg, dict(mod=mod, key=key, comment=comment, public=public), timeout=timeout))
             self.reg(mod=mod, key=key, comment=comment, public=public)
         
+        for future in c.as_completed(futures):
+            try:
+                result = future.result()
+
+                print(f"Registered mod: {result['name']} with CID: {result['cid']}")
+            except Exception as e:
+                print(f"Error registering mod: {str(e)}")
+
     def registry(self,  key='all', update=False) -> Dict[str, str]:
         """
         Get the mod registry from IPFS.
@@ -946,3 +945,24 @@ class  Api:
             Encoded data as hex string
         """
         return self.chain.encode_function_call(contract, function, args)
+    
+
+    def graduate(self, mod:str, key=None, comment=None, public=False) -> Dict[str, Any]:
+        """
+        Graduate a mod from the 'outer' orbit to the 'inner' orbit by re-registering it under the server's key.
+        Args:
+            mod: Name of the mod to graduate
+            key: Key object or address string (if None, uses server key)
+            comment: Optional comment about the graduation
+            public: Whether the mod should be public (default False)
+
+        Returns:
+            Dictionary with registration info for the graduated mod
+        """
+        key = self.key_address(key)
+        if key != self.key.address:
+            print(f"Graduating mod {mod} from key {key} to server key {self.key.address}")
+            return self.reg(mod=mod, key=self.key.address, comment=comment, public=public)
+        else:
+            print(f"Mod {mod} is already under the server key. No graduation needed.")
+            return self.mod(mod, key=key)

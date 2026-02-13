@@ -14,15 +14,14 @@ class App:
             build = False,
             api_port=8000, 
              **kwargs):
-        if not m.server_exists('api'):
-            m.serve('ipfs')
-            m.serve('api')
+        m.serve('ipfs', pm='docker')
+        m.serve('api', pm='pm2')
         if build:
             m.build(mod)
         cwd = m.dirpath(mod) 
         working_dir = '/app'
         cmd = f'npm run build && npm run start' if prod else f'npm run dev -- -p {port}'
-        return m.fn('pm/run')(
+        return m.fn('pm.docker/run')(
                     name=mod, 
                     volumes=[f'{cwd}:/app','/app/node_modules', '~/.mod:/root/.mod', '~/mod:/root/mod', '/app/.next'], 
                     cwd=cwd, 
@@ -30,7 +29,7 @@ class App:
                     working_dir=working_dir,
                     port=port, 
                     cmd=cmd,
-                    env={'NEXT_PUBLIC_API_URL':  'https://api.modc2.com' if prod else f'http://0.0.0.0:{api_port}'}, 
+                    env={'NEXT_PUBLIC_API_URL':  'https://api.modc2.com' if prod else f'http://localhost:{api_port}'}, 
                     **kwargs
                     )
 

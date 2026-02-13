@@ -22,7 +22,7 @@ class Router:
     def __init__(self, store='ipfs', key=None, auth='auth.v0', chain='chain'):
         self.store = store
         self.key = m.key(key )
-        self.calls_path = self.path('calls')
+        self.tasks_path = self.path('tasks')
         self.chain = m.mod(chain)()
         self.auth = m.mod(auth)()
         self.threads['sync'] = m.thread(self.sync_loop)
@@ -54,13 +54,13 @@ class Router:
         Call a function from a mod Mod in IPFS.
         Args:
             mod: mod Mod object
-            fn: Function name to call
-            params: Parameters for the function call
+            fn: Function name to task
+            params: Parameters for the function task
             key: Key object or address string
         Returns:
-            Result of the function call
+            Result of the function task
         """
-        task = self.task_data( fn=fn, params=params, timeout=timeout)
+        task = self.task_data(fn=fn, params=params, timeout=timeout)
         task['key'] =  self.auth.verify(token)['key']
         task['token'] = token
         mod_name = '/'.join(fn.split('/')[:-1]) if '/' in fn else fn
@@ -76,65 +76,63 @@ class Router:
             return self.store.get(self.store.get(result).get('result', None))
         return task
 
-
     def task_path(self, data): 
-        return m.relpath(f'{self.calls_path}/{data["key"]}/{data["fn"]}/{data["time"]}.json')
+        return m.relpath(f'{self.tasks_path}/{data["key"]}/{data["fn"]}/{data["cid"]}.json')
 
-    def _clear_calls(self):
-        shutil.rmtree(self.calls_path) if os.path.exists(self.calls_path) else None
-        assert len(self.task_paths()) == 0, "Failed to clear call paths"
+    def _clear_tasks(self):
+        shutil.rmtree(self.tasks_path) if os.path.exists(self.tasks_path) else None
+        assert len(self.task_paths()) == 0, "Failed to clear task paths"
         return True
-    
 
     def txs(self, key=None, mod=None, df=1, features=['fn', 'status', 'cid' ], n=10, page=0, expand=1) -> List[Dict[str, Any]]:
         paths = self.task_paths()
-        calls = []
+        tasks = []
 
         filter_fn = lambda p : (True if mod is None else mod in p) and (True if key is None else key in p)
         paths = list(filter(filter_fn, paths))
         for path in paths:
-            call = m.get(path)
+            task = m.get(path)
             if expand:
-                if 'result' in call:
+                if 'result' in task:
                     try:
-                        call['result'] = self.store.get(call['result'])
+                        task['result'] = self.store.get(task['result'])
                     except:
                         pass
-                if 'params' in call:
+                if 'params' in task:
                     try:
-                        call['params'] = self.store.get(call['params'])
+                        task['params'] = self.store.get(task['params'])
                     except:
                         pass
-            if call != None:
-                calls.append(call)
+            if task != None:
+                tasks.append(task)
     
-        calls = sorted(calls, key=lambda x: x['time'], reverse=True)
+        tasks = sorted(tasks, key=lambda x: x['time'], reverse=True)
         
         if page > 0:
             start = page * n
             end = start + n
-            calls = calls[start:end]
+            tasks = tasks[start:end]
         else: 
-            calls = calls[:n]
+            tasks = tasks[:n]
 
         
-        if len(calls) == 0:
-            return calls
+        if len(tasks) == 0:
+            return tasks
         else:
             if df:
-                calls = m.df(calls)
-                calls.sort_values('time', ascending=False, inplace=True)
-                calls['time'] = calls['time'].apply(lambda x: datetime.datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
-                calls = calls[:n]
-                return calls[features]
+                tasks = m.df(tasks)
+                tasks.sort_values('time', ascending=False, inplace=True)
+                tasks['time'] = tasks['time'].apply(lambda x: datetime.datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
+                tasks = tasks[:n]
+                return tasks[features]
             else:
 
                 # remove all of the json non-serializable items
                 txs = []
-                for call in calls:
+                for task in tasks:
                     try:
-                        json.loads(json.dumps(call))
-                        txs.append(call)
+                        json.loads(json.dumps(task))
+                        txs.append(task)
                     except:
                         continue    
                 return txs
@@ -144,11 +142,11 @@ class Router:
     def task_paths(self, key=None, mod=None, max_age= None):
 
         if key is not None:
-            paths = glob.glob(self.calls_path+f'/**/{key}/**/*.json', recursive=True)
+            paths = glob.glob(self.tasks_path+f'/**/{key}/**/*.json', recursive=True)
         elif mod is not None:
-            paths = glob.glob(self.calls_path+f'/**/{mod}/**/*.json', recursive=True)
+            paths = glob.glob(self.tasks_path+f'/**/{mod}/**/*.json', recursive=True)
         else:
-            paths = glob.glob(self.calls_path+f'/**/*.json', recursive=True)
+            paths = glob.glob(self.tasks_path+f'/**/*.json', recursive=True)
         
         if max_age is not None:
             current_time = time.time()
@@ -160,22 +158,22 @@ class Router:
             paths = filtered_paths
         return paths
 
-    def reset_calls(self):
+    def reset_tasks(self):
         for path in self.task_paths():
-            print(f'Removing call path: {path}')
+            print(f'Removing task path: {path}')
             m.rm(path)
         for future in self.cid2future.values():
             print(f'Cancelling future -> {future}')
             future.cancel()
         self.cid2future = {}
-        assert len(self.task_paths()) == 0, "Failed to reset all call paths"
+        assert len(self.task_paths()) == 0, "Failed to reset all task paths"
         return True
     
 
 
     def _clear_task_paths(self):
         for cid in self.cid2future.keys():
-            print(f'Removing call path: {cid}')
+            print(f'Removing task path: {cid}')
             future = self.cid2future[cid]
             future.cancel()
         self.cid2future = {}
@@ -324,7 +322,7 @@ class Router:
 
     def run_task(self, **task:dict) -> Any:
         """
-        Send the function call request to the appropriate mod Mod and function.
+        Send the function task request to the appropriate mod Mod and function.
         """
         task['status'] = 'running'
         assert '/' in task['fn'], "Function name must be in the format 'mod/fn'"
@@ -334,11 +332,8 @@ class Router:
             params =  self.store.get(task['params'])
         assert isinstance(params, dict)
         m.put(path, task)
-        # avoid recursion
-        assert not task['fn'].endswith('/call'), "Function name cannot end with '/call'"
         try:
-            mod_name =  '.'.join(task['fn'].split('/')[:-1])
-            if mod_name in m.servers():
+            if mod in m.servers() and mod != 'api':
                 result = m.fn('client/call')(fn=task['fn'], params=params, timeout=task['timeout'])
             else:
                 result = m.fn(task['fn'])(**params)
@@ -362,7 +357,6 @@ class Router:
         task['cid'] = self.store.put(task)
         m.put(path, task)
         return task['cid']
-        
 
     @property
     def store(self):
@@ -437,7 +431,6 @@ class Router:
                     ious[client][owner] = total_cost
         return ious
     
-
     def update_tx(self, tx, new_data: dict):
         tx_data = self.get(tx['cid'])
         tx_data.update(new_data)

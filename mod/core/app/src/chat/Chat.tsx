@@ -121,8 +121,12 @@ export default function Chat() {
 
         // Build call parameters
         let callParams = { ...chatState.params }
+        // Only add chat input if the param isn't already set in PARAMS tab
         if (chatState.input.trim() && chatState.selectedInputParam) {
-          callParams[chatState.selectedInputParam] = chatState.input.trim()
+          // Only override if the param is empty/undefined (not explicitly set in PARAMS tab)
+          if (!callParams[chatState.selectedInputParam] || callParams[chatState.selectedInputParam] === '') {
+            callParams[chatState.selectedInputParam] = chatState.input.trim()
+          }
         }
 
         // Use first selected module for the call
@@ -138,6 +142,9 @@ export default function Chat() {
             token: chatState.client.token
           }
         )
+
+        // Update params state to reflect what was sent
+        chatState.setParams(callParams)
 
         // Fetch the most recent transaction for this module/function
         try {
@@ -215,7 +222,7 @@ export default function Chat() {
             />
 
             {/* Tab Content */}
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-hidden">
               {activeTab === 'chat' && (
                 <ChatTab
                   messages={chatState.messages}

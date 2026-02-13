@@ -45,34 +45,35 @@ export function ChatTab({
   }
 
   return (
-    <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden p-4">
+    <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-green-500/30 scrollbar-track-transparent">
       {/* Message input - terminal style */}
       <div className="flex-shrink-0">
         <div
-          className="relative rounded-2xl overflow-visible border-2 border-green-500/40 p-3"
+          className="relative rounded-2xl overflow-visible border-2 border-green-500/40"
           style={{
             fontFamily: 'IBM Plex Mono, Menlo, Monaco, Courier New, monospace',
             background: 'linear-gradient(135deg, rgba(20,20,20,0.95) 0%, rgba(10,10,10,0.98) 100%)',
           }}
         >
-          <div className="relative">
+          <div className="relative p-3">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder=""
               rows={4}
-              className="w-full bg-transparent text-green-400 px-4 py-3 pb-12 rounded-xl text-sm focus:outline-none placeholder-neutral-700 resize-none transition-all border-0"
+              className="w-full bg-transparent text-green-400 px-4 py-3 pb-12 text-sm focus:outline-none placeholder-neutral-700 resize-none transition-all border-0 outline-none ring-0"
               disabled={isLoading}
               style={{
                 fontFamily: 'IBM Plex Mono, monospace',
                 letterSpacing: '0.02em',
                 lineHeight: '1.6',
+                boxShadow: 'none',
               }}
             />
 
-            {/* Parameter Selector - Bottom Left Inside */}
-            <div className="absolute bottom-2 left-2 z-10">
+            {/* Parameter Selector - Bottom Left Inside the bubble */}
+            <div className="absolute bottom-8 left-8 z-10">
               <ParameterSelector
                 parameters={inputParamOptions}
                 selectedParameter={selectedInputParam}
@@ -132,7 +133,7 @@ export function ChatTab({
       </div>
 
       {/* Transaction Output Section */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent">
+      <div className="flex-shrink-0">
         {recentTransaction && (
           <div>
             <button

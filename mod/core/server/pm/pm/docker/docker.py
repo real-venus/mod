@@ -372,7 +372,7 @@ class PM:
         """
         Check if a container exists.
         """
-        return name in self.servers()
+        return name in self.ps()
         
     def kill(self, name: str, update=True) -> Dict[str, str]:
         """

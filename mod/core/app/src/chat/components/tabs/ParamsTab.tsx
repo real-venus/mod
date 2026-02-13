@@ -41,7 +41,7 @@ export function ParamsTab({
   }
 
   return (
-    <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden p-4">
+    <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent">
       {/* Params Panel */}
       <div className="flex-shrink-0 max-h-[50vh] overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent">
         {selectedFunction && schema?.[selectedFunction] ? (
@@ -108,7 +108,7 @@ export function ParamsTab({
       </div>
 
       {/* Transaction Output Section */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent">
+      <div className="flex-shrink-0">
         {recentTransaction && (
           <div>
             <button

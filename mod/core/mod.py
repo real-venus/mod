@@ -16,13 +16,13 @@ from typing import *
 
 class Mod: 
 
-    orbits = [ 'core', 'local',  'inner', 'outer']
+    orbits = [ 'core',  'inner', 'outer']
 
     orbit2depth = {
         'inner': 10,
         'outer': 5,
         'core': 10,
-        'local': 4
+        # 'local': 4
         }
 
     # we are going to avoid these folders when listing files
@@ -45,8 +45,8 @@ class Mod:
         self.paths["mod"] = self.mod_path =os.path.dirname(os.path.dirname(__file__))
         self.paths["lib"]  = self.lib_path = os.path.dirname(self.paths["mod"]) # the path to the repo
         self.paths['orbit'] = {
-            "inner": f'{self.mod_path}/_orbit',
-            "outer": f'{self.mod_path}/_orbit/_outer',
+            "inner": f'{self.mod_path}/orbit',
+            "outer": f'{self.mod_path}/orbit/_outer',
             "core": self.mod_path + '/core',
             "local": os.getcwd()
         }
@@ -367,7 +367,13 @@ class Mod:
         # if self.mod_exists(path):
         #     path = self.dirpath(path)
 
+
+
         path = self.abspath(path)
+        if not os.path.exists(path) and self.mod_exists(path):
+            path = self.dirpath(path)
+            
+            
         files = []
         if depth == 0:
             return []
@@ -782,10 +788,10 @@ class Mod:
             obj = self.obj(obj)
         return  inspect.getsource(obj)
     
-    def call(self,fn: str = 'api/edit',  params: Dict[str, Any] = {}, timeout=30, wait=True, return_cid=False,  **_kwargs): 
-        params = {**params , **_kwargs} if isinstance(params, dict) else params
+    def call(self,_fn: str = 'api/edit',  params: Dict[str, Any] = {}, timeout=30, wait=True, return_cid=False,  **_kwargs): 
+        params = {**params , **_kwargs} 
         params = {
-            'fn': fn,
+            'fn': _fn,
             'params': params,
         }
         token = self.fn('auth.v0/token')()
@@ -1284,8 +1290,9 @@ class Mod:
             result_options = sorted(result_options, key=lambda x: len(x))
             result = result_options[0]
             return result
+        file_relative = [ f[len(path)+1:] for f in files]
         if result is None:
-            raise Exception(f'No anchor file found in {path} with anchor names {anchor_names} and file types {self.file_types} {files}')
+            raise Exception(f'No anchor file found in {path} with anchor names {anchor_names} and file types {self.file_types} {file_relative}')
         return result
         
     af = anchor_file
@@ -1423,6 +1430,8 @@ class Mod:
         v = False
         if k_lower == search:
             v =  True
+        if search in k_lower:
+            v =  True
         elif k_lower.endswith('.' + search):
             v =  True
         elif k_lower.startswith(search + '.'):
@@ -1456,7 +1465,7 @@ class Mod:
 
     def tree(self, 
             search=None, 
-            depth=1,
+            depth=4,
             orbit = 'all', 
             key=None,
             **kwargs):
@@ -1470,7 +1479,7 @@ class Mod:
         tree = dict(sorted(tree.items(), key=lambda item: item[0]))
         return tree
 
-    def dirpath(self, mod=None, relative=False, trials=2, key=None) -> str:
+    def dirpath(self, mod=None, relative=False, trials=4, key=None) -> str:
         """
         get the directory path of the mod
         """
@@ -1485,7 +1494,7 @@ class Mod:
                 self.tree(update=True)
                 return self.dirpath(mod=mod, relative=relative, trials=trials-1)
             else:
-                assert False, f'Mod {mod} not found in tree {list(tree.keys())}'
+                assert False, f'Mod {mod} not found in tree'
         dirpath = tree_options[0]
         if os.path.isfile(dirpath):
             dirpath = os.path.dirname(dirpath)
@@ -1502,7 +1511,6 @@ class Mod:
         self.cmd(f'cp -r {path} {dirpath}')
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created from path'}
 
-    
 
     def addcid(self, name='churn',  cid='QmXUjBQRFa8DbY2GhD1Aq6a44EBYzgejmtwwnYYTfvnFW4'):
         api = c.mod('api')()
@@ -1557,7 +1565,7 @@ class Mod:
         return executor
 
     def server_exists(self, server:str = 'mod', *args, **kwargs):
-        return  self.fn('pm/server_exists')(server, *args, **kwargs)
+        return  self.fn('pm.docker/exists')(server, *args, **kwargs)
 
     def ensure_server(self, server:str = 'mod', *args, **kwargs):
         if not self.server_exists(server):
@@ -1616,10 +1624,10 @@ class Mod:
         return import_module(mod)
 
     def kill(self, server:str = 'mod'):
-        return self.fn('pm/kill')(server)
+        return self.fn('server/kill')(server)
 
     def kill_all(self):
-        return self.fn('pm/kill_all')()
+        return self.fn('server/killall')()
 
     killall = kill_all
 
@@ -1800,6 +1808,10 @@ class Mod:
         params = {'query': ' '.join(query), 'mod': mod, 'base': base}
         print(f'Editing {mod} with query: {params["query"]}')
         return self.call('api/edit',  params=params, wait=wait, timeout=timeout, **kwargs)
+    
+    def nfiles(self, mod=None, depth=3):
+        path = self.dirpath(mod)
+        return len(self.files(path, depth=depth))
         
     e = edit
 
