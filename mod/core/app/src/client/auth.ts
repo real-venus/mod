@@ -142,7 +142,7 @@ export class Auth {
     
     let authData: AuthData = {
       data: data || '',
-      time: String(this.time()),
+      time: String(this.time() * 1000),
       key: walletAddress,
       signature: '',
     };

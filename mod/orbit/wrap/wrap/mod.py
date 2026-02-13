@@ -27,7 +27,7 @@ class Mod:
 
         feel free to use 
         the command and i prefer if you can fix it in one step for bonus points 
-        user the cmd tool and dont create the file until you fix the environment if the error is related to that, otherwise create the file and fix the code until there is no error.
+        user the cmd tool and dont create the file until you fix the environment if the error is relcomated to that, otherwise create the file and fix the code until there is no error.
         """
 
         m.fn('dev/')(query=prompt, tools=['cmd'] if error else None, mod=mod)

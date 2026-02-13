@@ -53,7 +53,8 @@ class Server:
             self.pm = m.mod(pm)()
         return self.pm
 
-    def logs(self, name: str, **kwargs) -> str:
+    def logs(self, name: str, pm=None, **kwargs) -> str:
+        self.set_pm(pm)
         return self.pm.logs(name, **kwargs)
 
     def forward(self, **request: dict):
