@@ -16,6 +16,7 @@ from scalecodec.types import Bytes
 import hashlib
 import shutil
 
+
 from copy import deepcopy
 import hmac
 import copy
@@ -141,6 +142,9 @@ class Key:
         
     def valid_ss58_address(self, address):
         return is_valid_ss58_address(address)
+    
+    def to_checksum_address(self, address):
+        return web3.Web3.toChecksumAddress(address)
 
     def add_key(self, path:str,  crypto_type=None, mnemonic:str = None, refresh:bool=False, private_key=None, **kwargs):
         crypto_type = self.get_crypto_type(crypto_type)
@@ -521,6 +525,8 @@ class Key:
         return signature
 
     def get_public_key(self, address=None, public_key=None, crypto_type=None):
+
+        # checksum the address if it's a valid ss58 address
         if public_key != None: 
             return public_key
         else:

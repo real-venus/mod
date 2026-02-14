@@ -141,9 +141,9 @@ export default function ModulePage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
-      <main className="flex-1 px-6 py-8">
+      <main className="flex-1 px-6 pt-24 pb-8">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="mb-8">
+          <div className="mb-10">
             <ModCard mod={mod} card_enabled={false} />
           </div>
 
@@ -205,13 +205,18 @@ export default function ModulePage() {
               )
             })}
           </div>
-            <div className="bg-black p-6 rounded-xl">
+            <div className="bg-black p-6 rounded-xl min-h-[400px]">
               {activeTab === 'content' && <ModContent mod={mod} />}
               {activeTab === 'api' && <ModApi mod={mod} />}
               {activeTab === 'app' && mod.url_app && <ModApp mod={mod} moduleColor={moduleColor} />}
               {activeTab === 'versions' && <ModVersions mod={mod} />}
               {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
               {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}
+              {activeTab === 'edit' && !myMod && (
+                <div className="flex items-center justify-center py-16">
+                  <p className="text-gray-500 font-mono text-lg">Only the module owner can edit this module.</p>
+                </div>
+              )}
             </div>
       </div>
     </main>

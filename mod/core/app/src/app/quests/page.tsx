@@ -1,20 +1,21 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { userContext } from '@/context/UserContext';
 import { Quest, QuestResponse, QuestTab } from './types';
 import QuestCard from './QuestCard';
-import QuestDetail from './QuestDetail';
 import CreateQuestForm from './CreateQuestForm';
 import StatsBar from './StatsBar';
 import ResponseCard from './ResponseCard';
-import { getFreshToken, isTokenExpiryError } from '@/utils/tokenUtils';
+import { getFreshToken } from '@/utils/tokenUtils';
+import { toast } from 'react-toastify';
 
 const TABS: { key: QuestTab; label: string }[] = [
   { key: 'browse', label: 'Browse' },
   { key: 'myQuests', label: 'My Quests' },
   { key: 'myResponses', label: 'My Responses' },
   { key: 'create', label: 'Create' },
+  { key: 'docs', label: 'API Docs' },
 ];
 
 export default function QuestsPage() {
@@ -23,10 +24,9 @@ export default function QuestsPage() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [myQuests, setMyQuests] = useState<Quest[]>([]);
   const [myResponses, setMyResponses] = useState<QuestResponse[]>([]);
-  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
-  const [questResponses, setQuestResponses] = useState<QuestResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // --- Data fetching ---
 
@@ -35,7 +35,7 @@ export default function QuestsPage() {
     setLoading(true);
     try {
       const result = await client.call('quests/quests', {  });
-      setQuests(result || []);
+      setQuests(Array.isArray(result) ? result : result?.data || []);
     } catch (e) {
       console.error('Failed to fetch quests:', e);
     }
@@ -54,7 +54,7 @@ export default function QuestsPage() {
         return;
       }
       const result = await client.call('quests/my_quests', { token: freshToken });
-      setMyQuests(result?.data || []);
+      setMyQuests(Array.isArray(result) ? result : result?.data || []);
     } catch (e) {
       console.error('Failed to fetch my quests:', e);
     }
@@ -73,7 +73,7 @@ export default function QuestsPage() {
         return;
       }
       const result = await client.call('quests/my_responses', { token: freshToken });
-      setMyResponses(result?.data || []);
+      setMyResponses(Array.isArray(result) ? result : result?.data || []);
     } catch (e) {
       console.error('Failed to fetch my responses:', e);
     }
@@ -84,21 +84,9 @@ export default function QuestsPage() {
     if (!client) return;
     try {
       const result = await client.call('quests/stats', {});
-      setStats(result?.data || null);
+      setStats(result?.data ?? result ?? null);
     } catch (e) {
       console.error('Failed to fetch stats:', e);
-    }
-  }, [client]);
-
-  const fetchQuestDetails = useCallback(async (questId: string) => {
-    if (!client) return;
-    try {
-      const questResult = await client.call('quests/get_quest', { quest_id: questId });
-      setSelectedQuest(questResult?.data || null);
-      const responsesResult = await client.call('quests/get_responses', { quest_id: questId });
-      setQuestResponses(responsesResult?.data || []);
-    } catch (e) {
-      console.error('Failed to fetch quest details:', e);
     }
   }, [client]);
 
@@ -123,7 +111,7 @@ export default function QuestsPage() {
 
   const handleCreateQuest = async (data: { title: string; description: string; reward: number; tags: string[] }) => {
     if (!user?.key) {
-      alert('Please sign in to create a quest');
+      toast.error('Please sign in to create a quest');
       return;
     }
     setLoading(true);
@@ -131,7 +119,7 @@ export default function QuestsPage() {
       // Get fresh token to avoid stale token errors
       const freshToken = await getFreshToken(user.key, user.wallet_mode);
       if (!freshToken) {
-        alert('Failed to get authentication token. Please try signing in again.');
+        toast.error('Failed to get authentication token. Please try signing in again.');
         setLoading(false);
         return;
       }
@@ -147,83 +135,53 @@ export default function QuestsPage() {
       if (result?.success === false || result?.error) {
         const errorMsg = result?.error || 'Unknown error';
         if (errorMsg.includes('Token is stale') || errorMsg.includes('stale')) {
-          alert('Your session has expired. Please refresh your token using the TOKEN button in your wallet.');
+          toast.warning('Your session has expired. Please refresh your token using the TOKEN button in your wallet.');
         } else {
-          alert(`Failed to create quest: ${errorMsg}`);
+          toast.error(`Failed to create quest: ${errorMsg}`);
         }
-      } else if (result?.data) {
-        alert('Quest created successfully!');
+      } else if (result?.data || result?.id) {
+        toast.success('Quest created successfully!');
         setActiveTab('myQuests');
       }
     } catch (e: any) {
       const errorMsg = e.message || e.toString();
       if (errorMsg.includes('Token is stale') || errorMsg.includes('stale')) {
-        alert('Your session has expired. Please refresh your token using the TOKEN button in your wallet.');
+        toast.warning('Your session has expired. Please refresh your token using the TOKEN button in your wallet.');
       } else {
-        alert(`Failed to create quest: ${errorMsg}`);
+        toast.error(`Failed to create quest: ${errorMsg}`);
       }
     }
     setLoading(false);
   };
 
-  const handleRespondToQuest = async (questId: string, content: string) => {
-    if (!user?.key) {
-      alert('Please sign in to respond to a quest');
-      return;
-    }
-    try {
-      // Get fresh token to avoid stale token errors
-      const freshToken = await getFreshToken(user.key, user.wallet_mode);
-      if (!freshToken) {
-        alert('Failed to get authentication token. Please try signing in again.');
-        return;
-      }
+  // --- Client-side search (no refetch) ---
+  const filteredQuests = useMemo(() => {
+    if (!searchQuery.trim()) return quests;
+    const q = searchQuery.toLowerCase();
+    return quests.filter(quest =>
+      quest.title.toLowerCase().includes(q) ||
+      quest.description.toLowerCase().includes(q) ||
+      quest.tags?.some(tag => tag.toLowerCase().includes(q))
+    );
+  }, [quests, searchQuery]);
 
-      await client.call('quests/respond', {
-        quest_id: questId,
-        content,
-        token: freshToken,
-      });
-      alert('Response submitted successfully!');
-      fetchQuestDetails(questId);
-    } catch (e: any) {
-      const errorMsg = e.message || e.toString();
-      if (errorMsg.includes('Token is stale') || errorMsg.includes('stale')) {
-        alert('Your session has expired. Please refresh your token using the TOKEN button in your wallet.');
-      } else {
-        alert(`Failed to submit response: ${errorMsg}`);
-      }
-    }
-  };
+  const filteredMyQuests = useMemo(() => {
+    if (!searchQuery.trim()) return myQuests;
+    const q = searchQuery.toLowerCase();
+    return myQuests.filter(quest =>
+      quest.title.toLowerCase().includes(q) ||
+      quest.description.toLowerCase().includes(q) ||
+      quest.tags?.some(tag => tag.toLowerCase().includes(q))
+    );
+  }, [myQuests, searchQuery]);
 
-  const handleApproveResponse = async (questId: string, responseId: string) => {
-    if (!user?.key) return;
-    if (!confirm('Are you sure you want to approve this response? This will transfer the reward.')) return;
-    try {
-      // Get fresh token to avoid stale token errors
-      const freshToken = await getFreshToken(user.key, user.wallet_mode);
-      if (!freshToken) {
-        alert('Failed to get authentication token. Please try signing in again.');
-        return;
-      }
-
-      await client.call('quests/approve', {
-        quest_id: questId,
-        response_id: responseId,
-        token: freshToken,
-      });
-      alert('Response approved! Reward sent.');
-      fetchQuestDetails(questId);
-      fetchMyQuests();
-    } catch (e: any) {
-      const errorMsg = e.message || e.toString();
-      if (errorMsg.includes('Token is stale') || errorMsg.includes('stale')) {
-        alert('Your session has expired. Please refresh your token using the TOKEN button in your wallet.');
-      } else {
-        alert(`Failed to approve response: ${errorMsg}`);
-      }
-    }
-  };
+  const filteredMyResponses = useMemo(() => {
+    if (!searchQuery.trim()) return myResponses;
+    const q = searchQuery.toLowerCase();
+    return myResponses.filter(response =>
+      response.content.toLowerCase().includes(q)
+    );
+  }, [myResponses, searchQuery]);
 
   // --- Render helpers ---
 
@@ -281,13 +239,41 @@ export default function QuestsPage() {
           ))}
         </div>
 
+        {/* Search */}
+        {activeTab !== 'create' && activeTab !== 'docs' && (
+          <div className="mb-5">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search quests..."
+                className="w-full pl-9 pr-3 py-2 bg-neutral-900 border border-neutral-800 text-[13px] font-mono text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                    <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Tab content */}
         {activeTab === 'browse' && (
           loading ? renderLoading() :
-          quests.length === 0 ? renderEmpty('No open quests found.') : (
+          filteredQuests.length === 0 ? renderEmpty(searchQuery ? 'No quests match your search.' : 'No open quests found.') : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-neutral-800 border border-neutral-800">
-              {quests.map(quest => (
-                <QuestCard key={quest.id} quest={quest} onClick={fetchQuestDetails} />
+              {filteredQuests.map(quest => (
+                <QuestCard key={quest.id} quest={quest} userKey={user?.key} />
               ))}
             </div>
           )
@@ -296,10 +282,10 @@ export default function QuestsPage() {
         {activeTab === 'myQuests' && (
           !user?.token ? renderEmpty('Sign in to view your quests.') :
           loading ? renderLoading() :
-          myQuests.length === 0 ? renderEmpty('No quests created yet.') : (
+          filteredMyQuests.length === 0 ? renderEmpty(searchQuery ? 'No quests match your search.' : 'No quests created yet.') : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-neutral-800 border border-neutral-800">
-              {myQuests.map(quest => (
-                <QuestCard key={quest.id} quest={quest} onClick={fetchQuestDetails} />
+              {filteredMyQuests.map(quest => (
+                <QuestCard key={quest.id} quest={quest} userKey={user?.key} />
               ))}
             </div>
           )
@@ -308,9 +294,9 @@ export default function QuestsPage() {
         {activeTab === 'myResponses' && (
           !user?.token ? renderEmpty('Sign in to view your responses.') :
           loading ? renderLoading() :
-          myResponses.length === 0 ? renderEmpty('No responses submitted yet.') : (
+          filteredMyResponses.length === 0 ? renderEmpty(searchQuery ? 'No responses match your search.' : 'No responses submitted yet.') : (
             <div className="space-y-[1px] bg-neutral-800 border border-neutral-800">
-              {myResponses.map(response => (
+              {filteredMyResponses.map(response => (
                 <ResponseCard key={response.id} response={response} />
               ))}
             </div>
@@ -322,19 +308,208 @@ export default function QuestsPage() {
             <CreateQuestForm loading={loading} onSubmit={handleCreateQuest} />
           )
         )}
+
+        {activeTab === 'docs' && (
+          <div className="space-y-6">
+            {/* Intro */}
+            <div className="border border-neutral-800 bg-neutral-900 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 bg-purple-500" />
+                <span className="text-[11px] font-mono text-neutral-500 uppercase tracking-widest">API Reference</span>
+              </div>
+              <p className="text-[14px] text-neutral-300 leading-relaxed">
+                Interact with quests programmatically using the mod API. All endpoints are called via <code className="px-1.5 py-0.5 bg-neutral-800 text-purple-400 text-[13px] font-mono">client.call(method, params)</code>. Authenticated endpoints require a valid <code className="px-1.5 py-0.5 bg-neutral-800 text-purple-400 text-[13px] font-mono">token</code>.
+              </p>
+            </div>
+
+            {/* Respond to a Quest */}
+            <div className="border border-purple-500/30 bg-purple-500/5">
+              <div className="px-5 py-3 border-b border-purple-500/20 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full" />
+                <span className="text-[13px] font-mono font-medium text-purple-300">Respond to a Quest</span>
+                <span className="ml-auto px-2 py-0.5 text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 uppercase">Auth Required</span>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-[13px] text-neutral-400 leading-relaxed">Submit your solution or deliverable to an open quest. The quest creator will review and can approve your response to release the token reward.</p>
+                <div className="bg-neutral-900 border border-neutral-800 p-4 font-mono text-[13px]">
+                  <div className="text-neutral-500 mb-2">// Submit a response to a quest</div>
+                  <div className="text-neutral-200">
+                    <span className="text-blue-400">await</span> client.<span className="text-emerald-400">call</span>(<span className="text-amber-300">'quests/respond'</span>, {'{'}<br/>
+                    <span className="ml-4 text-neutral-400">quest_id:</span> <span className="text-amber-300">'quest_abc123'</span>,<br/>
+                    <span className="ml-4 text-neutral-400">content:</span>  <span className="text-amber-300">'Here is my solution...'</span>,<br/>
+                    <span className="ml-4 text-neutral-400">token:</span>   <span className="text-amber-300">yourAuthToken</span>,<br/>
+                    {'}'})
+                  </div>
+                </div>
+                <div className="text-[12px] font-mono text-neutral-500 mt-2">
+                  <span className="text-neutral-400">Params:</span> quest_id <span className="text-neutral-600">string</span> · content <span className="text-neutral-600">string</span> · token <span className="text-neutral-600">string</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Browse Quests */}
+            <div className="border border-neutral-800 bg-neutral-900">
+              <div className="px-5 py-3 border-b border-neutral-800 flex items-center gap-2">
+                <span className="text-[13px] font-mono font-medium text-neutral-300">List All Quests</span>
+                <span className="ml-auto px-2 py-0.5 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 uppercase">Public</span>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-[13px] text-neutral-400">Browse all available quests. No authentication required.</p>
+                <div className="bg-neutral-950 border border-neutral-800 p-4 font-mono text-[13px]">
+                  <div className="text-neutral-500 mb-2">// Fetch all open quests</div>
+                  <div className="text-neutral-200">
+                    <span className="text-blue-400">const</span> quests = <span className="text-blue-400">await</span> client.<span className="text-emerald-400">call</span>(<span className="text-amber-300">'quests/quests'</span>, {'{'} {'}'})
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Get Quest Details */}
+            <div className="border border-neutral-800 bg-neutral-900">
+              <div className="px-5 py-3 border-b border-neutral-800 flex items-center gap-2">
+                <span className="text-[13px] font-mono font-medium text-neutral-300">Get Quest Details</span>
+                <span className="ml-auto px-2 py-0.5 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 uppercase">Public</span>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-[13px] text-neutral-400">Fetch full details and responses for a specific quest.</p>
+                <div className="bg-neutral-950 border border-neutral-800 p-4 font-mono text-[13px]">
+                  <div className="text-neutral-500 mb-2">// Get quest by ID</div>
+                  <div className="text-neutral-200">
+                    <span className="text-blue-400">const</span> quest = <span className="text-blue-400">await</span> client.<span className="text-emerald-400">call</span>(<span className="text-amber-300">'quests/get_quest'</span>, {'{'}<br/>
+                    <span className="ml-4 text-neutral-400">quest_id:</span> <span className="text-amber-300">'quest_abc123'</span><br/>
+                    {'}'})
+                  </div>
+                  <div className="text-neutral-200 mt-3">
+                    <div className="text-neutral-500 mb-2">// Get responses for that quest</div>
+                    <span className="text-blue-400">const</span> responses = <span className="text-blue-400">await</span> client.<span className="text-emerald-400">call</span>(<span className="text-amber-300">'quests/get_responses'</span>, {'{'}<br/>
+                    <span className="ml-4 text-neutral-400">quest_id:</span> <span className="text-amber-300">'quest_abc123'</span><br/>
+                    {'}'})
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Create Quest */}
+            <div className="border border-neutral-800 bg-neutral-900">
+              <div className="px-5 py-3 border-b border-neutral-800 flex items-center gap-2">
+                <span className="text-[13px] font-mono font-medium text-neutral-300">Create a Quest</span>
+                <span className="ml-auto px-2 py-0.5 text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 uppercase">Auth Required</span>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-[13px] text-neutral-400">Post a new quest with a token reward. Your token balance must cover the reward amount.</p>
+                <div className="bg-neutral-950 border border-neutral-800 p-4 font-mono text-[13px]">
+                  <div className="text-neutral-500 mb-2">// Create a new quest</div>
+                  <div className="text-neutral-200">
+                    <span className="text-blue-400">await</span> client.<span className="text-emerald-400">call</span>(<span className="text-amber-300">'quests/create_quest'</span>, {'{'}<br/>
+                    <span className="ml-4 text-neutral-400">title:</span>       <span className="text-amber-300">'Build a landing page'</span>,<br/>
+                    <span className="ml-4 text-neutral-400">description:</span> <span className="text-amber-300">'Need a responsive landing page...'</span>,<br/>
+                    <span className="ml-4 text-neutral-400">reward:</span>      <span className="text-emerald-400">500</span>,<br/>
+                    <span className="ml-4 text-neutral-400">tags:</span>        [<span className="text-amber-300">'frontend'</span>, <span className="text-amber-300">'design'</span>],<br/>
+                    <span className="ml-4 text-neutral-400">token:</span>       <span className="text-amber-300">yourAuthToken</span>,<br/>
+                    {'}'})
+                  </div>
+                </div>
+                <div className="text-[12px] font-mono text-neutral-500 mt-2">
+                  <span className="text-neutral-400">Params:</span> title <span className="text-neutral-600">string</span> · description <span className="text-neutral-600">string</span> · reward <span className="text-neutral-600">number</span> · tags <span className="text-neutral-600">string[]</span> · token <span className="text-neutral-600">string</span>
+                </div>
+              </div>
+            </div>
+
+            {/* My Quests & My Responses */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-neutral-800">
+              <div className="bg-neutral-900 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[13px] font-mono font-medium text-neutral-300">My Quests</span>
+                  <span className="px-2 py-0.5 text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 uppercase">Auth</span>
+                </div>
+                <div className="bg-neutral-950 border border-neutral-800 p-4 font-mono text-[13px]">
+                  <div className="text-neutral-200">
+                    <span className="text-blue-400">await</span> client.<span className="text-emerald-400">call</span>(<span className="text-amber-300">'quests/my_quests'</span>, {'{'}<br/>
+                    <span className="ml-4 text-neutral-400">token:</span> <span className="text-amber-300">yourAuthToken</span><br/>
+                    {'}'})
+                  </div>
+                </div>
+              </div>
+              <div className="bg-neutral-900 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[13px] font-mono font-medium text-neutral-300">My Responses</span>
+                  <span className="px-2 py-0.5 text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 uppercase">Auth</span>
+                </div>
+                <div className="bg-neutral-950 border border-neutral-800 p-4 font-mono text-[13px]">
+                  <div className="text-neutral-200">
+                    <span className="text-blue-400">await</span> client.<span className="text-emerald-400">call</span>(<span className="text-amber-300">'quests/my_responses'</span>, {'{'}<br/>
+                    <span className="ml-4 text-neutral-400">token:</span> <span className="text-amber-300">yourAuthToken</span><br/>
+                    {'}'})
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Approve Response */}
+            <div className="border border-neutral-800 bg-neutral-900">
+              <div className="px-5 py-3 border-b border-neutral-800 flex items-center gap-2">
+                <span className="text-[13px] font-mono font-medium text-neutral-300">Approve a Response</span>
+                <span className="ml-auto px-2 py-0.5 text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 uppercase">Auth Required</span>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-[13px] text-neutral-400">As the quest creator, approve a response to release the token reward to the responder.</p>
+                <div className="bg-neutral-950 border border-neutral-800 p-4 font-mono text-[13px]">
+                  <div className="text-neutral-500 mb-2">// Approve and pay reward</div>
+                  <div className="text-neutral-200">
+                    <span className="text-blue-400">await</span> client.<span className="text-emerald-400">call</span>(<span className="text-amber-300">'quests/approve'</span>, {'{'}<br/>
+                    <span className="ml-4 text-neutral-400">quest_id:</span>    <span className="text-amber-300">'quest_abc123'</span>,<br/>
+                    <span className="ml-4 text-neutral-400">response_id:</span> <span className="text-amber-300">'resp_xyz789'</span>,<br/>
+                    <span className="ml-4 text-neutral-400">token:</span>       <span className="text-amber-300">yourAuthToken</span>,<br/>
+                    {'}'})
+                  </div>
+                </div>
+                <div className="text-[12px] font-mono text-neutral-500 mt-2">
+                  <span className="text-neutral-400">Params:</span> quest_id <span className="text-neutral-600">string</span> · response_id <span className="text-neutral-600">string</span> · token <span className="text-neutral-600">string</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="border border-neutral-800 bg-neutral-900">
+              <div className="px-5 py-3 border-b border-neutral-800">
+                <span className="text-[13px] font-mono font-medium text-neutral-300">Get Stats</span>
+              </div>
+              <div className="p-5">
+                <div className="bg-neutral-950 border border-neutral-800 p-4 font-mono text-[13px]">
+                  <div className="text-neutral-200">
+                    <span className="text-blue-400">const</span> stats = <span className="text-blue-400">await</span> client.<span className="text-emerald-400">call</span>(<span className="text-amber-300">'quests/stats'</span>, {'{'} {'}'})
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Workflow */}
+            <div className="border border-neutral-800 bg-neutral-900 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-2 h-2 bg-emerald-500" />
+                <span className="text-[11px] font-mono text-neutral-500 uppercase tracking-widest">Typical Workflow</span>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { step: '1', label: 'Browse quests', desc: "Call quests/quests to find open tasks", color: 'text-purple-400' },
+                  { step: '2', label: 'Pick one and respond', desc: "Call quests/respond with your solution", color: 'text-blue-400' },
+                  { step: '3', label: 'Wait for review', desc: "Creator reviews your submission", color: 'text-amber-400' },
+                  { step: '4', label: 'Get paid', desc: "Creator approves — tokens transfer to you", color: 'text-emerald-400' },
+                ].map(item => (
+                  <div key={item.step} className="flex items-start gap-3">
+                    <span className={`text-[14px] font-mono font-medium ${item.color} shrink-0 w-5`}>{item.step}</span>
+                    <div>
+                      <span className="text-[13px] font-mono text-neutral-200">{item.label}</span>
+                      <span className="text-[12px] font-mono text-neutral-500 ml-2">— {item.desc}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Quest Detail Modal */}
-      {selectedQuest && (
-        <QuestDetail
-          quest={selectedQuest}
-          responses={questResponses}
-          userKey={user?.key}
-          onClose={() => setSelectedQuest(null)}
-          onRespond={handleRespondToQuest}
-          onApprove={handleApproveResponse}
-        />
-      )}
     </div>
   );
 }

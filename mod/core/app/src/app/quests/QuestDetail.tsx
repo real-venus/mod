@@ -32,7 +32,7 @@ export default function QuestDetail({
   };
 
   const isCreator = userKey === quest.creator;
-  const canRespond = quest.status === 'open' && userKey && !isCreator;
+  const canRespond = quest.status === 'open' && userKey;
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6 z-50" onClick={onClose}>
@@ -47,6 +47,10 @@ export default function QuestDetail({
               <span className={`shrink-0 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider border ${getStatusStyle(quest.status)}`}>
                 {quest.status}
               </span>
+              <span className="text-[11px] font-mono text-neutral-500">
+                {quest.id}
+              </span>
+              <span className="text-[11px] font-mono text-neutral-600">·</span>
               <span className="text-[11px] font-mono text-neutral-500">
                 {formatTime(quest.created_at)}
               </span>
@@ -103,22 +107,34 @@ export default function QuestDetail({
           )}
 
           {/* Submit Response */}
+          {quest.status === 'open' && !userKey && (
+            <div className="border border-purple-500/30 bg-purple-500/5 px-4 py-4">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse" />
+                <span className="text-[13px] font-mono font-medium text-purple-300">This quest is open for responses</span>
+              </div>
+              <p className="text-[13px] font-mono text-neutral-500">Sign in to respond and earn <span className="text-emerald-400">{quest.reward} tokens</span>.</p>
+            </div>
+          )}
           {canRespond && (
-            <div className="border border-neutral-800 bg-neutral-800/30">
-              <div className="px-4 py-3 border-b border-neutral-800">
-                <span className="text-[12px] font-mono text-neutral-400 uppercase tracking-wider">Submit a response</span>
+            <div className="border border-purple-500/30 bg-purple-500/5">
+              <div className="px-4 py-3 border-b border-purple-500/20 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse" />
+                <span className="text-[13px] font-mono font-medium text-purple-300">Respond to this quest</span>
+                <span className="ml-auto text-[12px] font-mono text-emerald-400">Earn {quest.reward} tokens</span>
               </div>
               <div className="p-4 space-y-3">
+                <p className="text-[12px] font-mono text-neutral-500 leading-relaxed">Describe your solution or deliverable. The quest creator will review and approve to release the reward.</p>
                 <textarea
                   value={responseContent}
                   onChange={e => setResponseContent(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-neutral-900 border border-neutral-700 text-[14px] text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-purple-500/50 transition-colors resize-none h-24 font-mono"
+                  className="w-full px-3 py-2.5 bg-neutral-900 border border-neutral-700 text-[14px] text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-purple-500/50 transition-colors resize-none h-28 font-mono"
                   placeholder="Describe your solution or deliverable..."
                 />
                 <button
                   onClick={handleSubmitResponse}
                   disabled={submitting || !responseContent.trim()}
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-[13px] font-medium tracking-wide transition-colors"
+                  className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-white text-[13px] font-medium tracking-wide transition-colors w-full"
                 >
                   {submitting ? 'Submitting...' : 'Submit Response'}
                 </button>

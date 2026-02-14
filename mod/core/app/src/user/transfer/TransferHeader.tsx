@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import modConfig from '@/app/mod.json'
 import { ethers } from 'ethers'
+import { toast } from 'react-toastify'
 
 interface TokenOption {
   address: string
@@ -64,7 +65,7 @@ export const TransferHeader: React.FC<TransferHeaderProps> = ({
 
   const handleAddCustomToken = async () => {
     if (!customTokenAddress || !ethers.isAddress(customTokenAddress)) {
-      alert('Invalid token address')
+      toast.error('Invalid token address')
       return
     }
 
@@ -93,7 +94,7 @@ export const TransferHeader: React.FC<TransferHeaderProps> = ({
       setCustomTokenAddress('')
     } catch (err) {
       console.error('Failed to add custom token:', err)
-      alert('Failed to fetch token info. Make sure it is a valid ERC20 token.')
+      toast.error('Failed to fetch token info. Make sure it is a valid ERC20 token.')
     }
   }
 

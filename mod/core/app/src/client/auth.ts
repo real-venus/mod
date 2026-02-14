@@ -130,7 +130,11 @@ export class Auth {
   }
 
   public async signLocal(signMessage: string): Promise<string> {
-    const localKey = new Key(typeof window !== 'undefined' ? localStorage.getItem('wallet_password') || '' : '')
+    const password = typeof window !== 'undefined' ? localStorage.getItem('wallet_password') : null;
+    if (!password) {
+      throw new Error('No wallet_password found in localStorage. Please sign in again.');
+    }
+    const localKey = new Key(password);
     return localKey.sign(signMessage);
   }
       
@@ -142,7 +146,7 @@ export class Auth {
     
     let authData: AuthData = {
       data: data || '',
-      time: String(this.time() * 1000),
+      time: String(this.time()),
       key: walletAddress,
       signature: '',
     };

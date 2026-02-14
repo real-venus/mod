@@ -7,7 +7,6 @@ import { ModuleType } from '@/types'
 import { useSearchContext } from '@/context/SearchContext'
 import { userContext } from '@/context'
 import { X, RotateCcw, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 
@@ -31,24 +30,11 @@ export default function ModExplorePage() {
     return 2
   })
 
-  const [localSearchTerm, setLocalSearchTerm] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('mod_explorer_search') || ''
-    }
-    return ''
-  })
-
   const [selectedOwners, setSelectedOwners] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(20)
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mod_explorer_search', localSearchTerm)
-    }
-  }, [localSearchTerm])
-
-  const searchTermToUse = localSearchTerm || searchFilters.searchTerm?.trim() || ''
+  const searchTermToUse = searchFilters.searchTerm?.trim() || ''
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -177,11 +163,23 @@ export default function ModExplorePage() {
   }[columns] || 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className={'min-h-screen bg-black text-white transition-all duration-300 pt-24'}>
-      <main className="flex-1 px-6 pt-4 pb-0" role="main">
+    <div className={'min-h-screen bg-black text-white transition-all duration-300 pt-20'}>
+      <main className="flex-1 px-6 pt-6 pb-0" role="main">
         <div className="mx-auto mb-6" style={{ maxWidth: '100%' }}>
-
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <h1 className="text-3xl font-black text-green-400 uppercase tracking-wider" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                Explore
+              </h1>
+              {searchTermToUse && (
+                <span className="text-base text-gray-400 font-mono">
+                  &middot; &ldquo;{searchTermToUse}&rdquo;
+                </span>
+              )}
+              <span className="text-sm text-gray-600 font-mono">
+                {filteredMods.length} mod{filteredMods.length !== 1 ? 's' : ''}
+              </span>
+            </div>
             <ModCardSettings
               sort={sort}
               onSortChange={setSort}
@@ -192,23 +190,6 @@ export default function ModExplorePage() {
               onToggleOwner={toggleOwner}
               onClearFilters={clearOwnerFilters}
             />
-            
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={localSearchTerm}
-                onChange={(e) => setLocalSearchTerm(e.target.value)}
-                placeholder="Search mods by name, author, or description..."
-                className="w-full px-6 py-4 pr-14 bg-black/50 border-2 border-blue-500/40 rounded-xl text-white text-base placeholder-gray-400 focus:outline-none focus:border-blue-500/60 backdrop-blur-xl transition-all"
-                style={{
-                  boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
-                  fontFamily: 'IBM Plex Mono, monospace'
-                }}
-              />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                <MagnifyingGlassIcon className="w-6 h-6 text-blue-400" />
-              </div>
-            </div>
           </div>
         </div>
 
@@ -257,7 +238,7 @@ export default function ModExplorePage() {
                 <div className="mt-4">
                   <button
                     onClick={() => {
-                      setLocalSearchTerm('')
+                      handleSearch('')
                       clearOwnerFilters()
                     }}
                     className="px-6 py-2 bg-purple-500/20 border-2 border-purple-500/40 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-all font-bold text-sm uppercase"
@@ -276,7 +257,7 @@ export default function ModExplorePage() {
           </div>
         )}
 
-        <div className={`mx-auto grid ${gridColsClass} gap-6`} style={{ maxWidth: '100%' }}>
+        <div className={`mx-auto grid ${gridColsClass} gap-8 mt-2`} style={{ maxWidth: '100%' }}>
           {paginatedMods.map((mod) => (
             <div
               key={`${mod.name}-${mod.key}`}

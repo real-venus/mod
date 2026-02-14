@@ -44,12 +44,27 @@ export class MetamaskAdapter implements WalletAdapter {
     if (!this.provider) {
       await this.connect()
     }
-    const signer = await this.provider.getSigner()
 
-    // assert verify the signature
+    // Get the specific address the user selected during sign-in
+    const selectedAddress = localStorage.getItem('wallet_address')
+    if (!selectedAddress) {
+      throw new Error('No wallet address found. Please sign in again.')
+    }
+
+    // Request the signer for the specific selected address, not just the default active account
+    const signer = await this.provider.getSigner(selectedAddress)
+    const signerAddress = await signer.getAddress()
+
+    // Verify we got the right signer
+    if (signerAddress.toLowerCase() !== selectedAddress.toLowerCase()) {
+      throw new Error(
+        `MetaMask signer mismatch: expected ${selectedAddress} but got ${signerAddress}. ` +
+        `Please switch to the correct account in MetaMask and try again.`
+      )
+    }
 
     const signature = await signer.signMessage(message)
-    const verified = await this.verify(message, signature, await signer.getAddress())
+    const verified = await this.verify(message, signature, signerAddress)
     if (!verified) {
       throw new Error('Signature verification failed')
     }

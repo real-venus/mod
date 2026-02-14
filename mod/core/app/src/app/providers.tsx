@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { useEffect, useState, useRef } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { CubeIcon } from '@heroicons/react/24/outline'
+import { CubeIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
@@ -11,7 +11,7 @@ import Header from '@/header/Header'
 import { WalletHeader } from '@/wallet/WalletHeader'
 import { NetworkSelector } from '@/network/NetworkSelector'
 import { UserProvider } from '@/context'
-import { SearchProvider } from '@/context/SearchContext'
+import { SearchProvider, useSearchContext } from '@/context/SearchContext'
 import {
   SplitScreenProvider,
   useSplitScreenContext,
@@ -24,6 +24,113 @@ import {
 } from '@/context/LayoutContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { SplitScreenControls } from '@/components/SplitScreenControls'
+
+function GlobalSearchBar() {
+  const { handleSearch, searchFilters } = useSearchContext()
+  const router = useRouter()
+  const pathname = usePathname()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [inputValue, setInputValue] = useState('')
+  const [isFocused, setIsFocused] = useState(false)
+
+  useEffect(() => {
+    setInputValue(searchFilters.searchTerm || '')
+  }, [searchFilters.searchTerm])
+
+  // Keyboard shortcut: Cmd/Ctrl+K to focus search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setInputValue(value)
+    handleSearch(value)
+    if (pathname !== '/mod/explore') {
+      router.push('/mod/explore')
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSearch(inputValue.trim())
+      if (pathname !== '/mod/explore') {
+        router.push('/mod/explore')
+      }
+    }
+    if (e.key === 'Escape') {
+      setInputValue('')
+      handleSearch('')
+      inputRef.current?.blur()
+    }
+  }
+
+  const isOnExplore = pathname === '/mod/explore'
+
+  return (
+    <div
+      className="fixed top-0 right-0 z-[60] flex items-center gap-3 px-5 py-3"
+      style={{
+        left: '80px',
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.95) 60%, rgba(0,0,0,0))',
+        backdropFilter: 'blur(12px)',
+      }}
+    >
+      <div className="relative flex-1 max-w-2xl">
+        <MagnifyingGlassIcon
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors"
+          style={{ color: isFocused ? '#4ade80' : '#6b7280' }}
+        />
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholder="Search mods..."
+          className="w-full pl-12 pr-20 py-2.5 bg-white/5 border rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none transition-all"
+          style={{
+            borderColor: isFocused ? 'rgba(74, 222, 128, 0.5)' : 'rgba(255,255,255,0.1)',
+            boxShadow: isFocused ? '0 0 20px rgba(74, 222, 128, 0.15)' : 'none',
+            fontFamily: 'IBM Plex Mono, monospace',
+          }}
+        />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          {inputValue && (
+            <button
+              onClick={() => { setInputValue(''); handleSearch('') }}
+              className="text-gray-500 hover:text-white text-xs px-1.5 py-0.5 rounded border border-gray-700 hover:border-gray-500 transition-all"
+            >
+              ESC
+            </button>
+          )}
+          {!inputValue && (
+            <span className="text-gray-600 text-xs px-1.5 py-0.5 rounded border border-gray-800">
+              {navigator?.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}K
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Page indicator */}
+      {!isOnExplore && (
+        <div className="text-xs text-gray-500 font-mono whitespace-nowrap">
+          {pathname.replace(/^\//, '').split('/')[0] || 'home'}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const {
@@ -102,8 +209,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         <div className="flex-1" />
       </div>
 
+      {/* Global search bar at top */}
+      <GlobalSearchBar />
+
       {/* Top right - Network and Wallet */}
-      <div className="fixed top-4 right-4 z-[70] flex items-center gap-3">
+      <div className="fixed top-2 right-4 z-[70] flex items-center gap-3">
         <WalletHeader />
       </div>
 

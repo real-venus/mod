@@ -23,7 +23,7 @@ export interface QuestResponse {
   created_at: number;
 }
 
-export type QuestTab = 'browse' | 'myQuests' | 'myResponses' | 'create';
+export type QuestTab = 'browse' | 'myQuests' | 'myResponses' | 'create' | 'docs';
 
 export function getStatusStyle(status: string) {
   switch (status) {

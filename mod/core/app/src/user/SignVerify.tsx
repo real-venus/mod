@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Copy, CheckCircle, FileSignature } from 'lucide-react'
 import { Key } from '@/key'
 import { copyToClipboard } from '@/utils'
+import { toast } from 'react-toastify'
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { stringToU8a, u8aToHex } from '@polkadot/util'
 import { signatureVerify } from '@polkadot/util-crypto'
@@ -72,7 +73,7 @@ export const SignVerify = ({ keyInstance }: SignVerifyProps) => {
     } catch (error) {
       console.error('Error signing message:', error)
       if (error instanceof Error) {
-        alert(`Failed to sign: ${error.message}`)
+        toast.error(`Failed to sign: ${error.message}`)
       }
     }
   }

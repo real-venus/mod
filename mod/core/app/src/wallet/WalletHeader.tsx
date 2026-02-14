@@ -14,6 +14,7 @@ import WalletCreditDisplay from './WalletCreditDisplay'
 import modConfig from '@/app/mod.json'
 import { ethers } from 'ethers'
 import { TransactionCard } from '@/chat/transactions/TransactionCard'
+import { toast } from 'react-toastify'
 
 type TokenType = 'USDC' | 'USDT'
 
@@ -414,7 +415,7 @@ export function WalletHeader() {
 
   const handleNetworkChange = (network: NetworkConfig) => {
     if (network.comingSoon) {
-      alert('Solana support coming soon!')
+      toast.info('Solana support coming soon!')
       return
     }
     setSelectedNetwork(network)
@@ -486,17 +487,20 @@ export function WalletHeader() {
       {/* Wallet Icon - Click to open sidebar */}
       <button
         onClick={() => setIsHovered(!isHovered)}
-        className="flex items-center justify-center bg-neutral-900 border-2 border-neutral-800 hover:bg-neutral-800 hover:border-neutral-700 transition-all relative"
+        className="flex flex-col items-center justify-center bg-neutral-900 border-2 border-neutral-800 hover:bg-neutral-800 hover:border-neutral-700 transition-all relative gap-1"
         style={{
-          width: '60px',
-          height: '60px',
-          borderRadius: '8px',
+          width: '80px',
+          height: '80px',
+          borderRadius: '10px',
           fontFamily: 'IBM Plex Mono, monospace'
         }}
       >
-        <WalletIcon className="w-6 h-6 text-neutral-400" />
+        <WalletIcon className="w-7 h-7 text-neutral-400" />
+        <span className={`text-[9px] font-bold font-mono tabular-nums ${isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>
+          {tokenExpiry || getTokenExpiry()}
+        </span>
         <div
-          className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-sm transition-colors ${
+          className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-sm transition-colors ${
             isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
           }`}
           title={isTokenExpired ? 'Token Expired - Click to Refresh' : 'Connected'}
@@ -522,75 +526,127 @@ export function WalletHeader() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 400, opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              className={`fixed top-0 right-0 h-screen shadow-2xl z-[90] overflow-y-auto custom-scrollbar font-mono bg-neutral-950 ${isResizing ? 'select-none' : ''}`}
+              className={`fixed top-0 right-0 h-screen shadow-2xl z-[90] overflow-y-auto custom-scrollbar font-mono bg-[#0a0a0a] ${isResizing ? 'select-none' : ''}`}
               style={{
                 width: `${sidebarWidth}px`,
-                borderLeft: `2px solid ${userColor}40`,
-                boxShadow: `-30px 0 60px rgba(0, 0, 0, 0.8), 0 0 100px ${userColor}20`,
+                borderLeft: `1px solid ${userColor}30`,
+                boxShadow: `-40px 0 80px rgba(0, 0, 0, 0.9), 0 0 120px ${userColor}15`,
                 cursor: isResizing ? 'ew-resize' : 'default'
               }}
             >
               {/* Resize Handle */}
               <div
-                className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-neutral-700 transition-colors z-[100] group"
+                className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-white/5 transition-colors z-[100] group"
                 onMouseDown={() => setIsResizing(true)}
               >
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-12 bg-neutral-800 group-hover:bg-neutral-600 transition-colors" />
+                <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-0.5 h-16 bg-neutral-800 group-hover:bg-neutral-500 transition-colors rounded-full" />
               </div>
               {isResizing && (
                 <style>{`body { cursor: ew-resize !important; user-select: none; }`}</style>
               )}
               {/* Header */}
-              <div className="sticky top-0 z-10 px-6 py-6 border-b border-neutral-800 bg-neutral-950">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 flex-1">
-                    <button
-                      onClick={copyAddress}
-                      className={`text-lg font-bold tracking-wider font-mono hover:text-neutral-300 hover:bg-neutral-900 transition-all cursor-pointer px-4 py-3 border-2 ${
-                        copiedAddress
-                          ? 'border-green-500 bg-green-500/20 text-green-400'
-                          : 'border-neutral-800 hover:border-neutral-700 text-neutral-500'
-                      }`}
-                      style={{ fontFamily: 'IBM Plex Mono, monospace', borderRadius: 0 }}
-                      title="Click to copy full address"
-                    >
-                      {copiedAddress ? 'COPIED!' : shortAddress}
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(marketCredit.toFixed(2))
-                        setCopied(true)
-                        setCopiedCredit(true)
-                        setTimeout(() => {
-                          setCopied(false)
-                          setCopiedCredit(false)
-                        }, 2000)
-                      }}
-                      className={`flex items-center gap-3 px-4 py-3 bg-neutral-900 border-2 transition-all cursor-pointer ${
-                        copiedCredit
-                          ? 'border-green-500 bg-green-500/20'
-                          : 'border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800'
-                      }`}
-                      style={{
-                        borderRadius: 0,
-                        fontFamily: 'IBM Plex Mono, monospace'
-                      }}
-                      title="Click to copy credit amount"
-                    >
-                      <span className={`text-sm uppercase tracking-wider font-bold ${copiedCredit ? 'text-green-400' : 'text-neutral-600'}`}>
-                        {copiedCredit ? 'COPIED!' : 'CREDIT'}
-                      </span>
-                      <span className={`text-xl font-mono font-black tabular-nums ${copiedCredit ? 'text-green-300' : 'text-green-400'}`}>
-                        ${marketCredit.toFixed(2)}
-                      </span>
-                    </button>
-                  </div>
+              <div className="sticky top-0 z-10 border-b border-neutral-800/80 bg-neutral-950/95 backdrop-blur-md">
+                {/* Top bar: close + sign out */}
+                <div className="flex items-center justify-between px-5 pt-4 pb-2">
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-red-500/70 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all text-[10px] font-bold uppercase tracking-wider"
+                    style={{ borderRadius: '6px', fontFamily: 'IBM Plex Mono, monospace' }}
+                  >
+                    <ArrowRightOnRectangleIcon className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
                   <button
                     onClick={() => setIsHovered(false)}
-                    className="p-2 hover:bg-neutral-800 transition-all"
-                    style={{ borderRadius: 0 }}
+                    className="p-2 hover:bg-neutral-800/80 transition-all rounded-lg"
                   >
-                    <XMarkIcon className="w-5 h-5 text-neutral-500" />
+                    <XMarkIcon className="w-5 h-5 text-neutral-600 hover:text-neutral-400 transition-colors" />
+                  </button>
+                </div>
+
+                {/* Address + Credit row */}
+                <div className="flex items-stretch gap-3 px-5 pb-3">
+                  <button
+                    onClick={copyAddress}
+                    className={`flex-1 text-base font-bold tracking-wider font-mono transition-all cursor-pointer px-4 py-3 border-2 ${
+                      copiedAddress
+                        ? 'border-green-500 bg-green-500/15 text-green-400'
+                        : 'border-neutral-800 hover:border-neutral-700 bg-neutral-900/80 hover:bg-neutral-800/80 text-neutral-400'
+                    }`}
+                    style={{ fontFamily: 'IBM Plex Mono, monospace', borderRadius: '8px' }}
+                    title="Click to copy full address"
+                  >
+                    {copiedAddress ? 'COPIED!' : shortAddress}
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(marketCredit.toFixed(2))
+                      setCopied(true)
+                      setCopiedCredit(true)
+                      setTimeout(() => {
+                        setCopied(false)
+                        setCopiedCredit(false)
+                      }, 2000)
+                    }}
+                    className={`flex items-center gap-3 px-4 py-3 border-2 transition-all cursor-pointer ${
+                      copiedCredit
+                        ? 'border-green-500 bg-green-500/15'
+                        : 'border-neutral-800 hover:border-neutral-700 bg-neutral-900/80 hover:bg-neutral-800/80'
+                    }`}
+                    style={{
+                      borderRadius: '8px',
+                      fontFamily: 'IBM Plex Mono, monospace'
+                    }}
+                    title="Click to copy credit amount"
+                  >
+                    <span className={`text-xs uppercase tracking-wider font-bold ${copiedCredit ? 'text-green-400' : 'text-neutral-600'}`}>
+                      {copiedCredit ? 'COPIED!' : 'CREDIT'}
+                    </span>
+                    <span className={`text-xl font-mono font-black tabular-nums ${copiedCredit ? 'text-green-300' : 'text-green-400'}`}>
+                      ${marketCredit.toFixed(2)}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Token + Session Refresh row */}
+                <div className="flex items-stretch gap-3 px-5 pb-5">
+                  <button
+                    onClick={() => {
+                      const token = localStorage.getItem('wallet_token') || ''
+                      if (token) {
+                        navigator.clipboard.writeText(token)
+                        setCopied(true)
+                        setTimeout(() => setCopied(false), 2000)
+                      }
+                    }}
+                    className={`flex-1 flex items-center gap-2 px-4 py-3 border-2 transition-all cursor-pointer ${
+                      copied && !copiedAddress && !copiedCredit
+                        ? 'border-green-500 bg-green-500/15'
+                        : 'border-neutral-800 hover:border-neutral-700 bg-neutral-900/80 hover:bg-neutral-800/80'
+                    }`}
+                    style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace' }}
+                    title="Click to copy token"
+                  >
+                    <ClipboardDocumentIcon className={`w-4 h-4 flex-shrink-0 ${copied && !copiedAddress && !copiedCredit ? 'text-green-400' : 'text-neutral-600'}`} />
+                    <span className={`text-sm font-mono font-bold truncate ${copied && !copiedAddress && !copiedCredit ? 'text-green-400' : 'text-neutral-500'}`}>
+                      {copied && !copiedAddress && !copiedCredit ? 'COPIED!' : (localStorage.getItem('wallet_token')?.slice(0, 20) + '...' || 'No token')}
+                    </span>
+                  </button>
+                  <button
+                    onClick={handleRefreshToken}
+                    disabled={isRefreshing}
+                    className={`flex items-center gap-2 px-4 py-3 border-2 transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 ${
+                      isTokenExpired
+                        ? 'border-red-500/60 bg-red-500/10 hover:bg-red-500/20 hover:border-red-400'
+                        : 'border-neutral-800 hover:border-cyan-500/50 bg-neutral-900/80 hover:bg-cyan-500/10'
+                    }`}
+                    style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace' }}
+                    title="Refresh session token"
+                  >
+                    <ArrowPathIcon className={`w-4 h-4 flex-shrink-0 ${isRefreshing ? 'animate-spin' : ''} ${isTokenExpired ? 'text-red-400' : 'text-cyan-400'}`} />
+                    <span className={`text-lg font-mono font-black tabular-nums ${isTokenExpired ? 'text-red-400' : 'text-cyan-400'}`}>
+                      {tokenExpiry || getTokenExpiry()}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -603,51 +659,46 @@ export function WalletHeader() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="px-6 py-4 border-b-4 border-yellow-500 bg-gradient-to-br from-yellow-900/40 to-orange-900/40 overflow-hidden"
+                    className="mx-5 mt-4 px-4 py-3 border-2 border-yellow-500/50 bg-yellow-500/10 overflow-hidden"
+                    style={{ borderRadius: '10px' }}
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center animate-pulse">
-                          <svg className="w-7 h-7 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                        </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-yellow-500/20 flex items-center justify-center animate-pulse">
+                        <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-yellow-400 font-black text-lg uppercase tracking-wider mb-2" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                        <span className="text-yellow-400 font-black text-xs uppercase tracking-wider" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
                           TOKEN EXPIRED
-                        </h3>
-                        <p className="text-yellow-200/80 text-sm font-mono mb-3">
-                          Your session token has expired. Click the <strong className="text-yellow-300">TOKEN</strong> button below to refresh and continue.
-                        </p>
-                        <button
-                          onClick={handleRefreshToken}
-                          disabled={isRefreshing}
-                          className="px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border-2 border-yellow-500/60 hover:border-yellow-500 text-yellow-400 font-black text-sm uppercase transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-                          style={{
-                            borderRadius: '6px',
-                            fontFamily: 'IBM Plex Mono, monospace',
-                            boxShadow: '0 0 20px rgba(234, 179, 8, 0.3)'
-                          }}
-                        >
-                          {isRefreshing ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 border-2 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin" />
-                              <span>REFRESHING...</span>
-                            </div>
-                          ) : (
-                            <span>🔐 REFRESH TOKEN NOW</span>
-                          )}
-                        </button>
+                        </span>
                       </div>
+                      <button
+                        onClick={handleRefreshToken}
+                        disabled={isRefreshing}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 hover:border-yellow-500 text-yellow-400 font-black text-[10px] uppercase transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                        style={{
+                          borderRadius: '6px',
+                          fontFamily: 'IBM Plex Mono, monospace',
+                        }}
+                      >
+                        {isRefreshing ? (
+                          <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <ArrowPathIcon className="w-3.5 h-3.5" />
+                            <span>REFRESH</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-{/* Action Tabs */}
-            <div className="px-4 py-3 border-b border-neutral-800">
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
+              {/* Action Tabs */}
+              <div className="px-5 py-4">
+              <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
                 {/* ADD BUTTON */}
                 <button
                   onClick={() => {
@@ -663,9 +714,9 @@ export function WalletHeader() {
                   }`}
                   style={{
                     fontFamily: 'IBM Plex Mono, monospace',
-                    borderRadius: '8px',
-                    width: '70px',
-                    height: '70px'
+                    borderRadius: '12px',
+                    width: '72px',
+                    height: '72px'
                   }}
                 >
                   <CreditCardIcon className="w-5 h-5" />
@@ -687,9 +738,9 @@ export function WalletHeader() {
                   }`}
                   style={{
                     fontFamily: 'IBM Plex Mono, monospace',
-                    borderRadius: '8px',
-                    width: '70px',
-                    height: '70px'
+                    borderRadius: '12px',
+                    width: '72px',
+                    height: '72px'
                   }}
                 >
                   <ArrowsRightLeftIcon className="w-5 h-5" />
@@ -711,31 +762,13 @@ export function WalletHeader() {
                   }`}
                   style={{
                     fontFamily: 'IBM Plex Mono, monospace',
-                    borderRadius: '8px',
-                    width: '70px',
-                    height: '70px'
+                    borderRadius: '12px',
+                    width: '72px',
+                    height: '72px'
                   }}
                 >
                   <WalletIcon className="w-5 h-5" />
                   <span>PORT</span>
-                </button>
-
-                {/* TOKEN BUTTON */}
-                <button
-                  onClick={handleRefreshToken}
-                  disabled={isRefreshing}
-                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 ${
-                    'bg-gradient-to-br from-cyan-950/40 to-teal-950/40 border-cyan-900/60 text-cyan-600 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30'
-                  }`}
-                  style={{
-                    fontFamily: 'IBM Plex Mono, monospace',
-                    borderRadius: '8px',
-                    width: '70px',
-                    height: '70px'
-                  }}
-                >
-                  <ArrowPathIcon className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  <span>TOKEN</span>
                 </button>
 
                 {/* TXS BUTTON */}
@@ -754,9 +787,9 @@ export function WalletHeader() {
                   }`}
                   style={{
                     fontFamily: 'IBM Plex Mono, monospace',
-                    borderRadius: '8px',
-                    width: '70px',
-                    height: '70px'
+                    borderRadius: '12px',
+                    width: '72px',
+                    height: '72px'
                   }}
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -774,7 +807,7 @@ export function WalletHeader() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="mt-3 pt-3 border-t border-neutral-800 overflow-hidden"
+                    className="mt-3 pt-3 border-t border-neutral-800/50 overflow-hidden"
                   >
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between px-1 mb-2">
@@ -794,9 +827,9 @@ export function WalletHeader() {
                         Object.entries(tokenBalances).map(([token, balance]) => (
                           <div
                             key={token}
-                            className="flex items-center justify-between px-3 py-2.5 bg-neutral-900 border-2 border-neutral-800 text-xs"
+                            className="flex items-center justify-between px-3 py-2.5 bg-neutral-900/80 border border-neutral-800/60 text-xs"
                             style={{
-                              borderRadius: 0,
+                              borderRadius: '8px',
                               fontFamily: 'IBM Plex Mono, monospace'
                             }}
                           >
@@ -840,9 +873,9 @@ export function WalletHeader() {
                       <select
                         value={selectedToken}
                         onChange={(e) => setSelectedToken(e.target.value as TokenType)}
-                        className="w-full bg-neutral-900 border-2 border-neutral-800 px-3 py-2 text-sm font-mono focus:outline-none text-neutral-300 hover:border-neutral-700 transition-colors"
+                        className="w-full bg-neutral-900/80 border border-neutral-800/60 px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-neutral-600 text-neutral-300 hover:border-neutral-700 transition-colors"
                         style={{
-                          borderRadius: 0,
+                          borderRadius: '8px',
                           fontFamily: 'IBM Plex Mono, monospace'
                         }}
                       >
@@ -861,9 +894,9 @@ export function WalletHeader() {
                         min="0"
                         step="0.01"
                         placeholder="10.00"
-                        className="w-full bg-neutral-900 border-2 border-neutral-800 px-3 py-2 text-sm font-mono placeholder-neutral-600 focus:outline-none disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
+                        className="w-full bg-neutral-900/80 border border-neutral-800/60 px-3 py-2.5 text-sm font-mono placeholder-neutral-600 focus:outline-none focus:border-neutral-600 disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
                         style={{
-                          borderRadius: 0,
+                          borderRadius: '8px',
                           fontFamily: 'IBM Plex Mono, monospace'
                         }}
                       />
@@ -872,9 +905,9 @@ export function WalletHeader() {
                     <button
                       onClick={handleTopUpTransaction}
                       disabled={!topUpAmount || isProcessing}
-                      className="w-full py-3 border-2 bg-neutral-900 border-neutral-800 font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all hover:bg-neutral-800 hover:border-neutral-700 flex items-center justify-center gap-2 text-green-400"
+                      className="w-full py-3 border bg-green-500/10 border-green-500/30 font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all hover:bg-green-500/20 hover:border-green-500/50 flex items-center justify-center gap-2 text-green-400"
                       style={{
-                        borderRadius: 0,
+                        borderRadius: '10px',
                         fontFamily: 'IBM Plex Mono, monospace'
                       }}
                     >
@@ -892,9 +925,9 @@ export function WalletHeader() {
                     </button>
 
                     {topUpError && (
-                      <div className="text-xs text-red-400 bg-neutral-900 border-2 border-neutral-800 px-3 py-2 font-mono"
+                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2.5 font-mono"
                         style={{
-                          borderRadius: 0,
+                          borderRadius: '8px',
                           fontFamily: 'IBM Plex Mono, monospace'
                         }}
                       >
@@ -903,9 +936,9 @@ export function WalletHeader() {
                     )}
 
                     {topUpSuccess && (
-                      <div className="text-xs text-green-400 bg-neutral-900 border-2 border-neutral-800 px-3 py-2 font-mono"
+                      <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-2.5 font-mono"
                         style={{
-                          borderRadius: 0,
+                          borderRadius: '8px',
                           fontFamily: 'IBM Plex Mono, monospace'
                         }}
                       >
@@ -934,9 +967,9 @@ export function WalletHeader() {
                         onChange={(e) => setTransferRecipient(e.target.value)}
                         disabled={isTransferring}
                         placeholder="0x..."
-                        className="w-full bg-neutral-900 border-2 border-neutral-800 px-3 py-2 text-sm font-mono placeholder-neutral-600 focus:outline-none disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
+                        className="w-full bg-neutral-900/80 border border-neutral-800/60 px-3 py-2.5 text-sm font-mono placeholder-neutral-600 focus:outline-none focus:border-neutral-600 disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
                         style={{
-                          borderRadius: 0,
+                          borderRadius: '8px',
                           fontFamily: 'IBM Plex Mono, monospace'
                         }}
                       />
@@ -952,9 +985,9 @@ export function WalletHeader() {
                         min="0"
                         step="0.01"
                         placeholder="10.00"
-                        className="w-full bg-neutral-900 border-2 border-neutral-800 px-3 py-2 text-sm font-mono placeholder-neutral-600 focus:outline-none disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
+                        className="w-full bg-neutral-900/80 border border-neutral-800/60 px-3 py-2.5 text-sm font-mono placeholder-neutral-600 focus:outline-none focus:border-neutral-600 disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
                         style={{
-                          borderRadius: 0,
+                          borderRadius: '8px',
                           fontFamily: 'IBM Plex Mono, monospace'
                         }}
                       />
@@ -963,9 +996,9 @@ export function WalletHeader() {
                     <button
                       onClick={handleTransfer}
                       disabled={!transferAmount || !transferRecipient || isTransferring}
-                      className="w-full py-3 border-2 bg-neutral-900 border-neutral-800 font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all hover:bg-neutral-800 hover:border-neutral-700 flex items-center justify-center gap-2 text-blue-400"
+                      className="w-full py-3 border bg-blue-500/10 border-blue-500/30 font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all hover:bg-blue-500/20 hover:border-blue-500/50 flex items-center justify-center gap-2 text-blue-400"
                       style={{
-                        borderRadius: 0,
+                        borderRadius: '10px',
                         fontFamily: 'IBM Plex Mono, monospace'
                       }}
                     >
@@ -983,9 +1016,9 @@ export function WalletHeader() {
                     </button>
 
                     {topUpError && (
-                      <div className="text-xs text-red-400 bg-neutral-900 border-2 border-neutral-800 px-3 py-2 font-mono"
+                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2.5 font-mono"
                         style={{
-                          borderRadius: 0,
+                          borderRadius: '8px',
                           fontFamily: 'IBM Plex Mono, monospace'
                         }}
                       >
@@ -994,9 +1027,9 @@ export function WalletHeader() {
                     )}
 
                     {topUpSuccess && (
-                      <div className="text-xs text-green-400 bg-neutral-900 border-2 border-neutral-800 px-3 py-2 font-mono"
+                      <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-2.5 font-mono"
                         style={{
-                          borderRadius: 0,
+                          borderRadius: '8px',
                           fontFamily: 'IBM Plex Mono, monospace'
                         }}
                       >
@@ -1034,7 +1067,7 @@ export function WalletHeader() {
                         <select
                           value={txsStatusFilter}
                           onChange={(e) => setTxsStatusFilter(e.target.value as 'all' | 'pending' | 'complete')}
-                          className="px-2 py-1 bg-neutral-900 border border-neutral-800 text-xs text-neutral-400 cursor-pointer focus:outline-none font-mono"
+                          className="px-2.5 py-1 bg-neutral-900/80 border border-neutral-800/60 text-xs text-neutral-400 cursor-pointer focus:outline-none font-mono rounded-md"
                         >
                           <option value="all">All</option>
                           <option value="pending">Pending</option>
@@ -1094,16 +1127,6 @@ export function WalletHeader() {
               </AnimatePresence>
             </div>
 
-            {/* Actions */}
-            <div className="px-4 py-2 space-y-1 border-t border-neutral-800">
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center gap-2 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-neutral-900 transition-all text-xs font-bold uppercase"
-              >
-                <ArrowRightOnRectangleIcon className="w-4 h-4" />
-                <span>Sign Out</span>
-              </button>
-            </div>
           </motion.div>
           </div>
         )}

@@ -8,7 +8,9 @@ import {
   CubeIcon,
   BanknotesIcon,
   ChatBubbleLeftRightIcon,
-  PlusCircleIcon
+  PlusCircleIcon,
+  TrophyIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -54,6 +56,20 @@ const navItems: NavItem[] = [
     icon: BanknotesIcon,
     features: ['Deposits', 'Withdrawals', 'Analytics'],
     color: '#f59e0b', // amber
+  },
+  {
+    href: '/quests',
+    label: 'Quests',
+    icon: TrophyIcon,
+    features: ['Quests', 'Challenges', 'Rewards'],
+    color: '#0bf58c', // green
+  },
+  {
+    href: '/docs',
+    label: 'Docs',
+    icon: DocumentTextIcon,
+    features: ['What is Mod', 'Architecture', 'Getting Started'],
+    color: '#a78bfa', // light purple
   },
 ];
 

@@ -83,9 +83,6 @@ class Auth:
             token = headers['token']
             headers = json.loads(self._base64url_decode(token))
 
-        age = abs(time.time() - float(headers['time']))
-        assert age < self.max_age, f'Token is stale {age} > {self.max_age}'
-
         # ────────────────────────────────────────────────
         # FIX: Normalize MetaMask legacy v=27/28 → v=0/1
         # ────────────────────────────────────────────────
@@ -108,11 +105,15 @@ class Auth:
         sig_data = self.sig_data(headers)   
         print('Hashing sig_data for verification:', m.hash(sig_data))
         # Now verify with (possibly normalized) signature
+
+        age = abs(time.time() - float(headers['time']))
+        assert age < self.max_age, f'Token is stale {age} > {self.max_age}'
+
         assert self.key.verify(
-            self.sig_data(headers),
+            sig_data,
             signature=headers['signature'],
             address=headers['key']
-        )
+        ), f'Invalid signature {sig_data} {headers}'
 
         return headers
     def get_key(self, key=None):

@@ -11,7 +11,7 @@ import WalletCreditDisplay from './WalletCreditDisplay'
 import { useRouter } from 'next/navigation'
 import Client from '@/client'
 
-type TabType = 'overview' | 'transactions' | 'tokens'
+type TabType = 'overview' | 'transactions'
 
 interface Transaction {
   hash: string
@@ -114,7 +114,6 @@ export default function WalletInfoTabs() {
   const tabs = [
     { id: 'overview' as TabType, label: 'Overview', icon: WalletIcon },
     { id: 'transactions' as TabType, label: 'Txs', icon: ArrowsRightLeftIcon },
-    { id: 'tokens' as TabType, label: 'Tokens', icon: BanknotesIcon },
   ]
 
   const formatTimeAgo = (timestamp: number) => {
@@ -132,6 +131,56 @@ export default function WalletInfoTabs() {
 
   return (
     <div className="space-y-2">
+      {/* Token Display - Above Tabs */}
+      <div className="p-3 rounded-lg border transition-all" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <KeyIcon className="w-4 h-4" style={{ color: userColor }} />
+            <span className="text-xs text-gray-400 font-bold uppercase">Token</span>
+            <div className="flex items-center gap-1 text-xs" style={{ color: userColor }}>
+              <ClockIcon className="w-3.5 h-3.5" />
+              <span className="font-mono font-bold">{tokenExpiry || getTokenExpiry()}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleRefreshToken}
+              disabled={isRefreshing}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+              style={{ borderColor: userColor, color: userColor }}
+            >
+              <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="font-bold">Refresh</span>
+            </button>
+          </div>
+        </div>
+        <div
+          className="flex items-center gap-2 p-2 rounded-md bg-black/50 border border-white/5 cursor-pointer hover:bg-black/70 transition-all group"
+          onClick={() => {
+            const token = localStorage.getItem('wallet_token') || ''
+            if (token) navigator.clipboard.writeText(token)
+          }}
+          title="Click to copy token"
+        >
+          <code className="font-mono text-sm break-all flex-1" style={{ color: userColor }}>
+            {localStorage.getItem('wallet_token') || 'No token'}
+          </code>
+          <CopyButton text={localStorage.getItem('wallet_token') || ''} size="sm" />
+          <div
+            className="relative"
+            onMouseEnter={() => setIsTokenQrHovered(true)}
+            onMouseLeave={() => setIsTokenQrHovered(false)}
+          >
+            <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: userColor }} />
+            {isTokenQrHovered && (
+              <div className="absolute bottom-full right-0 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: userColor }}>
+                <QRCode value={localStorage.getItem('wallet_token') || ''} size={120} color={userColor} />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Compact Tab Navigation */}
       <div className="flex gap-1 p-1 rounded-lg bg-black/40 border border-white/10">
         {tabs.map((tab) => (
@@ -158,46 +207,6 @@ export default function WalletInfoTabs() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-2">
-          {/* Auth Token - Compact */}
-          <div className="p-2 rounded-lg border transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1.5">
-                <KeyIcon className="w-3.5 h-3.5" style={{ color: userColor }} />
-                <span className="text-xs text-gray-400 font-bold uppercase">Token</span>
-                <div className="flex items-center gap-0.5 text-xs" style={{ color: userColor }}>
-                  <ClockIcon className="w-3 h-3" />
-                  <span className="font-mono text-xs">{tokenExpiry || getTokenExpiry()}</span>
-                </div>
-              </div>
-              <button
-                onClick={handleRefreshToken}
-                disabled={isRefreshing}
-                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs border transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-                style={{ borderColor: userColor, color: userColor }}
-              >
-                <ArrowPathIcon className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <code className="font-mono text-xs break-all text-gray-500 flex-1 truncate">
-                {localStorage.getItem('wallet_token')?.substring(0, 32)}...
-              </code>
-              <CopyButton text={localStorage.getItem('wallet_token') || ''} size="sm" />
-              <div 
-                className="relative"
-                onMouseEnter={() => setIsTokenQrHovered(true)}
-                onMouseLeave={() => setIsTokenQrHovered(false)}
-              >
-                <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: userColor }} />
-                {isTokenQrHovered && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: userColor }}>
-                    <QRCode value={localStorage.getItem('wallet_token') || ''} size={100} color={userColor} />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* Address - Compact */}
           <div className="p-2 rounded-lg border transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
             <div className="flex items-center gap-1.5 mb-1">
@@ -349,41 +358,6 @@ export default function WalletInfoTabs() {
         </div>
       )}
 
-      {activeTab === 'tokens' && (
-        <div className="space-y-2">
-          <div className="p-2 rounded-lg border" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-400 font-bold uppercase">Native Balance</span>
-              <span className="font-mono text-sm font-bold" style={{ color: userColor }}>
-                {user.balance?.toLocaleString() || 0}
-              </span>
-            </div>
-          </div>
-          
-          <div className="p-2 rounded-lg border" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
-            <span className="text-xs text-gray-400 font-bold uppercase">Market Credits</span>
-            <div className="mt-2">
-              <WalletCreditDisplay />
-            </div>
-          </div>
-          
-          <button
-            onClick={handleTopUp}
-            className="w-full p-2 rounded-lg border text-xs font-bold uppercase transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={{ 
-              borderColor: userColor, 
-              color: userColor, 
-              backgroundColor: `${userColor}15`,
-              boxShadow: `0 0 20px ${userColor}20`
-            }}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <CreditCardIcon className="w-4 h-4" />
-              <span>Top Up Tokens</span>
-            </div>
-          </button>
-        </div>
-      )}
     </div>
   )
 }

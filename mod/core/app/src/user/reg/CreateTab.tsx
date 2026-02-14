@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, Link as LinkIcon } from 'lucide-react'
 import { userContext } from '@/context'
+import { toast } from 'react-toastify'
 
 interface TabField {
   label: string
@@ -96,7 +97,7 @@ export const CreateTab = () => {
     
     if (typeof window !== 'undefined') {
       localStorage.setItem('user_custom_tabs', JSON.stringify(processedTabs))
-      alert('Tabs saved successfully!')
+      toast.success('Tabs saved successfully!')
     }
   }
 

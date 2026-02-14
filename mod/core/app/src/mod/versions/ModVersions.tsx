@@ -6,6 +6,7 @@ import { ModuleType } from '@/types'
 import { Clock, GitBranch, Hash, RotateCcw, ArrowUpDown } from 'lucide-react'
 import { CopyButton } from '@/ui/CopyButton'
 import { text2color } from '@/utils'
+import { toast } from 'react-toastify'
 
 interface ModVersionsProps {
   mod: ModuleType
@@ -48,7 +49,7 @@ export default function ModVersions({ mod }: ModVersionsProps) {
     try {
       await client.call('set_version', { key: mod.key, mod: mod.name, data })
     } catch (err: any) {
-      alert(`Failed to set version: ${err?.message || 'Unknown error'}`)
+      toast.error(`Failed to set version: ${err?.message || 'Unknown error'}`)
     }
   }
 

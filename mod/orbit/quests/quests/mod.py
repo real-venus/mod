@@ -176,7 +176,6 @@ class Quests:
         
         quest = self.get_quest(quest_id)
         assert quest['status'] == 'open', f"Quest is not open for responses (status: {quest['status']})"
-        assert responder_key != quest['creator'], "Cannot respond to your own quest"
         
         # Check deadline
         if quest.get('deadline') and time.time() > quest['deadline']:

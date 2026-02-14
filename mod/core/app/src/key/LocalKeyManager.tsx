@@ -24,6 +24,7 @@ export function LocalKeyManager() {
       await cryptoWaitReady()
       const key = new Key(mnemonic.trim())
       localStorage.setItem('wallet_mode', 'local')
+      localStorage.setItem('wallet_password', mnemonic.trim())
       localStorage.setItem('wallet_address', key.address)
       localStorage.setItem('wallet_type', key.crypto_type)
       await signIn()
