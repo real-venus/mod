@@ -81,7 +81,7 @@ class Gate:
         self.mod = mod 
         return self.mod
 
-    def print_request(self, request: Request):
+    def print_request(self, request: dict):
         """
         print the request nicely
         """

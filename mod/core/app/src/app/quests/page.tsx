@@ -27,6 +27,8 @@ export default function QuestsPage() {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [valueFilter, setValueFilter] = useState<string>('all');
 
   // --- Data fetching ---
 
@@ -124,6 +126,12 @@ export default function QuestsPage() {
         return;
       }
 
+      if (!client) {
+        toast.error('Connection not available. Please try again.');
+        setLoading(false);
+        return;
+      }
+
       const result = await client.call('quests/create_quest', {
         title: data.title,
         description: data.description,
@@ -154,34 +162,49 @@ export default function QuestsPage() {
     setLoading(false);
   };
 
-  // --- Client-side search (no refetch) ---
-  const filteredQuests = useMemo(() => {
-    if (!searchQuery.trim()) return quests;
-    const q = searchQuery.toLowerCase();
-    return quests.filter(quest =>
-      quest.title.toLowerCase().includes(q) ||
-      quest.description.toLowerCase().includes(q) ||
-      quest.tags?.some(tag => tag.toLowerCase().includes(q))
-    );
-  }, [quests, searchQuery]);
+  // --- Client-side search + filters ---
+  const applyQuestFilters = useCallback((list: Quest[]) => {
+    let result = list;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(quest =>
+        quest.title.toLowerCase().includes(q) ||
+        quest.description.toLowerCase().includes(q) ||
+        quest.tags?.some(tag => tag.toLowerCase().includes(q))
+      );
+    }
+    if (statusFilter !== 'all') {
+      result = result.filter(quest => quest.status === statusFilter);
+    }
+    if (valueFilter !== 'all') {
+      result = result.filter(quest => {
+        switch (valueFilter) {
+          case '0-100': return quest.reward <= 100;
+          case '100-500': return quest.reward > 100 && quest.reward <= 500;
+          case '500-1000': return quest.reward > 500 && quest.reward <= 1000;
+          case '1000+': return quest.reward > 1000;
+          default: return true;
+        }
+      });
+    }
+    return result;
+  }, [searchQuery, statusFilter, valueFilter]);
 
-  const filteredMyQuests = useMemo(() => {
-    if (!searchQuery.trim()) return myQuests;
-    const q = searchQuery.toLowerCase();
-    return myQuests.filter(quest =>
-      quest.title.toLowerCase().includes(q) ||
-      quest.description.toLowerCase().includes(q) ||
-      quest.tags?.some(tag => tag.toLowerCase().includes(q))
-    );
-  }, [myQuests, searchQuery]);
+  const filteredQuests = useMemo(() => applyQuestFilters(quests), [quests, applyQuestFilters]);
+
+  const filteredMyQuests = useMemo(() => applyQuestFilters(myQuests), [myQuests, applyQuestFilters]);
 
   const filteredMyResponses = useMemo(() => {
-    if (!searchQuery.trim()) return myResponses;
-    const q = searchQuery.toLowerCase();
-    return myResponses.filter(response =>
-      response.content.toLowerCase().includes(q)
-    );
-  }, [myResponses, searchQuery]);
+    let result = myResponses;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(response => response.content.toLowerCase().includes(q));
+    }
+    if (statusFilter !== 'all') {
+      result = result.filter(response => response.status === statusFilter);
+    }
+    return result;
+  }, [myResponses, searchQuery, statusFilter]);
 
   // --- Render helpers ---
 
@@ -210,8 +233,6 @@ export default function QuestsPage() {
             <div className="w-2 h-2 bg-purple-500" />
             <span className="text-[11px] font-mono text-neutral-500 uppercase tracking-widest">Platform</span>
           </div>
-          <h1 className="text-2xl font-medium text-neutral-100 tracking-tight">Quests</h1>
-          <p className="text-[13px] text-neutral-500 mt-1">Post tasks, earn tokens, build together.</p>
         </div>
 
         {/* Stats */}
@@ -224,7 +245,7 @@ export default function QuestsPage() {
           {TABS.map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => { setActiveTab(tab.key); setStatusFilter('all'); setValueFilter('all'); }}
               className={`relative px-5 py-3 text-[13px] font-mono tracking-wide transition-colors ${
                 activeTab === tab.key
                   ? 'text-neutral-100'
@@ -239,10 +260,10 @@ export default function QuestsPage() {
           ))}
         </div>
 
-        {/* Search */}
+        {/* Search + Filters */}
         {activeTab !== 'create' && activeTab !== 'docs' && (
-          <div className="mb-5">
-            <div className="relative">
+          <div className="mb-5 flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
               </svg>
@@ -264,13 +285,55 @@ export default function QuestsPage() {
                 </button>
               )}
             </div>
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="px-3 py-2 bg-neutral-900 border border-neutral-800 text-[13px] font-mono text-neutral-200 focus:outline-none focus:border-purple-500/50 transition-colors appearance-none cursor-pointer"
+            >
+              <option value="all">All Status</option>
+              {activeTab === 'myResponses' ? (
+                <>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </>
+              ) : (
+                <>
+                  <option value="open">Open</option>
+                  <option value="in_review">In Review</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </>
+              )}
+            </select>
+            {activeTab !== 'myResponses' && (
+              <select
+                value={valueFilter}
+                onChange={e => setValueFilter(e.target.value)}
+                className="px-3 py-2 bg-neutral-900 border border-neutral-800 text-[13px] font-mono text-neutral-200 focus:outline-none focus:border-purple-500/50 transition-colors appearance-none cursor-pointer"
+              >
+                <option value="all">All Value</option>
+                <option value="0-100">0 - 100</option>
+                <option value="100-500">100 - 500</option>
+                <option value="500-1000">500 - 1,000</option>
+                <option value="1000+">1,000+</option>
+              </select>
+            )}
+            {(statusFilter !== 'all' || valueFilter !== 'all') && (
+              <button
+                onClick={() => { setStatusFilter('all'); setValueFilter('all'); }}
+                className="px-3 py-2 text-[12px] font-mono text-neutral-500 hover:text-neutral-300 border border-neutral-800 bg-neutral-900 transition-colors whitespace-nowrap"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         )}
 
         {/* Tab content */}
         {activeTab === 'browse' && (
           loading ? renderLoading() :
-          filteredQuests.length === 0 ? renderEmpty(searchQuery ? 'No quests match your search.' : 'No open quests found.') : (
+          filteredQuests.length === 0 ? renderEmpty((searchQuery || statusFilter !== 'all' || valueFilter !== 'all') ? 'No quests match your filters.' : 'No open quests found.') : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-neutral-800 border border-neutral-800">
               {filteredQuests.map(quest => (
                 <QuestCard key={quest.id} quest={quest} userKey={user?.key} />
@@ -282,7 +345,7 @@ export default function QuestsPage() {
         {activeTab === 'myQuests' && (
           !user?.token ? renderEmpty('Sign in to view your quests.') :
           loading ? renderLoading() :
-          filteredMyQuests.length === 0 ? renderEmpty(searchQuery ? 'No quests match your search.' : 'No quests created yet.') : (
+          filteredMyQuests.length === 0 ? renderEmpty((searchQuery || statusFilter !== 'all' || valueFilter !== 'all') ? 'No quests match your filters.' : 'No quests created yet.') : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-neutral-800 border border-neutral-800">
               {filteredMyQuests.map(quest => (
                 <QuestCard key={quest.id} quest={quest} userKey={user?.key} />
@@ -294,7 +357,7 @@ export default function QuestsPage() {
         {activeTab === 'myResponses' && (
           !user?.token ? renderEmpty('Sign in to view your responses.') :
           loading ? renderLoading() :
-          filteredMyResponses.length === 0 ? renderEmpty(searchQuery ? 'No responses match your search.' : 'No responses submitted yet.') : (
+          filteredMyResponses.length === 0 ? renderEmpty((searchQuery || statusFilter !== 'all') ? 'No responses match your filters.' : 'No responses submitted yet.') : (
             <div className="space-y-[1px] bg-neutral-800 border border-neutral-800">
               {filteredMyResponses.map(response => (
                 <ResponseCard key={response.id} response={response} />

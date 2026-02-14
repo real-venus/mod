@@ -296,10 +296,10 @@ export function WalletAuthButton() {
 
             <div className="flex gap-2 mb-6">
               {([
-                { mode: 'local' as AuthMode, label: 'LOCAL', Logo: LocalKeyLogo, color: 'blue', onClick: () => { setAuthMode('local'); setError(''); } },
+                { mode: 'local' as AuthMode, label: 'LOCAL', Logo: LocalKeyLogo, color: 'blue', disabled: false, onClick: () => { setAuthMode('local'); setError(''); } },
                 { mode: 'subwallet' as AuthMode, label: 'SUBWALLET', Logo: SubwalletLogo, color: 'cyan', disabled: accounts.length === 0, onClick: () => { setAuthMode('subwallet'); setError(''); } },
-                { mode: 'metamask' as AuthMode, label: 'METAMASK', Logo: MetamaskLogo, color: 'orange', onClick: () => { setAuthMode('metamask'); setError(''); if (metamaskAccounts.length === 0) handleMetamaskConnect(); } },
-                { mode: 'phantom' as AuthMode, label: 'PHANTOM', Logo: PhantomLogo, color: 'purple', onClick: () => { setAuthMode('phantom'); setError(''); } },
+                { mode: 'metamask' as AuthMode, label: 'METAMASK', Logo: MetamaskLogo, color: 'orange', disabled: false, onClick: () => { setAuthMode('metamask'); setError(''); if (metamaskAccounts.length === 0) handleMetamaskConnect(); } },
+                { mode: 'phantom' as AuthMode, label: 'PHANTOM', Logo: PhantomLogo, color: 'purple', disabled: false, onClick: () => { setAuthMode('phantom'); setError(''); } },
               ] as const).map(({ mode, label, Logo, color, disabled, onClick }) => {
                 const isSelected = authMode === mode
                 const colorMap: Record<string, { border: string, bg: string, text: string, glow: string, check: string }> = {

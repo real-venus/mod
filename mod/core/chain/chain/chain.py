@@ -45,7 +45,7 @@ class Mod:
         self.config = m.config('chain')
         self.load_all_contracts()
         if not os.path.exists(self.contracts_path):
-            os.makedirs(self.path)
+            os.makedirs(self.contracts_path, exist_ok=True)
         
     def env_dict(self) -> Dict[str, str]:
         env_path = os.path.join(self.path, '.env')
