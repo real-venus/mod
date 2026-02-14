@@ -238,6 +238,97 @@ class Quests:
                 continue
         return responses
 
+    # ==================== EDIT QUEST ====================
+
+    def edit_quest(self,
+                   quest_id: str,
+                   title: str = None,
+                   description: str = None,
+                   reward: float = None,
+                   tags: List[str] = None,
+                   token: str = None) -> Dict[str, Any]:
+        """
+        Edit an open quest. Only the creator can edit, and only while
+        the quest status is 'open'.
+
+        Args:
+            quest_id: The quest ID to edit
+            title: Updated title (optional)
+            description: Updated description (optional)
+            reward: Updated reward amount (optional)
+            tags: Updated tags list (optional)
+            token: Auth token of the quest creator
+
+        Returns:
+            Updated quest object
+        """
+        assert token is not None, "Auth token required to edit"
+        verified = self.auth.verify(token)
+        editor_key = verified['key']
+
+        quest = self.get_quest(quest_id)
+        assert quest['creator'] == editor_key, "Only the quest creator can edit"
+        assert quest['status'] == 'open', "Can only edit open quests"
+
+        if title is not None:
+            assert len(title.strip()) > 0, "Title cannot be empty"
+            quest['title'] = title.strip()
+        if description is not None:
+            assert len(description.strip()) > 0, "Description cannot be empty"
+            quest['description'] = description.strip()
+        if reward is not None:
+            assert reward > 0, "Reward must be greater than 0"
+            quest['reward'] = reward
+        if tags is not None:
+            quest['tags'] = tags
+
+        quest['edited_at'] = time.time()
+        quest['updated_at'] = time.time()
+
+        quest_path = os.path.join(self.quests_path, f"{quest_id}.json")
+        m.put(quest_path, quest)
+
+        return quest
+
+    # ==================== EDIT RESPONSE ====================
+
+    def edit_response(self,
+                      response_id: str,
+                      content: str,
+                      token: str = None,
+                      attachments: List[str] = None) -> Dict[str, Any]:
+        """
+        Edit a pending response. Only the original responder can edit,
+        and only while the response is still pending.
+
+        Args:
+            response_id: The response ID to edit
+            content: Updated response content
+            token: Auth token of the responder
+            attachments: Optional updated attachments list
+
+        Returns:
+            Updated response object
+        """
+        assert token is not None, "Auth token required to edit"
+        verified = self.auth.verify(token)
+        editor_key = verified['key']
+
+        response = self.get_response(response_id)
+        assert response['responder'] == editor_key, "Only the original responder can edit"
+        assert response['status'] == 'pending', "Can only edit pending responses"
+        assert content and len(content.strip()) > 0, "Content is required"
+
+        response['content'] = content.strip()
+        if attachments is not None:
+            response['attachments'] = attachments
+        response['edited_at'] = time.time()
+
+        response_path = os.path.join(self.responses_path, f"{response_id}.json")
+        m.put(response_path, response)
+
+        return response
+
     # ==================== APPROVAL & REWARD ====================
     
     def approve(self,

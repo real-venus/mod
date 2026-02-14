@@ -1,9 +1,11 @@
 {
     "fns": [
         "create_quest",
+        "edit_quest",
         "quests",
         "get_quest",
         "respond",
+        "edit_response",
         "get_responses",
         "approve",
         "reject",

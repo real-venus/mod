@@ -10,69 +10,59 @@ interface QuestCardProps {
 
 export default function QuestCard({ quest, userKey }: QuestCardProps) {
   const canRespond = quest.status === 'open' && userKey;
+  const isCreator = userKey === quest.creator;
+
   return (
     <Link
       href={`/quests/${quest.id}`}
-      className="group relative bg-neutral-900 border border-neutral-800 hover:border-neutral-600 transition-all duration-200 cursor-pointer block"
+      className="group block bg-[#0a0a0e] border border-white/[0.06] hover:border-blue-500/40 transition-all duration-150 font-mono"
     >
-      {/* Top accent line */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-      <div className="p-5">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <h3 className="text-[15px] font-medium text-neutral-100 leading-snug tracking-tight">
-            {quest.title}
-          </h3>
-          <span className={`shrink-0 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider border ${getStatusStyle(quest.status)}`}>
-            {quest.status}
-          </span>
+      <div className="px-4 py-3">
+        {/* Top row: status + meta */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${getStatusStyle(quest.status)}`}>
+              {quest.status.replace('_', ' ')}
+            </span>
+            <span className="text-[10px] text-white/20">{formatTime(quest.created_at)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {isCreator && <span className="text-[9px] font-bold text-cyan-400/50 uppercase">[YOU]</span>}
+            <span className="text-[10px] text-white/20">{quest.responses?.length || 0} resp</span>
+          </div>
         </div>
 
-        {/* Description */}
-        <p className="text-[13px] text-neutral-400 leading-relaxed line-clamp-2 mb-4">
+        {/* Title */}
+        <h3 className="text-[14px] font-bold text-white/85 leading-tight mb-1 group-hover:text-blue-400 transition-colors truncate">
+          {quest.title}
+        </h3>
+
+        {/* Description - single line */}
+        <p className="text-[11px] text-white/30 leading-snug line-clamp-1 mb-2">
           {quest.description}
         </p>
 
-        {/* Tags */}
-        {quest.tags && quest.tags.length > 0 && (
-          <div className="flex gap-1.5 mb-4 flex-wrap">
-            {quest.tags.map((tag, i) => (
+        {/* Bottom row: tags + reward */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+            {quest.tags && quest.tags.slice(0, 3).map((tag, i) => (
               <span
                 key={i}
-                className="px-2 py-0.5 text-[11px] font-mono text-purple-400/80 bg-purple-500/8 border border-purple-500/15"
+                className="px-1.5 py-px text-[8px] font-bold text-blue-400/60 border border-blue-500/20 bg-blue-500/5 uppercase tracking-wider shrink-0"
               >
                 {tag}
               </span>
             ))}
           </div>
-        )}
-
-        {/* Response prompt */}
-        {canRespond && (
-          <div className="mb-3 px-3 py-2.5 bg-purple-500/5 border border-purple-500/20 flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse" />
-            <span className="text-[12px] font-mono text-purple-300">Accepting responses — click to submit yours</span>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-neutral-800/60">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-lg font-mono font-medium text-emerald-400">${quest.reward}</span>
-          </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0 ml-2">
+            <span className="text-[14px] font-bold text-green-400">
+              {quest.reward.toLocaleString()} <span className="text-[9px] text-green-400/50 uppercase">tkn</span>
+            </span>
             {canRespond && (
-              <span className="px-3 py-1 text-[11px] font-mono font-medium text-white bg-purple-600 hover:bg-purple-500 transition-colors">
-                Respond
+              <span className="px-2.5 py-1 text-[9px] font-bold text-black bg-blue-400 uppercase tracking-wider">
+                RESPOND
               </span>
             )}
-            <span className="text-[11px] font-mono text-neutral-500">
-              {quest.responses?.length || 0} responses
-            </span>
-            <span className="text-[11px] font-mono text-neutral-600">
-              {formatTime(quest.created_at)}
-            </span>
           </div>
         </div>
       </div>

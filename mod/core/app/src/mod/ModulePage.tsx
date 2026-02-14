@@ -7,9 +7,9 @@ import { ModuleType } from '@/types'
 import { userContext } from '@/context'
 import { ModContent, ModApi, ModApp } from '@/mod'
 import ModCard from '@/mod/ModCard'
-import { AlertCircle, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { text2color } from '@/utils'
+import { text2color, colorWithOpacity } from '@/utils'
 import UpdateMod from '@/user/UpdateMod'
 import ModEdit from '@/mod/edit/ModEdit'
 import ModVersions from '@/mod/versions/ModVersions'
@@ -32,6 +32,13 @@ export default function ModulePage() {
 
   const moduleColor = mod ? text2color(mod.name || mod.key) : '#ffffff'
 
+  const tabPrefixes: Record<string, string> = {
+    api: '[API]',
+    app: '[APP]',
+    versions: '[VER]',
+    content: '[CNT]',
+    edit: '[EDT]',
+  }
 
   // if mod has no app, remove app from availableTabs
   if (mod && !mod.url_app) {
@@ -41,7 +48,7 @@ export default function ModulePage() {
       if (activeTab === 'app') {
         setActiveTab(defaultTab)
       }
-    } 
+    }
   } else {
     if (!availableTabs.includes('app')) {
       availableTabs.push('app')
@@ -93,76 +100,74 @@ export default function ModulePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
-        <Loading />
+      <div className="min-h-screen bg-black font-mono relative overflow-hidden flex items-center justify-center" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+        <div
+          className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
+          style={{
+            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
+          }}
+        />
+        <div className="flex items-center gap-3 z-20">
+          <span className="text-blue-400 animate-pulse font-extrabold">_</span>
+          <span className="text-[12px] text-blue-400/50 font-bold">LOADING MODULE...</span>
+        </div>
       </div>
     )
   }
 
   if (error || !mod) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center p-6">
-        <div className="max-w-2xl w-full flex items-start gap-4 p-6 rounded-2xl border-2 border-rose-500/50 bg-gradient-to-br from-rose-500/20 to-rose-600/15 backdrop-blur-xl shadow-2xl shadow-rose-500/20">
-          <AlertCircle className="w-10 h-10 text-rose-400 flex-shrink-0 mt-1" />
-          <div className="flex-1">
-            <h3 className="text-3xl font-black text-rose-300 mb-2 uppercase tracking-wide">ERROR</h3>
-            <p className="text-xl text-rose-200/90 font-bold">{error || 'Module not found'}</p>
+      <div className="min-h-screen bg-black font-mono relative overflow-hidden flex items-center justify-center p-6" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+        <div
+          className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
+          style={{
+            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
+          }}
+        />
+        <div className="max-w-2xl w-full bg-[#0d0d0d] border-2 border-red-500/40 z-20">
+          <div className="px-5 py-3 border-b border-red-500/30 flex items-center gap-2">
+            <span className="text-red-400 text-[11px] font-extrabold">[ERR]</span>
+            <span className="text-[11px] font-extrabold text-red-400 uppercase tracking-wider">Error</span>
+          </div>
+          <div className="px-5 py-4">
+            <p className="text-[12px] text-red-400/70 font-medium">{error || 'Module not found'}</p>
           </div>
         </div>
       </div>
     )
   }
 
-  const hexToRgb = (hex: string) => {
-    const result = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex)
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : { r: 255, g: 255, b: 255 }
-  }
-
-  const rgb = hexToRgb(moduleColor)
-
-
-  
-    const tabColors = {
-      api: { r: 59, g: 130, b: 246 },
-      app: { r: 34, g: 197, b: 94 },
-      update: { r: 251, g: 191, b: 36 },
-      content: { r: 168, g: 85, b: 247 },
-      versions: { r: 245, g: 158, b: 11 },
-      edit: { r: 236, g: 72, b: 153 }
-    }
-
   const handleOwnerChange = (newOwnerKey: string) => {
     router.push(`/mod/${modName}/${newOwnerKey}`)
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      <main className="flex-1 px-6 pt-24 pb-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="mb-10">
+    <div className="min-h-screen bg-black text-white font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+      {/* CRT scanline overlay */}
+      <div
+        className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
+        }}
+      />
+
+      <main className="relative flex-1 px-6 pt-24 pb-8 z-20">
+        <div className="max-w-7xl mx-auto space-y-4">
+          <div className="mb-6">
             <ModCard mod={mod} card_enabled={false} />
           </div>
 
-          {/* Owner Toggle - Show when multiple owners exist for this module */}
+          {/* Owner Toggle */}
           {allModVersions.length > 1 && (
-            <div className="mb-6 flex items-center gap-3">
-              <span className="text-sm font-bold text-gray-400 uppercase tracking-wide">
-                Owner:
+            <div className="mb-4 flex items-center gap-3">
+              <span className="text-[10px] font-extrabold text-cyan-400/50 uppercase tracking-[0.2em]">
+                OWNER
               </span>
               <div className="relative">
                 <select
                   value={modKey}
                   onChange={(e) => handleOwnerChange(e.target.value)}
-                  className="px-4 py-2 rounded-xl border-2 bg-black/80 text-white font-mono text-sm font-bold focus:outline-none transition-all appearance-none pr-10"
-                  style={{
-                    borderColor: moduleColor,
-                    backgroundColor: `${moduleColor}15`,
-                    boxShadow: `0 0 20px ${moduleColor}30`
-                  }}
+                  className="px-3 py-2 bg-[#0d0d0d] text-white/70 font-mono font-bold text-[12px] focus:outline-none transition-all appearance-none pr-8 hover:bg-white/[0.03] border border-cyan-500/25"
                 >
                   {allModVersions.map((version, idx) => (
                     <option key={version.key} value={version.key}>
@@ -171,55 +176,54 @@ export default function ModulePage() {
                   ))}
                 </select>
                 <ChevronDown
-                  className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none w-4 h-4"
-                  style={{ color: moduleColor }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none w-3.5 h-3.5 text-white/25"
                 />
               </div>
-              <span className="text-xs text-gray-500">
-                {allModVersions.length} version{allModVersions.length !== 1 ? 's' : ''} available
+              <span className="text-[10px] text-amber-400/40 font-bold uppercase tracking-wider">
+                {allModVersions.length} version{allModVersions.length !== 1 ? 's' : ''}
               </span>
             </div>
           )}
 
-          <div className="flex flex-wrap gap-3 mb-6 bg-black p-4 rounded-xl">
+          {/* Tabs */}
+          <div className="flex items-center gap-px bg-white/[0.04]">
             {availableTabs.map((tab) => {
               const isActive = activeTab === tab
-              const color = tabColors[tab as keyof typeof tabColors]
               return (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
-                  className={`px-6 py-3 rounded-xl font-black text-base uppercase transition-all duration-300 ${
+                  className={`relative px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.15em] transition-all ${
                     isActive
-                      ? 'text-white border-2 shadow-2xl scale-105'
-                      : 'text-gray-400 border-2 border-gray-600/40 hover:scale-105 hover:border-gray-500/60'
+                      ? 'bg-[#0d0d0d] text-white/90 border-b-2 border-blue-400'
+                      : 'bg-[#0a0a0a] text-white/35 hover:text-white/55 hover:bg-white/[0.03] border-b-2 border-transparent'
                   }`}
-                  style={{
-                    backgroundColor: isActive ? `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)` : 'rgba(0, 0, 0, 1)',
-                    borderColor: isActive ? `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)` : 'rgba(255, 255, 255, 0.1)',
-                    boxShadow: isActive ? `0 0 24px rgba(${color.r}, ${color.g}, ${color.b}, 0.5)` : undefined
-                  }}
                 >
+                  <span className={`mr-1.5 text-[10px] font-extrabold ${isActive ? 'text-blue-400' : 'text-white/25'}`}>
+                    {tabPrefixes[tab] || ''}
+                  </span>
                   {tab}
                 </button>
               )
             })}
           </div>
-            <div className="bg-black p-6 rounded-xl min-h-[400px]">
-              {activeTab === 'content' && <ModContent mod={mod} />}
-              {activeTab === 'api' && <ModApi mod={mod} />}
-              {activeTab === 'app' && mod.url_app && <ModApp mod={mod} moduleColor={moduleColor} />}
-              {activeTab === 'versions' && <ModVersions mod={mod} />}
-              {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
-              {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}
-              {activeTab === 'edit' && !myMod && (
-                <div className="flex items-center justify-center py-16">
-                  <p className="text-gray-500 font-mono text-lg">Only the module owner can edit this module.</p>
-                </div>
-              )}
-            </div>
-      </div>
-    </main>
-  </div>
-)
+
+          {/* Tab content */}
+          <div className="bg-[#0d0d0d] border border-white/[0.12] min-h-[400px] p-6">
+            {activeTab === 'content' && <ModContent mod={mod} />}
+            {activeTab === 'api' && <ModApi mod={mod} />}
+            {activeTab === 'app' && mod.url_app && <ModApp mod={mod} moduleColor={moduleColor} />}
+            {activeTab === 'versions' && <ModVersions mod={mod} />}
+            {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
+            {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}
+            {activeTab === 'edit' && !myMod && (
+              <div className="flex items-center justify-center py-16">
+                <p className="text-[12px] text-amber-400/40 font-bold uppercase tracking-wider">Only the module owner can edit this module.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  )
 }

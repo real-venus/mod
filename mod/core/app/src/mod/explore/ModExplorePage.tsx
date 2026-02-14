@@ -6,7 +6,7 @@ import { ModCardSettings } from '../ModCardSettings'
 import { ModuleType } from '@/types'
 import { useSearchContext } from '@/context/SearchContext'
 import { userContext } from '@/context'
-import { X, RotateCcw, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 
@@ -49,12 +49,12 @@ export default function ModExplorePage() {
   }, [columns])
 
   const sortModules = (list: ModuleType[]) => {
-    const sortOrder = typeof window !== 'undefined' 
+    const sortOrder = typeof window !== 'undefined'
       ? (localStorage.getItem('mod_explorer_sort_order') || 'desc')
       : 'desc'
-    
+
     const sorted = [...list]
-    
+
     switch (sort) {
       case 'name':
         sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
@@ -72,7 +72,7 @@ export default function ModExplorePage() {
       default:
         sorted.sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0))
     }
-    
+
     return sortOrder === 'asc' ? sorted.reverse() : sorted
   }
 
@@ -85,14 +85,11 @@ export default function ModExplorePage() {
         return
       }
 
-      // Build search parameters
       const params: any = {}
       if (searchTermToUse) {
         params.search = searchTermToUse
       }
 
-      // Add owner filter if only one owner is selected
-      // (Multiple owners still need client-side filtering)
       if (selectedOwners.length === 1) {
         params.key = selectedOwners[0]
       }
@@ -146,7 +143,7 @@ export default function ModExplorePage() {
   }, [searchTermToUse, selectedOwners, sort])
 
   const toggleOwner = (owner: string) => {
-    setSelectedOwners(prev => 
+    setSelectedOwners(prev =>
       prev.includes(owner) ? prev.filter(o => o !== owner) : [...prev, owner]
     )
   }
@@ -163,20 +160,29 @@ export default function ModExplorePage() {
   }[columns] || 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className={'min-h-screen bg-black text-white transition-all duration-300 pt-20'}>
-      <main className="flex-1 px-6 pt-6 pb-0" role="main">
+    <div className="min-h-screen bg-black text-white font-mono relative overflow-hidden pt-20" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+      {/* CRT scanline overlay */}
+      <div
+        className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
+        }}
+      />
+
+      <main className="relative flex-1 px-6 pt-6 pb-0 z-20" role="main">
         <div className="mx-auto mb-6" style={{ maxWidth: '100%' }}>
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <h1 className="text-3xl font-black text-green-400 uppercase tracking-wider" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-                Explore
-              </h1>
+              <div className="flex items-center gap-2">
+                <span className="text-green-400 text-[12px] font-extrabold">[SYS]</span>
+
+              </div>
               {searchTermToUse && (
-                <span className="text-base text-gray-400 font-mono">
-                  &middot; &ldquo;{searchTermToUse}&rdquo;
+                <span className="text-[12px] text-cyan-400/60 font-bold font-mono">
+                  &gt; &quot;{searchTermToUse}&quot;
                 </span>
               )}
-              <span className="text-sm text-gray-600 font-mono">
+              <span className="text-[11px] text-amber-400/40 font-bold font-mono uppercase tracking-wider">
                 {filteredMods.length} mod{filteredMods.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -195,24 +201,27 @@ export default function ModExplorePage() {
 
         {error && (
           <div className="mx-auto mb-4" style={{ maxWidth: '100%' }}>
-            <div className="p-4 border-2 border-red-500/60 bg-gradient-to-r from-red-500/20 to-pink-500/20 rounded-xl flex items-start justify-between backdrop-blur-xl shadow-lg">
-              <div className="flex-1">
-                <div className="text-red-300 font-bold mb-1 text-lg uppercase tracking-wide">ERROR</div>
-                <div className="text-red-200/90 text-sm font-medium">{error}</div>
+            <div className="bg-[#0d0d0d] border-2 border-red-500/40 flex items-start justify-between">
+              <div className="flex-1 px-5 py-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-red-400 text-[11px] font-extrabold">[ERR]</span>
+                  <span className="text-red-400 font-extrabold text-[11px] uppercase tracking-wider">ERROR</span>
+                </div>
+                <div className="text-red-400/70 text-[12px] font-medium">{error}</div>
               </div>
-              <div className="flex gap-2 ml-4">
+              <div className="flex gap-px p-3">
                 <button
                   onClick={fetchAll}
-                  className="flex items-center gap-2 px-4 py-2 border border-red-400/60 rounded-lg text-red-300 hover:bg-red-500/30 transition-all font-bold text-sm uppercase"
+                  className="flex items-center gap-2 px-4 py-2 border-2 border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all text-[10px] font-extrabold uppercase tracking-wider"
                 >
-                  <RotateCcw size={16} strokeWidth={2.5} />
+                  <RotateCcw size={14} strokeWidth={2.5} />
                   RETRY
                 </button>
                 <button
                   onClick={() => setError(null)}
-                  className="p-2 border border-red-400/60 rounded-lg text-red-300 hover:bg-red-500/30 transition-all"
+                  className="p-2 border-2 border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all"
                 >
-                  <X size={16} strokeWidth={2.5} />
+                  <X size={14} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
@@ -220,67 +229,66 @@ export default function ModExplorePage() {
         )}
 
         {!loading && filteredMods.length === 0 && !error && (
-          <div className="mx-auto max-w-4xl text-center py-12">
-            <div className="mb-6 inline-bloc p-6 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20 rounded-2xl border-2 border-purple-500/40 shadow-xl backdrop-blur-xl">
-              <Sparkles className="w-16 h-16 text-purple-300" strokeWidth={2} />
-            </div>
-            <div className="text-purple-300 text-3xl mb-6 font-black uppercase tracking-wide">
-              {searchTermToUse || selectedOwners.length > 0 ? 'NO MODULES MATCH YOUR FILTERS' : 'NO MODULES YET'}
-            </div>
-            {(searchTermToUse || selectedOwners.length > 0) && (
-              <div className="text-neutral-400 text-sm space-y-2">
-                {searchTermToUse && (
-                  <div>Search: <span className="text-blue-400 font-mono">"{searchTermToUse}"</span></div>
-                )}
-                {selectedOwners.length > 0 && (
-                  <div>Owners: <span className="text-purple-400 font-mono">{selectedOwners.length} selected</span></div>
-                )}
-                <div className="mt-4">
-                  <button
-                    onClick={() => {
-                      handleSearch('')
-                      clearOwnerFilters()
-                    }}
-                    className="px-6 py-2 bg-purple-500/20 border-2 border-purple-500/40 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-all font-bold text-sm uppercase"
-                  >
-                    Clear All Filters
-                  </button>
-                </div>
+          <div className="mx-auto max-w-4xl text-center py-16">
+            <div className="bg-[#0d0d0d] border border-white/[0.12] px-8 py-12">
+              <span className="text-cyan-400/30 text-[12px] font-bold mb-2 block">---</span>
+              <div className="text-white/50 text-[13px] font-bold mb-4 uppercase tracking-wider">
+                {searchTermToUse || selectedOwners.length > 0 ? 'NO MODULES MATCH YOUR FILTERS' : 'NO MODULES YET'}
               </div>
-            )}
+              {(searchTermToUse || selectedOwners.length > 0) && (
+                <div className="text-white/30 text-[11px] font-medium space-y-2">
+                  {searchTermToUse && (
+                    <div>Search: <span className="text-cyan-400 font-bold">&quot;{searchTermToUse}&quot;</span></div>
+                  )}
+                  {selectedOwners.length > 0 && (
+                    <div>Owners: <span className="text-cyan-400 font-bold">{selectedOwners.length} selected</span></div>
+                  )}
+                  <div className="mt-4">
+                    <button
+                      onClick={() => {
+                        handleSearch('')
+                        clearOwnerFilters()
+                      }}
+                      className="px-5 py-2 bg-blue-500 hover:bg-blue-400 text-black text-[10px] font-extrabold uppercase tracking-wider transition-colors"
+                    >
+                      CLEAR ALL FILTERS
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {loading && (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+          <div className="flex items-center justify-center py-16">
+            <div className="flex items-center gap-3">
+              <span className="text-green-400 animate-pulse font-extrabold">_</span>
+              <span className="text-[12px] text-green-400/50 font-bold">LOADING MODULES...</span>
+            </div>
           </div>
         )}
 
-        <div className={`mx-auto grid ${gridColsClass} gap-8 mt-2`} style={{ maxWidth: '100%' }}>
+        <div className={`mx-auto grid ${gridColsClass} gap-px bg-white/[0.04] mt-2`} style={{ maxWidth: '100%' }}>
           {paginatedMods.map((mod) => (
-            <div
-              key={`${mod.name}-${mod.key}`}
-              className="transform hover:scale-[1.02] transition-all duration-300 ease-out"
-            >
+            <div key={`${mod.name}-${mod.key}`}>
               <ModCard mod={mod} card_enabled={true} />
             </div>
           ))}
         </div>
 
         {totalPages > 1 && (
-          <div className="mx-auto flex items-center justify-center gap-4 py-8" style={{ maxWidth: '100%' }}>
+          <div className="mx-auto flex items-center justify-center gap-2 py-8" style={{ maxWidth: '100%' }}>
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-2 px-4 py-2 border-2 border-blue-500/40 rounded-lg text-blue-300 hover:bg-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-bold text-sm uppercase backdrop-blur-xl"
-              style={{ boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)' }}
+              className="flex items-center gap-1 px-4 py-2 border border-blue-500/20 text-blue-400/50 hover:text-blue-400/80 hover:bg-blue-500/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[10px] font-extrabold uppercase tracking-wider"
             >
-              <ChevronLeft size={18} strokeWidth={2.5} />
+              <ChevronLeft size={14} strokeWidth={2.5} />
               PREV
             </button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-px">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let pageNum: number
                 if (totalPages <= 5) {
@@ -297,14 +305,11 @@ export default function ModExplorePage() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-10 h-10 rounded-lg font-bold text-sm transition-all backdrop-blur-xl ${
+                    className={`w-9 h-9 text-[11px] font-extrabold transition-all ${
                       currentPage === pageNum
-                        ? 'bg-blue-500/40 border-2 border-blue-400 text-white'
-                        : 'bg-black/50 border-2 border-blue-500/40 text-blue-300 hover:bg-blue-500/20'
+                        ? 'bg-blue-500 text-black border-2 border-blue-400'
+                        : 'bg-[#0d0d0d] border border-blue-500/20 text-blue-400/40 hover:text-blue-400/70 hover:bg-blue-500/[0.06]'
                     }`}
-                    style={{
-                      boxShadow: currentPage === pageNum ? '0 0 20px rgba(59, 130, 246, 0.4)' : '0 0 10px rgba(59, 130, 246, 0.2)'
-                    }}
                   >
                     {pageNum}
                   </button>
@@ -315,15 +320,14 @@ export default function ModExplorePage() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-2 px-4 py-2 border-2 border-blue-500/40 rounded-lg text-blue-300 hover:bg-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-bold text-sm uppercase backdrop-blur-xl"
-              style={{ boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)' }}
+              className="flex items-center gap-1 px-4 py-2 border border-blue-500/20 text-blue-400/50 hover:text-blue-400/80 hover:bg-blue-500/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[10px] font-extrabold uppercase tracking-wider"
             >
               NEXT
-              <ChevronRight size={18} strokeWidth={2.5} />
+              <ChevronRight size={14} strokeWidth={2.5} />
             </button>
 
-            <div className="ml-4 px-4 py-2 bg-black/50 border-2 border-blue-500/40 rounded-lg text-blue-300 font-bold text-sm backdrop-blur-xl">
-              {filteredMods.length} TOTAL MODS
+            <div className="ml-3 px-3 py-2 bg-[#0d0d0d] border border-green-500/20 text-green-400/50 text-[10px] font-extrabold uppercase tracking-wider">
+              {filteredMods.length} TOTAL
             </div>
           </div>
         )}

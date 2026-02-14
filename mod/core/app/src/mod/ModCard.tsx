@@ -14,114 +14,160 @@ interface ModCardProps {
 }
 
 export default function ModCard({ mod }: ModCardProps) {
-  const [isHovered, setIsHovered] = useState(false)
   const [isKeyHovered, setIsKeyHovered] = useState(false)
   const [isCidHovered, setIsCidHovered] = useState(false)
   const [isNameQrHovered, setIsNameQrHovered] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
 
   const modColor = text2color(mod.name || mod.key)
   const keyColor = text2color(mod.key)
   const cidColor = text2color(mod.cid || '')
   const updatedTimeStr = mod.updated ? time2str(mod.updated * 1000) : time2str(Date.now())
   const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/mod/${mod.name}/${mod.key}` : ''
-  
+  const fnCount = mod.schema ? Object.keys(mod.schema).length : 0
+
   return (
     <Link href={`/mod/${mod.name}/${mod.key}`}>
       <div
-        className="relative border-2 rounded-2xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:shadow-2xl overflow-visible group"
+        className="relative font-mono transition-all duration-300 cursor-pointer overflow-visible group border-2"
         style={{
           fontFamily: 'IBM Plex Mono, Courier New, monospace',
-          backgroundColor: colorWithOpacity(modColor, 0.08),
-          borderColor: modColor,
-          boxShadow: isHovered
-            ? `0 0 40px ${colorWithOpacity(modColor, 0.4)}, 0 0 80px ${colorWithOpacity(modColor, 0.2)}, inset 0 0 20px ${colorWithOpacity(modColor, 0.05)}`
-            : `0 0 20px ${colorWithOpacity(modColor, 0.25)}`
+          background: isHovered ? colorWithOpacity(modColor, 0.04) : '#0a0a0e',
+          borderColor: isHovered ? colorWithOpacity(modColor, 0.5) : 'rgba(255,255,255,0.1)',
+          boxShadow: isHovered ? `0 0 30px ${colorWithOpacity(modColor, 0.1)}, inset 0 0 60px ${colorWithOpacity(modColor, 0.03)}` : 'none',
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
+        {/* Top accent line */}
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500 rounded-2xl"
+          className="absolute top-0 left-0 right-0 h-[3px] transition-all duration-300"
           style={{
-            background: `radial-gradient(circle at 50% 50%, ${colorWithOpacity(modColor, 0.4)}, transparent 70%)`
+            background: `linear-gradient(90deg, ${modColor}, ${colorWithOpacity(modColor, 0.3)})`,
+            opacity: isHovered ? 1 : 0.7,
           }}
         />
 
-        <div className="relative p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex-1 space-y-4">
-              {/* Module name row */}
-              <div className="flex items-center gap-3">
-                <div className="relative flex-shrink-0">
-                  <CubeIcon className="w-10 h-10 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110" style={{ color: modColor }} />
-                  <div
-                    className="absolute inset-0 blur-xl opacity-60 group-hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: modColor }}
-                  />
-                </div>
+        {/* Scanline overlay on hover */}
+        {isHovered && (
+          <div
+            className="absolute inset-0 pointer-events-none z-10 opacity-[0.03]"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)',
+            }}
+          />
+        )}
 
-                <code className="text-2xl font-black font-mono tracking-wide truncate" style={{ color: modColor }}>
+        <div className="relative p-5">
+          {/* Header row: icon + name + actions */}
+          <div className="flex items-center gap-3 mb-3">
+            <div
+              className="w-11 h-11 flex items-center justify-center border-2 flex-shrink-0 transition-all duration-300"
+              style={{
+                background: colorWithOpacity(modColor, isHovered ? 0.2 : 0.1),
+                borderColor: colorWithOpacity(modColor, isHovered ? 0.7 : 0.4),
+                boxShadow: isHovered ? `0 0 12px ${colorWithOpacity(modColor, 0.3)}` : 'none',
+              }}
+            >
+              <CubeIcon className="w-5 h-5 transition-all duration-300" style={{ color: modColor, filter: isHovered ? `drop-shadow(0 0 4px ${modColor})` : 'none' }} />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-extrabold text-cyan-400/60 tracking-wider">[MOD]</span>
+                <code className="text-[15px] font-extrabold font-mono tracking-tight truncate" style={{ color: modColor }}>
                   {mod.name}
                 </code>
-                <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
-                <div
-                  className="relative flex-shrink-0"
-                  onMouseEnter={() => setIsNameQrHovered(true)}
-                  onMouseLeave={() => setIsNameQrHovered(false)}
-                >
-                  <QrCodeIcon className="h-4 w-4 cursor-pointer hover:scale-110 transition-transform text-gray-600 hover:text-gray-400" />
-                  {isNameQrHovered && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 bg-black/95 rounded-xl border-2 z-[9999] shadow-2xl" style={{ borderColor: modColor }}>
-                      <QRCode value={websiteUrl} size={120} color={modColor} />
-                    </div>
-                  )}
-                </div>
               </div>
-
-              {/* Description */}
               {mod.desc && (
-                <p className="text-sm text-gray-400 leading-relaxed line-clamp-2" style={{ paddingLeft: '52px' }}>
+                <p className="text-[11px] text-white/40 font-medium leading-snug line-clamp-1 mt-0.5">
                   {mod.desc}
                 </p>
               )}
+            </div>
 
-              {/* Metadata row */}
-              <div className="flex items-center gap-2.5 flex-wrap" style={{ paddingLeft: '52px' }}>
-                <div className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs border border-white/5 bg-white/5">
-                  <Clock size={14} className="text-gray-500" />
-                  <span className="font-medium text-gray-400">{updatedTimeStr}</span>
-                </div>
-
-                <div
-                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs border border-white/5 bg-white/5 relative"
-                  onMouseEnter={() => setIsKeyHovered(true)}
-                  onMouseLeave={() => setIsKeyHovered(false)}
-                  title={mod.key}
-                >
-                  <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
-                    <KeyIcon className="w-3.5 h-3.5 transition-transform hover:scale-110" style={{ color: keyColor }} />
-                  </Link>
-                  <code className="font-mono font-medium" style={{ color: keyColor }}>
-                    {shorten(mod.key, 4, 4)}
-                  </code>
-                  <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
-                </div>
-
-                {mod.cid && (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
+              <div
+                className="relative"
+                onMouseEnter={() => setIsNameQrHovered(true)}
+                onMouseLeave={() => setIsNameQrHovered(false)}
+              >
+                <QrCodeIcon className="h-4 w-4 cursor-pointer hover:scale-110 transition-all duration-200 text-white/20 hover:text-white/50" />
+                {isNameQrHovered && (
                   <div
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs border border-white/5 bg-white/5 relative"
-                    onMouseEnter={() => setIsCidHovered(true)}
-                    onMouseLeave={() => setIsCidHovered(false)}
-                    title={mod.cid}
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 border z-[9999]"
+                    style={{
+                      borderColor: colorWithOpacity(modColor, 0.3),
+                      background: 'rgba(8,8,12,0.97)',
+                    }}
                   >
-                    <code className="font-mono font-medium" style={{ color: cidColor }}>
-                      {shorten(mod.cid || '', 4, 4)}
-                    </code>
-                    <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
+                    <QRCode value={websiteUrl} size={120} color={modColor} />
                   </div>
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Divider */}
+          <div className="h-px mb-3 transition-all duration-300" style={{ background: isHovered ? colorWithOpacity(modColor, 0.2) : 'rgba(255,255,255,0.06)' }} />
+
+          {/* Metadata row */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {fnCount > 0 && (
+              <div
+                className="flex items-center gap-1 px-2 py-0.5 text-[10px] border transition-all duration-200"
+                style={{
+                  background: colorWithOpacity(modColor, 0.08),
+                  borderColor: colorWithOpacity(modColor, 0.25),
+                }}
+              >
+                <span className="font-extrabold" style={{ color: colorWithOpacity(modColor, 0.8) }}>{fnCount}</span>
+                <span className="font-bold" style={{ color: colorWithOpacity(modColor, 0.5) }}>fn{fnCount !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1 px-2 py-0.5 text-[10px] border border-amber-500/20 bg-amber-500/[0.04]">
+              <Clock size={10} className="text-amber-400/60" />
+              <span className="font-bold text-amber-400/50">{updatedTimeStr}</span>
+            </div>
+
+            <div
+              className="flex items-center gap-1 px-2 py-0.5 text-[10px] relative border"
+              style={{
+                background: colorWithOpacity(keyColor, 0.06),
+                borderColor: colorWithOpacity(keyColor, 0.25),
+              }}
+              onMouseEnter={() => setIsKeyHovered(true)}
+              onMouseLeave={() => setIsKeyHovered(false)}
+              title={mod.key}
+            >
+              <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
+                <KeyIcon className="w-3 h-3 transition-all duration-200 hover:scale-110" style={{ color: colorWithOpacity(keyColor, 0.8) }} />
+              </Link>
+              <code className="font-mono font-bold" style={{ color: colorWithOpacity(keyColor, 0.7) }}>
+                {shorten(mod.key, 4, 4)}
+              </code>
+              <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
+            </div>
+
+            {mod.cid && (
+              <div
+                className="flex items-center gap-1 px-2 py-0.5 text-[10px] relative border"
+                style={{
+                  background: colorWithOpacity(cidColor, 0.06),
+                  borderColor: colorWithOpacity(cidColor, 0.25),
+                }}
+                onMouseEnter={() => setIsCidHovered(true)}
+                onMouseLeave={() => setIsCidHovered(false)}
+                title={mod.cid}
+              >
+                <code className="font-mono font-bold" style={{ color: colorWithOpacity(cidColor, 0.7) }}>
+                  {shorten(mod.cid || '', 4, 4)}
+                </code>
+                <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
+              </div>
+            )}
           </div>
         </div>
       </div>

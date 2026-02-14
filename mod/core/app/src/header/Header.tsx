@@ -43,20 +43,20 @@ const navItems: NavItem[] = [
     features: ['Browse Modules', 'Create & Fork', 'API Registry'],
     color: '#10b981', // green
   },
-  {
-    href: '/network',
-    label: 'Network',
-    icon: GlobeAltIcon,
-    features: ['Chain Stats', 'Transactions', 'Validators'],
-    color: '#3b82f6', // blue
-  },
-  {
-    href: '/treasury',
-    label: 'Treasury',
-    icon: BanknotesIcon,
-    features: ['Deposits', 'Withdrawals', 'Analytics'],
-    color: '#f59e0b', // amber
-  },
+  // {
+  //   href: '/network',
+  //   label: 'Network',
+  //   icon: GlobeAltIcon,
+  //   features: ['Chain Stats', 'Transactions', 'Validators'],
+  //   color: '#3b82f6', // blue
+  // },
+  // {
+  //   href: '/treasury',
+  //   label: 'Treasury',
+  //   icon: BanknotesIcon,
+  //   features: ['Deposits', 'Withdrawals', 'Analytics'],
+  //   color: '#f59e0b', // amber
+  // },
   {
     href: '/quests',
     label: 'Quests',

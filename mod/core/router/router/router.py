@@ -190,26 +190,16 @@ class Router:
             result =  inspect.isgeneratorfunction(obj)
         return result
 
-    def call_data(self, fn: str = 'models', params: Dict[str, Any] = {}, time = None, cost = 0, **kwargs) -> Dict[str, Any]:
-        return {
-            'fn': fn,
-            'params': params,
-            'time': time,
-            'cost': cost, 
-            'key': self.key.address,
-        }
-
-
-    def verify_call_data(self, payload: Dict[str, Any], signature: str, address=None) -> bool:
+    def verify_task_data(self, payload: Dict[str, Any], signature: str, address=None) -> bool:
         return m.verify(payload, signature, address,  mode='str')
 
     def test_call(self, mod: m.Mod='openrouter', fn: str='models', params: Dict[str, Any]={}, key=None, **kwargs) -> Any:
         key = m.key(key)
         time = m.time()
         cost = 0
-        payload = self.call_data(mod=mod, fn=fn, params=params, time=time, cost=cost, **kwargs)
+        payload = self.task_data(mod=mod, fn=fn, params=params, time=time, cost=cost, **kwargs)
         signature = key.sign(payload, mode='str')
-        assert self.verify_call_data(payload, signature, key.address), "Payload verification failed"
+        assert self.verify_task_data(payload, signature, key.address), "Payload verification failed"
         return self.call(fn= mod + '/' + fn, params=params, time=time, cost=cost, signature=signature, **kwargs)
 
 
@@ -355,6 +345,7 @@ class Router:
         task['request_cid'] = m.copy(task['cid'])
         task['owner_token'] = self.auth.token(data=task, key=self.key)
         task['cid'] = self.store.put(task)
+        task['cost'] = self.get_cost(task)
         m.put(path, task)
         return task['cid']
 
@@ -372,11 +363,22 @@ class Router:
         else: 
             self._store = store
         return {'store': self._store_path}
+
+    def get_cost(self, task):
+        mod_name = task['fn'].split('/')[0]
+        calculate_cost = m.config(mod_name).get('cost', {}).get(task['fn'], 0)
+        assert task['cost'] >= calculate_cost, f"Insufficient cost for task {task['fn']}. Required: {calculate_cost}, Provided: {task['cost']}"
+        task['cost'] = calculate_cost
+
+        if 'cost' in task:
+            return task['cost']
+        else:
+            return 0
     
     def task_data(self , 
                 fn: str = 'store/ls',  
                 params: Dict[str, Any] = {}, 
-                cost = 1,
+                cost = 0,
                 timeout=1000,
                 ) -> Dict[str, Any]:
 
@@ -388,19 +390,22 @@ class Router:
             fn = fn + '/info' if '/' not in fn else fn
         if isinstance(params, dict):
             params = self.store.put(params)
-        return  {
+
+        task =  {
             'fn': fn,
             'params': params,       
             'timeout': timeout,  
             'status': 'pending',
             'time': m.time(), 
-            'cost': cost,
+            'cost': cost, # bid cost
         }
+        return task
+
     
     def is_tx_settled(self, tx):
         return 'payment_hash' in tx
     
-    def ious(self, cost_only=False):
+    def ious(self):
         ious  = {}
         for tx in self.txs(df=0):
             if tx['status'] != 'success':
@@ -424,11 +429,6 @@ class Router:
             print(f'Adding IOU tx: client={tx["key"]} provider={tx["owner"]} cost={tx["cost"]} cid={cid}')
             ious[tx['key']][tx['owner']] += [tx]
 
-        if cost_only:
-            for client in ious.keys():
-                for owner in ious[client].keys():
-                    total_cost = sum([tx['cost'] for tx in ious[client][owner]])
-                    ious[client][owner] = total_cost
         return ious
     
     def update_tx(self, tx, new_data: dict):

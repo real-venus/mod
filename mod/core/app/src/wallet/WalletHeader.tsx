@@ -17,6 +17,14 @@ import { TransactionCard } from '@/chat/transactions/TransactionCard'
 import { toast } from 'react-toastify'
 
 type TokenType = 'USDC' | 'USDT'
+type TransferTokenType = 'MARKET' | 'USDC' | 'USDT'
+
+const ERC20_ABI = [
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)'
+]
 
 interface NetworkConfig {
   id: string
@@ -73,7 +81,10 @@ export function WalletHeader() {
   const [transferRecipient, setTransferRecipient] = useState<string>('')
   const [transferAmount, setTransferAmount] = useState<string>('')
   const [isTransferring, setIsTransferring] = useState(false)
-  const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(NETWORKS[0])
+  const [transferTokenType, setTransferTokenType] = useState<TransferTokenType>('MARKET')
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(NETWORKS[1]) // Default to Base Sepolia
+  const [showNetworkDropdown, setShowNetworkDropdown] = useState(false)
+  const networkDropdownRef = useRef<HTMLDivElement>(null)
   const [balanceRefreshSuccess, setBalanceRefreshSuccess] = useState(false)
   const [showTxsTab, setShowTxsTab] = useState(true)  // Default to true - show txs by default
   const [showPortfolioTab, setShowPortfolioTab] = useState(false)
@@ -303,8 +314,17 @@ export function WalletHeader() {
       return
     }
 
-    if (amount > marketCredit) {
-      setTopUpError('Insufficient balance')
+    // Check balance based on selected token
+    if (transferTokenType === 'MARKET' && amount > marketCredit) {
+      setTopUpError('Insufficient MARKET balance')
+      return
+    }
+    if (transferTokenType === 'USDC' && amount > (tokenBalances?.USDC || 0)) {
+      setTopUpError('Insufficient USDC balance')
+      return
+    }
+    if (transferTokenType === 'USDT' && amount > (tokenBalances?.USDT || 0)) {
+      setTopUpError('Insufficient USDT balance')
       return
     }
 
@@ -315,39 +335,57 @@ export function WalletHeader() {
     try {
       const walletMode = user?.wallet_mode || localStorage.getItem('wallet_mode') || 'local'
 
-      if (walletMode === 'local' && client) {
-        // Use API for local key transactions - works on all browsers
-        const result = await client.call('transfer', {
-          to: transferRecipient,
-          amount: amount,
-          token: 'market'
-        })
-
-        if (result.error) {
-          throw new Error(result.error)
+      if (transferTokenType === 'MARKET') {
+        // Market credit transfer
+        if (walletMode === 'local' && client) {
+          const result = await client.call('transfer', {
+            to: transferRecipient,
+            amount: amount,
+            token: 'market'
+          })
+          if (result.error) throw new Error(result.error)
+        } else {
+          if (typeof window === 'undefined' || !window.ethereum) {
+            throw new Error('MetaMask is required for web3 wallet mode')
+          }
+          const { Market } = await import('@/network/Market')
+          const network = 'testnet'
+          const chainConfig = modConfig.chain?.[network]
+          if (!chainConfig) throw new Error('Chain config not found')
+          const market = new Market(chainConfig)
+          await market.transferMarketCredit(transferRecipient, amount)
         }
-
-        await fetchMarketCredit()
-        setTopUpSuccess(`Successfully transferred $${amount.toFixed(2)} to ${transferRecipient.slice(0, 8)}...${transferRecipient.slice(-6)}!`)
       } else {
-        // Use MetaMask for web3 wallet transactions
-        if (typeof window === 'undefined' || !window.ethereum) {
-          throw new Error('MetaMask is required for web3 wallet mode')
-        }
+        // USDC/USDT ERC20 transfer
+        if (walletMode === 'local' && client) {
+          const result = await client.call('transfer', {
+            to: transferRecipient,
+            amount: amount,
+            token: transferTokenType.toLowerCase()
+          })
+          if (result.error) throw new Error(result.error)
+        } else {
+          if (typeof window === 'undefined' || !window.ethereum) {
+            throw new Error('MetaMask is required for web3 wallet mode')
+          }
+          const network = 'testnet'
+          const chainConfig = modConfig.chain?.[network]
+          if (!chainConfig) throw new Error('Chain config not found')
 
-        const { Market } = await import('@/network/Market')
-        const network = 'testnet'
-        const chainConfig = modConfig.chain?.[network]
-        if (!chainConfig) {
-          throw new Error('Chain config not found')
-        }
+          const tokenAddress = chainConfig.contracts?.[transferTokenType]?.address
+          if (!tokenAddress) throw new Error(`${transferTokenType} contract not found`)
 
-        const market = new Market(chainConfig)
-        await market.transferMarketCredit(transferRecipient, amount)
-        await fetchMarketCredit()
-        setTopUpSuccess(`Successfully transferred $${amount.toFixed(2)} to ${transferRecipient.slice(0, 8)}...${transferRecipient.slice(-6)}!`)
+          const browserProvider = new ethers.BrowserProvider(window.ethereum)
+          const signer = await browserProvider.getSigner()
+          const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer)
+          const amountInWei = ethers.parseUnits(amount.toString(), 6)
+          const tx = await contract.transfer(transferRecipient, amountInWei)
+          await tx.wait()
+        }
       }
 
+      await fetchMarketCredit()
+      setTopUpSuccess(`Successfully transferred ${transferTokenType === 'MARKET' ? '$' : '$'}${amount.toFixed(2)} ${transferTokenType} to ${transferRecipient.slice(0, 8)}...${transferRecipient.slice(-6)}!`)
       setTransferAmount('')
       setTransferRecipient('')
       setTimeout(() => {
@@ -356,7 +394,8 @@ export function WalletHeader() {
       }, 3000)
     } catch (err: any) {
       let msg = err?.message || String(err)
-      if (msg.toLowerCase().includes('cancel')) msg = 'Transaction cancelled by user.'
+      if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user rejected')) msg = 'Transaction cancelled by user.'
+      else if (msg.includes('insufficient funds')) msg = 'Insufficient balance for transfer and gas fees.'
       setTopUpError(msg)
     } finally {
       setIsTransferring(false)
@@ -390,6 +429,19 @@ export function WalletHeader() {
       setSidebarWidth(parseInt(savedWidth))
     }
   }, [])
+
+  // Close network dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (networkDropdownRef.current && !networkDropdownRef.current.contains(e.target as Node)) {
+        setShowNetworkDropdown(false)
+      }
+    }
+    if (showNetworkDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showNetworkDropdown])
 
   useEffect(() => {
     if (!isResizing) return
@@ -487,15 +539,17 @@ export function WalletHeader() {
       {/* Wallet Icon - Click to open sidebar */}
       <button
         onClick={() => setIsHovered(!isHovered)}
-        className="flex flex-col items-center justify-center bg-neutral-900 border-2 border-neutral-800 hover:bg-neutral-800 hover:border-neutral-700 transition-all relative gap-1"
+        className="flex items-center bg-[#0d0d0d] border-2 border-neutral-800 hover:bg-white/[0.03] hover:border-neutral-600 transition-all relative gap-2 px-3"
         style={{
-          width: '80px',
-          height: '80px',
-          borderRadius: '10px',
+          height: '48px',
+          borderRadius: '0px',
           fontFamily: 'IBM Plex Mono, monospace'
         }}
       >
-        <WalletIcon className="w-7 h-7 text-neutral-400" />
+        <WalletIcon className="w-5 h-5 text-neutral-400 flex-shrink-0" />
+        <span className="text-sm font-black font-mono tabular-nums text-green-400">
+          ${marketCredit.toFixed(2)}
+        </span>
         <span className={`text-[9px] font-bold font-mono tabular-nums ${isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>
           {tokenExpiry || getTokenExpiry()}
         </span>
@@ -960,6 +1014,38 @@ export function WalletHeader() {
                     className="mt-3 pt-3 border-t border-neutral-800 space-y-2 overflow-hidden"
                   >
                     <div>
+                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Token</label>
+                      <div className="flex gap-1.5">
+                        {(['MARKET', 'USDC', 'USDT'] as TransferTokenType[]).map((token) => (
+                          <button
+                            key={token}
+                            onClick={() => setTransferTokenType(token)}
+                            className={`flex-1 py-2 px-2 text-xs font-bold uppercase font-mono border-2 transition-all ${
+                              transferTokenType === token
+                                ? token === 'MARKET'
+                                  ? 'border-green-500 bg-green-500/20 text-green-400'
+                                  : token === 'USDC'
+                                  ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                                  : 'border-teal-500 bg-teal-500/20 text-teal-400'
+                                : 'border-neutral-800 bg-neutral-900/80 text-neutral-500 hover:border-neutral-700 hover:text-neutral-400'
+                            }`}
+                            style={{
+                              borderRadius: '8px',
+                              fontFamily: 'IBM Plex Mono, monospace'
+                            }}
+                          >
+                            <div>{token}</div>
+                            <div className="text-[10px] font-normal tabular-nums mt-0.5 opacity-70">
+                              {token === 'MARKET' ? `$${(tokenBalances?.MARKET || 0).toFixed(2)}` :
+                               token === 'USDC' ? `$${(tokenBalances?.USDC || 0).toFixed(2)}` :
+                               `$${(tokenBalances?.USDT || 0).toFixed(2)}`}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
                       <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Recipient</label>
                       <input
                         type="text"
@@ -976,7 +1062,7 @@ export function WalletHeader() {
                     </div>
 
                     <div>
-                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Amount</label>
+                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Amount ({transferTokenType})</label>
                       <input
                         type="number"
                         value={transferAmount}
@@ -996,7 +1082,13 @@ export function WalletHeader() {
                     <button
                       onClick={handleTransfer}
                       disabled={!transferAmount || !transferRecipient || isTransferring}
-                      className="w-full py-3 border bg-blue-500/10 border-blue-500/30 font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all hover:bg-blue-500/20 hover:border-blue-500/50 flex items-center justify-center gap-2 text-blue-400"
+                      className={`w-full py-3 border font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all flex items-center justify-center gap-2 ${
+                        transferTokenType === 'MARKET'
+                          ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20 hover:border-green-500/50'
+                          : transferTokenType === 'USDC'
+                          ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50'
+                          : 'bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20 hover:border-teal-500/50'
+                      }`}
                       style={{
                         borderRadius: '10px',
                         fontFamily: 'IBM Plex Mono, monospace'
@@ -1010,7 +1102,7 @@ export function WalletHeader() {
                       ) : (
                         <>
                           <ArrowsRightLeftIcon className="w-4 h-4" />
-                          <span>SEND CREDIT</span>
+                          <span>SEND {transferTokenType}</span>
                         </>
                       )}
                     </button>

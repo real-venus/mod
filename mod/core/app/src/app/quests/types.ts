@@ -23,26 +23,32 @@ export interface QuestResponse {
   created_at: number;
 }
 
-export type QuestTab = 'browse' | 'myQuests' | 'myResponses' | 'create' | 'docs';
+export interface LeaderboardEntry {
+  responder: string;
+  total_earned: number;
+  quests_completed: number;
+}
+
+export type QuestTab = 'browse' | 'myQuests' | 'myResponses' | 'leaderboard' | 'create' | 'docs';
 
 export function getStatusStyle(status: string) {
   switch (status) {
     case 'open':
-      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+      return 'bg-green-500/10 text-green-400 border-green-500/40';
     case 'completed':
-      return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+      return 'bg-blue-400/10 text-blue-400 border-blue-400/40';
     case 'in_review':
-      return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+      return 'bg-amber-400/10 text-amber-400 border-amber-400/40';
     case 'cancelled':
-      return 'bg-red-500/10 text-red-400 border-red-500/30';
+      return 'bg-red-400/10 text-red-400 border-red-400/40';
     case 'approved':
-      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+      return 'bg-green-500/10 text-green-400 border-green-500/40';
     case 'rejected':
-      return 'bg-red-500/10 text-red-400 border-red-500/30';
+      return 'bg-red-400/10 text-red-400 border-red-400/40';
     case 'pending':
-      return 'bg-neutral-500/10 text-neutral-400 border-neutral-500/30';
+      return 'bg-amber-400/10 text-amber-400 border-amber-400/40';
     default:
-      return 'bg-neutral-500/10 text-neutral-400 border-neutral-500/30';
+      return 'bg-white/5 text-white/40 border-white/20';
   }
 }
 

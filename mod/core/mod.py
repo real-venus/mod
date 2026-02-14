@@ -555,6 +555,7 @@ class Mod:
             with open(path, 'r') as file:
                 data = json.load(file)
         except Exception as e:
+            print(f'Error loading json from {path}: {e}')
             return default
         return data
     

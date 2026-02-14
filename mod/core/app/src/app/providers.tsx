@@ -77,17 +77,18 @@ function GlobalSearchBar() {
 
   return (
     <div
-      className="fixed top-0 right-0 z-[60] flex items-center gap-3 px-5 py-3"
+      className="fixed top-0 right-0 z-[60] flex items-center gap-3 px-4"
       style={{
         left: '80px',
-        background: 'linear-gradient(to bottom, rgba(0,0,0,0.95) 60%, rgba(0,0,0,0))',
+        height: '80px',
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.97) 70%, rgba(0,0,0,0))',
         backdropFilter: 'blur(12px)',
       }}
     >
       <div className="relative flex-1 max-w-2xl">
         <MagnifyingGlassIcon
           className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors"
-          style={{ color: isFocused ? '#4ade80' : '#6b7280' }}
+          style={{ color: isFocused ? '#4ade80' : '#a3a3a3' }}
         />
         <input
           ref={inputRef}
@@ -98,24 +99,33 @@ function GlobalSearchBar() {
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholder="Search mods..."
-          className="w-full pl-12 pr-20 py-2.5 bg-white/5 border rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none transition-all"
+          className="w-full pl-13 pr-20 bg-neutral-900 border-2 text-white text-base font-bold placeholder-neutral-500 focus:outline-none transition-all"
           style={{
-            borderColor: isFocused ? 'rgba(74, 222, 128, 0.5)' : 'rgba(255,255,255,0.1)',
+            paddingLeft: '3rem',
+            height: '48px',
+            borderColor: isFocused ? 'rgba(74, 222, 128, 0.5)' : 'rgba(38, 38, 38, 1)',
             boxShadow: isFocused ? '0 0 20px rgba(74, 222, 128, 0.15)' : 'none',
             fontFamily: 'IBM Plex Mono, monospace',
+            borderRadius: '0px',
+            fontSize: '14px',
+            letterSpacing: '0.04em',
           }}
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
           {inputValue && (
             <button
               onClick={() => { setInputValue(''); handleSearch('') }}
-              className="text-gray-500 hover:text-white text-xs px-1.5 py-0.5 rounded border border-gray-700 hover:border-gray-500 transition-all"
+              className="text-neutral-500 hover:text-white text-xs font-bold px-2 py-1 border border-neutral-800 hover:border-neutral-600 bg-neutral-900 transition-all"
+              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
             >
               ESC
             </button>
           )}
           {!inputValue && (
-            <span className="text-gray-600 text-xs px-1.5 py-0.5 rounded border border-gray-800">
+            <span
+              className="text-neutral-600 text-xs font-bold px-2 py-1 border border-neutral-800 bg-neutral-900"
+              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+            >
               {navigator?.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}K
             </span>
           )}
@@ -124,8 +134,8 @@ function GlobalSearchBar() {
 
       {/* Page indicator */}
       {!isOnExplore && (
-        <div className="text-xs text-gray-500 font-mono whitespace-nowrap">
-          {pathname.replace(/^\//, '').split('/')[0] || 'home'}
+        <div className="text-[10px] text-green-400/40 font-mono font-extrabold whitespace-nowrap uppercase tracking-[0.2em]">
+          [{pathname.replace(/^\//, '').split('/')[0] || 'home'}]
         </div>
       )}
     </div>

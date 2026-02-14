@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import { userContext } from '@/context'
 import { ModuleType } from '@/types'
-import { text2color } from '@/utils'
+import { text2color, colorWithOpacity } from '@/utils'
 import { SchemaParamsPanel } from '@/chat/components/SchemaParamsPanel'
 import { CopyButton } from '@/ui/CopyButton'
-import { Play, Code, Zap } from 'lucide-react'
+import { Zap } from 'lucide-react'
 
 interface ModApiProps {
   mod: ModuleType
@@ -45,7 +45,8 @@ export default function ModApi({ mod }: ModApiProps) {
     setLoading(true)
     setError(null)
     try {
-      const res = await client.call(selectedFunction, { ...params, mod: mod.name, key: mod.key })
+      const fnpath = `${mod.name}/${selectedFunction}`
+      const res = await client.call(fnpath, { ...params })
       setResult(res)
     } catch (err: any) {
       setError(err?.message || 'Execution failed')
@@ -55,26 +56,40 @@ export default function ModApi({ mod }: ModApiProps) {
   }
 
   return (
-    <div className="rounded-xl border-2 font-mono" style={{ backgroundColor: `${modColor}15`, borderColor: modColor }}>
-      <div className="flex items-center justify-between p-3 border-b-2" style={{ borderColor: modColor }}>
-        <h3 className="text-xl font-black" style={{ color: modColor, letterSpacing: '0.02em' }}>API Schema</h3>
+    <div
+      className="font-mono overflow-hidden border border-white/[0.12] bg-[#0d0d0d]"
+      style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
-          <Code className="w-5 h-5" style={{ color: modColor }} />
-          <span className="text-sm" style={{ color: `${modColor}80` }}>{functions.length} functions</span>
+          <span className="text-[11px] font-extrabold" style={{ color: modColor }}>[API]</span>
+          <h3 className="text-[12px] font-extrabold text-white/60 uppercase tracking-[0.15em]">
+            API Schema
+          </h3>
         </div>
+        <span className="text-[10px] font-bold text-amber-400/40">
+          {functions.length} fn{functions.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
-      <div className="p-3 space-y-3">
+      <div className="p-5 space-y-4">
+        {/* Function selector */}
         <div>
-          <label className="text-sm font-bold mb-2 block" style={{ color: modColor, fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}>Select Function</label>
+          <label className="text-[10px] font-extrabold text-cyan-400/50 uppercase tracking-[0.2em] mb-1.5 block">
+            SELECT FUNCTION
+          </label>
           <select
             value={selectedFunction}
             onChange={(e) => {
               setSelectedFunction(e.target.value)
               handleResetParams()
             }}
-            className="w-full border-2 bg-black/40 px-4 py-3 rounded-lg text-lg font-bold backdrop-blur-sm focus:outline-none focus:ring-2"
-            style={{ borderColor: `${modColor}40`, color: modColor, fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+            className="w-full bg-black/40 px-3 py-2.5 text-[13px] font-mono font-bold focus:outline-none focus:border-blue-500/60 transition-all border border-white/[0.15]"
+            style={{
+              color: modColor,
+              fontFamily: 'IBM Plex Mono, Courier New, monospace',
+            }}
           >
             {functions.map(fn => (
               <option key={fn} value={fn}>{fn}</option>
@@ -91,57 +106,61 @@ export default function ModApi({ mod }: ModApiProps) {
           numColumns={2}
         />
 
+        {/* Execute button */}
         <button
           onClick={handleExecute}
           disabled={loading || !selectedFunction}
-          className="w-full px-6 py-4 rounded-xl font-black text-xl uppercase transition-all duration-300 border-2 shadow-2xl flex items-center justify-center gap-3"
+          className="w-full px-5 py-3 font-extrabold text-[11px] uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 border-2 disabled:opacity-30"
           style={{
-            backgroundColor: loading ? 'rgba(0,0,0,0.4)' : `${modColor}30`,
-            borderColor: modColor,
-            color: modColor,
-            fontFamily: 'Press Start 2P, IBM Plex Mono, monospace',
-            textTransform: 'lowercase',
-            textShadow: `0 0 20px ${modColor}80`,
-            boxShadow: `0 0 30px ${modColor}40`
+            background: loading ? 'transparent' : colorWithOpacity(modColor, 0.15),
+            borderColor: colorWithOpacity(modColor, loading ? 0.15 : 0.5),
+            color: loading ? colorWithOpacity(modColor, 0.5) : modColor,
           }}
         >
           {loading ? (
             <>
-              <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent" style={{ borderColor: modColor }} />
-              executing...
+              <span className="animate-pulse">_</span>
+              <span>EXECUTING...</span>
             </>
           ) : (
             <>
-              <Zap className="w-6 h-6" />
-              execute
+              <Zap className="w-4 h-4" />
+              <span>EXECUTE</span>
             </>
           )}
         </button>
 
+        {/* Error */}
         {error && (
-          <div className="p-4 rounded-xl border-2 border-red-500/50" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-red-400 font-bold text-sm uppercase">Error</h4>
+          <div className="overflow-hidden border-2 border-red-500/30 bg-red-500/[0.04]">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-red-500/20">
+              <div className="flex items-center gap-2">
+                <span className="text-red-400 text-[11px] font-extrabold">[ERR]</span>
+                <h4 className="text-red-400/80 text-[10px] font-extrabold uppercase tracking-wider">Error</h4>
+              </div>
               <CopyButton text={error} />
             </div>
-            <pre className="text-red-400 text-sm font-mono overflow-x-auto whitespace-pre-wrap break-words max-h-96 overflow-y-auto p-3 rounded-lg bg-black/30">
+            <pre className="text-red-400/70 text-[12px] font-mono font-medium overflow-x-auto whitespace-pre-wrap break-words max-h-96 overflow-y-auto p-4">
               {error}
             </pre>
           </div>
         )}
 
+        {/* Result */}
         {result !== null && (
-          <div className="rounded-xl border-2 p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderColor: `${modColor}40` }}>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-lg font-black" style={{ color: modColor, fontFamily: 'Press Start 2P, IBM Plex Mono, monospace', textTransform: 'lowercase' }}>Result</h4>
+          <div className="overflow-hidden border border-white/[0.12] bg-black/30">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.08]">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-extrabold" style={{ color: colorWithOpacity(modColor, 0.8) }}>[RES]</span>
+                <h4 className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: colorWithOpacity(modColor, 0.7) }}>
+                  Result
+                </h4>
+              </div>
               <CopyButton text={JSON.stringify(result, null, 2)} />
             </div>
             {(() => {
-              // Check if result is a base64 image string
               const isBase64Image = typeof result === 'string' && result.startsWith('data:image/');
-              // Check if result is an image URL
               const isImageUrl = typeof result === 'string' && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(result);
-              // Check if result object has an image field
               const hasImageField = typeof result === 'object' && result !== null &&
                 (result.image || result.url || result.data) &&
                 (typeof result.image === 'string' && (result.image.startsWith('data:image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(result.image)) ||
@@ -153,8 +172,8 @@ export default function ModApi({ mod }: ModApiProps) {
 
               if (imageSource) {
                 return (
-                  <div className="space-y-3">
-                    <div className="rounded-lg overflow-hidden border-2" style={{ borderColor: `${modColor}40`, backgroundColor: '#0a0a0a' }}>
+                  <div className="p-4 space-y-3">
+                    <div className="overflow-hidden border border-white/[0.1]" style={{ backgroundColor: '#06060a' }}>
                       <img
                         src={imageSource as string}
                         alt="Result"
@@ -163,7 +182,7 @@ export default function ModApi({ mod }: ModApiProps) {
                       />
                     </div>
                     {hasImageField && (
-                      <pre className="text-sm overflow-x-auto p-3 rounded-lg" style={{ backgroundColor: '#0a0a0a', color: modColor }}>
+                      <pre className="text-[12px] font-medium overflow-x-auto p-4" style={{ backgroundColor: '#06060a', color: colorWithOpacity(modColor, 0.75) }}>
                         <code>{JSON.stringify(result, null, 2)}</code>
                       </pre>
                     )}
@@ -172,7 +191,7 @@ export default function ModApi({ mod }: ModApiProps) {
               }
 
               return (
-                <pre className="text-sm overflow-x-auto p-3 rounded-lg" style={{ backgroundColor: '#0a0a0a', color: modColor }}>
+                <pre className="text-[12px] font-medium overflow-x-auto p-4 m-3" style={{ backgroundColor: '#06060a', color: colorWithOpacity(modColor, 0.85) }}>
                   <code>{JSON.stringify(result, null, 2)}</code>
                 </pre>
               );

@@ -6,6 +6,10 @@
         "expose" : ["forward", "info"],
         "port_range": [50050, 50150],
         "port": 50420,
+        "cost": {
+            "forward": 1,
+            "info": 0.5
+        },
         "routes": {
             "h": "api/h"
         }
