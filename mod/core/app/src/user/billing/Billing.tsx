@@ -150,7 +150,7 @@ export const Billing: React.FC = () => {
     setSuccess(null)
 
     try {
-      await market.transferMarketCredit(transferRecipient, amount)
+      await market.transferMarketCredit(user.key, transferRecipient, amount)
 
       await fetchCredit()
 

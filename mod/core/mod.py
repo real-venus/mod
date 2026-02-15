@@ -124,7 +124,7 @@ class Mod:
     def addy(self, key=None):
         return self.fn('key/addy')(key)
 
-    def add_fns(self, obj, add_fns = ['fns', 'schema', 'code', 'cid', 'edit', 'config']):
+    def add_fns(self, obj, add_fns = ['fns', 'schema', 'code', 'cid', 'edit', 'config', 'info']):
         for fn in add_fns:
             if not hasattr(obj, fn):
                 setattr(obj, fn, partial(getattr(self, fn), obj=obj.__name__))
@@ -154,7 +154,7 @@ class Mod:
         self._mod_cache[name] = obj
         delta = self.time() - t0
         self.print(f'mod({name} [{delta:.2f}s])', verbose=verbose)
-        self.add_fns(obj, add_fns=add_fns)
+        obj.info = self.info(mod)
         return obj
 
     def forward(self, fn:str='info', params:dict=None, auth=None) -> Any:
@@ -777,7 +777,7 @@ class Mod:
                 print(self.error(e)) if verbose else None
         return schema
 
-    def code(self, obj = None, search=None, *args, **kwargs) -> Union[str, Dict[str, str]]:
+    def code(self, obj = None,  **kwargs) -> Union[str, Dict[str, str]]:
 
         if '/' in str(obj):
             obj = self.fn(obj)
@@ -791,11 +791,8 @@ class Mod:
     
     def call(self,_fn: str = 'api/edit',  params: Dict[str, Any] = {}, timeout=30, wait=True, return_cid=False,  **_kwargs): 
         params = {**params , **_kwargs} 
-        params = {
-            'fn': _fn,
-            'params': params,
-        }
-        token = self.fn('auth.v0/token')()
+        params = { 'fn': _fn, 'params': params }
+        token = self.fn('auth.base/token')()
         return self.fn('client/call')('api/call', params=params, timeout=timeout, wait=wait, return_cid=return_cid, token=token)
 
     def cache(self, path:str, max_age: int = 60, default=None, directory: str = '~/.mod/cache'):
@@ -919,6 +916,7 @@ class Mod:
         return list(self.orbit('local').keys())
     lm = lmods = local_mods = local_mods
 
+    _api = None
     def info(self, 
             mod:str='mod',  # the mod to get the info of
             schema = False, # whether to include the schema of the mod
@@ -931,7 +929,13 @@ class Mod:
         """
         Get the info of a mod, including its schema, key, cid, and code if specified.
         """
-        api = self.mod('api')()
+        if self._api == None:
+            try:
+                self._api = self.mod('api')()
+            except Exception as e:
+                print(f'Error loading api module: {e}')
+                self._api = None
+        api = self._api         
         if not api.exists(mod, key=key):
             api.reg(mod=mod, key=key, public=public)
         return api.mod(mod=mod, schema=schema, url=url, desc=desc, key=key, fns=fns,  **kwargs)
@@ -986,27 +990,34 @@ class Mod:
 
     future = fut = submit
 
+    fnscache = {}
     def fn(self, fn:Union[callable, str], params:str=None, splitter='/', default_fn='forward', default_mod = 'mod') -> 'Callable':
         """
         Gets the function from a string or if its an attribute 
         """
-        if callable(fn):
-            return fn
-        elif hasattr(self, fn):
-            fn_obj = getattr(self, fn)
-        elif fn.startswith('/'):
-            fn_obj = getattr(self.mod(default_mod)(), fn[1:])
-        elif fn.endswith('/'):
-            fn_obj = getattr(self.mod(fn[:-1])(), default_fn)
-        elif '/' in fn:
-            mod, fn = fn.split('/')
-            mod = self.mod(mod)()
-            fn_obj = getattr(mod, fn)
-        elif self.mod_exists(fn):
-            mod = self.mod(fn)()
-            fn_obj = getattr(mod, default_fn)
+        fn_name = fn if isinstance(fn, str) else fn.__name__
+        if isinstance(fn, str) and fn_name in self.fnscache:
+            fn_obj = self.fnscache[fn_name]
         else:
-            raise Exception(f'Function {fn} not found')
+            if callable(fn):
+                return fn
+            elif hasattr(self, fn):
+                fn_obj = getattr(self, fn)
+            elif fn.startswith('/'):
+                fn_obj = getattr(self.mod(default_mod)(), fn[1:])
+            elif fn.endswith('/'):
+                fn_obj = getattr(self.mod(fn[:-1])(), default_fn)
+            elif '/' in fn:
+                mod, fn = fn.split('/')
+                mod = self.mod(mod)()
+                fn_obj = getattr(mod, fn)
+            elif self.mod_exists(fn):
+                mod = self.mod(fn)()
+                fn_obj = getattr(mod, default_fn)
+            else:
+                raise Exception(f'Function {fn} not found')
+            self.fnscache[fn_name] = fn_obj
+    
         if params:
             return fn_obj(**params)
         return fn_obj

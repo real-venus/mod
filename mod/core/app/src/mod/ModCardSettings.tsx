@@ -49,13 +49,13 @@ export function ModCardSettings({
           <div className="absolute top-full right-0 mt-1 w-72 bg-[#0a0a0a] border border-white/[0.15] p-4 z-50">
             <div className="space-y-4">
               <div>
-                <label className="text-[10px] font-extrabold text-cyan-400/50 uppercase tracking-[0.2em] mb-2 block">
+                <label className="text-[11px] font-extrabold text-cyan-400/50 uppercase tracking-[0.2em] mb-2 block">
                   SORT BY
                 </label>
                 <select
                   value={sort}
                   onChange={(e) => onSortChange(e.target.value as SortKey)}
-                  className="w-full px-3 py-2 bg-black/50 border border-white/[0.15] text-[12px] text-white/70 font-mono font-bold focus:outline-none focus:border-blue-500/60 transition-colors"
+                  className="w-full px-3 py-2 bg-black/50 border border-white/[0.15] text-[13px] text-white/70 font-mono font-bold focus:outline-none focus:border-blue-500/60 transition-colors"
                 >
                   <option value="recent">Recent</option>
                   <option value="name">Name</option>
@@ -66,7 +66,7 @@ export function ModCardSettings({
               </div>
 
               <div>
-                <label className="text-[10px] font-extrabold text-cyan-400/50 uppercase tracking-[0.2em] mb-2 block">
+                <label className="text-[11px] font-extrabold text-cyan-400/50 uppercase tracking-[0.2em] mb-2 block">
                   COLUMNS
                 </label>
                 <div className="flex gap-px">

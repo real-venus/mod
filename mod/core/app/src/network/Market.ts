@@ -130,7 +130,7 @@ export class Market {
   async increaseMarketAllowance(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
       const provider = getEthereumProvider()
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(userAddress)
       const tokenAddress = this.getTokenAddress(tokenType)
       const marketAddress = this.config.contracts.Market.address
       
@@ -151,7 +151,7 @@ export class Market {
   async addMarketCredit(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
       const provider = getEthereumProvider()
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(userAddress)
       const marketAddress = this.config.contracts.Market.address
       const tokenAddress = this.getTokenAddress(tokenType)
       
@@ -172,7 +172,7 @@ export class Market {
   async withdrawMarketCredit(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
       const provider = getEthereumProvider()
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(userAddress)
       const marketAddress = this.config.contracts.Market.address
       const tokenAddress = this.getTokenAddress(tokenType)
 
@@ -190,10 +190,10 @@ export class Market {
     }
   }
 
-  async transferMarketCredit(toAddress: string, amount: number): Promise<any> {
+  async transferMarketCredit(fromAddress: string, toAddress: string, amount: number): Promise<any> {
     try {
       const provider = getEthereumProvider()
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(fromAddress)
       const marketAddress = this.config.contracts.Market.address
 
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)

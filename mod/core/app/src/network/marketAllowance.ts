@@ -64,7 +64,7 @@ export class MarketAllowanceManager {
   async increaseMarketAllowance(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
       const provider = getEthereumProvider()
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(userAddress)
       const tokenAddress = this.getTokenAddress(tokenType)
       const marketAddress = this.config.contracts.Market.address
       
@@ -85,7 +85,7 @@ export class MarketAllowanceManager {
   async addMarketCredit(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
       const provider = getEthereumProvider()
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(userAddress)
       const marketAddress = this.config.contracts.Market.address
       const tokenAddress = this.getTokenAddress(tokenType)
       

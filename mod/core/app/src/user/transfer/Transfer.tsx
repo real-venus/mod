@@ -237,8 +237,9 @@ export const Transfer: React.FC = () => {
       await switchToSelectedNetwork()
       
       const browserProvider = new ethers.BrowserProvider(window.ethereum)
-      const signer = await browserProvider.getSigner()
-      
+      const selectedAddress = user?.key || localStorage.getItem('wallet_address')
+      const signer = await browserProvider.getSigner(selectedAddress)
+
       let tx, receipt
       
       if (selectedToken.address !== 'ETH') {

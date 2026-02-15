@@ -178,7 +178,7 @@ export default function ContractsInterface() {
 
       if (!window.ethereum) throw new Error('MetaMask not detected')
       const provider = new ethers.BrowserProvider(window.ethereum)
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(user.key)
       const registryContract = new ethers.Contract(contract.address, contract.abi, signer)
 
       const tx = await registryContract.updateMod(selectedModId, editingModData)
@@ -278,7 +278,7 @@ export default function ContractsInterface() {
 
       if (!window.ethereum) throw new Error('MetaMask not detected')
       const provider = new ethers.BrowserProvider(window.ethereum)
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(user.key)
       const contractInstance = new ethers.Contract(contract.address, contract.abi, signer)
       let txResult
       if (functionAbi.stateMutability === 'view' || functionAbi.stateMutability === 'pure') {

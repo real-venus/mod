@@ -5,7 +5,7 @@ import { userContext } from '@/context'
 import { ModuleType } from '@/types'
 import { Clock, GitBranch, Hash, RotateCcw, ArrowUpDown } from 'lucide-react'
 import { CopyButton } from '@/ui/CopyButton'
-import { text2color } from '@/utils'
+import { text2color, colorWithOpacity } from '@/utils'
 import { toast } from 'react-toastify'
 
 interface ModVersionsProps {
@@ -13,9 +13,11 @@ interface ModVersionsProps {
 }
 
 interface Version {
+  cid: string
   data: string
   comment: string | null
   updated: string
+  created: string
 }
 
 export default function ModVersions({ mod }: ModVersionsProps) {
@@ -61,77 +63,98 @@ export default function ModVersions({ mod }: ModVersionsProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8 rounded-xl border-2" style={{ backgroundColor: `${modColor}15`, borderColor: modColor }}>
-        <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-transparent" style={{ borderColor: modColor }} />
+      <div className="flex items-center justify-center p-8">
+        <div className="flex items-center gap-3">
+          <span className="animate-pulse font-extrabold" style={{ color: modColor }}>_</span>
+          <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: colorWithOpacity(modColor, 0.5) }}>Loading versions...</span>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="p-4 rounded-xl border-2" style={{ backgroundColor: `${modColor}15`, borderColor: '#ef4444' }}>
-        <p className="text-red-400 text-sm font-mono">{error}</p>
+      <div className="p-4 border border-red-500/20 bg-red-500/[0.04]">
+        <p className="text-red-400 text-[12px] font-mono">{error}</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border-2 font-mono" style={{ backgroundColor: `${modColor}15`, borderColor: modColor }}>
-      <div className="flex items-center justify-between p-3 border-b-2" style={{ borderColor: modColor }}>
-        <h3 className="text-xl font-black" style={{ color: modColor, letterSpacing: '0.02em' }}>Versions</h3>
-        <button
-          onClick={() => setSortAsc(!sortAsc)}
-          className="px-3 py-1.5 rounded-lg hover:opacity-80 transition-all flex items-center gap-2 text-xs font-semibold border"
-          style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: modColor, borderColor: `${modColor}40` }}
-        >
-          <ArrowUpDown className="w-4 h-4" />
-          {sortAsc ? 'Oldest' : 'Newest'}
-        </button>
+    <div className="font-mono space-y-4" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-extrabold" style={{ color: modColor }}>[VER]</span>
+          <h3 className="text-[12px] font-extrabold text-white/60 uppercase tracking-[0.15em]">
+            Versions
+          </h3>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-bold text-amber-400/40">
+            {versions.length} version{versions.length !== 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={() => setSortAsc(!sortAsc)}
+            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-white/30 hover:text-white/60 border border-white/[0.08] hover:border-white/[0.15] transition-all"
+          >
+            <ArrowUpDown className="w-3 h-3" />
+            {sortAsc ? 'Oldest' : 'Newest'}
+          </button>
+        </div>
       </div>
+
       {versions.length === 0 ? (
-        <p className="text-center py-8 text-base" style={{ color: `${modColor}80` }}>No versions found</p>
+        <p className="text-center py-8 text-[12px] text-white/30">No versions found</p>
       ) : (
-        <div className="max-h-96 overflow-y-auto space-y-2 p-3" style={{ scrollbarWidth: 'thin' }}>
+        <div className="space-y-1 max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(64, 64, 64, 0.5) transparent' }}>
           {sortedVersions.map((ver, idx) => {
             const originalIdx = versions.length - versions.indexOf(ver)
             return (
               <div
                 key={versions.indexOf(ver)}
-                className="p-3 rounded-lg border-2 hover:bg-opacity-90 transition-all"
-                style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderColor: `${modColor}40` }}
+                className="flex items-center justify-between gap-4 px-4 py-3 border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all group"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-2 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-1 bg-black/40 border rounded px-2 py-1" style={{ borderColor: `${modColor}40` }}>
-                        <GitBranch className="w-4 h-4 flex-shrink-0" style={{ color: modColor }} />
-                        <span className="font-black text-sm" style={{ color: modColor }}>v{originalIdx}</span>
-                      </div>
-                      <div className="flex items-center gap-1 bg-black/40 border border-blue-500/30 rounded px-2 py-1">
-                        <Clock className="w-4 h-4 flex-shrink-0" style={{ color: '#3b82f6' }} />
-                        <span className="text-xs text-blue-400 font-mono">{ver.updated}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 bg-black/40 border border-green-500/30 rounded px-2 py-1">
-                      <Hash className="w-4 h-4 flex-shrink-0" style={{ color: '#10b981' }} />
-                      <code className="text-xs font-mono" style={{ color: '#10b981' }}>
-                        {ver.data.slice(0, 12)}...{ver.data.slice(-8)}
-                      </code>
-                      <CopyButton text={ver.data} size="sm" />
-                    </div>
-                    {ver.comment && (
-                      <p className="text-xs truncate" style={{ color: `${modColor}80` }}>{ver.comment}</p>
-                    )}
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  {/* Version number */}
+                  <div className="flex items-center gap-1.5">
+                    <GitBranch className="w-3.5 h-3.5 flex-shrink-0" style={{ color: modColor }} />
+                    <span className="text-[12px] font-extrabold" style={{ color: modColor }}>v{originalIdx}</span>
                   </div>
-                  <button
-                    onClick={() => handleSetVersion(ver.data, originalIdx)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2 flex-shrink-0 border"
-                    style={{ backgroundColor: '#10b981', color: '#fff', borderColor: '#10b981' }}
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    Set
-                  </button>
+
+                  {/* Date */}
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3 h-3 flex-shrink-0 text-blue-400/50" />
+                    <span className="text-[11px] text-blue-400/50 font-mono">{ver.updated}</span>
+                  </div>
+
+                  {/* Hash */}
+                  <div className="flex items-center gap-1.5">
+                    <Hash className="w-3 h-3 flex-shrink-0 text-emerald-400/50" />
+                    <code className="text-[11px] font-mono text-emerald-400/50">
+                      {ver.data.slice(0, 8)}...{ver.data.slice(-6)}
+                    </code>
+                    <CopyButton text={ver.data} size="sm" />
+                  </div>
+
+                  {/* Comment */}
+                  {ver.comment && (
+                    <span className="text-[11px] text-white/30 truncate">{ver.comment}</span>
+                  )}
                 </div>
+
+                <button
+                  onClick={() => handleSetVersion(ver.data, originalIdx)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all opacity-50 group-hover:opacity-100 border"
+                  style={{
+                    color: modColor,
+                    borderColor: colorWithOpacity(modColor, 0.3),
+                    backgroundColor: colorWithOpacity(modColor, 0.06),
+                  }}
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Set
+                </button>
               </div>
             )
           })}

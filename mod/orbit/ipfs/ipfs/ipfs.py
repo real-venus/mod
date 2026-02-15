@@ -1,3 +1,4 @@
+from openai import timeout
 import requests
 import os
 import json
@@ -12,25 +13,38 @@ class  IpfsClient:
     endpoints = ['pin', 'add_mod', 'reg', 'mod', 'pins']
     """Simple IPFS client using requests library only."""
     node_name = 'ipfs.node'
-    host_options = [ '0.0.0.0', node_name]
     def __init__(self, url: str = None):
-        self.set_url(url)
-        self.session = requests.Session()
+        self.set_conn(url)
+       
 
-    def set_url(self, url: str ): 
-        if url is None:
-            for host in self.host_options:
-                url = f"http://{host}:5001/api/v0"
+    sessions = {}
+    def set_conn(self, url: str ,  host_options = [ '0.0.0.0', node_name], timeout=4): 
+
+
+        for host in host_options:
+            url = url or f"http://{host}:5001/api/v0"
+            if str(url) in self.sessions:
+                self.url = url
+                self.session = self.sessions[str(url)]
+                return self.url
+
+        if not hasattr(self, 'session'):
+            for host in host_options:
+                url = url or f"http://{host}:5001/api/v0"
                 try:
-                    response = requests.post(f"{url}/id", timeout=2)
+                    response = requests.post(f"{url}/id", timeout=timeout)
                     if response.status_code == 200:
                         break
+                    self.url = url
                 except Exception: 
                     print(f"Could not connect to IPFS node at {url}, trying next option...")
                     pass
         self.url = url 
+        self.sessions[str(url)] = requests.Session()
+        self.session = self.sessions[str(url)]
+       
         print(f"Using IPFS node at {self.url}")
-        return {"url": self.url}
+        return self.url
     
     def add_file(self, file_path: str) -> Dict[str, Any]:
         """Add a single file to IPFS.

@@ -7,7 +7,7 @@ import mod as m
 import hashlib
 
 class Auth:
-    mod = 'auth.v0'
+    mod = 'auth.base'
     def __init__(self, *args, **kwargs ):
         _auth = m.mod(self.mod)( *args, **kwargs )
         for _k in dir(_auth):

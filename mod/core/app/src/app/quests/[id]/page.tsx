@@ -199,7 +199,7 @@ export default function QuestPage() {
             backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
           }}
         />
-        <div className="relative max-w-3xl mx-auto px-6 py-8 z-20">
+        <div className="relative max-w-3xl mx-auto px-6 pt-20 pb-8 z-20">
           <div className="flex items-center justify-center py-20">
             <div className="flex items-center gap-3">
               <span className="text-blue-400 animate-pulse">_</span>
@@ -220,7 +220,7 @@ export default function QuestPage() {
             backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
           }}
         />
-        <div className="relative max-w-3xl mx-auto px-6 py-8 z-20">
+        <div className="relative max-w-3xl mx-auto px-6 pt-20 pb-8 z-20">
           <button
             onClick={() => router.push('/quests')}
             className="flex items-center gap-2 text-[12px] font-extrabold text-white/30 hover:text-blue-400 transition-colors mb-8 uppercase tracking-wider"
@@ -237,7 +237,8 @@ export default function QuestPage() {
   }
 
   const isCreator = user?.key === quest.creator;
-  const canRespond = quest.status === 'open' && user?.key;
+  const userResponse = user?.key ? responses.find(r => r.responder === user.key) : null;
+  const canRespond = quest.status === 'open' && user?.key && !userResponse;
   const canEditQuest = isCreator && quest.status === 'open';
 
   return (
@@ -250,18 +251,18 @@ export default function QuestPage() {
         }}
       />
 
-      <div className="relative max-w-3xl mx-auto px-6 py-8 z-20">
+      <div className="relative max-w-3xl mx-auto px-6 pt-20 pb-8 z-20">
 
         {/* Back button */}
         <button
           onClick={() => router.push('/quests')}
-          className="flex items-center gap-2 px-4 py-2.5 text-[12px] font-extrabold text-white/50 hover:text-blue-400 border-2 border-white/[0.1] hover:border-blue-500/40 bg-white/[0.02] hover:bg-blue-500/[0.06] transition-all mb-6 uppercase tracking-wider"
+          className="flex items-center gap-2 px-4 py-2.5 text-[12px] font-extrabold text-white/50 hover:text-blue-400 border-2 border-white/[0.1] hover:border-blue-500/40 bg-white/[0.02] hover:bg-blue-500/[0.06] transition-all mb-2 uppercase tracking-wider"
         >
           &larr; BACK TO QUESTS
         </button>
 
         {/* Quest header */}
-        <div className="bg-[#0a0a0e] border-2 border-white/[0.08] mb-4">
+        <div className="bg-[#0a0a0e] border-2 border-white/[0.08] mb-px">
           <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-blue-400 text-[11px] font-extrabold">[QST]</span>
@@ -352,7 +353,7 @@ export default function QuestPage() {
         </div>
 
         {/* Meta row */}
-        <div className="grid grid-cols-3 gap-px bg-white/[0.04] mb-4">
+        <div className="grid grid-cols-3 gap-px bg-white/[0.04] mb-px">
           <div className="bg-[#0a0a0e] px-5 py-4">
             <div className="text-[10px] text-white/25 uppercase tracking-[0.2em] mb-1 font-extrabold">REWARD</div>
             <div className="text-2xl font-extrabold text-green-400">{quest.reward.toLocaleString()}</div>
@@ -371,7 +372,7 @@ export default function QuestPage() {
 
         {/* Description */}
         {!editingQuest && (
-          <div className="bg-[#0a0a0e] border-2 border-white/[0.08] mb-4">
+          <div className="bg-[#0a0a0e] border-2 border-white/[0.08] mb-px">
             <div className="px-5 py-2.5 border-b border-white/[0.06]">
               <span className="text-[11px] font-extrabold text-white/30 uppercase tracking-[0.2em]">Description</span>
             </div>
@@ -383,7 +384,7 @@ export default function QuestPage() {
 
         {/* Tags */}
         {!editingQuest && quest.tags && quest.tags.length > 0 && (
-          <div className="mb-4 flex gap-2 flex-wrap">
+          <div className="mb-2 flex gap-2 flex-wrap">
             {quest.tags.map((tag, i) => (
               <span
                 key={i}
@@ -397,12 +398,12 @@ export default function QuestPage() {
 
         {/* Submit Response */}
         {quest.status === 'open' && !user?.key && (
-          <div className="bg-[#0a0a0e] border-2 border-white/[0.08] px-5 py-3 mb-4">
+          <div className="bg-[#0a0a0e] border-2 border-white/[0.08] px-5 py-3 mb-px">
             <p className="text-[13px] text-white/35 font-bold">Sign in to respond to this quest.</p>
           </div>
         )}
         {canRespond && (
-          <div className="bg-[#0a0a0e] border-2 border-white/[0.08] mb-4">
+          <div className="bg-[#0a0a0e] border-2 border-white/[0.08] mb-2">
             <div className="px-5 py-2.5 border-b border-white/[0.06] flex items-center gap-2">
               <span className="text-green-400 text-[11px] font-extrabold">&gt;_</span>
               <span className="text-[11px] font-extrabold text-white/35 uppercase tracking-[0.15em]">Submit a Response</span>
@@ -424,6 +425,17 @@ export default function QuestPage() {
             </div>
           </div>
         )}
+        {userResponse && quest.status === 'open' && (
+          <div className="bg-[#0a0a0e] border-2 border-blue-500/30 mb-2">
+            <div className="px-5 py-3 flex items-center gap-2">
+              <span className="text-blue-400 text-[11px] font-extrabold">[RSP]</span>
+              <span className="text-[11px] font-extrabold text-white/40 uppercase tracking-[0.15em]">You already responded to this quest</span>
+              <span className={`ml-auto px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider border-2 ${getStatusStyle(userResponse.status)}`}>
+                {userResponse.status}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Responses list */}
         {responses.length > 0 && (
@@ -435,7 +447,11 @@ export default function QuestPage() {
               </span>
             </div>
             <div className="space-y-2">
-              {responses.map(response => (
+              {[...responses].sort((a, b) => {
+                const aIsMe = user?.key === a.responder ? -1 : 0;
+                const bIsMe = user?.key === b.responder ? -1 : 0;
+                return aIsMe - bIsMe;
+              }).map(response => (
                 <div key={response.id} className="bg-[#0a0a0e] border-2 border-white/[0.08] hover:border-white/[0.15] transition-colors">
                   <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
                     <span className="text-[12px] text-white/45 font-bold">

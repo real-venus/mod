@@ -119,7 +119,7 @@ export const WithdrawalPanel: React.FC = () => {
         return
       }
       const provider = new ethers.BrowserProvider(window.ethereum)
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(user.key)
       const marketAddress = modConfig.chain.testnet.contracts.Market.address
       const MarketABI = (await import('@/contracts/abi/market/Market.sol/Market.json')).default
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)

@@ -57,7 +57,7 @@ export class TreasuryAllowanceManager {
   async setTreasuryAllowance(userAddress: string, amount: number, tokenType: 'USDC' | 'USDT' = 'USDC'): Promise<any> {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum)
-      const signer = await provider.getSigner()
+      const signer = await provider.getSigner(userAddress)
       const tokenAddress = this.getTokenAddress(tokenType)
       const treasuryAddress = this.config.contracts.Treasury.address
       

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react'
-import { text2color } from '@/utils'
 
 interface SchemaParamsPanelProps {
   selectedFunction: string
@@ -10,6 +9,7 @@ interface SchemaParamsPanelProps {
   handleParamChange: (key: string, value: string) => void
   handleResetParams: () => void
   numColumns?: number
+  modColor?: string
 }
 
 export function SchemaParamsPanel({
@@ -18,7 +18,8 @@ export function SchemaParamsPanel({
   params,
   handleParamChange,
   handleResetParams,
-  numColumns = 2
+  numColumns = 2,
+  modColor,
 }: SchemaParamsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const [columns, setColumns] = useState(numColumns)
@@ -26,8 +27,6 @@ export function SchemaParamsPanel({
   const [newParamKey, setNewParamKey] = useState('')
   const [newParamValue, setNewParamValue] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
-
-  const panelColor = text2color(selectedFunction || 'params')
 
   useEffect(() => {
     const checkWidth = () => {
@@ -71,7 +70,7 @@ export function SchemaParamsPanel({
     .filter(([key]) => key !== 'self' && key !== 'cls' && key !== 'kwargs')
 
   const hasKwargs = Object.keys(schema[selectedFunction].input || {}).includes('kwargs')
-  
+
   const getGridCols = () => {
     return columns === 1 ? 'grid-cols-1' : 'grid-cols-2'
   }
@@ -81,125 +80,127 @@ export function SchemaParamsPanel({
   return (
     <div
       ref={panelRef}
-      className="overflow-hidden backdrop-blur-sm transition-all rounded-lg border-2 border-purple-500/60 bg-black/80"
+      className="overflow-hidden transition-all"
       style={{ fontFamily: 'IBM Plex Mono, monospace' }}
     >
-      <div>
-        {/* Compact header */}
-        <div className="flex justify-between items-center gap-2 px-5 py-4 border-b border-purple-500/30">
-          <div className="text-sm font-bold text-white uppercase tracking-wide">
-            {paramEntries.length} parameter{paramEntries.length !== 1 ? 's' : ''}
-          </div>
-          <div className="flex gap-2">
-            {shouldCollapse && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsExpanded(!isExpanded)
-                }}
-                className="px-2 py-1 rounded transition-all text-xs font-bold bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-white"
-              >
-                {isExpanded ? '▼' : '▶'}
-              </button>
-            )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleColumns()
-              }}
-              className="px-2 py-1 rounded transition-all text-xs font-bold bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-white"
-              title="Toggle columns"
-            >
-              = {columns}col
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                handleResetParams()
-              }}
-              className="px-2 py-1 rounded transition-all text-xs font-bold bg-neutral-800 text-cyan-400 hover:bg-neutral-700"
-            >
-              reset
-            </button>
-          </div>
+      {/* Header */}
+      <div className="flex justify-between items-center gap-2 mb-3">
+        <div className="text-[11px] font-extrabold text-white/50 uppercase tracking-wider">
+          {paramEntries.length} parameter{paramEntries.length !== 1 ? 's' : ''}
         </div>
-        <div
-          className="overflow-y-auto px-5 pb-4 scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent"
-          style={{
-            maxHeight: shouldCollapse && !isExpanded ? '300px' : '600px',
-            transition: 'max-height 0.3s ease',
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(64, 64, 64, 0.5) transparent'
-          }}
-        >
-          <div className={`grid gap-4 ${getGridCols()}`}>
-            {paramEntries.map(([key, value]: [string, any]) => (
-              <div key={key} className="flex flex-col gap-2">
-                <label className="text-sm font-bold text-white">
-                  {key} <span className="text-neutral-500 text-xs">({value.type})</span>
-                </label>
-                <input
-                  type="text"
-                  value={params[key] ?? ''}
-                  onChange={(e) => handleParamChange(key, e.target.value)}
-                  placeholder={value.value !== '_empty' ? String(value.value) : 'enter value...'}
-                  className="border-2 text-neutral-300 px-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 text-sm bg-neutral-900 border-neutral-700 placeholder-neutral-600 hover:border-neutral-600 transition-colors font-mono"
-                />
-              </div>
-            ))}
-            {Object.entries(customParams).map(([key, value]) => (
-              <div key={key} className="flex flex-col gap-2">
-                <label className="text-sm font-bold text-white flex justify-between items-center">
-                  <span>{key} <span className="text-neutral-500 text-xs">(custom)</span></span>
-                  <button
-                    onClick={() => handleRemoveCustomParam(key)}
-                    className="text-red-500 hover:text-red-400 text-sm transition-colors"
-                  >
-                    ✕
-                  </button>
-                </label>
-                <input
-                  type="text"
-                  value={value}
-                  onChange={(e) => {
-                    const updated = { ...customParams, [key]: e.target.value }
-                    setCustomParams(updated)
-                    handleParamChange(key, e.target.value)
-                  }}
-                  placeholder="enter value..."
-                  className="border-2 text-neutral-300 px-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 text-sm bg-neutral-900 border-neutral-700 placeholder-neutral-600 hover:border-neutral-600 transition-colors font-mono"
-                />
-              </div>
-            ))}
-          </div>
-          {hasKwargs && (
-            <div className="mt-4 p-4 border-2 rounded-lg bg-neutral-900 border-purple-500/40">
-              <h4 className="text-xs font-bold mb-3 text-neutral-300 uppercase tracking-wider">Add Custom Parameter</h4>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newParamKey}
-                  onChange={(e) => setNewParamKey(e.target.value)}
-                  placeholder="key"
-                  className="flex-1 border-2 text-neutral-300 px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500 text-sm bg-neutral-900 border-neutral-700 placeholder-neutral-600 hover:border-neutral-600 transition-colors font-mono"
-                />
-                <input
-                  type="text"
-                  value={newParamValue}
-                  onChange={(e) => setNewParamValue(e.target.value)}
-                  placeholder="value"
-                  className="flex-1 border-2 text-neutral-300 px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500 text-sm bg-neutral-900 border-neutral-700 placeholder-neutral-600 hover:border-neutral-600 transition-colors font-mono"
-                />
-                <button
-                  onClick={handleAddCustomParam}
-                  className="px-3 py-2 rounded-lg transition-all text-xs font-bold bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
-                >
-                  add
-                </button>
-              </div>
-            </div>
+        <div className="flex gap-1.5">
+          {shouldCollapse && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsExpanded(!isExpanded)
+              }}
+              className="px-2 py-1 transition-all text-[10px] font-bold text-white/30 hover:text-white/60 border border-white/[0.08] hover:border-white/[0.15]"
+            >
+              {isExpanded ? '▼' : '▶'}
+            </button>
           )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleColumns()
+            }}
+            className="px-2 py-1 transition-all text-[10px] font-bold text-white/30 hover:text-white/60 border border-white/[0.08] hover:border-white/[0.15]"
+            title="Toggle columns"
+          >
+            = {columns}col
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleResetParams()
+            }}
+            className="px-2 py-1 transition-all text-[10px] font-bold text-cyan-400/50 hover:text-cyan-400 border border-white/[0.08] hover:border-cyan-400/30"
+          >
+            reset
+          </button>
         </div>
+      </div>
+
+      {/* Parameters */}
+      <div
+        className="overflow-y-auto"
+        style={{
+          maxHeight: shouldCollapse && !isExpanded ? '300px' : '600px',
+          transition: 'max-height 0.3s ease',
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(64, 64, 64, 0.5) transparent'
+        }}
+      >
+        <div className={`grid gap-3 ${getGridCols()}`}>
+          {paramEntries.map(([key, value]: [string, any]) => (
+            <div key={key} className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold text-white/60">
+                {key} <span className="text-white/20 text-[10px]">({value.type})</span>
+              </label>
+              <input
+                type="text"
+                value={params[key] ?? ''}
+                onChange={(e) => handleParamChange(key, e.target.value)}
+                placeholder={value.value !== '_empty' ? String(value.value) : 'enter value...'}
+                className="text-white/80 px-3 py-2.5 focus:outline-none text-[12px] bg-white/[0.04] border border-white/[0.1] placeholder-white/20 hover:border-white/[0.18] focus:border-white/30 transition-colors font-mono"
+              />
+            </div>
+          ))}
+          {Object.entries(customParams).map(([key, value]) => (
+            <div key={key} className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-bold text-white/60 flex justify-between items-center">
+                <span>{key} <span className="text-white/20 text-[10px]">(custom)</span></span>
+                <button
+                  onClick={() => handleRemoveCustomParam(key)}
+                  className="text-red-500/60 hover:text-red-400 text-[10px] transition-colors"
+                >
+                  ✕
+                </button>
+              </label>
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => {
+                  const updated = { ...customParams, [key]: e.target.value }
+                  setCustomParams(updated)
+                  handleParamChange(key, e.target.value)
+                }}
+                placeholder="enter value..."
+                className="text-white/80 px-3 py-2.5 focus:outline-none text-[12px] bg-white/[0.04] border border-white/[0.1] placeholder-white/20 hover:border-white/[0.18] focus:border-white/30 transition-colors font-mono"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Add custom parameter - inline, no extra box */}
+        {hasKwargs && (
+          <div className="mt-4 pt-3 border-t border-white/[0.06]">
+            <h4 className="text-[10px] font-extrabold mb-2 text-white/30 uppercase tracking-wider">Add Custom Parameter</h4>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newParamKey}
+                onChange={(e) => setNewParamKey(e.target.value)}
+                placeholder="key"
+                className="flex-1 text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.04] border border-white/[0.1] placeholder-white/20 hover:border-white/[0.18] focus:border-white/30 transition-colors font-mono"
+              />
+              <input
+                type="text"
+                value={newParamValue}
+                onChange={(e) => setNewParamValue(e.target.value)}
+                placeholder="value"
+                className="flex-1 text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.04] border border-white/[0.1] placeholder-white/20 hover:border-white/[0.18] focus:border-white/30 transition-colors font-mono"
+              />
+              <button
+                onClick={handleAddCustomParam}
+                className="px-3 py-2 transition-all text-[10px] font-bold text-white/40 hover:text-white/70 border border-white/[0.1] hover:border-white/[0.2] bg-white/[0.04]"
+              >
+                add
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

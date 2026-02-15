@@ -95,10 +95,10 @@ export default function ModApiPanel({
           <button
             onClick={handleExecute}
             disabled={loading || !selectedFunction}
-            className="w-full px-5 py-3 font-extrabold text-[11px] uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 border-2 disabled:opacity-30"
+            className="w-full px-5 py-3 font-extrabold text-[11px] uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 border disabled:opacity-30"
             style={{
-              background: loading ? 'transparent' : colorWithOpacity(modColor, 0.15),
-              borderColor: colorWithOpacity(modColor, loading ? 0.15 : 0.5),
+              background: loading ? 'transparent' : colorWithOpacity(modColor, 0.08),
+              borderColor: colorWithOpacity(modColor, loading ? 0.15 : 0.3),
               color: loading ? colorWithOpacity(modColor, 0.5) : modColor,
             }}
           >
@@ -116,8 +116,8 @@ export default function ModApiPanel({
           </button>
 
           {error && (
-            <div className="overflow-hidden border-2 border-red-500/30 bg-red-500/[0.04]">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-red-500/20">
+            <div className="overflow-hidden border border-red-500/20 bg-red-500/[0.04]">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-red-500/10">
                 <div className="flex items-center gap-2">
                   <span className="text-red-400 text-[11px] font-extrabold">[ERR]</span>
                   <h4 className="text-red-400/80 text-[10px] font-extrabold uppercase tracking-wider">Error</h4>

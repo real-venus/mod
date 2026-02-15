@@ -26,8 +26,9 @@ class Mod:
         'ganache': 'http://localhost:8545',
         'mainnet': 'https://mainnet.base.org'
     }
+    conns = {}
     decimals = 18
-    def __init__(self, network: str = 'testnet', key='test'):
+    def __init__(self, network: str = 'testnet', key='mod'):
         """Initialize Chain interface.
         
         Args:
@@ -35,12 +36,17 @@ class Mod:
         """
         self.network = network
         self.rpc_url = self.network2url.get(network, network)
-        m.print(f'Connecting to {self.rpc_url} {network}', color='cyan')
-        self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
+
+        if self.rpc_url in self.conns:
+            self.w3 = self.conns[self.rpc_url]
+        else:
+            m.print(f'Connecting to {self.rpc_url} {network}', color='cyan')
+            self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
+            self.conns[self.rpc_url] = self.w3
+            
         self.contracts = {}
         self.path = m.dp('chain')
         self.set_key(key)
-        self.ipfs = m.mod('ipfs')()
         self.contracts_path = self.path + '/artifacts/contracts'
         self.config = m.config('chain')
         self.load_all_contracts()
@@ -401,7 +407,7 @@ class Mod:
             print(f'Getting {token} balance for {address} at {cfg["address"]}')
             balance = token_contract.functions.balanceOf(address).call()
 
-        return self.format_balance(balance)
+        return self.format_balance(balance, token=token.upper())
 
     def balances(self, address: str=None, tokens: list=None, token:str='market', from_block:int=0, to_block:int=None, weeks:int=2) -> dict:
         """Get balances for a single address across multiple tokens, or all holders for a single token.
@@ -574,10 +580,11 @@ class Mod:
         """
         decimals = self.decimals
         if token != 'ETH':
-            chain_config = self.config['deployments'][self.network]['contracts']
-            if token in chain_config:
-                token_address = chain_config[token]['address']
-                token_abi = self.ipfs.get(chain_config[token]['abi'])
+            chain_config = self.contracts_config()
+            token_key = token.lower()
+            if token_key in chain_config:
+                token_address = chain_config[token_key]['address']
+                token_abi = self.ipfs.get(chain_config[token_key]['abi'])
                 token_contract = self.w3.eth.contract(
                     address=Web3.to_checksum_address(token_address),
                     abi=token_abi
@@ -1007,6 +1014,13 @@ class Mod:
                 data = json.load(f)
                 name2abi[name] = data['abi'] if expand else self.ipfs.put(data['abi'])
         return name2abi
+    
+    @property
+    def ipfs(self):
+        """IPFS client."""
+        if not hasattr(self, '_ipfs'):
+            self._ipfs = m.mod('ipfs')()
+        return self._ipfs
 
 
     def name2abicid(self, search=None):

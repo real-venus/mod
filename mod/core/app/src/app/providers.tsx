@@ -2,12 +2,11 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { CubeIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { CubeIcon, MagnifyingGlassIcon, Bars3Icon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
-
-import Header from '@/header/Header'
 import { WalletHeader } from '@/wallet/WalletHeader'
 import { NetworkSelector } from '@/network/NetworkSelector'
 import { UserProvider } from '@/context'
@@ -25,7 +24,7 @@ import {
 import { ThemeProvider } from '@/context/ThemeContext'
 import { SplitScreenControls } from '@/components/SplitScreenControls'
 
-function GlobalSearchBar() {
+function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenuOpen: (v: boolean) => void }) {
   const { handleSearch, searchFilters } = useSearchContext()
   const router = useRouter()
   const pathname = usePathname()
@@ -73,22 +72,47 @@ function GlobalSearchBar() {
     }
   }
 
-  const isOnExplore = pathname === '/mod/explore'
-
   return (
     <div
-      className="fixed top-0 right-0 z-[60] flex items-center gap-3 px-4"
+      className="fixed top-0 left-0 right-0 z-[60] flex items-center gap-3 px-4"
       style={{
-        left: '80px',
-        height: '80px',
-        background: 'linear-gradient(to bottom, rgba(0,0,0,0.97) 70%, rgba(0,0,0,0))',
-        backdropFilter: 'blur(12px)',
+        height: '64px',
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.98) 80%, rgba(0,0,0,0))',
+        backdropFilter: 'blur(16px)',
+        fontFamily: 'IBM Plex Mono, monospace',
       }}
     >
-      <div className="relative flex-1 max-w-2xl">
+      {/* Hamburger menu button */}
+      <button
+        onClick={() => setMenuOpen(!menuOpen)}
+        className="shrink-0 flex items-center justify-center transition-all border-2 hover:bg-white/[0.04]"
+        style={{
+          width: '44px',
+          height: '44px',
+          borderColor: menuOpen ? 'rgba(74, 222, 128, 0.4)' : 'rgba(255,255,255,0.08)',
+          background: menuOpen ? 'rgba(74, 222, 128, 0.08)' : 'transparent',
+        }}
+      >
+        {menuOpen ? (
+          <XMarkIcon className="w-6 h-6 text-green-400" />
+        ) : (
+          <Bars3Icon className="w-6 h-6 text-white/50" />
+        )}
+      </button>
+
+      {/* Logo */}
+      <Link href="/" className="shrink-0">
+        <CubeIcon
+          className="w-7 h-7 text-green-400"
+          style={{ filter: 'drop-shadow(0 0 6px rgba(74, 222, 128, 0.5))' }}
+        />
+      </Link>
+
+      {/* Search */}
+      <div className="relative flex-1 max-w-xl">
         <MagnifyingGlassIcon
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors"
-          style={{ color: isFocused ? '#4ade80' : '#a3a3a3' }}
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors"
+          style={{ color: isFocused ? '#4ade80' : '#525252' }}
         />
         <input
           ref={inputRef}
@@ -99,45 +123,50 @@ function GlobalSearchBar() {
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholder="Search mods..."
-          className="w-full pl-13 pr-20 bg-neutral-900 border-2 text-white text-base font-bold placeholder-neutral-500 focus:outline-none transition-all"
+          className="w-full bg-transparent border text-white text-[16px] font-bold placeholder-neutral-600 focus:outline-none transition-all"
           style={{
-            paddingLeft: '3rem',
-            height: '48px',
-            borderColor: isFocused ? 'rgba(74, 222, 128, 0.5)' : 'rgba(38, 38, 38, 1)',
-            boxShadow: isFocused ? '0 0 20px rgba(74, 222, 128, 0.15)' : 'none',
-            fontFamily: 'IBM Plex Mono, monospace',
+            paddingLeft: '2.75rem',
+            paddingRight: '4rem',
+            height: '44px',
+            borderColor: isFocused ? 'rgba(74, 222, 128, 0.4)' : 'rgba(255,255,255,0.06)',
+            boxShadow: isFocused ? '0 0 16px rgba(74, 222, 128, 0.08)' : 'none',
+            fontFamily: 'inherit',
             borderRadius: '0px',
-            fontSize: '14px',
-            letterSpacing: '0.04em',
+            letterSpacing: '0.03em',
           }}
         />
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          {inputValue && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+          {inputValue ? (
             <button
               onClick={() => { setInputValue(''); handleSearch('') }}
-              className="text-neutral-500 hover:text-white text-xs font-bold px-2 py-1 border border-neutral-800 hover:border-neutral-600 bg-neutral-900 transition-all"
-              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+              className="text-neutral-600 hover:text-white text-[13px] font-bold px-2 py-1 border border-neutral-800 hover:border-neutral-600 transition-all"
             >
               ESC
             </button>
-          )}
-          {!inputValue && (
-            <span
-              className="text-neutral-600 text-xs font-bold px-2 py-1 border border-neutral-800 bg-neutral-900"
-              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
-            >
+          ) : (
+            <span className="text-neutral-700 text-[13px] font-bold px-2 py-1 border border-neutral-800/60">
               {navigator?.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}K
             </span>
           )}
         </div>
       </div>
 
-      {/* Page indicator */}
-      {!isOnExplore && (
-        <div className="text-[10px] text-green-400/40 font-mono font-extrabold whitespace-nowrap uppercase tracking-[0.2em]">
-          [{pathname.replace(/^\//, '').split('/')[0] || 'home'}]
-        </div>
-      )}
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Create Mod */}
+      <Link
+        href="/create"
+        className="shrink-0 flex items-center gap-2 px-4 border-2 border-green-500/40 bg-green-500/10 hover:bg-green-500/20 transition-all"
+        style={{ height: '44px', fontFamily: 'inherit' }}
+      >
+        <PlusIcon className="w-5 h-5 text-green-400" />
+        <span className="text-[14px] font-extrabold uppercase tracking-wider text-green-400 whitespace-nowrap">CREATE MOD</span>
+      </Link>
+
+      {/* Network + Wallet */}
+      <NetworkSelector />
+      <WalletHeader />
     </div>
   )
 }
@@ -155,14 +184,18 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const { isHeaderMode } = useLayoutContext()
   const pathname = usePathname()
 
-  const [hoveredLogo, setHoveredLogo] = useState(false)
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     if (isSplitScreen && leftPanelUrl === pathname) {
       setLeftPanelUrl(pathname)
     }
   }, [pathname, isSplitScreen, leftPanelUrl, setLeftPanelUrl])
+
+  // Close menu on route change
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [pathname])
 
   const isVertical = orientation === 'vertical'
   const containerClass = isVertical ? 'flex' : 'flex flex-col'
@@ -171,64 +204,70 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     ? 'border-r-2 border-green-500/30'
     : 'border-b-2 border-green-500/30'
 
+  const navItems = [
+    { href: '/chat', label: 'CHAT', color: '#8b5cf6' },
+    { href: '/mod/explore', label: 'MODULES', color: '#10b981' },
+    { href: '/quests', label: 'QUESTS', color: '#0bf58c' },
+    { href: '/docs', label: 'DOCS', color: '#a78bfa' },
+    { href: '/create', label: 'CREATE', color: '#4ade80' },
+  ]
+
   return (
     <div className="flex h-screen bg-black">
-      {/* Left sidebar with header items */}
-      <div
-        className="fixed left-0 top-0 h-full flex flex-col items-center py-4 gap-3 border-r-2"
-        style={{ width: '80px', zIndex: 50, borderColor: 'rgba(0, 255, 0, 0.25)' }}
+      {/* Global search bar at top with hamburger */}
+      <GlobalSearchBar menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
+
+      {/* Sidebar overlay */}
+      {menuOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[65]"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+      <motion.div
+        initial={false}
+        animate={{ x: menuOpen ? 0 : -280 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+        className="fixed left-0 top-0 h-full z-[70] flex flex-col bg-[#0a0a0e] border-r-2 border-white/[0.08]"
+        style={{ width: '280px', paddingTop: '64px', fontFamily: 'IBM Plex Mono, monospace' }}
       >
-        {/* Logo at top */}
-        <button onClick={() => setIsHeaderCollapsed(v => !v)}>
-          <motion.div
-            className="relative cursor-pointer"
-            onMouseEnter={() => setHoveredLogo(true)}
-            onMouseLeave={() => setHoveredLogo(false)}
-            whileHover={{ scale: 1.1, rotate: 180 }}
-            transition={{ duration: 0.3 }}
-          >
-            <CubeIcon
-              className="w-12 h-12 text-green-400"
-              style={{
-                filter: 'drop-shadow(0 0 8px rgba(74, 222, 128, 0.6))',
-              }}
-            />
-
-            {hoveredLogo && (
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-green-500/30 whitespace-nowrap text-sm font-medium pointer-events-none"
+        <div className="flex flex-col gap-1 px-3 py-4 flex-1">
+          {navItems.map(item => {
+            const isActive = pathname?.startsWith(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3.5 transition-all border-2 hover:bg-white/[0.03]"
+                style={{
+                  borderColor: isActive ? `${item.color}40` : 'transparent',
+                  background: isActive ? `${item.color}10` : undefined,
+                }}
               >
-                {isHeaderCollapsed ? 'EXPAND SIDEBAR' : 'COLLAPSE SIDEBAR'}
-                <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900" />
-              </motion.div>
-            )}
-          </motion.div>
-        </button>
-
-        {/* Header navigation items */}
-        {!isHeaderCollapsed && (
-          <div className="flex flex-col gap-3 mt-4">
-            <Header />
-          </div>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
-      </div>
-
-      {/* Global search bar at top */}
-      <GlobalSearchBar />
-
-      {/* Top right - Network and Wallet */}
-      <div className="fixed top-2 right-4 z-[70] flex items-center gap-3">
-        <WalletHeader />
-      </div>
+                <div
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ background: item.color, boxShadow: isActive ? `0 0 8px ${item.color}` : 'none' }}
+                />
+                <span
+                  className="text-[15px] font-extrabold uppercase tracking-[0.15em]"
+                  style={{ color: isActive ? item.color : 'rgba(255,255,255,0.5)' }}
+                >
+                  {item.label}
+                </span>
+                {isActive && (
+                  <span className="ml-auto text-[10px] font-extrabold uppercase tracking-wider" style={{ color: `${item.color}80` }}>
+                    [ACTIVE]
+                  </span>
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      </motion.div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col" style={{ marginLeft: '80px' }}>
+      <div className="flex-1 flex flex-col">
         <main className="flex-1 overflow-auto flex">
           {isSplitScreen ? (
             <div className={`w-full h-full ${containerClass}`}>

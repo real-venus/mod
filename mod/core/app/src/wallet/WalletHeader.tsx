@@ -26,35 +26,62 @@ const ERC20_ABI = [
   'function symbol() view returns (string)'
 ]
 
-interface NetworkConfig {
+type NetworkEnvironment = 'testnet' | 'mainnet'
+
+interface ChainConfig {
   id: string
   name: string
   color: string
-  logo?: string
-  comingSoon?: boolean
+  icon: string
+  testnetName: string
+  mainnetName: string
+  testnetId: string
+  mainnetId: string
 }
 
-const NETWORKS: NetworkConfig[] = [
-  { id: 'local', name: 'Local Ganache', color: '#10b981' },
+const CHAINS: ChainConfig[] = [
   {
-    id: 'base-sepolia',
-    name: 'Base Sepolia',
+    id: 'base',
+    name: 'Base',
     color: '#0052ff',
-    logo: 'https://avatars.githubusercontent.com/u/108554348?s=280&v=4'
+    icon: '◆',
+    testnetName: 'Base Sepolia',
+    mainnetName: 'Base Mainnet',
+    testnetId: 'base-sepolia',
+    mainnetId: 'base-mainnet',
   },
   {
-    id: 'base-mainnet',
-    name: 'Base Mainnet',
-    color: '#0052ff',
-    logo: 'https://avatars.githubusercontent.com/u/108554348?s=280&v=4'
+    id: 'ethereum',
+    name: 'Ethereum',
+    color: '#627eea',
+    icon: '⟠',
+    testnetName: 'Eth Sepolia',
+    mainnetName: 'Eth Mainnet',
+    testnetId: 'eth-sepolia',
+    mainnetId: 'eth-mainnet',
+  },
+  {
+    id: 'monad',
+    name: 'Monad',
+    color: '#836ef9',
+    icon: '⬡',
+    testnetName: 'Monad Testnet',
+    mainnetName: 'Monad Mainnet',
+    testnetId: 'monad-testnet',
+    mainnetId: 'monad-mainnet',
   },
   {
     id: 'solana',
     name: 'Solana',
     color: '#9945ff',
-    comingSoon: true
-  }
+    icon: '◎',
+    testnetName: 'Sol Devnet',
+    mainnetName: 'Sol Mainnet',
+    testnetId: 'solana-devnet',
+    mainnetId: 'solana-mainnet',
+  },
 ]
+
 
 export function WalletHeader() {
   const { user, signOut, client } = userContext()
@@ -82,8 +109,9 @@ export function WalletHeader() {
   const [transferAmount, setTransferAmount] = useState<string>('')
   const [isTransferring, setIsTransferring] = useState(false)
   const [transferTokenType, setTransferTokenType] = useState<TransferTokenType>('MARKET')
-  const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(NETWORKS[1]) // Default to Base Sepolia
-  const [showNetworkDropdown, setShowNetworkDropdown] = useState(false)
+  const [selectedChain, setSelectedChain] = useState<ChainConfig>(CHAINS[0]) // Default to Base
+  const [networkEnv, setNetworkEnv] = useState<NetworkEnvironment>('testnet')
+  const [showNetworkSelector, setShowNetworkSelector] = useState(false)
   const networkDropdownRef = useRef<HTMLDivElement>(null)
   const [balanceRefreshSuccess, setBalanceRefreshSuccess] = useState(false)
   const [showTxsTab, setShowTxsTab] = useState(true)  // Default to true - show txs by default
@@ -341,7 +369,8 @@ export function WalletHeader() {
           const result = await client.call('transfer', {
             to: transferRecipient,
             amount: amount,
-            token: 'market'
+            token: 'market',
+            sender: user.key
           })
           if (result.error) throw new Error(result.error)
         } else {
@@ -353,7 +382,7 @@ export function WalletHeader() {
           const chainConfig = modConfig.chain?.[network]
           if (!chainConfig) throw new Error('Chain config not found')
           const market = new Market(chainConfig)
-          await market.transferMarketCredit(transferRecipient, amount)
+          await market.transferMarketCredit(user.key, transferRecipient, amount)
         }
       } else {
         // USDC/USDT ERC20 transfer
@@ -361,7 +390,8 @@ export function WalletHeader() {
           const result = await client.call('transfer', {
             to: transferRecipient,
             amount: amount,
-            token: transferTokenType.toLowerCase()
+            token: transferTokenType.toLowerCase(),
+            sender: user.key
           })
           if (result.error) throw new Error(result.error)
         } else {
@@ -376,7 +406,7 @@ export function WalletHeader() {
           if (!tokenAddress) throw new Error(`${transferTokenType} contract not found`)
 
           const browserProvider = new ethers.BrowserProvider(window.ethereum)
-          const signer = await browserProvider.getSigner()
+          const signer = await browserProvider.getSigner(user.key)
           const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer)
           const amountInWei = ethers.parseUnits(amount.toString(), 6)
           const tx = await contract.transfer(transferRecipient, amountInWei)
@@ -417,12 +447,20 @@ export function WalletHeader() {
     return () => clearInterval(interval)
   }, [user?.key])
 
-  useEffect(() => {
-    const savedNetworkId = localStorage.getItem('selected_network')
-    if (savedNetworkId) {
-      const network = NETWORKS.find(n => n.id === savedNetworkId)
-      if (network) setSelectedNetwork(network)
+  const syncNetworkFromStorage = () => {
+    const savedChainId = localStorage.getItem('selected_chain')
+    if (savedChainId) {
+      const chain = CHAINS.find(c => c.id === savedChainId)
+      if (chain) setSelectedChain(chain)
     }
+    const savedEnv = localStorage.getItem('network_env') as NetworkEnvironment
+    if (savedEnv === 'testnet' || savedEnv === 'mainnet') {
+      setNetworkEnv(savedEnv)
+    }
+  }
+
+  useEffect(() => {
+    syncNetworkFromStorage()
 
     const savedWidth = localStorage.getItem('wallet_sidebar_width')
     if (savedWidth) {
@@ -430,18 +468,28 @@ export function WalletHeader() {
     }
   }, [])
 
-  // Close network dropdown on outside click
+  // Listen for network changes from other components (e.g. NetworkSelector)
+  useEffect(() => {
+    const handler = () => {
+      syncNetworkFromStorage()
+      fetchMarketCredit()
+    }
+    window.addEventListener('network-changed', handler)
+    return () => window.removeEventListener('network-changed', handler)
+  }, [user?.key, client])
+
+  // Close network selector on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (networkDropdownRef.current && !networkDropdownRef.current.contains(e.target as Node)) {
-        setShowNetworkDropdown(false)
+        setShowNetworkSelector(false)
       }
     }
-    if (showNetworkDropdown) {
+    if (showNetworkSelector) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showNetworkDropdown])
+  }, [showNetworkSelector])
 
   useEffect(() => {
     if (!isResizing) return
@@ -465,13 +513,21 @@ export function WalletHeader() {
     }
   }, [isResizing, sidebarWidth])
 
-  const handleNetworkChange = (network: NetworkConfig) => {
-    if (network.comingSoon) {
-      toast.info('Solana support coming soon!')
-      return
-    }
-    setSelectedNetwork(network)
-    localStorage.setItem('selected_network', network.id)
+  const handleChainSelect = (chain: ChainConfig) => {
+    setSelectedChain(chain)
+    const networkId = networkEnv === 'testnet' ? chain.testnetId : chain.mainnetId
+    localStorage.setItem('selected_chain', chain.id)
+    localStorage.setItem('selected_network', networkId)
+    localStorage.setItem('network_env', networkEnv)
+    window.dispatchEvent(new CustomEvent('network-changed'))
+  }
+
+  const handleEnvToggle = (env: NetworkEnvironment) => {
+    setNetworkEnv(env)
+    const networkId = env === 'testnet' ? selectedChain.testnetId : selectedChain.mainnetId
+    localStorage.setItem('network_env', env)
+    localStorage.setItem('selected_network', networkId)
+    window.dispatchEvent(new CustomEvent('network-changed'))
   }
 
   const fetchUserTransactions = async () => {
@@ -550,7 +606,7 @@ export function WalletHeader() {
         <span className="text-sm font-black font-mono tabular-nums text-green-400">
           ${marketCredit.toFixed(2)}
         </span>
-        <span className={`text-[9px] font-bold font-mono tabular-nums ${isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>
+        <span className={`text-[10px] font-bold font-mono tabular-nums ${isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>
           {tokenExpiry || getTokenExpiry()}
         </span>
         <div
@@ -604,7 +660,7 @@ export function WalletHeader() {
                 <div className="flex items-center justify-between px-5 pt-4 pb-2">
                   <button
                     onClick={handleSignOut}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-red-500/70 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all text-[10px] font-bold uppercase tracking-wider"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-red-500/70 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all text-[11px] font-bold uppercase tracking-wider"
                     style={{ borderRadius: '6px', fontFamily: 'IBM Plex Mono, monospace' }}
                   >
                     <ArrowRightOnRectangleIcon className="w-3.5 h-3.5" />
@@ -730,7 +786,7 @@ export function WalletHeader() {
                       <button
                         onClick={handleRefreshToken}
                         disabled={isRefreshing}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 hover:border-yellow-500 text-yellow-400 font-black text-[10px] uppercase transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 hover:border-yellow-500 text-yellow-400 font-black text-[11px] uppercase transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
                         style={{
                           borderRadius: '6px',
                           fontFamily: 'IBM Plex Mono, monospace',
@@ -750,6 +806,183 @@ export function WalletHeader() {
                 )}
               </AnimatePresence>
 
+              {/* Network Selector */}
+              <div className="px-5 pt-4 pb-2" ref={networkDropdownRef}>
+                <button
+                  onClick={() => setShowNetworkSelector(!showNetworkSelector)}
+                  className="w-full flex items-center justify-between px-4 py-3 border-2 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                  style={{
+                    borderRadius: '12px',
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderColor: `${selectedChain.color}40`,
+                    background: `linear-gradient(135deg, ${selectedChain.color}08 0%, ${selectedChain.color}03 100%)`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 flex items-center justify-center text-lg font-bold rounded-lg"
+                      style={{
+                        background: `${selectedChain.color}20`,
+                        color: selectedChain.color,
+                        border: `1px solid ${selectedChain.color}30`,
+                      }}
+                    >
+                      {selectedChain.icon}
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <span className="text-xs font-black uppercase tracking-wider text-neutral-300">
+                        {selectedChain.name}
+                      </span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: `${selectedChain.color}aa` }}>
+                        {networkEnv === 'testnet' ? selectedChain.testnetName : selectedChain.mainnetName}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5"
+                      style={{
+                        borderRadius: '4px',
+                        background: networkEnv === 'mainnet' ? '#10b98120' : '#f59e0b20',
+                        color: networkEnv === 'mainnet' ? '#10b981' : '#f59e0b',
+                        border: `1px solid ${networkEnv === 'mainnet' ? '#10b98130' : '#f59e0b30'}`,
+                      }}
+                    >
+                      {networkEnv}
+                    </span>
+                    <ChevronDownIcon
+                      className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${showNetworkSelector ? 'rotate-180' : ''}`}
+                    />
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {showNetworkSelector && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-3 space-y-3">
+                        {/* Testnet / Mainnet Toggle */}
+                        <div
+                          className="flex p-1 border border-neutral-800/80 bg-neutral-950/80"
+                          style={{ borderRadius: '10px' }}
+                        >
+                          {(['testnet', 'mainnet'] as NetworkEnvironment[]).map((env) => (
+                            <button
+                              key={env}
+                              onClick={() => handleEnvToggle(env)}
+                              className="flex-1 relative py-2 text-[11px] font-black uppercase tracking-widest transition-all duration-200"
+                              style={{
+                                borderRadius: '8px',
+                                fontFamily: 'IBM Plex Mono, monospace',
+                                ...(networkEnv === env
+                                  ? {
+                                      background: env === 'mainnet'
+                                        ? 'linear-gradient(135deg, #10b98118 0%, #059a6918 100%)'
+                                        : 'linear-gradient(135deg, #f59e0b18 0%, #d9770618 100%)',
+                                      color: env === 'mainnet' ? '#10b981' : '#f59e0b',
+                                      boxShadow: env === 'mainnet'
+                                        ? '0 0 20px #10b98110, inset 0 1px 0 #10b98115'
+                                        : '0 0 20px #f59e0b10, inset 0 1px 0 #f59e0b15',
+                                    }
+                                  : { color: '#525252' }),
+                              }}
+                            >
+                              {networkEnv === env && (
+                                <motion.div
+                                  layoutId="envToggle"
+                                  className="absolute inset-0"
+                                  style={{
+                                    borderRadius: '8px',
+                                    border: `1px solid ${env === 'mainnet' ? '#10b98130' : '#f59e0b30'}`,
+                                  }}
+                                  transition={{ duration: 0.2 }}
+                                />
+                              )}
+                              <span className="relative z-10">{env}</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Chain Grid */}
+                        <div className="grid grid-cols-2 gap-2">
+                          {CHAINS.map((chain) => {
+                            const isSelected = selectedChain.id === chain.id
+                            return (
+                              <button
+                                key={chain.id}
+                                onClick={() => handleChainSelect(chain)}
+                                className="relative flex flex-col items-center gap-2 py-4 px-3 border-2 transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] group"
+                                style={{
+                                  borderRadius: '12px',
+                                  fontFamily: 'IBM Plex Mono, monospace',
+                                  borderColor: isSelected ? `${chain.color}60` : '#262626',
+                                  background: isSelected
+                                    ? `linear-gradient(145deg, ${chain.color}12 0%, ${chain.color}06 50%, transparent 100%)`
+                                    : 'linear-gradient(145deg, #0a0a0a 0%, #0d0d0d 100%)',
+                                  boxShadow: isSelected
+                                    ? `0 0 24px ${chain.color}15, inset 0 1px 0 ${chain.color}10`
+                                    : 'none',
+                                }}
+                              >
+                                {/* Selected indicator dot */}
+                                {isSelected && (
+                                  <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    className="absolute top-2 right-2 w-2 h-2 rounded-full"
+                                    style={{
+                                      background: chain.color,
+                                      boxShadow: `0 0 8px ${chain.color}80`,
+                                    }}
+                                  />
+                                )}
+
+                                {/* Chain icon */}
+                                <div
+                                  className="w-10 h-10 flex items-center justify-center text-xl rounded-xl transition-all duration-200"
+                                  style={{
+                                    background: isSelected ? `${chain.color}20` : `${chain.color}0a`,
+                                    color: isSelected ? chain.color : `${chain.color}60`,
+                                    border: `1px solid ${isSelected ? `${chain.color}40` : `${chain.color}15`}`,
+                                  }}
+                                >
+                                  {chain.icon}
+                                </div>
+
+                                {/* Chain name */}
+                                <span
+                                  className="text-[11px] font-black uppercase tracking-wider transition-colors duration-200"
+                                  style={{
+                                    color: isSelected ? chain.color : '#737373',
+                                  }}
+                                >
+                                  {chain.name}
+                                </span>
+
+                                {/* Network name subtitle */}
+                                <span
+                                  className="text-[10px] font-bold uppercase tracking-wider transition-colors duration-200"
+                                  style={{
+                                    color: isSelected ? `${chain.color}80` : '#404040',
+                                  }}
+                                >
+                                  {networkEnv === 'testnet' ? chain.testnetName : chain.mainnetName}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               {/* Action Tabs */}
               <div className="px-5 py-4">
               <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
@@ -761,7 +994,7 @@ export function WalletHeader() {
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
                   }}
-                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 ${
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showTopUpForm
                       ? 'bg-gradient-to-br from-green-500/30 to-emerald-500/30 border-green-400 text-green-300 shadow-green-500/50'
                       : 'bg-gradient-to-br from-green-950/40 to-emerald-950/40 border-green-900/60 text-green-600 hover:text-green-300 hover:border-green-400/60 hover:shadow-green-500/30'
@@ -785,7 +1018,7 @@ export function WalletHeader() {
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
                   }}
-                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 ${
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showTransferForm
                       ? 'bg-gradient-to-br from-blue-500/30 to-blue-600/30 border-blue-400 text-blue-300 shadow-blue-500/50'
                       : 'bg-gradient-to-br from-blue-950/40 to-cyan-950/40 border-blue-900/60 text-blue-600 hover:text-blue-300 hover:border-blue-400/60 hover:shadow-blue-500/30'
@@ -809,7 +1042,7 @@ export function WalletHeader() {
                     setShowTransferForm(false)
                     setShowTxsTab(false)
                   }}
-                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 ${
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showPortfolioTab
                       ? 'bg-gradient-to-br from-purple-500/30 to-purple-600/30 border-purple-400 text-purple-300 shadow-purple-500/50'
                       : 'bg-gradient-to-br from-purple-950/40 to-fuchsia-950/40 border-purple-900/60 text-purple-600 hover:text-purple-300 hover:border-purple-400/60 hover:shadow-purple-500/30'
@@ -834,7 +1067,7 @@ export function WalletHeader() {
                     setShowPortfolioTab(false)
                     if (!showTxsTab) fetchUserTransactions()
                   }}
-                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[10px] font-bold uppercase shadow-lg hover:scale-105 ${
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showTxsTab
                       ? 'bg-gradient-to-br from-amber-500/30 to-orange-500/30 border-amber-400 text-amber-300 shadow-amber-500/50'
                       : 'bg-gradient-to-br from-amber-950/40 to-orange-950/40 border-amber-900/60 text-amber-600 hover:text-amber-300 hover:border-amber-400/60 hover:shadow-amber-500/30'
@@ -1035,7 +1268,7 @@ export function WalletHeader() {
                             }}
                           >
                             <div>{token}</div>
-                            <div className="text-[10px] font-normal tabular-nums mt-0.5 opacity-70">
+                            <div className="text-[11px] font-normal tabular-nums mt-0.5 opacity-70">
                               {token === 'MARKET' ? `$${(tokenBalances?.MARKET || 0).toFixed(2)}` :
                                token === 'USDC' ? `$${(tokenBalances?.USDC || 0).toFixed(2)}` :
                                `$${(tokenBalances?.USDT || 0).toFixed(2)}`}

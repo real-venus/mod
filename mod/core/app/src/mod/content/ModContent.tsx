@@ -21,7 +21,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { ModuleType } from '@/types'
 import { userContext } from '@/context'
-import { text2color } from '@/utils'
+import { text2color, colorWithOpacity } from '@/utils'
 
 export interface ModContentProps {
   mod: {
@@ -158,23 +158,23 @@ export function FileTreeItem({
   return (
     <div>
       <div
-        className={`group micro-row flex cursor-pointer items-center rounded-lg px-3 py-2 text-sm transition-all duration-150 hover:bg-white/5
-        ${isSelected ? 'bg-emerald-900/30 text-emerald-300 shadow-md' : 'text-gray-300'}
+        className={`group micro-row flex cursor-pointer items-center px-3 py-1.5 text-[12px] transition-all duration-150 hover:bg-white/[0.04]
+        ${isSelected ? 'bg-white/[0.06] text-white/90' : 'text-white/50'}
         ${matchesSearch && searchTerm ? 'ring-1 ring-yellow-400/40' : ''}`}
         style={{ paddingLeft: `${level * 16 + 12}px` }}
         onClick={handleClick}
         title={node.path}
       >
         {node.type === 'folder' ? (
-          isExpanded ? <ChevronDownIcon className="mr-2 h-4 w-4" /> : <ChevronRightIcon className="mr-2 h-4 w-4" />
+          isExpanded ? <ChevronDownIcon className="mr-2 h-3.5 w-3.5" /> : <ChevronRightIcon className="mr-2 h-3.5 w-3.5" />
         ) : null}
-        <FileIcon className={`mr-2 h-5 w-5 flex-shrink-0 ${node.type === 'folder' ? 'text-yellow-500' : 'text-gray-400'}`} />
+        <FileIcon className={`mr-2 h-4 w-4 flex-shrink-0 ${node.type === 'folder' ? 'text-amber-400/50' : 'text-white/25'}`} />
         <span className="flex-1 truncate font-mono font-medium">
           {searchTerm ? highlightSearchTerm(node.name, searchTerm) : node.name}
         </span>
         {node.type === 'file' ? (
           <>
-            <span className="ml-2 text-xs opacity-70 font-mono">{node.size}</span>
+            <span className="ml-2 text-[10px] opacity-40 font-mono">{node.size}</span>
           </>
         ) : (
           <button
@@ -182,7 +182,7 @@ export function FileTreeItem({
             className="ml-2 opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:bg-white/10 rounded"
             title="Copy folder contents"
           >
-            <ClipboardDocumentIcon className="h-4 w-4 text-emerald-400 hover:text-emerald-300" />
+            <ClipboardDocumentIcon className="h-3.5 w-3.5 text-white/40 hover:text-white/60" />
           </button>
         )}
       </div>
@@ -366,7 +366,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     const lines = content.split('\n')
     const matches = searchResults.find((r) => r.path === path)?.lineNumbers || []
     return (
-      <div className="select-none pr-3 font-mono text-xs text-gray-500 leading-relaxed">
+      <div className="select-none pr-3 font-mono text-[11px] text-white/20 leading-relaxed">
         {lines.map((_, i) => {
           const ln = startLine + i
           const isMatch = matches.includes(ln)
@@ -386,7 +386,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     const matches = searchResults.find((r) => r.path === path)?.lineNumbers || []
     return (
       <pre className="micro-scroll micro-edge-x flex-1 overflow-x-auto">
-        <code className={`font-mono text-sm leading-relaxed ${langColor}`}>
+        <code className={`font-mono text-[12px] leading-relaxed ${langColor}`}>
           {lines.map((line, i) => {
             const ln = i + 1
             const isMatch = matches.includes(ln)
@@ -401,77 +401,83 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     )
   }
 
-  const topFile = fileSections[0]
-
   return (
-    <div className="rounded-xl border-2 font-mono shadow-xl" style={{ backgroundColor: `${modColor}15`, borderColor: modColor }}>
-      <div className="flex items-center justify-between p-4 border-b-2" style={{ borderColor: modColor }}>
-        <h3 className="text-2xl font-black tracking-tight" style={{ color: modColor, letterSpacing: '0.02em' }}>Content</h3>
-        <div className="flex items-center gap-6 text-sm font-bold" style={{ color: `${modColor}90` }}>
+    <div className="font-mono" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-extrabold" style={{ color: modColor }}>[CNT]</span>
+          <h3 className="text-[12px] font-extrabold text-white/60 uppercase tracking-[0.15em]">
+            Content
+          </h3>
+        </div>
+        <div className="flex items-center gap-4 text-[11px] font-bold text-amber-400/40">
           <span>{stats.fileCount} files</span>
           <span>{stats.totalLines} lines</span>
           <span>{stats.totalSize}</span>
         </div>
       </div>
-      <div className="p-4 border-b-2" style={{ borderColor: modColor }}>
+
+      {/* Search */}
+      <div className="mb-4">
         <div className="relative">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2" style={{ color: `${modColor}60` }} />
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
           <input
             type="text"
-            placeholder="Search in code content…"
+            placeholder="Search in code content..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border-2 bg-black/50 pl-12 pr-20 py-3 text-base outline-none font-mono transition-all focus:bg-black/60"
-            style={{ borderColor: `${modColor}40`, color: modColor }}
+            className="w-full bg-white/[0.04] border border-white/[0.1] pl-10 pr-20 py-2.5 text-[12px] outline-none font-mono transition-all focus:border-white/[0.2] text-white/70 placeholder-white/20"
           />
           {searchTerm && (
-            <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold" style={{ color: `${modColor}70` }}>
+            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-white/30">
               {searchResults.length} files, {searchResults.reduce((s, r) => s + r.lineNumbers.length, 0)} matches
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex relative">
-        <div className="micro-scroll-y max-h-[600px] overflow-y-auto border-r-2 p-4" style={{ width: `${dividerPosition}px`, borderColor: modColor, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="mb-3">
-            <h3 className="mb-3 text-base font-black uppercase tracking-wide" style={{ color: modColor }}>File Explorer</h3>
+      {/* Main content area */}
+      <div className="flex relative border border-white/[0.08]">
+        {/* File explorer */}
+        <div className="micro-scroll-y max-h-[600px] overflow-y-auto border-r border-white/[0.08] py-3" style={{ width: `${dividerPosition}px`, backgroundColor: 'rgba(0,0,0,0.3)' }}>
+          <div className="px-3 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-white/30">File Explorer</h4>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => {
+                    const all = new Set<string>()
+                    const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }})
+                    collect(fileTree)
+                    setExpandedFolders(all)
+                  }}
+                  className="text-white/20 hover:text-white/50 p-1 transition-all"
+                  title="Expand all"
+                >
+                  <ChevronDownIcon className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={() => setExpandedFolders(new Set())}
+                  className="text-white/20 hover:text-white/50 p-1 transition-all"
+                  title="Collapse all"
+                >
+                  <ChevronRightIcon className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
             <div className="relative">
-              <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: `${modColor}60` }} />
+              <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-white/20" />
               <input
                 type="text"
-                placeholder="Filter files…"
+                placeholder="Filter files..."
                 value={fileSearchTerm}
                 onChange={(e) => setFileSearchTerm(e.target.value)}
-                className="w-full rounded-lg border-2 bg-black/50 pl-9 pr-3 py-2 text-sm outline-none font-mono transition-all focus:bg-black/60"
-                style={{ borderColor: `${modColor}40`, color: modColor }}
+                className="w-full bg-white/[0.04] border border-white/[0.08] pl-7 pr-2 py-1.5 text-[11px] outline-none font-mono transition-all focus:border-white/[0.15] text-white/60 placeholder-white/15"
               />
             </div>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => {
-                  const all = new Set<string>()
-                  const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }})
-                  collect(fileTree)
-                  setExpandedFolders(all)
-                }}
-                className="text-sm hover:opacity-80 p-1.5 rounded-lg border-2 transition-all"
-                style={{ color: modColor, borderColor: `${modColor}40`, backgroundColor: 'rgba(0,0,0,0.3)' }}
-                title="Expand all"
-              >
-                <ChevronDownIcon className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setExpandedFolders(new Set())}
-                className="text-sm hover:opacity-80 p-1.5 rounded-lg border-2 transition-all"
-                style={{ color: modColor, borderColor: `${modColor}40`, backgroundColor: 'rgba(0,0,0,0.3)' }}
-                title="Collapse all"
-              >
-                <ChevronRightIcon className="h-4 w-4" />
-              </button>
-            </div>
           </div>
-          <div className="space-y-1">
+          <div>
             {fileTree.map((node) => (
               <FileTreeItem
                 key={node.path}
@@ -488,12 +494,14 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
           </div>
         </div>
 
+        {/* Divider */}
         <div
-          className="absolute top-0 bottom-0 w-1 cursor-col-resize hover:opacity-100 transition-all"
-          style={{ left: `${dividerPosition}px`, zIndex: 10, backgroundColor: modColor, opacity: 0.6 }}
+          className="absolute top-0 bottom-0 w-px cursor-col-resize hover:opacity-100 transition-all"
+          style={{ left: `${dividerPosition}px`, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.1)' }}
           onMouseDown={handleMouseDown}
         />
 
+        {/* Code panel */}
         <div className="micro-scroll-y max-h-[600px] flex-1 overflow-y-auto">
           {filteredSections.map((section) => {
             const isCollapsed = collapsedFiles.has(section.path)
@@ -508,22 +516,22 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
               <div
                 key={section.path}
                 ref={(el) => { codeRefs.current[section.path] = el; }}
-                className={`${isSelected ? 'bg-emerald-900/10 shadow-lg' : ''} ${matches ? 'ring-2 ring-yellow-400/40' : ''}`}
+                className={`${matches ? 'ring-1 ring-yellow-400/20' : ''}`}
               >
                 <div
-                  className="flex cursor-pointer items-center justify-between bg-black/40 p-4 hover:bg-black/50 transition-all"
+                  className="flex cursor-pointer items-center justify-between px-4 py-3 bg-white/[0.03] hover:bg-white/[0.05] transition-all border-b border-white/[0.06]"
                   onClick={() => toggleFile(section.path)}
                 >
                   <div className="micro-row flex items-center gap-3">
-                    {isCollapsed ? <ChevronRightIcon className="h-5 w-5 text-gray-400" /> : <ChevronDownIcon className="h-5 w-5 text-gray-400" />}
-                    <FileIcon className="h-5 w-5 text-gray-400" />
-                    <span className="font-mono text-base font-bold" style={{ color: modColor }}>
+                    {isCollapsed ? <ChevronRightIcon className="h-4 w-4 text-white/25" /> : <ChevronDownIcon className="h-4 w-4 text-white/25" />}
+                    <FileIcon className="h-4 w-4 text-white/25" />
+                    <span className="font-mono text-[12px] font-bold" style={{ color: modColor }}>
                       {section.name}
                     </span>
-                    <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${languageColors[section.language]}`}>{section.language}</span>
-                    {!!matches && <span className="text-sm text-yellow-400 font-bold">{matches} matches</span>}
+                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 ${languageColors[section.language]}`}>{section.language}</span>
+                    {!!matches && <span className="text-[10px] text-yellow-400/60 font-bold">{matches} matches</span>}
                   </div>
-                  <div className="flex items-center gap-4 text-sm font-mono" style={{ color: ui.textDim }}>
+                  <div className="flex items-center gap-3 text-[11px] font-mono text-white/25">
                     <span>{section.size}</span>
                     <span>{section.lineCount} lines</span>
                     <CopyButton content={content} />
@@ -531,7 +539,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                 </div>
 
                 {!isCollapsed && (
-                  <div className="flex" style={{ backgroundColor: '#0a0a0a' }}>
+                  <div className="flex" style={{ backgroundColor: '#06060a' }}>
                     {renderLineNumbers(content, 1, section.path)}
                     <div className="micro-scroll micro-edge-x flex-1 overflow-x-auto p-4">
                       {renderCode(content, section.language, section.path)}
@@ -544,10 +552,11 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between p-4 border-t-2" style={{ borderColor: modColor }}>
-        <div className="text-sm font-bold" style={{ color: `${modColor}80` }}>
+      {/* Footer */}
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-[11px] font-bold text-white/30">
           {searchTerm && searchResults.length > 0 && (
-            <span>Found "{searchTerm}" in {searchResults.length} files</span>
+            <span>Found &quot;{searchTerm}&quot; in {searchResults.length} files</span>
           )}
         </div>
         <button
@@ -555,10 +564,9 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
             const all = filteredSections.map((s) => `// ${s.path}\n${s.content}`).join('\n\n')
             navigator.clipboard.writeText(all)
           }}
-          className="flex items-center gap-2 text-sm hover:opacity-80 px-4 py-2 rounded-lg border-2 font-bold transition-all"
-          style={{ color: modColor, borderColor: `${modColor}40`, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 border border-white/[0.08] hover:border-white/[0.15] text-white/30 hover:text-white/60 transition-all"
         >
-          <DocumentIcon className="h-4 w-4" />
+          <DocumentIcon className="h-3.5 w-3.5" />
           Copy All Code
         </button>
       </div>

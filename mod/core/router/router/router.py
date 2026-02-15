@@ -19,7 +19,7 @@ class Router:
         'sync_ious': 60,
     }
 
-    def __init__(self, store='ipfs', key=None, auth='auth.v0', chain='chain'):
+    def __init__(self, store='ipfs', key=None, auth='auth', chain='chain'):
         self.store = store
         self.key = m.key(key )
         self.tasks_path = self.path('tasks')
@@ -231,7 +231,7 @@ class Router:
         else:
             future2path = {future: path for path, future in self.cid2future.items()}
 
-        for future in m.as_completed(future2path.keys(), timeout=10):
+        for future in m.as_completed(future2path.keys()):
             path = future2path.pop(future)
             try:
                 print(f"Result({path})")
@@ -326,7 +326,9 @@ class Router:
             if mod in m.servers() and mod != 'api':
                 result = m.fn('client/call')(fn=task['fn'], params=params, timeout=task['timeout'])
             else:
-                result = m.fn(task['fn'])(**params)
+                result = m.fn(task['fn'])
+                if callable(result):
+                    result = result(**params)
             task['status'] = 'success'
         except Exception as e:
             result = m.detailed_error(e)
@@ -367,13 +369,7 @@ class Router:
     def get_cost(self, task):
         mod_name = task['fn'].split('/')[0]
         calculate_cost = m.config(mod_name).get('cost', {}).get(task['fn'], 0)
-        assert task['cost'] >= calculate_cost, f"Insufficient cost for task {task['fn']}. Required: {calculate_cost}, Provided: {task['cost']}"
-        task['cost'] = calculate_cost
-
-        if 'cost' in task:
-            return task['cost']
-        else:
-            return 0
+        return calculate_cost
     
     def task_data(self , 
                 fn: str = 'store/ls',  

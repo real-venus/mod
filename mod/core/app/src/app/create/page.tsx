@@ -1,9 +1,9 @@
 "use client"
 
-import { redirect } from 'next/navigation'
+import CreatePage from '@/create/CreatePage'
 
 export const dynamic = 'force-dynamic'
 
 export default function Page() {
-  redirect('/create')
+  return <CreatePage />
 }

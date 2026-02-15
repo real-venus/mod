@@ -23,7 +23,7 @@ export class Client {
     
     // if / in fn, treat as path and do not append to url
     if (fn.includes('/')) {
-      params = {fn: fn, params: params, token: this.token || '', wait:true};
+      params = {fn: fn, params: params, token: this.token || '', wait:true, tiemout: timeout};
       fn = 'call';
     }
     let body: string | FormData;

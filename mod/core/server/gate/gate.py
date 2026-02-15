@@ -13,7 +13,7 @@ print = m.print
 
 class Gate:
 
-    def __init__(self, path = '~/.mod/server', auth='auth.v0',mod='api', **_kwargs):
+    def __init__(self, path = '~/.mod/server', auth='auth.base',mod='api', **_kwargs):
         """
         Initialize the Gate class
         params:

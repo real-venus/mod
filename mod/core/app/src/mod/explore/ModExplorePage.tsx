@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import ModCard from '../ModCard'
 import { ModCardSettings } from '../ModCardSettings'
 import { ModuleType } from '@/types'
@@ -9,11 +9,18 @@ import { userContext } from '@/context'
 import { X, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
+type ModTab = 'mods' | 'myMods'
+
+const TABS: { key: ModTab; label: string }[] = [
+  { key: 'mods', label: 'MODS' },
+  { key: 'myMods', label: 'MY MODS' },
+]
 
 export default function ModExplorePage() {
   const { client, user } = userContext()
   const { searchFilters, handleSearch } = useSearchContext()
 
+  const [activeTab, setActiveTab] = useState<ModTab>('mods')
   const [mods, setMods] = useState<ModuleType[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +55,7 @@ export default function ModExplorePage() {
     }
   }, [columns])
 
-  const sortModules = (list: ModuleType[]) => {
+  const sortModules = useCallback((list: ModuleType[]) => {
     const sortOrder = typeof window !== 'undefined'
       ? (localStorage.getItem('mod_explorer_sort_order') || 'desc')
       : 'desc'
@@ -74,9 +81,9 @@ export default function ModExplorePage() {
     }
 
     return sortOrder === 'asc' ? sorted.reverse() : sorted
-  }
+  }, [sort])
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -94,15 +101,8 @@ export default function ModExplorePage() {
         params.key = selectedOwners[0]
       }
 
-      console.log('Fetching modules with params:', params)
-      console.log('Selected owners:', selectedOwners)
-
       const raw = (await client.call('mods', params)) as ModuleType[]
       const allMods = Array.isArray(raw) ? raw : []
-
-      console.log('Server returned modules:', allMods.length)
-      console.log('Search term:', searchTermToUse)
-
       const sorted = sortModules(allMods)
       setMods(sorted)
     } catch (err: any) {
@@ -111,11 +111,11 @@ export default function ModExplorePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [client, searchTermToUse, selectedOwners, sortModules])
 
   useEffect(() => {
     fetchAll()
-  }, [client, searchTermToUse, sort, selectedOwners])
+  }, [fetchAll])
 
   const uniqueOwners = useMemo(() => {
     const owners = new Set<string>()
@@ -126,9 +126,15 @@ export default function ModExplorePage() {
   }, [mods])
 
   const filteredMods = useMemo(() => {
-    if (selectedOwners.length === 0) return mods
-    return mods.filter(mod => selectedOwners.includes(mod.key))
-  }, [mods, selectedOwners])
+    let result = mods
+    if (selectedOwners.length > 0) {
+      result = result.filter(mod => selectedOwners.includes(mod.key))
+    }
+    if (activeTab === 'myMods' && user?.key) {
+      result = result.filter(mod => mod.key === user.key)
+    }
+    return result
+  }, [mods, selectedOwners, activeTab, user?.key])
 
   const totalPages = Math.ceil(filteredMods.length / itemsPerPage)
 
@@ -140,7 +146,7 @@ export default function ModExplorePage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTermToUse, selectedOwners, sort])
+  }, [searchTermToUse, selectedOwners, sort, activeTab])
 
   const toggleOwner = (owner: string) => {
     setSelectedOwners(prev =>
@@ -160,7 +166,7 @@ export default function ModExplorePage() {
   }[columns] || 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono relative overflow-hidden pt-20" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+    <div className="min-h-screen bg-black text-white font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
       {/* CRT scanline overlay */}
       <div
         className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
@@ -169,50 +175,84 @@ export default function ModExplorePage() {
         }}
       />
 
-      <main className="relative flex-1 px-6 pt-6 pb-0 z-20" role="main">
-        <div className="mx-auto mb-6" style={{ maxWidth: '100%' }}>
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-green-400 text-[12px] font-extrabold">[SYS]</span>
+      <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-8 z-20">
 
-              </div>
-              {searchTermToUse && (
-                <span className="text-[12px] text-cyan-400/60 font-bold font-mono">
-                  &gt; &quot;{searchTermToUse}&quot;
-                </span>
-              )}
-              <span className="text-[11px] text-amber-400/40 font-bold font-mono uppercase tracking-wider">
-                {filteredMods.length} mod{filteredMods.length !== 1 ? 's' : ''}
-              </span>
+        {/* Header + Tabs + Create (quests-style) */}
+        <div className="mb-6">
+          <div className="flex items-end gap-5 border-b border-white/[0.08] pb-0">
+            <div className="flex items-center gap-2.5 shrink-0 pb-3">
+              <span className="text-green-400/60 text-[16px] font-extrabold select-none">&gt;_</span>
+              <h1 className="text-[24px] font-extrabold text-white tracking-tight uppercase leading-none" style={{ textShadow: '0 0 20px rgba(74, 222, 128, 0.2)' }}>MODULES</h1>
             </div>
-            <ModCardSettings
-              sort={sort}
-              onSortChange={setSort}
-              columns={columns}
-              onColumnsChange={setColumns}
-              owners={uniqueOwners}
-              selectedOwners={selectedOwners}
-              onToggleOwner={toggleOwner}
-              onClearFilters={clearOwnerFilters}
-            />
+            <div className="flex items-center gap-0 overflow-x-auto scrollbar-none flex-1">
+              {TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`relative px-4 py-3.5 text-[14px] font-extrabold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase border-b-2 -mb-px ${
+                    activeTab === tab.key
+                      ? 'text-green-400 border-green-400 bg-green-500/[0.06]'
+                      : 'text-white/35 border-transparent hover:text-white/60 hover:border-white/15'
+                  }`}
+                >
+                  {tab.label}
+                  {tab.key === 'mods' && (
+                    <span className="ml-2 text-[11px] text-white/25 font-bold">{mods.length}</span>
+                  )}
+                  {tab.key === 'myMods' && user?.key && (
+                    <span className="ml-2 text-[11px] text-white/25 font-bold">{mods.filter(m => m.key === user.key).length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {/* <a href="/create">
+              <button
+                className={`shrink-0 px-6 py-2.5 mb-1.5 text-[14px] font-extrabold uppercase tracking-widest transition-all border-2 bg-green-500/15 text-green-400 border-green-500/50 hover:bg-green-500/25 hover:border-green-400 hover:shadow-[0_0_15px_rgba(74,222,128,0.2)]`}
+              >
+                + CREATE MOD
+              </button>
+            </a> */}
           </div>
         </div>
 
+        {/* Controls row */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            {searchTermToUse && (
+              <span className="text-[13px] text-cyan-400/60 font-bold font-mono">
+                &gt; &quot;{searchTermToUse}&quot;
+              </span>
+            )}
+            <span className="text-[12px] text-green-400/40 font-bold font-mono uppercase tracking-wider">
+              {filteredMods.length} mod{filteredMods.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <ModCardSettings
+            sort={sort}
+            onSortChange={setSort}
+            columns={columns}
+            onColumnsChange={setColumns}
+            owners={uniqueOwners}
+            selectedOwners={selectedOwners}
+            onToggleOwner={toggleOwner}
+            onClearFilters={clearOwnerFilters}
+          />
+        </div>
+
         {error && (
-          <div className="mx-auto mb-4" style={{ maxWidth: '100%' }}>
+          <div className="mb-4">
             <div className="bg-[#0d0d0d] border-2 border-red-500/40 flex items-start justify-between">
               <div className="flex-1 px-5 py-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-red-400 text-[11px] font-extrabold">[ERR]</span>
-                  <span className="text-red-400 font-extrabold text-[11px] uppercase tracking-wider">ERROR</span>
+                  <span className="text-red-400 text-[12px] font-extrabold">[ERR]</span>
+                  <span className="text-red-400 font-extrabold text-[12px] uppercase tracking-wider">ERROR</span>
                 </div>
-                <div className="text-red-400/70 text-[12px] font-medium">{error}</div>
+                <div className="text-red-400/70 text-[13px] font-medium">{error}</div>
               </div>
               <div className="flex gap-px p-3">
                 <button
                   onClick={fetchAll}
-                  className="flex items-center gap-2 px-4 py-2 border-2 border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all text-[10px] font-extrabold uppercase tracking-wider"
+                  className="flex items-center gap-2 px-4 py-2 border-2 border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all text-[11px] font-extrabold uppercase tracking-wider"
                 >
                   <RotateCcw size={14} strokeWidth={2.5} />
                   RETRY
@@ -229,47 +269,34 @@ export default function ModExplorePage() {
         )}
 
         {!loading && filteredMods.length === 0 && !error && (
-          <div className="mx-auto max-w-4xl text-center py-16">
-            <div className="bg-[#0d0d0d] border border-white/[0.12] px-8 py-12">
-              <span className="text-cyan-400/30 text-[12px] font-bold mb-2 block">---</span>
-              <div className="text-white/50 text-[13px] font-bold mb-4 uppercase tracking-wider">
-                {searchTermToUse || selectedOwners.length > 0 ? 'NO MODULES MATCH YOUR FILTERS' : 'NO MODULES YET'}
-              </div>
-              {(searchTermToUse || selectedOwners.length > 0) && (
-                <div className="text-white/30 text-[11px] font-medium space-y-2">
-                  {searchTermToUse && (
-                    <div>Search: <span className="text-cyan-400 font-bold">&quot;{searchTermToUse}&quot;</span></div>
-                  )}
-                  {selectedOwners.length > 0 && (
-                    <div>Owners: <span className="text-cyan-400 font-bold">{selectedOwners.length} selected</span></div>
-                  )}
-                  <div className="mt-4">
-                    <button
-                      onClick={() => {
-                        handleSearch('')
-                        clearOwnerFilters()
-                      }}
-                      className="px-5 py-2 bg-blue-500 hover:bg-blue-400 text-black text-[10px] font-extrabold uppercase tracking-wider transition-colors"
-                    >
-                      CLEAR ALL FILTERS
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+          <div className="flex flex-col items-center justify-center py-20 bg-[#0a0a0e] border-2 border-white/[0.1] font-mono">
+            <span className="text-green-400/50 text-[15px] mb-2 font-extrabold">[EMPTY]</span>
+            <p className="text-[15px] text-white/40 font-bold">
+              {activeTab === 'myMods'
+                ? (user?.key ? 'No modules created yet.' : 'Sign in to view your modules.')
+                : (searchTermToUse || selectedOwners.length > 0 ? 'No modules match your filters.' : 'No modules yet.')}
+            </p>
+            {(searchTermToUse || selectedOwners.length > 0) && (
+              <button
+                onClick={() => { handleSearch(''); clearOwnerFilters() }}
+                className="mt-4 px-5 py-2 bg-green-500/15 hover:bg-green-500/25 text-green-400 text-[11px] font-extrabold uppercase tracking-wider transition-colors border-2 border-green-500/30"
+              >
+                CLEAR ALL FILTERS
+              </button>
+            )}
           </div>
         )}
 
         {loading && (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-20 font-mono">
             <div className="flex items-center gap-3">
-              <span className="text-green-400 animate-pulse font-extrabold">_</span>
-              <span className="text-[12px] text-green-400/50 font-bold">LOADING MODULES...</span>
+              <span className="text-green-400 animate-pulse text-lg">_</span>
+              <span className="text-[15px] text-white/45 font-extrabold">LOADING MODULES...</span>
             </div>
           </div>
         )}
 
-        <div className={`mx-auto grid ${gridColsClass} gap-px bg-white/[0.04] mt-2`} style={{ maxWidth: '100%' }}>
+        <div className={`grid ${gridColsClass} gap-3 mt-2`}>
           {paginatedMods.map((mod) => (
             <div key={`${mod.name}-${mod.key}`}>
               <ModCard mod={mod} card_enabled={true} />
@@ -278,11 +305,11 @@ export default function ModExplorePage() {
         </div>
 
         {totalPages > 1 && (
-          <div className="mx-auto flex items-center justify-center gap-2 py-8" style={{ maxWidth: '100%' }}>
+          <div className="flex items-center justify-center gap-2 py-8">
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 px-4 py-2 border border-blue-500/20 text-blue-400/50 hover:text-blue-400/80 hover:bg-blue-500/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[10px] font-extrabold uppercase tracking-wider"
+              className="flex items-center gap-1 px-4 py-2 border border-green-500/20 text-green-400/50 hover:text-green-400/80 hover:bg-green-500/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider"
             >
               <ChevronLeft size={14} strokeWidth={2.5} />
               PREV
@@ -305,10 +332,10 @@ export default function ModExplorePage() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-9 h-9 text-[11px] font-extrabold transition-all ${
+                    className={`w-9 h-9 text-[12px] font-extrabold transition-all ${
                       currentPage === pageNum
-                        ? 'bg-blue-500 text-black border-2 border-blue-400'
-                        : 'bg-[#0d0d0d] border border-blue-500/20 text-blue-400/40 hover:text-blue-400/70 hover:bg-blue-500/[0.06]'
+                        ? 'bg-green-500 text-black border-2 border-green-400'
+                        : 'bg-[#0d0d0d] border border-green-500/20 text-green-400/40 hover:text-green-400/70 hover:bg-green-500/[0.06]'
                     }`}
                   >
                     {pageNum}
@@ -320,18 +347,18 @@ export default function ModExplorePage() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1 px-4 py-2 border border-blue-500/20 text-blue-400/50 hover:text-blue-400/80 hover:bg-blue-500/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[10px] font-extrabold uppercase tracking-wider"
+              className="flex items-center gap-1 px-4 py-2 border border-green-500/20 text-green-400/50 hover:text-green-400/80 hover:bg-green-500/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider"
             >
               NEXT
               <ChevronRight size={14} strokeWidth={2.5} />
             </button>
 
-            <div className="ml-3 px-3 py-2 bg-[#0d0d0d] border border-green-500/20 text-green-400/50 text-[10px] font-extrabold uppercase tracking-wider">
+            <div className="ml-3 px-3 py-2 bg-[#0d0d0d] border border-green-500/20 text-green-400/50 text-[11px] font-extrabold uppercase tracking-wider">
               {filteredMods.length} TOTAL
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   )
 }

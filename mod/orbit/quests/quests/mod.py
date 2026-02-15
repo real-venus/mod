@@ -19,7 +19,7 @@ class Quests:
     
     folder_path = m.abspath('~/.mod/quests')
     
-    def __init__(self, chain='chain', auth='auth.v0', store='ipfs'):
+    def __init__(self, chain='chain', auth='auth.base', store='ipfs'):
         self.chain = m.mod(chain)()
         self.auth = m.mod(auth)()
         self.store = m.mod(store)()
@@ -64,7 +64,9 @@ class Quests:
         assert reward > 0, "Reward must be greater than 0"
         assert title and len(title.strip()) > 0, "Title is required"
         assert description and len(description.strip()) > 0, "Description is required"
-        
+        # Check if creator has sufficient balance to cover the reward
+        creator_balance = self.chain.balance(address=creator_key, token='market')
+        assert creator_balance >= reward, f"Insufficient balance. You have ${creator_balance:.2f} but the quest reward requires ${reward:.2f}"
         quest_id = m.hash(f"{creator_key}:{title}:{time.time()}")[:16]
         
         quest = {
@@ -550,6 +552,64 @@ class Quests:
             'total_reward_posted': total_reward,
             'total_reward_paid': completed_reward,
             'total_responses': sum(len(q.get('responses', [])) for q in all_quests),
+        }
+
+    def leaderboard(self, n: int = 50) -> Dict[str, Any]:
+        """
+        Get leaderboard data for top questers (creators) and top responders (earners).
+
+        Returns:
+            Dict with 'questers' and 'responders' lists
+        """
+        all_quests = self.quests(n=10000)
+
+        # Build responder stats (earners from completed quests)
+        earner_map: Dict[str, Dict[str, Any]] = {}
+        # Build quester stats (creators)
+        creator_map: Dict[str, Dict[str, Any]] = {}
+
+        for q in all_quests:
+            creator = q.get('creator', '')
+            if creator:
+                if creator not in creator_map:
+                    creator_map[creator] = {
+                        'creator': creator,
+                        'quests_created': 0,
+                        'total_reward_posted': 0,
+                        'quests_completed': 0,
+                        'total_responses': 0,
+                    }
+                creator_map[creator]['quests_created'] += 1
+                creator_map[creator]['total_reward_posted'] += q.get('reward', 0)
+                creator_map[creator]['total_responses'] += len(q.get('responses', []))
+                if q.get('status') == 'completed':
+                    creator_map[creator]['quests_completed'] += 1
+
+            if q.get('status') == 'completed' and q.get('approved_response'):
+                responses = q.get('responses', [])
+                approved = None
+                for r in responses:
+                    if r.get('id') == q['approved_response'] or r.get('status') == 'approved':
+                        approved = r
+                        break
+                if approved:
+                    responder = approved.get('responder', '')
+                    if responder:
+                        if responder not in earner_map:
+                            earner_map[responder] = {
+                                'responder': responder,
+                                'total_earned': 0,
+                                'quests_completed': 0,
+                            }
+                        earner_map[responder]['total_earned'] += q.get('reward', 0)
+                        earner_map[responder]['quests_completed'] += 1
+
+        responders = sorted(earner_map.values(), key=lambda x: x['total_earned'], reverse=True)[:n]
+        questers = sorted(creator_map.values(), key=lambda x: x['total_reward_posted'], reverse=True)[:n]
+
+        return {
+            'responders': responders,
+            'questers': questers,
         }
 
     def info(self) -> Dict[str, Any]:

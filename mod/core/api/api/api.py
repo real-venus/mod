@@ -17,7 +17,7 @@ class  Api:
     folder_path = m.abspath('~/.mod/api')
     threads = {}
 
-    def __init__(self,  key=None, store = 'ipfs', chain='chain', router='router', auth='auth.v0'):
+    def __init__(self,  key=None, store = 'ipfs', chain='chain', router='router', auth='auth.base'):
         self.store = store
         self.key = m.key(key)
         self.auth = m.mod(auth)()
@@ -62,21 +62,20 @@ class  Api:
 
 
 
-    def mod(self, mod='api', key=None, schema=False,  expand = False, **kwargs) -> Dict[str, Any]:
+    def mod(self, mod='api', key=None, schema=False, expand=False, update=False, **kwargs) -> Dict[str, Any]:
         """
         get the mod Mod from IPFS.
         """
         cid = self.cid(mod=mod, key=key)
-        if cid:
-            mod =  self.get(cid) 
-        else:
+        if not cid:
             return {}
-        if mod['name'].startswith(mod['key'].lower()+'.'):
-            mod['name'] = mod['name'][len(mod['key'].lower())+1:]
-        mod['schema'] = self.get(mod['schema']) if schema else mod['schema']
-        mod['content'] = self.content(mod['content'], expand=expand) if expand else mod['content']
-        mod['cid'] = cid
-        return mod
+        mod_info = self.get(cid)
+        if mod_info['name'].startswith(mod_info['key'].lower()+'.'):
+            mod_info['name'] = mod_info['name'][len(mod_info['key'].lower())+1:]
+        mod_info['schema'] = self.get(mod_info['schema']) if schema else mod_info['schema']
+        mod_info['content'] = self.content(mod_info['content'], expand=expand) if expand else mod_info['content']
+        mod_info['cid'] = cid
+        return mod_info
 
     def root(self,  encrypt=True, update=True, **kwargs) -> str:
         path = self.path('root_cid.json')
@@ -383,17 +382,17 @@ class  Api:
         self.mods(update=1)
 
     def anchor_file(self, mod:str, key=None) -> Dict[str, Any]:
-        mod = self.mod(mod, key=key)
-        if not mod:
+        mod_info = self.mod(mod, key=key)
+        if not mod_info:
             return None
-        content = mod.get('content', {})
-        content = self.get(content) 
+        content = mod_info.get('content', {})
+        content = self.get(content)
         assert 'data' in content, f"Content for mod {mod} is missing 'data' field."
         file2content = self.get(content['data'])
-        file_name_options = ['mod.py', 'server.py', mod['name']+'.py']
-        for file, content in file2content.items():
-            if any(opt in file for opt in file_name_options):
-                return file
+        file_name_options = ['mod.py', 'server.py', mod_info['name']+'.py']
+        for file_path, file_content in file2content.items():
+            if any(opt in file_path for opt in file_name_options):
+                return file_path
         return None
             
     def reg_payload(self, mod: str = 'store', key=None, comment=None) -> Dict[str, Any]:
@@ -419,11 +418,11 @@ class  Api:
         """
         return self.folder_path + '/' + path
 
-    def mods(self, search:str=None, network:str=None, key='all', update:bool=True, n:int=None, page:int=None,  **kwargs) -> List[str]:
+    def mods(self, search:str=None, network:str=None, key='all', update:bool=True, n:int=None, page:int=None, **kwargs) -> List[Dict[str, Any]]:
         """
         List all registered mods in IPFS.
         Returns:
-            List of mod names
+            List of mod info dicts
         """
 
         registry = self.registry()
@@ -431,12 +430,12 @@ class  Api:
         if key != 'all':
             registry = {key.lower(): registry.get(key.lower(), {})}
         for user_key, user_mods in registry.items():
-            for mod in user_mods.keys():
-                mods.append(self.mod(mod, key=user_key, **kwargs))  
-            mods = [m for m in mods if isinstance(m, dict) and 'name' in m]
-        
+            for mod_name in user_mods.keys():
+                mods.append(self.mod(mod_name, key=user_key, **kwargs))
+            mods = [item for item in mods if isinstance(item, dict) and 'name' in item]
+
         if search != None:
-            mods = [m for m in mods if search in m['name']]
+            mods = [item for item in mods if search in item['name']]
         if page != None and n != None:
             start = page * n
             end = start + n
@@ -460,7 +459,7 @@ class  Api:
 
     def versions(self, mod='app' , key=None, df=False, n=1000, update=True, max_age=None) -> List[Dict[str, Any]]:
 
-        if self.store.valid_cid (mod):
+        if self.store.valid_cid(mod):
             mod_info = self.get(mod)
             mod = mod_info['name']
             key = mod_info['key']
@@ -469,23 +468,28 @@ class  Api:
         result = m.get(cache_path, None, update=update, max_age=max_age)
         if result is None:
             cid = self.cid(mod=mod, key=key)
-            result = []   
+            result = []
             current_n = 0
 
             if cid != None:
                 while current_n < n:
                     info = self.get(cid)
-                    print(info)
-                    content =  self.get(info['content'])
+                    content = self.get(info['content'])
                     prev_cid = info.get('prev', None)
-                    result.append({'data': content['data'], 'comment':  content.get('comment', ''), 'updated': self.timestamp2utc(info['updated']) })
+                    result.append({
+                        'cid': cid,
+                        'data': content['data'],
+                        'comment': content.get('comment', ''),
+                        'updated': self.timestamp2utc(info['updated']),
+                        'created': self.timestamp2utc(info.get('created', info['updated'])),
+                    })
                     if prev_cid == None:
                         break
                     else:
                         cid = prev_cid
                     current_n += 1
             if len(result) > 0:
-                result =  m.df(result)
+                result = m.df(result)
                 result.sort_values('updated', ascending=False, inplace=True)
                 result = result[:n]
                 if not df:
@@ -498,27 +502,24 @@ class  Api:
 
     v = versions
 
-    def regall(self, key=None, depth=1,  comment=None, public=False, timeout=30) -> Dict[str, Any]:
+    def regall(self, key=None, depth=1, comment=None, public=False, timeout=30) -> Dict[str, Any]:
         """
         Register all mods in the local environment to IPFS.
         Args:
             key: Key object or address string
             comment: Optional comment about the registration
-        Returns:) 
+        Returns:
             Dictionary with registration info for all mods
         """
-        futures = []
-        for mod in m.mods(depth=depth):
-            futures.append(m.submit(self.reg, dict(mod=mod, key=key, comment=comment, public=public), timeout=timeout))
-            self.reg(mod=mod, key=key, comment=comment, public=public)
-        
-        for future in c.as_completed(futures):
+        results = []
+        for mod_name in m.mods(depth=depth):
             try:
-                result = future.result()
-
+                result = self.reg(mod=mod_name, key=key, comment=comment, public=public)
                 print(f"Registered mod: {result['name']} with CID: {result['cid']}")
+                results.append(result)
             except Exception as e:
                 print(f"Error registering mod: {str(e)}")
+        return results
 
     def registry(self,  key='all', update=False) -> Dict[str, str]:
         """
@@ -537,10 +538,10 @@ class  Api:
         return {'status': 'registry cleared'}
 
     def schema(self, mod: m.Mod='store', key=None) -> Dict[str, Any]:
-        """Get the schema of a mod Mod from IPFS.
-        
+        """Get the schema of a mod from IPFS.
+
         Args:
-            mod: mod Mod object
+            mod: mod name string or dict
         Returns:
             Schema dictionary
         """
@@ -549,33 +550,33 @@ class  Api:
             if '/' in mod:
                 fn = mod.split('/')[-1]
                 mod = mod.replace('/' + fn, '')
-            mod  = self.mod(mod, key=key, schema=False)
+            mod_info = self.mod(mod, key=key, schema=False)
         else:
             assert 'schema' in mod, "Mod dictionary must contain 'schema' key"
-        
-        schema =  self.get(mod['schema'])
+            mod_info = mod
+
+        schema = self.get(mod_info['schema'])
         if fn is not None:
             schema = schema.get(fn, {})
         return schema
 
-    def setback(self, mod:str, cid:str , key=None , safety=True) -> Dict[str, Any]:
+    def setback(self, mod:str, cid:str, key=None, safety=True) -> Dict[str, Any]:
         """
         Setback a mod Mod to a previous CID in IPFS.
         Args:
-            mod: mod Mod object
+            mod: mod Mod name
             cid: Target CID to setback to
             key: Key object or address string
         """
-        mod = self.mod(mod, key=key)
-        old_content = self.content(mod['cid'], expand=1)
+        mod_info = self.mod(mod, key=key)
+        old_content = self.content(mod_info['cid'], expand=1)
         new_content = self.content(cid, expand=1)
         print(cid, new_content)
-        dirpath = m.dp(mod['name'])
+        dirpath = m.dp(mod_info['name'])
         add_dp_to_file = lambda f: os.path.join(dirpath, f)
         delete_files = [add_dp_to_file(f) for f in old_content.keys() if f not in new_content.keys()]
-        new_content = { add_dp_to_file(k) : v for k, v in new_content.items()}
+        new_content = {add_dp_to_file(k): v for k, v in new_content.items()}
 
-        # filter the new content that cant 
         write_files = list(new_content.keys())
 
         print(f"Setback will overwrite the current mod at {mod} with content from CID {cid}.")
@@ -587,45 +588,52 @@ class  Api:
             input_prompt = input(f"Setback will overwrite the current mod at {mod}. Press y to continue...")
             if input_prompt != 'y':
                 return {'status': 'setback aborted by user'}
-            else: 
+            else:
                 m.print("Proceeding with setback...", color="green")
 
-        for k,v in new_content.items():
+        for k, v in new_content.items():
             m.put_text(k, self.get(v))
 
-        for file in delete_files:
-            m.rm(file)
+        for file_path in delete_files:
+            m.rm(file_path)
         self.reg_info(cid)
         return {
-            'old_cid': mod['cid'],
+            'old_cid': mod_info['cid'],
             'new_cid': cid,
-            'mod': mod
+            'mod': mod_info
         }  
 
     def rm_mod(self, mod: m.Mod='store', key=None) -> bool:
-        """Remove a mod Mod from IPFS.
-        
+        """Remove a mod from IPFS.
+
         Args:
-            mod: mod Mod object
+            mod: mod name string
         Returns:
             True if removal was successful, False otherwise
         """
         registry = self.registry()
         key = self.key_address(key)
-        versions = self.versions(mod, key=key)
-        for info in versions:
-            cid = info['cid']
-            content_info_cid = info['content']
-            content_cid = self.get(content_info_cid)['data']
-            schema_cid = info['schema']
-            content_map = self.get(content_cid)
-            for file, file_cid in content_map.items():
-                self.store.rm(file_cid)
-            self.store.rm(content_info_cid)
-            self.store.rm(schema_cid)
-            self.store.rm(cid)
-        del registry[key][mod]
-        m.put(self.registry_path, registry)
+        mod_info = self.mod(mod, key=key)
+        if not mod_info:
+            return False
+        mod_cid = mod_info.get('cid')
+        if mod_cid:
+            content_info_cid = mod_info.get('content')
+            if content_info_cid and isinstance(content_info_cid, str):
+                content_data = self.get(content_info_cid)
+                if isinstance(content_data, dict) and 'data' in content_data:
+                    content_map = self.get(content_data['data'])
+                    if isinstance(content_map, dict):
+                        for file_key, file_cid in content_map.items():
+                            self.store.rm(file_cid)
+                self.store.rm(content_info_cid)
+            schema_cid = mod_info.get('schema')
+            if schema_cid and isinstance(schema_cid, str):
+                self.store.rm(schema_cid)
+            self.store.rm(mod_cid)
+        if key in registry and mod in registry[key]:
+            del registry[key][mod]
+            m.put(self.registry_path, registry)
         return True      
 
     def user_keys(self, key=None) -> List[str]:
@@ -657,14 +665,7 @@ class  Api:
 
 
 
-    def path(self, path:str) -> str:
-        """Get content from a specific path in IPFS.
-        
-        Args:
-        """
-        return self.folder_path + '/' + path
-
-    def user(self, key: str = None, update=False, expand=False ) -> Dict[str, Any]:
+    def user(self, key: str = None, update=False, expand=False) -> Dict[str, Any]:
         """Get information about a specific user in IPFS.
         
         Args:
@@ -744,7 +745,7 @@ class  Api:
         key = self.key_address(key)
         if key == self.key.address:
             orbit = 'inner'
-        name = name or path.split('/')[-1]
+        name = name or base.split('/')[-1]
         dirpath = m.paths["orbit"][orbit] + '/'+ key+ '/'+ name.replace('.', '/')
         print(f'Creating new mod {name} at {dirpath} from base {base}')
         for k,v in m.content(base).items():
@@ -843,17 +844,20 @@ class  Api:
             'weeks': weeks
         }
 
-    def transfer(self, to:str, amount:float, token:str='market'):
-        """Transfer tokens to another address using server-side key.
+    def transfer(self, to:str, amount:float, token:str='market', sender:str=None):
+        """Transfer tokens between addresses.
 
         Args:
             to: Recipient address
             amount: Amount to transfer
             token: Token symbol (default 'market')
+            sender: Sender address (uses debit for market tokens)
 
         Returns:
             Transaction receipt
         """
+        if sender and token.lower() == 'market':
+            return self.chain.debit(client=sender, provider=to, amount=amount)
         return self.chain.transfer(to=to, amount=amount, token=token)
 
     def credit(self, stable_amount:float, payment_token:str='usdt'):

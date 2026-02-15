@@ -29,7 +29,15 @@ export interface LeaderboardEntry {
   quests_completed: number;
 }
 
-export type QuestTab = 'browse' | 'myQuests' | 'myResponses' | 'leaderboard' | 'create' | 'docs';
+export interface QuestCreatorEntry {
+  creator: string;
+  quests_created: number;
+  total_reward_posted: number;
+  quests_completed: number;
+  total_responses: number;
+}
+
+export type QuestTab = 'browse' | 'stats' | 'myQuests' | 'myResponses' | 'leaderboard' | 'create' | 'docs';
 
 export function getStatusStyle(status: string) {
   switch (status) {
