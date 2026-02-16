@@ -92,7 +92,7 @@ class Router:
         paths = list(filter(filter_fn, paths))
         for path in paths:
             task = m.get(path)
-            if expand:
+            if expand and task is not None:
                 if 'result' in task:
                     try:
                         task['result'] = self.store.get(task['result'])

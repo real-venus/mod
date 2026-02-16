@@ -20,12 +20,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    href: '/chat',
-    label: 'Chat',
-    icon: ChatBubbleLeftRightIcon,
-    color: '#8b5cf6',
-  },
-  {
     href: '/mod/explore',
     label: 'Modules',
     icon: CubeIcon,
@@ -36,6 +30,12 @@ const navItems: NavItem[] = [
     label: 'Quests',
     icon: TrophyIcon,
     color: '#0bf58c',
+  },
+  {
+    href: '/chat',
+    label: 'Chat',
+    icon: ChatBubbleLeftRightIcon,
+    color: '#8b5cf6',
   },
   {
     href: '/docs',

@@ -12,30 +12,32 @@ import { getFreshToken } from '@/utils/tokenUtils';
 import { toast } from 'react-toastify';
 
 const TABS: { key: QuestTab; label: string; prefix: string }[] = [
-  { key: 'browse', label: 'BROWSE', prefix: 'BRW' },
+  { key: 'quests', label: 'QUESTS', prefix: 'QST' },
+  { key: 'responses', label: 'RESPONSES', prefix: 'RSP' },
   { key: 'stats', label: 'STATS', prefix: 'STS' },
   { key: 'leaderboard', label: 'RANKS', prefix: 'LDR' },
-  { key: 'myQuests', label: 'MY QUESTS', prefix: 'MYQ' },
-  { key: 'myResponses', label: 'RESPONSES', prefix: 'RSP' },
   { key: 'create', label: 'CREATE', prefix: 'NEW' },
   { key: 'docs', label: 'API DOCS', prefix: 'DOC' },
 ];
 
 export default function QuestsPage() {
   const { client, user } = userContext();
-  const [activeTab, setActiveTab] = useState<QuestTab>('browse');
+  const [activeTab, setActiveTab] = useState<QuestTab>('quests');
   const [quests, setQuests] = useState<Quest[]>([]);
   const [myQuests, setMyQuests] = useState<Quest[]>([]);
   const [myResponses, setMyResponses] = useState<QuestResponse[]>([]);
+  const [allResponses, setAllResponses] = useState<QuestResponse[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [questerBoard, setQuesterBoard] = useState<QuestCreatorEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('open');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [valueFilter, setValueFilter] = useState<string>('all');
   const [userBalance, setUserBalance] = useState<number | null>(null);
+  const [questSubFilter, setQuestSubFilter] = useState<'mine' | 'all'>('mine');
+  const [responseSubFilter, setResponseSubFilter] = useState<'mine' | 'all'>('mine');
 
   // --- Data fetching ---
 
@@ -164,16 +166,40 @@ export default function QuestsPage() {
   }, [client]);
 
   useEffect(() => {
-    if (activeTab === 'browse') fetchQuests();
-  }, [activeTab, fetchQuests]);
+    if (activeTab === 'quests') {
+      fetchQuests();
+      if (user?.key) fetchMyQuests();
+    }
+  }, [activeTab, fetchQuests, fetchMyQuests, user?.key]);
+
+  const fetchAllResponses = useCallback(async () => {
+    if (!client) return;
+    try {
+      const result = await client.call('quests/quests', {});
+      const questList: Quest[] = Array.isArray(result) ? result : result?.data || [];
+      const responses: QuestResponse[] = [];
+      for (const q of questList) {
+        if (q.responses && Array.isArray(q.responses)) {
+          for (const r of q.responses) {
+            if (!user?.key || r.responder !== user.key) {
+              responses.push(r);
+            }
+          }
+        }
+      }
+      responses.sort((a, b) => b.created_at - a.created_at);
+      setAllResponses(responses);
+    } catch (e) {
+      console.error('Failed to fetch all responses:', e);
+    }
+  }, [client, user?.key]);
 
   useEffect(() => {
-    if (activeTab === 'myQuests') fetchMyQuests();
-  }, [activeTab, fetchMyQuests]);
-
-  useEffect(() => {
-    if (activeTab === 'myResponses') fetchMyResponses();
-  }, [activeTab, fetchMyResponses]);
+    if (activeTab === 'responses') {
+      if (user?.key) fetchMyResponses();
+      fetchAllResponses();
+    }
+  }, [activeTab, fetchMyResponses, fetchAllResponses, user?.key]);
 
   useEffect(() => {
     if (activeTab === 'leaderboard') fetchLeaderboard();
@@ -231,7 +257,8 @@ export default function QuestsPage() {
         }
       } else if (result?.data || result?.id) {
         toast.success('Quest created successfully!');
-        setActiveTab('myQuests');
+        setActiveTab('quests');
+        setQuestSubFilter('mine');
       }
     } catch (e: any) {
       const errorMsg = e.message || e.toString();
@@ -305,6 +332,10 @@ export default function QuestsPage() {
 
   const filteredMyQuests = useMemo(() => applyQuestFilters(myQuests), [myQuests, applyQuestFilters]);
 
+  const displayedQuests = useMemo(() => {
+    return questSubFilter === 'mine' ? filteredMyQuests : filteredQuests;
+  }, [questSubFilter, filteredMyQuests, filteredQuests]);
+
   const filteredMyResponses = useMemo(() => {
     let result = myResponses;
     if (searchQuery.trim()) {
@@ -317,9 +348,25 @@ export default function QuestsPage() {
     return result;
   }, [myResponses, searchQuery, statusFilter]);
 
+  const filteredAllResponses = useMemo(() => {
+    let result = allResponses;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(response => response.content.toLowerCase().includes(q));
+    }
+    if (statusFilter !== 'all') {
+      result = result.filter(response => response.status === statusFilter);
+    }
+    return result;
+  }, [allResponses, searchQuery, statusFilter]);
+
+  const displayedResponses = useMemo(() => {
+    return responseSubFilter === 'mine' ? filteredMyResponses : filteredAllResponses;
+  }, [responseSubFilter, filteredMyResponses, filteredAllResponses]);
+
   // --- Render helpers ---
 
-  const showFilters = activeTab === 'browse' || activeTab === 'myQuests' || activeTab === 'myResponses';
+  const showFilters = activeTab === 'quests' || activeTab === 'responses';
 
   const renderEmpty = (message: string) => (
     <div className="flex flex-col items-center justify-center py-20 bg-[#0a0a0e] border-2 border-white/[0.1] font-mono">
@@ -363,7 +410,7 @@ export default function QuestsPage() {
               {TABS.filter(t => t.key !== 'create').map(tab => (
                 <button
                   key={tab.key}
-                  onClick={() => { setActiveTab(tab.key as QuestTab); setStatusFilter(tab.key === 'browse' ? 'open' : 'all'); setValueFilter('all'); setSearchQuery(''); }}
+                  onClick={() => { setActiveTab(tab.key as QuestTab); setStatusFilter('all'); setValueFilter('all'); setSearchQuery(''); }}
                   className={`relative px-4 py-3.5 text-[14px] font-extrabold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase border-b-2 -mb-px ${
                     activeTab === tab.key
                       ? 'text-emerald-400 border-emerald-400 bg-emerald-500/[0.06]'
@@ -414,7 +461,7 @@ export default function QuestsPage() {
               className="px-4 py-3.5 bg-[#0a0a0e] border-2 border-white/[0.08] text-[14px] text-white/55 focus:outline-none transition-colors appearance-none cursor-pointer shrink-0 font-mono uppercase font-extrabold hover:border-white/[0.15]"
             >
               <option value="all">ALL STATUS</option>
-              {activeTab === 'myResponses' ? (
+              {activeTab === 'responses' ? (
                 <>
                   <option value="pending">PENDING</option>
                   <option value="approved">APPROVED</option>
@@ -429,7 +476,7 @@ export default function QuestsPage() {
                 </>
               )}
             </select>
-            {activeTab !== 'myResponses' && (
+            {activeTab !== 'responses' && (
               <select
                 value={valueFilter}
                 onChange={e => setValueFilter(e.target.value)}
@@ -454,15 +501,64 @@ export default function QuestsPage() {
         )}
 
         {/* Tab content */}
-        {activeTab === 'browse' && (
-          loading ? renderLoading() :
-          filteredQuests.length === 0 ? renderEmpty((searchQuery || statusFilter !== 'all' || valueFilter !== 'all') ? 'No quests match your filters.' : 'No open quests found.') : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {filteredQuests.map(quest => (
-                <QuestCard key={quest.id} quest={quest} userKey={user?.key} />
+        {activeTab === 'quests' && (
+          <>
+            {/* Sub-filter toggle */}
+            <div className="flex items-center gap-0 mb-4">
+              {(['mine', 'all'] as const).map(sub => (
+                <button
+                  key={sub}
+                  onClick={() => setQuestSubFilter(sub)}
+                  className={`px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider transition-all border-2 ${
+                    questSubFilter === sub
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
+                      : 'bg-transparent text-white/30 border-white/[0.08] hover:text-white/50 hover:border-white/[0.15]'
+                  } ${sub === 'mine' ? 'border-r-0' : ''}`}
+                >
+                  {sub === 'mine' ? 'MY QUESTS' : 'ALL QUESTS'}
+                </button>
               ))}
             </div>
-          )
+            {questSubFilter === 'mine' && !user?.token ? renderEmpty('Sign in to view your quests.') :
+            loading ? renderLoading() :
+            displayedQuests.length === 0 ? renderEmpty((searchQuery || statusFilter !== 'all' || valueFilter !== 'all') ? 'No quests match your filters.' : questSubFilter === 'mine' ? 'No quests created yet.' : 'No quests found.') : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {displayedQuests.map(quest => (
+                  <QuestCard key={quest.id} quest={quest} userKey={user?.key} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'responses' && (
+          <>
+            {/* Sub-filter toggle */}
+            <div className="flex items-center gap-0 mb-4">
+              {(['mine', 'all'] as const).map(sub => (
+                <button
+                  key={sub}
+                  onClick={() => setResponseSubFilter(sub)}
+                  className={`px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider transition-all border-2 ${
+                    responseSubFilter === sub
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
+                      : 'bg-transparent text-white/30 border-white/[0.08] hover:text-white/50 hover:border-white/[0.15]'
+                  } ${sub === 'mine' ? 'border-r-0' : ''}`}
+                >
+                  {sub === 'mine' ? 'MY RESPONSES' : "OTHERS' RESPONSES"}
+                </button>
+              ))}
+            </div>
+            {responseSubFilter === 'mine' && !user?.token ? renderEmpty('Sign in to view your responses.') :
+            loading ? renderLoading() :
+            displayedResponses.length === 0 ? renderEmpty((searchQuery || statusFilter !== 'all') ? 'No responses match your filters.' : responseSubFilter === 'mine' ? 'No responses submitted yet.' : 'No responses found.') : (
+              <div className="space-y-px">
+                {displayedResponses.map(response => (
+                  <ResponseCard key={response.id} response={response} onEdit={responseSubFilter === 'mine' ? handleEditResponse : undefined} />
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {activeTab === 'stats' && (
@@ -471,30 +567,6 @@ export default function QuestsPage() {
 
         {activeTab === 'leaderboard' && (
           <Leaderboard responders={leaderboard} questers={questerBoard} loading={leaderboardLoading} />
-        )}
-
-        {activeTab === 'myQuests' && (
-          !user?.token ? renderEmpty('Sign in to view your quests.') :
-          loading ? renderLoading() :
-          filteredMyQuests.length === 0 ? renderEmpty((searchQuery || statusFilter !== 'all' || valueFilter !== 'all') ? 'No quests match your filters.' : 'No quests created yet.') : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {filteredMyQuests.map(quest => (
-                <QuestCard key={quest.id} quest={quest} userKey={user?.key} />
-              ))}
-            </div>
-          )
-        )}
-
-        {activeTab === 'myResponses' && (
-          !user?.token ? renderEmpty('Sign in to view your responses.') :
-          loading ? renderLoading() :
-          filteredMyResponses.length === 0 ? renderEmpty((searchQuery || statusFilter !== 'all') ? 'No responses match your filters.' : 'No responses submitted yet.') : (
-            <div className="space-y-px">
-              {filteredMyResponses.map(response => (
-                <ResponseCard key={response.id} response={response} onEdit={handleEditResponse} />
-              ))}
-            </div>
-          )
         )}
 
         {activeTab === 'create' && (

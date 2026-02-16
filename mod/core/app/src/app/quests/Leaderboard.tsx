@@ -129,7 +129,7 @@ function ResponderBoard({ entries }: { entries: LeaderboardEntry[] }) {
                 <span className={`text-[16px] font-extrabold ${style.color}`}>
                   {entry.total_earned.toLocaleString()}
                 </span>
-                <span className="text-[11px] text-white/25 ml-1 font-bold">TKN</span>
+                <span className="text-[11px] text-white/25 ml-1 font-bold">USDC</span>
               </div>
             </div>
           );
@@ -199,7 +199,7 @@ function QuesterBoard({ entries }: { entries: QuestCreatorEntry[] }) {
                 <span className={`text-[16px] font-extrabold ${style.color}`}>
                   {entry.total_reward_posted.toLocaleString()}
                 </span>
-                <span className="text-[11px] text-white/25 ml-1 font-bold">TKN</span>
+                <span className="text-[11px] text-white/25 ml-1 font-bold">USDC</span>
               </div>
             </div>
           );

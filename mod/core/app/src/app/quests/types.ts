@@ -37,7 +37,7 @@ export interface QuestCreatorEntry {
   total_responses: number;
 }
 
-export type QuestTab = 'browse' | 'stats' | 'myQuests' | 'myResponses' | 'leaderboard' | 'create' | 'docs';
+export type QuestTab = 'quests' | 'responses' | 'stats' | 'leaderboard' | 'create' | 'docs';
 
 export function getStatusStyle(status: string) {
   switch (status) {

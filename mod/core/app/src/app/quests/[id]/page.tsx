@@ -303,7 +303,7 @@ export default function QuestPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-extrabold text-white/30 uppercase tracking-[0.2em] mb-1.5 block">Reward (TKN)</label>
+                  <label className="text-[10px] font-extrabold text-white/30 uppercase tracking-[0.2em] mb-1.5 block">Reward (USDC)</label>
                   <input
                     type="number"
                     value={questEditForm.reward}
@@ -357,7 +357,7 @@ export default function QuestPage() {
           <div className="bg-[#0a0a0e] px-5 py-4">
             <div className="text-[10px] text-white/25 uppercase tracking-[0.2em] mb-1 font-extrabold">REWARD</div>
             <div className="text-2xl font-extrabold text-green-400">{quest.reward.toLocaleString()}</div>
-            <div className="text-[10px] text-green-400/50 uppercase tracking-wider font-bold">TKN</div>
+            <div className="text-[10px] text-green-400/50 uppercase tracking-wider font-bold">USDC</div>
           </div>
           <div className="bg-[#0a0a0e] px-5 py-4">
             <div className="text-[10px] text-white/25 uppercase tracking-[0.2em] mb-1 font-extrabold">RESPONSES</div>

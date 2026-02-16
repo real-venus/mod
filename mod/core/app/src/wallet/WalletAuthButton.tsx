@@ -114,7 +114,13 @@ function KeyPreview({ address, publicKey, label }: { address: string; publicKey?
 export function WalletAuthButton() {
   const { user, signIn, signOut, authLoading } = userContext()
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [authMode, setAuthMode] = useState<AuthMode>('local')
+  const [authMode, setAuthMode] = useState<AuthMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('last_auth_mode') as AuthMode | null
+      if (saved && ['local', 'subwallet', 'metamask', 'phantom'].includes(saved)) return saved
+    }
+    return 'metamask'
+  })
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -134,6 +140,18 @@ export function WalletAuthButton() {
     }
     checkWallets()
   }, [])
+
+  // Persist auth mode selection
+  useEffect(() => {
+    localStorage.setItem('last_auth_mode', authMode)
+  }, [authMode])
+
+  // Auto-connect MetaMask if it's the default mode on modal open
+  useEffect(() => {
+    if (isExpanded && authMode === 'metamask' && metamaskAccounts.length === 0) {
+      handleMetamaskConnect()
+    }
+  }, [isExpanded])
 
   const derivedKey = useMemo(() => {
     if (authMode !== 'local' || !password || password.length < 1) return null
@@ -363,16 +381,27 @@ export function WalletAuthButton() {
             className="fixed inset-0 flex items-center justify-center font-mono"
             style={{ zIndex: 99999, backgroundColor: '#050505' }}
           >
-            {/* Subtle radial glow behind content */}
+            {/* Radial glow behind content */}
             <div className="absolute inset-0 pointer-events-none" style={{
-              background: `radial-gradient(ellipse 600px 400px at 50% 45%, ${activeColor}06 0%, transparent 70%)`,
-              transition: 'background 0.5s ease',
+              background: `radial-gradient(ellipse 800px 500px at 50% 40%, ${activeColor}0a 0%, transparent 70%)`,
+              transition: 'background 0.8s ease',
+            }} />
+
+            {/* Secondary glow - top accent */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: `radial-gradient(ellipse 400px 100px at 50% 0%, ${activeColor}08 0%, transparent 100%)`,
+              transition: 'background 0.8s ease',
             }} />
 
             {/* Background grid pattern */}
-            <div className="absolute inset-0 opacity-[0.02]" style={{
+            <div className="absolute inset-0 opacity-[0.025]" style={{
               backgroundImage: 'linear-gradient(#393939 1px, transparent 1px), linear-gradient(90deg, #393939 1px, transparent 1px)',
-              backgroundSize: '48px 48px'
+              backgroundSize: '60px 60px'
+            }} />
+
+            {/* Vignette */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: 'radial-gradient(ellipse at center, transparent 50%, #050505 100%)',
             }} />
 
             {/* Close button - top right */}
@@ -388,56 +417,68 @@ export function WalletAuthButton() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.05 }}
-              className="relative w-full max-w-xl mx-auto px-8"
+              className="relative w-full max-w-[440px] mx-auto px-6"
             >
               {/* Title */}
-              <div className="flex items-center gap-3 mb-8">
-                <motion.div
-                  className="w-1 h-6"
-                  style={{ backgroundColor: activeColor }}
-                  layoutId="auth-accent"
-                  transition={{ duration: 0.3 }}
-                />
-                <span className="text-[15px] font-semibold text-[#f4f4f4] uppercase tracking-[0.16em]">Authentication</span>
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-1.5">
+                  <motion.div
+                    className="w-6 h-[2px]"
+                    style={{ backgroundColor: activeColor }}
+                    layoutId="auth-accent"
+                    transition={{ duration: 0.3 }}
+                  />
+                  <span className="text-[10px] font-medium text-[#525252] uppercase tracking-[0.2em]">Mod Protocol</span>
+                </div>
+                <h1 className="text-[24px] font-bold text-[#f4f4f4] tracking-tight leading-none">
+                  Sign in
+                </h1>
               </div>
 
-              {/* Provider Tabs */}
-              <div className="flex gap-0 mb-6 border border-[#262626] rounded-sm overflow-hidden">
-                {wallets.map(({ mode, label, Logo, tag, disabled, onClick }) => {
-                  const isSelected = authMode === mode
-                  const color = walletColors[mode]
-                  return (
-                    <button
-                      key={mode}
-                      onClick={onClick}
-                      disabled={disabled}
-                      className={`relative flex-1 flex flex-col items-center gap-2 py-4 px-3 transition-all ${
-                        disabled ? 'opacity-25 cursor-not-allowed' : ''
-                      }`}
-                      style={{
-                        backgroundColor: isSelected ? `${color}0a` : '#0d0d0d',
-                        borderRight: '1px solid #262626',
-                      }}
-                    >
-                      {isSelected && (
-                        <motion.div
-                          className="absolute bottom-0 left-0 right-0 h-[2px]"
-                          style={{ backgroundColor: color }}
-                          layoutId="provider-indicator"
-                          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                        />
-                      )}
-                      <div className={`w-7 h-7 flex items-center justify-center transition-all ${
-                        isSelected ? 'opacity-100 scale-110' : 'opacity-40 hover:opacity-70'
-                      }`}>
-                        <Logo />
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                        isSelected ? 'text-[#e0e0e0]' : 'text-[#525252]'
-                      }`} style={isSelected ? { color } : {}}>{tag}</span>
-                    </button>
-                  )
-                })}
+              {/* Provider Selection */}
+              <div className="mb-5">
+                <span className="block text-[10px] font-medium text-[#525252] uppercase tracking-[0.2em] mb-2">Select provider</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                  {wallets.map(({ mode, label, Logo, tag, disabled, onClick }) => {
+                    const isSelected = authMode === mode
+                    const color = walletColors[mode]
+                    return (
+                      <button
+                        key={mode}
+                        onClick={onClick}
+                        disabled={disabled}
+                        className={`group relative flex flex-col items-center justify-center rounded transition-all duration-200 ${
+                          disabled ? 'opacity-20 cursor-not-allowed' : 'cursor-pointer'
+                        }`}
+                        style={{
+                          aspectRatio: '1',
+                          backgroundColor: isSelected ? `${color}10` : '#111',
+                          border: isSelected ? `1px solid ${color}40` : '1px solid #1e1e1e',
+                          boxShadow: isSelected ? `0 0 15px ${color}08` : 'none',
+                        }}
+                      >
+                        {isSelected && (
+                          <motion.div
+                            className="absolute top-0 left-0 right-0 h-[2px] rounded-t"
+                            style={{ backgroundColor: color }}
+                            layoutId="provider-indicator"
+                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                          />
+                        )}
+                        <div className={`w-7 h-7 rounded-md flex items-center justify-center mb-1.5 transition-all duration-200 ${
+                          isSelected ? '' : 'opacity-40 group-hover:opacity-70'
+                        }`} style={{
+                          backgroundColor: isSelected ? `${color}15` : '#1a1a1a',
+                        }}>
+                          <Logo />
+                        </div>
+                        <span className={`text-[10px] font-bold uppercase tracking-[0.08em] transition-colors duration-200 ${
+                          isSelected ? '' : 'text-[#525252] group-hover:text-[#8d8d8d]'
+                        }`} style={isSelected ? { color } : {}}>{tag}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Form Area */}
@@ -453,20 +494,27 @@ export function WalletAuthButton() {
                       className="space-y-4"
                     >
                       <div>
-                        <label className="block text-[11px] font-medium text-[#6f6f6f] uppercase tracking-[0.16em] mb-2">
+                        <label className="block text-[10px] font-medium text-[#525252] uppercase tracking-[0.2em] mb-2">
                           Passphrase
                         </label>
-                        <div className="relative">
+                        <div className="relative group">
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#393939] group-focus-within:text-[#78a9ff] transition-colors">
+                            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v3H6V3a2 2 0 0 1 2-2zm3 5V3a3 3 0 0 0-6 0v3H2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6H11zm-1 1v6H4V7h8z"/></svg>
+                          </div>
                           <input
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full h-12 px-4 bg-[#161616] border border-[#333] rounded-sm text-[15px] text-[#f4f4f4] font-mono placeholder:text-[#393939] focus:outline-none focus:border-[#525252] transition-colors"
+                            className="w-full h-12 pl-11 pr-4 bg-[#111] border border-[#262626] rounded text-[14px] text-[#f4f4f4] font-mono placeholder:text-[#333] focus:outline-none focus:border-[#78a9ff]/40 focus:bg-[#0d0d0d] transition-all duration-200"
+                            style={{ boxShadow: password ? `0 0 0 1px ${activeColor}20` : 'none' }}
                             placeholder="Enter passphrase"
                             autoFocus
                           />
                         </div>
-                        <p className="text-[11px] text-[#525252] mt-1.5">Deterministic key derived from your passphrase.</p>
+                        <p className="text-[11px] text-[#393939] mt-2 flex items-center gap-1.5">
+                          <svg className="w-3 h-3 text-[#333] shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 1a6 6 0 100 12A6 6 0 008 2zm-.5 3h1v5h-1V5zm0 6h1v1h-1v-1z"/></svg>
+                          Deterministic key derived from your passphrase
+                        </p>
                       </div>
 
                       {/* Key Preview */}
@@ -664,31 +712,39 @@ export function WalletAuthButton() {
                 </AnimatePresence>
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-3 pt-2">
                   <button
                     type="submit"
                     disabled={loading || (authMode === 'subwallet' && accounts.length === 0)}
-                    className="flex-1 h-12 text-white text-[14px] font-semibold tracking-wide transition-all disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+                    className="flex-1 h-12 text-[14px] font-semibold tracking-wide transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed rounded relative overflow-hidden group"
                     style={{
                       backgroundColor: activeColor,
                       opacity: loading || (authMode === 'subwallet' && accounts.length === 0) ? 0.3 : 1,
+                      color: authMode === 'phantom' || authMode === 'subwallet' ? '#0d0d0d' : '#fff',
                     }}
                   >
+                    <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-200" />
                     {loading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      <span className="relative flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-current/20 border-t-current rounded-full animate-spin" />
                         <span>Connecting...</span>
                       </span>
                     ) : authMode === 'metamask' && metamaskAccounts.length === 0 ? (
-                      <span>Connect wallet</span>
+                      <span className="relative flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 3L8 0.5 2.5 3v5c0 3.5 2.3 6.5 5.5 7.5 3.2-1 5.5-4 5.5-7.5V3zM8 2l4 1.8v4.7c0 2.7-1.8 5-4 5.9-2.2-.9-4-3.2-4-5.9V3.8L8 2z"/></svg>
+                        Connect wallet
+                      </span>
                     ) : (
-                      <span>Sign in</span>
+                      <span className="relative flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M13 5l-1.5-1.5L7 8 4.5 5.5 3 7l4 4z"/></svg>
+                        Sign in
+                      </span>
                     )}
                   </button>
                   <button
                     type="button"
                     onClick={handleModalClose}
-                    className="h-12 px-6 bg-[#1a1a1a] hover:bg-[#262626] text-[#6f6f6f] hover:text-[#a8a8a8] text-[14px] font-semibold tracking-wide transition-colors border border-[#262626] hover:border-[#393939] rounded-sm"
+                    className="h-12 px-8 bg-transparent hover:bg-[#1a1a1a] text-[#525252] hover:text-[#a8a8a8] text-[14px] font-semibold tracking-wide transition-all duration-200 border border-[#1e1e1e] hover:border-[#333] rounded"
                   >
                     Cancel
                   </button>
@@ -696,12 +752,19 @@ export function WalletAuthButton() {
               </form>
 
               {/* Footer */}
-              <div className="mt-8 pt-3 border-t border-[#1a1a1a]">
+              <div className="mt-6 pt-3 border-t border-[#161616]">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-[#333] font-mono tracking-wider">MOD AUTH v1.0</span>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1 h-1 rounded-full bg-[#42be65]" />
-                    <span className="text-[10px] text-[#333] font-mono tracking-wider">SECURE</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: activeColor, opacity: 0.6 }} />
+                    <span className="text-[10px] text-[#2a2a2a] font-mono tracking-[0.15em]">MOD AUTH v1.0</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#42be65]" />
+                      <span className="text-[10px] text-[#2a2a2a] font-mono tracking-[0.15em]">ENCRYPTED</span>
+                    </div>
+                    <span className="text-[10px] text-[#1e1e1e] font-mono">|</span>
+                    <span className="text-[10px] text-[#2a2a2a] font-mono tracking-[0.15em]">SECURE CONNECTION</span>
                   </div>
                 </div>
               </div>

@@ -63,6 +63,21 @@ export function Portfolio() {
         throw new Error('Chain config not found')
       }
 
+      // ETH (native chain balance)
+      try {
+        const ethBalance = await provider.getBalance(user.key)
+        const ethFormatted = ethers.formatEther(ethBalance)
+        results.push({
+          symbol: 'ETH',
+          balance: parseFloat(ethFormatted).toFixed(4),
+          usdValue: parseFloat(ethFormatted).toFixed(4),
+          address: 'native'
+        })
+      } catch (err) {
+        console.error('Error fetching ETH balance:', err)
+        results.push({ symbol: 'ETH', balance: 'Error', usdValue: '0.00', address: '' })
+      }
+
       // Native Token
       try {
         const nativeTokenAddress = chainConfig.contracts.NativeToken.address

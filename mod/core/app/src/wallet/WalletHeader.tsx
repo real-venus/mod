@@ -1205,9 +1205,9 @@ export function WalletHeader() {
                           >
                             <span className="font-bold text-neutral-500 uppercase tracking-wider">{token}</span>
                             <span className="font-mono font-bold text-neutral-300 tabular-nums">
-                              {token === 'MARKET' || token === 'USDC' || token === 'USDT'
-                                ? `$${balance.toFixed(2)}`
-                                : balance.toFixed(6)}
+                              {token === 'ETH'
+                                ? `${balance.toFixed(4)} ETH`
+                                : `$${balance.toFixed(2)}`}
                             </span>
                           </div>
                         ))

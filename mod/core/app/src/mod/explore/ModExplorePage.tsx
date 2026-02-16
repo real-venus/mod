@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import Link from 'next/link'
 import ModCard from '../ModCard'
 import { ModCardSettings } from '../ModCardSettings'
 import { ModuleType } from '@/types'
@@ -205,13 +206,12 @@ export default function ModExplorePage() {
                 </button>
               ))}
             </div>
-            {/* <a href="/create">
-              <button
-                className={`shrink-0 px-6 py-2.5 mb-1.5 text-[14px] font-extrabold uppercase tracking-widest transition-all border-2 bg-green-500/15 text-green-400 border-green-500/50 hover:bg-green-500/25 hover:border-green-400 hover:shadow-[0_0_15px_rgba(74,222,128,0.2)]`}
-              >
-                + CREATE MOD
-              </button>
-            </a> */}
+            <Link
+              href="/create"
+              className="shrink-0 px-6 py-2.5 mb-1.5 text-[14px] font-extrabold uppercase tracking-widest transition-all border-2 bg-green-500/15 text-green-400 border-green-500/50 hover:bg-green-500/25 hover:border-green-400 hover:shadow-[0_0_15px_rgba(74,222,128,0.2)]"
+            >
+              + CREATE MOD
+            </Link>
           </div>
         </div>
 

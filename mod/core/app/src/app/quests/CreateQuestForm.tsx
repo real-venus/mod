@@ -21,10 +21,11 @@ export default function CreateQuestForm({ loading, onSubmit, userBalance }: Crea
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (insufficientBalance) return;
+    if (insufficientBalance || !form.description.trim()) return;
     const tags = form.tags.split(',').map(t => t.trim()).filter(t => t);
+    const title = form.title.trim() || form.description.trim().slice(0, 80) + (form.description.trim().length > 80 ? '...' : '');
     await onSubmit({
-      title: form.title,
+      title,
       description: form.description,
       reward: parseFloat(form.reward),
       tags,
@@ -43,21 +44,6 @@ export default function CreateQuestForm({ loading, onSubmit, userBalance }: Crea
         </div>
 
         <div className="px-6 py-6 space-y-5">
-          {/* Title */}
-          <div>
-            <label className="block text-[12px] font-extrabold text-white/40 uppercase tracking-[0.2em] mb-2">
-              TITLE
-            </label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={e => setForm({ ...form, title: e.target.value })}
-              className="w-full px-4 py-3 bg-black/40 border-2 border-white/[0.1] text-[15px] text-white/85 placeholder-white/20 focus:outline-none focus:border-blue-500/50 transition-colors font-mono font-bold"
-              placeholder="e.g., Build a landing page"
-              required
-            />
-          </div>
-
           {/* Description */}
           <div>
             <label className="block text-[12px] font-extrabold text-white/40 uppercase tracking-[0.2em] mb-2">
@@ -67,8 +53,22 @@ export default function CreateQuestForm({ loading, onSubmit, userBalance }: Crea
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
               className="w-full px-4 py-3 bg-black/40 border-2 border-white/[0.1] text-[15px] text-white/85 placeholder-white/20 focus:outline-none focus:border-blue-500/50 transition-colors resize-none h-36 font-mono font-medium"
-              placeholder="Detailed description of what needs to be done..."
+              placeholder="Describe what needs to be done..."
               required
+            />
+          </div>
+
+          {/* Title (optional) */}
+          <div>
+            <label className="block text-[12px] font-extrabold text-white/40 uppercase tracking-[0.2em] mb-2">
+              TITLE <span className="text-white/20">(OPTIONAL)</span>
+            </label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+              className="w-full px-4 py-3 bg-black/40 border-2 border-white/[0.1] text-[15px] text-white/85 placeholder-white/20 focus:outline-none focus:border-blue-500/50 transition-colors font-mono font-bold"
+              placeholder="Auto-generated from description if left blank"
             />
           </div>
 
@@ -89,7 +89,7 @@ export default function CreateQuestForm({ loading, onSubmit, userBalance }: Crea
             {userBalance !== null && userBalance !== undefined && (
               <div className="flex items-center justify-between mt-2">
                 <span className="text-[12px] font-bold text-white/30">
-                  YOUR BALANCE: <span className={`font-extrabold ${insufficientBalance ? 'text-red-400' : 'text-green-400/70'}`}>{userBalance.toLocaleString()} TKN</span>
+                  YOUR BALANCE: <span className={`font-extrabold ${insufficientBalance ? 'text-red-400' : 'text-green-400/70'}`}>{userBalance.toLocaleString()} USDC</span>
                 </span>
                 {insufficientBalance && (
                   <span className="text-[12px] font-extrabold text-red-400 uppercase tracking-wider">
