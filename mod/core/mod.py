@@ -840,7 +840,6 @@ class Mod:
         files = self.files(dirpath, depth=depth)
         content = {}
         for k in files:
-            print(k)
             try:
                 content[k] = self.text(k)
             except Exception as e:
@@ -930,11 +929,7 @@ class Mod:
         Get the info of a mod, including its schema, key, cid, and code if specified.
         """
         if self._api == None:
-            try:
-                self._api = self.mod('api')()
-            except Exception as e:
-                print(f'Error loading api module: {e}')
-                self._api = None
+            self._api = self.mod('api')()
         api = self._api         
         if not api.exists(mod, key=key):
             api.reg(mod=mod, key=key, public=public)
@@ -1602,7 +1597,7 @@ class Mod:
         return self.get_key().address
         
     def is_owner(self, address:str) -> bool:
-        return address == self.owner()
+        return address.lower() == self.owner().lower()
 
     def repo2path(self, search=None):
         repo2path = {}

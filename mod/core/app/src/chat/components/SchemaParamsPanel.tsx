@@ -70,6 +70,10 @@ export function SchemaParamsPanel({
     .filter(([key]) => key !== 'self' && key !== 'cls' && key !== 'kwargs')
 
   const hasKwargs = Object.keys(schema[selectedFunction].input || {}).includes('kwargs')
+  const hasParams = paramEntries.length > 0 || Object.keys(customParams).length > 0 || hasKwargs
+
+  // Hide entirely when no params and no kwargs
+  if (!hasParams) return null
 
   const getGridCols = () => {
     return columns === 1 ? 'grid-cols-1' : 'grid-cols-2'
@@ -83,10 +87,10 @@ export function SchemaParamsPanel({
       className="overflow-hidden transition-all"
       style={{ fontFamily: 'IBM Plex Mono, monospace' }}
     >
-      {/* Header */}
+      {/* Header - only show controls when there are actual params */}
       <div className="flex justify-between items-center gap-2 mb-3">
-        <div className="text-[11px] font-extrabold text-white/50 uppercase tracking-wider">
-          {paramEntries.length} parameter{paramEntries.length !== 1 ? 's' : ''}
+        <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider">
+          {paramEntries.length} param{paramEntries.length !== 1 ? 's' : ''}
         </div>
         <div className="flex gap-1.5">
           {shouldCollapse && (
@@ -95,27 +99,29 @@ export function SchemaParamsPanel({
                 e.stopPropagation()
                 setIsExpanded(!isExpanded)
               }}
-              className="px-2 py-1 transition-all text-[10px] font-bold text-white/30 hover:text-white/60 border border-white/[0.08] hover:border-white/[0.15]"
+              className="px-2 py-1 transition-all text-[10px] font-bold text-white/20 hover:text-white/50"
             >
-              {isExpanded ? '▼' : '▶'}
+              {isExpanded ? '[-]' : '[+]'}
+            </button>
+          )}
+          {paramEntries.length > 2 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleColumns()
+              }}
+              className="px-2 py-1 transition-all text-[10px] font-bold text-white/20 hover:text-white/50"
+              title="Toggle columns"
+            >
+              {columns}col
             </button>
           )}
           <button
             onClick={(e) => {
               e.stopPropagation()
-              toggleColumns()
-            }}
-            className="px-2 py-1 transition-all text-[10px] font-bold text-white/30 hover:text-white/60 border border-white/[0.08] hover:border-white/[0.15]"
-            title="Toggle columns"
-          >
-            = {columns}col
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
               handleResetParams()
             }}
-            className="px-2 py-1 transition-all text-[10px] font-bold text-cyan-400/50 hover:text-cyan-400 border border-white/[0.08] hover:border-cyan-400/30"
+            className="px-2 py-1 transition-all text-[10px] font-bold text-white/20 hover:text-white/40"
           >
             reset
           </button>
@@ -135,27 +141,27 @@ export function SchemaParamsPanel({
         <div className={`grid gap-3 ${getGridCols()}`}>
           {paramEntries.map(([key, value]: [string, any]) => (
             <div key={key} className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-white/60">
+              <label className="text-[11px] font-bold text-white/50">
                 {key} <span className="text-white/20 text-[10px]">({value.type})</span>
               </label>
               <input
                 type="text"
                 value={params[key] ?? ''}
                 onChange={(e) => handleParamChange(key, e.target.value)}
-                placeholder={value.value !== '_empty' ? String(value.value) : 'enter value...'}
-                className="text-white/80 px-3 py-2.5 focus:outline-none text-[12px] bg-white/[0.04] border border-white/[0.1] placeholder-white/20 hover:border-white/[0.18] focus:border-white/30 transition-colors font-mono"
+                placeholder={value.value !== '_empty' ? String(value.value) : '...'}
+                className="text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.03] border border-white/[0.08] placeholder-white/15 hover:border-white/[0.15] focus:border-white/25 transition-colors font-mono"
               />
             </div>
           ))}
           {Object.entries(customParams).map(([key, value]) => (
             <div key={key} className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-white/60 flex justify-between items-center">
+              <label className="text-[11px] font-bold text-white/50 flex justify-between items-center">
                 <span>{key} <span className="text-white/20 text-[10px]">(custom)</span></span>
                 <button
                   onClick={() => handleRemoveCustomParam(key)}
-                  className="text-red-500/60 hover:text-red-400 text-[10px] transition-colors"
+                  className="text-red-500/40 hover:text-red-400 text-[10px] transition-colors"
                 >
-                  ✕
+                  x
                 </button>
               </label>
               <input
@@ -166,37 +172,36 @@ export function SchemaParamsPanel({
                   setCustomParams(updated)
                   handleParamChange(key, e.target.value)
                 }}
-                placeholder="enter value..."
-                className="text-white/80 px-3 py-2.5 focus:outline-none text-[12px] bg-white/[0.04] border border-white/[0.1] placeholder-white/20 hover:border-white/[0.18] focus:border-white/30 transition-colors font-mono"
+                placeholder="..."
+                className="text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.03] border border-white/[0.08] placeholder-white/15 hover:border-white/[0.15] focus:border-white/25 transition-colors font-mono"
               />
             </div>
           ))}
         </div>
 
-        {/* Add custom parameter - inline, no extra box */}
+        {/* Add custom parameter */}
         {hasKwargs && (
           <div className="mt-4 pt-3 border-t border-white/[0.06]">
-            <h4 className="text-[10px] font-extrabold mb-2 text-white/30 uppercase tracking-wider">Add Custom Parameter</h4>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={newParamKey}
                 onChange={(e) => setNewParamKey(e.target.value)}
                 placeholder="key"
-                className="flex-1 text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.04] border border-white/[0.1] placeholder-white/20 hover:border-white/[0.18] focus:border-white/30 transition-colors font-mono"
+                className="flex-1 text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.03] border border-white/[0.08] placeholder-white/15 hover:border-white/[0.15] focus:border-white/25 transition-colors font-mono"
               />
               <input
                 type="text"
                 value={newParamValue}
                 onChange={(e) => setNewParamValue(e.target.value)}
                 placeholder="value"
-                className="flex-1 text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.04] border border-white/[0.1] placeholder-white/20 hover:border-white/[0.18] focus:border-white/30 transition-colors font-mono"
+                className="flex-1 text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.03] border border-white/[0.08] placeholder-white/15 hover:border-white/[0.15] focus:border-white/25 transition-colors font-mono"
               />
               <button
                 onClick={handleAddCustomParam}
-                className="px-3 py-2 transition-all text-[10px] font-bold text-white/40 hover:text-white/70 border border-white/[0.1] hover:border-white/[0.2] bg-white/[0.04]"
+                className="px-3 py-2 transition-all text-[10px] font-bold text-white/30 hover:text-white/60 border border-white/[0.08] hover:border-white/[0.15] bg-white/[0.03]"
               >
-                add
+                +
               </button>
             </div>
           </div>

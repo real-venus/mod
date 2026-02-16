@@ -124,7 +124,7 @@ export const Billing: React.FC = () => {
   }
 
   const handleTransfer = async () => {
-    if (!transferAmount || !transferRecipient || !market) {
+    if (!transferAmount || !transferRecipient || !market || !user?.key) {
       setBillingError('Please enter recipient address and amount')
       return
     }
@@ -150,7 +150,7 @@ export const Billing: React.FC = () => {
     setSuccess(null)
 
     try {
-      await market.transferMarketCredit(user.key, transferRecipient, amount)
+      await market.transferMarketCredit(user!.key, transferRecipient, amount)
 
       await fetchCredit()
 

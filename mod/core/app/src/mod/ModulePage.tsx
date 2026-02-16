@@ -32,13 +32,6 @@ export default function ModulePage() {
 
   const moduleColor = mod ? text2color(mod.name || mod.key) : '#ffffff'
 
-  const tabPrefixes: Record<string, string> = {
-    api: '[API]',
-    app: '[APP]',
-    versions: '[VER]',
-    content: '[CNT]',
-    edit: '[EDT]',
-  }
 
   // if mod has no app, remove app from availableTabs
   if (mod && !mod.url_app) {
@@ -186,22 +179,20 @@ export default function ModulePage() {
           )}
 
           {/* Tabs */}
-          <div className="flex items-center gap-px bg-white/[0.04]">
+          <div className="flex items-center gap-px">
             {availableTabs.map((tab) => {
               const isActive = activeTab === tab
               return (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
-                  className={`relative px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.15em] transition-all ${
+                  className={`relative px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.15em] transition-all border-b ${
                     isActive
-                      ? 'bg-[#0d0d0d] text-white/90 border-b-2 border-blue-400'
-                      : 'bg-[#0a0a0a] text-white/35 hover:text-white/55 hover:bg-white/[0.03] border-b-2 border-transparent'
+                      ? 'bg-[#0d0d0d] text-white/80'
+                      : 'bg-transparent text-white/25 hover:text-white/45 border-transparent'
                   }`}
+                  style={isActive ? { borderColor: colorWithOpacity(moduleColor, 0.5) } : undefined}
                 >
-                  <span className={`mr-1.5 text-[10px] font-extrabold ${isActive ? 'text-blue-400' : 'text-white/25'}`}>
-                    {tabPrefixes[tab] || ''}
-                  </span>
                   {tab}
                 </button>
               )
@@ -209,7 +200,7 @@ export default function ModulePage() {
           </div>
 
           {/* Tab content */}
-          <div className="bg-[#0d0d0d] border border-white/[0.12] min-h-[400px] p-6">
+          <div className="bg-[#0d0d0d] border border-white/[0.08] min-h-[400px] p-6">
             {activeTab === 'content' && <ModContent mod={mod} />}
             {activeTab === 'api' && <ModApi mod={mod} />}
             {activeTab === 'app' && mod.url_app && <ModApp mod={mod} moduleColor={moduleColor} />}

@@ -37,22 +37,19 @@ class  Api:
     def addy(self, key=None):
         return self.key.address or m.addy(key)
 
+    _store = 'ipfs'
     @property
     def store(self):
-        if not hasattr(self, '_store'):
-            self._store = m.mod(self._store_path)()
+        if isinstance(self._store, str):
+            self._store = m.mod(self._store)()
         return self._store
     
     @store.setter
     def store(self, store):
         # set the store mod
-        if isinstance(store, str):
-            self._store_path = store
-        else: 
-            self._store = store
-        return {'store': self._store_path}
+        self._store = store or self._store
+        return {'store': self._store}
             
-
 
     def exists(self, mod: m.Mod='store', key=None) -> bool:
         """
@@ -247,7 +244,6 @@ class  Api:
                     name=None,
                     key=None,
                     comment=None,
-                    orbit='outer',
                     token=None) -> Dict[str, Any]:
 
         """
@@ -270,16 +266,22 @@ class  Api:
         else:
             key = self.key_address(key)
 
+        print(f"Registering mod from URL: {url} with key: {key} and name: {name}")
         assert self.is_git_url(url), f'Unsupported URL for reg_git: {url}'
         name = name or url.split('/')[-1].split('.git')[0]
         # assert not m.mod_exists(mod), f'Mod {mod} already exists. Please choose a different mod name or deregister the existing mod first.'
         name = name.lower()
+        if self.is_owner(key):
+            orbit='inner'
+        else:
+            orbit = 'outer'
         dirpath = m.paths.orbit[orbit]
         modpath = os.path.join(dirpath, key ,name)
-        if not os.path.exists(modpath):
-            git_cmd = f'git clone --single-branch {url} {modpath}'
-            os.makedirs(dirpath, exist_ok=True)
-            os.system(git_cmd)
+        if os.path.exists(modpath):
+            shutil.rmtree(modpath)
+        git_cmd = f'git clone --single-branch {url} {modpath}'
+        os.makedirs(dirpath, exist_ok=True)
+        os.system(git_cmd)
         info = self.get_info(mod=name, key=key, comment=comment)
         return self.reg_info(info)
 
@@ -762,7 +764,7 @@ class  Api:
         return m.dp(path)
 
     def is_owner(self, address:str):
-        return m.is_owner(address)
+        return m.key() == address or self.key.address == address
     
 
     def balance(self, address:str=None, token:str='market'):

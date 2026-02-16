@@ -124,6 +124,10 @@ export function WalletHeader() {
   const [sidebarWidth, setSidebarWidth] = useState(400)
   const [isResizing, setIsResizing] = useState(false)
   const [isTokenExpired, setIsTokenExpired] = useState(false)
+  const [showWithdrawForm, setShowWithdrawForm] = useState(false)
+  const [withdrawAmount, setWithdrawAmount] = useState<string>('')
+  const [isWithdrawing, setIsWithdrawing] = useState(false)
+  const [withdrawTokenType, setWithdrawTokenType] = useState<TokenType>('USDC')
   const dropdownRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
@@ -429,6 +433,56 @@ export function WalletHeader() {
       setTopUpError(msg)
     } finally {
       setIsTransferring(false)
+    }
+  }
+
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || !user?.key) {
+      setTopUpError('Please enter an amount')
+      return
+    }
+
+    const amount = parseFloat(withdrawAmount)
+    if (amount <= 0) {
+      setTopUpError('Amount must be greater than 0')
+      return
+    }
+
+    if (amount > marketCredit) {
+      setTopUpError('Insufficient market credit balance')
+      return
+    }
+
+    setIsWithdrawing(true)
+    setTopUpError(null)
+    setTopUpSuccess(null)
+
+    try {
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error('MetaMask is required for withdrawal')
+      }
+
+      const { Market } = await import('@/network/Market')
+      const network = 'testnet'
+      const chainConfig = modConfig.chain?.[network]
+      if (!chainConfig) throw new Error('Chain config not found')
+      const market = new Market(chainConfig)
+      await market.withdrawMarketCredit(user.key, amount, withdrawTokenType)
+
+      await fetchMarketCredit()
+      setTopUpSuccess(`Successfully withdrew $${amount.toFixed(2)} as ${withdrawTokenType}!`)
+      setWithdrawAmount('')
+      setTimeout(() => {
+        setShowWithdrawForm(false)
+        setTopUpSuccess(null)
+      }, 3000)
+    } catch (err: any) {
+      let msg = err?.message || String(err)
+      if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user rejected')) msg = 'Transaction cancelled by user.'
+      else if (msg.includes('insufficient') || msg.includes('1010')) msg = 'Insufficient balance for withdrawal.'
+      setTopUpError(msg)
+    } finally {
+      setIsWithdrawing(false)
     }
   }
 
@@ -991,6 +1045,7 @@ export function WalletHeader() {
                   onClick={() => {
                     setShowTopUpForm(!showTopUpForm)
                     setShowTransferForm(false)
+                    setShowWithdrawForm(false)
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
                   }}
@@ -1015,6 +1070,7 @@ export function WalletHeader() {
                   onClick={() => {
                     setShowTransferForm(!showTransferForm)
                     setShowTopUpForm(false)
+                    setShowWithdrawForm(false)
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
                   }}
@@ -1034,12 +1090,38 @@ export function WalletHeader() {
                   <span>SEND</span>
                 </button>
 
+                {/* OUT (WITHDRAW) BUTTON */}
+                <button
+                  onClick={() => {
+                    setShowWithdrawForm(!showWithdrawForm)
+                    setShowTopUpForm(false)
+                    setShowTransferForm(false)
+                    setShowTxsTab(false)
+                    setShowPortfolioTab(false)
+                  }}
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
+                    showWithdrawForm
+                      ? 'bg-gradient-to-br from-rose-500/30 to-red-500/30 border-rose-400 text-rose-300 shadow-rose-500/50'
+                      : 'bg-gradient-to-br from-rose-950/40 to-red-950/40 border-rose-900/60 text-rose-600 hover:text-rose-300 hover:border-rose-400/60 hover:shadow-rose-500/30'
+                  }`}
+                  style={{
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderRadius: '12px',
+                    width: '72px',
+                    height: '72px'
+                  }}
+                >
+                  <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                  <span>OUT</span>
+                </button>
+
                 {/* PORTFOLIO BUTTON */}
                 <button
                   onClick={() => {
                     setShowPortfolioTab(!showPortfolioTab)
                     setShowTopUpForm(false)
                     setShowTransferForm(false)
+                    setShowWithdrawForm(false)
                     setShowTxsTab(false)
                   }}
                   className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
@@ -1064,6 +1146,7 @@ export function WalletHeader() {
                     setShowTxsTab(!showTxsTab)
                     setShowTopUpForm(false)
                     setShowTransferForm(false)
+                    setShowWithdrawForm(false)
                     setShowPortfolioTab(false)
                     if (!showTxsTab) fetchUserTransactions()
                   }}
@@ -1207,6 +1290,114 @@ export function WalletHeader() {
                         <>
                           <CreditCardIcon className="w-4 h-4" />
                           <span>ADD CREDIT</span>
+                        </>
+                      )}
+                    </button>
+
+                    {topUpError && (
+                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2.5 font-mono"
+                        style={{
+                          borderRadius: '8px',
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
+                      >
+                        {topUpError}
+                      </div>
+                    )}
+
+                    {topUpSuccess && (
+                      <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-2.5 font-mono"
+                        style={{
+                          borderRadius: '8px',
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
+                      >
+                        {topUpSuccess}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Withdraw Form */}
+              <AnimatePresence>
+                {showWithdrawForm && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="mt-3 pt-3 border-t border-neutral-800 space-y-2 overflow-hidden"
+                  >
+                    <div>
+                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Withdraw As</label>
+                      <div className="flex gap-1.5">
+                        {(['USDC', 'USDT'] as TokenType[]).map((token) => (
+                          <button
+                            key={token}
+                            onClick={() => setWithdrawTokenType(token)}
+                            className={`flex-1 py-2 px-2 text-xs font-bold uppercase font-mono border-2 transition-all ${
+                              withdrawTokenType === token
+                                ? token === 'USDC'
+                                  ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                                  : 'border-teal-500 bg-teal-500/20 text-teal-400'
+                                : 'border-neutral-800 bg-neutral-900/80 text-neutral-500 hover:border-neutral-700 hover:text-neutral-400'
+                            }`}
+                            style={{
+                              borderRadius: '8px',
+                              fontFamily: 'IBM Plex Mono, monospace'
+                            }}
+                          >
+                            {token}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-neutral-900/80 border border-neutral-800/60"
+                      style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace' }}
+                    >
+                      <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Available</span>
+                      <span className="text-sm font-mono font-bold text-green-400 tabular-nums">${marketCredit.toFixed(2)}</span>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Amount</label>
+                      <input
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        disabled={isWithdrawing}
+                        min="0"
+                        step="0.01"
+                        max={marketCredit}
+                        placeholder="10.00"
+                        className="w-full bg-neutral-900/80 border border-neutral-800/60 px-3 py-2.5 text-sm font-mono placeholder-neutral-600 focus:outline-none focus:border-neutral-600 disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
+                        style={{
+                          borderRadius: '8px',
+                          fontFamily: 'IBM Plex Mono, monospace'
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleWithdraw}
+                      disabled={!withdrawAmount || isWithdrawing}
+                      className="w-full py-3 border bg-rose-500/10 border-rose-500/30 font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all hover:bg-rose-500/20 hover:border-rose-500/50 flex items-center justify-center gap-2 text-rose-400"
+                      style={{
+                        borderRadius: '10px',
+                        fontFamily: 'IBM Plex Mono, monospace'
+                      }}
+                    >
+                      {isWithdrawing ? (
+                        <>
+                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                          <span>WITHDRAWING</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                          <span>WITHDRAW</span>
                         </>
                       )}
                     </button>

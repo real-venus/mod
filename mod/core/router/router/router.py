@@ -440,6 +440,7 @@ class Router:
         for client, prov2txs in  self.ious().items():
             for prov, txs in prov2txs.items():
                 amount = sum([tx['cost'] for tx in txs])
+                print(f'Syncing IOU: {len(txs)} txs from {client} to {prov} for total amount {amount}')
                 payment_hash = self.chain.debit(client, prov, amount)
                 print(f'Syncing IOU: Debiting {amount} from {client} to {prov} for {len(txs)} txs --> tx: {payment_hash}')
                 for tx in txs:

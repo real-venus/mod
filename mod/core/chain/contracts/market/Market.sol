@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -43,7 +44,7 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
     }
     
     function decimals() public pure override returns (uint8) {
-        return 18;
+        return 8;
     }
     
     function setTreasury(address _treasury) external onlyOwner {
@@ -65,9 +66,10 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         (uint256 tokenPrice, uint8 priceDecimals,) = tokenGate.getTokenPrice(paymentToken);
         require(tokenPrice > 0, "Invalid price");
 
-        // Use 1e18 to convert between stable amount and payment token amount
-        // stableAmount is in 8 decimals, tokenPrice is in priceDecimals (8), payment token is in 18 decimals
-        uint256 paymentAmount = (stableAmount * 1e18) / tokenPrice;
+        // Convert USD stableAmount (8 decimals) to payment token amount using oracle price
+        // Formula: stableAmount * 10^paymentDecimals * 10^priceDecimals / (tokenPrice * 10^marketDecimals)
+        uint8 paymentDecimals = IERC20Metadata(paymentToken).decimals();
+        uint256 paymentAmount = (stableAmount * 10**uint256(paymentDecimals) * 10**uint256(priceDecimals)) / (tokenPrice * 10**uint256(decimals()));
 
         IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), paymentAmount);
         _mint(msg.sender, stableAmount);
@@ -117,9 +119,10 @@ contract Market is ERC20, ReentrancyGuard, Ownable {
         (uint256 tokenPrice, uint8 priceDecimals,) = tokenGate.getTokenPrice(paymentToken);
         require(tokenPrice > 0, "Invalid price");
 
-        // Use 1e18 to convert between stable amount and payment token amount
-        // stableAmount is in 8 decimals, tokenPrice is in priceDecimals (8), payment token is in 18 decimals
-        uint256 withdrawAmount = (stableAmount * 1e18) / tokenPrice;
+        // Convert USD stableAmount (8 decimals) to payment token amount using oracle price
+        // Formula: stableAmount * 10^paymentDecimals * 10^priceDecimals / (tokenPrice * 10^marketDecimals)
+        uint8 paymentDecimals = IERC20Metadata(paymentToken).decimals();
+        uint256 withdrawAmount = (stableAmount * 10**uint256(paymentDecimals) * 10**uint256(priceDecimals)) / (tokenPrice * 10**uint256(decimals()));
 
         _burn(msg.sender, stableAmount);
         IERC20(paymentToken).safeTransfer(msg.sender, withdrawAmount);

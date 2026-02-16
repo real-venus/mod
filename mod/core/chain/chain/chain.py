@@ -27,8 +27,8 @@ class Mod:
         'mainnet': 'https://mainnet.base.org'
     }
     conns = {}
-    decimals = 18
-    def __init__(self, network: str = 'testnet', key='mod'):
+    decimals = 8
+    def __init__(self, network: str = 'testnet', key='test'):
         """Initialize Chain interface.
         
         Args:
@@ -79,6 +79,15 @@ class Mod:
         self.connect(self.key.private_key)
         return self.account.address
 
+
+
+    def owner(self):
+        '''get the contract deployer of the Market contract (used for owner-only functions like whitelisting tokens)'''
+        market = self.contracts.get('market')
+        if not market:
+            raise ValueError('Market contract not loaded')
+        return market.functions.owner().call()
+        
     def sync_app(self):
         """Sync contract artifacts to app."""
         app_path = m.dp('app') + '/src/contracts'
@@ -705,6 +714,8 @@ class Mod:
         Returns:
             Transaction receipt
         """
+        if amount == 0:
+            return '0x0'
         market = self.contracts.get('market')
         if not market:
             raise ValueError('Market contract not loaded')

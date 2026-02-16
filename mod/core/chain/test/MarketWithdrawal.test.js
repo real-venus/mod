@@ -5,6 +5,13 @@ describe("Market Withdrawal Tests", function () {
   let market, tokenGate, oracle, paymentToken, treasury, owner, user1, user2;
   const INITIAL_SUPPLY = ethers.parseEther("1000000");
   const TOKEN_PRICE = 100000000n; // $1 with 8 decimals
+  const PRICE_DECIMALS = 8;
+  const MARKET_DECIMALS = 8;
+  const PAYMENT_TOKEN_DECIMALS = 18; // default ERC20
+
+  function calcPaymentAmount(stableAmount, price = TOKEN_PRICE) {
+    return (stableAmount * 10n**BigInt(PAYMENT_TOKEN_DECIMALS) * 10n**BigInt(PRICE_DECIMALS)) / (price * 10n**BigInt(MARKET_DECIMALS));
+  }
 
   beforeEach(async function () {
     [owner, treasury, user1, user2] = await ethers.getSigners();
@@ -17,7 +24,7 @@ describe("Market Withdrawal Tests", function () {
     oracle = await ManualPriceOracle.deploy();
     await oracle.waitForDeployment();
 
-    await oracle.setPrice(await paymentToken.getAddress(), TOKEN_PRICE, 8);
+    await oracle.setPrice(await paymentToken.getAddress(), TOKEN_PRICE, PRICE_DECIMALS);
 
     const TokenGate = await ethers.getContractFactory("TokenGate");
     tokenGate = await TokenGate.deploy(await oracle.getAddress());
@@ -43,7 +50,7 @@ describe("Market Withdrawal Tests", function () {
     const stableAmount = 100000000n; // $1 with 8 decimals
 
     beforeEach(async function () {
-      const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
     });
@@ -57,7 +64,7 @@ describe("Market Withdrawal Tests", function () {
 
     it("Should apply withdrawal fee correctly", async function () {
       const userBalanceBefore = await paymentToken.balanceOf(user1.address);
-      const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
       // NO FEE - user gets full amount back
       const expectedReturn = paymentAmount;
 
@@ -72,7 +79,7 @@ describe("Market Withdrawal Tests", function () {
     const stableAmount = 100000000n;
 
     it("Should handle multiple deposits and immediate withdrawals", async function () {
-      const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
 
       // First deposit
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
@@ -95,7 +102,7 @@ describe("Market Withdrawal Tests", function () {
     const stableAmount = 100000000n;
 
     beforeEach(async function () {
-      const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
     });
@@ -131,7 +138,7 @@ describe("Market Withdrawal Tests", function () {
 
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
-      const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
       // NO FEE - full amount returned
       const expectedReturn = paymentAmount;
 
@@ -150,13 +157,13 @@ describe("Market Withdrawal Tests", function () {
     });
 
     it("Should handle withdrawal with dynamic price changes", async function () {
-      const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
 
       // Change price
       const newPrice = 200000000n; // $2
-      await oracle.setPrice(await paymentToken.getAddress(), newPrice, 8);
+      await oracle.setPrice(await paymentToken.getAddress(), newPrice, PRICE_DECIMALS);
 
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
@@ -165,7 +172,7 @@ describe("Market Withdrawal Tests", function () {
     });
 
     it("Should handle multiple users with immediate withdrawals", async function () {
-      const paymentAmount = (stableAmount * ethers.parseEther("1")) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
 
       // User1 deposits
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);

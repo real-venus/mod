@@ -88,14 +88,14 @@ export class MarketAllowanceManager {
       const signer = await provider.getSigner(userAddress)
       const marketAddress = this.config.contracts.Market.address
       const tokenAddress = this.getTokenAddress(tokenType)
-      
+
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)
-      const decimals = await this.getTokenDecimals(tokenAddress)
-      const amountInWei = ethers.parseUnits(amount.toString(), decimals)
-      
+      // stableAmount is in Market decimals (8) — contract handles conversion to payment token amount
+      const amountInWei = ethers.parseUnits(amount.toString(), 8)
+
       const tx = await marketContract.credit(tokenAddress, amountInWei)
       const receipt = await tx.wait()
-      
+
       return receipt
     } catch (error) {
       console.error('Error adding market credit:', error)

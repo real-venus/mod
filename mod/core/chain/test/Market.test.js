@@ -5,6 +5,13 @@ describe("Market Integration", function () {
   let market, tokenGate, oracle, paymentToken, treasury, owner, user1, provider;
   const INITIAL_SUPPLY = ethers.parseEther("1000000");
   const TOKEN_PRICE = 100000000n; // $1.00 with 8 decimals
+  const PRICE_DECIMALS = 8;
+  const MARKET_DECIMALS = 8;
+  const PAYMENT_TOKEN_DECIMALS = 18; // default ERC20
+
+  function calcPaymentAmount(stableAmount) {
+    return (stableAmount * 10n**BigInt(PAYMENT_TOKEN_DECIMALS) * 10n**BigInt(PRICE_DECIMALS)) / (TOKEN_PRICE * 10n**BigInt(MARKET_DECIMALS));
+  }
 
   beforeEach(async function () {
     [owner, treasury, user1, provider] = await ethers.getSigners();
@@ -17,7 +24,7 @@ describe("Market Integration", function () {
     oracle = await ManualPriceOracle.deploy();
     await oracle.waitForDeployment();
 
-    await oracle.setPrice(await paymentToken.getAddress(), TOKEN_PRICE, 18);
+    await oracle.setPrice(await paymentToken.getAddress(), TOKEN_PRICE, PRICE_DECIMALS);
 
     const TokenGate = await ethers.getContractFactory("TokenGate");
     tokenGate = await TokenGate.deploy(await oracle.getAddress());
@@ -71,15 +78,15 @@ describe("Market Integration", function () {
     it("Should get token price from TokenGate oracle", async function () {
       const [price, decimals] = await market.getTokenPrice(await paymentToken.getAddress());
       expect(price).to.equal(TOKEN_PRICE);
-      expect(decimals).to.equal(18);
+      expect(decimals).to.equal(PRICE_DECIMALS);
     });
   });
 
   describe("Credit with TokenGate Pricing", function () {
-    const stableAmount = 10000000000n;
+    const stableAmount = 10000000000n; // $100 in 8 decimals
 
     it("Should credit with TokenGate oracle-based pricing", async function () {
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
 
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
 
@@ -90,10 +97,10 @@ describe("Market Integration", function () {
     });
 
     it("Should handle dynamic oracle price updates via TokenGate", async function () {
-      const newPrice = 200000000n;
-      await oracle.setPrice(await paymentToken.getAddress(), newPrice, 18);
+      const newPrice = 200000000n; // $2
+      await oracle.setPrice(await paymentToken.getAddress(), newPrice, PRICE_DECIMALS);
 
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / newPrice;
+      const paymentAmount = (stableAmount * 10n**BigInt(PAYMENT_TOKEN_DECIMALS) * 10n**BigInt(PRICE_DECIMALS)) / (newPrice * 10n**BigInt(MARKET_DECIMALS));
 
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
@@ -116,7 +123,7 @@ describe("Market Integration", function () {
     const stableAmount = 10000000000n;
 
     beforeEach(async function () {
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
     });
@@ -127,7 +134,7 @@ describe("Market Integration", function () {
 
       const tx = await market.connect(owner).debit(user1.address, provider.address, stableAmount);
       const receipt = await tx.wait();
-      
+
       // Find the Debit event
       const debitEvent = receipt.logs.find(log => {
         try {
@@ -137,9 +144,9 @@ describe("Market Integration", function () {
           return false;
         }
       });
-      
+
       const parsedEvent = market.interface.parseLog(debitEvent);
-      
+
       expect(parsedEvent.args.txId).to.equal(2); // txId should be 2 (1 from credit, 2 from debit)
       expect(parsedEvent.args.client).to.equal(user1.address);
       expect(parsedEvent.args.provider).to.equal(provider.address);
@@ -192,7 +199,7 @@ describe("Market Integration", function () {
 
       // Credit user2 first
       const initialUserBalance = await market.balanceOf(user2.address);
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
       await paymentToken.transfer(user2.address, paymentAmount);
       await paymentToken.connect(user2).approve(await market.getAddress(), paymentAmount);
       await market.connect(user2).credit(await paymentToken.getAddress(), stableAmount);
@@ -223,7 +230,7 @@ describe("Market Integration", function () {
 
     it("Should verify Market contract holds deposited tokens, not treasury", async function () {
       const marketBalance = await paymentToken.balanceOf(await market.getAddress());
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
 
       // Market should have received the tokens from the credit
       expect(marketBalance).to.be.gte(paymentAmount);
@@ -234,7 +241,7 @@ describe("Market Integration", function () {
     const stableAmount = 10000000000n;
 
     beforeEach(async function () {
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
       await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
     });
@@ -248,7 +255,7 @@ describe("Market Integration", function () {
 
     it("Should return full amount with NO withdrawal fee", async function () {
       const userBalanceBefore = await paymentToken.balanceOf(user1.address);
-      const paymentAmount = (stableAmount * BigInt(10 ** 18)) / TOKEN_PRICE;
+      const paymentAmount = calcPaymentAmount(stableAmount);
 
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 
@@ -284,7 +291,7 @@ describe("Market Integration", function () {
 
     it("Should handle withdrawal with dynamic price changes", async function () {
       const newPrice = 200000000n;
-      await oracle.setPrice(await paymentToken.getAddress(), newPrice, 18);
+      await oracle.setPrice(await paymentToken.getAddress(), newPrice, PRICE_DECIMALS);
 
       await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
 

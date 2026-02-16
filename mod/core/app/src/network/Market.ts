@@ -97,9 +97,9 @@ export class Market {
 
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, provider)
 
-      // Market contract uses 18 decimals (like ETH)
+      // Market contract uses 8 decimals (USD format, matching oracle price decimals)
       const balance = await marketContract.balanceOf(userAddress)
-      const balanceFormatted = parseFloat(ethers.formatUnits(balance, 18))
+      const balanceFormatted = parseFloat(ethers.formatUnits(balance, 8))
 
       console.log(`Market balance for ${userAddress}:`, balanceFormatted)
       return balanceFormatted
@@ -154,14 +154,14 @@ export class Market {
       const signer = await provider.getSigner(userAddress)
       const marketAddress = this.config.contracts.Market.address
       const tokenAddress = this.getTokenAddress(tokenType)
-      
+
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)
-      const decimals = await this.getTokenDecimals(tokenAddress)
-      const amountInWei = ethers.parseUnits(amount.toString(), decimals)
-      
+      // stableAmount is in Market decimals (8) — contract handles conversion to payment token amount
+      const amountInWei = ethers.parseUnits(amount.toString(), 8)
+
       const tx = await marketContract.credit(tokenAddress, amountInWei)
       const receipt = await tx.wait()
-      
+
       return receipt
     } catch (error) {
       console.error('Error adding market credit:', error)
@@ -177,8 +177,8 @@ export class Market {
       const tokenAddress = this.getTokenAddress(tokenType)
 
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)
-      const decimals = await this.getTokenDecimals(tokenAddress)
-      const amountInWei = ethers.parseUnits(amount.toString(), decimals)
+      // stableAmount is in Market decimals (8) — contract handles conversion to payment token amount
+      const amountInWei = ethers.parseUnits(amount.toString(), 8)
 
       const tx = await marketContract.withdraw(tokenAddress, amountInWei)
       const receipt = await tx.wait()
@@ -197,8 +197,8 @@ export class Market {
       const marketAddress = this.config.contracts.Market.address
 
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)
-      // Market credit uses 18 decimals (like ETH)
-      const amountInWei = ethers.parseUnits(amount.toString(), 18)
+      // Market credit uses 8 decimals (USD format)
+      const amountInWei = ethers.parseUnits(amount.toString(), 8)
 
       const tx = await marketContract.transfer(toAddress, amountInWei)
       const receipt = await tx.wait()

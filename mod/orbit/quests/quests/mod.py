@@ -370,15 +370,13 @@ class Quests:
         
         # Execute payment: debit from creator, credit to responder
         # The chain.debit function handles the 5% treasury fee
-        try:
-            payment_hash = self.chain.debit(
-                client=quest['creator'],
-                provider=responder_key,
-                amount=reward
-            )
-        except Exception as e:
-            raise Exception(f"Payment failed: {str(e)}. Ensure creator has sufficient balance.")
-        
+        print(f"Approving response {response_id} for quest {quest_id}. Paying reward of ${reward:.2f} from {approver_key} to {responder_key}")
+        payment_hash = self.chain.debit(
+            client=quest['creator'],
+            provider=responder_key,
+            amount=reward
+        )
+
         # Update response status
         response['status'] = 'approved'
         response['approved_at'] = time.time()
