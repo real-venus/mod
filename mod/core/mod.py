@@ -154,7 +154,6 @@ class Mod:
         self._mod_cache[name] = obj
         delta = self.time() - t0
         self.print(f'mod({name} [{delta:.2f}s])', verbose=verbose)
-        obj.info = self.info(mod)
         return obj
 
     def forward(self, fn:str='info', params:dict=None, auth=None) -> Any:
@@ -889,9 +888,6 @@ class Mod:
             fns = [f for f in fns if not f.startswith('__') and not f.startswith('_')]  
         return sorted(fns)
     
-
-
-
     def cid(self, mod=None , **kwargs) -> Union[str, Dict[str, str]]:
         """
         get the cid of the mod
@@ -986,33 +982,37 @@ class Mod:
     future = fut = submit
 
     fnscache = {}
+    modscache = {}
     def fn(self, fn:Union[callable, str], params:str=None, splitter='/', default_fn='forward', default_mod = 'mod') -> 'Callable':
         """
         Gets the function from a string or if its an attribute 
         """
         fn_name = fn if isinstance(fn, str) else fn.__name__
-        if isinstance(fn, str) and fn_name in self.fnscache:
-            fn_obj = self.fnscache[fn_name]
+        if callable(fn):
+            return fn
+        elif hasattr(self, fn):
+            fn_obj = getattr(self, fn)
         else:
-            if callable(fn):
-                return fn
-            elif hasattr(self, fn):
-                fn_obj = getattr(self, fn)
-            elif fn.startswith('/'):
-                fn_obj = getattr(self.mod(default_mod)(), fn[1:])
+            if fn.startswith('/'):
+                mod_name = default_mod
+                fn_name = fn[1:]
             elif fn.endswith('/'):
-                fn_obj = getattr(self.mod(fn[:-1])(), default_fn)
+                mod_name = fn[:-1].split('/')[0] if '/' in fn[:-1] else fn[:-1]
+                fn_name = default_fn
             elif '/' in fn:
-                mod, fn = fn.split('/')
-                mod = self.mod(mod)()
-                fn_obj = getattr(mod, fn)
+                mod_name, fn_name = fn.split('/')
             elif self.mod_exists(fn):
-                mod = self.mod(fn)()
-                fn_obj = getattr(mod, default_fn)
+                mod_name = fn
+                fn_name = default_fn
             else:
                 raise Exception(f'Function {fn} not found')
-            self.fnscache[fn_name] = fn_obj
-    
+
+            if mod_name in self.modscache:
+                mod = self.modscache[mod_name]
+            else:
+                mod = self.modscache[mod_name] = self.mod(mod_name)()
+            fn_obj = getattr(mod, fn_name)
+
         if params:
             return fn_obj(**params)
         return fn_obj
@@ -1036,8 +1036,6 @@ class Mod:
     def hosts(self):
         return self.fn('remote/hosts')()
 
-    def h(self, *args, **kwargs):
-        return self.fn('api/h')(*args, **kwargs)
 
     def host(self):
         return self.key().address

@@ -408,12 +408,16 @@ export function WalletHeader() {
 
           const tokenAddress = chainConfig.contracts?.[transferTokenType]?.address
           if (!tokenAddress) throw new Error(`${transferTokenType} contract not found`)
+          
 
           const browserProvider = new ethers.BrowserProvider(window.ethereum)
           const signer = await browserProvider.getSigner(user.key)
           const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer)
-          const amountInWei = ethers.parseUnits(amount.toString(), 6)
+          const tokenDecimals = await contract.decimals()
+          const amountInWei = ethers.parseUnits(amount.toString(), tokenDecimals)
+          console.log('Transferring', amountInWei.toString(), 'of', transferTokenType, 'with', tokenDecimals, 'decimals')
           const tx = await contract.transfer(transferRecipient, amountInWei)
+
           await tx.wait()
         }
       }

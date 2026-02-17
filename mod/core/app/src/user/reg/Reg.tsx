@@ -195,28 +195,29 @@ export const Reg = ( ) => {
         signature: signature,
       }
 
-      const response = await client.call('reg', {mod: previewData} )
-      
+      // Fire and forget - don't wait for response
+      client.call('reg', {mod: previewData, token: client.token})
+
       const timestamp = Date.now()
       setSignatureInfo({
         signature: signature,
         timestamp: timestamp,
         address: signerAddress
       })
-      
+
       const newMod: ModuleType = {
-        name: modName.trim() || response?.name || 'New Module',
+        name: modName.trim() || reg_payload?.name || 'New Module',
         key: signerAddress,
-        desc: response?.desc || '',
-        cid: response?.cid || '',
+        desc: reg_payload?.desc || '',
+        cid: reg_payload?.cid || '',
         created: timestamp,
         updated: timestamp,
         collateral: 0,
         network: 'local'
       }
-      
+
       setCreatedMod(newMod)
-      setSuccess(`Module created successfully! Response: ${JSON.stringify(response)}`)
+      setSuccess(`Module registration submitted`)
       setModUrl('')
       setModName('')
       setCollateral(0.0)
@@ -224,10 +225,6 @@ export const Reg = ( ) => {
         { name: 'name', type: 'string', value: '' },
         { name: 'cid', type: 'string', value: '' }
       ])
-      
-      const updatedResponse = await client.call('mods', {})
-      const updatedLocalMods = updatedResponse.filter((mod: ModuleType) => mod.network === 'local')
-      setLocalModules(updatedLocalMods)
     } catch (err: any) {
       console.error('Module creation error:', err)
       setError(err.message || 'Failed to create module')

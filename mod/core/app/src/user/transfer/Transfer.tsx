@@ -139,13 +139,15 @@ export const Transfer: React.FC = () => {
       if (chainConfig?.contracts?.USDC?.address) {
         const usdcContract = new ethers.Contract(chainConfig.contracts.USDC.address, ERC20_ABI, provider)
         const usdcBal = await usdcContract.balanceOf(address)
-        setUsdcBalance(parseFloat(ethers.formatUnits(usdcBal, 6)).toFixed(2))
+        const usdcDecimals = await usdcContract.decimals()
+        setUsdcBalance(parseFloat(ethers.formatUnits(usdcBal, usdcDecimals)).toFixed(2))
       }
       
       if (chainConfig?.contracts?.USDT?.address) {
         const usdtContract = new ethers.Contract(chainConfig.contracts.USDT.address, ERC20_ABI, provider)
         const usdtBal = await usdtContract.balanceOf(address)
-        setUsdtBalance(parseFloat(ethers.formatUnits(usdtBal, 6)).toFixed(2))
+        const usdtDecimals = await usdtContract.decimals()
+        setUsdtBalance(parseFloat(ethers.formatUnits(usdtBal, usdtDecimals)).toFixed(2))
       }
     } catch (err) {
       console.error('Failed to fetch USDC/USDT balances:', err)
@@ -244,9 +246,10 @@ export const Transfer: React.FC = () => {
       
       if (selectedToken.address !== 'ETH') {
         const contract = new ethers.Contract(selectedToken.address, ERC20_ABI, signer)
-        const amountInWei = ethers.parseUnits(amount, selectedToken.decimals)
+        const tokenDecimals = await contract.decimals()
+        const amountInWei = ethers.parseUnits(amount, tokenDecimals)
 
-        console.log('Transferring', amountInWei.toString(), 'of', selectedToken.address, 'with', selectedToken.decimals, 'decimals')  
+        console.log('Transferring', amountInWei.toString(), 'of', selectedToken.address, 'with', tokenDecimals, 'decimals')  
 
         tx = await contract.transfer(toAddress, amountInWei)
         receipt = await tx.wait()

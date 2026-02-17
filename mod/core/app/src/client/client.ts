@@ -19,11 +19,11 @@ export class Client {
   }
 
 
-  public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, headers: any = {}, timeout: number = 30000, onCancel?: () => void): Promise<any> {
+  public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, headers: any = {}, timeout: number = 30000, onCancel?: () => void, wait: boolean = true): Promise<any> {
     
     // if / in fn, treat as path and do not append to url
     if (fn.includes('/')) {
-      params = {fn: fn, params: params, token: this.token || '', wait:true, tiemout: timeout};
+      params = {fn: fn, params: params, token: this.token || '', wait: wait, timeout: timeout};
       fn = 'call';
     }
     let body: string | FormData;

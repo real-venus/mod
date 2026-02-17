@@ -9,8 +9,8 @@ import { Key } from '@/key'
 
 type AuthMode = 'local' | 'subwallet' | 'metamask' | 'phantom'
 
-const MetamaskLogo = () => (
-  <svg className="w-5 h-5" viewBox="0 0 318.6 318.6" fill="none" xmlns="http://www.w3.org/2000/svg">
+const MetamaskLogo = ({ size = "w-8 h-8" }: { size?: string }) => (
+  <svg className={size} viewBox="0 0 318.6 318.6" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M274.1 35.5l-99.5 73.9 18.4-43.6z" fill="#E17726" stroke="#E17726" strokeWidth="1.5"/>
     <path d="M44.4 35.5l98.7 74.6-17.5-44.3zm193.9 171.3l-26.5 40.6 56.7 15.6 16.3-55.3zm-204.4.9L50.1 263l56.7-15.6-26.5-40.6z" fill="#E27625" stroke="#E27625" strokeWidth="1.5"/>
     <path d="M103.6 138.2l-15.8 23.9 56.3 2.5-2-60.5zm111.3 0l-39-34.8-1.3 61.2 56.2-2.5zM106.8 247.4l33.8-16.5-29.2-22.8zm71.1-16.5l33.9 16.5-4.7-39.3z" fill="#E27625" stroke="#E27625" strokeWidth="1.5"/>
@@ -26,8 +26,8 @@ const MetamaskLogo = () => (
   </svg>
 )
 
-const PhantomLogo = () => (
-  <svg className="w-5 h-5" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+const PhantomLogo = ({ size = "w-8 h-8" }: { size?: string }) => (
+  <svg className={size} viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect width="128" height="128" rx="24" fill="url(#phantom-gradient)"/>
     <path d="M96 64c0 17.673-14.327 32-32 32s-32-14.327-32-32V32h64v32z" fill="white"/>
     <circle cx="52" cy="58" r="6" fill="#AB9FF2"/>
@@ -41,8 +41,8 @@ const PhantomLogo = () => (
   </svg>
 )
 
-const SubwalletLogo = () => (
-  <svg className="w-5 h-5" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+const SubwalletLogo = ({ size = "w-8 h-8" }: { size?: string }) => (
+  <svg className={size} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="100" cy="100" r="100" fill="url(#subwallet-gradient)"/>
     <path d="M100 40L60 80L100 120L140 80L100 40Z" fill="white"/>
     <path d="M100 120L60 160L100 200L140 160L100 120Z" fill="white" opacity="0.6"/>
@@ -55,8 +55,8 @@ const SubwalletLogo = () => (
   </svg>
 )
 
-const LocalKeyLogo = () => (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+const LocalKeyLogo = ({ size = "w-8 h-8" }: { size?: string }) => (
+  <svg className={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="7" cy="7" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
     <path d="M7 11V22M11 15H7M11 19H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
     <path d="M16 8L22 8M19 5L19 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -342,7 +342,7 @@ export function WalletAuthButton() {
     phantom: '#ab9ff2',
   }
 
-  const wallets: { mode: AuthMode; label: string; Logo: React.FC; tag: string; disabled: boolean; onClick: () => void }[] = [
+  const wallets: { mode: AuthMode; label: string; Logo: React.FC<{ size?: string }>; tag: string; disabled: boolean; onClick: () => void }[] = [
     { mode: 'local', label: 'Local Key', Logo: LocalKeyLogo, tag: 'KEY', disabled: false, onClick: () => { setAuthMode('local'); setError(''); } },
     { mode: 'subwallet', label: 'SubWallet', Logo: SubwalletLogo, tag: 'SUB', disabled: accounts.length === 0, onClick: () => { setAuthMode('subwallet'); setError(''); } },
     { mode: 'metamask', label: 'MetaMask', Logo: MetamaskLogo, tag: 'ETH', disabled: false, onClick: () => { setAuthMode('metamask'); setError(''); if (metamaskAccounts.length === 0) handleMetamaskConnect(); } },
@@ -393,11 +393,6 @@ export function WalletAuthButton() {
               transition: 'background 0.8s ease',
             }} />
 
-            {/* Background grid pattern */}
-            <div className="absolute inset-0 opacity-[0.025]" style={{
-              backgroundImage: 'linear-gradient(#393939 1px, transparent 1px), linear-gradient(90deg, #393939 1px, transparent 1px)',
-              backgroundSize: '60px 60px'
-            }} />
 
             {/* Vignette */}
             <div className="absolute inset-0 pointer-events-none" style={{
@@ -417,7 +412,7 @@ export function WalletAuthButton() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.05 }}
-              className="relative w-full max-w-[440px] mx-auto px-6"
+              className="relative w-full max-w-[480px] mx-auto px-6"
             >
               {/* Title */}
               <div className="mb-6">
@@ -437,8 +432,8 @@ export function WalletAuthButton() {
 
               {/* Provider Selection */}
               <div className="mb-5">
-                <span className="block text-[10px] font-medium text-[#525252] uppercase tracking-[0.2em] mb-2">Select provider</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                <span className="block text-[10px] font-medium text-[#525252] uppercase tracking-[0.2em] mb-3">Select provider</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                   {wallets.map(({ mode, label, Logo, tag, disabled, onClick }) => {
                     const isSelected = authMode === mode
                     const color = walletColors[mode]
@@ -447,34 +442,36 @@ export function WalletAuthButton() {
                         key={mode}
                         onClick={onClick}
                         disabled={disabled}
-                        className={`group relative flex flex-col items-center justify-center rounded transition-all duration-200 ${
+                        className={`group relative flex flex-col items-center justify-center rounded-lg transition-all duration-200 py-5 ${
                           disabled ? 'opacity-20 cursor-not-allowed' : 'cursor-pointer'
                         }`}
                         style={{
-                          aspectRatio: '1',
-                          backgroundColor: isSelected ? `${color}10` : '#111',
-                          border: isSelected ? `1px solid ${color}40` : '1px solid #1e1e1e',
-                          boxShadow: isSelected ? `0 0 15px ${color}08` : 'none',
+                          backgroundColor: isSelected ? `${color}10` : '#0d0d0d',
+                          border: isSelected ? `1.5px solid ${color}50` : '1.5px solid #1a1a1a',
+                          boxShadow: isSelected ? `0 0 20px ${color}10, inset 0 0 20px ${color}05` : 'none',
                         }}
                       >
                         {isSelected && (
                           <motion.div
-                            className="absolute top-0 left-0 right-0 h-[2px] rounded-t"
+                            className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg"
                             style={{ backgroundColor: color }}
                             layoutId="provider-indicator"
                             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                           />
                         )}
-                        <div className={`w-7 h-7 rounded-md flex items-center justify-center mb-1.5 transition-all duration-200 ${
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-2.5 transition-all duration-200 ${
                           isSelected ? '' : 'opacity-40 group-hover:opacity-70'
                         }`} style={{
-                          backgroundColor: isSelected ? `${color}15` : '#1a1a1a',
+                          backgroundColor: isSelected ? `${color}15` : '#161616',
                         }}>
-                          <Logo />
+                          <Logo size="w-6 h-6" />
                         </div>
-                        <span className={`text-[10px] font-bold uppercase tracking-[0.08em] transition-colors duration-200 ${
+                        <span className={`text-[11px] font-bold uppercase tracking-[0.08em] transition-colors duration-200 ${
                           isSelected ? '' : 'text-[#525252] group-hover:text-[#8d8d8d]'
                         }`} style={isSelected ? { color } : {}}>{tag}</span>
+                        <span className={`text-[9px] mt-1 transition-colors duration-200 ${
+                          isSelected ? 'text-[#6f6f6f]' : 'text-[#333] group-hover:text-[#525252]'
+                        }`}>{label}</span>
                       </button>
                     )
                   })}

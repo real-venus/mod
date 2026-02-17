@@ -704,6 +704,26 @@ class Mod:
 
     # ==================== TOKENGATE FUNCTIONS ====================
 
+    def decimals(self, token='market') -> int:
+        """Get token decimals.
+        
+        Args:
+            token: Token symbol
+            
+        Returns:
+            Number of decimals
+        """
+        if token == 'ETH':
+            return 18
+        cfg = self.contracts_config().get(token.lower())
+        if not cfg:
+            raise ValueError(f'Token {token} not found in config')
+        token_contract = self.w3.eth.contract(
+            address=Web3.to_checksum_address(cfg['address']),
+            abi=self.ipfs.get(cfg['abi'])
+        )
+        return token_contract.functions.decimals().call()
+
     def debit(self, client, provider, amount): 
         """Debit stable tokens from client to provider.
         

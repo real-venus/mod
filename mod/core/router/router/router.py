@@ -139,7 +139,7 @@ class Router:
     
     h = txs
 
-    def task_paths(self, key=None, mod=None, max_age= None):
+    def task_paths(self, key=None, mod=None, max_age= 3600):
 
         if key is not None:
             paths = glob.glob(self.tasks_path+f'/**/{key}/**/*.json', recursive=True)

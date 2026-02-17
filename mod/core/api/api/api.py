@@ -18,7 +18,7 @@ class  Api:
     threads = {}
 
     def __init__(self,  key=None, store = 'ipfs', chain='chain', router='router', auth='auth.base'):
-        self.store = store
+        self.store = m.mod(store)()
         self.key = m.key(key)
         self.auth = m.mod(auth)()
         self.registry_path = self.path('registry.json')
@@ -846,22 +846,6 @@ class  Api:
             'weeks': weeks
         }
 
-    def transfer(self, to:str, amount:float, token:str='market', sender:str=None):
-        """Transfer tokens between addresses.
-
-        Args:
-            to: Recipient address
-            amount: Amount to transfer
-            token: Token symbol (default 'market')
-            sender: Sender address (uses debit for market tokens)
-
-        Returns:
-            Transaction receipt
-        """
-        if sender and token.lower() == 'market':
-            return self.chain.debit(client=sender, provider=to, amount=amount)
-        return self.chain.transfer(to=to, amount=amount, token=token)
-
     def credit(self, stable_amount:float, payment_token:str='usdt'):
         """Buy stable tokens with whitelisted payment token using server-side key.
 
@@ -886,33 +870,6 @@ class  Api:
         if mod:
             return self.chain.reg(name=mod)
         return {'error': 'mod parameter required'}
-
-    def raw_transfer(self, to:str, amount:float, token:str='market', wait:bool=True):
-        """Transfer tokens using raw transaction (local key signing).
-
-        Args:
-            to: Recipient address
-            amount: Amount to transfer
-            token: Token symbol (default 'market')
-            wait: Wait for confirmation (default True)
-
-        Returns:
-            Transaction result with hash and receipt
-        """
-        return self.chain.raw_transfer(to=to, amount=amount, token=token, wait=wait)
-
-    def raw_credit(self, stable_amount:float, payment_token:str='usdt', wait:bool=True):
-        """Buy stable tokens using raw transactions (local key signing).
-
-        Args:
-            stable_amount: Amount of stable tokens to buy
-            payment_token: Payment token symbol (default 'usdt')
-            wait: Wait for confirmation (default True)
-
-        Returns:
-            Transaction results with approve and credit hashes
-        """
-        return self.chain.raw_credit(stable_amount=stable_amount, payment_token=payment_token, wait=wait)
 
     def build_transaction(self, to:str, data:str='0x', value:int=0, gas:int=None):
         """Build a raw transaction for client-side signing.

@@ -146,18 +146,5 @@
                 }
             }
         }
-    },
-    "abi": {
-        "BlocTime": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM",
-        "Market": "QmRbmhVQREoAFxH1suBigw2eGs77pZkVbtTdHhMKK3SYwo",
-        "ChainlinkAdapter": "QmTBiGa8R7GZxDWZh4LrmFYzjJdF1bBjAMYPQfiBzd9EXy",
-        "IOracleAdapter": "QmeXQ9uMUMqhLVXtSjTiiLQVKZDRnwGx5JWPnJyABTVr9y",
-        "ManualPriceOracle": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV",
-        "PythAdapter": "QmVcNJpSHoxFtWP2unaSgQQCBWVQdruQTr95wWGayKQFDL",
-        "Perms": "QmNcS6WnPurn9GZaRXSLonp1ovHpEt6pTZDFjM5NgN2TPU",
-        "Registry": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL",
-        "Token": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ",
-        "TokenGate": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a",
-        "Treasury": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
     }
 }

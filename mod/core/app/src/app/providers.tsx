@@ -38,6 +38,7 @@ function GlobalSearchBar() {
   const navItems = [
     { href: '/mod/explore', label: 'MODS', color: '#10b981' },
     { href: '/quests', label: 'QUESTS', color: '#0bf58c' },
+    { href: '/treasury', label: 'TREASURY', color: '#a855f7' },
     { href: '/docs', label: 'DOCS', color: '#a78bfa' },
     { href: '/chat', label: 'CHAT', color: '#8b5cf6' },
   ]
