@@ -3,7 +3,7 @@
 import { BuildingLibraryIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 import { CopyButton } from '@/ui/CopyButton'
-import modConfig from '@/app/mod.json'
+import modConfig from '@/config.json'
 import { ethers } from 'ethers'
 import { useRouter } from 'next/navigation'
 import { Market } from '@/network/Market'

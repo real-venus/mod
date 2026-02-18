@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
-import TreasuryABI from '@/contracts/abi/treasury/Treasury.sol/Treasury.json'
-import TokenABI from '@/contracts/abi/token/Token.sol/Token.json'
-import modConfig from '@/app/mod.json'
+import TreasuryABI from '@/contracts//treasury/Treasury.sol/Treasury.json'
+import TokenABI from '@/contracts//token/Token.sol/Token.json'
+import modConfig from '@/config.json'
 
 function getEthereumProvider(): ethers.BrowserProvider {
   if (typeof window === 'undefined') {

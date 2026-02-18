@@ -374,7 +374,7 @@ class Router:
     def task_data(self , 
                 fn: str = 'store/ls',  
                 params: Dict[str, Any] = {}, 
-                cost = 0,
+                cost = 0.01,
                 timeout=1000,
                 ) -> Dict[str, Any]:
 

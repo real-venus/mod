@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { userContext } from '@/context'
 import { AlertCircle } from 'lucide-react'
 import { Market } from '@/network/Market'
-import modConfig from '@/app/mod.json'
+import modConfig from '@/config.json'
 import { ethers } from 'ethers'
 
 type TokenType = 'USDC' | 'USDT'
@@ -54,7 +54,7 @@ export const WithdrawalPanel: React.FC = () => {
       }
       const provider = new ethers.BrowserProvider(window.ethereum)
       const marketAddress = modConfig.chain.testnet.contracts.Market.address
-      const MarketABI = (await import('@/contracts/abi/market/Market.sol/Market.json')).default
+      const MarketABI = (await import('@/contracts//market/Market.sol/Market.json')).default
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, provider)
       
       const withdrawable = await marketContract.getWithdrawableAmount(user.key)
@@ -121,13 +121,13 @@ export const WithdrawalPanel: React.FC = () => {
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner(user.key)
       const marketAddress = modConfig.chain.testnet.contracts.Market.address
-      const MarketABI = (await import('@/contracts/abi/market/Market.sol/Market.json')).default
+      const MarketABI = (await import('@/contracts//market/Market.sol/Market.json')).default
       const marketContract = new ethers.Contract(marketAddress, MarketABI.abi, signer)
 
       const tokenAddress = market.getTokenAddress(selectedToken)
       const amountInWei = ethers.parseUnits(amount.toString(), 8)
 
-      const tx = await marketContract.withdraw(tokenAddress, amountInWei)
+      const tx = await marketContract.withdraw(tokenAddress, amountInWei, BigInt(0))
       await tx.wait()
 
       await fetchWithdrawalInfo()

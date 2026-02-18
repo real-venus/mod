@@ -474,7 +474,7 @@ NEXT_PUBLIC_NETWORK=local` },
           ['Token', 'MOD ERC-20 token for payments and governance'],
           ['TokenGate', 'Access control — gate module usage by token holdings'],
         ]},
-        { kind: 'text', value: 'Contract ABIs are stored in src/contracts/abi/ and accessed via Ethers.js.' },
+        { kind: 'text', value: 'Contract ABIs are stored in src/contracts// and accessed via Ethers.js.' },
       ],
     },
     {

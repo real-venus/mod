@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { userContext } from '@/context'
 import { ethers } from 'ethers'
-import modConfig from '@/app/mod.json'
+import modConfig from '@/config.json'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CopyButton } from '@/ui/CopyButton'
-import RegistryABI from '@/contracts/abi/registry/Registry.sol/Registry.json'
+import RegistryABI from '@/contracts//registry/Registry.sol/Registry.json'
 import { Zap, Eye, Edit3, RefreshCw, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 
 const loadAbiFromIpfs = async (client: any, cid: string) => {

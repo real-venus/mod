@@ -84,49 +84,54 @@
             "url": "https://sepolia.base.org",
             "contracts": {
                 "USDC": {
-                    "address": "0xfA6a5bAa6Ea6e7Cd2a64392B6D0107479769513b",
+                    "address": "0x2D69ccB0CD585Bd98d048cD9334ECcfda91CF814",
                     "contract": "Token",
                     "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "USDT": {
-                    "address": "0xD00983Bf7543398A81BD9E2b704D6ccc70fe759F",
+                    "address": "0x105E61522FA02C09491710BF511f18aF1F0971FC",
                     "contract": "Token",
                     "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "ManualPriceOracle": {
-                    "address": "0x2F0b7751e53864731A86114a06b041B55b22A712",
+                    "address": "0x72EFf75e1B9cD5A2be9B1Acf96B3e4c23E504aAC",
                     "contract": "ManualPriceOracle",
                     "abi": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV"
                 },
                 "TokenGate": {
-                    "address": "0xacF071D086fbfF81eb115092a310CC9B14BCf11a",
+                    "address": "0xEf513887b33Fe1F08393cC3A753e4C0A6E1b6168",
                     "contract": "TokenGate",
                     "abi": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a"
                 },
                 "NativeToken": {
-                    "address": "0x6E7AFC40284cf0606B3a0dbbe19EbD31a3125034",
+                    "address": "0x22B233fe6f38B2D7a16c83368750a8381769ab7D",
                     "contract": "Token",
                     "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "BlocTime": {
-                    "address": "0x060a03b84feB4f472FEB91415B575b22Cb7d8B69",
+                    "address": "0xBC71f9418Df017fd9876bF8185f4513F08230328",
                     "contract": "BlocTime",
                     "abi": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM"
                 },
                 "Registry": {
-                    "address": "0x19D31aD5207a2c3c16Ad29F0b04dADbECd4fEe62",
+                    "address": "0x3D5E14F41C729854D7657b48878493F8e4C86672",
                     "contract": "Registry",
                     "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
                 },
                 "Treasury": {
-                    "address": "0xE7F99a5C3a92a9B13D263bA699Af9bD8707F38b3",
+                    "address": "0x26961292a31fBf3cf22C701653dC391670507dBA",
                     "contract": "Treasury",
                     "abi": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
                 },
                 "Market": {
-                    "address": "0x1Ab1972b55a6429935c6cfbe864BAa133ea639cd",
+                    "address": "0x56A847D6c2D9207590F00d328Fb8215026472f3B",
                     "contract": "Market",
-                    "abi": "QmVyhuKhKqGJsirLY28sgsaXq4vBPxGGfoQ5TkEXijpKeS"
+                    "abi": "QmcxXDaY9rL4uXKDFbnCa1VK2eES27zc6YCA182YpLvrNy"
+                },
+                "Debit": {
+                    "address": "0xBcC9D90e064eF394334C97040daEccF2C77d0F87",
+                    "contract": "Debit",
+                    "abi": "QmbPgToxEaDe5PKkhzsKptXTPGNY4TCWXGGNWtudhVJEZt"
                 }
             }
         },
@@ -177,7 +182,7 @@
                 "Market": {
                     "address": "0xBc153693BFAe1Ca202872a382aED20a1306C9200",
                     "contract": "Market",
-                    "abi": "QmPGR8DcwDpm3QmxpDRCDqBVyTkC6G3TERbzE1ktYcsYdM"
+                    "abi": "QmcxXDaY9rL4uXKDFbnCa1VK2eES27zc6YCA182YpLvrNy"
                 }
             }
         }

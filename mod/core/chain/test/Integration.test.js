@@ -66,7 +66,8 @@ describe("BlocTime Protocol - Full Integration Tests", function () {
       "Market Token",
       "MKT",
       await treasury.getAddress(),
-      await tokenGate.getAddress()
+      await tokenGate.getAddress(),
+      3600
     );
     await market.waitForDeployment();
 
@@ -102,7 +103,7 @@ describe("BlocTime Protocol - Full Integration Tests", function () {
       const creditAmount = 100000000n; // $1
       const paymentAmount = (creditAmount * ethers.parseEther("1")) / TOKEN_PRICE;
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
-      await market.connect(user1).credit(await paymentToken.getAddress(), creditAmount);
+      await market.connect(user1).credit(await paymentToken.getAddress(), creditAmount, paymentAmount);
 
       // 4. Fund treasury from market fees
       const treasuryFee = ethers.parseEther("10");

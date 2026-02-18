@@ -2,15 +2,47 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("Market Integration", function () {
-  let market, tokenGate, oracle, paymentToken, treasury, owner, user1, provider;
+  let market, debit, tokenGate, oracle, paymentToken, treasury, owner, user1, provider;
   const INITIAL_SUPPLY = ethers.parseEther("1000000");
   const TOKEN_PRICE = 100000000n; // $1.00 with 8 decimals
   const PRICE_DECIMALS = 8;
   const MARKET_DECIMALS = 8;
   const PAYMENT_TOKEN_DECIMALS = 18; // default ERC20
+  const MAX_ORACLE_AGE = 3600;
+
+  const DEBIT_TYPE = {
+    DebitAuthorization: [
+      { name: "client", type: "address" },
+      { name: "provider", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "nonce", type: "uint256" },
+      { name: "deadline", type: "uint256" },
+    ],
+  };
 
   function calcPaymentAmount(stableAmount) {
     return (stableAmount * 10n**BigInt(PAYMENT_TOKEN_DECIMALS) * 10n**BigInt(PRICE_DECIMALS)) / (TOKEN_PRICE * 10n**BigInt(MARKET_DECIMALS));
+  }
+
+  async function getDomain() {
+    return {
+      name: "MarketDebit",
+      version: "1",
+      chainId: (await ethers.provider.getNetwork()).chainId,
+      verifyingContract: await debit.getAddress(),
+    };
+  }
+
+  async function signDebit(signer, providerAddr, amount, nonce, deadline) {
+    const domain = await getDomain();
+    const value = {
+      client: signer.address,
+      provider: providerAddr,
+      amount: amount,
+      nonce: nonce,
+      deadline: deadline,
+    };
+    return await signer.signTypedData(domain, DEBIT_TYPE, value);
   }
 
   beforeEach(async function () {
@@ -37,9 +69,15 @@ describe("Market Integration", function () {
       "Stable Token",
       "STABLE",
       treasury.address,
-      await tokenGate.getAddress()
+      await tokenGate.getAddress(),
+      MAX_ORACLE_AGE
     );
     await market.waitForDeployment();
+
+    const Debit = await ethers.getContractFactory("Debit");
+    debit = await Debit.deploy(await market.getAddress());
+    await debit.waitForDeployment();
+    await market.setDebitContract(await debit.getAddress());
 
     await paymentToken.transfer(user1.address, ethers.parseEther("10000"));
     await paymentToken.transfer(treasury.address, ethers.parseEther("100000"));
@@ -90,7 +128,7 @@ describe("Market Integration", function () {
 
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
 
-      await expect(market.connect(user1).credit(await paymentToken.getAddress(), stableAmount))
+      await expect(market.connect(user1).credit(await paymentToken.getAddress(), stableAmount, paymentAmount))
         .to.emit(market, "Credit");
 
       expect(await market.balanceOf(user1.address)).to.equal(stableAmount);
@@ -103,7 +141,7 @@ describe("Market Integration", function () {
       const paymentAmount = (stableAmount * 10n**BigInt(PAYMENT_TOKEN_DECIMALS) * 10n**BigInt(PRICE_DECIMALS)) / (newPrice * 10n**BigInt(MARKET_DECIMALS));
 
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
-      await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
+      await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount, paymentAmount);
 
       expect(await market.balanceOf(user1.address)).to.equal(stableAmount);
     });
@@ -114,72 +152,75 @@ describe("Market Integration", function () {
       await badToken.waitForDeployment();
 
       await expect(
-        market.connect(user1).credit(await badToken.getAddress(), stableAmount)
+        market.connect(user1).credit(await badToken.getAddress(), stableAmount, ethers.parseEther("1000"))
       ).to.be.revertedWith("Token not whitelisted");
     });
   });
 
-  describe("Debit Functionality with Treasury Fee (Owner Only)", function () {
+  describe("Debit via Debit Contract with EIP-712 Signatures", function () {
     const stableAmount = 10000000000n;
 
     beforeEach(async function () {
       const paymentAmount = calcPaymentAmount(stableAmount);
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
-      await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
+      await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount, paymentAmount);
     });
 
-    it("Should allow owner to debit from client and credit provider with 5% treasury fee", async function () {
+    it("Should debit from client and credit provider with 5% treasury fee", async function () {
       const treasuryFee = (stableAmount * 5n) / 100n;
       const providerAmount = stableAmount - treasuryFee;
+      const block = await ethers.provider.getBlock("latest");
+      const deadline = BigInt(block.timestamp + 3600);
 
-      const tx = await market.connect(owner).debit(user1.address, provider.address, stableAmount);
-      const receipt = await tx.wait();
+      const sig = await signDebit(user1, provider.address, stableAmount, 0n, deadline);
 
-      // Find the Debit event
-      const debitEvent = receipt.logs.find(log => {
-        try {
-          const parsed = market.interface.parseLog(log);
-          return parsed.name === "Debit";
-        } catch {
-          return false;
-        }
-      });
-
-      const parsedEvent = market.interface.parseLog(debitEvent);
-
-      expect(parsedEvent.args.txId).to.equal(2); // txId should be 2 (1 from credit, 2 from debit)
-      expect(parsedEvent.args.client).to.equal(user1.address);
-      expect(parsedEvent.args.provider).to.equal(provider.address);
-      expect(parsedEvent.args.amount).to.equal(stableAmount);
-      expect(parsedEvent.args.treasuryFee).to.equal(treasuryFee);
-      expect(parsedEvent.args.providerAmount).to.equal(providerAmount);
+      await expect(
+        debit.executeDebit(user1.address, provider.address, stableAmount, deadline, sig)
+      ).to.emit(debit, "DebitExecuted");
 
       expect(await market.balanceOf(user1.address)).to.equal(0);
       expect(await market.balanceOf(provider.address)).to.equal(providerAmount);
       expect(await market.balanceOf(treasury.address)).to.equal(treasuryFee);
     });
 
-    it("Should reject debit from non-owner", async function () {
+    it("Should reject debit with invalid signature (wrong signer)", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const deadline = BigInt(block.timestamp + 3600);
+      // provider signs instead of user1
+      const sig = await signDebit(provider, provider.address, stableAmount, 0n, deadline);
+
       await expect(
-        market.connect(user1).debit(user1.address, provider.address, stableAmount)
-      ).to.be.reverted;
+        debit.executeDebit(user1.address, provider.address, stableAmount, deadline, sig)
+      ).to.be.revertedWith("Invalid signature");
     });
 
     it("Should reject debit with insufficient balance", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const deadline = BigInt(block.timestamp + 3600);
+      const sig = await signDebit(user1, provider.address, stableAmount * 2n, 0n, deadline);
+
       await expect(
-        market.connect(owner).debit(user1.address, provider.address, stableAmount * 2n)
+        debit.executeDebit(user1.address, provider.address, stableAmount * 2n, deadline, sig)
       ).to.be.revertedWith("Insufficient balance");
     });
 
     it("Should reject debit with invalid client", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const deadline = BigInt(block.timestamp + 3600);
+      const sig = await signDebit(user1, provider.address, stableAmount, 0n, deadline);
+
       await expect(
-        market.connect(owner).debit(ethers.ZeroAddress, provider.address, stableAmount)
+        debit.executeDebit(ethers.ZeroAddress, provider.address, stableAmount, deadline, sig)
       ).to.be.revertedWith("Invalid client");
     });
 
     it("Should reject debit with invalid provider", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      const deadline = BigInt(block.timestamp + 3600);
+      const sig = await signDebit(user1, ethers.ZeroAddress, stableAmount, 0n, deadline);
+
       await expect(
-        market.connect(owner).debit(user1.address, ethers.ZeroAddress, stableAmount)
+        debit.executeDebit(user1.address, ethers.ZeroAddress, stableAmount, deadline, sig)
       ).to.be.revertedWith("Invalid provider");
     });
 
@@ -187,42 +228,24 @@ describe("Market Integration", function () {
       const testAmount = 1000000000n;
       const expectedFee = (testAmount * 5n) / 100n;
       const expectedProvider = testAmount - expectedFee;
+      const block = await ethers.provider.getBlock("latest");
+      const deadline = BigInt(block.timestamp + 3600);
 
-      await market.connect(owner).debit(user1.address, provider.address, testAmount);
+      const sig = await signDebit(user1, provider.address, testAmount, 0n, deadline);
+      await debit.executeDebit(user1.address, provider.address, testAmount, deadline, sig);
 
       expect(await market.balanceOf(treasury.address)).to.equal(expectedFee);
       expect(await market.balanceOf(provider.address)).to.equal(expectedProvider);
     });
 
-    it("Should allow owner to debit from any address to any address", async function () {
-      const [, , user2, provider2] = await ethers.getSigners();
-
-      // Credit user2 first
-      const initialUserBalance = await market.balanceOf(user2.address);
-      const paymentAmount = calcPaymentAmount(stableAmount);
-      await paymentToken.transfer(user2.address, paymentAmount);
-      await paymentToken.connect(user2).approve(await market.getAddress(), paymentAmount);
-      await market.connect(user2).credit(await paymentToken.getAddress(), stableAmount);
-
-      const treasuryFeeBefore = await market.balanceOf(treasury.address);
-      const treasuryFee = (stableAmount * 5n) / 100n;
-      const providerAmount = stableAmount - treasuryFee;
-
-      // Owner debits from user2 to provider2
-      await expect(market.connect(owner).debit(user2.address, provider2.address, stableAmount))
-        .to.emit(market, "Debit");
-
-      expect(await market.balanceOf(user2.address)).to.equal(initialUserBalance);
-      expect(await market.balanceOf(provider2.address)).to.equal(providerAmount);
-      expect(await market.balanceOf(treasury.address)).to.equal(treasuryFeeBefore + treasuryFee);
-    });
-
     it("Should track total treasury fees accrued correctly", async function () {
       const treasuryFee = (stableAmount * 5n) / 100n;
-
       const totalFeesBefore = await market.totalTreasuryFeesAccrued();
+      const block = await ethers.provider.getBlock("latest");
+      const deadline = BigInt(block.timestamp + 3600);
 
-      await market.connect(owner).debit(user1.address, provider.address, stableAmount);
+      const sig = await signDebit(user1, provider.address, stableAmount, 0n, deadline);
+      await debit.executeDebit(user1.address, provider.address, stableAmount, deadline, sig);
 
       const totalFeesAfter = await market.totalTreasuryFeesAccrued();
       expect(totalFeesAfter).to.equal(totalFeesBefore + treasuryFee);
@@ -232,7 +255,6 @@ describe("Market Integration", function () {
       const marketBalance = await paymentToken.balanceOf(await market.getAddress());
       const paymentAmount = calcPaymentAmount(stableAmount);
 
-      // Market should have received the tokens from the credit
       expect(marketBalance).to.be.gte(paymentAmount);
     });
   });
@@ -243,11 +265,11 @@ describe("Market Integration", function () {
     beforeEach(async function () {
       const paymentAmount = calcPaymentAmount(stableAmount);
       await paymentToken.connect(user1).approve(await market.getAddress(), paymentAmount);
-      await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount);
+      await market.connect(user1).credit(await paymentToken.getAddress(), stableAmount, paymentAmount);
     });
 
     it("Should allow immediate withdrawal without lockup", async function () {
-      await expect(market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount))
+      await expect(market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount, 0))
         .to.emit(market, "Withdrawal");
 
       expect(await market.balanceOf(user1.address)).to.equal(0);
@@ -257,7 +279,7 @@ describe("Market Integration", function () {
       const userBalanceBefore = await paymentToken.balanceOf(user1.address);
       const paymentAmount = calcPaymentAmount(stableAmount);
 
-      await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
+      await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount, 0);
 
       const userBalanceAfter = await paymentToken.balanceOf(user1.address);
 
@@ -266,7 +288,7 @@ describe("Market Integration", function () {
 
     it("Should require sufficient balance for withdrawal", async function () {
       await expect(
-        market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount * 2n)
+        market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount * 2n, 0)
       ).to.be.revertedWith("Insufficient balance");
     });
 
@@ -276,14 +298,14 @@ describe("Market Integration", function () {
       await badToken.waitForDeployment();
 
       await expect(
-        market.connect(user1).withdraw(await badToken.getAddress(), stableAmount)
+        market.connect(user1).withdraw(await badToken.getAddress(), stableAmount, 0)
       ).to.be.revertedWith("Token not whitelisted");
     });
 
     it("Should burn stable tokens on withdrawal", async function () {
       const balanceBefore = await market.balanceOf(user1.address);
 
-      await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
+      await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount, 0);
 
       const balanceAfter = await market.balanceOf(user1.address);
       expect(balanceAfter).to.equal(balanceBefore - stableAmount);
@@ -293,14 +315,14 @@ describe("Market Integration", function () {
       const newPrice = 200000000n;
       await oracle.setPrice(await paymentToken.getAddress(), newPrice, PRICE_DECIMALS);
 
-      await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount);
+      await market.connect(user1).withdraw(await paymentToken.getAddress(), stableAmount, 0);
 
       expect(await market.balanceOf(user1.address)).to.equal(0);
     });
 
     it("Should handle zero withdrawal amount", async function () {
       await expect(
-        market.connect(user1).withdraw(await paymentToken.getAddress(), 0)
+        market.connect(user1).withdraw(await paymentToken.getAddress(), 0, 0)
       ).to.be.revertedWith("Invalid amount");
     });
   });

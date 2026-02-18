@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { BuildingLibraryIcon, ArrowDownTrayIcon, ClockIcon, UserIcon } from '@heroicons/react/24/outline'
 import { ethers, EventLog } from 'ethers'
-import modConfig from '@/app/mod.json'
+import modConfig from '@/config.json'
 import { CopyButton } from '@/ui/CopyButton'
 import { motion } from 'framer-motion'
 

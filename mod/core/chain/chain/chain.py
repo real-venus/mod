@@ -724,13 +724,15 @@ class Mod:
         )
         return token_contract.functions.decimals().call()
 
-    def debit(self, client, provider, amount): 
+    def debit(self, client, provider, amount, deadline=0, signature=None) -> Dict[str, Any]: 
         """Debit stable tokens from client to provider.
         
         Args:
             client: Client address
             provider: Provider address
             amount: Amount to debit
+            minAmount: Minimum amount to debit
+            signature: Optional signature for authorization
         Returns:
             Transaction receipt
         """
@@ -739,10 +741,14 @@ class Mod:
         market = self.contracts.get('market')
         if not market:
             raise ValueError('Market contract not loaded')
-        amount = int(amount * 10**self.decimals)
+        amount = int(amount * 10**self.decimals('market'))
         client = Web3.to_checksum_address(client)
         provider = Web3.to_checksum_address(provider)
-        tx = market.functions.debit(client, provider, amount).build_transaction({
+        if signature is None:
+            # provide an empty bytes to nullify the signature parameter if not provided\
+            # ensure the bytes has a length of 0
+            signature = b''
+        tx = market.functions.debit(client, provider, amount, deadline, signature).build_transaction({
             'from': self.account.address,
             'nonce': self.w3.eth.get_transaction_count(self.account.address)
         })
@@ -766,7 +772,18 @@ class Mod:
         market = self.contracts.get(token)
         if not market:
             raise ValueError('Market contract not loaded')
-        amount = int(amount * 10**self.decimals)
+        decimals = self.decimals
+        chain_config = self.contracts_config()
+        token_key = token.lower()
+        if token_key in chain_config:
+            token_address = chain_config[token_key]['address']
+            token_abi = self.ipfs.get(chain_config[token_key]['abi'])
+            token_contract = self.w3.eth.contract(
+                address=Web3.to_checksum_address(token_address),
+                abi=token_abi
+            )
+            decimals = token_contract.functions.decimals().call()
+        amount = int(amount * 10**decimals)
         to = Web3.to_checksum_address(to)
         tx = market.functions.transfer(to, amount).build_transaction({
             'from': self.account.address,

@@ -6,8 +6,8 @@ import { Send, Zap, CheckCircle, AlertCircle, ArrowUpDown } from 'lucide-react'
 import { CopyButton } from '@/ui/CopyButton'
 import { text2color } from '@/utils'
 import { ethers } from 'ethers'
-import modConfig from '@/app/mod.json'
-import MarketABI from '@/contracts/abi/market/Market.sol/Market.json'
+import modConfig from '@/config.json'
+import MarketABI from '@/contracts//market/Market.sol/Market.json'
 import { TransferHeader } from './TransferHeader'
 
 interface TransferHistory {

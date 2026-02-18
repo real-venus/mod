@@ -144,16 +144,31 @@ async function main() {
   // Market
   console.log("\n📦 Deploying Market...");
   const Market = await hre.ethers.getContractFactory("Market");
+  const MAX_ORACLE_AGE = 3600; // 1 hour staleness threshold
   const marketDeployTx = await Market.deploy(
     "BlocTime Market Token",
     "BTMT",
     treasuryAddress,
-    tokenGateAddress
+    tokenGateAddress,
+    MAX_ORACLE_AGE
   );
   await sendAndConfirm(marketDeployTx.deploymentTransaction(), "Market deploy");
   const market = marketDeployTx;
   const marketAddress = await market.getAddress();
   console.log("Market deployed to:", marketAddress);
+
+  // Debit
+  console.log("\n📦 Deploying Debit...");
+  const Debit = await hre.ethers.getContractFactory("Debit");
+  const debitDeployTx = await Debit.deploy(marketAddress);
+  await sendAndConfirm(debitDeployTx.deploymentTransaction(), "Debit deploy");
+  const debit = debitDeployTx;
+  const debitAddress = await debit.getAddress();
+  console.log("Debit deployed to:", debitAddress);
+
+  console.log("\n⚙️ Authorizing Debit contract on Market...");
+  await sendAndConfirm(market.setDebitContract(debitAddress), "Debit contract authorized");
+  console.log("Debit contract authorized on Market");
 
   // Save to config.json (unchanged)
   const chainId = (await hre.ethers.provider.getNetwork()).chainId.toString();
@@ -184,6 +199,7 @@ async function main() {
       Registry: { address: registryAddress, contract: "Registry" },
       Treasury: { address: treasuryAddress, contract: "Treasury" },
       Market: { address: marketAddress, contract: "Market" },
+      Debit: { address: debitAddress, contract: "Debit" },
     },
   };
 
@@ -202,6 +218,7 @@ async function main() {
   console.log("Registry:", registryAddress);
   console.log("Treasury:", treasuryAddress);
   console.log("Market:", marketAddress);
+  console.log("Debit:", debitAddress);
   console.log("\n✅ Deployment complete!");
 }
 

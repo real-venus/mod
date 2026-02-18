@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
-import TokenABI from '@/contracts/abi/token/Token.sol/Token.json'
-import MarketABI from '@/contracts/abi/market/Market.sol/Market.json'
-import modConfig from '@/app/mod.json'
+import TokenABI from '@/contracts/token/Token.sol/Token.json'
+import MarketABI from '@/contracts/market/Market.sol/Market.json'
+import modConfig from '@/config.json'
 
 function getEthereumProvider(): ethers.BrowserProvider {
   if (typeof window === 'undefined') {
@@ -159,7 +159,8 @@ export class Market {
       // stableAmount is in Market decimals (8) — contract handles conversion to payment token amount
       const amountInWei = ethers.parseUnits(amount.toString(), 8)
 
-      const tx = await marketContract.credit(tokenAddress, amountInWei)
+      // maxPaymentAmount: use MaxUint256 to skip slippage protection
+      const tx = await marketContract.credit(tokenAddress, amountInWei, ethers.MaxUint256)
       const receipt = await tx.wait()
 
       return receipt
@@ -180,7 +181,8 @@ export class Market {
       // stableAmount is in Market decimals (8) — contract handles conversion to payment token amount
       const amountInWei = ethers.parseUnits(amount.toString(), 8)
 
-      const tx = await marketContract.withdraw(tokenAddress, amountInWei)
+      // minReceiveAmount: use 0 to skip slippage protection
+      const tx = await marketContract.withdraw(tokenAddress, amountInWei, BigInt(0))
       const receipt = await tx.wait()
 
       return receipt

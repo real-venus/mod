@@ -19,9 +19,9 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import { ethers, EventLog } from 'ethers'
-import TokenABI from '@/contracts/abi/token/Token.sol/Token.json'
-import MarketABI from '@/contracts/abi/market/Market.sol/Market.json'
-import modConfig from '@/app/mod.json'
+import TokenABI from '@/contracts/token/Token.sol/Token.json'
+import MarketABI from '@/contracts/market/Market.sol/Market.json'
+import modConfig from '@/config.json'
 import { CopyButton } from '@/ui/CopyButton'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -105,6 +105,11 @@ export default function TreasuryPage() {
   const [marketTotalSupply, setMarketTotalSupply] = useState<string>('0')
   const [marketUsdcBalance, setMarketUsdcBalance] = useState<string>('0')
   const [marketUsdtBalance, setMarketUsdtBalance] = useState<string>('0')
+  const [marketFeePercent, setMarketFeePercent] = useState<number>(0)
+  const [marketTotalFeesAccrued, setMarketTotalFeesAccrued] = useState<string>('0')
+  const [marketClaimedFees, setMarketClaimedFees] = useState<string>('0')
+  const [marketUnclaimedFees, setMarketUnclaimedFees] = useState<string>('0')
+  const [marketTxCount, setMarketTxCount] = useState<number>(0)
 
   // ── Owner/Safe state ──
   const [isOwner, setIsOwner] = useState(false)
@@ -211,6 +216,20 @@ export default function TreasuryPage() {
             const usdtDec = await usdtContract.decimals()
             setMarketUsdtBalance(ethers.formatUnits(usdtBal, Number(usdtDec)))
           }
+
+          // Fetch market statistics
+          const [feePercent, totalFees, claimedFees, unclaimedFees, txId] = await Promise.all([
+            marketContract.TREASURY_FEE_PERCENT(),
+            marketContract.totalTreasuryFeesAccrued(),
+            marketContract.getClaimedTreasuryFeesUSD(),
+            marketContract.getUnclaimedTreasuryFFeesUSD(),
+            marketContract.nextTransactionId(),
+          ])
+          setMarketFeePercent(Number(feePercent))
+          setMarketTotalFeesAccrued(ethers.formatUnits(totalFees, 8))
+          setMarketClaimedFees(ethers.formatUnits(claimedFees, 8))
+          setMarketUnclaimedFees(ethers.formatUnits(unclaimedFees, 8))
+          setMarketTxCount(Number(txId))
         }
       } catch (err) {
         console.warn('Could not fetch Market balances:', err)
@@ -578,39 +597,191 @@ export default function TreasuryPage() {
                 </GlowCard>
               </div>
 
-              {/* ── Market Balance ── */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* ── Market Statistics ── */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <GlowCard color="#ec4899" delay={0.32}>
                   <div className="flex items-center gap-2 mb-3">
                     <ChartBarIcon className="w-5 h-5 text-pink-400" />
-                    <span className="text-pink-400/70 text-[11px] font-bold uppercase tracking-wider">Market Total</span>
+                    <span className="text-pink-400/70 text-[11px] font-bold uppercase tracking-wider">Treasury Fee</span>
                   </div>
                   <p className="text-2xl md:text-3xl font-bold text-white">
-                    <AnimatedValue value={parseFloat(marketTotalSupply).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} prefix="$" loading={loading} />
+                    <AnimatedValue value={String(marketFeePercent)} suffix="%" loading={loading} />
                   </p>
-                  <p className="text-white/30 text-[10px] font-mono mt-1">Market contract supply</p>
+                  <p className="text-white/30 text-[10px] font-mono mt-1">Cut on each debit</p>
                 </GlowCard>
 
                 <GlowCard color="#ec4899" delay={0.34}>
                   <div className="flex items-center gap-2 mb-3">
-                    <CurrencyDollarIcon className="w-5 h-5 text-pink-400" />
-                    <span className="text-pink-400/70 text-[11px] font-bold uppercase tracking-wider">Market USDC</span>
+                    <ArrowTrendingUpIcon className="w-5 h-5 text-pink-400" />
+                    <span className="text-pink-400/70 text-[11px] font-bold uppercase tracking-wider">Transactions</span>
                   </div>
                   <p className="text-2xl md:text-3xl font-bold text-white">
-                    <AnimatedValue value={parseFloat(marketUsdcBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} prefix="$" loading={loading} />
+                    <AnimatedValue value={marketTxCount.toLocaleString()} loading={loading} />
                   </p>
-                  <p className="text-white/30 text-[10px] font-mono mt-1">USDC held by Market</p>
+                  <p className="text-white/30 text-[10px] font-mono mt-1">Total market txns</p>
                 </GlowCard>
 
                 <GlowCard color="#ec4899" delay={0.36}>
                   <div className="flex items-center gap-2 mb-3">
-                    <CurrencyDollarIcon className="w-5 h-5 text-pink-400" />
-                    <span className="text-pink-400/70 text-[11px] font-bold uppercase tracking-wider">Market USDT</span>
+                    <BanknotesIcon className="w-5 h-5 text-pink-400" />
+                    <span className="text-pink-400/70 text-[11px] font-bold uppercase tracking-wider">Fees Accrued</span>
                   </div>
                   <p className="text-2xl md:text-3xl font-bold text-white">
-                    <AnimatedValue value={parseFloat(marketUsdtBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} prefix="$" loading={loading} />
+                    <AnimatedValue value={parseFloat(marketTotalFeesAccrued).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} prefix="$" loading={loading} />
                   </p>
-                  <p className="text-white/30 text-[10px] font-mono mt-1">USDT held by Market</p>
+                  <p className="text-white/30 text-[10px] font-mono mt-1">Lifetime treasury revenue</p>
+                </GlowCard>
+
+                <GlowCard color="#10b981" delay={0.38}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CurrencyDollarIcon className="w-5 h-5 text-emerald-400" />
+                    <span className="text-emerald-400/70 text-[11px] font-bold uppercase tracking-wider">Unclaimed Fees</span>
+                  </div>
+                  <p className="text-2xl md:text-3xl font-bold text-emerald-400">
+                    <AnimatedValue value={parseFloat(marketUnclaimedFees).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} prefix="$" loading={loading} />
+                  </p>
+                  <p className="text-white/30 text-[10px] font-mono mt-1">Available to claim</p>
+                </GlowCard>
+              </div>
+
+              {/* ── Token Portfolio & Fee Breakdown ── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Token Portfolio */}
+                <GlowCard color="#ec4899" delay={0.4}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <ChartBarIcon className="w-5 h-5 text-pink-400" />
+                      <span className="text-white font-bold text-lg">Market Portfolio</span>
+                    </div>
+                    <span className="text-white/30 text-[10px] font-mono">
+                      Supply: ${parseFloat(marketTotalSupply).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* Stacked bar */}
+                  {(() => {
+                    const usdc = parseFloat(marketUsdcBalance)
+                    const usdt = parseFloat(marketUsdtBalance)
+                    const total = usdc + usdt
+                    const usdcPct = total > 0 ? (usdc / total) * 100 : 50
+                    const usdtPct = total > 0 ? (usdt / total) * 100 : 50
+                    return (
+                      <>
+                        <div className="w-full h-4 bg-white/[0.06] rounded-full overflow-hidden flex mb-4">
+                          <div
+                            className="h-full transition-all duration-700"
+                            style={{ width: `${usdcPct}%`, background: 'linear-gradient(90deg, #3b82f6, #60a5fa)' }}
+                          />
+                          <div
+                            className="h-full transition-all duration-700"
+                            style={{ width: `${usdtPct}%`, background: 'linear-gradient(90deg, #22c55e, #4ade80)' }}
+                          />
+                        </div>
+
+                        {/* USDC row */}
+                        <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-blue-500/[0.04] border border-blue-500/10 mb-2">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-blue-500" />
+                            <div>
+                              <span className="text-white font-bold text-sm">USDC</span>
+                              <span className="text-blue-400/60 text-[10px] ml-2 font-bold uppercase tracking-wider">USD Coin</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-white font-bold font-mono text-sm">
+                              ${usdc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-blue-400/60 text-[10px] font-mono">{usdcPct.toFixed(1)}%</p>
+                          </div>
+                        </div>
+
+                        {/* USDT row */}
+                        <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-green-500/[0.04] border border-green-500/10">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-green-500" />
+                            <div>
+                              <span className="text-white font-bold text-sm">USDT</span>
+                              <span className="text-green-400/60 text-[10px] ml-2 font-bold uppercase tracking-wider">Tether</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-white font-bold font-mono text-sm">
+                              ${usdt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-green-400/60 text-[10px] font-mono">{usdtPct.toFixed(1)}%</p>
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()}
+                </GlowCard>
+
+                {/* Fee Accrual Breakdown */}
+                <GlowCard color="#a855f7" delay={0.42}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <ArrowTrendingUpIcon className="w-5 h-5 text-purple-400" />
+                    <span className="text-white font-bold text-lg">Fee Accrual</span>
+                  </div>
+
+                  {/* Claimed vs Unclaimed bar */}
+                  {(() => {
+                    const claimed = parseFloat(marketClaimedFees)
+                    const unclaimed = parseFloat(marketUnclaimedFees)
+                    const total = parseFloat(marketTotalFeesAccrued)
+                    const claimedPct = total > 0 ? (claimed / total) * 100 : 0
+                    const unclaimedPct = total > 0 ? (unclaimed / total) * 100 : 0
+                    return (
+                      <>
+                        <div className="mb-4">
+                          <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1.5">
+                            <span className="text-white/40">Claim Progress</span>
+                            <span className="text-white font-mono">{claimedPct.toFixed(1)}% claimed</span>
+                          </div>
+                          <div className="w-full h-3 bg-white/[0.06] rounded-full overflow-hidden flex">
+                            <div
+                              className="h-full transition-all duration-700"
+                              style={{ width: `${claimedPct}%`, background: 'linear-gradient(90deg, #a855f7, #c084fc)' }}
+                            />
+                            <div
+                              className="h-full transition-all duration-700"
+                              style={{ width: `${unclaimedPct}%`, background: 'linear-gradient(90deg, #10b981, #34d399)' }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] mt-1">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full bg-purple-500" />
+                              <span className="text-white/25">Claimed</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <span className="text-white/25">Unclaimed</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="py-2 px-3 bg-white/[0.02] rounded-lg">
+                            <p className="text-white/30 text-[9px] font-bold uppercase tracking-wider mb-1">Total Accrued</p>
+                            <p className="text-white font-bold font-mono text-sm">
+                              ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div className="py-2 px-3 bg-white/[0.02] rounded-lg">
+                            <p className="text-white/30 text-[9px] font-bold uppercase tracking-wider mb-1">Claimed</p>
+                            <p className="text-purple-400 font-bold font-mono text-sm">
+                              ${claimed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div className="py-2 px-3 bg-white/[0.02] rounded-lg">
+                            <p className="text-white/30 text-[9px] font-bold uppercase tracking-wider mb-1">Unclaimed</p>
+                            <p className="text-emerald-400 font-bold font-mono text-sm">
+                              ${unclaimed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()}
                 </GlowCard>
               </div>
 

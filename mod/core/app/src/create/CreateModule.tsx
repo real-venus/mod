@@ -25,7 +25,6 @@ export default function CreateModule() {
   const { user, client } = userContext()
   const [url, setUrl] = useState('')
   const [name, setName] = useState('')
-  const [registerToKey, setRegisterToKey] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
   const [result, setResult] = useState<any>(null)
@@ -37,12 +36,6 @@ export default function CreateModule() {
   const [searchError, setSearchError] = useState<string | null>(null)
   const [showSearch, setShowSearch] = useState(true)
   const searchTimeout = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    if (user?.key && !registerToKey) {
-      setRegisterToKey(user.key)
-    }
-  }, [user?.key])
 
   useEffect(() => {
     if (isGitUrl(url) && !name) {
@@ -174,7 +167,7 @@ export default function CreateModule() {
   }
 
   const handleSubmit = async () => {
-    if (!isValidInput() || !user?.key || !registerToKey.trim()) return
+    if (!isValidInput() || !user?.key) return
     setIsSubmitting(true)
     setError(null)
     setResult(null)
@@ -183,7 +176,7 @@ export default function CreateModule() {
       const expandedUrl = expandGitUrl(url)
       const response = await client.call('api/reg', {
         mod: expandedUrl,
-        key: registerToKey.trim(),
+        key: user.key,
         public: false,
         token: client.token,
       })
@@ -224,7 +217,7 @@ export default function CreateModule() {
       <div className="space-y-2">
         <button
           onClick={() => setShowSearch(!showSearch)}
-          className="flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-widest transition-colors group"
+          className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-widest transition-colors group"
           style={{ color: showSearch ? '#4ade80' : 'rgba(255,255,255,0.3)' }}
         >
           <MagnifyingGlassIcon className="w-3.5 h-3.5" />
@@ -254,11 +247,11 @@ export default function CreateModule() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="e.g. 'machine learning pytorch'"
-                    className="w-full border text-white text-[14px] focus:outline-none bg-white/[0.03] placeholder-white/15 transition-all font-mono"
+                    className="w-full border text-white text-[16px] focus:outline-none bg-white/[0.03] placeholder-white/15 transition-all font-mono"
                     style={{
                       paddingLeft: '2.25rem',
                       paddingRight: '2.25rem',
-                      height: '40px',
+                      height: '48px',
                       borderColor: searchQuery ? 'rgba(74, 222, 128, 0.3)' : 'rgba(255,255,255,0.06)',
                     }}
                   />
@@ -333,68 +326,37 @@ export default function CreateModule() {
 
       {/* Register Form */}
       <div className="space-y-2">
-        <span className="text-[11px] font-extrabold uppercase tracking-widest text-white/25">
+        <span className="text-[13px] font-extrabold uppercase tracking-widest text-white/25">
           SOURCE
-        </span>
-        <div className="relative">
-          <input
-            type="text"
-            value={url}
-            onChange={(e) => { setUrl(e.target.value); if (!showSearch) setShowSearch(false) }}
-            onFocus={() => setFocusedField('url')}
-            onBlur={() => setFocusedField(null)}
-            placeholder="user/repo  or  github.com/user/repo.git  or  Qm..."
-            className="w-full border text-green-400 text-[14px] focus:outline-none bg-white/[0.03] placeholder-white/12 transition-all font-mono"
-            style={{
-              paddingLeft: '1rem',
-              paddingRight: url ? '5rem' : '1rem',
-              height: '42px',
-              borderColor: focusedField === 'url'
-                ? (isValidInput() ? 'rgba(74, 222, 128, 0.5)' : 'rgba(255,255,255,0.15)')
-                : url ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255,255,255,0.06)',
-              boxShadow: focusedField === 'url' && isValidInput() ? '0 0 12px rgba(74, 222, 128, 0.08)' : 'none',
-            }}
-          />
-          {url && (
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-              <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border ${
-                isValidInput()
-                  ? 'bg-green-500/10 text-green-400/80 border-green-500/25'
-                  : 'bg-red-500/10 text-red-400/80 border-red-500/25'
-              }`}>
-                {isValidInput() ? getInputType() : 'INVALID'}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <span className="text-[11px] font-extrabold uppercase tracking-widest text-white/25">
-          REGISTER TO
         </span>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
               type="text"
-              value={registerToKey}
-              onChange={(e) => setRegisterToKey(e.target.value)}
-              onFocus={() => setFocusedField('registerToKey')}
+              value={url}
+              onChange={(e) => { setUrl(e.target.value); if (!showSearch) setShowSearch(false) }}
+              onFocus={() => setFocusedField('url')}
               onBlur={() => setFocusedField(null)}
-              placeholder="0x..."
-              className="w-full border text-cyan-400 text-[14px] focus:outline-none bg-white/[0.03] placeholder-white/12 transition-all font-mono"
+              placeholder="user/repo  or  github.com/user/repo.git  or  Qm..."
+              className="w-full border text-green-400 text-[16px] focus:outline-none bg-white/[0.03] placeholder-white/12 transition-all font-mono"
               style={{
                 paddingLeft: '1rem',
-                paddingRight: registerToKey === user?.key ? '5.5rem' : '1rem',
-                height: '42px',
-                borderColor: focusedField === 'registerToKey' ? 'rgba(34, 211, 238, 0.4)' : 'rgba(255,255,255,0.06)',
-                boxShadow: focusedField === 'registerToKey' ? '0 0 12px rgba(34, 211, 238, 0.06)' : 'none',
+                paddingRight: url ? '5rem' : '1rem',
+                height: '48px',
+                borderColor: focusedField === 'url'
+                  ? (isValidInput() ? 'rgba(74, 222, 128, 0.5)' : 'rgba(255,255,255,0.15)')
+                  : url ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255,255,255,0.06)',
+                boxShadow: focusedField === 'url' && isValidInput() ? '0 0 12px rgba(74, 222, 128, 0.08)' : 'none',
               }}
             />
-            {registerToKey === user?.key && (
+            {url && (
               <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-green-400/70 px-2 py-1 bg-green-500/10 border border-green-500/20">
-                  YOUR KEY
+                <span className={`text-[11px] font-extrabold uppercase tracking-wider px-2 py-1 border ${
+                  isValidInput()
+                    ? 'bg-green-500/10 text-green-400/80 border-green-500/25'
+                    : 'bg-red-500/10 text-red-400/80 border-red-500/25'
+                }`}>
+                  {isValidInput() ? getInputType() : 'INVALID'}
                 </span>
               </div>
             )}
@@ -402,10 +364,10 @@ export default function CreateModule() {
 
           <button
             onClick={handleSubmit}
-            disabled={!isValidInput() || isSubmitting || !user || !registerToKey.trim()}
-            className="px-6 font-extrabold text-[13px] uppercase tracking-widest transition-all disabled:opacity-20 disabled:cursor-not-allowed border hover:shadow-[0_0_15px_rgba(74,222,128,0.15)] active:scale-[0.98] relative overflow-hidden group whitespace-nowrap"
+            disabled={!isValidInput() || isSubmitting || !user}
+            className="px-8 font-extrabold text-[14px] uppercase tracking-widest transition-all disabled:opacity-20 disabled:cursor-not-allowed border hover:shadow-[0_0_15px_rgba(74,222,128,0.15)] active:scale-[0.98] relative overflow-hidden group whitespace-nowrap"
             style={{
-              height: '42px',
+              height: '48px',
               borderColor: 'rgba(74, 222, 128, 0.4)',
               color: '#4ade80',
               background: 'rgba(74, 222, 128, 0.08)',
@@ -444,8 +406,8 @@ export default function CreateModule() {
                   Module Registered
                 </span>
               </div>
-              {result.name && registerToKey && (
-                <Link href={`/mod/${result.name}/${registerToKey}`}>
+              {result.name && user?.key && (
+                <Link href={`/mod/${result.name}/${user.key}`}>
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-green-400/60 hover:text-green-400 transition-colors cursor-pointer">
                     VIEW MODULE -&gt;
                   </span>

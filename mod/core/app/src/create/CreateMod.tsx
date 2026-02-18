@@ -191,7 +191,7 @@ export default function CreateModule() {
         key: registerToKey.trim(),
         public: false,
         token: client.token,
-      }, wait: false)
+      })
       setResult(response)
       setUrl('')
       setName('')
@@ -375,28 +375,7 @@ export default function CreateModule() {
 
         {/* Second Row: Key Input + Register Button */}
         <div className="flex gap-3">
-          <div className="relative flex-1 group">
-            <input
-              type="text"
-              value={registerToKey}
-              onChange={(e) => setRegisterToKey(e.target.value)}
-              onFocus={() => setFocusedField('registerToKey')}
-              onBlur={() => setFocusedField(null)}
-              placeholder="0x..."
-              className="w-full border-2 text-cyan-400 px-6 py-4 rounded-xl focus:outline-none text-lg bg-black/90 backdrop-blur-sm placeholder-neutral-600 hover:border-cyan-500/60 transition-all duration-300 font-mono relative z-10"
-              style={{
-                borderColor: focusedField === 'registerToKey' ? '#06b6d4' : '#52525b',
-                fontFamily: 'IBM Plex Mono, monospace',
-              }}
-            />
-            {registerToKey === user?.key && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20">
-                <span className="text-sm font-bold text-green-400 px-3 py-1.5 bg-green-400/20 border border-green-400/50 rounded-lg">
-                  YOUR KEY
-                </span>
-              </div>
-            )}
-          </div>
+
 
           <button
             onClick={handleSubmit}
