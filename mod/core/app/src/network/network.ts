@@ -21,7 +21,6 @@ export class Network
         }
         this.url = selectedNetwork.url
         this.connect().then(() => {
-            console.log(`Connected to ${network} at ${this.url}`)
         }).catch((err) => {
             console.error(`Failed to connect to ${network} at ${this.url}:`, err)
         })
@@ -39,7 +38,6 @@ export class Network
         if (this.api) {
             await this.api.disconnect()
             this.api = null
-            console.log('Disconnected from network.')
         }
     }
 
@@ -103,7 +101,6 @@ export class Network
     async claim(walletAddress: string) : Promise<any> {
       await this.connect()
       if (!this.api) throw new Error('API not connected')
-      console.log('ModFam',this.api.tx.ComClaim)
       const tx = this.api.tx.comClaim.claim()
       const result = await this.submitTx(tx, walletAddress)
       await this.disconnect()
@@ -112,7 +109,6 @@ export class Network
 
     getApi() : ApiPromise | null {
         this.connect().then(() => {
-            console.log(`Connected to network at ${this.url}`)
         }).catch((err) => {
             console.error(`Failed to connect to network at ${this.url}:`, err)
         })

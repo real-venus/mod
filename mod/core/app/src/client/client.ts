@@ -87,7 +87,6 @@ export class Client {
       }
       if (contentType?.includes('application/json')) {
         let result = await response.json();
-        console.log('[Safari Debug] JSON response:', result);
         if (result && result.success === false) {
           let error_msg = JSON.stringify(result);
           throw new Error(`API Error: ${error_msg}`);

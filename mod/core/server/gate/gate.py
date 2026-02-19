@@ -13,15 +13,17 @@ print = m.print
 
 class Gate:
 
-    def __init__(self, path = '~/.mod/server', auth='auth.base',mod='api', **_kwargs):
+    def __init__(self, path = '~/.mod/server', auth='auth.base',mod='api', paywall=None, **_kwargs):
         """
         Initialize the Gate class
         params:
             path: the path to store the gate data
             auth: the auth module to use
+            paywall: optional x402 payment gate instance (has gate_check(fn, headers) method)
         """
         self.store = m.mod('store')(path)
         self.auth = m.mod(auth)()
+        self.paywall = paywall
         self.roles_path = self.store.get_path('roles')
         if len(self.roles()) < 2:
             self.ensure_role_map()
@@ -46,6 +48,12 @@ class Gate:
             assert fn in info['fns'], f"Function {fn} not in fns={info['fns']}"
         params = json.loads(params) if isinstance(params, str) else params
         self.print_request({'fn': fn, 'params': params, 'client': headers.get('key', ''), 'time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())})
+        # Payment gate check (x402 paywall)
+        if self.paywall and hasattr(self.paywall, 'gate_check'):
+            paywall_result = self.paywall.gate_check(fn, headers)
+            if paywall_result is not None:
+                print(f'Payment required for {fn}: {paywall_result}', color='red')
+                return paywall_result
         fn_obj = self.get_fn_obj(fn, mod=mod)
         result = fn_obj(**params) if callable(fn_obj) else fn_obj
         return result

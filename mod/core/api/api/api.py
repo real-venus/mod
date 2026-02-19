@@ -420,7 +420,7 @@ class  Api:
         """
         return self.folder_path + '/' + path
 
-    def mods(self, search:str=None,  key='all', update:bool=True, n:int=None, page:int=None, **kwargs) -> List[Dict[str, Any]]:
+    def mods(self, search:str=None,  key='all', n:int=None, page:int=None, **kwargs) -> List[Dict[str, Any]]:
         """
         List all registered mods in IPFS.
         Returns:
@@ -789,18 +789,8 @@ class  Api:
         Returns:
             Dictionary mapping token symbols to balances
         """
-        if tokens is None:
-            tokens = ['ETH', 'USDC', 'USDT', 'MARKET']
-
-        balances = {}
-        for token in tokens:
-            try:
-                balances[token] = self.chain.balance(address, token)
-            except Exception as e:
-                print(f'Error getting balance for {token}: {e}')
-                balances[token] = 0
-
-        return balances
+        
+        return self.chain.balances(address=address, tokens=tokens)
 
     def balances(self, token:str='market', from_block:int=0, to_block:int=None, weeks:int=2):
         """Get all user balances for a specific token by scanning Transfer events.

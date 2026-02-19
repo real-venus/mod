@@ -152,7 +152,7 @@ class Server:
         fns = [fn for fn in dir(mod_obj) if not fn.startswith('_') and callable(getattr(mod_obj, fn))]
         return fns
 
-    def serve(self, 
+    def serve(self,
               mod: Union[str, 'Module', Any] = None, # the mod in either a string
               params:Optional[dict] = None,  # kwargs for the mod
               port :Optional[int] = None, # name of the server if None, it will be the mod name
@@ -161,7 +161,8 @@ class Server:
               remote = False, # whether to run the server remotely
               pm = None,
               run_mode:str='flask',
-              **extra_params 
+              paywall = None, # optional x402 payment gate instance
+              **extra_params
 
               ):
         
@@ -187,7 +188,7 @@ class Server:
             return info
         
         self.mod.info = partial(get_info, mod=mod)
-        self.gate = m.mod('gate')(mod=self.mod)
+        self.gate = m.mod('gate')(mod=self.mod, paywall=paywall)
         self.app = Flask(__name__)
         CORS(self.app)
 

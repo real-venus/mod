@@ -12,6 +12,7 @@ interface UserContextType {
   user: UserType | null
   signIn: () => Promise<void>
   signOut: () => void
+  switchWallet: (address: string, mode: string, type: string) => Promise<void>
   network: Network | null
   authLoading: boolean
   client: Client | null
@@ -170,6 +171,71 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setClient(new Client(undefined, token))
 
     localStorage.setItem('user_data', JSON.stringify(userData))
+
+    // Save password per-wallet for local mode switching
+    if (walletMode === 'local') {
+      const pw = localStorage.getItem('wallet_password')
+      if (pw) localStorage.setItem(`wallet_pw_${walletAddress}`, pw)
+    }
+
+    // Save to wallet history
+    try {
+      const history: { address: string; mode: string; type: string; lastUsed: number }[] = JSON.parse(localStorage.getItem('wallet_history') || '[]')
+      const existing = history.findIndex(w => w.address.toLowerCase() === walletAddress.toLowerCase())
+      const entry = { address: walletAddress, mode: walletMode, type: walletType, lastUsed: Date.now() }
+      if (existing >= 0) {
+        history[existing] = entry
+      } else {
+        history.unshift(entry)
+      }
+      // Keep max 10
+      localStorage.setItem('wallet_history', JSON.stringify(history.slice(0, 10)))
+    } catch {}
+  }
+
+  const switchWallet = async (address: string, mode: string, type: string) => {
+    if (typeof window === 'undefined') return
+
+    await cryptoWaitReady()
+
+    localStorage.setItem('wallet_mode', mode)
+    localStorage.setItem('wallet_address', address)
+    localStorage.setItem('wallet_type', type)
+
+    // For local mode, we need the password — if not available, throw
+    if (mode === 'local') {
+      // Try to get password from history storage
+      const savedPw = localStorage.getItem(`wallet_pw_${address}`)
+      if (savedPw) {
+        localStorage.setItem('wallet_password', savedPw)
+      }
+    }
+
+    const auth = new Auth()
+    const token = await auth.token('', address, mode)
+    localStorage.setItem('wallet_token', token)
+
+    const userData: UserType = {
+      key: address,
+      crypto_type: type,
+      wallet_mode: mode,
+      token,
+      balance: 0,
+    }
+
+    setUser(userData)
+    setClient(new Client(undefined, token))
+    localStorage.setItem('user_data', JSON.stringify(userData))
+
+    // Update history lastUsed
+    try {
+      const history: { address: string; mode: string; type: string; lastUsed: number }[] = JSON.parse(localStorage.getItem('wallet_history') || '[]')
+      const idx = history.findIndex(w => w.address.toLowerCase() === address.toLowerCase())
+      if (idx >= 0) {
+        history[idx].lastUsed = Date.now()
+        localStorage.setItem('wallet_history', JSON.stringify(history))
+      }
+    } catch {}
   }
 
   const signOut = () => {
@@ -213,6 +279,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         signIn,
         signOut,
+        switchWallet,
         authLoading,
         client,
         network,

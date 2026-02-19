@@ -84,7 +84,7 @@ const CHAINS: ChainConfig[] = [
 
 
 export function WalletHeader() {
-  const { user, signOut, client } = userContext()
+  const { user, signOut, switchWallet, client } = userContext()
   const [isHovered, setIsHovered] = useState(false)
   const [copied, setCopied] = useState(false)
   const [copiedAddress, setCopiedAddress] = useState(false)
@@ -133,6 +133,10 @@ export function WalletHeader() {
   const [newTokenAddress, setNewTokenAddress] = useState('')
   const [isAddingToken, setIsAddingToken] = useState(false)
   const [sendFromPortfolio, setSendFromPortfolio] = useState<string | null>(null)
+  const [showWalletsTab, setShowWalletsTab] = useState(false)
+  const [walletHistory, setWalletHistory] = useState<{ address: string; mode: string; type: string; lastUsed: number }[]>([])
+  const [isSwitchingWallet, setIsSwitchingWallet] = useState(false)
+  const [showSignInOverlay, setShowSignInOverlay] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
@@ -228,6 +232,34 @@ export function WalletHeader() {
   const handleSignOut = () => {
     signOut()
     setIsHovered(false)
+  }
+
+  const handleSwitchWallet = async (wallet: { address: string; mode: string; type: string }) => {
+    if (wallet.address.toLowerCase() === address.toLowerCase()) return
+    setIsSwitchingWallet(true)
+    try {
+      await switchWallet(wallet.address, wallet.mode, wallet.type)
+      // Refresh wallet history
+      try {
+        const saved = localStorage.getItem('wallet_history')
+        if (saved) setWalletHistory(JSON.parse(saved))
+      } catch {}
+      toast.success(`Switched to ${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`)
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to switch wallet')
+    } finally {
+      setIsSwitchingWallet(false)
+    }
+  }
+
+  const handleRemoveFromHistory = (addr: string) => {
+    try {
+      const history = walletHistory.filter(w => w.address.toLowerCase() !== addr.toLowerCase())
+      setWalletHistory(history)
+      localStorage.setItem('wallet_history', JSON.stringify(history))
+      // Clean up stored password
+      localStorage.removeItem(`wallet_pw_${addr}`)
+    } catch {}
   }
 
   const handleTopUp = () => {
@@ -575,6 +607,14 @@ export function WalletHeader() {
     }
   }
 
+  // Load wallet history from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('wallet_history')
+      if (saved) setWalletHistory(JSON.parse(saved))
+    } catch {}
+  }, [user?.key])
+
   // Load custom tokens from localStorage
   useEffect(() => {
     try {
@@ -868,16 +908,8 @@ export function WalletHeader() {
               )}
               {/* Header */}
               <div className="sticky top-0 z-10 border-b border-neutral-800/80 bg-neutral-950/95 backdrop-blur-md">
-                {/* Top bar: close + sign out */}
-                <div className="flex items-center justify-between px-5 pt-4 pb-2">
-                  <button
-                    onClick={handleSignOut}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-red-500/70 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all text-[11px] font-bold uppercase tracking-wider"
-                    style={{ borderRadius: '6px', fontFamily: 'IBM Plex Mono, monospace' }}
-                  >
-                    <ArrowRightOnRectangleIcon className="w-3.5 h-3.5" />
-                    <span>Sign Out</span>
-                  </button>
+                {/* Top bar: close */}
+                <div className="flex items-center justify-end px-5 pt-4 pb-2">
                   <button
                     onClick={() => setIsHovered(false)}
                     className="p-2 hover:bg-neutral-800/80 transition-all rounded-lg"
@@ -886,11 +918,11 @@ export function WalletHeader() {
                   </button>
                 </div>
 
-                {/* Address + Credit row */}
-                <div className="flex items-stretch gap-3 px-5 pb-3">
+                {/* Address + Credit + Token + Session row */}
+                <div className="flex items-stretch gap-2 px-5 pb-4">
                   <button
                     onClick={copyAddress}
-                    className={`flex-1 text-base font-bold tracking-wider font-mono transition-all cursor-pointer px-4 py-3 border-2 ${
+                    className={`flex items-center text-xs font-bold tracking-wider font-mono transition-all cursor-pointer px-3 py-2 border-2 ${
                       copiedAddress
                         ? 'border-green-500 bg-green-500/15 text-green-400'
                         : 'border-neutral-800 hover:border-neutral-700 bg-neutral-900/80 hover:bg-neutral-800/80 text-neutral-400'
@@ -910,7 +942,7 @@ export function WalletHeader() {
                         setCopiedCredit(false)
                       }, 2000)
                     }}
-                    className={`flex items-center gap-3 px-4 py-3 border-2 transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 px-3 py-2 border-2 transition-all cursor-pointer ${
                       copiedCredit
                         ? 'border-green-500 bg-green-500/15'
                         : 'border-neutral-800 hover:border-neutral-700 bg-neutral-900/80 hover:bg-neutral-800/80'
@@ -921,17 +953,13 @@ export function WalletHeader() {
                     }}
                     title="Click to copy credit amount"
                   >
-                    <span className={`text-xs uppercase tracking-wider font-bold ${copiedCredit ? 'text-green-400' : 'text-neutral-600'}`}>
+                    <span className={`text-[10px] uppercase tracking-wider font-bold ${copiedCredit ? 'text-green-400' : 'text-neutral-600'}`}>
                       {copiedCredit ? 'COPIED!' : 'CREDIT'}
                     </span>
-                    <span className={`text-xl font-mono font-black tabular-nums ${copiedCredit ? 'text-green-300' : 'text-green-400'}`}>
+                    <span className={`text-sm font-mono font-black tabular-nums ${copiedCredit ? 'text-green-300' : 'text-green-400'}`}>
                       ${marketCredit.toFixed(2)}
                     </span>
                   </button>
-                </div>
-
-                {/* Token + Session Refresh row */}
-                <div className="flex items-stretch gap-3 px-5 pb-5">
                   <button
                     onClick={() => {
                       const token = localStorage.getItem('wallet_token') || ''
@@ -941,7 +969,7 @@ export function WalletHeader() {
                         setTimeout(() => setCopied(false), 2000)
                       }
                     }}
-                    className={`flex-1 flex items-center gap-2 px-4 py-3 border-2 transition-all cursor-pointer ${
+                    className={`flex-1 flex items-center gap-1.5 px-3 py-2 border-2 transition-all cursor-pointer min-w-0 ${
                       copied && !copiedAddress && !copiedCredit
                         ? 'border-green-500 bg-green-500/15'
                         : 'border-neutral-800 hover:border-neutral-700 bg-neutral-900/80 hover:bg-neutral-800/80'
@@ -949,15 +977,15 @@ export function WalletHeader() {
                     style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace' }}
                     title="Click to copy token"
                   >
-                    <ClipboardDocumentIcon className={`w-4 h-4 flex-shrink-0 ${copied && !copiedAddress && !copiedCredit ? 'text-green-400' : 'text-neutral-600'}`} />
-                    <span className={`text-sm font-mono font-bold truncate ${copied && !copiedAddress && !copiedCredit ? 'text-green-400' : 'text-neutral-500'}`}>
-                      {copied && !copiedAddress && !copiedCredit ? 'COPIED!' : (localStorage.getItem('wallet_token')?.slice(0, 20) + '...' || 'No token')}
+                    <ClipboardDocumentIcon className={`w-3.5 h-3.5 flex-shrink-0 ${copied && !copiedAddress && !copiedCredit ? 'text-green-400' : 'text-neutral-600'}`} />
+                    <span className={`text-xs font-mono font-bold truncate ${copied && !copiedAddress && !copiedCredit ? 'text-green-400' : 'text-neutral-500'}`}>
+                      {copied && !copiedAddress && !copiedCredit ? 'COPIED!' : (localStorage.getItem('wallet_token')?.slice(0, 12) + '...' || 'No token')}
                     </span>
                   </button>
                   <button
                     onClick={handleRefreshToken}
                     disabled={isRefreshing}
-                    className={`flex items-center gap-2 px-4 py-3 border-2 transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 ${
+                    className={`flex items-center gap-1.5 px-3 py-2 border-2 transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 ${
                       isTokenExpired
                         ? 'border-red-500/60 bg-red-500/10 hover:bg-red-500/20 hover:border-red-400'
                         : 'border-neutral-800 hover:border-cyan-500/50 bg-neutral-900/80 hover:bg-cyan-500/10'
@@ -965,8 +993,8 @@ export function WalletHeader() {
                     style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace' }}
                     title="Refresh session token"
                   >
-                    <ArrowPathIcon className={`w-4 h-4 flex-shrink-0 ${isRefreshing ? 'animate-spin' : ''} ${isTokenExpired ? 'text-red-400' : 'text-cyan-400'}`} />
-                    <span className={`text-lg font-mono font-black tabular-nums ${isTokenExpired ? 'text-red-400' : 'text-cyan-400'}`}>
+                    <ArrowPathIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isRefreshing ? 'animate-spin' : ''} ${isTokenExpired ? 'text-red-400' : 'text-cyan-400'}`} />
+                    <span className={`text-sm font-mono font-black tabular-nums ${isTokenExpired ? 'text-red-400' : 'text-cyan-400'}`}>
                       {tokenExpiry || getTokenExpiry()}
                     </span>
                   </button>
@@ -1206,6 +1234,7 @@ export function WalletHeader() {
                     setShowWithdrawForm(false)
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
+                    setShowWalletsTab(false)
                   }}
                   className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showTopUpForm
@@ -1231,6 +1260,7 @@ export function WalletHeader() {
                     setSendFromPortfolio(null)
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
+                    setShowWalletsTab(false)
                   }}
                   className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showWithdrawForm
@@ -1256,7 +1286,7 @@ export function WalletHeader() {
                     setSendFromPortfolio(null)
                     setShowWithdrawForm(false)
                     setShowTxsTab(false)
-                    setSendFromPortfolio(null)
+                    setShowWalletsTab(false)
                   }}
                   className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showPortfolioTab
@@ -1282,6 +1312,7 @@ export function WalletHeader() {
                     setSendFromPortfolio(null)
                     setShowWithdrawForm(false)
                     setShowPortfolioTab(false)
+                    setShowWalletsTab(false)
                     if (!showTxsTab) fetchUserTransactions()
                   }}
                   className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
@@ -1300,6 +1331,37 @@ export function WalletHeader() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <span>TXS</span>
+                </button>
+
+                {/* WALLETS BUTTON */}
+                <button
+                  onClick={() => {
+                    setShowWalletsTab(!showWalletsTab)
+                    setShowTopUpForm(false)
+                    setSendFromPortfolio(null)
+                    setShowWithdrawForm(false)
+                    setShowTxsTab(false)
+                    setShowPortfolioTab(false)
+                    // Refresh history
+                    try {
+                      const saved = localStorage.getItem('wallet_history')
+                      if (saved) setWalletHistory(JSON.parse(saved))
+                    } catch {}
+                  }}
+                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
+                    showWalletsTab
+                      ? 'bg-gradient-to-br from-cyan-500/30 to-blue-500/30 border-cyan-400 text-cyan-300 shadow-cyan-500/50'
+                      : 'bg-gradient-to-br from-cyan-950/40 to-blue-950/40 border-cyan-900/60 text-cyan-600 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30'
+                  }`}
+                  style={{
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    borderRadius: '12px',
+                    width: '72px',
+                    height: '72px'
+                  }}
+                >
+                  <ArrowsRightLeftIcon className="w-5 h-5" />
+                  <span>ACCTS</span>
                 </button>
               </div>
 
@@ -1752,6 +1814,111 @@ export function WalletHeader() {
               </AnimatePresence>
 
               {/* Transfer Form - now merged into Portfolio tab above */}
+
+              {/* Wallets Tab Content */}
+              <AnimatePresence>
+                {showWalletsTab && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="mt-3 pt-3 border-t border-neutral-800/50 overflow-hidden"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1 mb-3">
+                        <span className="text-xs text-neutral-600 uppercase tracking-wider font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>ACCOUNTS</span>
+                      </div>
+
+                      {/* Current wallet */}
+                      <div
+                        className="flex items-center gap-3 px-3 py-3 border-2 border-cyan-500/40 bg-cyan-500/5"
+                        style={{ borderRadius: '10px', fontFamily: 'IBM Plex Mono, monospace' }}
+                      >
+                        <div className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0" style={{ boxShadow: '0 0 8px #22c55e80' }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-cyan-300 uppercase tracking-wider">ACTIVE</span>
+                            <span className="text-[10px] font-bold text-neutral-600 uppercase">{walletMode}</span>
+                          </div>
+                          <span className="text-xs font-mono text-neutral-400 block mt-0.5 truncate">{address}</span>
+                        </div>
+                      </div>
+
+                      {/* Previous wallets */}
+                      {walletHistory
+                        .filter(w => w.address.toLowerCase() !== address.toLowerCase())
+                        .map((wallet) => (
+                          <div
+                            key={wallet.address}
+                            className="flex items-center gap-3 px-3 py-3 border border-neutral-800/60 bg-neutral-900/80 hover:border-neutral-700/60 transition-all group"
+                            style={{ borderRadius: '10px', fontFamily: 'IBM Plex Mono, monospace' }}
+                          >
+                            <div className="w-2.5 h-2.5 rounded-full bg-neutral-700 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-neutral-500 uppercase">{wallet.mode}</span>
+                                <span className="text-[10px] text-neutral-700">
+                                  {new Date(wallet.lastUsed).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <span className="text-xs font-mono text-neutral-500 block mt-0.5 truncate">{wallet.address}</span>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => handleSwitchWallet(wallet)}
+                                disabled={isSwitchingWallet}
+                                className="px-2.5 py-1.5 text-[10px] font-bold uppercase bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all disabled:opacity-40"
+                                style={{ borderRadius: '6px' }}
+                              >
+                                {isSwitchingWallet ? (
+                                  <ArrowPathIcon className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  'USE'
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleRemoveFromHistory(wallet.address)}
+                                className="p-1.5 text-neutral-700 hover:text-red-400 transition-colors"
+                                title="Remove from history"
+                              >
+                                <XMarkIcon className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                      {walletHistory.filter(w => w.address.toLowerCase() !== address.toLowerCase()).length === 0 && (
+                        <div className="text-center py-4 text-neutral-700 text-xs" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                          No previous wallets
+                        </div>
+                      )}
+
+                      {/* Sign in with new wallet */}
+                      <button
+                        onClick={() => {
+                          handleSignOut()
+                        }}
+                        className="w-full flex items-center justify-center gap-2 py-3 mt-2 border-2 border-dashed border-neutral-800/60 hover:border-cyan-500/30 bg-transparent hover:bg-cyan-500/5 text-neutral-600 hover:text-cyan-400 transition-all"
+                        style={{ borderRadius: '10px', fontFamily: 'IBM Plex Mono, monospace' }}
+                      >
+                        <PlusCircleIcon className="w-4 h-4" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Add New Wallet</span>
+                      </button>
+
+                      {/* Sign out */}
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full flex items-center justify-center gap-2 py-3 mt-1 border border-red-500/20 hover:border-red-500/40 bg-red-500/5 hover:bg-red-500/10 text-red-500/60 hover:text-red-400 transition-all"
+                        style={{ borderRadius: '10px', fontFamily: 'IBM Plex Mono, monospace' }}
+                      >
+                        <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Sign Out</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* TXS Tab Content */}
               <AnimatePresence>

@@ -117,6 +117,17 @@ class Mod:
         self.account = self.w3.eth.account.from_key(private_key)
         return self.account.address
 
+    def checksum(self, address: str) -> str:
+        """Convert address to checksum format.
+        
+        Args:
+            address: Ethereum address
+            
+        Returns:
+            Checksum address
+        """
+        return Web3.to_checksum_address(address)
+
     def load_contract(self, name: str, address: str, abi: list):
         """Load a contract interface.
         
@@ -126,7 +137,7 @@ class Mod:
             abi: Contract ABI
         """
         self.contracts[name] = self.w3.eth.contract(
-            address=Web3.to_checksum_address(address),
+            address=self.checksum(address),
             abi=abi
         )
         return self.contracts[name]
@@ -138,12 +149,12 @@ class Mod:
             addresses: Dict mapping contract names to addresses
             abis: Dict mapping contract names to ABIs
         """
+        abimap = self.abimap()
         contracts = self.config['deployments'][self.network]['contracts']
         for name, info in contracts.items():
-            name = name.lower()
             address = info['address']
             try:
-                abi = self.ipfs.get(info.get('abi'))
+                abi = self.ipfs.get(abimap.get(info['contract']))
                 if abi == None: 
                     m.print(f'ABI not found for {name} at {info.get("abi")}', color='red')
                     continue
@@ -151,6 +162,7 @@ class Mod:
             except Exception as e :
                 continue
 
+        return self.contracts
     # ==================== BLOCTIME FUNCTIONS ====================
 
     def stake(self, amount: int, lock_blocks: int) -> Dict[str, Any]:
@@ -413,6 +425,7 @@ class Mod:
             address = m.key(address).address
 
         address = Web3.to_checksum_address(address)
+        abimap = self.abimap()
 
         if token == 'ETH':
             addr = address or self.account.address
@@ -422,7 +435,7 @@ class Mod:
             cfg =  self.contracts_config()[token.lower()]
             token_contract = self.w3.eth.contract(
                 address=cfg['address'],
-                abi=self.ipfs.get(cfg['abi'])
+                abi=self.ipfs.get(abimap.get(cfg['contract']))
                 )
             print(f'Getting {token} balance for {address} at {cfg["address"]}')
             balance = token_contract.functions.balanceOf(address).call()
@@ -448,14 +461,21 @@ class Mod:
             # Get balances for a single address across multiple tokens
             if tokens is None:
                 tokens = ['ETH', 'USDC', 'USDT', 'MARKET']
-
+            future2token = {}
             balances = {}
             for tok in tokens:
+                future = m.submit(self.balance, dict(address=address, token=tok))
+                future2token[future] = tok
+            for future in m.as_completed(future2token.keys()):
+                tok = future2token[future]
                 try:
-                    balances[tok] = self.balance(address, tok)
+                    bal = future.result()
+                    balances[tok] = bal
                 except Exception as e:
-                    print(f'Error getting balance for {tok}: {e}')
-                    balances[tok] = 0
+                    m.print(f'Error getting balance for {tok}: {e}', color='red')
+                    balances[tok] = None
+
+ 
             return balances
         else:
             # Get all holders for a single token by scanning Transfer events
@@ -598,13 +618,13 @@ class Mod:
         Returns:
             Formatted balance
         """
-        decimals = self.decimals
+        decimals = self.decimals(token)
         if token != 'ETH':
             chain_config = self.contracts_config()
             token_key = token.lower()
             if token_key in chain_config:
                 token_address = chain_config[token_key]['address']
-                token_abi = self.ipfs.get(chain_config[token_key]['abi'])
+                token_abi = self.name2abi(token_key)
                 token_contract = self.w3.eth.contract(
                     address=Web3.to_checksum_address(token_address),
                     abi=token_abi
@@ -712,6 +732,21 @@ class Mod:
             'name': info[1],
             'data': info[2]
         }
+    
+    def name2abi(self, name: str) -> list:
+        """Get ABI from contract name.
+        
+        Args:
+            name: Contract name
+        Returns:
+            Contract ABI
+        """
+        contract_map = self.contracts_config()
+        contract_info = contract_map.get(name.lower())
+        contract_name = contract_info['contract']
+        abimap = self.abimap()
+        abimap = {k.lower(): v for k, v in abimap.items()}
+        return self.ipfs.get(abimap.get(contract_name.lower()))
 
     # ==================== TOKENGATE FUNCTIONS ====================
 
@@ -731,7 +766,7 @@ class Mod:
             raise ValueError(f'Token {token} not found in config')
         token_contract = self.w3.eth.contract(
             address=Web3.to_checksum_address(cfg['address']),
-            abi=self.ipfs.get(cfg['abi'])
+            abi=self.name2abi(token.lower())
         )
         return token_contract.functions.decimals().call()
 
@@ -790,7 +825,7 @@ class Mod:
             chain_config = self.contracts_config()
             token_key = token.lower()
             token_address = chain_config[token_key]['address']
-            token_abi = self.ipfs.get(chain_config[token_key]['abi'])
+            token_abi = self.name2abi(token_key)
             token_contract = self.w3.eth.contract(
                 address=Web3.to_checksum_address(token_address),
                 abi=token_abi
@@ -1337,7 +1372,7 @@ class Mod:
         # Encode transfer function call
         # transfer(address to, uint256 amount)
         # Function selector: 0xa9059cbb
-        amount_wei = int(amount * 10**self.decimals)
+        amount_wei = int(amount * 10**self.decimals(token))
         to_padded = to[2:].zfill(64) if to.startswith('0x') else to.zfill(64)
         amount_hex = hex(amount_wei)[2:].zfill(64)
         data = f"0xa9059cbb{to_padded}{amount_hex}"
@@ -1434,7 +1469,7 @@ class Mod:
         # Function selector: 0x6bff1c3e (you'll need to check your contract ABI)
         # For now, using the web3 method - you can extract the data field from it
         market = self.contracts.get('market')
-        credit_call = market.functions.credit(payment_address, int(stable_amount * 10**self.decimals))
+        credit_call = market.functions.credit(payment_address, int(stable_amount * 10**self.decimals('usdc')) )
         credit_data = credit_call._encode_transaction_data()
 
         credit_tx = self.build_transaction(

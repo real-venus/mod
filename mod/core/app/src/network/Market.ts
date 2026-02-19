@@ -15,9 +15,6 @@ function getEthereumProvider(): ethers.BrowserProvider {
   // Safari-specific debugging
   const userAgent = navigator.userAgent.toLowerCase()
   const isSafari = userAgent.includes('safari') && !userAgent.includes('chrome')
-  if (isSafari) {
-    console.log('[Safari] Ethereum provider detected:', !!window.ethereum)
-  }
 
   return new ethers.BrowserProvider(window.ethereum)
 }
@@ -101,7 +98,7 @@ export class Market {
       const balance = await marketContract.balanceOf(userAddress)
       const balanceFormatted = parseFloat(ethers.formatUnits(balance, 8))
 
-      console.log(`Market balance for ${userAddress}:`, balanceFormatted)
+      // console.log(`Market balance for ${userAddress}:`, balanceFormatted)
       return balanceFormatted
     } catch (error) {
       console.error('Error checking market balance:', error)

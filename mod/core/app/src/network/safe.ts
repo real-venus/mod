@@ -12,6 +12,8 @@ const SAFE_FULL_ABI = [
   'function getThreshold() view returns (uint256)',
   'function getTransactionHash(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 _nonce) view returns (bytes32)',
   'function execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address payable refundReceiver, bytes signatures) payable returns (bool success)',
+  'event ExecutionSuccess(bytes32 txHash, uint256 payment)',
+  'event ExecutionFailure(bytes32 txHash, uint256 payment)',
 ]
 
 /**
@@ -429,6 +431,90 @@ export function encodeChangeThreshold(threshold: number): string {
 export function encodeContractCall(abi: any[], functionName: string, args: any[]): string {
   const iface = new ethers.Interface(abi)
   return iface.encodeFunctionData(functionName, args)
+}
+
+// ── Get Executed Transactions (on-chain event logs) ──
+
+export interface ExecutedTransaction {
+  txHash: string       // on-chain tx hash
+  safeTxHash: string   // Safe's internal tx hash from event
+  blockNumber: number
+  timestamp: number    // unix seconds
+  to: string
+  value: string
+  data: string
+  success: boolean
+  executor: string     // msg.sender who called execTransaction
+}
+
+export async function getExecutedTransactions(
+  safeAddress: string,
+  provider: ethers.Provider,
+): Promise<ExecutedTransaction[]> {
+  const checksumSafe = ethers.getAddress(safeAddress)
+  const safeContract = new ethers.Contract(checksumSafe, SAFE_FULL_ABI, provider)
+
+  // Scan in chunks to avoid RPC 413 (payload too large) errors
+  const currentBlock = await provider.getBlockNumber()
+  const CHUNK_SIZE = 50_000
+  const MAX_HISTORY = 500_000 // scan at most ~500k blocks back
+  const startBlock = Math.max(0, currentBlock - MAX_HISTORY)
+
+  const allSuccess: ethers.EventLog[] = []
+  const allFailure: ethers.EventLog[] = []
+
+  for (let from = startBlock; from <= currentBlock; from += CHUNK_SIZE) {
+    const to = Math.min(from + CHUNK_SIZE - 1, currentBlock)
+    try {
+      const [success, failure] = await Promise.all([
+        safeContract.queryFilter(safeContract.filters.ExecutionSuccess(), from, to),
+        safeContract.queryFilter(safeContract.filters.ExecutionFailure(), from, to),
+      ])
+      allSuccess.push(...(success as ethers.EventLog[]))
+      allFailure.push(...(failure as ethers.EventLog[]))
+    } catch (err: any) {
+      console.warn(`Failed to query blocks ${from}-${to}:`, err?.message)
+    }
+  }
+
+  // Decode execTransaction calldata from each tx to get to/value/data
+  const iface = new ethers.Interface(SAFE_FULL_ABI)
+  const results: ExecutedTransaction[] = []
+  const successSet = new Set(allSuccess)
+
+  for (const log of [...allSuccess, ...allFailure]) {
+    const isSuccess = successSet.has(log)
+    const txReceipt = await log.getTransaction()
+    if (!txReceipt) continue
+
+    let to = '', value = '0', data = '0x'
+    try {
+      const decoded = iface.decodeFunctionData('execTransaction', txReceipt.data)
+      to = decoded[0]
+      value = decoded[1].toString()
+      data = decoded[2]
+    } catch {
+      // Not an execTransaction call (shouldn't happen)
+    }
+
+    const block = await log.getBlock()
+
+    results.push({
+      txHash: txReceipt.hash,
+      safeTxHash: (log as any).args?.[0] || '',
+      blockNumber: log.blockNumber,
+      timestamp: block?.timestamp || 0,
+      to,
+      value,
+      data,
+      success: isSuccess,
+      executor: txReceipt.from,
+    })
+  }
+
+  // Sort by block number descending (newest first)
+  results.sort((a, b) => b.blockNumber - a.blockNumber)
+  return results
 }
 
 // ── Utility: get Transaction Service URL (kept for future canonical Safe use) ──
