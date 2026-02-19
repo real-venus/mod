@@ -66,8 +66,7 @@ describe("BlocTime Protocol - Full Integration Tests", function () {
       "Market Token",
       "MKT",
       await treasury.getAddress(),
-      await tokenGate.getAddress(),
-      3600
+      await tokenGate.getAddress()
     );
     await market.waitForDeployment();
 

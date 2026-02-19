@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { userContext } from '@/context/UserContext'
-import { WalletIcon, ArrowRightOnRectangleIcon, ClipboardDocumentIcon, ClockIcon, ArrowPathIcon, CreditCardIcon, QrCodeIcon, ChevronDownIcon, ChevronUpIcon, ArrowsRightLeftIcon, XMarkIcon, FunnelIcon } from '@heroicons/react/24/outline'
+import { WalletIcon, ArrowRightOnRectangleIcon, ClipboardDocumentIcon, ClockIcon, ArrowPathIcon, CreditCardIcon, QrCodeIcon, ChevronDownIcon, ChevronUpIcon, ArrowsRightLeftIcon, XMarkIcon, FunnelIcon, PlusCircleIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { WalletAuthButton } from './WalletAuthButton'
@@ -104,7 +104,6 @@ export function WalletHeader() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [topUpError, setTopUpError] = useState<string | null>(null)
   const [topUpSuccess, setTopUpSuccess] = useState<string | null>(null)
-  const [showTransferForm, setShowTransferForm] = useState(false)
   const [transferRecipient, setTransferRecipient] = useState<string>('')
   const [transferAmount, setTransferAmount] = useState<string>('')
   const [isTransferring, setIsTransferring] = useState(false)
@@ -128,6 +127,12 @@ export function WalletHeader() {
   const [withdrawAmount, setWithdrawAmount] = useState<string>('')
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [withdrawTokenType, setWithdrawTokenType] = useState<TokenType>('USDC')
+  const [customTokens, setCustomTokens] = useState<{ address: string; symbol: string; decimals: number }[]>([])
+  const [customTokenBalances, setCustomTokenBalances] = useState<Record<string, number>>({})
+  const [showAddToken, setShowAddToken] = useState(false)
+  const [newTokenAddress, setNewTokenAddress] = useState('')
+  const [isAddingToken, setIsAddingToken] = useState(false)
+  const [sendFromPortfolio, setSendFromPortfolio] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
@@ -427,13 +432,93 @@ export function WalletHeader() {
       setTransferAmount('')
       setTransferRecipient('')
       setTimeout(() => {
-        setShowTransferForm(false)
+        setSendFromPortfolio(null)
         setTopUpSuccess(null)
       }, 3000)
     } catch (err: any) {
       let msg = err?.message || String(err)
       if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user rejected')) msg = 'Transaction cancelled by user.'
       else if (msg.includes('insufficient funds')) msg = 'Insufficient balance for transfer and gas fees.'
+      setTopUpError(msg)
+    } finally {
+      setIsTransferring(false)
+    }
+  }
+
+  const handleSendCustomToken = async (tokenAddr: string, symbol: string, decimals: number) => {
+    if (!transferAmount || !transferRecipient || !user?.key) {
+      setTopUpError('Enter recipient and amount')
+      return
+    }
+    if (!ethers.isAddress(transferRecipient)) {
+      setTopUpError('Invalid recipient address')
+      return
+    }
+    const amount = parseFloat(transferAmount)
+    if (amount <= 0) {
+      setTopUpError('Amount must be greater than 0')
+      return
+    }
+    setIsTransferring(true)
+    setTopUpError(null)
+    setTopUpSuccess(null)
+    try {
+      if (!window.ethereum) throw new Error('No wallet connected')
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const signer = await provider.getSigner(user.key)
+      const contract = new ethers.Contract(tokenAddr, ERC20_ABI, signer)
+      const amountWei = ethers.parseUnits(amount.toString(), decimals)
+      const tx = await contract.transfer(transferRecipient, amountWei)
+      await tx.wait()
+      await fetchMarketCredit()
+      await fetchCustomTokenBalances()
+      setTopUpSuccess(`Sent ${amount} ${symbol} to ${transferRecipient.slice(0, 8)}...`)
+      setTransferAmount('')
+      setTransferRecipient('')
+      setTimeout(() => { setSendFromPortfolio(null); setTopUpSuccess(null) }, 3000)
+    } catch (err: any) {
+      let msg = err?.message || String(err)
+      if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user rejected')) msg = 'Transaction cancelled.'
+      setTopUpError(msg)
+    } finally {
+      setIsTransferring(false)
+    }
+  }
+
+  const handleSendETH = async () => {
+    if (!transferAmount || !transferRecipient || !user?.key) {
+      setTopUpError('Enter recipient and amount')
+      return
+    }
+    if (!ethers.isAddress(transferRecipient)) {
+      setTopUpError('Invalid recipient address')
+      return
+    }
+    const amount = parseFloat(transferAmount)
+    if (amount <= 0) {
+      setTopUpError('Amount must be greater than 0')
+      return
+    }
+    setIsTransferring(true)
+    setTopUpError(null)
+    setTopUpSuccess(null)
+    try {
+      if (!window.ethereum) throw new Error('No wallet connected')
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const signer = await provider.getSigner(user.key)
+      const tx = await signer.sendTransaction({
+        to: transferRecipient,
+        value: ethers.parseEther(amount.toString()),
+      })
+      await tx.wait()
+      await fetchMarketCredit()
+      setTopUpSuccess(`Sent ${amount} ETH to ${transferRecipient.slice(0, 8)}...`)
+      setTransferAmount('')
+      setTransferRecipient('')
+      setTimeout(() => { setSendFromPortfolio(null); setTopUpSuccess(null) }, 3000)
+    } catch (err: any) {
+      let msg = err?.message || String(err)
+      if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user rejected')) msg = 'Transaction cancelled.'
       setTopUpError(msg)
     } finally {
       setIsTransferring(false)
@@ -488,6 +573,75 @@ export function WalletHeader() {
     } finally {
       setIsWithdrawing(false)
     }
+  }
+
+  // Load custom tokens from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('custom_tokens')
+      if (saved) setCustomTokens(JSON.parse(saved))
+    } catch {}
+  }, [])
+
+  // Fetch custom token balances
+  const fetchCustomTokenBalances = async () => {
+    if (!user?.key || customTokens.length === 0 || typeof window === 'undefined' || !window.ethereum) return
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const balances: Record<string, number> = {}
+      for (const token of customTokens) {
+        try {
+          const contract = new ethers.Contract(token.address, ERC20_ABI, provider)
+          const raw = await contract.balanceOf(user.key)
+          balances[token.symbol] = parseFloat(ethers.formatUnits(raw, token.decimals))
+        } catch {
+          balances[token.symbol] = 0
+        }
+      }
+      setCustomTokenBalances(balances)
+    } catch (err) {
+      console.error('Failed to fetch custom token balances:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (user?.key && customTokens.length > 0) fetchCustomTokenBalances()
+  }, [user?.key, customTokens.length])
+
+  const handleAddCustomToken = async () => {
+    if (!newTokenAddress || !ethers.isAddress(newTokenAddress)) {
+      toast.error('Enter a valid token address')
+      return
+    }
+    if (customTokens.some(t => t.address.toLowerCase() === newTokenAddress.toLowerCase())) {
+      toast.error('Token already added')
+      return
+    }
+    setIsAddingToken(true)
+    try {
+      if (!window.ethereum) throw new Error('No wallet connected')
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const contract = new ethers.Contract(newTokenAddress, ERC20_ABI, provider)
+      const [symbol, decimals] = await Promise.all([contract.symbol(), contract.decimals()])
+      const newToken = { address: ethers.getAddress(newTokenAddress), symbol, decimals: Number(decimals) }
+      const updated = [...customTokens, newToken]
+      setCustomTokens(updated)
+      localStorage.setItem('custom_tokens', JSON.stringify(updated))
+      setNewTokenAddress('')
+      setShowAddToken(false)
+      toast.success(`Added ${symbol}`)
+      fetchCustomTokenBalances()
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to add token')
+    } finally {
+      setIsAddingToken(false)
+    }
+  }
+
+  const handleRemoveCustomToken = (address: string) => {
+    const updated = customTokens.filter(t => t.address.toLowerCase() !== address.toLowerCase())
+    setCustomTokens(updated)
+    localStorage.setItem('custom_tokens', JSON.stringify(updated))
   }
 
   // Fetch on mount and set up 10-minute polling
@@ -1048,7 +1202,7 @@ export function WalletHeader() {
                 <button
                   onClick={() => {
                     setShowTopUpForm(!showTopUpForm)
-                    setShowTransferForm(false)
+                    setSendFromPortfolio(null)
                     setShowWithdrawForm(false)
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
@@ -1069,37 +1223,12 @@ export function WalletHeader() {
                   <span>ADD</span>
                 </button>
 
-                {/* SEND BUTTON */}
-                <button
-                  onClick={() => {
-                    setShowTransferForm(!showTransferForm)
-                    setShowTopUpForm(false)
-                    setShowWithdrawForm(false)
-                    setShowTxsTab(false)
-                    setShowPortfolioTab(false)
-                  }}
-                  className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
-                    showTransferForm
-                      ? 'bg-gradient-to-br from-blue-500/30 to-blue-600/30 border-blue-400 text-blue-300 shadow-blue-500/50'
-                      : 'bg-gradient-to-br from-blue-950/40 to-cyan-950/40 border-blue-900/60 text-blue-600 hover:text-blue-300 hover:border-blue-400/60 hover:shadow-blue-500/30'
-                  }`}
-                  style={{
-                    fontFamily: 'IBM Plex Mono, monospace',
-                    borderRadius: '12px',
-                    width: '72px',
-                    height: '72px'
-                  }}
-                >
-                  <ArrowsRightLeftIcon className="w-5 h-5" />
-                  <span>SEND</span>
-                </button>
-
                 {/* OUT (WITHDRAW) BUTTON */}
                 <button
                   onClick={() => {
                     setShowWithdrawForm(!showWithdrawForm)
                     setShowTopUpForm(false)
-                    setShowTransferForm(false)
+                    setSendFromPortfolio(null)
                     setShowTxsTab(false)
                     setShowPortfolioTab(false)
                   }}
@@ -1124,9 +1253,10 @@ export function WalletHeader() {
                   onClick={() => {
                     setShowPortfolioTab(!showPortfolioTab)
                     setShowTopUpForm(false)
-                    setShowTransferForm(false)
+                    setSendFromPortfolio(null)
                     setShowWithdrawForm(false)
                     setShowTxsTab(false)
+                    setSendFromPortfolio(null)
                   }}
                   className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
                     showPortfolioTab
@@ -1149,7 +1279,7 @@ export function WalletHeader() {
                   onClick={() => {
                     setShowTxsTab(!showTxsTab)
                     setShowTopUpForm(false)
-                    setShowTransferForm(false)
+                    setSendFromPortfolio(null)
                     setShowWithdrawForm(false)
                     setShowPortfolioTab(false)
                     if (!showTxsTab) fetchUserTransactions()
@@ -1173,7 +1303,7 @@ export function WalletHeader() {
                 </button>
               </div>
 
-              {/* Portfolio Tab Content */}
+              {/* Portfolio Tab Content (merged with Send) */}
               <AnimatePresence>
                 {showPortfolioTab && (
                   <motion.div
@@ -1186,47 +1316,237 @@ export function WalletHeader() {
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between px-1 mb-2">
                         <span className="text-xs text-neutral-600 uppercase tracking-wider font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>TOKEN BALANCES</span>
-                        <button
-                          onClick={fetchMarketCredit}
-                          disabled={isRefreshing}
-                          className="p-1 hover:bg-neutral-800 transition-all disabled:opacity-50"
-                          title="Refresh balances"
-                          style={{ borderRadius: 0 }}
-                        >
-                          <ArrowPathIcon className={`w-3.5 h-3.5 text-neutral-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => { setShowAddToken(!showAddToken); setSendFromPortfolio(null) }}
+                            className="p-1 hover:bg-neutral-800 transition-all"
+                            title="Add custom token"
+                            style={{ borderRadius: 0 }}
+                          >
+                            <PlusCircleIcon className={`w-3.5 h-3.5 ${showAddToken ? 'text-purple-400' : 'text-neutral-500'}`} />
+                          </button>
+                          <button
+                            onClick={() => { fetchMarketCredit(); fetchCustomTokenBalances() }}
+                            disabled={isRefreshing}
+                            className="p-1 hover:bg-neutral-800 transition-all disabled:opacity-50"
+                            title="Refresh balances"
+                            style={{ borderRadius: 0 }}
+                          >
+                            <ArrowPathIcon className={`w-3.5 h-3.5 text-neutral-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                          </button>
+                        </div>
                       </div>
 
-                      {Object.entries(tokenBalances).length > 0 ? (
-                        Object.entries(tokenBalances).map(([token, balance]) => (
-                          <div
-                            key={token}
-                            className="flex items-center justify-between px-3 py-2.5 bg-neutral-900/80 border border-neutral-800/60 text-xs"
-                            style={{
-                              borderRadius: '8px',
-                              fontFamily: 'IBM Plex Mono, monospace'
-                            }}
+                      {/* Add Custom Token Form */}
+                      <AnimatePresence>
+                        {showAddToken && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="overflow-hidden"
                           >
-                            <span className="font-bold text-neutral-500 uppercase tracking-wider">{token}</span>
-                            <span className="font-mono font-bold text-neutral-300 tabular-nums">
-                              {token === 'ETH'
-                                ? `${balance.toFixed(4)} ETH`
-                                : `$${balance.toFixed(2)}`}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-6 text-neutral-600 text-xs">
-                          {isRefreshing ? (
-                            <div className="flex items-center justify-center gap-2">
-                              <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                              <span>Loading balances...</span>
+                            <div className="flex gap-1.5 mb-2">
+                              <input
+                                type="text"
+                                value={newTokenAddress}
+                                onChange={(e) => setNewTokenAddress(e.target.value)}
+                                placeholder="Token address 0x..."
+                                className="flex-1 bg-neutral-900/80 border border-neutral-800/60 px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-purple-500/50 text-neutral-300 transition-colors"
+                                style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace' }}
+                              />
+                              <button
+                                onClick={handleAddCustomToken}
+                                disabled={isAddingToken}
+                                className="px-3 py-2 bg-purple-500/15 border border-purple-500/30 text-purple-400 text-xs font-bold hover:bg-purple-500/25 transition-all disabled:opacity-50"
+                                style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace' }}
+                              >
+                                {isAddingToken ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : 'ADD'}
+                              </button>
                             </div>
-                          ) : (
-                            'No token balances available'
-                          )}
-                        </div>
-                      )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {(() => {
+                        const tokenAddressMap: Record<string, string | undefined> = {
+                          USDC: (modConfig.chain as any)?.testnet?.contracts?.USDC?.address,
+                          USDT: (modConfig.chain as any)?.testnet?.contracts?.USDT?.address,
+                          MARKET: (modConfig.chain as any)?.testnet?.contracts?.Market?.address,
+                          NativeToken: (modConfig.chain as any)?.testnet?.contracts?.NativeToken?.address,
+                        }
+
+                        // Build unified token list: built-in + custom
+                        const allTokens: { key: string; symbol: string; balance: number; address?: string; decimals?: number; isCustom?: boolean; isETH?: boolean }[] = []
+
+                        // Built-in tokens from API
+                        for (const [token, balance] of Object.entries(tokenBalances)) {
+                          allTokens.push({
+                            key: token,
+                            symbol: token,
+                            balance: balance as number,
+                            address: tokenAddressMap[token],
+                            isETH: token === 'ETH',
+                          })
+                        }
+
+                        // Custom tokens
+                        for (const ct of customTokens) {
+                          if (!allTokens.some(t => t.address?.toLowerCase() === ct.address.toLowerCase())) {
+                            allTokens.push({
+                              key: `custom-${ct.address}`,
+                              symbol: ct.symbol,
+                              balance: customTokenBalances[ct.symbol] || 0,
+                              address: ct.address,
+                              decimals: ct.decimals,
+                              isCustom: true,
+                            })
+                          }
+                        }
+
+                        if (allTokens.length === 0) {
+                          return (
+                            <div className="text-center py-6 text-neutral-600 text-xs">
+                              {isRefreshing ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                  <span>Loading balances...</span>
+                                </div>
+                              ) : (
+                                'No token balances available'
+                              )}
+                            </div>
+                          )
+                        }
+
+                        return allTokens.map((token) => {
+                          const isSelected = sendFromPortfolio === token.key
+                          return (
+                            <div key={token.key}>
+                              <button
+                                onClick={() => {
+                                  setSendFromPortfolio(isSelected ? null : token.key)
+                                  setTransferRecipient('')
+                                  setTransferAmount('')
+                                  setTopUpError(null)
+                                  setTopUpSuccess(null)
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2.5 text-xs transition-all ${
+                                  isSelected
+                                    ? 'bg-blue-500/10 border border-blue-500/30'
+                                    : 'bg-neutral-900/80 border border-neutral-800/60 hover:border-neutral-700/60'
+                                }`}
+                                style={{
+                                  borderRadius: isSelected ? '8px 8px 0 0' : '8px',
+                                  fontFamily: 'IBM Plex Mono, monospace'
+                                }}
+                              >
+                                <span className="flex items-center gap-1.5 font-bold text-neutral-500 uppercase tracking-wider">
+                                  {token.symbol}
+                                  {token.address && (
+                                    <span onClick={(e) => e.stopPropagation()}>
+                                      <CopyButton text={token.address} size="sm" />
+                                    </span>
+                                  )}
+                                  {token.isCustom && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleRemoveCustomToken(token.address!) }}
+                                      className="text-red-500/40 hover:text-red-400 transition-colors"
+                                      title="Remove token"
+                                    >
+                                      <XMarkIcon className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </span>
+                                <span className="font-mono font-bold text-neutral-300 tabular-nums">
+                                  {token.isETH
+                                    ? `${token.balance.toFixed(4)} ETH`
+                                    : token.isCustom
+                                    ? `${token.balance.toFixed(4)} ${token.symbol}`
+                                    : `$${token.balance.toFixed(2)}`}
+                                </span>
+                              </button>
+
+                              {/* Inline Send Form */}
+                              <AnimatePresence>
+                                {isSelected && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="overflow-hidden bg-neutral-900/60 border border-t-0 border-blue-500/20 px-3 py-3 space-y-2"
+                                    style={{ borderRadius: '0 0 8px 8px', fontFamily: 'IBM Plex Mono, monospace' }}
+                                  >
+                                    <input
+                                      type="text"
+                                      value={transferRecipient}
+                                      onChange={(e) => setTransferRecipient(e.target.value)}
+                                      disabled={isTransferring}
+                                      placeholder="Recipient 0x..."
+                                      className="w-full bg-black/60 border border-neutral-800/60 px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-blue-500/40 text-neutral-300 transition-colors"
+                                      style={{ borderRadius: '6px' }}
+                                    />
+                                    <input
+                                      type="number"
+                                      value={transferAmount}
+                                      onChange={(e) => setTransferAmount(e.target.value)}
+                                      disabled={isTransferring}
+                                      min="0"
+                                      step="0.01"
+                                      placeholder="Amount"
+                                      className="w-full bg-black/60 border border-neutral-800/60 px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-blue-500/40 text-neutral-300 transition-colors"
+                                      style={{ borderRadius: '6px' }}
+                                    />
+                                    <button
+                                      onClick={() => {
+                                        if (token.isETH) {
+                                          handleSendETH()
+                                        } else if (token.isCustom && token.address && token.decimals != null) {
+                                          handleSendCustomToken(token.address, token.symbol, token.decimals)
+                                        } else if (token.symbol === 'MARKET') {
+                                          setTransferTokenType('MARKET')
+                                          handleTransfer()
+                                        } else if (token.symbol === 'USDC') {
+                                          setTransferTokenType('USDC')
+                                          handleTransfer()
+                                        } else if (token.symbol === 'USDT') {
+                                          setTransferTokenType('USDT')
+                                          handleTransfer()
+                                        }
+                                      }}
+                                      disabled={!transferAmount || !transferRecipient || isTransferring}
+                                      className="w-full py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold uppercase hover:bg-blue-500/20 hover:border-blue-500/50 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                                      style={{ borderRadius: '6px' }}
+                                    >
+                                      {isTransferring ? (
+                                        <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <ArrowsRightLeftIcon className="w-3.5 h-3.5" />
+                                          SEND {token.symbol}
+                                        </>
+                                      )}
+                                    </button>
+
+                                    {topUpError && (
+                                      <div className="text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-1.5 font-mono" style={{ borderRadius: '6px' }}>
+                                        {topUpError}
+                                      </div>
+                                    )}
+                                    {topUpSuccess && (
+                                      <div className="text-[10px] text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1.5 font-mono" style={{ borderRadius: '6px' }}>
+                                        {topUpSuccess}
+                                      </div>
+                                    )}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          )
+                        })
+                      })()}
                     </div>
                   </motion.div>
                 )}
@@ -1431,134 +1751,7 @@ export function WalletHeader() {
                 )}
               </AnimatePresence>
 
-              {/* Transfer Form */}
-              <AnimatePresence>
-                {showTransferForm && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="mt-3 pt-3 border-t border-neutral-800 space-y-2 overflow-hidden"
-                  >
-                    <div>
-                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Token</label>
-                      <div className="flex gap-1.5">
-                        {(['MARKET', 'USDC', 'USDT'] as TransferTokenType[]).map((token) => (
-                          <button
-                            key={token}
-                            onClick={() => setTransferTokenType(token)}
-                            className={`flex-1 py-2 px-2 text-xs font-bold uppercase font-mono border-2 transition-all ${
-                              transferTokenType === token
-                                ? token === 'MARKET'
-                                  ? 'border-green-500 bg-green-500/20 text-green-400'
-                                  : token === 'USDC'
-                                  ? 'border-blue-500 bg-blue-500/20 text-blue-400'
-                                  : 'border-teal-500 bg-teal-500/20 text-teal-400'
-                                : 'border-neutral-800 bg-neutral-900/80 text-neutral-500 hover:border-neutral-700 hover:text-neutral-400'
-                            }`}
-                            style={{
-                              borderRadius: '8px',
-                              fontFamily: 'IBM Plex Mono, monospace'
-                            }}
-                          >
-                            <div>{token}</div>
-                            <div className="text-[11px] font-normal tabular-nums mt-0.5 opacity-70">
-                              {token === 'MARKET' ? `$${(tokenBalances?.MARKET || 0).toFixed(2)}` :
-                               token === 'USDC' ? `$${(tokenBalances?.USDC || 0).toFixed(2)}` :
-                               `$${(tokenBalances?.USDT || 0).toFixed(2)}`}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Recipient</label>
-                      <input
-                        type="text"
-                        value={transferRecipient}
-                        onChange={(e) => setTransferRecipient(e.target.value)}
-                        disabled={isTransferring}
-                        placeholder="0x..."
-                        className="w-full bg-neutral-900/80 border border-neutral-800/60 px-3 py-2.5 text-sm font-mono placeholder-neutral-600 focus:outline-none focus:border-neutral-600 disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
-                        style={{
-                          borderRadius: '8px',
-                          fontFamily: 'IBM Plex Mono, monospace'
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-neutral-500 font-bold uppercase mb-1 block" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Amount ({transferTokenType})</label>
-                      <input
-                        type="number"
-                        value={transferAmount}
-                        onChange={(e) => setTransferAmount(e.target.value)}
-                        disabled={isTransferring}
-                        min="0"
-                        step="0.01"
-                        placeholder="10.00"
-                        className="w-full bg-neutral-900/80 border border-neutral-800/60 px-3 py-2.5 text-sm font-mono placeholder-neutral-600 focus:outline-none focus:border-neutral-600 disabled:opacity-50 text-neutral-300 hover:border-neutral-700 transition-colors"
-                        style={{
-                          borderRadius: '8px',
-                          fontFamily: 'IBM Plex Mono, monospace'
-                        }}
-                      />
-                    </div>
-
-                    <button
-                      onClick={handleTransfer}
-                      disabled={!transferAmount || !transferRecipient || isTransferring}
-                      className={`w-full py-3 border font-mono uppercase font-bold text-xs disabled:opacity-50 transition-all flex items-center justify-center gap-2 ${
-                        transferTokenType === 'MARKET'
-                          ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20 hover:border-green-500/50'
-                          : transferTokenType === 'USDC'
-                          ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50'
-                          : 'bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20 hover:border-teal-500/50'
-                      }`}
-                      style={{
-                        borderRadius: '10px',
-                        fontFamily: 'IBM Plex Mono, monospace'
-                      }}
-                    >
-                      {isTransferring ? (
-                        <>
-                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                          <span>SENDING</span>
-                        </>
-                      ) : (
-                        <>
-                          <ArrowsRightLeftIcon className="w-4 h-4" />
-                          <span>SEND {transferTokenType}</span>
-                        </>
-                      )}
-                    </button>
-
-                    {topUpError && (
-                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2.5 font-mono"
-                        style={{
-                          borderRadius: '8px',
-                          fontFamily: 'IBM Plex Mono, monospace'
-                        }}
-                      >
-                        {topUpError}
-                      </div>
-                    )}
-
-                    {topUpSuccess && (
-                      <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-2.5 font-mono"
-                        style={{
-                          borderRadius: '8px',
-                          fontFamily: 'IBM Plex Mono, monospace'
-                        }}
-                      >
-                        {topUpSuccess}
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Transfer Form - now merged into Portfolio tab above */}
 
               {/* TXS Tab Content */}
               <AnimatePresence>

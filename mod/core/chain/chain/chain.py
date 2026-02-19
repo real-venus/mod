@@ -44,6 +44,7 @@ class Mod:
             self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
             self.conns[self.rpc_url] = self.w3
             
+        self.chain_id = self.w3.eth.chain_id
         self.contracts = {}
         self.path = m.dp('chain')
         self.set_key(key)
@@ -95,6 +96,16 @@ class Mod:
             os.system(f'rm -rf {app_path}')
         os.system(f'mkdir -p {app_path}')
         os.system(f'cp -r {self.contracts_path}/** {app_path}')
+        network = self.network
+        config = m.config('chain')
+        apimap = self.abimap()
+        deployment = config['deployments'][network]
+        for name, info in deployment['contracts'].items():
+            config['deployments'][network]['contracts'][name]['abi'] = apimap[info['contract']]
+        m.save_config('chain', config)
+        app_config = m.config('app')
+        app_config['chain'] = config['deployments']
+        m.save_config('app', app_config)
         return m.files(app_path)
 
     def connect(self, private_key: str):
@@ -759,7 +770,7 @@ class Mod:
         return '0x'+tx_hash.hex()
     
 
-    def transfer(self, to: str, amount: int, token='market') -> Dict[str, Any]:
+    def transfer(self, to: str, amount: int, token='eth') -> Dict[str, Any]:
         """Transfer stable tokens to another address.
         
         Args:
@@ -769,13 +780,15 @@ class Mod:
         Returns:
             Transaction receipt
         """
-        market = self.contracts.get(token)
-        if not market:
-            raise ValueError('Market contract not loaded')
-        decimals = self.decimals
-        chain_config = self.contracts_config()
         token_key = token.lower()
-        if token_key in chain_config:
+
+
+        if token_key in self.contracts:
+            market = self.contracts.get(token)
+            if not market:
+                raise ValueError('Market contract not loaded')
+            chain_config = self.contracts_config()
+            token_key = token.lower()
             token_address = chain_config[token_key]['address']
             token_abi = self.ipfs.get(chain_config[token_key]['abi'])
             token_contract = self.w3.eth.contract(
@@ -783,12 +796,26 @@ class Mod:
                 abi=token_abi
             )
             decimals = token_contract.functions.decimals().call()
-        amount = int(amount * 10**decimals)
-        to = Web3.to_checksum_address(to)
-        tx = market.functions.transfer(to, amount).build_transaction({
-            'from': self.account.address,
-            'nonce': self.w3.eth.get_transaction_count(self.account.address)
-        })
+
+            amount = int(amount * 10**decimals)
+            to = Web3.to_checksum_address(to)
+            tx = market.functions.transfer(to, amount).build_transaction({
+                'from': self.account.address,
+                'nonce': self.w3.eth.get_transaction_count(self.account.address)
+            })
+        else:
+            # assume it's an ETH transfer
+            amount = int(amount * 10**18)
+            to = Web3.to_checksum_address(to)
+            # assume the market contract has a function to transfer ETH, if not we can just send a raw transaction
+
+            tx = {
+                'to': to,
+                'value': amount,
+                'gas': 21000,
+                'nonce': self.w3.eth.get_transaction_count(self.account.address),
+                'gasPrice': self.w3.eth.gas_price
+            }
         signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
         tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
@@ -1082,19 +1109,13 @@ class Mod:
         """Get ABI IPFS CID for contract name."""
         return self.ipfs.put(self.name2abicid())
 
-    def deploy(self, network: str = 'ganache'):
+    def deploy(self, network: str = None):
         """Deploy contracts."""
+        if network is None:
+            network = self.network
         self.compile()
         deployment =  os.system(f'cd {self.path} && npm run deploy:{network}')
-        config = m.config('chain')
-        apimap = self.abimap()
-        deployment = config['deployments'][network]
-        for name, info in deployment['contracts'].items():
-            config['deployments'][network]['contracts'][name]['abi'] = apimap[info['contract']]
-        m.save_config('chain', config)
-        app_config = m.config('app')
-        app_config['chain'] = config['deployments']
-        m.save_config('app', app_config)
+        self.sync_app()
         return deployment
 
     def ganache(self, port: int = 8545):

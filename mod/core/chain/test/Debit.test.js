@@ -7,7 +7,6 @@ describe("Debit Contract - EIP-712 Signed Debits", function () {
   const INITIAL_SUPPLY = ethers.parseEther("1000000");
   const TOKEN_PRICE = 100000000n; // $1 with 8 decimals
   const PRICE_DECIMALS = 8;
-  const MAX_ORACLE_AGE = 3600;
 
   // EIP-712 domain and type
   const DEBIT_TYPE = {
@@ -72,8 +71,7 @@ describe("Debit Contract - EIP-712 Signed Debits", function () {
       "Stable Token",
       "STABLE",
       treasury.address,
-      await tokenGate.getAddress(),
-      MAX_ORACLE_AGE
+      await tokenGate.getAddress()
     );
     await market.waitForDeployment();
 

@@ -137,20 +137,17 @@ async function main() {
   const treasury = treasuryDeployTx;
   const treasuryAddress = await treasury.getAddress();
   console.log("Treasury deployed to:", treasuryAddress);
-
   await sendAndConfirm(treasury.setGovernanceToken(blocTimeAddress), "Governance token set");
   console.log("Governance token set to BlocTime");
 
   // Market
   console.log("\n📦 Deploying Market...");
   const Market = await hre.ethers.getContractFactory("Market");
-  const MAX_ORACLE_AGE = 3600; // 1 hour staleness threshold
   const marketDeployTx = await Market.deploy(
     "BlocTime Market Token",
     "BTMT",
     treasuryAddress,
-    tokenGateAddress,
-    MAX_ORACLE_AGE
+    tokenGateAddress
   );
   await sendAndConfirm(marketDeployTx.deploymentTransaction(), "Market deploy");
   const market = marketDeployTx;

@@ -8,7 +8,6 @@ describe("Market Integration", function () {
   const PRICE_DECIMALS = 8;
   const MARKET_DECIMALS = 8;
   const PAYMENT_TOKEN_DECIMALS = 18; // default ERC20
-  const MAX_ORACLE_AGE = 3600;
 
   const DEBIT_TYPE = {
     DebitAuthorization: [
@@ -69,8 +68,7 @@ describe("Market Integration", function () {
       "Stable Token",
       "STABLE",
       treasury.address,
-      await tokenGate.getAddress(),
-      MAX_ORACLE_AGE
+      await tokenGate.getAddress()
     );
     await market.waitForDeployment();
 

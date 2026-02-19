@@ -1,155 +1,166 @@
 {
-    "deployments": {
-        "localhost": {
-            "chainId": "1337",
-            "url": "http://localhost:8545",
-            "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-            "contracts": {
-                "USDC": {
-                    "address": "0x1d460d731Bd5a0fF2cA07309dAEB8641a7b175A1",
-                    "contract": "Token"
-                },
-                "USDT": {
-                    "address": "0x41219a0a9C0b86ED81933c788a6B63Dfef8f17eE",
-                    "contract": "Token"
-                },
-                "ManualPriceOracle": {
-                    "address": "0xF67e26649037695DdFAB19f4E22d5c9Fd1564592",
-                    "contract": "ManualPriceOracle"
-                },
-                "TokenGate": {
-                    "address": "0x18b7CBdfFA52d1e7BB992fd50f394c5b59E20B72",
-                    "contract": "TokenGate"
-                },
-                "NativeToken": {
-                    "address": "0x3A906C603F080D96dc08f81CF2889dAB6FF299dE",
-                    "contract": "Token"
-                },
-                "BlocTime": {
-                    "address": "0x820638ecd57B55e51CE6EaD7D137962E7A201dD9",
-                    "contract": "BlocTime"
-                },
-                "Registry": {
-                    "address": "0x987Aa6E80e995d6A76C4d061eE324fc760Ea9F61",
-                    "contract": "Registry"
-                },
-                "Treasury": {
-                    "address": "0x6B9C4119796C80Ced5a3884027985Fd31830555b",
-                    "contract": "Treasury"
-                },
-                "Market": {
-                    "address": "0x716473Fb4E7cD49c7d1eC7ec6d7490A03d9dA332",
-                    "contract": "Market"
-                }
-            }
+  "deployments": {
+    "localhost": {
+      "chainId": "1337",
+      "url": "http://localhost:8545",
+      "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "contracts": {
+        "USDC": {
+          "address": "0x1d460d731Bd5a0fF2cA07309dAEB8641a7b175A1",
+          "contract": "Token"
         },
-        "testnet": {
-            "chainId": "84532",
-            "deployer": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
-            "url": "https://sepolia.base.org",
-            "contracts": {
-                "USDC": {
-                    "address": "0x2D69ccB0CD585Bd98d048cD9334ECcfda91CF814",
-                    "contract": "Token",
-                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
-                },
-                "USDT": {
-                    "address": "0x105E61522FA02C09491710BF511f18aF1F0971FC",
-                    "contract": "Token",
-                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
-                },
-                "ManualPriceOracle": {
-                    "address": "0x72EFf75e1B9cD5A2be9B1Acf96B3e4c23E504aAC",
-                    "contract": "ManualPriceOracle",
-                    "abi": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV"
-                },
-                "TokenGate": {
-                    "address": "0xEf513887b33Fe1F08393cC3A753e4C0A6E1b6168",
-                    "contract": "TokenGate",
-                    "abi": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a"
-                },
-                "NativeToken": {
-                    "address": "0x22B233fe6f38B2D7a16c83368750a8381769ab7D",
-                    "contract": "Token",
-                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
-                },
-                "BlocTime": {
-                    "address": "0xBC71f9418Df017fd9876bF8185f4513F08230328",
-                    "contract": "BlocTime",
-                    "abi": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM"
-                },
-                "Registry": {
-                    "address": "0x3D5E14F41C729854D7657b48878493F8e4C86672",
-                    "contract": "Registry",
-                    "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
-                },
-                "Treasury": {
-                    "address": "0x26961292a31fBf3cf22C701653dC391670507dBA",
-                    "contract": "Treasury",
-                    "abi": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
-                },
-                "Market": {
-                    "address": "0x56A847D6c2D9207590F00d328Fb8215026472f3B",
-                    "contract": "Market",
-                    "abi": "QmcxXDaY9rL4uXKDFbnCa1VK2eES27zc6YCA182YpLvrNy"
-                },
-                "Debit": {
-                    "address": "0xBcC9D90e064eF394334C97040daEccF2C77d0F87",
-                    "contract": "Debit",
-                    "abi": "QmbPgToxEaDe5PKkhzsKptXTPGNY4TCWXGGNWtudhVJEZt"
-                }
-            }
+        "USDT": {
+          "address": "0x41219a0a9C0b86ED81933c788a6B63Dfef8f17eE",
+          "contract": "Token"
         },
-        "ganache": {
-            "chainId": "1337",
-            "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-            "contracts": {
-                "USDC": {
-                    "address": "0x76d05F58D14c0838EC630C8140eDC5aB7CD159Dc",
-                    "contract": "Token",
-                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
-                },
-                "USDT": {
-                    "address": "0x7A3A9876c08B3f001D10c6a8aF685699BC52e7c8",
-                    "contract": "Token",
-                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
-                },
-                "ManualPriceOracle": {
-                    "address": "0xe8c3F27D20472e4f3C546A3f73C04B54DD72871d",
-                    "contract": "ManualPriceOracle",
-                    "abi": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV"
-                },
-                "TokenGate": {
-                    "address": "0x862E3acDE54f01a4540C4505a4E199214Ff6cD49",
-                    "contract": "TokenGate",
-                    "abi": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a"
-                },
-                "NativeToken": {
-                    "address": "0x72aC6A36de2f72BD39e9c782e9db0DCc41FEbfe2",
-                    "contract": "Token",
-                    "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
-                },
-                "BlocTime": {
-                    "address": "0xAAd4F7BB5FB661181D500829e60010043833a85B",
-                    "contract": "BlocTime",
-                    "abi": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM"
-                },
-                "Registry": {
-                    "address": "0x2B64822cf4bbDd77d386F51AA2B40c5cdbeb80b5",
-                    "contract": "Registry",
-                    "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
-                },
-                "Treasury": {
-                    "address": "0x30A6d2B697635a0ECf1975d2386A0FE6b608B0Fb",
-                    "contract": "Treasury",
-                    "abi": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
-                },
-                "Market": {
-                    "address": "0xBc153693BFAe1Ca202872a382aED20a1306C9200",
-                    "contract": "Market",
-                    "abi": "QmcxXDaY9rL4uXKDFbnCa1VK2eES27zc6YCA182YpLvrNy"
-                }
-            }
+        "ManualPriceOracle": {
+          "address": "0xF67e26649037695DdFAB19f4E22d5c9Fd1564592",
+          "contract": "ManualPriceOracle"
+        },
+        "TokenGate": {
+          "address": "0x18b7CBdfFA52d1e7BB992fd50f394c5b59E20B72",
+          "contract": "TokenGate"
+        },
+        "NativeToken": {
+          "address": "0x3A906C603F080D96dc08f81CF2889dAB6FF299dE",
+          "contract": "Token"
+        },
+        "BlocTime": {
+          "address": "0x820638ecd57B55e51CE6EaD7D137962E7A201dD9",
+          "contract": "BlocTime"
+        },
+        "Registry": {
+          "address": "0x987Aa6E80e995d6A76C4d061eE324fc760Ea9F61",
+          "contract": "Registry"
+        },
+        "Treasury": {
+          "address": "0x6B9C4119796C80Ced5a3884027985Fd31830555b",
+          "contract": "Treasury"
+        },
+        "Market": {
+          "address": "0x716473Fb4E7cD49c7d1eC7ec6d7490A03d9dA332",
+          "contract": "Market"
         }
+      }
+    },
+    "testnet": {
+      "chainId": "84532",
+      "deployer": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
+      "url": "https://sepolia.base.org",
+      "safe": {
+        "singleton": "0x313f51107eba119dceC631819B821F88a33A6730",
+        "proxyFactory": "0x7BC6028588BDcE600dB3CBf73af577A77d5A702e",
+        "proxy": "0x36482b035c985da0a98b50e7e18ce8862705dff6",
+        "owners": [
+          "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
+          "0x6B1B2f09119cb6B733F976Fef225b9717B516B43",
+          "0x9bf5Af48C22cCe7aac5178a0E8C0eA5A51a0f1E1",
+          "0xc7458aBc1Db511b8eAa47D078008bb43f06fAd44"
+        ],
+        "threshold": 2
+      },
+      "contracts": {
+        "USDC": {
+          "address": "0xBad32AA3DFb405283499225996c0BABcd0c7f41F",
+          "contract": "Token",
+          "owner": "0x36482b035c985da0a98b50e7e18ce8862705dff6"
+        },
+        "USDT": {
+          "address": "0x4ecC16B10Af4E49ef23f533CDdEa170C169620B4",
+          "contract": "Token",
+          "owner": "0x36482b035c985da0a98b50e7e18ce8862705dff6"
+        },
+        "ManualPriceOracle": {
+          "address": "0x9c11Aa03443a3e66ca730f2771575150c5b1fee2",
+          "contract": "ManualPriceOracle",
+          "owner": "0x36482b035c985da0a98b50e7e18ce8862705dff6"
+        },
+        "TokenGate": {
+          "address": "0x0dEd6E2eBd7a0c31793294d81C7aDeCC33a73cB7",
+          "contract": "TokenGate",
+          "owner": "0x36482b035c985da0a98b50e7e18ce8862705dff6"
+        },
+        "NativeToken": {
+          "address": "0x658aB978FFcCF0Da53030a949832b3a97558aEf4",
+          "contract": "Token",
+          "owner": "0x36482b035c985da0a98b50e7e18ce8862705dff6"
+        },
+        "BlocTime": {
+          "address": "0x916B2Ff264486E8ed8d3B32AB6040E3B0385aF38",
+          "contract": "BlocTime",
+          "owner": "0x36482b035c985da0a98b50e7e18ce8862705dff6"
+        },
+        "Registry": {
+          "address": "0xE365F9AF2eDc09FC1d412491fD70cDebBecf97AC",
+          "contract": "Registry"
+        },
+        "Treasury": {
+          "address": "0xE350a8C26eE3eFD16389245423272ced811Bdd38",
+          "contract": "Treasury",
+          "owner": "0x36482b035c985da0a98b50e7e18ce8862705dff6"
+        },
+        "Market": {
+          "address": "0x7577B2Af5a09557cBf08E00DB149bE1aeCfF4dd9",
+          "contract": "Market",
+          "owner": "0x36482b035c985da0a98b50e7e18ce8862705dff6"
+        },
+        "Debit": {
+          "address": "0x0230EBCe8d0dE5109c0cdff145827f98E15b8df4",
+          "contract": "Debit",
+          "owner": "0x36482b035c985da0a98b50e7e18ce8862705dff6"
+        }
+      }
+    },
+    "ganache": {
+      "chainId": "1337",
+      "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "contracts": {
+        "USDC": {
+          "address": "0x76d05F58D14c0838EC630C8140eDC5aB7CD159Dc",
+          "contract": "Token",
+          "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
+        },
+        "USDT": {
+          "address": "0x7A3A9876c08B3f001D10c6a8aF685699BC52e7c8",
+          "contract": "Token",
+          "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
+        },
+        "ManualPriceOracle": {
+          "address": "0xe8c3F27D20472e4f3C546A3f73C04B54DD72871d",
+          "contract": "ManualPriceOracle",
+          "abi": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV"
+        },
+        "TokenGate": {
+          "address": "0x862E3acDE54f01a4540C4505a4E199214Ff6cD49",
+          "contract": "TokenGate",
+          "abi": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a"
+        },
+        "NativeToken": {
+          "address": "0x72aC6A36de2f72BD39e9c782e9db0DCc41FEbfe2",
+          "contract": "Token",
+          "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
+        },
+        "BlocTime": {
+          "address": "0xAAd4F7BB5FB661181D500829e60010043833a85B",
+          "contract": "BlocTime",
+          "abi": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM"
+        },
+        "Registry": {
+          "address": "0x2B64822cf4bbDd77d386F51AA2B40c5cdbeb80b5",
+          "contract": "Registry",
+          "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
+        },
+        "Treasury": {
+          "address": "0x30A6d2B697635a0ECf1975d2386A0FE6b608B0Fb",
+          "contract": "Treasury",
+          "abi": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
+        },
+        "Market": {
+          "address": "0xBc153693BFAe1Ca202872a382aED20a1306C9200",
+          "contract": "Market",
+          "abi": "QmcxXDaY9rL4uXKDFbnCa1VK2eES27zc6YCA182YpLvrNy"
+        }
+      }
     }
+  }
 }

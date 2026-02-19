@@ -41,6 +41,7 @@ function GlobalSearchBar() {
     { href: '/treasury', label: 'TREASURY', color: '#a855f7' },
     { href: '/docs', label: 'DOCS', color: '#a78bfa' },
     { href: '/chat', label: 'CHAT', color: '#8b5cf6' },
+    { href: '/safe', label: 'SAFE', color: '#f59e0b' },
   ]
 
   // Responsive: watch for narrow widths

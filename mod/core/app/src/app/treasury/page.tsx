@@ -357,8 +357,8 @@ export default function TreasuryPage() {
       const signer = await provider.getSigner(walletAddress)
       const data = treasury.encodeFunctionData(fnName, args)
       const network = await provider.getNetwork()
-      const txHash = await proposeSafeTransaction(ownerAddress, treasury.address, data, signer, network.chainId)
-      toast.success(`Safe transaction proposed: ${txHash.slice(0, 10)}...`)
+      const { safeTxHash } = await proposeSafeTransaction(ownerAddress, treasury.address, data, signer, network.chainId)
+      toast.success(`Safe transaction proposed: ${safeTxHash.slice(0, 10)}...`)
       fetchData()
     } catch (err: any) {
       console.error(err)

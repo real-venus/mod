@@ -20,7 +20,7 @@ interface IDebit {
  * @dev Market contract for credit/withdraw with oracle price conversion.
  * Debit functionality is handled by a separate Debit contract, supporting both
  * unsigned (owner-only, backward compatible) and EIP-712 signed modes.
- * Includes: pausability, oracle staleness checks, slippage protection, rounding safeguards.
+ * Includes: pausability, slippage protection, rounding safeguards.
  */
 contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
     using SafeERC20 for IERC20;
@@ -29,7 +29,6 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
     TokenGate public tokenGate;
     address public debitContract;
     uint256 public nextTransactionId = 1;
-    uint256 public maxOracleAge;
     uint256 public constant TREASURY_FEE_PERCENT = 5;
 
     uint256 public totalTreasuryFeesAccrued;
@@ -40,7 +39,6 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
     event TreasuryUpdated(address indexed newTreasury);
     event TokenGateUpdated(address indexed newTokenGate);
     event DebitContractUpdated(address indexed newDebitContract);
-    event MaxOracleAgeUpdated(uint256 newMaxAge);
 
     modifier onlyDebitContract() {
         require(msg.sender == debitContract, "Only debit contract");
@@ -51,15 +49,12 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
         string memory name,
         string memory symbol,
         address _treasury,
-        address _tokenGate,
-        uint256 _maxOracleAge
+        address _tokenGate
     ) ERC20(name, symbol) {
         require(_treasury != address(0), "Invalid treasury");
         require(_tokenGate != address(0), "Invalid tokengate");
-        require(_maxOracleAge > 0, "Invalid max oracle age");
         treasury = _treasury;
         tokenGate = TokenGate(_tokenGate);
-        maxOracleAge = _maxOracleAge;
     }
 
     function decimals() public pure override returns (uint8) {
@@ -84,12 +79,6 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
         require(_debitContract != address(0), "Invalid debit contract");
         debitContract = _debitContract;
         emit DebitContractUpdated(_debitContract);
-    }
-
-    function setMaxOracleAge(uint256 _maxOracleAge) external onlyOwner {
-        require(_maxOracleAge > 0, "Invalid max oracle age");
-        maxOracleAge = _maxOracleAge;
-        emit MaxOracleAgeUpdated(_maxOracleAge);
     }
 
     function pause() external onlyOwner {
@@ -165,9 +154,8 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
         require(stableAmount > 0, "Invalid amount");
         require(tokenGate.isTokenWhitelisted(paymentToken), "Token not whitelisted");
 
-        (uint256 tokenPrice, uint8 priceDecimals, uint256 priceTimestamp) = tokenGate.getTokenPrice(paymentToken);
+        (uint256 tokenPrice, uint8 priceDecimals,) = tokenGate.getTokenPrice(paymentToken);
         require(tokenPrice > 0, "Invalid price");
-        require(block.timestamp - priceTimestamp <= maxOracleAge, "Stale oracle price");
 
         uint8 paymentDecimals = IERC20Metadata(paymentToken).decimals();
         uint256 paymentAmount = (stableAmount * 10**uint256(paymentDecimals) * 10**uint256(priceDecimals)) / (tokenPrice * 10**uint256(decimals()));
@@ -194,9 +182,8 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
         require(balanceOf(msg.sender) >= stableAmount, "Insufficient balance");
         require(tokenGate.isTokenWhitelisted(paymentToken), "Token not whitelisted");
 
-        (uint256 tokenPrice, uint8 priceDecimals, uint256 priceTimestamp) = tokenGate.getTokenPrice(paymentToken);
+        (uint256 tokenPrice, uint8 priceDecimals,) = tokenGate.getTokenPrice(paymentToken);
         require(tokenPrice > 0, "Invalid price");
-        require(block.timestamp - priceTimestamp <= maxOracleAge, "Stale oracle price");
 
         uint8 paymentDecimals = IERC20Metadata(paymentToken).decimals();
         uint256 withdrawAmount = (stableAmount * 10**uint256(paymentDecimals) * 10**uint256(priceDecimals)) / (tokenPrice * 10**uint256(decimals()));

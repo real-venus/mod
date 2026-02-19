@@ -6,6 +6,14 @@ const SAFE_ABI = [
   'function nonce() view returns (uint256)',
 ]
 
+const SAFE_FULL_ABI = [
+  'function nonce() view returns (uint256)',
+  'function getOwners() view returns (address[])',
+  'function getThreshold() view returns (uint256)',
+  'function getTransactionHash(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 _nonce) view returns (bytes32)',
+  'function execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address payable refundReceiver, bytes signatures) payable returns (bool success)',
+]
+
 /**
  * Detect if an address is a Gnosis Safe contract by probing Safe-specific methods
  */
@@ -82,120 +90,350 @@ export async function getSafeInfo(safeAddress: string, provider: ethers.Provider
   }
 }
 
+// ── Local Pending Transaction Storage ──
+// Custom-deployed Safe contracts are not recognized by the Safe Transaction
+// Service. We store pending signatures in localStorage and execute on-chain
+// once the threshold is met.
+
+const STORAGE_KEY = 'safe_pending_txs'
+
+export interface SafeConfirmation {
+  owner: string
+  signature: string
+  submissionDate: string
+}
+
+export interface PendingTransaction {
+  safe: string
+  to: string
+  value: string
+  data: string
+  operation: number
+  safeTxGas: number
+  baseGas: number
+  gasPrice: string
+  gasToken: string
+  refundReceiver: string
+  nonce: number
+  submissionDate: string
+  safeTxHash: string
+  isExecuted: boolean
+  confirmations: SafeConfirmation[]
+  confirmationsRequired: number
+}
+
+function loadPendingTxs(): PendingTransaction[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function savePendingTxs(txs: PendingTransaction[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(txs))
+}
+
+export interface SafeTxParams {
+  safe: string
+  to: string
+  data: string
+  value: string
+  chainId: string
+  nonce: number
+  threshold: number
+  sender: string
+  safeTxHash: string
+}
+
 /**
- * Propose a Safe transaction via the Safe Protocol Kit
- * Returns the safeTxHash for tracking
+ * Propose a Safe transaction.
  *
- * Uses the Safe SDK which has Node.js deps — this function must only be
- * called at runtime in the browser, never at build time.
+ * For threshold=1: signs and executes on-chain immediately.
+ * For threshold>1: signs, stores the pending tx in localStorage,
+ * and waits for other owners to confirm before execution.
  */
 export async function proposeSafeTransaction(
   safeAddress: string,
   to: string,
   data: string,
   signer: ethers.Signer,
-  chainId: bigint
-): Promise<string> {
+  chainId: bigint,
+  value: bigint = BigInt(0)
+): Promise<{ safeTxHash: string; params: SafeTxParams }> {
   const provider = signer.provider
   if (!provider) throw new Error('Signer has no provider')
 
   const signerAddress = await signer.getAddress()
-
-  // Build a minimal Safe-like tx and sign it directly using the Safe contract
-  // This avoids importing the heavy Safe SDK packages at build time.
-  const SAFE_TX_ABI = [
-    'function nonce() view returns (uint256)',
-    'function getOwners() view returns (address[])',
-    'function getThreshold() view returns (uint256)',
-    'function execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address payable refundReceiver, bytes signatures) payable returns (bool success)',
-    'function getTransactionHash(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 _nonce) view returns (bytes32)',
-  ]
-
-  const safeContract = new ethers.Contract(safeAddress, SAFE_TX_ABI, signer)
+  const checksumSafe = ethers.getAddress(safeAddress)
+  const checksumTo = ethers.getAddress(to)
+  const checksumSender = ethers.getAddress(signerAddress)
+  const safeContract = new ethers.Contract(checksumSafe, SAFE_FULL_ABI, signer)
   const nonce = await safeContract.nonce()
   const threshold = Number(await safeContract.getThreshold())
 
-  // Get the transaction hash from the Safe contract
-  const safeTxHash = await safeContract.getTransactionHash(
-    to,            // to
-    0,             // value
-    data,          // data
-    0,             // operation (Call)
-    0,             // safeTxGas
-    0,             // baseGas
-    0,             // gasPrice
+  // Use on-chain getTransactionHash() — canonical hash
+  const safeTxHash: string = await safeContract.getTransactionHash(
+    checksumTo,
+    value,
+    data,
+    0,        // operation (Call)
+    0,        // safeTxGas
+    0,        // baseGas
+    0,        // gasPrice
     ethers.ZeroAddress, // gasToken
     ethers.ZeroAddress, // refundReceiver
-    nonce          // _nonce
+    nonce
   )
 
-  // Sign the hash using EIP-191
-  const signature = await signer.signMessage(ethers.getBytes(safeTxHash))
+  const params: SafeTxParams = {
+    safe: checksumSafe,
+    to: checksumTo,
+    data,
+    value: value.toString(),
+    chainId: chainId.toString(),
+    nonce: Number(nonce),
+    threshold,
+    sender: checksumSender,
+    safeTxHash,
+  }
+  console.log('[Safe] Transaction params:', params)
 
-  // If threshold is 1, we can execute directly
+  // Sign using signMessage (eth_sign) — our custom Safe contract ALWAYS uses
+  // keccak256("\x19Ethereum Signed Message:\n32" + dataHash) for ecrecover,
+  // so we must use signMessage which applies that prefix automatically.
+  // v stays as raw 27/28 since our contract has no v>30 branching.
+  const rawSignature = await signer.signMessage(ethers.getBytes(safeTxHash))
+
+  // If threshold is 1, execute immediately
   if (threshold <= 1) {
-    // Encode signature in the format Safe expects: {bytes32 r}{bytes32 s}{uint8 v}
-    const sig = ethers.Signature.from(signature)
-    const encodedSig = ethers.solidityPacked(
+    const sig = ethers.Signature.from(rawSignature)
+    const execSig = ethers.solidityPacked(
       ['bytes32', 'bytes32', 'uint8'],
-      [sig.r, sig.s, sig.v]
+      [sig.r, sig.s, sig.v]  // raw ECDSA v (27/28) — our contract has no v+4 logic
     )
 
     const tx = await safeContract.execTransaction(
-      to,
-      0,
+      checksumTo,
+      value,
       data,
-      0,   // Call
-      0,   // safeTxGas
-      0,   // baseGas
-      0,   // gasPrice
+      0, 0, 0, 0,
       ethers.ZeroAddress,
       ethers.ZeroAddress,
-      encodedSig
+      execSig
     )
     await tx.wait()
-    return safeTxHash
+    return { safeTxHash, params }
   }
 
-  // For multisig with threshold > 1, try the Safe Transaction Service API
-  try {
-    const serviceUrl = getTransactionServiceUrl(chainId)
-    const response = await fetch(`${serviceUrl}/api/v1/safes/${safeAddress}/multisig-transactions/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to,
-        value: '0',
-        data,
-        operation: 0,
-        safeTxGas: '0',
-        baseGas: '0',
-        gasPrice: '0',
-        gasToken: ethers.ZeroAddress,
-        refundReceiver: ethers.ZeroAddress,
-        nonce: Number(nonce),
-        contractTransactionHash: safeTxHash,
-        sender: signerAddress,
-        signature,
-      }),
-    })
+  // For multisig: store pending tx with this signature in localStorage
+  const allTxs = loadPendingTxs()
 
-    if (!response.ok) {
-      const err = await response.text()
-      throw new Error(`Transaction Service error: ${err}`)
+  // Check if this tx already exists (same safeTxHash)
+  const existing = allTxs.find((t) => t.safeTxHash === safeTxHash)
+  if (existing) {
+    // Add confirmation if not already signed by this owner
+    const alreadySigned = existing.confirmations.some(
+      (c) => c.owner.toLowerCase() === checksumSender.toLowerCase()
+    )
+    if (!alreadySigned) {
+      existing.confirmations.push({
+        owner: checksumSender,
+        signature: rawSignature,
+        submissionDate: new Date().toISOString(),
+      })
     }
-  } catch (err) {
-    console.warn('Safe Transaction Service not available:', err)
+    savePendingTxs(allTxs)
+  } else {
+    // Create new pending tx
+    const pendingTx: PendingTransaction = {
+      safe: checksumSafe,
+      to: checksumTo,
+      value: value.toString(),
+      data,
+      operation: 0,
+      safeTxGas: 0,
+      baseGas: 0,
+      gasPrice: '0',
+      gasToken: ethers.ZeroAddress,
+      refundReceiver: ethers.ZeroAddress,
+      nonce: Number(nonce),
+      submissionDate: new Date().toISOString(),
+      safeTxHash,
+      isExecuted: false,
+      confirmations: [
+        {
+          owner: checksumSender,
+          signature: rawSignature,
+          submissionDate: new Date().toISOString(),
+        },
+      ],
+      confirmationsRequired: threshold,
+    }
+    allTxs.push(pendingTx)
+    savePendingTxs(allTxs)
+  }
+
+  return { safeTxHash, params }
+}
+
+// ── Get Pending Transactions (from localStorage) ──
+
+export async function getPendingTransactions(
+  safeAddress: string,
+  _chainId: bigint | number
+): Promise<PendingTransaction[]> {
+  const checksumSafe = ethers.getAddress(safeAddress)
+  const allTxs = loadPendingTxs()
+  return allTxs.filter(
+    (tx) => tx.safe.toLowerCase() === checksumSafe.toLowerCase() && !tx.isExecuted
+  )
+}
+
+// ── Remove stale transactions (nonce < on-chain nonce) ──
+
+export function removeStalePendingTxs(safeAddress: string, onChainNonce: number): number {
+  const checksumSafe = ethers.getAddress(safeAddress)
+  const allTxs = loadPendingTxs()
+  const before = allTxs.length
+  const filtered = allTxs.filter(
+    (tx) =>
+      tx.safe.toLowerCase() !== checksumSafe.toLowerCase() ||
+      tx.nonce >= onChainNonce
+  )
+  savePendingTxs(filtered)
+  return before - filtered.length
+}
+
+// ── Confirm (add signature to) a pending transaction ──
+
+export async function confirmTransaction(
+  _safeAddress: string,
+  safeTxHash: string,
+  signer: ethers.Signer,
+  _chainId: bigint | number
+): Promise<void> {
+  const signerAddress = ethers.getAddress(await signer.getAddress())
+
+  const allTxs = loadPendingTxs()
+  const tx = allTxs.find((t) => t.safeTxHash === safeTxHash)
+  if (!tx) throw new Error('Transaction not found')
+
+  const alreadySigned = tx.confirmations.some(
+    (c) => c.owner.toLowerCase() === signerAddress.toLowerCase()
+  )
+  if (alreadySigned) throw new Error('Already confirmed by this signer')
+
+  // Sign using signMessage — our custom Safe always wraps with personal message prefix
+  const rawSignature = await signer.signMessage(ethers.getBytes(safeTxHash))
+
+  tx.confirmations.push({
+    owner: signerAddress,
+    signature: rawSignature,
+    submissionDate: new Date().toISOString(),
+  })
+  savePendingTxs(allTxs)
+}
+
+// ── Execute a pending transaction on-chain ──
+
+export async function executeTransaction(
+  safeAddress: string,
+  pendingTx: PendingTransaction,
+  signer: ethers.Signer
+): Promise<string> {
+  const checksumSafe = ethers.getAddress(safeAddress)
+  const safeContract = new ethers.Contract(checksumSafe, SAFE_FULL_ABI, signer)
+
+  // Verify nonce hasn't changed since signing
+  const currentNonce = await safeContract.nonce()
+  if (Number(currentNonce) !== pendingTx.nonce) {
     throw new Error(
-      `Transaction signed but could not be submitted to the Safe Transaction Service. ` +
-      `This Safe requires ${threshold} confirmations. Please submit via the Safe app.`
+      `Nonce mismatch: transaction was signed at nonce ${pendingTx.nonce} ` +
+      `but Safe is now at nonce ${Number(currentNonce)}. Please re-propose this transaction.`
     )
   }
 
-  return safeTxHash
+  // Sort confirmations by owner address ascending (Safe contract requirement)
+  // Compare as BigInt to match Solidity's uint160 address comparison
+  const sorted = [...pendingTx.confirmations].sort((a, b) => {
+    const addrA = BigInt(a.owner)
+    const addrB = BigInt(b.owner)
+    if (addrA < addrB) return -1
+    if (addrA > addrB) return 1
+    return 0
+  })
+
+  // Combine signatures: each is 65 bytes (r + s + v)
+  // eth_sign signatures with raw ECDSA v (27/28) — our contract has no v+4 logic
+  let combinedSigs = '0x'
+  for (const conf of sorted) {
+    const sig = ethers.Signature.from(conf.signature)
+    console.log('[Safe] Sig from', conf.owner, '→ v:', sig.v, 'r:', sig.r.slice(0, 10), 's:', sig.s.slice(0, 10))
+    const packed = ethers.solidityPacked(
+      ['bytes32', 'bytes32', 'uint8'],
+      [sig.r, sig.s, sig.v]  // raw v (27/28)
+    )
+    combinedSigs += packed.slice(2)
+  }
+
+  const tx = await safeContract.execTransaction(
+    pendingTx.to,
+    pendingTx.value,
+    pendingTx.data || '0x',
+    pendingTx.operation,
+    pendingTx.safeTxGas,
+    pendingTx.baseGas,
+    pendingTx.gasPrice,
+    pendingTx.gasToken,
+    pendingTx.refundReceiver,
+    combinedSigs
+  )
+  const receipt = await tx.wait()
+
+  // Mark as executed in storage
+  const allTxs = loadPendingTxs()
+  const stored = allTxs.find((t) => t.safeTxHash === pendingTx.safeTxHash)
+  if (stored) stored.isExecuted = true
+  savePendingTxs(allTxs)
+
+  return receipt.hash
 }
 
-function getTransactionServiceUrl(chainId: bigint): string {
+// ── Owner Management Encoders (Safe self-calls) ──
+
+const SAFE_OWNER_ABI = [
+  'function addOwnerWithThreshold(address owner, uint256 _threshold)',
+  'function removeOwner(address prevOwner, address owner, uint256 _threshold)',
+  'function changeThreshold(uint256 _threshold)',
+]
+
+export function encodeAddOwnerWithThreshold(owner: string, threshold: number): string {
+  const iface = new ethers.Interface(SAFE_OWNER_ABI)
+  return iface.encodeFunctionData('addOwnerWithThreshold', [owner, threshold])
+}
+
+export function encodeRemoveOwner(prevOwner: string, owner: string, threshold: number): string {
+  const iface = new ethers.Interface(SAFE_OWNER_ABI)
+  return iface.encodeFunctionData('removeOwner', [prevOwner, owner, threshold])
+}
+
+export function encodeChangeThreshold(threshold: number): string {
+  const iface = new ethers.Interface(SAFE_OWNER_ABI)
+  return iface.encodeFunctionData('changeThreshold', [threshold])
+}
+
+// ── Generic Contract Call Encoder ──
+
+export function encodeContractCall(abi: any[], functionName: string, args: any[]): string {
+  const iface = new ethers.Interface(abi)
+  return iface.encodeFunctionData(functionName, args)
+}
+
+// ── Utility: get Transaction Service URL (kept for future canonical Safe use) ──
+
+export function getTransactionServiceUrl(chainId: bigint | number): string {
   const urls: Record<string, string> = {
     '1': 'https://safe-transaction-mainnet.safe.global',
     '10': 'https://safe-transaction-optimism.safe.global',

@@ -420,7 +420,7 @@ class  Api:
         """
         return self.folder_path + '/' + path
 
-    def mods(self, search:str=None, network:str=None, key='all', update:bool=True, n:int=None, page:int=None, **kwargs) -> List[Dict[str, Any]]:
+    def mods(self, search:str=None,  key='all', update:bool=True, n:int=None, page:int=None, **kwargs) -> List[Dict[str, Any]]:
         """
         List all registered mods in IPFS.
         Returns:

@@ -37,8 +37,7 @@ describe("Market Withdrawal Tests", function () {
       "Stable Token",
       "STABLE",
       treasury.address,
-      await tokenGate.getAddress(),
-      3600
+      await tokenGate.getAddress()
     );
     await market.waitForDeployment();
 
