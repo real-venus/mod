@@ -20,9 +20,9 @@ interface IMarket {
 
 /**
  * @title Debit
- * @dev EIP-712 signature-based debit contract for the Market.
- * Requires client signature to authorize debits. Caches the most recent
- * transaction per client->provider pair for temporal tracking.
+ * @dev EIP-712 signature-based debit contract with multisig authority approvals.
+ * Authorities must approve debits with a max spending limit and deadline (capped at 1 day).
+ * Client sets a threshold of required approvals. Defaults to 1 with owner as authority.
  */
 contract Debit is EIP712, ReentrancyGuard, Ownable {
     using ECDSA for bytes32;
@@ -38,10 +38,22 @@ contract Debit is EIP712, ReentrancyGuard, Ownable {
 
     mapping(address => uint256) public nonces;
 
+    // Authority management: client => authority[]
+    mapping(address => address[]) internal _clientAuthorities;
+    mapping(address => mapping(address => bool)) public isAuthority;
+    mapping(address => uint256) public approvalThreshold; // 0 = default to 1
+
+    // Multisig approvals: client => authority => Approval
+    struct Approval {
+        uint256 maxAmount;   // remaining spending allowance
+        uint256 deadline;    // capped at 1 day from submission
+    }
+    mapping(address => mapping(address => Approval)) public approvals;
+
     // Daily spending limit (8 decimals). Default: 1000 * 10^8
     uint256 public constant DEFAULT_DAILY_LIMIT = 1000_00000000;
-    mapping(address => uint256) public dailyLimit;        // 0 means use default
-    mapping(address => mapping(uint256 => uint256)) public dailySpent; // client => day => amount spent
+    mapping(address => uint256) public dailyLimit;
+    mapping(address => mapping(uint256 => uint256)) public dailySpent;
 
     struct CachedDebit {
         uint256 amount;
@@ -63,6 +75,12 @@ contract Debit is EIP712, ReentrancyGuard, Ownable {
     event MarketUpdated(address indexed newMarket);
     event SignatureRequirementUpdated(bool required);
     event DailyLimitUpdated(address indexed client, uint256 newLimit);
+    event AuthorityAdded(address indexed client, address indexed authority);
+    event AuthorityRemoved(address indexed client, address indexed authority);
+    event ThresholdUpdated(address indexed client, uint256 threshold);
+    event DebitApproved(address indexed client, address indexed authority, uint256 maxAmount, uint256 deadline);
+    event ApprovalRevoked(address indexed client, address indexed authority);
+    event ContractSetOwnerless();
 
     constructor(
         address _market
@@ -77,18 +95,25 @@ contract Debit is EIP712, ReentrancyGuard, Ownable {
         emit MarketUpdated(_market);
     }
 
-    /**
-     * @dev Toggle signature requirement. When false, owner/Market can call executeDebitUnsigned.
-     * When true, all debits must go through executeDebit with a valid client EIP-712 signature.
-     */
     function setSignatureRequired(bool _required) external onlyOwner {
         signatureRequired = _required;
         emit SignatureRequirementUpdated(_required);
     }
 
     /**
-     * @dev Set your own daily spending limit. Must be > 0.
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * After calling, setMarket() and setSignatureRequired() become permanently locked.
+     * executeDebitUnsigned() will only be callable by the market contract.
+     * Clients must use the authority system for approval management.
+     * This action is irreversible.
      */
+    function setOwnerless() external onlyOwner {
+        emit ContractSetOwnerless();
+        renounceOwnership();
+    }
+
+    // ========== AUTHORITY MANAGEMENT ==========
+
     function setDailyLimit(uint256 _limit) external {
         require(_limit > 0, "Limit must be > 0");
         dailyLimit[msg.sender] = _limit;
@@ -96,39 +121,181 @@ contract Debit is EIP712, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Returns the effective daily limit for a client.
+     * @dev Add an authority that can approve debits on your behalf.
      */
+    function addAuthority(address authority) external {
+        require(authority != address(0), "Invalid authority");
+        require(!isAuthority[msg.sender][authority], "Already authorized");
+        isAuthority[msg.sender][authority] = true;
+        _clientAuthorities[msg.sender].push(authority);
+        emit AuthorityAdded(msg.sender, authority);
+    }
+
+    /**
+     * @dev Remove an authority. Also clears their pending approval.
+     */
+    function removeAuthority(address authority) external {
+        require(isAuthority[msg.sender][authority], "Not authorized");
+        isAuthority[msg.sender][authority] = false;
+
+        // Remove from array (swap-and-pop)
+        address[] storage auths = _clientAuthorities[msg.sender];
+        for (uint256 i = 0; i < auths.length; i++) {
+            if (auths[i] == authority) {
+                auths[i] = auths[auths.length - 1];
+                auths.pop();
+                break;
+            }
+        }
+
+        // Clear any pending approval
+        delete approvals[msg.sender][authority];
+
+        // Auto-reduce threshold if it exceeds remaining authority count
+        if (approvalThreshold[msg.sender] > auths.length && auths.length > 0) {
+            approvalThreshold[msg.sender] = auths.length;
+            emit ThresholdUpdated(msg.sender, auths.length);
+        }
+
+        emit AuthorityRemoved(msg.sender, authority);
+    }
+
+    /**
+     * @dev Set the number of authority approvals required for a debit.
+     * Must be > 0 and <= number of authorities.
+     */
+    function setApprovalThreshold(uint256 threshold) external {
+        uint256 authCount = _clientAuthorities[msg.sender].length;
+        if (authCount > 0) {
+            require(threshold > 0 && threshold <= authCount, "Invalid threshold");
+        }
+        approvalThreshold[msg.sender] = threshold;
+        emit ThresholdUpdated(msg.sender, threshold);
+    }
+
+    /**
+     * @dev Authority approves spending for a client. Specifies a max spending
+     * allowance and a deadline that cannot exceed 1 day from now.
+     */
+    function approveDebit(address client, uint256 maxAmount, uint256 deadline) external {
+        if (_clientAuthorities[client].length == 0) {
+            require(msg.sender == owner(), "Not owner");
+        } else {
+            require(isAuthority[client][msg.sender], "Not authorized");
+        }
+        require(maxAmount > 0, "Invalid amount");
+        require(deadline > block.timestamp, "Deadline passed");
+        require(deadline <= block.timestamp + 1 days, "Deadline exceeds 1 day");
+
+        approvals[client][msg.sender] = Approval({
+            maxAmount: maxAmount,
+            deadline: deadline
+        });
+        emit DebitApproved(client, msg.sender, maxAmount, deadline);
+    }
+
+    /**
+     * @dev Authority revokes their pending approval for a client.
+     */
+    function revokeApproval(address client) external {
+        require(approvals[client][msg.sender].deadline > 0, "No approval");
+        delete approvals[client][msg.sender];
+        emit ApprovalRevoked(client, msg.sender);
+    }
+
+    // ========== VIEW: AUTHORITY ==========
+
+    function getEffectiveThreshold(address client) public view returns (uint256) {
+        uint256 t = approvalThreshold[client];
+        return t > 0 ? t : 1;
+    }
+
+    function getAuthorities(address client) external view returns (address[] memory) {
+        return _clientAuthorities[client];
+    }
+
+    function getAuthorityCount(address client) external view returns (uint256) {
+        return _clientAuthorities[client].length;
+    }
+
+    function getApproval(address client, address authority) external view returns (uint256 maxAmount, uint256 deadline) {
+        Approval memory a = approvals[client][authority];
+        return (a.maxAmount, a.deadline);
+    }
+
+    /**
+     * @dev Count how many valid (non-expired, sufficient amount) approvals exist.
+     */
+    function getValidApprovalCount(address client, uint256 amount) external view returns (uint256 count) {
+        if (_clientAuthorities[client].length == 0) {
+            Approval memory a = approvals[client][owner()];
+            if (a.deadline >= block.timestamp && a.maxAmount >= amount) return 1;
+            return 0;
+        }
+        address[] storage auths = _clientAuthorities[client];
+        for (uint256 i = 0; i < auths.length; i++) {
+            Approval memory a = approvals[client][auths[i]];
+            if (a.deadline >= block.timestamp && a.maxAmount >= amount) {
+                count++;
+            }
+        }
+    }
+
+    // ========== INTERNAL: APPROVALS ==========
+
+    /**
+     * @dev Verify threshold approvals exist and consume the amount from them.
+     * Each consumed approval has its maxAmount reduced by the debit amount.
+     * Reverts if insufficient valid approvals.
+     */
+    function _checkAndConsumeApprovals(address client, uint256 amount) internal {
+        if (_clientAuthorities[client].length == 0) {
+            // No authorities configured — approval system not active.
+            // If owner has explicitly set an approval, enforce it; otherwise auto-pass.
+            Approval storage a = approvals[client][owner()];
+            if (a.deadline > 0) {
+                require(a.deadline >= block.timestamp && a.maxAmount >= amount, "No valid approval");
+                a.maxAmount -= amount;
+            }
+            return;
+        }
+
+        uint256 threshold = getEffectiveThreshold(client);
+        uint256 validCount = 0;
+        address[] storage auths = _clientAuthorities[client];
+        for (uint256 i = 0; i < auths.length && validCount < threshold; i++) {
+            Approval storage a = approvals[client][auths[i]];
+            if (a.deadline >= block.timestamp && a.maxAmount >= amount) {
+                a.maxAmount -= amount;
+                validCount++;
+            }
+        }
+        require(validCount >= threshold, "Insufficient approvals");
+    }
+
+    // ========== DAILY LIMIT ==========
+
     function getEffectiveDailyLimit(address client) public view returns (uint256) {
         uint256 limit = dailyLimit[client];
         return limit > 0 ? limit : DEFAULT_DAILY_LIMIT;
     }
 
-    /**
-     * @dev Returns the current day number (UTC).
-     */
     function _getCurrentDay() internal view returns (uint256) {
         return block.timestamp / 1 days;
     }
 
-    /**
-     * @dev Returns how much a client has spent today.
-     */
     function getDailySpent(address client) external view returns (uint256) {
         return dailySpent[client][_getCurrentDay()];
     }
 
-    /**
-     * @dev Returns how much spending allowance a client has left today.
-     */
     function getDailyRemaining(address client) external view returns (uint256) {
         uint256 limit = getEffectiveDailyLimit(client);
         uint256 spent = dailySpent[client][_getCurrentDay()];
         return spent >= limit ? 0 : limit - spent;
     }
 
-    /**
-     * @dev Verify EIP-712 signature and return the used nonce. Reverts on invalid sig.
-     */
+    // ========== SIGNATURE ==========
+
     function _verifySignature(
         address client,
         address provider,
@@ -164,16 +331,14 @@ contract Debit is EIP712, ReentrancyGuard, Ownable {
         nonces[client] = usedNonce + 1;
     }
 
-    /**
-     * @dev Execute the burn/mint operations on Market and cache the result.
-     */
+    // ========== TRANSFER ==========
+
     function _executeTransfer(
         address client,
         address provider,
         uint256 stableAmount,
         uint256 usedNonce
     ) internal returns (uint256 txId) {
-        // Enforce daily spending limit
         uint256 today = _getCurrentDay();
         uint256 limit = getEffectiveDailyLimit(client);
         uint256 spent = dailySpent[client][today];
@@ -198,13 +363,11 @@ contract Debit is EIP712, ReentrancyGuard, Ownable {
         emit DebitExecuted(txId, client, provider, stableAmount, treasuryFee, providerAmount, usedNonce);
     }
 
+    // ========== EXECUTE ==========
+
     /**
-     * @dev Execute a debit authorized by the client's EIP-712 signature.
-     * @param client The address being debited (must be the signer)
-     * @param provider The address receiving payment
-     * @param stableAmount Amount in stable tokens (8 decimals) to debit
-     * @param deadline Timestamp after which the signature expires
-     * @param signature Packed ECDSA signature (65 bytes: r + s + v)
+     * @dev Execute a debit with client EIP-712 signature + multisig authority approvals.
+     * Requires threshold valid approvals and a valid client signature.
      */
     function executeDebit(
         address client,
@@ -218,15 +381,14 @@ contract Debit is EIP712, ReentrancyGuard, Ownable {
         require(provider != address(0), "Invalid provider");
         require(market.balanceOf(client) >= stableAmount, "Insufficient balance");
 
+        _checkAndConsumeApprovals(client, stableAmount);
         uint256 usedNonce = _verifySignature(client, provider, stableAmount, deadline, signature);
         return _executeTransfer(client, provider, stableAmount, usedNonce);
     }
 
     /**
-     * @dev Execute a debit without signature. Only callable by the Market contract or Debit owner.
-     * Only works when signatureRequired is false. This is the backward-compatible path
-     * for the current token-based proof system. Flip signatureRequired to true when
-     * ready to transition to EIP-712 client signatures.
+     * @dev Execute a debit without client signature. Requires multisig authority approvals.
+     * Only works when signatureRequired is false.
      */
     function executeDebitUnsigned(
         address client,
@@ -234,11 +396,13 @@ contract Debit is EIP712, ReentrancyGuard, Ownable {
         uint256 stableAmount
     ) external nonReentrant returns (uint256) {
         require(!signatureRequired, "Signatures required");
-        require(msg.sender == address(market) || msg.sender == owner(), "Unauthorized");
+        require(msg.sender == owner() || msg.sender == address(market), "Unauthorized");
         require(stableAmount > 0, "Invalid amount");
         require(client != address(0), "Invalid client");
         require(provider != address(0), "Invalid provider");
         require(market.balanceOf(client) >= stableAmount, "Insufficient balance");
+
+        _checkAndConsumeApprovals(client, stableAmount);
 
         uint256 usedNonce = nonces[client];
         nonces[client] = usedNonce + 1;

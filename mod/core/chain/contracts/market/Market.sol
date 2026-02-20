@@ -30,6 +30,7 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
     address public debitContract;
     uint256 public nextTransactionId = 1;
     uint256 public constant TREASURY_FEE_PERCENT = 5;
+    uint256 public creditFeeBps = 100; // 1% default (basis points, 10000 = 100%)
 
     uint256 public totalTreasuryFeesAccrued;
 
@@ -39,6 +40,8 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
     event TreasuryUpdated(address indexed newTreasury);
     event TokenGateUpdated(address indexed newTokenGate);
     event DebitContractUpdated(address indexed newDebitContract);
+    event ContractSetOwnerless();
+    event CreditFeeUpdated(uint256 newFeeBps);
 
     modifier onlyDebitContract() {
         require(msg.sender == debitContract, "Only debit contract");
@@ -63,6 +66,16 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
 
     // ========== ADMIN ==========
 
+    /**
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * Locks: setTreasury, setTokenGate, setDebitContract, pause/unpause, debit.
+     * This action is irreversible.
+     */
+    function setOwnerless() external onlyOwner {
+        emit ContractSetOwnerless();
+        renounceOwnership();
+    }
+
     function setTreasury(address _treasury) external onlyOwner {
         require(_treasury != address(0), "Invalid treasury");
         treasury = _treasury;
@@ -79,6 +92,12 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
         require(_debitContract != address(0), "Invalid debit contract");
         debitContract = _debitContract;
         emit DebitContractUpdated(_debitContract);
+    }
+
+    function setCreditFee(uint256 _creditFeeBps) external onlyOwner {
+        require(_creditFeeBps <= 10000, "Max 100%");
+        creditFeeBps = _creditFeeBps;
+        emit CreditFeeUpdated(_creditFeeBps);
     }
 
     function pause() external onlyOwner {
@@ -163,8 +182,14 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
         require(paymentAmount > 0, "Amount too small");
         require(paymentAmount <= maxPaymentAmount, "Exceeds max payment");
 
-        IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), paymentAmount);
-        _mint(msg.sender, stableAmount);
+        uint256 feePayment = (paymentAmount * creditFeeBps) / 10000;
+        uint256 mintAmount = stableAmount - (stableAmount * creditFeeBps) / 10000;
+
+        IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), paymentAmount - feePayment);
+        if (feePayment > 0) {
+            IERC20(paymentToken).safeTransferFrom(msg.sender, treasury, feePayment);
+        }
+        _mint(msg.sender, mintAmount);
 
         uint256 txId = nextTransactionId++;
         emit Credit(txId, msg.sender, stableAmount, paymentToken, paymentAmount);

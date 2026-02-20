@@ -602,8 +602,9 @@ describe("Debit Contract - EIP-712 Signed Debits", function () {
     });
 
     it("Should reset daily spending on a new day", async function () {
-      // Spend up to the default limit
-      const amount = 500_00000000n;
+      // Client has 990 tokens (1000 credited minus 1% fee)
+      // Use amounts that fit within the client's balance across both days
+      const amount = 400_00000000n;
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600 * 48);
       const sig1 = await signDebit(client, provider.address, amount, 0n, deadline);
       await debit.executeDebit(client.address, provider.address, amount, deadline, sig1);
@@ -617,7 +618,7 @@ describe("Debit Contract - EIP-712 Signed Debits", function () {
       // Daily spent should be 0 on the new day
       expect(await debit.getDailySpent(client.address)).to.equal(0);
 
-      // Should be able to spend again
+      // Should be able to spend again (client has 990 - 400 = 590 remaining balance)
       const sig2 = await signDebit(client, provider.address, amount, 1n, deadline);
       await expect(
         debit.executeDebit(client.address, provider.address, amount, deadline, sig2)

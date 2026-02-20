@@ -32,7 +32,8 @@ contract Treasury is ReentrancyGuard, Ownable {
     event Withdrawn(address indexed holder, address indexed token, uint256 amount, uint256 ownership);
     event OwnerPercentageUpdated(uint256 newPercentage);
     event OwnerWithdrawn(address indexed token, uint256 amount);
-    
+    event ContractSetOwnerless();
+
     constructor(uint256 _ownerPercentage, address _tokenGate) {
         require(_ownerPercentage <= 10000, "Max 100%");
         require(_tokenGate != address(0), "Invalid TokenGate");
@@ -40,6 +41,16 @@ contract Treasury is ReentrancyGuard, Ownable {
         tokenGate = TokenGate(_tokenGate);
     }
     
+    /**
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * Locks: setOwnerPercentage, setGovernanceToken, setTokenGate, ownerWithdraw, emergencyWithdraw.
+     * This action is irreversible.
+     */
+    function setOwnerless() external onlyOwner {
+        emit ContractSetOwnerless();
+        renounceOwnership();
+    }
+
     /**
      * @dev Set owner percentage (only owner)
      */

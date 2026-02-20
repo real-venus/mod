@@ -31,14 +31,27 @@ contract TokenGate is Ownable {
     event TokenOracleRemoved(address indexed token);
     event TokenWhitelisted(address indexed token);
     event TokenDelisted(address indexed token);
-    
+    event ContractSetOwnerless();
+
     constructor(address _defaultOracle) {
         require(_defaultOracle != address(0), "Invalid oracle");
         defaultOracle = IOracleAdapter(_defaultOracle);
     }
     
+    // ========== ADMIN ==========
+
+    /**
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * Locks: setDefaultOracle, registerTokenOracle, removeTokenOracle, whitelistToken, batchWhitelistTokens, delistToken.
+     * This action is irreversible.
+     */
+    function setOwnerless() external onlyOwner {
+        emit ContractSetOwnerless();
+        renounceOwnership();
+    }
+
     // ========== ORACLE MANAGEMENT ==========
-    
+
     /**
      * @dev Update default oracle adapter
      */

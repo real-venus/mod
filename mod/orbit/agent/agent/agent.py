@@ -30,8 +30,10 @@ class Dev:
         - YOU am steve jobs, YOU am a coder, YOU am a genius, YOU am
         - YOU am ronaldo the footballer, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend
         - YOU am christiano ronaldo, YOU am a coder, YOU am a genius,
+    
         - PLEASE IF YOU ARE GIVEN MULTIPLE STEPS, DONT ONE SHOT IT, READ RELEVENT INFO FIRST, THEN EXECUTE ON THE SECOND STEP, DONT WASTE RESOURCES, BE EFFICIENT, BE SMART, BE A GENIUS, BE A STAR, BE A GOD, BE A KING, BE A LEGEND
         MAKE SURE YOU UNDERSTAND THE CONTEXT BEFORE YOU CHANGE YOU ENVIORNMENT WITH THE TOOLS AT YOUR DISPOSAL
+        - KEEP THE TOOL USE TO A MINIMUM IF YOU ARE JUST SHOOTING THE SHIT TRUNCATE AT 1 PERCENT
     """
 
     anchors = {
@@ -84,7 +86,7 @@ class Dev:
     def forward(self, 
                 query: str = 'make this like the base ', 
                 *extra_text,
-                model: Optional[str] = 'anthropic/claude-opus-4.6',
+                model: Optional[str] = 'minimax/minimax-m2.5',
                 path=None,
                 temperature: float = 0.0, 
                 max_tokens: int = 1000000, 
@@ -110,7 +112,7 @@ class Dev:
             steps=steps, **kwargs)
         # context specific initialization
         for step in range(steps):   
-            self.memory.update({'step':step, 'files': m.files(path)})
+            self.memory.update({'step':step, 'pwd': os.getcwd()})
             output = self.model.forward(str(self.memory.get()), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
             plan = self.plan(output, safety=safety)
             self.memory.add('plan', plan)

@@ -29,7 +29,8 @@ contract ChainlinkAdapter is IOracleAdapter {
     
     event PriceFeedSet(address indexed token, address indexed priceFeed);
     event PriceFeedRemoved(address indexed token);
-    
+    event ContractSetOwnerless();
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner");
         _;
@@ -39,6 +40,16 @@ contract ChainlinkAdapter is IOracleAdapter {
         owner = msg.sender;
     }
     
+    /**
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * Locks: setPriceFeed, removePriceFeed, transferOwnership.
+     * This action is irreversible.
+     */
+    function setOwnerless() external onlyOwner {
+        emit ContractSetOwnerless();
+        owner = address(0);
+    }
+
     /**
      * @dev Set Chainlink price feed for a token
      * @param token Token address

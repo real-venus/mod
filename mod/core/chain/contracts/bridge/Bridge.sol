@@ -14,7 +14,8 @@ contract BridgeableToken is ERC20, Ownable {
     
     event BridgeMint(address indexed to, uint256 amount, string bridgeId);
     event BridgeBurn(address indexed from, uint256 amount, string bridgeId);
-    
+    event ContractSetOwnerless();
+
     /**
      * @dev Constructor
      * @param name Token name
@@ -31,6 +32,16 @@ contract BridgeableToken is ERC20, Ownable {
         }
     }
     
+    /**
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * Locks: bridgeMint, bridgeBurn, batchBridgeMint, batchBridgeBurn.
+     * This action is irreversible.
+     */
+    function setOwnerless() external onlyOwner {
+        emit ContractSetOwnerless();
+        renounceOwnership();
+    }
+
     /**
      * @dev Mint tokens for bridging (owner only)
      * @param to Address to mint tokens to

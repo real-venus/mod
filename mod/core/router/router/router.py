@@ -366,9 +366,9 @@ class Router:
             self._store = store
         return {'store': self._store_path}
 
-    def get_cost(self, task):
+    def get_cost(self, task, default_cost=0.01):
         mod_name = task['fn'].split('/')[0]
-        calculate_cost = m.config(mod_name).get('cost', {}).get(task['fn'], 0)
+        calculate_cost = m.config(mod_name).get('cost', {}).get(task['fn'], default_cost)
         return calculate_cost
     
     def task_data(self , 

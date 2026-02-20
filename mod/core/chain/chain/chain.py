@@ -128,19 +128,7 @@ class Mod:
         """
         return Web3.to_checksum_address(address)
 
-    def load_contract(self, name: str, address: str, abi: list):
-        """Load a contract interface.
-        
-        Args:
-            name: Contract identifier
-            address: Contract address
-            abi: Contract ABI
-        """
-        self.contracts[name] = self.w3.eth.contract(
-            address=self.checksum(address),
-            abi=abi
-        )
-        return self.contracts[name]
+
 
     def load_all_contracts(self):
         """Load all contracts at once.
@@ -157,8 +145,10 @@ class Mod:
                 abi = self.ipfs.get(abimap.get(info['contract']))
                 if abi == None: 
                     m.print(f'ABI not found for {name} at {info.get("abi")}', color='red')
-                    continue
-                self.load_contract(name, address, abi)
+                self.contracts[name.lower()] = self.w3.eth.contract(
+                    address=self.checksum(address),
+                    abi=abi
+                )
             except Exception as e :
                 continue
 

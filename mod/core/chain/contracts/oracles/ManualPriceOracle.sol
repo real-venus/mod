@@ -22,7 +22,18 @@ contract ManualPriceOracle is IOracleAdapter, Ownable {
     
     event PriceUpdated(address indexed token, uint256 price, uint8 decimals, uint256 timestamp);
     event PriceRemoved(address indexed token);
-    
+    event ContractSetOwnerless();
+
+    /**
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * Locks: setPrice, batchSetPrices, removePrice.
+     * This action is irreversible.
+     */
+    function setOwnerless() external onlyOwner {
+        emit ContractSetOwnerless();
+        renounceOwnership();
+    }
+
     /**
      * @dev Set price for a token (owner only)
      * @param token Token address

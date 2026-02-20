@@ -40,6 +40,7 @@ describe("Market Withdrawal Tests", function () {
       await tokenGate.getAddress()
     );
     await market.waitForDeployment();
+    await market.setCreditFee(0);
 
     await paymentToken.transfer(user1.address, ethers.parseEther("10000"));
     await paymentToken.transfer(user2.address, ethers.parseEther("10000"));

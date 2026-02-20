@@ -55,7 +55,8 @@ contract BlocTime is ERC20, ReentrancyGuard, Ownable {
     event Unstaked(address indexed user, uint256 stakeId, uint256 amount, uint256 blocTimeReturned);
     event ParamsUpdated(Params params);
     event PointsSet(uint256 pointCount);
-    
+    event ContractSetOwnerless();
+
     constructor(
         address _nativeToken,
         string memory _name,
@@ -79,6 +80,16 @@ contract BlocTime is ERC20, ReentrancyGuard, Ownable {
         }));
     }
     
+    /**
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * Locks: setPoints, setParams, emergencyWithdraw.
+     * This action is irreversible.
+     */
+    function setOwnerless() external onlyOwner {
+        emit ContractSetOwnerless();
+        renounceOwnership();
+    }
+
     /**
      * @dev Set all points at once - enforces monotonicity
      */

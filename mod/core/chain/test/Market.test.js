@@ -76,6 +76,7 @@ describe("Market Integration", function () {
     debit = await Debit.deploy(await market.getAddress());
     await debit.waitForDeployment();
     await market.setDebitContract(await debit.getAddress());
+    await market.setCreditFee(0);
 
     await paymentToken.transfer(user1.address, ethers.parseEther("10000"));
     await paymentToken.transfer(treasury.address, ethers.parseEther("100000"));

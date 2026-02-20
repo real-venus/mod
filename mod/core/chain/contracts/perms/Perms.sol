@@ -24,7 +24,8 @@ contract Perms {
     event OwnershipTransferred(bytes indexed parentKey, address indexed previousOwner, address indexed newOwner);
     event MaxChildKeysUpdated(uint256 newMax);
     event MaxKeySizeUpdated(uint256 newMax);
-    
+    event ContractSetOwnerless();
+
     modifier onlyContractOwner() {
         require(msg.sender == owner, "Only contract owner");
         _;
@@ -132,6 +133,16 @@ contract Perms {
         emit OwnershipTransferred(parentKey, previousOwner, newOwner);
     }
     
+    /**
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * Locks: setMaxChildKeys, setMaxKeySize, transferOwnership.
+     * This action is irreversible.
+     */
+    function setOwnerless() external onlyContractOwner {
+        emit ContractSetOwnerless();
+        owner = address(0);
+    }
+
     /**
      * @dev Update max child keys limit (only contract owner)
      * @param newMax New maximum number of child keys

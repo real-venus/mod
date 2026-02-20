@@ -82,72 +82,56 @@
             "chainId": "84532",
             "deployer": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
             "url": "https://sepolia.base.org",
-            "safe": {
-                "singleton": "0x313f51107eba119dceC631819B821F88a33A6730",
-                "proxyFactory": "0x7BC6028588BDcE600dB3CBf73af577A77d5A702e",
-                "proxy": "0x36482b035c985da0a98b50e7e18ce8862705dff6",
-                "owners": [
-                "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
-                "0x6B1B2f09119cb6B733F976Fef225b9717B516B43",
-                "0x9bf5Af48C22cCe7aac5178a0E8C0eA5A51a0f1E1",
-                "0xc7458aBc1Db511b8eAa47D078008bb43f06fAd44"
-                ],
-                "threshold": 2
-            },
             "contracts": {
                 "USDC": {
-                    "address": "0xe4FE02FEe096EC57a72F9398387457109318bcc4",
+                    "address": "0xdE7a2F99B8051Fb256031B5e3BB0721caC0D4208",
                     "contract": "Token",
                     "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "USDT": {
-                    "address": "0xb41FB4349c29ad48B6c24C7ADbD2141e30714E32",
+                    "address": "0xFEea5c022F5Ae7Dc58406Be1002e3D336dC7aeF2",
                     "contract": "Token",
                     "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "ManualPriceOracle": {
-                    "address": "0xA5805A3aB12D6E65e4652eBE96DabB47C279e5E4",
+                    "address": "0x4bba627E6df6Eb8B780573819134BF46C678bA0e",
                     "contract": "ManualPriceOracle",
-                    "abi": "QmYx2Sw2p6bkZyMo11RmjhWfpD9aiBhw3FfcormJAVBQFV"
+                    "abi": "QmU7xoL9tvziwgXwnzEHnVK9K6raQ29SERhDWiMUNAggJJ"
                 },
                 "TokenGate": {
-                    "address": "0x80ace97480b6862077195d9588Eb106a8c94F928",
+                    "address": "0x800cBe5db456f4Cd9371f444a68aF0023C77d191",
                     "contract": "TokenGate",
-                    "abi": "QmXMvfbxkSEsU5fAtLBoGTs8uVGSsSvix3B57ZNfhENk7a"
+                    "abi": "QmNaoCJHYNyAE4safugD3z3LEca1Y92YXivmeJfJNwgXVu"
                 },
                 "NativeToken": {
-                    "address": "0x34225a307F4aA1414A05A6048304e611b6b778df",
+                    "address": "0xadeA62DC5dc53e8d476Fb7671BA40D029FA9504b",
                     "contract": "Token",
                     "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "BlocTime": {
-                    "address": "0x9BF4b43f295942962F672b4991C44220E14EDC0a",
+                    "address": "0x583df67F6a8208C7C4cD8Ff9C3510C3E3af2b56d",
                     "contract": "BlocTime",
-                    "abi": "QmPt1A3mr4sYjVtYR1485rKtvUQ8TgA4KaaQmjv6u4SxGM"
+                    "abi": "QmTJxXo2M6EbR5Vw61X3MjtWQzQ13GDFgEJRWjRYLV4kHg"
                 },
                 "Registry": {
-                    "address": "0xD5bE5EEEb5784b33fbf1d1584A9fB1aac20E1b53",
+                    "address": "0xf2625a380F6958040B75ED6A0a2dC02F79F7aa43",
                     "contract": "Registry",
                     "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
                 },
                 "Treasury": {
-                    "address": "0x644005d7Bb2Ef69880D67d924c4386F17d00d877",
+                    "address": "0xd41b661679618aAfe4337035ACb6E5A5535BC35e",
                     "contract": "Treasury",
-                    "abi": "QmYcECagUZ1yXw1cKXM1bv2AN6XpCt9q3uVe58fVkZG6nA"
+                    "abi": "QmSeNNXp6P7D74MGyjBrm4hTVHQrDyHC4m4o8AN5j5S9nZ"
                 },
                 "Market": {
-                    "address": "0x08aeaFf02B692dBcD051365805Abd4D115c2c565",
+                    "address": "0x533Fdae29a4a4940afD4Ce62bA03e5b3a8918Af9",
                     "contract": "Market",
-                    "abi": "QmSUdvCwfnCn7kwPhJWZdGNa39pTHta9FMQYa6HKREdYdj"
+                    "abi": "QmXHm3Lotqx2FnaP7UpP1qNSG9cGFKTcjqtb1qw92Rbqk5"
                 },
                 "Debit": {
-                    "address": "0x60B066973c06A4Fd71CEa47D6559e572EEfc9aae",
+                    "address": "0x6b73CD40827a37C98b75E289d9Ca4526661a9f14",
                     "contract": "Debit",
                     "abi": "QmbPgToxEaDe5PKkhzsKptXTPGNY4TCWXGGNWtudhVJEZt"
-                },
-                "Safe": {
-                    "address": "0x36482b035c985da0a98b50e7e18ce8862705dff6",
-                    "contract": "Safe"
                 }
             }
         },

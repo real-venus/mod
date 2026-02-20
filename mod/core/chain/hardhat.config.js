@@ -28,7 +28,6 @@ module.exports = {
       url: process.env.BASE_TESTNET_RPC_URL || 'https://sepolia.base.org',
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 84532,
-      gasPrice: "auto",
     },
   },
   paths: {
