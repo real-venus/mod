@@ -39,13 +39,13 @@ class Dev:
                 'tool': ['<STEP>', '</STEP>'],
             }
 
-    output_format=  f"""
+    output_format=  """
             make sure the params is a legit json string within the STEP ANCHORS
             YOU CANNOT RESPOND WITH MULTIPLE PLANS BRO JUST ONE PLAN
             <PLAN>
-            <STEP>JSON(tool:str, params:dict)</STEP> # STEP 1 
-            <STEP>JSON(tool:str, params:dict)</STEP> # STEP 2
-            <STEP>JSON(tool:finish, params:dict)</STEP> # FINAL STEP
+            <STEP>{tool:str, params:dict}</STEP> # STEP 1 
+            <STEP>{tool:str, params:dict}</STEP> # STEP 2
+            <STEP>{tool:finish, params:dict}</STEP> # FINAL STEP
             </PLAN>
     """
 
@@ -68,7 +68,12 @@ class Dev:
         Get the tools available for the agent
         """
         tools = tools or self.tools
-        return {t: m.schema(t)[self.tool_fn_name] for t in tools}
+        schema =  {t: m.schema(t)[self.tool_fn_name] for t in tools}
+        new_schema = {}
+        for k,v in schema.items():
+            new_schema[k] = v
+            new_schema[k].pop('name', None)
+        return new_schema
 
     def init_memory(self, **kwargs):
         kwargs['goal'] = self.goal
@@ -137,8 +142,7 @@ class Dev:
             try:
                 step = json.loads(text)
             except json.JSONDecodeError as e:
-                text = m.tool('fix_json')(text)
-                step = json.loads(text)
+                step = json.loads(m.tool('fix_json')(text))
             assert 'tool' in text
             assert 'params' in text
             return step

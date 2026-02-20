@@ -54,9 +54,9 @@ class Tool:
     ╚══════════════════════════════════════════════════════════╝
             '''
             try:
-                result = self.model.forward(prompt, stream=True)
+                result = self.model.forward(prompt, stream=False)
                 result = self.process(result)
-                return json.loads(result['data'])
+                return result['data']
             except json.JSONDecodeError as e:
                 history.append(str(e))
         raise ValueError("Failed to process JSON after multiple attempts.")
@@ -80,7 +80,7 @@ class Tool:
         json_content = result[start_idx + len(start_anchor):end_idx].strip()
         try:
             data = json.loads(json_content)
-            return {"data": data}
+            return data
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to decode JSON content: {e}")
 
