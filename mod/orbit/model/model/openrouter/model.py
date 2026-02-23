@@ -4,7 +4,7 @@ import json
 import openai
 import time
 import os
-import mod as c
+import mod as m
 import random
 
 class OpenRouter:
@@ -37,7 +37,7 @@ class OpenRouter:
             path (str, optional): The path to store the API keys and history. Defaults to
             max_retries (int, optional): The maximum number of retries for the client. Defaults to None.
         """
-        self.store = c.mod('store')(path)
+        self.store = m.mod('store')(path)
         self.url = url
         self.client = openai.OpenAI(
             base_url=self.url,
@@ -103,7 +103,7 @@ class OpenRouter:
             'time': time.time(),  
         }
         
-        item['hash'] = c.hash(item)
+        item['hash'] = m.hash(item)
         item['result'] = ''
         path = f"history/{item['hash']}"
         if stream:
@@ -116,6 +116,7 @@ class OpenRouter:
             return stream_generator(result)
         else:
             item['result'] = result.choices[0].message.content
+            item['cost'] = result.usage.cost 
             self.store.put(path, item)
             return item['result']
         
@@ -198,7 +199,7 @@ class OpenRouter:
         return free_models
 
     def free_model(self):
-        return c.choice(self.free_models())
+        return m.choice(self.free_models())
     
     def model_infos(self, search: str = None, path='models',  update=False):
         return list(self.model2info(search=search, path=path, update=update).values())
@@ -224,37 +225,14 @@ class OpenRouter:
     def pricing(self, search: str = None , ascending=False, sortby='completion', df=True,   **kwargs):
         pricing =  [{'name': k , **v['pricing']} for k,v in self.model2info(search=search, **kwargs).items()]
         if df:
-            return c.df(pricing).sort_values(sortby, ascending=ascending)
+            return m.df(pricing).sort_values(sortby, ascending=ascending)
         return pricing
 
     def get_token_count(self, text: str):
         # rough estimate of token count
         return len(text.split()) // 0.75
 
-
-    def get_cost(self, params: dict, result:dict,  model: str = None):
-
-
-        if 'messages' in params: # chat model
-            text = params.get('messages', '')
-            model = self.resolve_model(model)
-            model_info = self.model_info(model)
-            pricing = model_info['pricing']
-            tokens = self.get_token_count(text)
-            cost = tokens * pricing['completion'] + tokens * pricing['prompt']
-            return cost
-        elif 'prompt' in params: # text model
-            text = params.get('prompt', '')
-            model = self.resolve_model(model)
-            model_info = self.model_info(model)
-            pricing = model_info['pricing']
-            tokens = self.get_token_count(text)
-            cost = tokens * pricing['completion'] + tokens * pricing['prompt']
-            return cost
-    
-        else:
-            raise ValueError('Cannot compute cost for non-chat models yet.')
-
+        
     def test(self):
         response  =  self.forward('Hello, how are you?', stream=False)
         print(response)

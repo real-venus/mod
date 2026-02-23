@@ -51,7 +51,7 @@ class Dev:
 
     tool_fn_name = 'forward'
 
-    tools  = ['create_file', 'rm_file', 'select_files', 'cmd']
+    tools  = ['create_file', 'cmd']
 
     def __init__(self, 
                     model: str = 'model.openrouter', 
@@ -86,7 +86,7 @@ class Dev:
     def forward(self, 
                 query: str = 'make this like the base ', 
                 mod='base',
-                model: Optional[str] = 'minimax/minimax-m2.5',
+                model: Optional[str] = 'anthropic/claude-opus-4.5',
                 path=None,
                 temperature: float = 0.0, 
                 max_tokens: int = 1000000, 
@@ -110,8 +110,9 @@ class Dev:
             steps=steps, **kwargs)
         # context specific initialization
         for step in range(steps):   
-            self.memory.update({'step':step, 'files': m.files(path)})
-            output = self.model.forward(str(self.memory.get()), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
+            self.memory.update({'step':step, 'files': os.listdir(path) , 'pwd': path})
+            memory = str(self.memory.get())
+            output = self.model.forward(str(memory), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
             plan = self.plan(output, safety=safety)
             self.memory.add('plan', plan)
             if plan[-1]['tool'].lower() == 'finish':
@@ -142,7 +143,9 @@ class Dev:
             try:
                 step = json.loads(text)
             except json.JSONDecodeError as e:
-                step = json.loads(m.tool('fix_json')(text))
+                step = m.tool('fix_json')(text)
+                if isinstance(step, str):
+                    step = json.loads(step)
             assert 'tool' in text
             assert 'params' in text
             return step
