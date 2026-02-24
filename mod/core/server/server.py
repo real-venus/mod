@@ -187,7 +187,7 @@ class Server:
             info['fns'] = fns
             return info
         
-        self.mod.info = partial(get_info, mod=mod)
+        self.mod.info = get_info(mod)
         self.gate = m.mod('gate')(mod=self.mod, paywall=paywall)
         self.app = Flask(__name__)
         CORS(self.app)
@@ -197,8 +197,8 @@ class Server:
             try:
                 headers = dict(request.headers)
                 params = request.get_json()
-                print(f'Received request for function: {fn} with params: {params} and headers: {headers}', color='green')
                 result = self.gate.forward(fn=fn, headers=headers, params=params, mod=self.mod)
+                print(f'RESULT>>>>>>>\n {result}', color='green')
             except Exception as e:
                 result = m.detailed_error(e)
                 m.print(f'Error in server function {fn}: {result} {e}', color='red')

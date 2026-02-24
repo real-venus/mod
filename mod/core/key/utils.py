@@ -405,10 +405,87 @@ def valid_h160_address(cls, address):
     return True
 
 
-def is_mnemonic(mnemonic:str) -> bool:
+def is_mnemonic(mnemonic:str, language_code:str='en') -> bool:
     """
     Check if the provided string is a valid mnemonic
     """
     if not isinstance(mnemonic, str):
         return False
-    return bip39_validate(mnemonic, self.language_code)
+    return bip39_validate(mnemonic, language_code=language_code)
+
+
+
+
+
+import re
+
+def is_ethereum_address(s: str) -> bool:
+    """
+    Returns True if string looks like a valid Ethereum address:
+    - Starts with '0x'
+    - Exactly 42 characters long
+    - Remaining 40 chars are hexadecimal
+    """
+    if not isinstance(s, str):
+        return False
+    s = s.strip()
+    return (
+        len(s) == 42 and
+        s.startswith('0x') and
+        bool(re.fullmatch(r'0x[0-9a-fA-F]{40}', s))
+    )
+
+
+def is_substrate_ss58_address(s: str) -> bool:
+    """
+    Returns True if string looks like a valid Substrate/SS58 address:
+    - No '0x' prefix
+    - Length usually 47 or 48 characters
+    - Only Base58 alphabet (123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz)
+    - Starts with common network prefixes (very rough heuristic)
+      Polkadot     → 1
+      Kusama       → (capital) A–J or lowercase a–j (varies)
+      Generic test → 5
+      Westend      → 5
+      Most common  → starts with 1,5,D,F,H,J,K,L,M,N,P,Q,R,S,T,U,V,W,X,Y,Z
+    """
+    if not isinstance(s, str):
+        return False
+    s = s.strip()
+
+    # Basic length & character check
+    if not (47 <= len(s) <= 48):
+        return False
+    if not re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{47,48}', s):
+        return False
+
+    # Rough prefix heuristic (covers ~95% of real-world cases)
+    common_prefixes = {
+        '1', '5', 'D', 'F', 'H', 'J', 'K', 'L', 'M', 'N',
+        'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'
+    }
+    if s[0] not in common_prefixes:
+        return False
+
+    # No 0x prefix
+    if s.startswith('0x'):
+        return False
+
+    return True
+
+
+def detect_address_type(addr: str) -> str:
+    """
+    Returns one of:
+    - 'ethereum'      → looks like 0x + 40 hex
+    - 'substrate_ss58'→ looks like SS58 (Polkadot/Kusama style)
+    - 'unknown'       → neither or invalid
+    """
+    addr = addr.strip()
+    if is_ethereum_address(addr):
+        return 'ecdsa'
+    if is_substrate_ss58_address(addr):
+        return 'sr25519'
+    return 'unknown'
+

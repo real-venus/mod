@@ -41,8 +41,7 @@ class PM2:
         name = name or mod
         
         # Create the Python script that will be executed
-        script_path = self.create_serve_script(
-            name=name, 
+        script_path = self.create_script(
             mod=mod, 
             port=port,
             key=key,
@@ -54,6 +53,8 @@ class PM2:
         dirpath = m.dirpath(mod)
         cwd = cwd or dirpath
         self.registry.reg(name, f'http://0.0.0.0:{port}')
+        self.kill(name, remove_script=False) if self.exists(name) else None
+        self.rm_logs(name)
         return self.start_script(
             name=name, 
             script_path=script_path, 
@@ -61,9 +62,33 @@ class PM2:
             env=env, 
             interpreter=interpreter
         )
+    def rm_logs(self, name: str) -> Dict[str, str]:
+        """Remove PM2 log files for a given process name."""
+        logs = self.pm2_logs_path(name)
+        removed_files = []
+        for log_type, log_path in logs.items():
+            if os.path.exists(log_path):
+                os.remove(log_path)
+                removed_files.append(log_path)
+                m.print(f"Removed {log_type} log: {log_path}", color='yellow')
+            else:
+                m.print(f"{log_type} log not found: {log_path}", color='red')
+        return {
+            'status': 'logs_removed' if removed_files else 'no_logs_found',
+            'name': name,
+            'removed_files': removed_files
+        }
+    
+    def pm2_logs_path(self, name: str) -> Dict[str, str]:
+        """Get the paths to PM2 log files for a given process name."""
+        pm2_home = os.path.expanduser(os.environ.get('PM2_HOME', '~/.pm2'))
+        logs_dir = os.path.join(pm2_home, 'logs')
+        return {
+            'out_log': os.path.join(logs_dir, f'{name}-out.log'),
+            'error_log': os.path.join(logs_dir, f'{name}-error.log')
+        }
 
-    def create_serve_script(self, 
-                           name: str, 
+    def create_script(self, 
                            mod: str, 
                            port: Optional[int] = None,
                            key: Optional[str] = None,
@@ -74,7 +99,7 @@ class PM2:
         Returns:
             Path to the created script file
         """
-        script_path = os.path.join(self.scripts_path, f'{name}_serve.py')
+        script_path = os.path.join(self.scripts_path, f'{mod}_serve.py')
         
         # Build the params for the serve call
         serve_kwargs = ['remote=False']  # Critical: prevent recursion
@@ -85,7 +110,7 @@ class PM2:
             serve_kwargs.append(f'key={repr(key)}')
         if extra_params:
             for k, v in extra_params.items():
-                if k not in ['remote', 'daemon', 'd', 'mod', 'name']:
+                if k not in ['remote', 'daemon', 'd', 'mod']:
                     if isinstance(v, str):
                         serve_kwargs.append(f'{k}={repr(v)}')
                     else:
@@ -93,9 +118,9 @@ class PM2:
         
         kwargs_str = ', '.join(serve_kwargs)
         
-        script_content = f'''#!/usr/bin/env python3
+        script_content = f'''
 """
-Auto-generated serve script for {name}
+Auto-generated serve script
 Module: {mod}
 Generated: {datetime.now().isoformat()}
 """
@@ -248,6 +273,7 @@ if __name__ == "__main__":
                 if os.path.exists(script_path):
                     os.remove(script_path)
                     m.print(f"Removed script: {script_path}", color='yellow')
+        self.rm_logs(name)
         
         return {
             'status': 'deleted' if success else 'error',

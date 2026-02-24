@@ -74,7 +74,13 @@ class Auth:
 
     generate = forward = headers
 
-    def verify(self, headers: str) -> dict:
+
+    def set_crypto_type(self, crypto_type):
+        self.crypto_type = crypto_type
+        self.key = m.key(key=self.key, crypto_type=crypto_type)
+
+    def verify(self, headers: str, crypto_type=None) -> dict:
+        self.crypto_type = crypto_type or self.crypto_type
         if isinstance(headers, str):
             headers = json.loads(self._base64url_decode(headers))
         if 'Token' in headers:

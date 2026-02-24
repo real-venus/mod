@@ -67,74 +67,70 @@ export class TokenExpiryHandler {
     }
   }
 
+  private hasNotifiedExpiry = false;
+
   /**
    * Handle expired token based on wallet mode
    */
   private handleExpiredToken(): void {
-    // Always attempt auto-refresh for all wallet modes
-    this.autoRefreshToken();
+    const walletMode = localStorage.getItem('wallet_mode') || 'local';
+
+    if (walletMode === 'local') {
+      this.autoRefreshToken();
+    } else {
+      // Non-local wallets: don't prompt signing, just flag expiry once
+      if (typeof window !== 'undefined') {
+        (window as any).__tokenExpired = true;
+      }
+      if (!this.hasNotifiedExpiry) {
+        this.hasNotifiedExpiry = true;
+        toast.warning('Token expired — use the TOKEN button in your wallet to refresh', {
+          toastId: 'token-expired',
+          position: 'top-center',
+          autoClose: 10000,
+          closeOnClick: true,
+          closeButton: true,
+        });
+      }
+      this.stopMonitoring();
+    }
   }
 
   /**
-   * Auto-refresh token for all wallet modes
+   * Auto-refresh token (local wallets only)
    */
   private async autoRefreshToken(): Promise<void> {
     try {
       const walletAddress = localStorage.getItem('wallet_address');
-      const walletMode = localStorage.getItem('wallet_mode') || 'local';
 
-      console.log(`Auto-refreshing token for ${walletMode} wallet...`);
-      const newToken = await this.auth.token('', walletAddress, walletMode);
+      const newToken = await this.auth.token('', walletAddress, 'local');
       localStorage.setItem('wallet_token', newToken);
 
-      console.log(`✅ Token auto-refreshed successfully for ${walletMode} wallet`);
-
-      // Update the client with the new token
       if (typeof window !== 'undefined' && (window as any).__userContextClient) {
         (window as any).__userContextClient.token = newToken;
       }
 
-      // Clear expired flag
       if (typeof window !== 'undefined') {
         (window as any).__tokenExpired = false;
       }
-
-      // Show success notification
-      toast.success('🔐 Session refreshed automatically', {
-        position: 'bottom-right',
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
+      this.hasNotifiedExpiry = false;
     } catch (error) {
       console.error('Failed to auto-refresh token:', error);
 
-      // Set global expired flag for UI to display warning
       if (typeof window !== 'undefined') {
         (window as any).__tokenExpired = true;
       }
 
-      // Show persistent warning notification
-      toast.warning('⚠️ Token Expired - Please refresh using the TOKEN button in your wallet', {
-        position: 'top-center',
-        autoClose: false,
-        closeOnClick: false,
-        closeButton: true,
-        hideProgressBar: false,
-        pauseOnHover: true,
-        draggable: false,
-        style: {
-          background: '#854d0e',
-          border: '3px solid #facc15',
-          fontSize: '16px',
-          fontWeight: 'bold',
-        },
-      });
-
-      // Don't force sign-in popup - just notify
-      console.log('Token expired - user should manually refresh');
+      if (!this.hasNotifiedExpiry) {
+        this.hasNotifiedExpiry = true;
+        toast.warning('Token expired — use the TOKEN button in your wallet to refresh', {
+          toastId: 'token-expired',
+          position: 'top-center',
+          autoClose: 10000,
+          closeOnClick: true,
+          closeButton: true,
+        });
+      }
     }
   }
 

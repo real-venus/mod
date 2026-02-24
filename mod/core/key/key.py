@@ -34,6 +34,7 @@ from .utils import (extract_derive_path,
                      mnemonic_to_ecdsa_private_key, 
                      ecdsa_sign, 
                      str2bytes,
+                     detect_address_type,
                      ecdsa_verify,
                     is_int)
 
@@ -42,7 +43,7 @@ class Key:
 
 
     # mod dependencies
-
+    
     glob = m.glob
     put = m.put
     get = m.get
@@ -50,7 +51,13 @@ class Key:
     hash = m.hash
     time = m.time
     crypto_type_map = {'ed25519': 0, 'sr25519': 1, 'ecdsa': 2}
-    crypto_type_aliases = {'eth': 'ecdsa', 'secp256k1': 'ecdsa'}
+    crypto_type_aliases = {'eth': 'ecdsa',
+                           'secp256k1': 'ecdsa', 
+                           'sub': 'sr25519', 
+                           'substrate':
+                            'sr25519', 
+                             'dot': 'sr25519', 
+                             }
     crypto_types = list(crypto_type_map.keys())
     reverse_crypto_type_map = {v:k for k,v in crypto_type_map.items()}
     default_key= 'mod'
@@ -63,20 +70,12 @@ class Key:
                  private_key: Union[bytes, str] = None, 
                  mnemonic : Optional[str] = None,
                  crypto_type: int = crypto_type,
-                 path:str = None,
-                 storage_path = None,
+                 path:str = 'mod',
                  **kwargs): 
         
-        self.set_key(private_key=private_key, crypto_type=crypto_type, mnemonic=mnemonic, **kwargs)
+        self.set_key(private_key=private_key, crypto_type=crypto_type, mnemonic=mnemonic, path=path, **kwargs)
 
-
-
-
-
-
-
-
-    def set_key(self, private_key: Union[bytes, str] ,  crypto_type: int , mnemonic:Optional[str] = None, **kwargs):
+    def set_key(self, private_key: Union[bytes, str] ,  crypto_type: int , mnemonic:Optional[str] = None,  **kwargs):
         """
         Allows generation of Keys from a variety of input combination, such as a public/private key combination,
         mnemonic or URI containing soft and hard derivation paths. With these Keys data can be signed and verified
@@ -87,6 +86,7 @@ class Key:
         crypto_type: Use "sr25519" or "ed25519"cryptography for generating the Key
         mnemonic [optional]: Mnemonic phrase to generate the Key 
         """
+
         crypto_type = self.get_crypto_type(crypto_type)
         if  mnemonic:
             private_key = self.from_mnemonic(mnemonic, crypto_type=crypto_type).private_key
@@ -131,7 +131,6 @@ class Key:
             crypto_type = self.crypto_type
         if crypto_type in self.crypto_type_aliases:
             crypto_type = self.crypto_type_aliases[crypto_type]
-        
         if is_int(crypto_type):
             crypto_type = self.reverse_crypto_type_map[int(crypto_type)]
         elif isinstance(crypto_type, str):
@@ -190,12 +189,13 @@ class Key:
                 create_if_not_exists:bool = True, 
                 prompt_password:bool = False,
                 crypto_type=None, 
+                type=None,
                 **kwargs):
         if hasattr(key, 'address'):
             return key
         
         path = key
-        crypto_type = self.get_crypto_type(crypto_type)
+        crypto_type = self.get_crypto_type(type or crypto_type)
 
         if hasattr(path, 'address'):
             return path
@@ -216,6 +216,9 @@ class Key:
         if isinstance(key_json, str):
             key_json = json.loads(key_json)
         return self.from_json(key_json, crypto_type=crypto_type)
+
+    def detect_address_type(self, address):
+        return self.get_crypto_type(self.detect_address_type(address))
 
     def get_keys(self, search=None, clean_failed_keys=False):
         keys = {}
@@ -552,6 +555,14 @@ class Key:
             raise ValueError(f'crypto_type "{crypto_type}" not supported')
 
         return public_key
+    
+    def address2keytype(self, address):
+        if is_valid_ss58_address(address):
+            return 'sr25519'
+        elif web3.Web3.isAddress(address):
+            return 'ecdsa'
+        else:
+            raise ValueError(f'address {address} is not a valid ss58 or ethereum address')
 
     def sign(self, data: Union[ScaleBytes, bytes, str], mode='bytes', key=None, crypto_type=None) -> bytes:
         """
@@ -609,6 +620,7 @@ class Key:
         signature: signature in bytes or hex string format
         public_key: public key in bytes or hex string format
         """
+
         if isinstance(data, dict) and  all(k in data for k in ['data','signature', 'address']):
             data, signature, address = data['data'], data['signature'], data['address']
         data = self.encode_signature_data(data)
@@ -743,7 +755,7 @@ class Key:
     def __str__(self):
         crypto_type = self.get_crypto_type(self.crypto_type)
         name = self.key_name(self.address, crypto_type=crypto_type)
-        return  f'Key(address={self.address} type={crypto_type})'
+        return  f'Key({self.address}, type={crypto_type})'
         
     def is_encrypted(self, data):
         if isinstance(data, str):
@@ -759,3 +771,4 @@ class Key:
     @property
     def multiaddress(self):
         return self.crypto_type_name + '/' + self.address
+    

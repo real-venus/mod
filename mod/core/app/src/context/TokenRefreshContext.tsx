@@ -18,13 +18,16 @@ export const TokenRefreshProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   useEffect(() => {
     if (user) {
+      const walletMode = localStorage.getItem('wallet_mode') || 'local';
+
+      // Only auto-refresh for local wallets
+      if (walletMode !== 'local') return;
+
       const auth = new Auth();
       const manager = new TokenRefreshManager(
         auth,
         async (newToken) => {
-          // Update client with new token
           localStorage.setItem('wallet_token', newToken);
-          // Re-sign in to update user context
           await signIn();
         },
         3600000 // 1 hour

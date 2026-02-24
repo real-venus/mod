@@ -17,7 +17,7 @@ from typing import *
 class Mod: 
 
     orbits = [ 'core',  'inner', 'outer']
-
+    name = 'mod'
     orbit2depth = {
         'inner': 10,
         'outer': 5,
@@ -915,11 +915,8 @@ class Mod:
     def info(self, 
             mod:str='mod',  # the mod to get the info of
             schema = False, # whether to include the schema of the mod
-            url = True, # whether to include the url of the mod
-            desc = False, # whether to include the description of the mod
             key = None, # the key to sign the info with
             public=False,
-            fns=None,
             **kwargs):
         """
         Get the info of a mod, including its schema, key, cid, and code if specified.
@@ -929,12 +926,15 @@ class Mod:
         api = self._api         
         if not api.exists(mod, key=key):
             api.reg(mod=mod, key=key, public=public)
-        return api.mod(mod=mod, schema=schema, url=url, desc=desc, key=key, fns=fns,  **kwargs)
+        return api.mod(mod=mod, schema=schema,  key=key,  **kwargs)
 
     card = info 
 
     def desc(self, mod='mod', **kwargs):
         return self.fn('desc/')(mod, **kwargs)
+    
+    def txs(self, **kwargs):
+        return self.df(self.call('api/txs', df=0, **kwargs))
 
     def verify_info(self, info:Union[str, dict]=None, **kwargs) -> bool:
         """
@@ -1243,8 +1243,8 @@ class Mod:
             mod_exists = os.path.exists(mod_path) and os.path.isdir(mod_path)
         return mod_exists
 
-    def logs(self, *args, **kwargs):
-        return self.fn('server/logs')(*args, **kwargs)
+    def logs(self, mod, pm='pm2',  **kwargs):
+        return self.fn(f'{pm}/logs')(mod, **kwargs)
 
     def cwd(self, mod=None):
         return self.dirpath(mod) if mod else os.getcwd() 
@@ -1550,8 +1550,8 @@ class Mod:
     def urls(self, *args, **kwargs):
         return self.fn('server/urls')(*args, **kwargs)
 
-    def servers(self, *args, **kwargs):
-        return self.fn('server/servers')(*args, **kwargs)
+    def servers(self, *args,  pm='pm2', **kwargs):
+        return self.fn(f'{pm}/servers')(*args, **kwargs)
 
     executor_cache = {}
     def executor(self,  max_workers=8, mode='thread', cache=True):
@@ -1569,12 +1569,12 @@ class Mod:
             self.executor_cache[path] = executor
         return executor
 
-    def server_exists(self, server:str = 'mod', *args, **kwargs):
-        return  self.fn('pm.docker/exists')(server, *args, **kwargs)
+    def server_exists(self, server:str = 'mod', pm='pm2', *args, **kwargs):
+        return  self.fn(f'{pm}/exists')(server, *args, **kwargs)
 
-    def ensure_server(self, server:str = 'mod', *args, **kwargs):
-        if not self.server_exists(server):
-            return self.serve(server, *args, **kwargs)
+    def ensure_server(self, server:str = 'mod', pm='pm2', *args, **kwargs):
+        if not self.server_exists(server, pm=pm, *args, **kwargs):
+            return self.serve(server, pm=pm, *args, **kwargs)
         return {'msg': f'Server {server} already running'}
 
     def namespace(self, *args, **kwargs):

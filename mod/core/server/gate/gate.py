@@ -13,7 +13,7 @@ print = m.print
 
 class Gate:
 
-    def __init__(self, path = '~/.mod/server', auth='auth.base',mod='api', paywall=None, **_kwargs):
+    def __init__(self, path = '~/.mod/server', auth='auth.base',mod='api', paywall=None, serializer='serializer', **_kwargs):
         """
         Initialize the Gate class
         params:
@@ -24,6 +24,7 @@ class Gate:
         self.store = m.mod('store')(path)
         self.auth = m.mod(auth)()
         self.paywall = paywall
+        self.serializer = m.mod(serializer)()
         self.roles_path = self.store.get_path('roles')
         if len(self.roles()) < 2:
             self.ensure_role_map()
@@ -37,7 +38,7 @@ class Gate:
         mod = mod or self.mod
         assert not isinstance(fn, str) or fn != '', "Function name cannot be empty"
         print(f'Gate forwarding request to function: {fn}', color='green')
-        info = mod.info()
+        info = mod.info if isinstance(mod.info, dict) else mod.info()
         headers = self.auth.verify(headers)
         print(f'Headers after auth verification: {headers}', color='green')
         role = self.get_role(headers['key'])
@@ -56,6 +57,8 @@ class Gate:
                 return paywall_result
         fn_obj = self.get_fn_obj(fn, mod=mod)
         result = fn_obj(**params) if callable(fn_obj) else fn_obj
+        if isinstance(result, bytes):
+            result = result.decode('utf-8')
         return result
 
 

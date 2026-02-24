@@ -574,6 +574,9 @@ class PM:
         except Exception as e:
             m.print(f"Error listing containers: {e}", color='red')
             return []
+        
+    def servers(self, search=None,  **kwargs) -> List[str]:
+        return self.ps(search=search)
 
     def exec(self, name: str, cmd: str, *extra_cmd, **cmd_kwargs) -> str:
         """

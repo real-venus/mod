@@ -17,18 +17,27 @@ class  Api:
     folder_path = m.abspath('~/.mod/api')
     threads = {}
 
-    def __init__(self,  key=None, store = 'ipfs', chain='chain', router='router', auth='auth.base'):
+    def __init__(self,  key=None, store = 'ipfs', auth='auth.base'):
         self.store = m.mod(store)()
         self.key = m.key(key)
         self.auth = m.mod(auth)()
         self.registry_path = self.path('registry.json')
-        self.set_router(router=router)
         self.client = m.mod('server.client')()
+        
 
-    def set_router(self, router, fns = ['call', 'txs', 'sync_info']):
-        self.router = m.mod(router)()
-        for fn in fns:
-            setattr(self, fn, getattr(self.router, fn))
+
+
+    @property
+    def router(self):
+        if not hasattr(self, '_router'):
+            self._router = m.mod('router')()
+        return self._router
+    
+    def call( self, fn, params, **kwargs):
+        return self.router.call(fn, params, **kwargs)
+    
+    def txs(self,  *args, **kwargs):
+        return self.router.txs(*args,  **kwargs)
 
     @property
     def config(self):
@@ -37,19 +46,6 @@ class  Api:
     def addy(self, key=None):
         return self.key.address or m.addy(key)
 
-    _store = 'ipfs'
-    @property
-    def store(self):
-        if isinstance(self._store, str):
-            self._store = m.mod(self._store)()
-        return self._store
-    
-    @store.setter
-    def store(self, store):
-        # set the store mod
-        self._store = store or self._store
-        return {'store': self._store}
-            
 
     def exists(self, mod: m.Mod='store', key=None) -> bool:
         """
@@ -64,6 +60,7 @@ class  Api:
         get the mod Mod from IPFS.
         """
         cid = self.cid(mod=mod, key=key)
+  
         if not cid:
             return {}
         mod_info = self.get(cid)
@@ -198,7 +195,7 @@ class  Api:
     
     def reg_info(self, mod:dict):
         mod = self.get(mod) if isinstance(mod, str) else mod
-        cid = mod['cid'] if 'cid' in mod else self.add(mod)
+        cid = mod['cid'] if 'cid' in mod else self.put(mod)
         registry = m.get(self.registry_path, {})
         registry[ mod['key']]  = registry.get( mod['key'], {})
         registry[ mod['key']][mod['name']] = cid
@@ -207,7 +204,7 @@ class  Api:
         return cid
 
     def put(self, data):
-        return self.store.add(data)
+        return self.store.put(data)
     add = put
     
     def get(self, cid: str) -> Any:
@@ -218,19 +215,16 @@ class  Api:
         mod = mod.lower()
         content = m.content(mod)
         for file,content in content.items():
-            cid = self.add(content)
+            cid = self.put(content)
             file2cid[file] = cid
-        return self.add({'data': self.add(file2cid), 'comment': comment})
+        return self.put({'data': self.put(file2cid), 'comment': comment})
     
     def wrap(self, mod: str):
         return m.fn('wrap/forward')(mod)
     
     def add_schema(self, mod: str='store', public=True) -> str:
         schema = self.wrap(mod)
-        try:
-            return self.add(schema)
-        except Exception as e:
-            return self.add({})
+        return self.put(schema)
 
     def get_url(self, url: str) -> str:
         url = m.namespace().get(url, None)
@@ -310,19 +304,9 @@ class  Api:
         current_time = m.time()
         key = self.key_address(key)
         prev_info = self.mod(mod, key=key)
-        schema = self.add_schema(mod=mod, public=public)
-        content_cid = self.add_content(mod=mod, comment=comment)
-        prev_content_cid = prev_info.get('content', None)
-
-        if len(schema) == 0:
-            print(f'Warning: Schema for mod {mod} is empty. Please ensure the mod has a valid schema for better compatibility and functionality.', color='yellow')
-        schema = m.fn('wrap/forward')(mod)
-        if content_cid == str(prev_content_cid):
-            prev_info.pop('cid', None)
-            return prev_info  # No changes, return existing info
         return {
-                'content': content_cid,
-                'schema': schema,
+                'content':  self.add_content(mod=mod, comment=comment),
+                'schema':  self.add_schema(mod=mod, public=public),
                 'prev': prev_info.get('cid', None), # previous state
                 'created':  prev_info.get('created', current_time),  # created timestamp
                 'updated': current_time, 
@@ -420,7 +404,7 @@ class  Api:
         """
         return self.folder_path + '/' + path
 
-    def mods(self, search:str=None,  key='all', n:int=None, page:int=None, **kwargs) -> List[Dict[str, Any]]:
+    def mods(self, search:str=None,  key='all', n:int=None, page:int=None, page_size=10, **kwargs) -> List[Dict[str, Any]]:
         """
         List all registered mods in IPFS.
         Returns:
@@ -438,10 +422,12 @@ class  Api:
 
         if search != None:
             mods = [item for item in mods if search in item['name']]
-        if page != None and n != None:
-            start = page * n
-            end = start + n
+        if page != None and page_size != None:
+            start = page * page_size
+            end = start + page_size
             mods = mods[start:end]
+        if n != None:
+            mods = mods[:n]
         return mods
 
     @property
@@ -729,13 +715,7 @@ class  Api:
         del self.thread
 
     def namespace(self, *args, **kwargs):
-        mods = self.mods(*args, **kwargs)
-        namespace = {}
-        for mod in mods:
-            url = mod.get('url', None)
-            if url is not None:
-                namespace[mod['name']] = url
-        return namespace
+        return m.fn('server/namespace')()
 
     def n(self, *args, **kwargs):
         return len(self.mods(*args, **kwargs))

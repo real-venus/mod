@@ -17,11 +17,18 @@ export class TokenRefreshManager {
   }
 
   /**
-   * Start automatic token refresh
+   * Start automatic token refresh (only for local wallets)
    */
   public startAutoRefresh(): void {
     this.stopAutoRefresh();
-    
+
+    const walletMode = typeof localStorage !== 'undefined'
+      ? localStorage.getItem('wallet_mode')
+      : 'local';
+
+    // Don't auto-refresh non-local wallets — they require manual signing
+    if (walletMode && walletMode !== 'local') return;
+
     this.refreshTimer = setInterval(async () => {
       await this.refreshToken();
     }, this.refreshInterval);

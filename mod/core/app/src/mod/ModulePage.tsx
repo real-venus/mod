@@ -59,7 +59,7 @@ export default function ModulePage() {
           return
         }
         console.log('Fetching mod:', modName, modKey)
-        const data = await client.call('mod', { mod: modName, key: modKey, expand: true })
+        const data = await client.call('mod', { mod: modName, key: modKey, expand: true , schema: true })
         console.log('Fetched mod data:', data)
         if (user?.key && data.key === user.key) {
           setMyMod(true)

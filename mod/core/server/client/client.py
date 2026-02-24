@@ -66,11 +66,14 @@ class Client:
                 result = response.json()
             elif 'text/plain' in response.headers.get('Content-Type', ''):
                 result = response.text
+
             else:
                 result = response.content
                 if response.status_code != 200:
                     raise Exception(result)
-                    
+
+        if isinstance(result, bytes):
+            result = result.decode('utf-8')            
         return result
 
     forward = call

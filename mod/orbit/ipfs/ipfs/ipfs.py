@@ -96,7 +96,7 @@ class  IpfsClient:
     def session(self):
         return self.sessions[self.url]
     
-    def set_conn(self, url: str ,  host_options = [ '0.0.0.0', node_name], timeout=1): 
+    def set_conn(self, url: str ,  host_options = [ '127.0.0.1', '0.0.0.0', node_name], timeout=1): 
         t0 = time.time()
         for host in host_options:
             _url = str(url or f"http://{host}:5001/api/v0")
@@ -110,14 +110,13 @@ class  IpfsClient:
                     self.url = _url
                     self.sessions[_url] = requests.Session()
                     self.id()
+                    print(f"Connected to IPFS node at {self.url}" , self.put('fam'))
                     break
                 except Exception as e: 
                     self.sessions.pop(_url, None)
                     print(f"Could not connect to IPFS node at {_url}, trying next option {m.detailed_error(e)}.")
                     pass
         t1 = time.time()
-        print(f"Connection {self.url} took {t1 - t0:.2f} seconds.")
-
         return self.url
     
     def add_file(self, file_path: str) -> Dict[str, Any]:
@@ -140,7 +139,7 @@ class  IpfsClient:
             response.raise_for_status()
             return response.json()
 
-    def add(self, data: Dict[str, Any] = None, pin=True) -> Dict[str, Any]:
+    def put(self, data: Dict[str, Any] = None, pin=True) -> Dict[str, Any]:
         """Add a JSON object to IPFS.
         
         Args:
@@ -158,7 +157,7 @@ class  IpfsClient:
         if pin:
             self.pin_add(cid)
         return cid
-    put = add
+    add = put
     def rm(self, cid: str) -> Dict[str, Any]:
         """Remove a JSON object from IPFS by its hash.
         
@@ -426,8 +425,9 @@ class  IpfsClient:
         # if
         # Start ipfs daemon via pm2
         # script
+
         path = self.write_script('start_ipfs.sh', ['#!/bin/bash', 'ipfs daemon'])
-        cmd = ['pm2', 'start', path, '--name', self.node_name, '--no-autorestart']
+        cmd = ['pm2', 'start', path, '--name', self.node_name, '--no-autorestart', '-f']
         print(f"Starting IPFS node via pm2: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
