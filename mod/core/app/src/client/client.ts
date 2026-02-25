@@ -22,7 +22,9 @@ export class Client {
   public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, headers: any = {}, timeout: number = 30000, onCancel?: () => void, wait: boolean = true): Promise<any> {
     
     // if / in fn, treat as path and do not append to url
+    let isPathCall = false;
     if (fn.includes('/')) {
+      isPathCall = true;
       params = {fn: fn, params: params, token: this.token || '', wait: wait, timeout: timeout};
       fn = 'call';
     }
@@ -90,6 +92,9 @@ export class Client {
         if (result && result.success === false) {
           let error_msg = JSON.stringify(result);
           throw new Error(`API Error: ${error_msg}`);
+        }
+        if (isPathCall && typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('mod:tx'));
         }
         return result;
       }

@@ -46,6 +46,15 @@ export function useTransactions(userKey: string | undefined, client: any) {
     if (userKey) fetchUserTransactions()
   }, [userKey])
 
+  // Auto-refresh when a path-based client.call completes
+  useEffect(() => {
+    const handler = () => {
+      if (userKey) fetchUserTransactions()
+    }
+    window.addEventListener('mod:tx', handler)
+    return () => window.removeEventListener('mod:tx', handler)
+  }, [userKey, client])
+
   return {
     userTransactions, totalCost24h, isLoadingTxs,
     txsStatusFilter, setTxsStatusFilter,

@@ -19,11 +19,12 @@ class Router:
         'sync_ious': 60,
     }
 
-    def __init__(self, store='ipfs', key=None, auth='auth', chain='chain'):
+    def __init__(self, store='ipfs', key=None, auth='auth', cache='router.cache', chain='chain',):
         self.store = store
         self.key = m.key(key )
         self.tasks_path = self.path('tasks')
         self.chain = m.mod(chain)()
+        self.cache = m.mod(cache)()
         self.auth = m.mod(auth)()
         self.threads['sync'] = m.thread(self.sync_loop)
 
@@ -40,14 +41,39 @@ class Router:
         Args:
         """
         return self.folder_path + '/' + path
-
+    
     def call(self , 
+                # function call params
                 fn: str = 'api/edit',  
                 params: Dict[str, Any] = {}, 
                 token = None, 
-                wait=False,
+                wait=True,
                 owner = None,
-                return_cid = False,
+                timeout=1000, 
+                # cache params
+                update = False, 
+                max_age = 3600,
+                # extra params for (run)
+                **extra_params) -> Any:
+        params = {
+            'fn': fn,
+            'params': params, 
+            'token': token,
+            'owner': owner,
+            'timeout': timeout,
+            'wait' : wait,
+            **extra_params
+
+        }
+        return self.cache.forward(fn=self.run, params=params, update=update, max_age=max_age)
+        
+
+    def run(self , 
+                fn: str = 'api/edit',  
+                params: Dict[str, Any] = {}, 
+                token = None, 
+                wait=True,
+                owner = None,
                 timeout=1000, 
                 **extra_params) -> Any:
         """
@@ -60,6 +86,8 @@ class Router:
         Returns:
             Result of the function task
         """
+        print(f'Calling function: {fn} with params: {params} and extra_params: {extra_params}')
+        params = {**params, **extra_params}
         task = self.task_data(fn=fn, params=params, timeout=timeout)
         task['key'] =  self.auth.verify(token)['key']
         task['token'] = token
@@ -71,8 +99,6 @@ class Router:
         self.cid2future[task['cid']] = future
         if wait:
             result =  future.result()
-            if return_cid:
-                return result
             return self.store.get(self.store.get(result).get('result', None))
         return task
 
@@ -449,4 +475,6 @@ class Router:
 
         return True
     
+
+
 

@@ -432,7 +432,7 @@ class Mod:
 
         return self.format_balance(balance, token=token.upper())
 
-    def balances(self, address: str=None, tokens: list=None, token:str='market', from_block:int=0, to_block:int=None, weeks:int=2) -> dict:
+    def balances(self, address: str, tokens: list=None, timeout=30) -> dict:
         """Get balances for a single address across multiple tokens, or all holders for a single token.
 
         Args:
@@ -447,29 +447,26 @@ class Mod:
             Dictionary mapping token symbols to balances (if address provided)
             OR dictionary mapping addresses to balances (if getting all holders for a token)
         """
-        if address:
-            # Get balances for a single address across multiple tokens
-            if tokens is None:
-                tokens = ['ETH', 'USDC', 'USDT', 'MARKET']
-            future2token = {}
-            balances = {}
-            for tok in tokens:
-                future = m.submit(self.balance, dict(address=address, token=tok))
-                future2token[future] = tok
-            for future in m.as_completed(future2token.keys()):
-                tok = future2token[future]
-                try:
-                    bal = future.result()
-                    balances[tok] = bal
-                except Exception as e:
-                    m.print(f'Error getting balance for {tok}: {e}', color='red')
-                    balances[tok] = None
 
- 
-            return balances
-        else:
-            # Get all holders for a single token by scanning Transfer events
-            return self.scan_token_holders(token=token, from_block=from_block, to_block=to_block, weeks=weeks)
+        # Get balances for a single address across multiple tokens
+        if tokens is None:
+            tokens = ['ETH', 'USDC', 'USDT', 'MARKET', 'NativeToken']
+        future2token = {}
+        balances = {}
+        for tok in tokens:
+            future = m.submit(self.balance, dict(address=address, token=tok), timeout=timeout)
+            future2token[future] = tok
+        for future in m.as_completed(future2token.keys(), timeout=timeout):
+            tok = future2token[future]
+            try:
+                bal = future.result()
+                balances[tok] = bal
+            except Exception as e:
+                m.print(f'Error getting balance for {tok}: {e}', color='red')
+                balances[tok] = None
+
+
+        return balances
 
     def scan_token_holders(self, token:str='market', from_block:int=0, to_block:int=None, weeks:int=2, block_time:int=2, batch_size:int=10000) -> dict:
         """Scan blockchain for all token holders by analyzing Transfer events.
@@ -524,8 +521,8 @@ class Mod:
 
                 # Transfer event signature: Transfer(address indexed from, address indexed to, uint256 value)
                 transfer_filter = token_contract.events.Transfer.create_filter(
-                    fromBlock=current_block,
-                    toBlock=batch_end
+                    from_block=current_block,
+                    to_block=batch_end
                 )
 
                 # Get events for this batch

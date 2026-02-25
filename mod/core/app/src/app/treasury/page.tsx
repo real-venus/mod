@@ -3,20 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   BuildingLibraryIcon,
-  ArrowTrendingUpIcon,
-  BanknotesIcon,
-  ChartBarIcon,
-  ClockIcon,
-  CurrencyDollarIcon,
   ShieldCheckIcon,
-  Cog6ToothIcon,
-  ArrowDownTrayIcon,
-  ArrowUpTrayIcon,
-  ExclamationTriangleIcon,
-  UserGroupIcon,
-  UserIcon,
-  KeyIcon,
   ArrowPathIcon,
+  WalletIcon,
 } from '@heroicons/react/24/outline'
 import { ethers, EventLog } from 'ethers'
 import TokenABI from '@/contracts/token/Token.sol/Token.json'
@@ -24,7 +13,7 @@ import MarketABI from '@/contracts/market/Market.sol/Market.json'
 import modConfig from '@/config.json'
 import { CopyButton } from '@/ui/CopyButton'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { userContext } from '@/context'
 import { Treasury, type TreasuryInfo, type HolderInfo, type TokenBalance } from '@/network/Treasury'
 import { isSafeContract, getSafeOwners, getSafeThreshold, isUserSafeOwner, proposeSafeTransaction, type SafeInfo } from '@/network/safe'
@@ -33,13 +22,6 @@ import { toast } from 'react-toastify'
 export const dynamic = 'force-dynamic'
 
 type Tab = 'overview' | 'deposits' | 'admin'
-
-interface RevenueDataPoint {
-  timestamp: number
-  date: string
-  revenue: number
-  totalBalance: number
-}
 
 interface DepositEvent {
   funder: string
@@ -50,34 +32,10 @@ interface DepositEvent {
   blockNumber: number
 }
 
-// ── Animated number display ──
-function AnimatedValue({ value, prefix = '', suffix = '', loading = false }: {
-  value: string; prefix?: string; suffix?: string; loading?: boolean
-}) {
-  if (loading) return <span className="animate-pulse text-white/40">...</span>
-  return <span>{prefix}{value}{suffix}</span>
-}
-
-// ── Glow card wrapper ──
-function GlowCard({ children, color, delay = 0, className = '' }: {
-  children: React.ReactNode; color: string; delay?: number; className?: string
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay, duration: 0.4, ease: 'easeOut' }}
-      className={`relative group ${className}`}
-    >
-      <div
-        className="absolute -inset-[1px] rounded-xl opacity-40 group-hover:opacity-60 blur-sm transition-opacity duration-500"
-        style={{ background: `linear-gradient(135deg, ${color}40, transparent 60%)` }}
-      />
-      <div className="relative bg-black/80 border border-white/[0.08] rounded-xl p-6 backdrop-blur-xl h-full">
-        {children}
-      </div>
-    </motion.div>
-  )
+function fmt(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`
+  return `$${n.toFixed(2)}`
 }
 
 export default function TreasuryPage() {
@@ -85,43 +43,33 @@ export default function TreasuryPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [treasury] = useState(() => new Treasury())
 
-  // ── Overview state ──
+  // ── State ──
   const [loading, setLoading] = useState(true)
   const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([])
   const [treasuryInfo, setTreasuryInfo] = useState<TreasuryInfo | null>(null)
   const [governanceToken, setGovernanceToken] = useState('')
   const [tokenGate, setTokenGate] = useState('')
   const [ownerAddress, setOwnerAddress] = useState('')
-  const [revenueHistory, setRevenueHistory] = useState<RevenueDataPoint[]>([])
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
 
-  // ── MOD (NativeToken) state ──
   const [modTokenBalance, setModTokenBalance] = useState<string>('0')
   const [modTokenSupply, setModTokenSupply] = useState<string>('0')
   const [modTokenSymbol, setModTokenSymbol] = useState<string>('MOD')
   const [modTokenDecimals, setModTokenDecimals] = useState<number>(18)
 
-  // ── Market balance state ──
-  const [marketTotalSupply, setMarketTotalSupply] = useState<string>('0')
   const [marketUsdcBalance, setMarketUsdcBalance] = useState<string>('0')
   const [marketUsdtBalance, setMarketUsdtBalance] = useState<string>('0')
-  const [marketFeePercent, setMarketFeePercent] = useState<number>(0)
   const [marketTotalFeesAccrued, setMarketTotalFeesAccrued] = useState<string>('0')
-  const [marketClaimedFees, setMarketClaimedFees] = useState<string>('0')
   const [marketUnclaimedFees, setMarketUnclaimedFees] = useState<string>('0')
-  const [marketTxCount, setMarketTxCount] = useState<number>(0)
 
-  // ── Owner/Safe state ──
   const [isOwner, setIsOwner] = useState(false)
   const [isSafeSigner, setIsSafeSigner] = useState(false)
   const [isSafeOwned, setIsSafeOwned] = useState(false)
   const [safeOwners, setSafeOwners] = useState<string[]>([])
   const [safeThreshold, setSafeThreshold] = useState(0)
 
-  // ── Holder state ──
   const [holderInfo, setHolderInfo] = useState<HolderInfo | null>(null)
 
-  // ── Deposits state ──
   const [deposits, setDeposits] = useState<DepositEvent[]>([])
   const [depositsLoading, setDepositsLoading] = useState(false)
 
@@ -159,15 +107,6 @@ export default function TreasuryPage() {
       setGovernanceToken(govToken)
       setTokenGate(tGate)
       setTokenBalances(balances)
-
-      const totalBal = balances.reduce((s, b) => s + b.balance, 0)
-      const dp: RevenueDataPoint = {
-        timestamp: Date.now(),
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        revenue: totalBal,
-        totalBalance: totalBal,
-      }
-      setRevenueHistory(prev => [...prev, dp].slice(-30))
       setLastUpdate(new Date())
 
       // Fetch MOD (NativeToken) balance held by treasury
@@ -201,8 +140,6 @@ export default function TreasuryPage() {
         const usdtAddr = chainConfig?.contracts?.USDT?.address
         if (marketAddr) {
           const marketContract = new ethers.Contract(marketAddr, MarketABI.abi, provider)
-          const supply = await marketContract.totalSupply()
-          setMarketTotalSupply(ethers.formatUnits(supply, 8))
 
           if (usdcAddr) {
             const usdcContract = new ethers.Contract(usdcAddr, TokenABI.abi, provider)
@@ -217,19 +154,12 @@ export default function TreasuryPage() {
             setMarketUsdtBalance(ethers.formatUnits(usdtBal, Number(usdtDec)))
           }
 
-          // Fetch market statistics
-          const [feePercent, totalFees, claimedFees, unclaimedFees, txId] = await Promise.all([
-            marketContract.TREASURY_FEE_PERCENT(),
+          const [totalFees, unclaimedFees] = await Promise.all([
             marketContract.totalTreasuryFeesAccrued(),
-            marketContract.getClaimedTreasuryFeesUSD(),
             marketContract.getUnclaimedTreasuryFFeesUSD(),
-            marketContract.nextTransactionId(),
           ])
-          setMarketFeePercent(Number(feePercent))
           setMarketTotalFeesAccrued(ethers.formatUnits(totalFees, 8))
-          setMarketClaimedFees(ethers.formatUnits(claimedFees, 8))
           setMarketUnclaimedFees(ethers.formatUnits(unclaimedFees, 8))
-          setMarketTxCount(Number(txId))
         }
       } catch (err) {
         console.warn('Could not fetch Market balances:', err)
@@ -254,7 +184,6 @@ export default function TreasuryPage() {
             setIsSafeSigner(userIsSigner)
           }
         } else {
-          // Check if address itself is a safe (owner is direct but could be a safe too)
           const safeCheck = await isSafeContract(owner, provider)
           setIsSafeOwned(safeCheck)
           if (safeCheck) {
@@ -267,7 +196,6 @@ export default function TreasuryPage() {
           }
         }
 
-        // Holder info
         try {
           const hInfo = await treasury.getHolderInfo(walletAddress)
           setHolderInfo(hInfo)
@@ -376,7 +304,6 @@ export default function TreasuryPage() {
     }
   }
 
-  // ── Holder actions ──
   async function handleWithdrawToken(tokenAddr: string, symbol: string) {
     execAdminAction(`Withdraw ${symbol}`, () => treasury.withdrawToken(walletAddress, tokenAddr))
   }
@@ -392,7 +319,6 @@ export default function TreasuryPage() {
     const decimals = tokenBalances.find(t => t.symbol === fundToken)?.decimals || 18
     const amount = ethers.parseUnits(fundAmount, decimals)
 
-    // Approve first
     execAdminAction('Fund Treasury', async () => {
       if (!window.ethereum) throw new Error('No wallet connected')
       const provider = new ethers.BrowserProvider(window.ethereum)
@@ -420,11 +346,10 @@ export default function TreasuryPage() {
     return tokenBalances.find(t => t.symbol === symbol)?.address || null
   }
 
-  // ── Tab config ──
-  const tabs: { key: Tab; label: string; color: string; show: boolean }[] = [
-    { key: 'overview', label: 'OVERVIEW', color: '#a855f7', show: true },
-    { key: 'deposits', label: 'DEPOSITS', color: '#ec4899', show: true },
-    { key: 'admin', label: 'ADMIN', color: '#f59e0b', show: canAdmin },
+  const tabs: { key: Tab; label: string; show: boolean }[] = [
+    { key: 'overview', label: 'Overview', show: true },
+    { key: 'deposits', label: 'Deposits', show: true },
+    { key: 'admin', label: 'Admin', show: canAdmin },
   ]
 
   if (!treasury.address) {
@@ -437,38 +362,23 @@ export default function TreasuryPage() {
 
   return (
     <div className="min-h-screen bg-black" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-      {/* Background grid effect */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03]"
-        style={{
-          backgroundImage: 'linear-gradient(rgba(168,85,247,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.3) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
-        }}
-      />
-
-      <div className="relative z-10 p-6 md:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="relative z-10 p-4 md:p-8 max-w-4xl mx-auto space-y-6">
 
         {/* ── Header ── */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row md:items-center gap-4"
-        >
-          <div className="flex items-center gap-4 flex-1">
-            <div className="relative">
-              <div className="w-14 h-14 flex items-center justify-center border border-purple-500/50 rounded-xl bg-purple-500/10">
-                <BuildingLibraryIcon className="w-8 h-8 text-purple-400" />
-              </div>
-              <div className="absolute -inset-1 rounded-xl bg-purple-500/20 blur-md -z-10 animate-pulse" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 flex items-center justify-center border border-purple-500/40 rounded-lg bg-purple-500/10">
+              <BuildingLibraryIcon className="w-6 h-6 text-purple-400" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Treasury</h1>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-white/40 font-mono text-sm">
+              <h1 className="text-2xl font-bold text-white">Treasury</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-white/30 font-mono text-xs">
                   {treasury.address.slice(0, 6)}...{treasury.address.slice(-4)}
                 </span>
                 <CopyButton text={treasury.address} size="sm" />
                 {isSafeOwned && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-green-500/15 border border-green-500/30 text-green-400 rounded-sm">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold bg-green-500/15 border border-green-500/30 text-green-400 rounded">
                     <ShieldCheckIcon className="w-3 h-3" /> MULTISIG
                   </span>
                 )}
@@ -476,551 +386,197 @@ export default function TreasuryPage() {
             </div>
           </div>
 
-          {/* Owner badge */}
-          {canAdmin && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-2 px-3 py-2 border rounded-lg"
-              style={{
-                borderColor: 'rgba(245, 158, 11, 0.3)',
-                background: 'rgba(245, 158, 11, 0.06)',
-              }}
-            >
-              <ShieldCheckIcon className="w-4 h-4 text-amber-400" />
-              <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">
-                {isOwner ? 'Owner' : 'Safe Signer'}
-              </span>
-            </motion.div>
-          )}
-
-          {/* Refresh */}
           <button
             onClick={() => fetchData()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 border border-white/10 hover:border-purple-500/30 rounded-lg transition-all text-white/40 hover:text-purple-400 text-xs font-bold uppercase tracking-wider"
+            className="flex items-center gap-1 px-3 py-2 border border-white/10 hover:border-purple-500/30 rounded-lg text-white/40 hover:text-purple-400 text-xs transition-all"
           >
             <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
           </button>
-        </motion.div>
+        </div>
 
-        {/* ── Sub-navigation tabs ── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="flex items-center gap-1 border-b border-white/[0.06] pb-0"
-        >
+        {/* ── Tabs ── */}
+        <div className="flex items-center gap-1 border-b border-white/[0.06]">
           {tabs.filter(t => t.show).map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className="relative px-4 py-3 text-[13px] font-extrabold uppercase tracking-[0.12em] transition-colors"
-              style={{
-                color: activeTab === tab.key ? tab.color : 'rgba(255,255,255,0.3)',
-              }}
+              className={`px-4 py-2.5 text-sm font-bold transition-colors relative ${
+                activeTab === tab.key ? 'text-purple-400' : 'text-white/30 hover:text-white/50'
+              }`}
             >
               {tab.label}
               {activeTab === tab.key && (
                 <motion.div
                   layoutId="treasuryTab"
-                  className="absolute bottom-0 left-2 right-2"
-                  style={{ height: '2px', background: tab.color, boxShadow: `0 0 8px ${tab.color}80` }}
+                  className="absolute bottom-0 left-2 right-2 h-[2px] bg-purple-500"
                   transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                 />
               )}
             </button>
           ))}
           <div className="flex-1" />
-          <div className="flex items-center gap-1.5 text-white/20 text-[11px] font-mono pb-2">
-            <ClockIcon className="w-3.5 h-3.5" />
+          <span className="text-white/15 text-[10px] font-mono pb-2">
             {lastUpdate.toLocaleTimeString()}
-          </div>
-        </motion.div>
+          </span>
+        </div>
 
-        {/* ── Tab content ── */}
+        {/* ── Tab Content ── */}
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div
               key="overview"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4"
             >
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <GlowCard color="#22c55e" delay={0.1}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <BanknotesIcon className="w-5 h-5 text-green-400" />
-                    <span className="text-green-400/70 text-[11px] font-bold uppercase tracking-wider">Total Balance</span>
-                  </div>
-                  <p className="text-2xl md:text-3xl font-bold text-white">
-                    <AnimatedValue value={totalBalance.toFixed(2)} prefix="$" loading={loading} />
-                  </p>
-                </GlowCard>
-
-                {tokenBalances.map((tb, i) => (
-                  <GlowCard key={tb.address} color="#3b82f6" delay={0.15 + i * 0.05}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <CurrencyDollarIcon className="w-5 h-5 text-blue-400" />
-                      <span className="text-blue-400/70 text-[11px] font-bold uppercase tracking-wider">{tb.symbol}</span>
-                    </div>
-                    <p className="text-2xl md:text-3xl font-bold text-white">
-                      <AnimatedValue value={tb.balance.toFixed(2)} prefix="$" loading={loading} />
-                    </p>
-                  </GlowCard>
-                ))}
-
-                <GlowCard color="#f59e0b" delay={0.25}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <CurrencyDollarIcon className="w-5 h-5 text-amber-400" />
-                    <span className="text-amber-400/70 text-[11px] font-bold uppercase tracking-wider">{modTokenSymbol} Token</span>
-                  </div>
-                  <p className="text-2xl md:text-3xl font-bold text-white">
-                    <AnimatedValue value={parseFloat(modTokenBalance).toLocaleString(undefined, { maximumFractionDigits: 2 })} loading={loading} />
-                  </p>
-                  <p className="text-white/30 text-[10px] font-mono mt-1">
-                    Supply: {parseFloat(modTokenSupply).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </p>
-                </GlowCard>
-
-                <GlowCard color="#a855f7" delay={0.3}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <ChartBarIcon className="w-5 h-5 text-purple-400" />
-                    <span className="text-purple-400/70 text-[11px] font-bold uppercase tracking-wider">Owner Share</span>
-                  </div>
-                  <p className="text-2xl md:text-3xl font-bold text-white">
-                    <AnimatedValue value={ownerPctDisplay} suffix="%" loading={loading} />
-                  </p>
-                </GlowCard>
-              </div>
-
-              {/* ── Market Statistics ── */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <GlowCard color="#ec4899" delay={0.32}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <ChartBarIcon className="w-5 h-5 text-pink-400" />
-                    <span className="text-pink-400/70 text-[11px] font-bold uppercase tracking-wider">Treasury Fee</span>
-                  </div>
-                  <p className="text-2xl md:text-3xl font-bold text-white">
-                    <AnimatedValue value={String(marketFeePercent)} suffix="%" loading={loading} />
-                  </p>
-                  <p className="text-white/30 text-[10px] font-mono mt-1">Cut on each debit</p>
-                </GlowCard>
-
-                <GlowCard color="#ec4899" delay={0.34}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <ArrowTrendingUpIcon className="w-5 h-5 text-pink-400" />
-                    <span className="text-pink-400/70 text-[11px] font-bold uppercase tracking-wider">Transactions</span>
-                  </div>
-                  <p className="text-2xl md:text-3xl font-bold text-white">
-                    <AnimatedValue value={marketTxCount.toLocaleString()} loading={loading} />
-                  </p>
-                  <p className="text-white/30 text-[10px] font-mono mt-1">Total market txns</p>
-                </GlowCard>
-
-                <GlowCard color="#ec4899" delay={0.36}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <BanknotesIcon className="w-5 h-5 text-pink-400" />
-                    <span className="text-pink-400/70 text-[11px] font-bold uppercase tracking-wider">Fees Accrued</span>
-                  </div>
-                  <p className="text-2xl md:text-3xl font-bold text-white">
-                    <AnimatedValue value={parseFloat(marketTotalFeesAccrued).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} prefix="$" loading={loading} />
-                  </p>
-                  <p className="text-white/30 text-[10px] font-mono mt-1">Lifetime treasury revenue</p>
-                </GlowCard>
-
-                <GlowCard color="#10b981" delay={0.38}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <CurrencyDollarIcon className="w-5 h-5 text-emerald-400" />
-                    <span className="text-emerald-400/70 text-[11px] font-bold uppercase tracking-wider">Unclaimed Fees</span>
-                  </div>
-                  <p className="text-2xl md:text-3xl font-bold text-emerald-400">
-                    <AnimatedValue value={parseFloat(marketUnclaimedFees).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} prefix="$" loading={loading} />
-                  </p>
-                  <p className="text-white/30 text-[10px] font-mono mt-1">Available to claim</p>
-                </GlowCard>
-              </div>
-
-              {/* ── Token Portfolio & Fee Breakdown ── */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Token Portfolio */}
-                <GlowCard color="#ec4899" delay={0.4}>
-                  <div className="flex items-center justify-between mb-4">
+              {/* ── Your Balance ── */}
+              {walletAddress && (
+                <div className="rounded-xl border border-purple-500/20 bg-purple-500/[0.04] p-4">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <ChartBarIcon className="w-5 h-5 text-pink-400" />
-                      <span className="text-white font-bold text-lg">Market Portfolio</span>
+                      <WalletIcon className="w-4 h-4 text-purple-400" />
+                      <span className="text-white/50 text-sm">Your Balance</span>
                     </div>
-                    <span className="text-white/30 text-[10px] font-mono">
-                      Supply: ${parseFloat(marketTotalSupply).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  {/* Stacked bar */}
-                  {(() => {
-                    const usdc = parseFloat(marketUsdcBalance)
-                    const usdt = parseFloat(marketUsdtBalance)
-                    const total = usdc + usdt
-                    const usdcPct = total > 0 ? (usdc / total) * 100 : 50
-                    const usdtPct = total > 0 ? (usdt / total) * 100 : 50
-                    return (
-                      <>
-                        <div className="w-full h-4 bg-white/[0.06] rounded-full overflow-hidden flex mb-4">
-                          <div
-                            className="h-full transition-all duration-700"
-                            style={{ width: `${usdcPct}%`, background: 'linear-gradient(90deg, #3b82f6, #60a5fa)' }}
-                          />
-                          <div
-                            className="h-full transition-all duration-700"
-                            style={{ width: `${usdtPct}%`, background: 'linear-gradient(90deg, #22c55e, #4ade80)' }}
-                          />
-                        </div>
-
-                        {/* USDC row */}
-                        <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-blue-500/[0.04] border border-blue-500/10 mb-2">
-                          <div className="flex items-center gap-3">
-                            <div className="w-3 h-3 rounded-full bg-blue-500" />
-                            <div>
-                              <span className="text-white font-bold text-sm">USDC</span>
-                              <span className="text-blue-400/60 text-[10px] ml-2 font-bold uppercase tracking-wider">USD Coin</span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-white font-bold font-mono text-sm">
-                              ${usdc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                            <p className="text-blue-400/60 text-[10px] font-mono">{usdcPct.toFixed(1)}%</p>
-                          </div>
-                        </div>
-
-                        {/* USDT row */}
-                        <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-green-500/[0.04] border border-green-500/10">
-                          <div className="flex items-center gap-3">
-                            <div className="w-3 h-3 rounded-full bg-green-500" />
-                            <div>
-                              <span className="text-white font-bold text-sm">USDT</span>
-                              <span className="text-green-400/60 text-[10px] ml-2 font-bold uppercase tracking-wider">Tether</span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-white font-bold font-mono text-sm">
-                              ${usdt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                            <p className="text-green-400/60 text-[10px] font-mono">{usdtPct.toFixed(1)}%</p>
-                          </div>
-                        </div>
-                      </>
-                    )
-                  })()}
-                </GlowCard>
-
-                {/* Fee Accrual Breakdown */}
-                <GlowCard color="#a855f7" delay={0.42}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <ArrowTrendingUpIcon className="w-5 h-5 text-purple-400" />
-                    <span className="text-white font-bold text-lg">Fee Accrual</span>
-                  </div>
-
-                  {/* Claimed vs Unclaimed bar */}
-                  {(() => {
-                    const claimed = parseFloat(marketClaimedFees)
-                    const unclaimed = parseFloat(marketUnclaimedFees)
-                    const total = parseFloat(marketTotalFeesAccrued)
-                    const claimedPct = total > 0 ? (claimed / total) * 100 : 0
-                    const unclaimedPct = total > 0 ? (unclaimed / total) * 100 : 0
-                    return (
-                      <>
-                        <div className="mb-4">
-                          <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                            <span className="text-white/40">Claim Progress</span>
-                            <span className="text-white font-mono">{claimedPct.toFixed(1)}% claimed</span>
-                          </div>
-                          <div className="w-full h-3 bg-white/[0.06] rounded-full overflow-hidden flex">
-                            <div
-                              className="h-full transition-all duration-700"
-                              style={{ width: `${claimedPct}%`, background: 'linear-gradient(90deg, #a855f7, #c084fc)' }}
-                            />
-                            <div
-                              className="h-full transition-all duration-700"
-                              style={{ width: `${unclaimedPct}%`, background: 'linear-gradient(90deg, #10b981, #34d399)' }}
-                            />
-                          </div>
-                          <div className="flex justify-between text-[10px] mt-1">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2 h-2 rounded-full bg-purple-500" />
-                              <span className="text-white/25">Claimed</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                              <span className="text-white/25">Unclaimed</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="py-2 px-3 bg-white/[0.02] rounded-lg">
-                            <p className="text-white/30 text-[9px] font-bold uppercase tracking-wider mb-1">Total Accrued</p>
-                            <p className="text-white font-bold font-mono text-sm">
-                              ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                          </div>
-                          <div className="py-2 px-3 bg-white/[0.02] rounded-lg">
-                            <p className="text-white/30 text-[9px] font-bold uppercase tracking-wider mb-1">Claimed</p>
-                            <p className="text-purple-400 font-bold font-mono text-sm">
-                              ${claimed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                          </div>
-                          <div className="py-2 px-3 bg-white/[0.02] rounded-lg">
-                            <p className="text-white/30 text-[9px] font-bold uppercase tracking-wider mb-1">Unclaimed</p>
-                            <p className="text-emerald-400 font-bold font-mono text-sm">
-                              ${unclaimed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                          </div>
-                        </div>
-                      </>
-                    )
-                  })()}
-                </GlowCard>
-              </div>
-
-              {/* ── Your Credit & Withdraw ── */}
-              {walletAddress && holderInfo && (
-                <GlowCard color="#10b981" delay={0.32}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <ArrowDownTrayIcon className="w-5 h-5 text-emerald-400" />
-                      <span className="text-white font-bold text-lg">Your Credit</span>
-                    </div>
-                    <span className="text-white/30 text-xs font-mono">
+                    <span className="text-white/20 text-xs font-mono">
                       {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                    <div className="flex items-center gap-2 text-white/40 text-sm">
-                      <UserIcon className="w-4 h-4" />
-                      <span>Ownership: <span className="text-white font-bold">{(Number(holderInfo.ownershipPercentage) / 100).toFixed(2)}%</span></span>
-                    </div>
-                    <div className="flex items-center gap-2 text-white/40 text-sm">
-                      <ChartBarIcon className="w-4 h-4" />
-                      <span>Gov Balance: <span className="text-white font-bold">{parseFloat(ethers.formatUnits(holderInfo.governanceBalance, tokenBalances.find(t => t.address.toLowerCase() === governanceToken.toLowerCase())?.decimals ?? modTokenDecimals)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></span>
-                    </div>
-                  </div>
-
-                  {holderInfo.tokens.length > 0 && (
-                    <div className="space-y-2">
+                  {!holderInfo || holderInfo.tokens.length === 0 ? (
+                    <p className="text-white/30 text-sm py-1">No claimable balance yet</p>
+                  ) : (
+                    <div className="space-y-1.5">
                       {holderInfo.tokens.map((token, i) => {
                         const bal = tokenBalances.find(b => b.address.toLowerCase() === token.toLowerCase())
                         const claimable = holderInfo.claimableAmounts[i]
-                        const claimed = holderInfo.claimedAmounts[i]
                         const claimableFormatted = ethers.formatUnits(claimable, bal?.decimals || 18)
-                        const claimedFormatted = ethers.formatUnits(claimed, bal?.decimals || 18)
-                        const isStable = bal?.symbol === 'USDC' || bal?.symbol === 'USDT'
+                        const claimableNum = parseFloat(claimableFormatted)
                         return (
-                          <div key={token} className="flex items-center justify-between py-3 px-4 rounded-lg border"
-                            style={{
-                              background: isStable ? 'rgba(16,185,129,0.04)' : 'rgba(255,255,255,0.02)',
-                              borderColor: isStable ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
-                            }}
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-white font-bold">{bal?.symbol || token.slice(0, 8)}</span>
-                                {isStable && (
-                                  <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 text-emerald-400/70 rounded-sm">
-                                    Stablecoin
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-3 mt-1">
-                                <span className="text-white/30 text-[11px] font-mono">
-                                  claimed: {parseFloat(claimedFormatted).toFixed(2)}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <p className="text-emerald-400 font-bold font-mono text-lg">{parseFloat(claimableFormatted).toFixed(4)}</p>
-                                <p className="text-white/20 text-[10px]">available</p>
-                              </div>
+                          <div key={token} className="flex items-center justify-between">
+                            <span className="text-white/70 text-sm">{bal?.symbol || token.slice(0, 8)}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-white font-bold font-mono">${claimableNum.toFixed(2)}</span>
                               <button
                                 onClick={() => handleWithdrawToken(token, bal?.symbol || 'Token')}
                                 disabled={adminLoading !== null || claimable === BigInt(0)}
-                                className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-30 transition-all rounded-lg"
+                                className="px-2.5 py-1 text-[11px] font-bold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-md"
                               >
-                                {adminLoading === `Withdraw ${bal?.symbol || 'Token'}` ? 'Processing...' : 'Withdraw'}
+                                {adminLoading === `Withdraw ${bal?.symbol || 'Token'}` ? '...' : 'Claim'}
                               </button>
                             </div>
                           </div>
                         )
                       })}
-                      <div className="flex justify-end pt-2">
-                        <button
-                          onClick={handleWithdrawAll}
-                          disabled={adminLoading !== null}
-                          className="px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-30 transition-all rounded-lg flex items-center gap-2"
-                        >
-                          <ArrowDownTrayIcon className="w-4 h-4" />
-                          {adminLoading === 'Withdraw All' ? 'Processing...' : 'Withdraw All'}
-                        </button>
-                      </div>
+                      {holderInfo.tokens.length > 1 && (
+                        <div className="flex justify-end pt-1">
+                          <button
+                            onClick={handleWithdrawAll}
+                            disabled={adminLoading !== null}
+                            className="px-3 py-1 text-[11px] font-bold bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25 disabled:opacity-30 transition-all rounded-md"
+                          >
+                            {adminLoading === 'Withdraw All' ? '...' : 'Claim All'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
-
-                  {holderInfo.tokens.length === 0 && (
-                    <div className="py-6 text-center text-white/30 text-sm">No claimable credit yet</div>
-                  )}
-                </GlowCard>
-              )}
-
-              {/* ── USDC / USDT Limits ── */}
-              {treasuryInfo && tokenBalances.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {tokenBalances
-                    .filter(tb => tb.symbol === 'USDC' || tb.symbol === 'USDT')
-                    .map((tb, idx) => {
-                      const tokenIdx = treasuryInfo.tokens.findIndex(
-                        t => t.toLowerCase() === tb.address.toLowerCase()
-                      )
-                      const totalClaimed = tokenIdx >= 0
-                        ? parseFloat(ethers.formatUnits(treasuryInfo.totalClaimedAmounts[tokenIdx], tb.decimals))
-                        : 0
-                      const totalDeposited = tb.balance + totalClaimed
-                      const availableForClaims = tb.balance * (1 - Number(treasuryInfo.ownerPct) / 10000)
-                      const ownerShare = tb.balance * (Number(treasuryInfo.ownerPct) / 10000)
-                      const utilizationPct = totalDeposited > 0
-                        ? ((totalClaimed / totalDeposited) * 100)
-                        : 0
-
-                      return (
-                        <GlowCard key={tb.address} color={tb.symbol === 'USDC' ? '#3b82f6' : '#22c55e'} delay={0.34 + idx * 0.05}>
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <CurrencyDollarIcon className={`w-5 h-5 ${tb.symbol === 'USDC' ? 'text-blue-400' : 'text-green-400'}`} />
-                              <span className="text-white font-bold text-lg">{tb.symbol} Limits</span>
-                            </div>
-                            <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm ${
-                              tb.symbol === 'USDC'
-                                ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400/80'
-                                : 'bg-green-500/10 border border-green-500/20 text-green-400/80'
-                            }`}>
-                              {tb.symbol === 'USDC' ? 'USD Coin' : 'Tether'}
-                            </span>
-                          </div>
-
-                          {/* Balance bar */}
-                          <div className="mb-4">
-                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                              <span className="text-white/40">Treasury Balance</span>
-                              <span className="text-white font-mono">${tb.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all duration-700"
-                                style={{
-                                  width: `${Math.min(utilizationPct, 100)}%`,
-                                  background: tb.symbol === 'USDC'
-                                    ? 'linear-gradient(90deg, #3b82f6, #60a5fa)'
-                                    : 'linear-gradient(90deg, #22c55e, #4ade80)',
-                                }}
-                              />
-                            </div>
-                            <div className="flex justify-between text-[10px] mt-1">
-                              <span className="text-white/25">{utilizationPct.toFixed(1)}% utilized</span>
-                              <span className="text-white/25">total deposited: ${totalDeposited.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="py-2 px-3 bg-white/[0.02] rounded-lg">
-                              <p className="text-white/30 text-[9px] font-bold uppercase tracking-wider mb-1">Holder Pool</p>
-                              <p className="text-white font-bold font-mono text-sm">${availableForClaims.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                            </div>
-                            <div className="py-2 px-3 bg-white/[0.02] rounded-lg">
-                              <p className="text-white/30 text-[9px] font-bold uppercase tracking-wider mb-1">Owner Share</p>
-                              <p className="text-amber-400 font-bold font-mono text-sm">${ownerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                            </div>
-                            <div className="py-2 px-3 bg-white/[0.02] rounded-lg">
-                              <p className="text-white/30 text-[9px] font-bold uppercase tracking-wider mb-1">Total Claimed</p>
-                              <p className="text-purple-400 font-bold font-mono text-sm">${totalClaimed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                            </div>
-                          </div>
-                        </GlowCard>
-                      )
-                    })}
                 </div>
               )}
 
-              {/* Revenue Chart */}
-              {revenueHistory.length > 1 && (
-                <GlowCard color="#a855f7" delay={0.35}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <ArrowTrendingUpIcon className="w-5 h-5 text-purple-400" />
-                      <span className="text-white font-bold text-lg">Balance History</span>
+              {/* ── Treasury Pie Chart + Stats ── */}
+              {(() => {
+                const COLORS = ['#3b82f6', '#22c55e', '#a855f7', '#f59e0b', '#ec4899']
+                const pieData = tokenBalances
+                  .filter(tb => tb.balance > 0)
+                  .map(tb => ({ name: tb.symbol, value: tb.balance }))
+                const modBal = parseFloat(modTokenBalance)
+                if (modBal > 0) pieData.push({ name: modTokenSymbol, value: modBal })
+
+                return (
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-white text-2xl font-bold">{loading ? '...' : fmt(totalBalance)}</span>
+                      <span className="text-white/20 text-xs">Treasury</span>
+                    </div>
+
+                    {/* Pie chart + legend side by side */}
+                    <div className="flex items-center gap-4 mt-3">
+                      <div className="w-28 h-28 flex-shrink-0">
+                        {pieData.length > 0 && !loading ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={pieData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={28}
+                                outerRadius={48}
+                                dataKey="value"
+                                strokeWidth={0}
+                              >
+                                {pieData.map((_, idx) => (
+                                  <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                                formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, '']}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="w-full h-full rounded-full border-2 border-white/5 flex items-center justify-center">
+                            <span className="text-white/10 text-xs">--</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Legend + line items */}
+                      <div className="flex-1 space-y-1.5">
+                        {pieData.map((item, idx) => {
+                          const pct = totalBalance > 0 ? ((item.value / totalBalance) * 100).toFixed(0) : '0'
+                          return (
+                            <div key={item.name} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                                <span className="text-white/60 text-sm">{item.name}</span>
+                                <span className="text-white/20 text-xs">{pct}%</span>
+                              </div>
+                              <span className="text-white font-mono text-sm">{fmt(item.value)}</span>
+                            </div>
+                          )
+                        })}
+
+                        {/* Fees as a simple line */}
+                        {parseFloat(marketUnclaimedFees) > 0 && (
+                          <>
+                            <div className="border-t border-white/5 my-1" />
+                            <div className="flex items-center justify-between">
+                              <span className="text-emerald-400/60 text-xs">Unclaimed fees</span>
+                              <span className="text-emerald-400 font-mono text-sm">{fmt(parseFloat(marketUnclaimedFees))}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={revenueHistory}>
-                        <defs>
-                          <linearGradient id="treasuryGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
-                        <XAxis dataKey="date" stroke="#6b7280" tick={{ fill: '#6b7280', fontSize: 11 }} />
-                        <YAxis stroke="#6b7280" tick={{ fill: '#6b7280', fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '8px', color: '#fff', fontFamily: 'IBM Plex Mono' }}
-                          formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, 'Balance']}
-                        />
-                        <Area type="monotone" dataKey="totalBalance" stroke="#a855f7" strokeWidth={2} fill="url(#treasuryGrad)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </GlowCard>
-              )}
+                )
+              })()}
 
-              {/* Contract Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <GlowCard color="#8b5cf6" delay={0.4}>
-                  <h3 className="text-white/60 text-[11px] font-bold uppercase tracking-wider mb-3">Owner</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-mono text-sm break-all">{ownerAddress || '...'}</span>
-                    {ownerAddress && <CopyButton text={ownerAddress} size="sm" />}
-                  </div>
-                </GlowCard>
-
-                {governanceToken && governanceToken !== ethers.ZeroAddress && (
-                  <GlowCard color="#8b5cf6" delay={0.45}>
-                    <h3 className="text-white/60 text-[11px] font-bold uppercase tracking-wider mb-3">Governance Token</h3>
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-mono text-sm break-all">{governanceToken}</span>
-                      <CopyButton text={governanceToken} size="sm" />
-                    </div>
-                  </GlowCard>
-                )}
-              </div>
-
-              {/* Fund Treasury */}
+              {/* ── Fund Treasury ── */}
               {walletAddress && (
-                <GlowCard color="#8b5cf6" delay={0.5}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <ArrowUpTrayIcon className="w-5 h-5 text-purple-400" />
-                    <span className="text-white font-bold">Fund Treasury</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <p className="text-white/40 text-xs mb-3">Fund Treasury</p>
+                  <div className="flex gap-2">
                     <select
                       value={fundToken}
                       onChange={e => setFundToken(e.target.value)}
-                      className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-purple-500/50 flex-1"
+                      className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1"
                       style={{ fontFamily: 'inherit' }}
                     >
-                      <option value="">Select token</option>
+                      <option value="">Token</option>
                       {tokenBalances.map(t => (
                         <option key={t.address} value={t.symbol}>{t.symbol}</option>
                       ))}
@@ -1030,42 +586,41 @@ export default function TreasuryPage() {
                       placeholder="Amount"
                       value={fundAmount}
                       onChange={e => setFundAmount(e.target.value)}
-                      className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                      className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
                     />
                     <button
                       onClick={handleFundTreasury}
                       disabled={adminLoading !== null || !fundToken || !fundAmount}
-                      className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25 disabled:opacity-30 transition-all rounded-sm whitespace-nowrap"
+                      className="px-4 py-2 text-xs font-bold bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25 disabled:opacity-30 transition-all rounded-lg"
                     >
-                      {adminLoading === 'Fund Treasury' ? 'Processing...' : 'Fund'}
+                      {adminLoading === 'Fund Treasury' ? '...' : 'Send'}
                     </button>
                   </div>
-                </GlowCard>
+                </div>
               )}
 
-              {/* Safe Info */}
+              {/* ── Safe Info ── */}
               {isSafeOwned && (
-                <GlowCard color="#22c55e" delay={0.55}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <ShieldCheckIcon className="w-5 h-5 text-green-400" />
-                    <span className="text-white font-bold">Multisig (Safe)</span>
-                    <span className="text-green-400/60 text-xs font-mono ml-2">
-                      Threshold: {safeThreshold}/{safeOwners.length}
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ShieldCheckIcon className="w-4 h-4 text-green-400" />
+                    <span className="text-white/50 text-sm">Multisig</span>
+                    <span className="text-white/20 text-xs font-mono ml-auto">
+                      {safeThreshold}/{safeOwners.length} required
                     </span>
                   </div>
-                  <div className="space-y-2">
-                    {safeOwners.map((addr, i) => (
-                      <div key={addr} className="flex items-center gap-2 py-1.5 px-3 bg-white/[0.02] rounded-lg">
-                        <div className={`w-2 h-2 rounded-full ${addr.toLowerCase() === walletAddress.toLowerCase() ? 'bg-green-400' : 'bg-white/20'}`} />
-                        <span className="text-white font-mono text-sm">{addr.slice(0, 6)}...{addr.slice(-4)}</span>
-                        <CopyButton text={addr} size="sm" />
+                  <div className="space-y-1">
+                    {safeOwners.map(addr => (
+                      <div key={addr} className="flex items-center gap-2 py-1">
+                        <div className={`w-1.5 h-1.5 rounded-full ${addr.toLowerCase() === walletAddress.toLowerCase() ? 'bg-green-400' : 'bg-white/20'}`} />
+                        <span className="text-white/50 font-mono text-xs">{addr.slice(0, 6)}...{addr.slice(-4)}</span>
                         {addr.toLowerCase() === walletAddress.toLowerCase() && (
-                          <span className="text-green-400 text-[10px] font-bold uppercase tracking-wider ml-auto">You</span>
+                          <span className="text-green-400 text-[10px] font-bold">You</span>
                         )}
                       </div>
                     ))}
                   </div>
-                </GlowCard>
+                </div>
               )}
             </motion.div>
           )}
@@ -1074,98 +629,44 @@ export default function TreasuryPage() {
           {activeTab === 'deposits' && (
             <motion.div
               key="deposits"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4"
             >
-              {/* Deposit Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <GlowCard color="#22c55e" delay={0.1}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <BanknotesIcon className="w-5 h-5 text-green-400" />
-                    <span className="text-green-400/70 text-[11px] font-bold uppercase tracking-wider">Total Deposits</span>
-                  </div>
-                  <p className="text-2xl font-bold text-white">
-                    <AnimatedValue
-                      value={deposits.reduce((s, d) => s + parseFloat(d.amount), 0).toFixed(2)}
-                      prefix="$"
-                      loading={depositsLoading}
-                    />
-                  </p>
-                </GlowCard>
-
-                <GlowCard color="#3b82f6" delay={0.15}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <ClockIcon className="w-5 h-5 text-blue-400" />
-                    <span className="text-blue-400/70 text-[11px] font-bold uppercase tracking-wider">Events</span>
-                  </div>
-                  <p className="text-2xl font-bold text-white">
-                    <AnimatedValue value={String(deposits.length)} loading={depositsLoading} />
-                  </p>
-                </GlowCard>
-
-                <GlowCard color="#a855f7" delay={0.2}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <UserGroupIcon className="w-5 h-5 text-purple-400" />
-                    <span className="text-purple-400/70 text-[11px] font-bold uppercase tracking-wider">Unique Funders</span>
-                  </div>
-                  <p className="text-2xl font-bold text-white">
-                    <AnimatedValue value={String(new Set(deposits.map(d => d.funder)).size)} loading={depositsLoading} />
-                  </p>
-                </GlowCard>
+              <div className="flex items-center justify-between">
+                <span className="text-white/40 text-sm">Recent Deposits</span>
+                <button
+                  onClick={fetchDeposits}
+                  disabled={depositsLoading}
+                  className="text-white/30 hover:text-purple-400 transition-colors"
+                >
+                  <ArrowPathIcon className={`w-4 h-4 ${depositsLoading ? 'animate-spin' : ''}`} />
+                </button>
               </div>
 
-              {/* Deposits Table */}
-              <GlowCard color="#a855f7" delay={0.25}>
-                <h3 className="text-white font-bold mb-4">Recent Deposits</h3>
-                {depositsLoading ? (
-                  <div className="py-12 text-center text-white/30 text-sm">Loading deposits...</div>
-                ) : deposits.length === 0 ? (
-                  <div className="py-12 text-center text-white/30 text-sm">No deposits found in recent blocks</div>
-                ) : (
-                  <div className="overflow-x-auto -mx-6">
-                    <table className="w-full min-w-[600px]">
-                      <thead>
-                        <tr className="border-b border-white/[0.06]">
-                          <th className="px-6 py-3 text-left text-white/30 text-[10px] font-bold uppercase tracking-wider">Funder</th>
-                          <th className="px-6 py-3 text-left text-white/30 text-[10px] font-bold uppercase tracking-wider">Token</th>
-                          <th className="px-6 py-3 text-right text-white/30 text-[10px] font-bold uppercase tracking-wider">Amount</th>
-                          <th className="px-6 py-3 text-left text-white/30 text-[10px] font-bold uppercase tracking-wider">Time</th>
-                          <th className="px-6 py-3 text-left text-white/30 text-[10px] font-bold uppercase tracking-wider">Tx</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {deposits.map((dep, idx) => (
-                          <tr key={idx} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                            <td className="px-6 py-3">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-white font-mono text-sm">{dep.funder.slice(0,6)}...{dep.funder.slice(-4)}</span>
-                                <CopyButton text={dep.funder} size="sm" />
-                              </div>
-                            </td>
-                            <td className="px-6 py-3">
-                              <span className="text-purple-400 font-bold text-sm">{dep.token}</span>
-                            </td>
-                            <td className="px-6 py-3 text-right">
-                              <span className="text-emerald-400 font-bold font-mono text-sm">${parseFloat(dep.amount).toFixed(2)}</span>
-                            </td>
-                            <td className="px-6 py-3">
-                              <span className="text-white/40 text-xs">{new Date(dep.timestamp * 1000).toLocaleString()}</span>
-                            </td>
-                            <td className="px-6 py-3">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-white/50 font-mono text-xs">{dep.txHash.slice(0,8)}...{dep.txHash.slice(-6)}</span>
-                                <CopyButton text={dep.txHash} size="sm" />
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </GlowCard>
+              {depositsLoading ? (
+                <div className="py-12 text-center text-white/20 text-sm">Loading...</div>
+              ) : deposits.length === 0 ? (
+                <div className="py-12 text-center text-white/20 text-sm">No deposits found</div>
+              ) : (
+                <div className="space-y-2">
+                  {deposits.map((dep, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-purple-400 font-bold text-sm">{dep.token}</span>
+                          <span className="text-white/20 text-xs font-mono">{dep.funder.slice(0, 6)}...{dep.funder.slice(-4)}</span>
+                        </div>
+                        <span className="text-white/20 text-xs">
+                          {new Date(dep.timestamp * 1000).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <span className="text-emerald-400 font-bold font-mono">${parseFloat(dep.amount).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -1173,41 +674,30 @@ export default function TreasuryPage() {
           {activeTab === 'admin' && canAdmin && (
             <motion.div
               key="admin"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4"
             >
-              {/* Admin header */}
-              <div className="relative">
-                <div className="absolute -inset-[1px] rounded-xl opacity-50 blur-sm"
-                  style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.3), rgba(245,158,11,0.05) 60%)' }}
-                />
-                <div className="relative bg-black/80 border border-amber-500/20 rounded-xl p-5">
-                  <div className="flex items-center gap-3">
-                    <ShieldCheckIcon className="w-6 h-6 text-amber-400" />
-                    <div>
-                      <h2 className="text-white font-bold text-lg">Admin Controls</h2>
-                      <p className="text-amber-400/60 text-xs font-mono">
-                        {isOwner ? 'Direct owner — transactions execute immediately' : `Safe signer — transactions proposed to multisig (${safeThreshold}/${safeOwners.length})`}
-                      </p>
-                    </div>
-                  </div>
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheckIcon className="w-5 h-5 text-amber-400" />
+                  <span className="text-white font-bold">Admin</span>
+                  <span className="text-amber-400/50 text-xs ml-auto">
+                    {isOwner ? 'Owner' : `Safe signer (${safeThreshold}/${safeOwners.length})`}
+                  </span>
                 </div>
               </div>
 
               {/* Owner Withdrawals */}
-              <GlowCard color="#f59e0b" delay={0.1}>
-                <div className="flex items-center gap-2 mb-4">
-                  <ArrowUpTrayIcon className="w-5 h-5 text-amber-400" />
-                  <span className="text-white font-bold">Owner Withdrawals</span>
-                </div>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <p className="text-white/40 text-xs mb-3">Owner Withdrawals</p>
                 <div className="space-y-2">
                   {tokenBalances.map(tb => (
-                    <div key={tb.address} className="flex items-center justify-between py-2 px-3 bg-white/[0.02] rounded-lg">
+                    <div key={tb.address} className="flex items-center justify-between py-2">
                       <div>
                         <span className="text-white font-bold text-sm">{tb.symbol}</span>
-                        <span className="text-white/30 text-xs ml-2">balance: ${tb.balance.toFixed(2)}</span>
+                        <span className="text-white/20 text-xs ml-2">${tb.balance.toFixed(2)}</span>
                       </div>
                       <button
                         onClick={() => handleAdminTx(
@@ -1216,34 +706,28 @@ export default function TreasuryPage() {
                           () => treasury.ownerWithdraw(walletAddress, tb.address)
                         )}
                         disabled={adminLoading !== null}
-                        className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 disabled:opacity-30 transition-all rounded-sm"
+                        className="px-3 py-1.5 text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 disabled:opacity-30 transition-all rounded-lg"
                       >
-                        {adminLoading === `Owner Withdraw ${tb.symbol}` ? 'Processing...' : isSafeSigner && !isOwner ? 'Propose Withdraw' : 'Withdraw'}
+                        {adminLoading === `Owner Withdraw ${tb.symbol}` ? '...' : isSafeSigner && !isOwner ? 'Propose' : 'Withdraw'}
                       </button>
                     </div>
                   ))}
                 </div>
-              </GlowCard>
+              </div>
 
               {/* Settings */}
-              <GlowCard color="#8b5cf6" delay={0.2}>
-                <div className="flex items-center gap-2 mb-5">
-                  <Cog6ToothIcon className="w-5 h-5 text-purple-400" />
-                  <span className="text-white font-bold">Settings</span>
-                </div>
-                <div className="space-y-5">
-                  {/* Owner Percentage */}
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <p className="text-white/40 text-xs mb-4">Settings</p>
+                <div className="space-y-4">
                   <div>
-                    <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-2 block">
-                      Owner Percentage (current: {ownerPctDisplay}%)
-                    </label>
+                    <label className="text-white/30 text-xs mb-1.5 block">Owner % (now: {ownerPctDisplay}%)</label>
                     <div className="flex gap-2">
                       <input
                         type="number"
                         placeholder="e.g. 500 = 5%"
                         value={newOwnerPct}
                         onChange={e => setNewOwnerPct(e.target.value)}
-                        className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
                       />
                       <button
                         onClick={() => handleAdminTx(
@@ -1252,25 +736,22 @@ export default function TreasuryPage() {
                           () => treasury.setOwnerPercentage(walletAddress, Number(newOwnerPct))
                         )}
                         disabled={adminLoading !== null || !newOwnerPct}
-                        className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-sm whitespace-nowrap"
+                        className="px-4 py-2 text-xs font-bold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-lg"
                       >
-                        {adminLoading === 'Set Owner %' ? '...' : 'Update'}
+                        {adminLoading === 'Set Owner %' ? '...' : 'Set'}
                       </button>
                     </div>
                   </div>
 
-                  {/* Governance Token */}
                   <div>
-                    <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-2 block">
-                      Governance Token
-                    </label>
+                    <label className="text-white/30 text-xs mb-1.5 block">Governance Token</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         placeholder="0x..."
                         value={newGovToken}
                         onChange={e => setNewGovToken(e.target.value)}
-                        className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
                       />
                       <button
                         onClick={() => handleAdminTx(
@@ -1279,25 +760,22 @@ export default function TreasuryPage() {
                           () => treasury.setGovernanceToken(walletAddress, newGovToken)
                         )}
                         disabled={adminLoading !== null || !newGovToken}
-                        className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-sm whitespace-nowrap"
+                        className="px-4 py-2 text-xs font-bold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-lg"
                       >
-                        {adminLoading === 'Set Gov Token' ? '...' : 'Update'}
+                        {adminLoading === 'Set Gov Token' ? '...' : 'Set'}
                       </button>
                     </div>
                   </div>
 
-                  {/* Token Gate */}
                   <div>
-                    <label className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-2 block">
-                      Token Gate
-                    </label>
+                    <label className="text-white/30 text-xs mb-1.5 block">Token Gate</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         placeholder="0x..."
                         value={newTokenGate}
                         onChange={e => setNewTokenGate(e.target.value)}
-                        className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
                       />
                       <button
                         onClick={() => handleAdminTx(
@@ -1306,29 +784,26 @@ export default function TreasuryPage() {
                           () => treasury.setTokenGate(walletAddress, newTokenGate)
                         )}
                         disabled={adminLoading !== null || !newTokenGate}
-                        className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-sm whitespace-nowrap"
+                        className="px-4 py-2 text-xs font-bold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-lg"
                       >
-                        {adminLoading === 'Set Token Gate' ? '...' : 'Update'}
+                        {adminLoading === 'Set Token Gate' ? '...' : 'Set'}
                       </button>
                     </div>
                   </div>
                 </div>
-              </GlowCard>
+              </div>
 
               {/* Emergency Withdraw */}
-              <GlowCard color="#ef4444" delay={0.3}>
-                <div className="flex items-center gap-2 mb-4">
-                  <ExclamationTriangleIcon className="w-5 h-5 text-red-400" />
-                  <span className="text-white font-bold">Emergency Withdraw</span>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
+              <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4">
+                <p className="text-red-400/60 text-xs mb-3">Emergency Withdraw</p>
+                <div className="flex gap-2">
                   <select
                     value={emergencyToken}
                     onChange={e => setEmergencyToken(e.target.value)}
-                    className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-red-500/50 flex-1"
+                    className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1"
                     style={{ fontFamily: 'inherit' }}
                   >
-                    <option value="">Select token</option>
+                    <option value="">Token</option>
                     {tokenBalances.map(t => (
                       <option key={t.address} value={t.address}>{t.symbol}</option>
                     ))}
@@ -1338,7 +813,7 @@ export default function TreasuryPage() {
                     placeholder="Amount"
                     value={emergencyAmount}
                     onChange={e => setEmergencyAmount(e.target.value)}
-                    className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-red-500/50 flex-1 font-mono"
+                    className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1 font-mono"
                   />
                   <button
                     onClick={() => {
@@ -1351,27 +826,26 @@ export default function TreasuryPage() {
                       )
                     }}
                     disabled={adminLoading !== null || !emergencyToken || !emergencyAmount}
-                    className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-30 transition-all rounded-sm whitespace-nowrap"
+                    className="px-4 py-2 text-xs font-bold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-30 transition-all rounded-lg"
                   >
                     {adminLoading === 'Emergency Withdraw' ? '...' : 'Execute'}
                   </button>
                 </div>
-              </GlowCard>
+              </div>
 
               {/* Transfer Ownership */}
-              <GlowCard color="#ef4444" delay={0.35}>
-                <div className="flex items-center gap-2 mb-4">
-                  <KeyIcon className="w-5 h-5 text-red-400" />
-                  <span className="text-white font-bold">Transfer Ownership</span>
-                  <span className="text-red-400/40 text-[10px] font-bold uppercase tracking-wider ml-auto">Irreversible</span>
+              <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-red-400/60 text-xs">Transfer Ownership</p>
+                  <span className="text-red-400/30 text-[10px]">Irreversible</span>
                 </div>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="New owner address (0x...)"
+                    placeholder="New owner (0x...)"
                     value={newOwner}
                     onChange={e => setNewOwner(e.target.value)}
-                    className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-sm focus:outline-none focus:border-red-500/50 flex-1 font-mono"
+                    className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1 font-mono"
                   />
                   <button
                     onClick={() => handleAdminTx(
@@ -1380,12 +854,12 @@ export default function TreasuryPage() {
                       () => treasury.transferOwnership(walletAddress, newOwner)
                     )}
                     disabled={adminLoading !== null || !newOwner}
-                    className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-30 transition-all rounded-sm whitespace-nowrap"
+                    className="px-4 py-2 text-xs font-bold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-30 transition-all rounded-lg"
                   >
                     {adminLoading === 'Transfer Ownership' ? '...' : 'Transfer'}
                   </button>
                 </div>
-              </GlowCard>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

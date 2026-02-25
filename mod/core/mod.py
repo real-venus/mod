@@ -788,11 +788,11 @@ class Mod:
             obj = self.obj(obj)
         return  inspect.getsource(obj)
     
-    def call(self,_fn: str = 'api/edit',  params: Dict[str, Any] = {}, timeout=30, wait=True, return_cid=False,  **_kwargs): 
+    def call(self,_fn: str = 'api/edit',  params: Dict[str, Any] = {}, timeout=30, wait=True,  **_kwargs): 
         params = {**params , **_kwargs} 
         params = { 'fn': _fn, 'params': params }
-        token = self.fn('auth.base/token')()
-        return self.fn('client/call')('api/call', params=params, timeout=timeout, wait=wait, return_cid=return_cid, token=token)
+        token = self.fn('api/token')()
+        return self.fn('client/call')('api/call', params=params, timeout=timeout, wait=wait,  token=token)
 
     def cache(self, path:str, max_age: int = 60, default=None, directory: str = '~/.mod/cache'):
         '''
@@ -1694,6 +1694,9 @@ class Mod:
 
     def exec(self, mod:str = 'mod', *args, **kwargs):
         return self.fn('pm/exec')(mod, *args, **kwargs)
+
+
+
 
     def confirm(self, message:str = 'Are you sure?', suffix = ' (y/n): '):
         confirm = input(message + suffix)

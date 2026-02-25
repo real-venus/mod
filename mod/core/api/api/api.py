@@ -33,8 +33,19 @@ class  Api:
             self._router = m.mod('router')()
         return self._router
     
-    def call( self, fn, params, **kwargs):
+    def call( self, fn = 'chain/balances', params = {}, **kwargs):
         return self.router.call(fn, params, **kwargs)
+    
+
+    def token(self, update=False, max_age=3600):
+        path = self.path('token.txt')
+        token = m.get(path, None, update=update, max_age=max_age)
+        if token == None:
+            token = self.auth.token()
+            m.put(path, token)
+        return token 
+
+
     
     def txs(self,  *args, **kwargs):
         return self.router.txs(*args,  **kwargs)
