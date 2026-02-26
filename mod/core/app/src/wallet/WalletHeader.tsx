@@ -78,7 +78,7 @@ export function WalletHeader() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center border-2 transition-all relative gap-2 px-3"
-        style={{ height: '48px', borderRadius: '0px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-input)' }}
+        style={{ height: '40px', borderRadius: '20px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
       >
         <WalletIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
         <span className="text-sm font-black font-mono tabular-nums text-green-400">

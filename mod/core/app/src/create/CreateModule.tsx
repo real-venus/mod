@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { userContext } from '@/context/UserContext'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircleIcon, ExclamationCircleIcon, MagnifyingGlassIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ExclamationCircleIcon, MagnifyingGlassIcon, ArrowPathIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -25,8 +25,8 @@ export default function CreateModule() {
   const { user, client } = userContext()
   const [url, setUrl] = useState('')
   const [name, setName] = useState('')
+  const [registerToKey, setRegisterToKey] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [focusedField, setFocusedField] = useState<string | null>(null)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,8 +34,14 @@ export default function CreateModule() {
   const [searchResults, setSearchResults] = useState<GitHubRepo[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [showSearch, setShowSearch] = useState(true)
   const searchTimeout = useRef<NodeJS.Timeout | null>(null)
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null)
+
+  useEffect(() => {
+    if (user?.key && !registerToKey) {
+      setRegisterToKey(user.key)
+    }
+  }, [user?.key])
 
   useEffect(() => {
     if (isGitUrl(url) && !name) {
@@ -66,43 +72,26 @@ export default function CreateModule() {
       if (client) {
         try {
           const results = await client.call('gitsearch/forward', {
-            query,
-            sort: 'stars',
-            order: 'desc',
-            per_page: 12,
+            query, sort: 'stars', order: 'desc', per_page: 8,
           })
           if (Array.isArray(results) && results.length > 0 && !results[0]?.error) {
             setSearchResults(results)
             setIsSearching(false)
             return
           }
-        } catch {
-          // Module not available, fall through to direct API
-        }
+        } catch {}
       }
       const res = await fetch(
-        `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=12`,
-        {
-          headers: {
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'mod-create',
-          },
-        }
+        `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=8`,
+        { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'mod-buidl' } }
       )
       if (!res.ok) throw new Error(`GitHub API ${res.status}`)
       const data = await res.json()
-      const repos: GitHubRepo[] = (data.items || []).map((item: any) => ({
-        name: item.name,
-        full_name: item.full_name,
-        description: item.description,
-        url: item.html_url,
-        stars: item.stargazers_count,
-        forks: item.forks_count,
-        language: item.language,
-        updated_at: item.updated_at,
-        topics: item.topics || [],
-      }))
-      setSearchResults(repos)
+      setSearchResults((data.items || []).map((item: any) => ({
+        name: item.name, full_name: item.full_name, description: item.description,
+        url: item.html_url, stars: item.stargazers_count, forks: item.forks_count,
+        language: item.language, updated_at: item.updated_at, topics: item.topics || [],
+      })))
     } catch (err: any) {
       setSearchError(err?.message || 'Search failed')
       setSearchResults([])
@@ -114,13 +103,20 @@ export default function CreateModule() {
   const selectRepo = (repo: GitHubRepo) => {
     setUrl(repo.url + '.git')
     setName(repo.name)
-    setShowSearch(false)
+    setSelectedRepo(repo)
+    setSearchQuery('')
+    setSearchResults([])
+  }
+
+  const clearSelection = () => {
+    setUrl('')
+    setName('')
+    setSelectedRepo(null)
   }
 
   const isGitUrl = (input: string) => {
     if (input.includes('github.com') || input.includes('gitlab.com')) return true
-    const shorthandPattern = /^[\w-]+\/[\w-]+(\.git)?$/
-    return shorthandPattern.test(input.trim())
+    return /^[\w-]+\/[\w-]+(\.git)?$/.test(input.trim())
   }
 
   const isCid = (input: string) => {
@@ -129,8 +125,7 @@ export default function CreateModule() {
 
   const expandGitUrl = (input: string): string => {
     if (input.includes('github.com') || input.includes('gitlab.com') || input.startsWith('http')) return input
-    const shorthandPattern = /^([\w-]+\/[\w-]+)(\.git)?$/
-    const match = input.trim().match(shorthandPattern)
+    const match = input.trim().match(/^([\w-]+\/[\w-]+)(\.git)?$/)
     if (match) return `https://github.com/${match[1]}.git`
     return input
   }
@@ -152,37 +147,32 @@ export default function CreateModule() {
         if (pathParts.length >= 2) return pathParts[pathParts.length - 1]
       }
       return ''
-    } catch {
-      return ''
-    }
+    } catch { return '' }
   }
 
   const isValidInput = () => url.trim() && (isGitUrl(url) || isCid(url))
 
   const getInputType = () => {
     if (!url.trim()) return ''
-    if (isGitUrl(url)) return 'GIT'
-    if (isCid(url)) return 'IPFS'
-    return 'Invalid'
+    if (isGitUrl(url)) return 'git'
+    if (isCid(url)) return 'ipfs'
+    return 'invalid'
   }
 
   const handleSubmit = async () => {
-    if (!isValidInput() || !user?.key) return
+    if (!isValidInput() || !user?.key || !registerToKey.trim()) return
     setIsSubmitting(true)
     setError(null)
     setResult(null)
     try {
       if (!client?.token) throw new Error('Authentication required. Please connect your wallet.')
-      const expandedUrl = expandGitUrl(url)
       const response = await client.call('api/reg', {
-        mod: expandedUrl,
-        key: user.key,
-        public: false,
-        token: client.token,
+        mod: expandGitUrl(url), key: registerToKey.trim(), public: false, token: client.token,
       })
       setResult(response)
       setUrl('')
       setName('')
+      setSelectedRepo(null)
     } catch (err: any) {
       setError(err?.message || 'Failed to register module')
     } finally {
@@ -190,14 +180,10 @@ export default function CreateModule() {
     }
   }
 
-  const formatStars = (n: number) => {
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-    return n.toString()
-  }
+  const formatStars = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toString()
 
   const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const days = Math.floor(diff / 86400000)
+    const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
     if (days < 1) return 'today'
     if (days < 30) return `${days}d ago`
     if (days < 365) return `${Math.floor(days / 30)}mo ago`
@@ -211,212 +197,143 @@ export default function CreateModule() {
     PHP: '#4F5D95', Shell: '#89e051', Lua: '#000080', Zig: '#ec915c',
   }
 
+  const valid = isValidInput()
+  const inputType = getInputType()
+
   return (
-    <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-visible">
-      {/* Search Section */}
-      <div className="space-y-2">
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-widest transition-colors group"
-          style={{ color: showSearch ? '#4ade80' : 'rgba(255,255,255,0.3)' }}
-        >
-          <MagnifyingGlassIcon className="w-3.5 h-3.5" />
-          SEARCH GITHUB
-          <span className="text-white/15 group-hover:text-white/30 transition-colors ml-1">
-            {showSearch ? '[-]' : '[+]'}
-          </span>
-        </button>
+    <div className="flex-1 flex flex-col min-h-0" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
 
-        <AnimatePresence>
-          {showSearch && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-2">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/20 z-10" />
-                  {isSearching && (
-                    <ArrowPathIcon className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-green-400 animate-spin z-10" />
-                  )}
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="e.g. 'machine learning pytorch'"
-                    className="w-full border text-white text-[16px] focus:outline-none bg-white/[0.03] placeholder-white/15 transition-all font-mono"
-                    style={{
-                      paddingLeft: '2.25rem',
-                      paddingRight: '2.25rem',
-                      height: '48px',
-                      borderColor: searchQuery ? 'rgba(74, 222, 128, 0.3)' : 'rgba(255,255,255,0.06)',
-                    }}
-                  />
-                </div>
-
-                {searchError && (
-                  <p className="text-red-400/70 text-[12px] font-mono px-1">{searchError}</p>
-                )}
-
-                {searchResults.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[300px] overflow-y-auto scrollbar-thin">
-                    {searchResults.map((repo) => (
-                      <button
-                        key={repo.full_name}
-                        onClick={() => selectRepo(repo)}
-                        className="text-left px-3 py-2.5 border border-white/[0.05] bg-white/[0.02] hover:border-green-500/30 hover:bg-green-500/[0.04] transition-all group"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-[12px] font-bold text-white/60 group-hover:text-green-400 transition-colors truncate font-mono leading-tight">
-                            {repo.full_name}
-                          </span>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <StarSolid className="w-2.5 h-2.5 text-amber-500/60" />
-                            <span className="text-[10px] text-amber-500/60 font-mono font-bold">{formatStars(repo.stars)}</span>
-                          </div>
-                        </div>
-                        {repo.description && (
-                          <p className="text-[11px] text-white/25 mt-1 line-clamp-2 leading-relaxed">
-                            {repo.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2.5 mt-1.5">
-                          {repo.language && (
-                            <div className="flex items-center gap-1">
-                              <span
-                                className="w-1.5 h-1.5 rounded-full"
-                                style={{ backgroundColor: langColors[repo.language] || '#737373' }}
-                              />
-                              <span className="text-[10px] text-white/30">{repo.language}</span>
-                            </div>
-                          )}
-                          <span className="text-[10px] text-white/15">{timeAgo(repo.updated_at)}</span>
-                          {repo.topics.length > 0 && (
-                            <div className="flex items-center gap-1 overflow-hidden">
-                              {repo.topics.slice(0, 2).map((t) => (
-                                <span key={t} className="text-[9px] px-1 py-px bg-green-500/8 text-green-400/40 border border-green-500/15 font-bold truncate">
-                                  {t}
-                                </span>
-                              ))}
-                              {repo.topics.length > 2 && (
-                                <span className="text-[9px] text-white/20">+{repo.topics.length - 2}</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && !searchError && (
-                  <p className="text-white/20 text-[11px] font-mono font-bold text-center py-6 uppercase tracking-wider">No repositories found</p>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Divider */}
-      <div className="h-px bg-white/[0.04]" />
-
-      {/* Register Form */}
-      <div className="space-y-2">
-        <span className="text-[13px] font-extrabold uppercase tracking-widest text-white/25">
-          SOURCE
-        </span>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={url}
-              onChange={(e) => { setUrl(e.target.value); if (!showSearch) setShowSearch(false) }}
-              onFocus={() => setFocusedField('url')}
-              onBlur={() => setFocusedField(null)}
-              placeholder="user/repo  or  github.com/user/repo.git  or  Qm..."
-              className="w-full border text-green-400 text-[16px] focus:outline-none bg-white/[0.03] placeholder-white/12 transition-all font-mono"
-              style={{
-                paddingLeft: '1rem',
-                paddingRight: url ? '5rem' : '1rem',
-                height: '48px',
-                borderColor: focusedField === 'url'
-                  ? (isValidInput() ? 'rgba(74, 222, 128, 0.5)' : 'rgba(255,255,255,0.15)')
-                  : url ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255,255,255,0.06)',
-                boxShadow: focusedField === 'url' && isValidInput() ? '0 0 12px rgba(74, 222, 128, 0.08)' : 'none',
-              }}
-            />
-            {url && (
-              <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                <span className={`text-[11px] font-extrabold uppercase tracking-wider px-2 py-1 border ${
-                  isValidInput()
-                    ? 'bg-green-500/10 text-green-400/80 border-green-500/25'
-                    : 'bg-red-500/10 text-red-400/80 border-red-500/25'
-                }`}>
-                  {isValidInput() ? getInputType() : 'INVALID'}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={handleSubmit}
-            disabled={!isValidInput() || isSubmitting || !user}
-            className="px-8 font-extrabold text-[14px] uppercase tracking-widest transition-all disabled:opacity-20 disabled:cursor-not-allowed border hover:shadow-[0_0_15px_rgba(74,222,128,0.15)] active:scale-[0.98] relative overflow-hidden group whitespace-nowrap"
-            style={{
-              height: '48px',
-              borderColor: 'rgba(74, 222, 128, 0.4)',
-              color: '#4ade80',
-              background: 'rgba(74, 222, 128, 0.08)',
-            }}
+      {/* Selected repo card OR input area */}
+      <AnimatePresence mode="wait">
+        {selectedRepo ? (
+          <motion.div
+            key="selected"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="rounded-xl p-4 mb-4"
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-            {isSubmitting ? (
-              <span className="flex items-center gap-2 relative z-10">
-                <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                REGISTERING...
-              </span>
-            ) : (
-              <span className="relative z-10">REGISTER</span>
-            )}
-          </button>
-        </div>
-      </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2.5 mb-1">
+                  <span className="text-green-500 dark:text-green-400 font-bold text-base">{selectedRepo.full_name}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded text-green-600/60 dark:text-green-400/60 border border-green-500/20 uppercase tracking-wider font-bold">git</span>
+                </div>
+                {selectedRepo.description && (
+                  <p className="text-xs leading-relaxed mb-2.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{selectedRepo.description}</p>
+                )}
+                <div className="flex items-center gap-4">
+                  {selectedRepo.language && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: langColors[selectedRepo.language] || '#737373' }} />
+                      <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{selectedRepo.language}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <StarSolid className="w-3 h-3 text-amber-500/60" />
+                    <span className="text-[11px] text-amber-500/60">{formatStars(selectedRepo.stars)}</span>
+                  </div>
+                  <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{timeAgo(selectedRepo.updated_at)}</span>
+                </div>
+              </div>
+              <button
+                onClick={clearSelection}
+                className="p-1 rounded transition-colors shrink-0"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="input"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="mb-4"
+          >
+            <div className="relative">
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="user/repo  or  github.com/user/repo.git  or  Qm..."
+                className="w-full px-4 py-3.5 rounded-xl text-sm focus:outline-none transition-all"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: `1px solid ${url ? (valid ? 'rgba(34,197,94,0.4)' : '#ef4444') : 'var(--border-color)'}`,
+                  color: 'var(--text-primary)',
+                }}
+              />
+              {url && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                    valid ? 'text-green-500 dark:text-green-400 border border-green-500/20' : 'text-red-500 dark:text-red-400 border border-red-500/20'
+                  }`}>
+                    {inputType}
+                  </span>
+                  <button onClick={() => setUrl('')} className="transition-colors" style={{ color: 'var(--text-secondary)' }}>
+                    <XMarkIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Output Section */}
-      <div className="flex-1 overflow-y-auto mt-2">
+      {/* Register button */}
+      <button
+        onClick={handleSubmit}
+        disabled={!valid || isSubmitting || !user || !registerToKey.trim()}
+        className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-[0.15em] transition-all disabled:opacity-15 disabled:cursor-not-allowed active:scale-[0.99] mb-5"
+        style={{
+          background: valid ? 'rgba(34,197,94,0.1)' : 'var(--bg-surface)',
+          border: `1px solid ${valid ? 'rgba(34,197,94,0.35)' : 'var(--border-color)'}`,
+          color: valid ? '#16a34a' : 'var(--text-secondary)',
+        }}
+      >
+        {isSubmitting ? (
+          <span className="flex items-center justify-center gap-2">
+            <ArrowPathIcon className="w-4 h-4 animate-spin" />
+            Registering...
+          </span>
+        ) : (
+          'Register Module'
+        )}
+      </button>
+
+      {/* Result / Error */}
+      <AnimatePresence>
         {result && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className="border bg-white/[0.02] overflow-hidden"
-            style={{
-              borderColor: 'rgba(74, 222, 128, 0.3)',
-              boxShadow: '0 0 20px rgba(74, 222, 128, 0.06)',
-            }}
+            exit={{ opacity: 0 }}
+            className="rounded-xl border border-green-500/30 overflow-hidden mb-5"
+            style={{ background: 'var(--bg-surface)' }}
           >
-            <div className="px-4 py-3 border-b border-green-500/20 bg-green-500/[0.04] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircleIcon className="w-4 h-4 text-green-400" />
-                <span className="font-extrabold text-[11px] uppercase tracking-wider text-green-400">
-                  Module Registered
-                </span>
-              </div>
-              {result.name && user?.key && (
-                <Link href={`/mod/${result.name}/${user.key}`}>
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-green-400/60 hover:text-green-400 transition-colors cursor-pointer">
-                    VIEW MODULE -&gt;
-                  </span>
-                </Link>
-              )}
+            <div className="px-4 py-3 border-b border-green-500/15 flex items-center gap-2">
+              <CheckCircleIcon className="w-4 h-4 text-green-500" />
+              <span className="font-bold text-xs uppercase tracking-wider text-green-500 dark:text-green-400">Module Registered</span>
             </div>
-
+            {result.name && registerToKey && (
+              <div className="px-4 pt-3">
+                <Link href={`/mod/${result.name}/${registerToKey}`}>
+                  <div className="py-2.5 rounded-lg text-center font-bold text-sm uppercase tracking-wider border border-green-500/30 text-green-500 dark:text-green-400 hover:border-green-500/60 hover:bg-green-500/10 transition-all group">
+                    <span className="flex items-center justify-center gap-2">
+                      View Module <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                    </span>
+                  </div>
+                </Link>
+              </div>
+            )}
             <div className="p-4">
-              <pre className="text-[12px] overflow-x-auto text-green-300/60 leading-relaxed font-mono bg-black/40 p-3 border border-green-500/10">
+              <pre className="text-xs overflow-x-auto text-green-700 dark:text-green-300/60 rounded-lg p-3 border border-green-500/10" style={{ background: 'var(--bg-surface)' }}>
                 {JSON.stringify(result, null, 2)}
               </pre>
             </div>
@@ -427,31 +344,117 @@ export default function CreateModule() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className="border bg-white/[0.02] overflow-hidden"
-            style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}
+            exit={{ opacity: 0 }}
+            className="rounded-xl border border-red-500/30 overflow-hidden mb-5"
+            style={{ background: 'var(--bg-surface)' }}
           >
-            <div className="px-4 py-3 border-b border-red-500/20 bg-red-500/[0.04] flex items-center gap-2">
-              <ExclamationCircleIcon className="w-4 h-4 text-red-400" />
-              <span className="font-extrabold text-[11px] uppercase tracking-wider text-red-400">
-                Registration Failed
-              </span>
+            <div className="px-4 py-3 border-b border-red-500/15 flex items-center gap-2">
+              <ExclamationCircleIcon className="w-4 h-4 text-red-500" />
+              <span className="font-bold text-xs uppercase tracking-wider text-red-500 dark:text-red-400">Failed</span>
             </div>
             <div className="p-4">
-              <p className="text-[12px] text-red-400/70 font-mono">{error}</p>
+              <p className="text-xs text-red-600 dark:text-red-300/70">{error}</p>
             </div>
           </motion.div>
         )}
+      </AnimatePresence>
 
-        {!user && !result && !error && (
-          <div className="flex flex-col items-center justify-center py-12 border border-white/[0.06] bg-white/[0.01]">
-            <span className="text-white/15 text-[12px] mb-1.5 font-extrabold uppercase tracking-wider">[AUTH REQUIRED]</span>
-            <p className="text-white/25 font-mono text-[12px] font-bold">
-              Connect wallet to register modules
-            </p>
+      {/* Divider */}
+      {!selectedRepo && (
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex-1 h-px" style={{ background: 'var(--border-color)' }} />
+          <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>or search</span>
+          <div className="flex-1 h-px" style={{ background: 'var(--border-color)' }} />
+        </div>
+      )}
+
+      {/* GitHub Search */}
+      {!selectedRepo && (
+        <div className="flex-1 space-y-3">
+          <div className="relative">
+            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-secondary)' }} />
+            {isSearching && (
+              <ArrowPathIcon className="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-green-500/60 animate-spin" />
+            )}
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="search github repositories..."
+              className="w-full pl-10 pr-10 py-2.5 rounded-lg text-sm focus:outline-none transition-all"
+              style={{
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+              }}
+            />
           </div>
-        )}
-      </div>
+
+          {searchError && (
+            <p className="text-red-500/70 text-xs px-1">{searchError}</p>
+          )}
+
+          {/* Quick suggestions */}
+          {!searchQuery.trim() && searchResults.length === 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+              {['machine learning', 'solidity', 'react', 'rust cli', 'python api'].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSearchQuery(s)}
+                  className="text-[11px] px-2.5 py-1 rounded-full hover:text-green-500 dark:hover:text-green-400 transition-all"
+                  style={{ border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Results */}
+          {searchResults.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {searchResults.map((repo) => (
+                <button
+                  key={repo.full_name}
+                  onClick={() => selectRepo(repo)}
+                  className="text-left p-3 rounded-lg transition-all group hover:border-green-500/30"
+                  style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <span className="text-[13px] font-bold group-hover:text-green-500 dark:group-hover:text-green-300 transition-colors truncate" style={{ color: 'var(--text-primary)' }}>
+                      {repo.full_name}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <StarSolid className="w-3 h-3 text-amber-500/50" />
+                      <span className="text-[11px] text-amber-500/50">{formatStars(repo.stars)}</span>
+                    </div>
+                  </div>
+                  {repo.description && (
+                    <p className="text-[11px] line-clamp-2 leading-relaxed mb-1.5" style={{ color: 'var(--text-secondary)' }}>{repo.description}</p>
+                  )}
+                  <div className="flex items-center gap-3">
+                    {repo.language && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: langColors[repo.language] || '#555' }} />
+                        <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{repo.language}</span>
+                      </div>
+                    )}
+                    <span className="text-[11px]" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>{timeAgo(repo.updated_at)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && !searchError && (
+            <p className="text-xs text-center py-6" style={{ color: 'var(--text-secondary)' }}>no repositories found</p>
+          )}
+
+          {!user && !result && !error && (
+            <p className="text-xs text-center pt-6" style={{ color: 'var(--text-secondary)' }}>connect wallet to register modules</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

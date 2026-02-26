@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CubeIcon, MagnifyingGlassIcon, PlusIcon, Bars3Icon, XMarkIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, PlusIcon, Bars3Icon, XMarkIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { WalletHeader } from '@/wallet/WalletHeader'
@@ -50,8 +50,8 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="shrink-0 flex items-center justify-center transition-all hover:opacity-80 rounded-lg"
-      style={{ width: '34px', height: '34px', background: 'var(--bg-input)' }}
+      className="shrink-0 flex items-center justify-center transition-all hover:opacity-80"
+      style={{ width: '34px', height: '34px', background: 'var(--bg-input)', borderRadius: '20px', border: '1px solid var(--border-strong)' }}
       title={effectiveTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       {effectiveTheme === 'dark' ? (
@@ -202,20 +202,13 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
         <div className="shrink-0 flex items-center gap-1 ml-3">
           <Link
             href="/create"
-            className="shrink-0 flex items-center gap-1.5 px-3 border border-green-500/30 bg-green-500/8 hover:bg-green-500/15 transition-all rounded-lg"
-            style={{ height: '34px', fontFamily: 'inherit' }}
+            className="shrink-0 flex items-center gap-2 px-4 border hover:opacity-80 transition-all"
+            style={{ height: '40px', fontFamily: 'inherit', borderRadius: '20px', borderColor: 'var(--border-strong)' }}
           >
-            <PlusIcon className="w-4 h-4 text-green-400" />
-            <span className="text-[13px] font-extrabold uppercase tracking-wider text-green-400 whitespace-nowrap hidden sm:inline">
+            <PlusIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
+            <span className="text-[14px] font-extrabold uppercase tracking-wider whitespace-nowrap hidden sm:inline" style={{ color: 'var(--text-primary)' }}>
               NEW
             </span>
-          </Link>
-
-          <Link href="/" className="shrink-0 flex items-center justify-center" style={{ width: '40px', height: '48px' }}>
-            <CubeIcon
-              className="w-6 h-6 text-green-400"
-              style={{ filter: 'drop-shadow(0 0 6px rgba(74, 222, 128, 0.5))' }}
-            />
           </Link>
 
           <ThemeToggle />

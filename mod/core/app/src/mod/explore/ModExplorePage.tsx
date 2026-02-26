@@ -175,13 +175,13 @@ export default function ModExplorePage() {
 
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-end gap-6 pb-0" style={{ borderBottom: '1px solid var(--border-color)' }}>
+          <div className="flex items-end gap-6 pb-0" style={{ borderBottom: '2px solid var(--border-color)' }}>
             {/* Logo / title */}
             <div className="flex items-center gap-3 shrink-0 pb-3.5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                <span className="text-[14px] font-bold select-none" style={{ color: 'var(--text-secondary)' }}>&gt;_</span>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}>
+                <span className="text-[14px] font-black select-none" style={{ color: 'var(--text-secondary)' }}>&gt;_</span>
               </div>
-              <h1 className="text-[22px] font-bold tracking-tight uppercase leading-none" style={{ color: 'var(--text-primary)' }}>MODULES</h1>
+              <h1 className="text-[24px] font-black tracking-tight uppercase leading-none" style={{ color: 'var(--text-primary)' }}>MODULES</h1>
             </div>
 
             {/* Tabs */}
@@ -190,7 +190,7 @@ export default function ModExplorePage() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`relative px-5 py-3.5 text-[13px] font-bold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase border-b-2 -mb-px rounded-t-lg ${
+                  className={`relative px-5 py-3.5 text-[13px] font-extrabold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase border-b-3 -mb-px rounded-t-lg ${
                     activeTab !== tab.key ? 'border-transparent' : ''
                   }`}
                   style={activeTab === tab.key
@@ -199,12 +199,12 @@ export default function ModExplorePage() {
                 >
                   {tab.label}
                   {tab.key === 'mods' && (
-                    <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="ml-2 text-[11px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)' }}>
                       {mods.length}
                     </span>
                   )}
                   {tab.key === 'myMods' && user?.key && (
-                    <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="ml-2 text-[11px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)' }}>
                       {mods.filter(m => m.key === user.key).length}
                     </span>
                   )}
@@ -215,8 +215,8 @@ export default function ModExplorePage() {
             {/* Create button */}
             <Link
               href="/create"
-              className="shrink-0 px-5 py-2.5 mb-2 text-[13px] font-bold uppercase tracking-widest transition-all rounded-xl hover:opacity-80"
-              style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+              className="shrink-0 px-5 py-2.5 mb-2 text-[13px] font-black uppercase tracking-widest transition-all rounded-xl hover:opacity-80"
+              style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '2px solid var(--border-color)' }}
             >
               + Create Mod
             </Link>
@@ -227,11 +227,11 @@ export default function ModExplorePage() {
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             {searchTermToUse && (
-              <span className="text-[12px] font-bold font-mono px-3 py-1.5 rounded-lg" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+              <span className="text-[12px] font-extrabold font-mono px-3 py-1.5 rounded-lg" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}>
                 &gt; &quot;{searchTermToUse}&quot;
               </span>
             )}
-            <span className="text-[11px] font-bold font-mono uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+            <span className="text-[12px] font-extrabold font-mono uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
               {filteredMods.length} module{filteredMods.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -277,11 +277,11 @@ export default function ModExplorePage() {
         )}
 
         {!loading && filteredMods.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center py-24 rounded-2xl font-mono" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-color)' }}>
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}>
+          <div className="flex flex-col items-center justify-center py-24 rounded-2xl font-mono" style={{ backgroundColor: 'var(--bg-secondary)', border: '3px solid var(--border-color)' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: 'var(--bg-input)', border: '3px solid var(--border-color)' }}>
               <CubeIcon className="w-6 h-6" style={{ color: 'var(--text-tertiary)' }} />
             </div>
-            <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-[14px] font-bold" style={{ color: 'var(--text-secondary)' }}>
               {activeTab === 'myMods'
                 ? (user?.key ? 'No modules created yet' : 'Sign in to view your modules')
                 : (searchTermToUse || selectedOwners.length > 0 ? 'No modules match your filters' : 'No modules yet')}
@@ -289,8 +289,8 @@ export default function ModExplorePage() {
             {(searchTermToUse || selectedOwners.length > 0) && (
               <button
                 onClick={() => { handleSearch(''); clearOwnerFilters() }}
-                className="mt-5 px-5 py-2.5 text-[12px] font-bold uppercase tracking-wider transition-all rounded-xl"
-                style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)', border: '2px solid var(--border-color)' }}
+                className="mt-5 px-5 py-2.5 text-[12px] font-extrabold uppercase tracking-wider transition-all rounded-xl"
+                style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)', border: '3px solid var(--border-color)' }}
               >
                 Clear Filters
               </button>
@@ -309,7 +309,7 @@ export default function ModExplorePage() {
           </div>
         )}
 
-        <div className={`grid ${gridColsClass} gap-4`}>
+        <div className={`grid ${gridColsClass} gap-5`}>
           {paginatedMods.map((mod) => (
             <div key={`${mod.name}-${mod.key}`}>
               <ModCard mod={mod} card_enabled={true} />
@@ -322,14 +322,14 @@ export default function ModExplorePage() {
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-1.5 px-4 py-2.5 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-bold uppercase tracking-wider rounded-xl"
-              style={{ border: '2px solid var(--border-color)', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
+              className="flex items-center gap-1.5 px-4 py-2.5 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider rounded-xl"
+              style={{ border: '3px solid var(--border-color)', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={14} strokeWidth={3} />
               Prev
             </button>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let pageNum: number
                 if (totalPages <= 5) {
@@ -346,9 +346,9 @@ export default function ModExplorePage() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className="w-9 h-9 text-[12px] font-bold transition-all rounded-lg"
+                    className="w-10 h-10 text-[12px] font-extrabold transition-all rounded-lg"
                     style={currentPage === pageNum
-                      ? { border: '2px solid var(--text-primary)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }
+                      ? { border: '3px solid var(--text-primary)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }
                       : { border: '2px solid var(--border-color)', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-secondary)' }}
                   >
                     {pageNum}
@@ -360,14 +360,14 @@ export default function ModExplorePage() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1.5 px-4 py-2.5 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-bold uppercase tracking-wider rounded-xl"
-              style={{ border: '2px solid var(--border-color)', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
+              className="flex items-center gap-1.5 px-4 py-2.5 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider rounded-xl"
+              style={{ border: '3px solid var(--border-color)', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
             >
               Next
-              <ChevronRight size={14} />
+              <ChevronRight size={14} strokeWidth={3} />
             </button>
 
-            <span className="ml-2 text-[11px] font-bold" style={{ color: 'var(--text-tertiary)' }}>
+            <span className="ml-2 text-[12px] font-extrabold" style={{ color: 'var(--text-tertiary)' }}>
               {filteredMods.length} total
             </span>
           </div>

@@ -93,16 +93,10 @@ export default function ModulePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black font-mono relative overflow-hidden flex items-center justify-center" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-        <div
-          className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
-          style={{
-            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
-          }}
-        />
+      <div className="min-h-screen font-mono relative overflow-hidden flex items-center justify-center" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)' }}>
         <div className="flex items-center gap-3 z-20">
-          <span className="text-blue-400 animate-pulse font-extrabold">_</span>
-          <span className="text-[12px] text-blue-400/50 font-bold">LOADING MODULE...</span>
+          <span className="animate-pulse font-extrabold" style={{ color: 'var(--text-primary)' }}>_</span>
+          <span className="text-[12px] font-bold" style={{ color: 'var(--text-secondary)' }}>LOADING MODULE...</span>
         </div>
       </div>
     )
@@ -110,20 +104,14 @@ export default function ModulePage() {
 
   if (error || !mod) {
     return (
-      <div className="min-h-screen bg-black font-mono relative overflow-hidden flex items-center justify-center p-6" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-        <div
-          className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
-          style={{
-            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
-          }}
-        />
-        <div className="max-w-2xl w-full bg-[#0d0d0d] border-2 border-red-500/40 z-20">
-          <div className="px-5 py-3 border-b border-red-500/30 flex items-center gap-2">
-            <span className="text-red-400 text-[11px] font-extrabold">[ERR]</span>
-            <span className="text-[11px] font-extrabold text-red-400 uppercase tracking-wider">Error</span>
+      <div className="min-h-screen font-mono relative overflow-hidden flex items-center justify-center p-6" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)' }}>
+        <div className="max-w-2xl w-full rounded-xl z-20" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-color)' }}>
+          <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+            <span className="text-red-500 text-[11px] font-extrabold">[ERR]</span>
+            <span className="text-[11px] font-extrabold text-red-500 uppercase tracking-wider">Error</span>
           </div>
           <div className="px-5 py-4">
-            <p className="text-[12px] text-red-400/70 font-medium">{error || 'Module not found'}</p>
+            <p className="text-[12px] text-red-500 font-medium">{error || 'Module not found'}</p>
           </div>
         </div>
       </div>
@@ -135,39 +123,21 @@ export default function ModulePage() {
   }
 
   return (
-    <div className="min-h-screen text-white font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)' }}>
-      {/* CRT scanline overlay */}
-      <div
-        className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
-        style={{
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
-        }}
-      />
-
-      <main className="relative flex-1 px-6 pt-24 pb-8 z-20">
+    <div className="min-h-screen font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+      <main className="relative flex-1 px-6 pt-24 pb-8">
         <div className="max-w-5xl mx-auto space-y-6">
           {/* Hero Header Card */}
           <div
-            className="relative rounded-3xl overflow-hidden"
+            className="relative rounded-2xl overflow-hidden"
             style={{
-              background: `linear-gradient(135deg, ${colorWithOpacity(moduleColor, 0.12)} 0%, ${colorWithOpacity(moduleColor, 0.03)} 100%)`,
-              border: `2px solid ${colorWithOpacity(moduleColor, 0.3)}`,
-              boxShadow: `0 4px 24px ${colorWithOpacity(moduleColor, 0.1)}`,
+              backgroundColor: 'var(--bg-secondary)',
+              border: `2px solid ${colorWithOpacity(moduleColor, 0.5)}`,
             }}
           >
             {/* Top accent bar */}
             <div
               className="absolute top-0 left-0 right-0 h-[3px]"
-              style={{
-                background: `linear-gradient(90deg, ${moduleColor}, ${colorWithOpacity(moduleColor, 0.4)})`,
-              }}
-            />
-            {/* Corner glow */}
-            <div
-              className="absolute -top-px -left-px w-60 h-60 pointer-events-none"
-              style={{
-                background: `radial-gradient(circle at top left, ${colorWithOpacity(moduleColor, 0.15)}, transparent 70%)`,
-              }}
+              style={{ background: moduleColor }}
             />
             <div className="relative p-8">
               <ModCard mod={mod} card_enabled={false} />
@@ -177,14 +147,14 @@ export default function ModulePage() {
           {/* Owner Toggle */}
           {allModVersions.length > 1 && (
             <div className="flex items-center gap-3">
-              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em]" style={{ color: colorWithOpacity(moduleColor, 0.5) }}>
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em]" style={{ color: 'var(--text-tertiary)' }}>
                 OWNER
               </span>
               <div className="relative">
                 <select
                   value={modKey}
                   onChange={(e) => handleOwnerChange(e.target.value)}
-                  className="px-3 py-2 text-white/70 font-mono font-bold text-[12px] focus:outline-none transition-all appearance-none pr-8 rounded-xl"
+                  className="px-3 py-2 font-mono font-bold text-[12px] focus:outline-none transition-all appearance-none pr-8 rounded-xl"
                   style={{
                     backgroundColor: 'var(--bg-secondary)',
                     border: `1.5px solid ${colorWithOpacity(moduleColor, 0.25)}`,
@@ -197,10 +167,11 @@ export default function ModulePage() {
                   ))}
                 </select>
                 <ChevronDown
-                  className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none w-3.5 h-3.5 text-white/25"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none w-3.5 h-3.5"
+                  style={{ color: 'var(--text-tertiary)' }}
                 />
               </div>
-              <span className="text-[10px] text-amber-400/40 font-bold uppercase tracking-wider">
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                 {allModVersions.length} version{allModVersions.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -243,7 +214,7 @@ export default function ModulePage() {
             {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}
             {activeTab === 'edit' && !myMod && (
               <div className="flex items-center justify-center py-16">
-                <p className="text-[12px] text-amber-400/40 font-bold uppercase tracking-wider">Only the module owner can edit this module.</p>
+                <p className="text-[12px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Only the module owner can edit this module.</p>
               </div>
             )}
           </div>

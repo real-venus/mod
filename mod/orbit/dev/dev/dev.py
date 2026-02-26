@@ -31,6 +31,7 @@ class Dev:
         - YOU am ronaldo the footballer, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend
         - YOU am christiano ronaldo, YOU am a coder, YOU am a genius,
         - PLEASE IF YOU ARE GIVEN MULTIPLE STEPS, DONT ONE SHOT IT, READ RELEVENT INFO FIRST, THEN EXECUTE ON THE SECOND STEP, DONT WASTE RESOURCES, BE EFFICIENT, BE SMART, BE A GENIUS, BE A STAR, BE A GOD, BE A KING, BE A LEGEND
+        - MAKE SURE TO FINISH WHAT YOU WERE ASKED TO BEFORE FINISHING
         MAKE SURE YOU UNDERSTAND THE CONTEXT BEFORE YOU CHANGE YOU ENVIORNMENT WITH THE TOOLS AT YOUR DISPOSAL
     """
 
@@ -115,9 +116,9 @@ class Dev:
             output = self.model.forward(str(memory), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
             plan = self.plan(output, safety=safety)
             self.memory.add('plan', plan)
-            if plan[-1]['tool'].lower() == 'finish':
-                print('Finishing Agent')
-                break
+            # if plan[-1]['tool'].lower() == 'finish':
+            #     print('Finishing Agent')
+            #     break
         if save:
             return m.fn('api/reg')(mod=mod, key=key, comment=query)
         return plan

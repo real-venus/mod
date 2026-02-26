@@ -66,7 +66,7 @@ export default function ModVersions({ mod }: ModVersionsProps) {
       <div className="flex items-center justify-center p-8">
         <div className="flex items-center gap-3">
           <span className="animate-pulse font-extrabold" style={{ color: modColor }}>_</span>
-          <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: colorWithOpacity(modColor, 0.5) }}>Loading versions...</span>
+          <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Loading versions...</span>
         </div>
       </div>
     )
@@ -74,8 +74,8 @@ export default function ModVersions({ mod }: ModVersionsProps) {
 
   if (error) {
     return (
-      <div className="p-4 border border-red-500/20 bg-red-500/[0.04]">
-        <p className="text-red-400 text-[12px] font-mono">{error}</p>
+      <div className="p-4 rounded-lg" style={{ border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)' }}>
+        <p className="text-red-500 text-[12px] font-mono">{error}</p>
       </div>
     )
   }
@@ -86,17 +86,18 @@ export default function ModVersions({ mod }: ModVersionsProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-extrabold" style={{ color: modColor }}>[VER]</span>
-          <h3 className="text-[12px] font-extrabold text-white/60 uppercase tracking-[0.15em]">
+          <h3 className="text-[12px] font-extrabold uppercase tracking-[0.15em]" style={{ color: 'var(--text-secondary)' }}>
             Versions
           </h3>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-bold text-amber-400/40">
+          <span className="text-[10px] font-bold" style={{ color: 'var(--text-tertiary)' }}>
             {versions.length} version{versions.length !== 1 ? 's' : ''}
           </span>
           <button
             onClick={() => setSortAsc(!sortAsc)}
-            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-white/30 hover:text-white/60 border border-white/[0.08] hover:border-white/[0.15] transition-all"
+            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold transition-all rounded-md"
+            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}
           >
             <ArrowUpDown className="w-3 h-3" />
             {sortAsc ? 'Oldest' : 'Newest'}
@@ -105,15 +106,19 @@ export default function ModVersions({ mod }: ModVersionsProps) {
       </div>
 
       {versions.length === 0 ? (
-        <p className="text-center py-8 text-[12px] text-white/30">No versions found</p>
+        <p className="text-center py-8 text-[12px]" style={{ color: 'var(--text-tertiary)' }}>No versions found</p>
       ) : (
-        <div className="space-y-1 max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(64, 64, 64, 0.5) transparent' }}>
+        <div className="space-y-1 max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
           {sortedVersions.map((ver, idx) => {
             const originalIdx = versions.length - versions.indexOf(ver)
             return (
               <div
                 key={versions.indexOf(ver)}
-                className="flex items-center justify-between gap-4 px-4 py-3 border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all group"
+                className="flex items-center justify-between gap-4 px-4 py-3 transition-all group rounded-lg"
+                style={{
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-input)',
+                }}
               >
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   {/* Version number */}
@@ -124,14 +129,14 @@ export default function ModVersions({ mod }: ModVersionsProps) {
 
                   {/* Date */}
                   <div className="flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 flex-shrink-0 text-blue-400/50" />
-                    <span className="text-[11px] text-blue-400/50 font-mono">{ver.updated}</span>
+                    <Clock className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                    <span className="text-[11px] font-mono" style={{ color: 'var(--text-secondary)' }}>{ver.updated}</span>
                   </div>
 
                   {/* Hash */}
                   <div className="flex items-center gap-1.5">
-                    <Hash className="w-3 h-3 flex-shrink-0 text-emerald-400/50" />
-                    <code className="text-[11px] font-mono text-emerald-400/50">
+                    <Hash className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                    <code className="text-[11px] font-mono" style={{ color: 'var(--text-secondary)' }}>
                       {ver.data.slice(0, 8)}...{ver.data.slice(-6)}
                     </code>
                     <CopyButton text={ver.data} size="sm" />
@@ -139,17 +144,17 @@ export default function ModVersions({ mod }: ModVersionsProps) {
 
                   {/* Comment */}
                   {ver.comment && (
-                    <span className="text-[11px] text-white/30 truncate">{ver.comment}</span>
+                    <span className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>{ver.comment}</span>
                   )}
                 </div>
 
                 <button
                   onClick={() => handleSetVersion(ver.data, originalIdx)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all opacity-50 group-hover:opacity-100 border"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all opacity-50 group-hover:opacity-100 rounded-md"
                   style={{
                     color: modColor,
-                    borderColor: colorWithOpacity(modColor, 0.3),
-                    backgroundColor: colorWithOpacity(modColor, 0.06),
+                    border: `1px solid ${colorWithOpacity(modColor, 0.4)}`,
+                    backgroundColor: 'transparent',
                   }}
                 >
                   <RotateCcw className="w-3 h-3" />

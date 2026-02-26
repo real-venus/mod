@@ -123,9 +123,9 @@ export function NetworkSelector() {
         className="flex items-center gap-2 px-2.5 border transition-all hover:brightness-110 active:scale-[0.98]"
         style={{
           height: '36px',
-          borderRadius: '0px',
+          borderRadius: '20px',
           fontFamily: 'IBM Plex Mono, monospace',
-          borderColor: `${selectedChain.color}25`,
+          borderColor: 'var(--border-strong)',
           background: `${selectedChain.color}08`,
         }}
       >
