@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { CubeIcon, MagnifyingGlassIcon, PlusIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
@@ -24,7 +24,7 @@ import {
 import { ThemeProvider } from '@/context/ThemeContext'
 import { SplitScreenControls } from '@/components/SplitScreenControls'
 
-function GlobalSearchBar() {
+function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenuOpen: (v: boolean) => void }) {
   const { handleSearch, searchFilters } = useSearchContext()
   const router = useRouter()
   const pathname = usePathname()
@@ -32,28 +32,18 @@ function GlobalSearchBar() {
   const headerRef = useRef<HTMLDivElement>(null)
   const [inputValue, setInputValue] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
-  const [compact, setCompact] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
 
   const navItems = [
     { href: '/mod/explore', label: 'MODS', color: '#10b981' },
     { href: '/quests', label: 'QUESTS', color: '#0bf58c' },
     { href: '/treasury', label: 'TREASURY', color: '#a855f7' },
+    { href: '/contracts', label: 'CONTRACTS', color: '#f59e0b' },
     { href: '/docs', label: 'DOCS', color: '#a78bfa' },
     { href: '/chat', label: 'CHAT', color: '#8b5cf6' },
     { href: '/safe', label: 'SAFE', color: '#f59e0b' },
   ]
 
-  // Responsive: watch for narrow widths
-  useEffect(() => {
-    const check = () => setCompact(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-
-  // Close mobile menu on route change
-  useEffect(() => { setMenuOpen(false) }, [pathname])
+  // No longer close sidebar on route change — sidebar persists
 
   useEffect(() => {
     setInputValue(searchFilters.searchTerm || '')
@@ -120,215 +110,123 @@ function GlobalSearchBar() {
           fontFamily: 'IBM Plex Mono, monospace',
         }}
       >
-        {/* Logo */}
-        <Link href="/" className="shrink-0 mr-2 flex items-center justify-center" style={{ width: '40px', height: '48px' }}>
-          <CubeIcon
-            className="w-6 h-6 text-green-400"
-            style={{ filter: 'drop-shadow(0 0 6px rgba(74, 222, 128, 0.5))' }}
-          />
-        </Link>
+        {/* Hamburger */}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="shrink-0 flex items-center justify-center transition-all hover:bg-white/[0.04] mr-2"
+          style={{ width: '40px', height: '36px' }}
+        >
+          {menuOpen ? (
+            <XMarkIcon className="w-5 h-5 text-green-400" />
+          ) : (
+            <Bars3Icon className="w-5 h-5 text-white/50" />
+          )}
+        </button>
 
-        {/* Search bar - left side, expandable */}
-        {!compact && (
-          <div className="shrink-0 flex items-center mr-1">
-            {searchOpen ? (
-              <motion.div
-                initial={{ width: 44 }}
-                animate={{ width: 260 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="flex items-center"
-              >
-                <div className="relative" style={{ width: '260px' }}>
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={inputValue}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Search mods..."
-                    className="w-full bg-transparent border text-white text-[14px] font-bold placeholder-neutral-600 focus:outline-none transition-all"
-                    style={{
-                      paddingLeft: '2.25rem',
-                      paddingRight: '3.5rem',
-                      height: '36px',
-                      borderColor: 'rgba(74, 222, 128, 0.3)',
-                      boxShadow: '0 0 12px rgba(74, 222, 128, 0.06)',
-                      fontFamily: 'inherit',
-                      borderRadius: '0px',
-                      letterSpacing: '0.03em',
-                    }}
-                  />
-                  <button
-                    onClick={closeSearch}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white text-[11px] font-bold px-1.5 py-0.5 border border-neutral-800 hover:border-neutral-600 transition-all"
-                  >
-                    ESC
-                  </button>
-                </div>
-              </motion.div>
-            ) : (
+        {/* Search bar - always visible, centered, takes most space */}
+        <div className="flex-1 flex items-center">
+          <div className="relative w-full max-w-2xl">
+            <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setSearchOpen(true)}
+              placeholder="Search mods..."
+              className="w-full bg-white/[0.04] border border-white/[0.08] text-white text-[14px] font-bold placeholder-white/25 focus:outline-none focus:border-green-500/40 focus:bg-white/[0.06] transition-all rounded-xl"
+              style={{
+                paddingLeft: '2.5rem',
+                paddingRight: searchOpen ? '3.5rem' : '1rem',
+                height: '36px',
+                fontFamily: 'inherit',
+                letterSpacing: '0.03em',
+              }}
+            />
+            {searchOpen && inputValue && (
               <button
-                onClick={openSearch}
-                className="shrink-0 flex items-center justify-center transition-all hover:bg-white/[0.04]"
-                style={{ width: '40px', height: '36px' }}
-                title={`Search (${typeof navigator !== 'undefined' && navigator?.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}K)`}
+                onClick={closeSearch}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white text-[10px] font-bold px-1.5 py-0.5 bg-white/[0.06] rounded-md hover:bg-white/[0.1] transition-all"
               >
-                <MagnifyingGlassIcon className="w-5 h-5 text-white/30 hover:text-white/60 transition-colors" />
+                ESC
               </button>
             )}
           </div>
-        )}
+        </div>
 
-        {/* Separator after search */}
-        {!compact && <div className="w-px h-5 bg-white/[0.08] mx-1 shrink-0" />}
-
-        {/* Desktop tabs */}
-        {!compact ? (
-          <div className="flex items-center h-full flex-1 min-w-0">
-            {navItems.map(item => {
-              const isActive = pathname?.startsWith(item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="relative flex items-center h-full px-4 transition-all group"
-                  style={{ textDecoration: 'none' }}
-                >
-                  <span
-                    className="text-[14px] font-extrabold uppercase tracking-[0.12em] transition-colors whitespace-nowrap"
-                    style={{
-                      color: isActive ? item.color : 'rgba(255,255,255,0.35)',
-                    }}
-                  >
-                    {item.label}
-                  </span>
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className="absolute bottom-0 left-2 right-2"
-                      style={{
-                        height: '2px',
-                        background: item.color,
-                        boxShadow: `0 0 8px ${item.color}80`,
-                      }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                    />
-                  )}
-                  {!isActive && (
-                    <div
-                      className="absolute bottom-0 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ height: '1px', background: 'rgba(255,255,255,0.15)' }}
-                    />
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        ) : (
-          /* Hamburger button for mobile */
-          <div className="flex-1 flex items-center">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="shrink-0 flex items-center justify-center transition-all hover:bg-white/[0.04]"
-              style={{ width: '40px', height: '36px' }}
-            >
-              {menuOpen ? (
-                <XMarkIcon className="w-5 h-5 text-green-400" />
-              ) : (
-                <Bars3Icon className="w-5 h-5 text-white/50" />
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* + New Mod button */}
-        <Link
-          href="/create"
-          className="shrink-0 flex items-center gap-1.5 px-3 border border-green-500/30 bg-green-500/8 hover:bg-green-500/15 transition-all mr-2"
-          style={{ height: '34px', fontFamily: 'inherit' }}
-        >
-          <PlusIcon className="w-4 h-4 text-green-400" />
-          {!compact && (
-            <span className="text-[13px] font-extrabold uppercase tracking-wider text-green-400 whitespace-nowrap">
+        {/* Right side: + New, Logo, Network, Wallet */}
+        <div className="shrink-0 flex items-center gap-1 ml-3">
+          <Link
+            href="/create"
+            className="shrink-0 flex items-center gap-1.5 px-3 border border-green-500/30 bg-green-500/8 hover:bg-green-500/15 transition-all rounded-lg"
+            style={{ height: '34px', fontFamily: 'inherit' }}
+          >
+            <PlusIcon className="w-4 h-4 text-green-400" />
+            <span className="text-[13px] font-extrabold uppercase tracking-wider text-green-400 whitespace-nowrap hidden sm:inline">
               NEW
             </span>
-          )}
-        </Link>
+          </Link>
 
-        {/* Separator */}
-        <div className="w-px h-5 bg-white/[0.06] mx-1 shrink-0" />
+          <Link href="/" className="shrink-0 flex items-center justify-center" style={{ width: '40px', height: '48px' }}>
+            <CubeIcon
+              className="w-6 h-6 text-green-400"
+              style={{ filter: 'drop-shadow(0 0 6px rgba(74, 222, 128, 0.5))' }}
+            />
+          </Link>
 
-        {/* Network + Wallet */}
-        <NetworkSelector />
-        <WalletHeader />
+          <NetworkSelector />
+          <WalletHeader />
+        </div>
       </div>
 
-      {/* Mobile dropdown menu */}
-      {compact && menuOpen && (
-        <>
-          <div className="fixed inset-0 z-[58] bg-black/50" onClick={() => setMenuOpen(false)} />
+      {/* Sidebar - push layout, no overlay */}
+      <AnimatePresence>
+        {menuOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed left-0 right-0 z-[59] flex flex-col border-b border-white/[0.08]"
+            initial={{ x: -220 }}
+            animate={{ x: 0 }}
+            exit={{ x: -220 }}
+            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            className="fixed left-0 top-0 bottom-0 z-[59] flex flex-col overflow-y-auto custom-scrollbar"
             style={{
-              top: '48px',
+              width: '220px',
               background: 'rgba(8,8,12,0.98)',
               backdropFilter: 'blur(16px)',
               fontFamily: 'IBM Plex Mono, monospace',
+              borderRight: '1px solid rgba(255,255,255,0.06)',
             }}
           >
-            {/* Mobile search */}
-            <div className="px-4 pt-3 pb-2">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-400/60" />
-                <input
-                  type="text"
-                  value={inputValue}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Search mods..."
-                  className="w-full bg-transparent border text-white text-[14px] font-bold placeholder-neutral-600 focus:outline-none transition-all"
-                  style={{
-                    paddingLeft: '2.25rem',
-                    paddingRight: '1rem',
-                    height: '38px',
-                    borderColor: 'rgba(255,255,255,0.08)',
-                    fontFamily: 'inherit',
-                    borderRadius: '0px',
-                    letterSpacing: '0.03em',
-                  }}
-                />
-              </div>
-            </div>
-            {/* Mobile nav items */}
-            {navItems.map(item => {
-              const isActive = pathname?.startsWith(item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-5 py-3 transition-all hover:bg-white/[0.03]"
-                  style={{
-                    borderLeft: isActive ? `3px solid ${item.color}` : '3px solid transparent',
-                    background: isActive ? `${item.color}08` : undefined,
-                  }}
-                >
-                  <span
-                    className="text-[15px] font-extrabold uppercase tracking-[0.12em]"
-                    style={{ color: isActive ? item.color : 'rgba(255,255,255,0.4)' }}
+            {/* Spacer for top header */}
+            <div className="h-[48px] shrink-0" />
+
+            {/* Nav items */}
+            <div className="flex-1 py-1">
+              {navItems.map(item => {
+                const isActive = pathname?.startsWith(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center px-4 py-2.5 transition-all hover:bg-white/[0.03]"
+                    style={{
+                      borderLeft: isActive ? `3px solid ${item.color}` : '3px solid transparent',
+                      background: isActive ? `${item.color}08` : undefined,
+                    }}
                   >
-                    {item.label}
-                  </span>
-                </Link>
-              )
-            })}
-            <div className="h-2" />
+                    <span
+                      className="text-[13px] font-extrabold uppercase tracking-[0.1em]"
+                      style={{ color: isActive ? item.color : 'rgba(255,255,255,0.4)' }}
+                    >
+                      {item.label}
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
           </motion.div>
-        </>
-      )}
+        )}
+      </AnimatePresence>
     </>
   )
 }
@@ -345,6 +243,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   const { isHeaderMode } = useLayoutContext()
   const pathname = usePathname()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     if (isSplitScreen && leftPanelUrl === pathname) {
@@ -360,9 +259,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     : 'border-b-2 border-green-500/30'
 
   return (
-    <div className="flex h-screen bg-black" style={{ paddingTop: '48px' }}>
+    <div className="flex h-screen bg-black transition-all duration-200" style={{ paddingTop: '48px', marginLeft: menuOpen ? '220px' : '0px' }}>
       {/* Global header with tabs */}
-      <GlobalSearchBar />
+      <GlobalSearchBar menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col">

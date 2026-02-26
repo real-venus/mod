@@ -171,6 +171,15 @@ class OpenRouter:
         keys = list(set(keys))
         self.store.put(self.api_path, keys)
         return keys
+    
+    def set_keys(self, *keys):
+        keys = list(set(keys))
+        self.store.put(self.api_path, keys)
+        return keys
+    
+    def set_key(self, key):
+        return self.set_keys(key)
+
 
     def rm_key(self, key):
         keys = self.store.get(self.api_path, [])

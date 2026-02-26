@@ -140,6 +140,7 @@ export class Auth {
       
   public async token(data: any = '', walletAddress?: any, wallet_mode?: any): Promise<string> {
 
+
     if (!wallet_mode) {
       wallet_mode = typeof window !== 'undefined' ? localStorage.getItem('wallet_mode') : 'local';
     }

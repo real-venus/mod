@@ -166,6 +166,9 @@ class Server:
 
               ):
         
+        if 'serve' in m.fns(mod):
+            print(f'Mod {mod} has its own serve function, using it to serve the mod', color='green')
+            return m.fn(mod + '/serve')()
         self.set_pm(pm)
         mod = mod or m.name
         port = self.get_port(port, mod=mod)

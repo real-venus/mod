@@ -9,7 +9,6 @@ import { TopUpTab } from './TopUpTab'
 import { WithdrawTab } from './WithdrawTab'
 import { TransactionsTab } from './TransactionsTab'
 import { AccountsTab } from './AccountsTab'
-import { ContractsTab } from './ContractsTab'
 
 function TabButton({ active, onClick, icon, label, colorActive, colorInactive }: {
   active: boolean
@@ -130,7 +129,6 @@ export function WalletSidebar(props: WalletSidebarProps) {
   const showPortfolio = activeTab === 'portfolio'
   const showTxs = activeTab === 'txs'
   const showWallets = activeTab === 'wallets'
-  const showContracts = activeTab === 'contracts'
 
   return (
     <div>
@@ -232,18 +230,6 @@ export function WalletSidebar(props: WalletSidebarProps) {
               colorActive="from-cyan-500/30 to-blue-500/30 border-cyan-400 text-cyan-300 shadow-cyan-500/50"
               colorInactive="from-cyan-950/40 to-blue-950/40 border-cyan-900/60 text-cyan-600 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30"
             />
-            <TabButton
-              active={showContracts}
-              onClick={() => openTab('contracts')}
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-              }
-              label="CODE"
-              colorActive="from-amber-500/30 to-yellow-500/30 border-amber-400 text-amber-300 shadow-amber-500/50"
-              colorInactive="from-amber-950/40 to-yellow-950/40 border-amber-900/60 text-amber-600 hover:text-amber-300 hover:border-amber-400/60 hover:shadow-amber-500/30"
-            />
           </div>
 
           <PortfolioTab
@@ -325,7 +311,6 @@ export function WalletSidebar(props: WalletSidebarProps) {
             totalCost24h={props.totalCost24h}
           />
 
-          <ContractsTab show={showContracts} />
         </div>
       </motion.div>
     </div>

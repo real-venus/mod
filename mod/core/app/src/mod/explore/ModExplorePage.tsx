@@ -8,6 +8,7 @@ import { ModuleType } from '@/types'
 import { useSearchContext } from '@/context/SearchContext'
 import { userContext } from '@/context'
 import { X, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CubeIcon } from '@heroicons/react/24/outline'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 type ModTab = 'mods' | 'myMods'
@@ -167,64 +168,87 @@ export default function ModExplorePage() {
   }[columns] || 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-      {/* CRT scanline overlay */}
+    <div className="min-h-screen bg-[#060609] text-white font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+      {/* Subtle grid background */}
       <div
-        className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
+        className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
         style={{
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)
+          `,
+          backgroundSize: '60px 60px',
         }}
       />
 
-      <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-8 z-20">
+      {/* Top ambient glow */}
+      <div
+        className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] pointer-events-none z-0"
+        style={{
+          background: 'radial-gradient(ellipse, rgba(74, 222, 128, 0.04) 0%, transparent 70%)',
+        }}
+      />
 
-        {/* Header + Tabs + Create (quests-style) */}
-        <div className="mb-6">
-          <div className="flex items-end gap-5 border-b border-white/[0.08] pb-0">
-            <div className="flex items-center gap-2.5 shrink-0 pb-3">
-              <span className="text-green-400/60 text-[16px] font-extrabold select-none">&gt;_</span>
-              <h1 className="text-[24px] font-extrabold text-white tracking-tight uppercase leading-none" style={{ textShadow: '0 0 20px rgba(74, 222, 128, 0.2)' }}>MODULES</h1>
+      <div className="relative max-w-7xl mx-auto px-6 pt-20 pb-12 z-20">
+
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-end gap-6 border-b border-white/[0.06] pb-0">
+            {/* Logo / title */}
+            <div className="flex items-center gap-3 shrink-0 pb-3.5">
+              <div className="w-8 h-8 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                <span className="text-green-400/80 text-[14px] font-bold select-none">&gt;_</span>
+              </div>
+              <h1 className="text-[22px] font-bold text-white/90 tracking-tight uppercase leading-none">MODULES</h1>
             </div>
-            <div className="flex items-center gap-0 overflow-x-auto scrollbar-none flex-1">
+
+            {/* Tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none flex-1">
               {TABS.map(tab => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`relative px-4 py-3.5 text-[14px] font-extrabold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase border-b-2 -mb-px ${
+                  className={`relative px-5 py-3.5 text-[13px] font-bold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase border-b-2 -mb-px rounded-t-lg ${
                     activeTab === tab.key
-                      ? 'text-green-400 border-green-400 bg-green-500/[0.06]'
-                      : 'text-white/35 border-transparent hover:text-white/60 hover:border-white/15'
+                      ? 'text-green-400 border-green-400 bg-green-500/[0.05]'
+                      : 'text-white/30 border-transparent hover:text-white/50 hover:bg-white/[0.02]'
                   }`}
                 >
                   {tab.label}
                   {tab.key === 'mods' && (
-                    <span className="ml-2 text-[11px] text-white/25 font-bold">{mods.length}</span>
+                    <span className={`ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-green-500/15 text-green-400/60' : 'text-white/20'}`}>
+                      {mods.length}
+                    </span>
                   )}
                   {tab.key === 'myMods' && user?.key && (
-                    <span className="ml-2 text-[11px] text-white/25 font-bold">{mods.filter(m => m.key === user.key).length}</span>
+                    <span className={`ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-green-500/15 text-green-400/60' : 'text-white/20'}`}>
+                      {mods.filter(m => m.key === user.key).length}
+                    </span>
                   )}
                 </button>
               ))}
             </div>
+
+            {/* Create button */}
             <Link
               href="/create"
-              className="shrink-0 px-6 py-2.5 mb-1.5 text-[14px] font-extrabold uppercase tracking-widest transition-all border-2 bg-green-500/15 text-green-400 border-green-500/50 hover:bg-green-500/25 hover:border-green-400 hover:shadow-[0_0_15px_rgba(74,222,128,0.2)]"
+              className="shrink-0 px-5 py-2.5 mb-2 text-[13px] font-bold uppercase tracking-widest transition-all rounded-xl bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20 hover:border-green-400/50 hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
             >
-              + CREATE MOD
+              + Create Mod
             </Link>
           </div>
         </div>
 
         {/* Controls row */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             {searchTermToUse && (
-              <span className="text-[13px] text-cyan-400/60 font-bold font-mono">
+              <span className="text-[12px] text-cyan-400/50 font-bold font-mono bg-cyan-400/5 px-3 py-1.5 rounded-lg border border-cyan-400/10">
                 &gt; &quot;{searchTermToUse}&quot;
               </span>
             )}
-            <span className="text-[12px] text-green-400/40 font-bold font-mono uppercase tracking-wider">
-              {filteredMods.length} mod{filteredMods.length !== 1 ? 's' : ''}
+            <span className="text-[11px] text-white/25 font-bold font-mono uppercase tracking-wider">
+              {filteredMods.length} module{filteredMods.length !== 1 ? 's' : ''}
             </span>
           </div>
           <ModCardSettings
@@ -240,28 +264,28 @@ export default function ModExplorePage() {
         </div>
 
         {error && (
-          <div className="mb-4">
-            <div className="bg-[#0d0d0d] border-2 border-red-500/40 flex items-start justify-between">
+          <div className="mb-5">
+            <div className="bg-red-500/[0.03] border border-red-500/20 rounded-xl flex items-start justify-between">
               <div className="flex-1 px-5 py-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-red-400 text-[12px] font-extrabold">[ERR]</span>
-                  <span className="text-red-400 font-extrabold text-[12px] uppercase tracking-wider">ERROR</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                  <span className="text-red-400/80 font-bold text-[12px] uppercase tracking-wider">Error</span>
                 </div>
-                <div className="text-red-400/70 text-[13px] font-medium">{error}</div>
+                <div className="text-red-400/50 text-[13px] font-medium">{error}</div>
               </div>
-              <div className="flex gap-px p-3">
+              <div className="flex gap-2 p-3">
                 <button
                   onClick={fetchAll}
-                  className="flex items-center gap-2 px-4 py-2 border-2 border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all text-[11px] font-extrabold uppercase tracking-wider"
+                  className="flex items-center gap-2 px-4 py-2 border border-red-500/25 text-red-400/70 hover:bg-red-500/10 transition-all text-[11px] font-bold uppercase tracking-wider rounded-lg"
                 >
-                  <RotateCcw size={14} strokeWidth={2.5} />
-                  RETRY
+                  <RotateCcw size={13} />
+                  Retry
                 </button>
                 <button
                   onClick={() => setError(null)}
-                  className="p-2 border-2 border-red-500/40 text-red-400 hover:bg-red-500/10 transition-all"
+                  className="p-2 border border-red-500/25 text-red-400/70 hover:bg-red-500/10 transition-all rounded-lg"
                 >
-                  <X size={14} strokeWidth={2.5} />
+                  <X size={13} />
                 </button>
               </div>
             </div>
@@ -269,34 +293,38 @@ export default function ModExplorePage() {
         )}
 
         {!loading && filteredMods.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center py-20 bg-[#0a0a0e] border-2 border-white/[0.1] font-mono">
-            <span className="text-green-400/50 text-[15px] mb-2 font-extrabold">[EMPTY]</span>
-            <p className="text-[15px] text-white/40 font-bold">
+          <div className="flex flex-col items-center justify-center py-24 rounded-2xl bg-white/[0.01] border border-white/[0.04] font-mono">
+            <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
+              <CubeIcon className="w-6 h-6 text-white/15" />
+            </div>
+            <p className="text-[14px] text-white/30 font-medium">
               {activeTab === 'myMods'
-                ? (user?.key ? 'No modules created yet.' : 'Sign in to view your modules.')
-                : (searchTermToUse || selectedOwners.length > 0 ? 'No modules match your filters.' : 'No modules yet.')}
+                ? (user?.key ? 'No modules created yet' : 'Sign in to view your modules')
+                : (searchTermToUse || selectedOwners.length > 0 ? 'No modules match your filters' : 'No modules yet')}
             </p>
             {(searchTermToUse || selectedOwners.length > 0) && (
               <button
                 onClick={() => { handleSearch(''); clearOwnerFilters() }}
-                className="mt-4 px-5 py-2 bg-green-500/15 hover:bg-green-500/25 text-green-400 text-[11px] font-extrabold uppercase tracking-wider transition-colors border-2 border-green-500/30"
+                className="mt-5 px-5 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] text-white/40 hover:text-white/60 text-[12px] font-bold uppercase tracking-wider transition-all border border-white/[0.06] rounded-xl"
               >
-                CLEAR ALL FILTERS
+                Clear Filters
               </button>
             )}
           </div>
         )}
 
         {loading && (
-          <div className="flex items-center justify-center py-20 font-mono">
-            <div className="flex items-center gap-3">
-              <span className="text-green-400 animate-pulse text-lg">_</span>
-              <span className="text-[15px] text-white/45 font-extrabold">LOADING MODULES...</span>
+          <div className="flex items-center justify-center py-24 font-mono">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-10 h-10 rounded-xl border border-green-500/20 bg-green-500/5 flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin" />
+              </div>
+              <span className="text-[13px] text-white/30 font-bold">Loading modules...</span>
             </div>
           </div>
         )}
 
-        <div className={`grid ${gridColsClass} gap-3 mt-2`}>
+        <div className={`grid ${gridColsClass} gap-4`}>
           {paginatedMods.map((mod) => (
             <div key={`${mod.name}-${mod.key}`}>
               <ModCard mod={mod} card_enabled={true} />
@@ -305,17 +333,17 @@ export default function ModExplorePage() {
         </div>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 py-8">
+          <div className="flex items-center justify-center gap-2 pt-10 pb-4">
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 px-4 py-2 border border-green-500/20 text-green-400/50 hover:text-green-400/80 hover:bg-green-500/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider"
+              className="flex items-center gap-1.5 px-4 py-2.5 border border-white/[0.06] text-white/30 hover:text-white/60 hover:bg-white/[0.03] hover:border-white/[0.1] disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-bold uppercase tracking-wider rounded-xl"
             >
-              <ChevronLeft size={14} strokeWidth={2.5} />
-              PREV
+              <ChevronLeft size={14} />
+              Prev
             </button>
 
-            <div className="flex items-center gap-px">
+            <div className="flex items-center gap-1">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let pageNum: number
                 if (totalPages <= 5) {
@@ -332,10 +360,10 @@ export default function ModExplorePage() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-9 h-9 text-[12px] font-extrabold transition-all ${
+                    className={`w-9 h-9 text-[12px] font-bold transition-all rounded-lg ${
                       currentPage === pageNum
-                        ? 'bg-green-500 text-black border-2 border-green-400'
-                        : 'bg-[#0d0d0d] border border-green-500/20 text-green-400/40 hover:text-green-400/70 hover:bg-green-500/[0.06]'
+                        ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                        : 'bg-white/[0.02] border border-white/[0.04] text-white/25 hover:text-white/50 hover:bg-white/[0.04]'
                     }`}
                   >
                     {pageNum}
@@ -347,15 +375,15 @@ export default function ModExplorePage() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1 px-4 py-2 border border-green-500/20 text-green-400/50 hover:text-green-400/80 hover:bg-green-500/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider"
+              className="flex items-center gap-1.5 px-4 py-2.5 border border-white/[0.06] text-white/30 hover:text-white/60 hover:bg-white/[0.03] hover:border-white/[0.1] disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-bold uppercase tracking-wider rounded-xl"
             >
-              NEXT
-              <ChevronRight size={14} strokeWidth={2.5} />
+              Next
+              <ChevronRight size={14} />
             </button>
 
-            <div className="ml-3 px-3 py-2 bg-[#0d0d0d] border border-green-500/20 text-green-400/50 text-[11px] font-extrabold uppercase tracking-wider">
-              {filteredMods.length} TOTAL
-            </div>
+            <span className="ml-2 text-[11px] text-white/15 font-bold">
+              {filteredMods.length} total
+            </span>
           </div>
         )}
       </div>

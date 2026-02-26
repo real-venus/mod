@@ -517,6 +517,64 @@ export async function getExecutedTransactions(
   return results
 }
 
+// ── Create a new Safe multisig via SafeProxyFactory ──
+
+const SAFE_SETUP_ABI = [
+  'function setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address payable paymentReceiver)',
+]
+
+const SAFE_PROXY_FACTORY_ABI = [
+  'function createProxyWithNonce(address _singleton, bytes initializer, uint256 saltNonce) returns (address proxy)',
+  'event ProxyCreation(address indexed proxy, address singleton)',
+]
+
+export async function createSafe(
+  factoryAddress: string,
+  singletonAddress: string,
+  owners: string[],
+  threshold: number,
+  signer: ethers.Signer
+): Promise<string> {
+  if (owners.length === 0) throw new Error('At least one owner is required')
+  if (threshold < 1 || threshold > owners.length) {
+    throw new Error(`Threshold must be between 1 and ${owners.length}`)
+  }
+
+  // Encode the setup() initializer call
+  const safeIface = new ethers.Interface(SAFE_SETUP_ABI)
+  const initializer = safeIface.encodeFunctionData('setup', [
+    owners,
+    threshold,
+    ethers.ZeroAddress, // to (no delegate call)
+    '0x',              // data
+    ethers.ZeroAddress, // fallbackHandler
+    ethers.ZeroAddress, // paymentToken
+    0,                 // payment
+    ethers.ZeroAddress, // paymentReceiver
+  ])
+
+  // Use a random salt nonce
+  const saltNonce = BigInt(Math.floor(Math.random() * 1_000_000_000))
+
+  const factory = new ethers.Contract(factoryAddress, SAFE_PROXY_FACTORY_ABI, signer)
+  const tx = await factory.createProxyWithNonce(singletonAddress, initializer, saltNonce)
+  const receipt = await tx.wait()
+
+  // Find the ProxyCreation event to get the new Safe address
+  for (const log of receipt.logs) {
+    try {
+      const parsed = factory.interface.parseLog({ topics: log.topics as string[], data: log.data })
+      if (parsed && parsed.name === 'ProxyCreation') {
+        return parsed.args[0] // proxy address
+      }
+    } catch {
+      // not our event
+    }
+  }
+
+  throw new Error('Safe created but could not find proxy address in logs')
+}
+
 // ── Utility: get Transaction Service URL (kept for future canonical Safe use) ──
 
 export function getTransactionServiceUrl(chainId: bigint | number): string {

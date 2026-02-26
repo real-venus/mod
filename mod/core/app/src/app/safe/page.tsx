@@ -8,6 +8,7 @@ import {
   PaperAirplaneIcon,
   ArrowPathIcon,
   HashtagIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline'
 import { ethers } from 'ethers'
 import modConfig from '@/config.json'
@@ -30,11 +31,12 @@ import { OverviewTab } from './OverviewTab'
 import { TransactionsTab } from './TransactionsTab'
 import { ProposeTab } from './ProposeTab'
 import { OwnersTab } from './OwnersTab'
+import { CreateTab } from './CreateTab'
 import { ACCENT, inputClass, btnClass } from './shared'
 
 export const dynamic = 'force-dynamic'
 
-type Tab = 'overview' | 'transactions' | 'propose' | 'owners'
+type Tab = 'overview' | 'transactions' | 'propose' | 'owners' | 'create'
 
 export default function SafePage() {
   const { user } = userContext()
@@ -164,11 +166,18 @@ export default function SafePage() {
     }
   }
 
+  const handleSafeCreated = (address: string) => {
+    setSafeAddress(address)
+    setActiveTab('overview')
+    setTimeout(() => loadSafe(), 100)
+  }
+
   const tabs: { key: Tab; label: string; icon: any }[] = [
     { key: 'overview', label: 'OVERVIEW', icon: ShieldCheckIcon },
     { key: 'transactions', label: 'TRANSACTIONS', icon: DocumentTextIcon },
     { key: 'propose', label: 'PROPOSE', icon: PaperAirplaneIcon },
     { key: 'owners', label: 'OWNERS', icon: UserGroupIcon },
+    { key: 'create', label: 'CREATE', icon: PlusIcon },
   ]
 
   return (
@@ -276,6 +285,10 @@ export default function SafePage() {
 
         {activeTab === 'owners' && (
           <OwnersTab safeInfo={safeInfo} walletAddress={walletAddress} isOwner={isOwner} onReloadSafe={loadSafe} />
+        )}
+
+        {activeTab === 'create' && (
+          <CreateTab walletAddress={walletAddress} onSafeCreated={handleSafeCreated} />
         )}
       </div>
     </div>
