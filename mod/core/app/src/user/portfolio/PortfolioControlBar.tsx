@@ -8,6 +8,51 @@ import modConfig from '@/config.json'
 
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)']
 
+const chainConfig = (modConfig.chain as any)?.testnet
+const RPC_URL = chainConfig?.url || 'https://sepolia.base.org'
+const CONTRACTS = chainConfig?.contracts || {}
+
+async function fetchOnChainBalances(address: string): Promise<Record<string, number>> {
+  const provider = new ethers.JsonRpcProvider(RPC_URL)
+  const balances: Record<string, number> = {}
+
+  const tokenDefs: { symbol: string; address: string; decimals?: number }[] = [
+    { symbol: 'MARKET', address: CONTRACTS.Market?.address, decimals: 8 },
+    { symbol: 'USDC', address: CONTRACTS.USDC?.address },
+    { symbol: 'USDT', address: CONTRACTS.USDT?.address },
+    { symbol: 'NativeToken', address: CONTRACTS.NativeToken?.address },
+  ]
+
+  const promises: Promise<void>[] = []
+
+  promises.push(
+    provider.getBalance(address).then(bal => {
+      balances['ETH'] = parseFloat(ethers.formatEther(bal))
+    }).catch(() => { balances['ETH'] = 0 })
+  )
+
+  for (const token of tokenDefs) {
+    if (!token.address) continue
+    promises.push(
+      (async () => {
+        try {
+          const contract = new ethers.Contract(token.address, ERC20_ABI, provider)
+          const [raw, decimals] = await Promise.all([
+            contract.balanceOf(address),
+            token.decimals != null ? Promise.resolve(token.decimals) : contract.decimals().then(Number),
+          ])
+          balances[token.symbol] = parseFloat(ethers.formatUnits(raw, decimals))
+        } catch {
+          balances[token.symbol] = 0
+        }
+      })()
+    )
+  }
+
+  await Promise.all(promises)
+  return balances
+}
+
 type ActionType = 'add' | 'send' | 'port' | 'token' | 'network' | 'txs'
 
 interface BalanceItem {
@@ -28,15 +73,11 @@ export function PortfolioControlBar() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const fetchBalances = async () => {
-    if (!user?.key || !client) return
+    if (!user?.key) return
 
     setIsRefreshing(true)
     try {
-      // Fetch from API
-      const result = await client.call('api/get_balances', {
-        address: user.key,
-      })
-
+      const result = await fetchOnChainBalances(user.key)
       setBalances(result || {})
     } catch (err) {
       console.error('Error fetching balances:', err)

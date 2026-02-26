@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ethers } from 'ethers'
-import { ArrowPathIcon, ArrowRightOnRectangleIcon, XMarkIcon, PencilIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { ArrowPathIcon, ArrowRightStartOnRectangleIcon, XMarkIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-toastify'
 import DebitABI from '@/contracts/market/debit/Debit.sol/Debit.json'
@@ -89,96 +89,104 @@ export function SidebarHeader({
     }
   }
 
+  const [addressHovered, setAddressHovered] = useState(false)
+
+  const spentRatio = dailyLimit && dailyLimit > 0 ? (dailySpent ?? 0) / dailyLimit : 0
+
   return (
     <>
-      <div className="sticky top-0 z-10 backdrop-blur-md" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-sidebar)' }}>
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={copyAddress}
-              className={`text-xs font-bold font-mono tracking-wider transition-all cursor-pointer ${
-                copiedAddress ? 'text-green-400' : ''
-              }`}
-              style={{ fontFamily: 'IBM Plex Mono, monospace', ...(!copiedAddress ? { color: 'var(--text-secondary)' } : {}) }}
-              title="Click to copy full address"
-            >
-              {copiedAddress ? 'COPIED!' : shortAddress}
-            </button>
+      <div className="sticky top-0 z-10 backdrop-blur-md" style={{ backgroundColor: 'var(--bg-sidebar)' }}>
+        {/* Compact top bar: close + sign out */}
+        <div className="flex items-center justify-between px-3 pt-2 pb-0">
+          <div className="flex items-center gap-1.5">
+            <div
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}
+              style={{ boxShadow: isTokenExpired ? '0 0 6px rgba(234,179,8,0.5)' : '0 0 6px rgba(34,197,94,0.4)' }}
+            />
             <span
-              className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)', fontFamily: 'IBM Plex Mono, monospace' }}
+              className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+              style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-tertiary)', fontFamily: 'IBM Plex Mono, monospace' }}
             >
               {walletMode || 'web3'}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={handleRefreshToken}
               disabled={isRefreshing}
-              className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all text-xs font-bold font-mono tabular-nums ${
-                isTokenExpired
-                  ? 'text-red-400 hover:bg-red-500/10'
-                  : 'text-cyan-500 hover:bg-cyan-500/10'
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-all text-[10px] font-bold font-mono tabular-nums ${
+                isTokenExpired ? 'text-red-400 hover:bg-red-500/10' : 'hover:bg-white/5'
               }`}
-              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+              style={{ fontFamily: 'IBM Plex Mono, monospace', ...(!isTokenExpired ? { color: 'var(--text-tertiary)' } : {}) }}
               title="Refresh session"
             >
-              <ArrowPathIcon className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <ArrowPathIcon className={`w-2.5 h-2.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               {tokenExpiry || getTokenExpiry()}
             </button>
             <button
               onClick={handleSignOut}
-              className="hover:text-red-400 transition-colors p-1"
+              className="hover:text-red-400 transition-colors p-1 rounded hover:bg-white/5"
               style={{ color: 'var(--text-tertiary)' }}
               title="Sign out"
             >
-              <ArrowRightOnRectangleIcon className="w-4 h-4" />
+              <ArrowRightStartOnRectangleIcon className="w-3 h-3" />
             </button>
             <button
               onClick={onClose}
-              className="transition-colors p-1"
+              className="transition-colors p-1 rounded hover:bg-white/5"
               style={{ color: 'var(--text-tertiary)' }}
             >
-              <XMarkIcon className="w-4 h-4" />
+              <XMarkIcon className="w-3 h-3" />
             </button>
           </div>
         </div>
-        <div className="flex items-center gap-3 px-4 pb-3">
-          <span className="text-lg font-black font-mono tabular-nums text-green-400" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-            ${marketCredit.toFixed(2)}
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>credit</span>
-          <div className="flex-1" />
-          <div
-            className={`w-2 h-2 rounded-full ${isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}
-          />
-        </div>
 
-        {/* Daily Spending Limit */}
-        {dailyLimit !== null && (
-          <div className="px-4 pb-3">
-            <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Daily Limit</span>
-                {!isEditing && (
-                  <button
-                    onClick={() => { setIsEditing(true); setNewLimit(dailyLimit.toFixed(2)) }}
-                    className="hover:text-amber-400 transition-colors p-0.5"
-                    style={{ color: 'var(--text-tertiary)' }}
-                    title="Change daily limit"
-                  >
-                    <PencilIcon className="w-3 h-3" />
-                  </button>
-                )}
+        {/* Hero section: address + credit */}
+        <div className="px-3 pt-2 pb-3 relative">
+          <button
+            onClick={copyAddress}
+            onMouseEnter={() => setAddressHovered(true)}
+            onMouseLeave={() => setAddressHovered(false)}
+            className="block cursor-pointer group relative"
+            title={address}
+          >
+            <span
+              className={`text-sm font-bold font-mono tracking-wide transition-all ${copiedAddress ? 'text-green-400' : 'group-hover:opacity-70'}`}
+              style={{ fontFamily: 'IBM Plex Mono, monospace', ...(!copiedAddress ? { color: 'var(--text-secondary)' } : {}) }}
+            >
+              {copiedAddress ? 'COPIED' : shortAddress}
+            </span>
+            {addressHovered && !copiedAddress && (
+              <div
+                className="absolute left-0 top-full mt-1 z-50 px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap shadow-lg"
+                style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}
+              >
+                {address}
               </div>
+            )}
+          </button>
+
+          <div className="flex items-baseline gap-2 mt-1">
+            <span
+              className="text-2xl font-black font-mono tabular-nums tracking-tight"
+              style={{ fontFamily: 'IBM Plex Mono, monospace', color: marketCredit > 0 ? '#4ade80' : 'var(--text-primary)' }}
+            >
+              ${marketCredit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+
+          {/* Daily limit bar - sleek inline */}
+          {dailyLimit !== null && (
+            <div className="mt-2.5">
               {isEditing ? (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 rounded-md px-2 py-1.5" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+                  <span className="text-[9px] font-bold uppercase tracking-wider flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>Limit</span>
                   <span className="text-amber-400 text-xs font-bold">$</span>
                   <input
                     type="number"
                     value={newLimit}
                     onChange={(e) => setNewLimit(e.target.value)}
-                    className="flex-1 border border-amber-500/30 rounded px-2 py-1 text-sm font-mono focus:outline-none focus:border-amber-400/60"
+                    className="flex-1 border border-amber-500/30 rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:border-amber-400/60"
                     style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                     placeholder="1000"
                     autoFocus
@@ -187,42 +195,43 @@ export function SidebarHeader({
                   <button
                     onClick={handleSaveLimit}
                     disabled={isSaving}
-                    className="px-2 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded hover:bg-amber-500/25 transition-all disabled:opacity-40"
+                    className="p-0.5 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-40"
                   >
-                    {isSaving ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
+                    {isSaving ? <ArrowPathIcon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
                   </button>
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="px-1 py-1 transition-colors"
+                    className="p-0.5 transition-colors"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    <XMarkIcon className="w-3.5 h-3.5" />
+                    <XMarkIcon className="w-3 h-3" />
                   </button>
                 </div>
               ) : (
-                <>
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="text-sm font-bold font-mono tabular-nums text-amber-400" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
-                      ${dailyRemaining !== null ? dailyRemaining.toFixed(2) : '—'}
-                    </span>
-                    <span className="text-[9px]" style={{ color: 'var(--text-secondary)' }}>remaining of ${dailyLimit.toFixed(2)}</span>
+                <div
+                  className="group flex items-center gap-2 cursor-pointer"
+                  onClick={() => { setIsEditing(true); setNewLimit(dailyLimit.toFixed(2)) }}
+                  title="Click to edit daily limit"
+                >
+                  <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-color)' }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-700 ease-out"
+                      style={{
+                        width: `${Math.min(100, spentRatio * 100)}%`,
+                        background: spentRatio > 0.9 ? '#ef4444' : spentRatio > 0.7 ? '#f59e0b' : '#4ade80',
+                      }}
+                    />
                   </div>
-                  {dailyLimit > 0 && (
-                    <div className="w-full h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-input)' }}>
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.min(100, ((dailySpent ?? 0) / dailyLimit) * 100)}%`,
-                          background: ((dailySpent ?? 0) / dailyLimit) > 0.9 ? '#ef4444' : ((dailySpent ?? 0) / dailyLimit) > 0.7 ? '#f59e0b' : '#22c55e',
-                        }}
-                      />
-                    </div>
-                  )}
-                </>
+                  <span className="text-[10px] font-mono tabular-nums flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-tertiary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                    ${dailyRemaining !== null ? dailyRemaining.toFixed(0) : '—'}<span className="opacity-50">/{dailyLimit.toFixed(0)}</span>
+                  </span>
+                </div>
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        <div className="mx-3 mb-0" style={{ borderBottom: '1px solid var(--border-color)' }} />
       </div>
 
       <AnimatePresence>

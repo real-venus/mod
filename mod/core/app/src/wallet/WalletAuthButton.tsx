@@ -421,16 +421,16 @@ export function WalletAuthButton() {
                     layoutId="auth-accent"
                     transition={{ duration: 0.3 }}
                   />
-                  <span className="text-[10px] font-medium uppercase tracking-[0.2em]" style={{ color: 'var(--text-tertiary)' }}>Mod Protocol</span>
+                  <span className="text-[13px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--text-primary)' }}>Mod Protocol</span>
                 </div>
-                <h1 className="text-[24px] font-bold tracking-tight leading-none" style={{ color: 'var(--text-primary)' }}>
+                <h1 className="text-[32px] font-bold tracking-tight leading-none" style={{ color: 'var(--text-primary)' }}>
                   Sign in
                 </h1>
               </div>
 
               {/* Provider Selection */}
               <div className="mb-5">
-                <span className="block text-[10px] font-medium uppercase tracking-[0.2em] mb-3" style={{ color: 'var(--text-tertiary)' }}>Select provider</span>
+                <span className="block text-[13px] font-semibold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--text-primary)' }}>Select provider</span>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                   {wallets.map(({ mode, label, Logo, tag, disabled, onClick }) => {
                     const isSelected = authMode === mode
