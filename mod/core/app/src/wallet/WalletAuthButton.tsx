@@ -324,10 +324,10 @@ export function WalletAuthButton() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center px-6 h-12 font-mono" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-input)', color: 'var(--text-primary)' }}>
+      <div className="flex items-center justify-center px-5 h-10 rounded-full font-mono" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)' }}>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-t-[#78a9ff] rounded-full animate-spin" style={{ borderColor: 'var(--border-input)', borderTopColor: '#78a9ff' }} />
-          <span className="text-[13px] font-medium tracking-wide" style={{ color: 'var(--text-secondary)' }}>Loading...</span>
+          <div className="w-3.5 h-3.5 border-2 border-t-[#78a9ff] rounded-full animate-spin" style={{ borderColor: 'var(--border-input)', borderTopColor: '#78a9ff' }} />
+          <span className="text-[12px] font-medium tracking-wide" style={{ color: 'var(--text-secondary)' }}>Loading...</span>
         </div>
       </div>
     )
@@ -358,18 +358,16 @@ export function WalletAuthButton() {
       {/* Trigger Button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`flex items-center h-12 px-5 transition-all border ${
-          isExpanded
-            ? 'bg-[#0f62fe] border-[#0f62fe] text-white'
-            : ''
-        }`}
-        style={!isExpanded ? { backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-input)', color: 'var(--text-primary)' } : {}}
+        className="flex items-center h-10 px-4 rounded-full transition-all duration-200 border-2 gap-2"
+        style={{
+          backgroundColor: isExpanded ? 'var(--text-primary)' : 'var(--bg-secondary)',
+          borderColor: isExpanded ? 'var(--text-primary)' : 'var(--border-strong)',
+          color: isExpanded ? 'var(--bg-primary)' : 'var(--text-primary)',
+        }}
       >
-        <div className="flex items-center gap-2.5">
-          <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v3H6V3a2 2 0 0 1 2-2zm3 5V3a3 3 0 0 0-6 0v3H2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6H11zm-1 1v6H4V7h8z"/></svg>
-          <span className="text-[14px] font-semibold tracking-wide">Sign in</span>
-          <svg className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="currentColor"><path d="M6 8.5L1 3.5h10L6 8.5z"/></svg>
-        </div>
+        <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v3H6V3a2 2 0 0 1 2-2zm3 5V3a3 3 0 0 0-6 0v3H2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6H11zm-1 1v6H4V7h8z"/></svg>
+        <span className="text-[13px] font-bold tracking-wide">Sign in</span>
+        <svg className={`w-2.5 h-2.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="currentColor"><path d="M6 8.5L1 3.5h10L6 8.5z"/></svg>
       </button>
 
       {/* Full-Page Auth Overlay - portaled to body */}
