@@ -21,6 +21,8 @@ import { toast } from 'react-toastify'
 
 export const dynamic = 'force-dynamic'
 
+const tInputStyle = { backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)' } as const
+
 type Tab = 'overview' | 'deposits' | 'admin'
 
 interface DepositEvent {
@@ -354,14 +356,14 @@ export default function TreasuryPage() {
 
   if (!treasury.address) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="text-purple-400 text-xl font-mono">Treasury not configured</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+    <div className="min-h-screen" style={{ fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       <div className="relative z-10 p-4 md:p-8 max-w-4xl mx-auto space-y-6">
 
         {/* ── Header ── */}
@@ -371,9 +373,9 @@ export default function TreasuryPage() {
               <BuildingLibraryIcon className="w-6 h-6 text-purple-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Treasury</h1>
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Treasury</h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-white/30 font-mono text-xs">
+                <span className="font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   {treasury.address.slice(0, 6)}...{treasury.address.slice(-4)}
                 </span>
                 <CopyButton text={treasury.address} size="sm" />
@@ -389,21 +391,23 @@ export default function TreasuryPage() {
           <button
             onClick={() => fetchData()}
             disabled={loading}
-            className="flex items-center gap-1 px-3 py-2 border border-white/10 hover:border-purple-500/30 rounded-lg text-white/40 hover:text-purple-400 text-xs transition-all"
+            className="flex items-center gap-1 px-3 py-2 hover:border-purple-500/30 rounded-lg hover:text-purple-400 text-xs transition-all"
+            style={{ border: '2px solid var(--border-strong)', color: 'var(--text-tertiary)' }}
           >
             <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex items-center gap-1 border-b border-white/[0.06]">
+        <div className="flex items-center gap-1" style={{ borderBottom: '2px solid var(--border-color)' }}>
           {tabs.filter(t => t.show).map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`px-4 py-2.5 text-sm font-bold transition-colors relative ${
-                activeTab === tab.key ? 'text-purple-400' : 'text-white/30 hover:text-white/50'
+                activeTab === tab.key ? 'text-purple-400' : ''
               }`}
+              style={activeTab !== tab.key ? { color: 'var(--text-tertiary)' } : {}}
             >
               {tab.label}
               {activeTab === tab.key && (
@@ -416,7 +420,7 @@ export default function TreasuryPage() {
             </button>
           ))}
           <div className="flex-1" />
-          <span className="text-white/15 text-[10px] font-mono pb-2">
+          <span className="text-[10px] font-mono pb-2" style={{ color: 'var(--text-tertiary)' }}>
             {lastUpdate.toLocaleTimeString()}
           </span>
         </div>
@@ -437,15 +441,15 @@ export default function TreasuryPage() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <WalletIcon className="w-4 h-4 text-purple-400" />
-                      <span className="text-white/50 text-sm">Your Balance</span>
+                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Your Balance</span>
                     </div>
-                    <span className="text-white/20 text-xs font-mono">
+                    <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
                       {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                     </span>
                   </div>
 
                   {!holderInfo || holderInfo.tokens.length === 0 ? (
-                    <p className="text-white/30 text-sm py-1">No claimable balance yet</p>
+                    <p className="text-sm py-1" style={{ color: 'var(--text-tertiary)' }}>No claimable balance yet</p>
                   ) : (
                     <div className="space-y-1.5">
                       {holderInfo.tokens.map((token, i) => {
@@ -455,9 +459,9 @@ export default function TreasuryPage() {
                         const claimableNum = parseFloat(claimableFormatted)
                         return (
                           <div key={token} className="flex items-center justify-between">
-                            <span className="text-white/70 text-sm">{bal?.symbol || token.slice(0, 8)}</span>
+                            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{bal?.symbol || token.slice(0, 8)}</span>
                             <div className="flex items-center gap-3">
-                              <span className="text-white font-bold font-mono">${claimableNum.toFixed(2)}</span>
+                              <span className="font-bold font-mono" style={{ color: 'var(--text-primary)' }}>${claimableNum.toFixed(2)}</span>
                               <button
                                 onClick={() => handleWithdrawToken(token, bal?.symbol || 'Token')}
                                 disabled={adminLoading !== null || claimable === BigInt(0)}
@@ -495,10 +499,10 @@ export default function TreasuryPage() {
                 if (modBal > 0) pieData.push({ name: modTokenSymbol, value: modBal })
 
                 return (
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-white text-2xl font-bold">{loading ? '...' : fmt(totalBalance)}</span>
-                      <span className="text-white/20 text-xs">Treasury</span>
+                      <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{loading ? '...' : fmt(totalBalance)}</span>
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Treasury</span>
                     </div>
 
                     {/* Pie chart + legend side by side */}
@@ -521,14 +525,14 @@ export default function TreasuryPage() {
                                 ))}
                               </Pie>
                               <Tooltip
-                                contentStyle={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                                contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '12px' }}
                                 formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, '']}
                               />
                             </PieChart>
                           </ResponsiveContainer>
                         ) : (
-                          <div className="w-full h-full rounded-full border-2 border-white/5 flex items-center justify-center">
-                            <span className="text-white/10 text-xs">--</span>
+                          <div className="w-full h-full rounded-full flex items-center justify-center" style={{ border: '2px solid var(--border-color)' }}>
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>--</span>
                           </div>
                         )}
                       </div>
@@ -541,10 +545,10 @@ export default function TreasuryPage() {
                             <div key={item.name} className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                                <span className="text-white/60 text-sm">{item.name}</span>
-                                <span className="text-white/20 text-xs">{pct}%</span>
+                                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{item.name}</span>
+                                <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{pct}%</span>
                               </div>
-                              <span className="text-white font-mono text-sm">{fmt(item.value)}</span>
+                              <span className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>{fmt(item.value)}</span>
                             </div>
                           )
                         })}
@@ -552,7 +556,7 @@ export default function TreasuryPage() {
                         {/* Fees as a simple line */}
                         {parseFloat(marketUnclaimedFees) > 0 && (
                           <>
-                            <div className="border-t border-white/5 my-1" />
+                            <div className="my-1" style={{ borderTop: '1px solid var(--border-color)' }} />
                             <div className="flex items-center justify-between">
                               <span className="text-emerald-400/60 text-xs">Unclaimed fees</span>
                               <span className="text-emerald-400 font-mono text-sm">{fmt(parseFloat(marketUnclaimedFees))}</span>
@@ -567,14 +571,14 @@ export default function TreasuryPage() {
 
               {/* ── Fund Treasury ── */}
               {walletAddress && (
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                  <p className="text-white/40 text-xs mb-3">Fund Treasury</p>
+                <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+                  <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>Fund Treasury</p>
                   <div className="flex gap-2">
                     <select
                       value={fundToken}
                       onChange={e => setFundToken(e.target.value)}
-                      className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1"
-                      style={{ fontFamily: 'inherit' }}
+                      className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1"
+                      style={{ fontFamily: 'inherit', backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)' }}
                     >
                       <option value="">Token</option>
                       {tokenBalances.map(t => (
@@ -586,7 +590,8 @@ export default function TreasuryPage() {
                       placeholder="Amount"
                       value={fundAmount}
                       onChange={e => setFundAmount(e.target.value)}
-                      className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                      className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                      style={tInputStyle}
                     />
                     <button
                       onClick={handleFundTreasury}
@@ -601,19 +606,19 @@ export default function TreasuryPage() {
 
               {/* ── Safe Info ── */}
               {isSafeOwned && (
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
                   <div className="flex items-center gap-2 mb-3">
                     <ShieldCheckIcon className="w-4 h-4 text-green-400" />
-                    <span className="text-white/50 text-sm">Multisig</span>
-                    <span className="text-white/20 text-xs font-mono ml-auto">
+                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Multisig</span>
+                    <span className="text-xs font-mono ml-auto" style={{ color: 'var(--text-tertiary)' }}>
                       {safeThreshold}/{safeOwners.length} required
                     </span>
                   </div>
                   <div className="space-y-1">
                     {safeOwners.map(addr => (
                       <div key={addr} className="flex items-center gap-2 py-1">
-                        <div className={`w-1.5 h-1.5 rounded-full ${addr.toLowerCase() === walletAddress.toLowerCase() ? 'bg-green-400' : 'bg-white/20'}`} />
-                        <span className="text-white/50 font-mono text-xs">{addr.slice(0, 6)}...{addr.slice(-4)}</span>
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: addr.toLowerCase() === walletAddress.toLowerCase() ? '#4ade80' : 'var(--border-strong)' }} />
+                        <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{addr.slice(0, 6)}...{addr.slice(-4)}</span>
                         {addr.toLowerCase() === walletAddress.toLowerCase() && (
                           <span className="text-green-400 text-[10px] font-bold">You</span>
                         )}
@@ -635,30 +640,31 @@ export default function TreasuryPage() {
               className="space-y-4"
             >
               <div className="flex items-center justify-between">
-                <span className="text-white/40 text-sm">Recent Deposits</span>
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Recent Deposits</span>
                 <button
                   onClick={fetchDeposits}
                   disabled={depositsLoading}
-                  className="text-white/30 hover:text-purple-400 transition-colors"
+                  className="hover:text-purple-400 transition-colors"
+                  style={{ color: 'var(--text-tertiary)' }}
                 >
                   <ArrowPathIcon className={`w-4 h-4 ${depositsLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
 
               {depositsLoading ? (
-                <div className="py-12 text-center text-white/20 text-sm">Loading...</div>
+                <div className="py-12 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</div>
               ) : deposits.length === 0 ? (
-                <div className="py-12 text-center text-white/20 text-sm">No deposits found</div>
+                <div className="py-12 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>No deposits found</div>
               ) : (
                 <div className="space-y-2">
                   {deposits.map((dep, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-purple-400 font-bold text-sm">{dep.token}</span>
-                          <span className="text-white/20 text-xs font-mono">{dep.funder.slice(0, 6)}...{dep.funder.slice(-4)}</span>
+                          <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>{dep.funder.slice(0, 6)}...{dep.funder.slice(-4)}</span>
                         </div>
-                        <span className="text-white/20 text-xs">
+                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                           {new Date(dep.timestamp * 1000).toLocaleDateString()}
                         </span>
                       </div>
@@ -682,7 +688,7 @@ export default function TreasuryPage() {
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4">
                 <div className="flex items-center gap-2">
                   <ShieldCheckIcon className="w-5 h-5 text-amber-400" />
-                  <span className="text-white font-bold">Admin</span>
+                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>Admin</span>
                   <span className="text-amber-400/50 text-xs ml-auto">
                     {isOwner ? 'Owner' : `Safe signer (${safeThreshold}/${safeOwners.length})`}
                   </span>
@@ -690,14 +696,14 @@ export default function TreasuryPage() {
               </div>
 
               {/* Owner Withdrawals */}
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <p className="text-white/40 text-xs mb-3">Owner Withdrawals</p>
+              <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>Owner Withdrawals</p>
                 <div className="space-y-2">
                   {tokenBalances.map(tb => (
                     <div key={tb.address} className="flex items-center justify-between py-2">
                       <div>
-                        <span className="text-white font-bold text-sm">{tb.symbol}</span>
-                        <span className="text-white/20 text-xs ml-2">${tb.balance.toFixed(2)}</span>
+                        <span className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{tb.symbol}</span>
+                        <span className="text-xs ml-2" style={{ color: 'var(--text-tertiary)' }}>${tb.balance.toFixed(2)}</span>
                       </div>
                       <button
                         onClick={() => handleAdminTx(
@@ -716,18 +722,19 @@ export default function TreasuryPage() {
               </div>
 
               {/* Settings */}
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <p className="text-white/40 text-xs mb-4">Settings</p>
+              <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+                <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>Settings</p>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-white/30 text-xs mb-1.5 block">Owner % (now: {ownerPctDisplay}%)</label>
+                    <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>Owner % (now: {ownerPctDisplay}%)</label>
                     <div className="flex gap-2">
                       <input
                         type="number"
                         placeholder="e.g. 500 = 5%"
                         value={newOwnerPct}
                         onChange={e => setNewOwnerPct(e.target.value)}
-                        className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        style={tInputStyle}
                       />
                       <button
                         onClick={() => handleAdminTx(
@@ -744,14 +751,15 @@ export default function TreasuryPage() {
                   </div>
 
                   <div>
-                    <label className="text-white/30 text-xs mb-1.5 block">Governance Token</label>
+                    <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>Governance Token</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         placeholder="0x..."
                         value={newGovToken}
                         onChange={e => setNewGovToken(e.target.value)}
-                        className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        style={tInputStyle}
                       />
                       <button
                         onClick={() => handleAdminTx(
@@ -768,14 +776,15 @@ export default function TreasuryPage() {
                   </div>
 
                   <div>
-                    <label className="text-white/30 text-xs mb-1.5 block">Token Gate</label>
+                    <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>Token Gate</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         placeholder="0x..."
                         value={newTokenGate}
                         onChange={e => setNewTokenGate(e.target.value)}
-                        className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        style={tInputStyle}
                       />
                       <button
                         onClick={() => handleAdminTx(
@@ -800,8 +809,8 @@ export default function TreasuryPage() {
                   <select
                     value={emergencyToken}
                     onChange={e => setEmergencyToken(e.target.value)}
-                    className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1"
-                    style={{ fontFamily: 'inherit' }}
+                    className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1"
+                    style={{ fontFamily: 'inherit', ...tInputStyle }}
                   >
                     <option value="">Token</option>
                     {tokenBalances.map(t => (
@@ -813,7 +822,8 @@ export default function TreasuryPage() {
                     placeholder="Amount"
                     value={emergencyAmount}
                     onChange={e => setEmergencyAmount(e.target.value)}
-                    className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1 font-mono"
+                    className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1 font-mono"
+                    style={tInputStyle}
                   />
                   <button
                     onClick={() => {
@@ -845,7 +855,8 @@ export default function TreasuryPage() {
                     placeholder="New owner (0x...)"
                     value={newOwner}
                     onChange={e => setNewOwner(e.target.value)}
-                    className="bg-black border border-white/10 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1 font-mono"
+                    className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1 font-mono"
+                    style={tInputStyle}
                   />
                   <button
                     onClick={() => handleAdminTx(

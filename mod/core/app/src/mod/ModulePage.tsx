@@ -135,7 +135,7 @@ export default function ModulePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+    <div className="min-h-screen text-white font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)' }}>
       {/* CRT scanline overlay */}
       <div
         className="fixed inset-0 pointer-events-none z-10 opacity-[0.03]"
@@ -145,22 +145,50 @@ export default function ModulePage() {
       />
 
       <main className="relative flex-1 px-6 pt-24 pb-8 z-20">
-        <div className="max-w-7xl mx-auto space-y-4">
-          <div className="mb-6">
-            <ModCard mod={mod} card_enabled={false} />
+        <div className="max-w-5xl mx-auto space-y-6">
+          {/* Hero Header Card */}
+          <div
+            className="relative rounded-3xl overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, ${colorWithOpacity(moduleColor, 0.12)} 0%, ${colorWithOpacity(moduleColor, 0.03)} 100%)`,
+              border: `2px solid ${colorWithOpacity(moduleColor, 0.3)}`,
+              boxShadow: `0 4px 24px ${colorWithOpacity(moduleColor, 0.1)}`,
+            }}
+          >
+            {/* Top accent bar */}
+            <div
+              className="absolute top-0 left-0 right-0 h-[3px]"
+              style={{
+                background: `linear-gradient(90deg, ${moduleColor}, ${colorWithOpacity(moduleColor, 0.4)})`,
+              }}
+            />
+            {/* Corner glow */}
+            <div
+              className="absolute -top-px -left-px w-60 h-60 pointer-events-none"
+              style={{
+                background: `radial-gradient(circle at top left, ${colorWithOpacity(moduleColor, 0.15)}, transparent 70%)`,
+              }}
+            />
+            <div className="relative p-8">
+              <ModCard mod={mod} card_enabled={false} />
+            </div>
           </div>
 
           {/* Owner Toggle */}
           {allModVersions.length > 1 && (
-            <div className="mb-4 flex items-center gap-3">
-              <span className="text-[10px] font-extrabold text-cyan-400/50 uppercase tracking-[0.2em]">
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em]" style={{ color: colorWithOpacity(moduleColor, 0.5) }}>
                 OWNER
               </span>
               <div className="relative">
                 <select
                   value={modKey}
                   onChange={(e) => handleOwnerChange(e.target.value)}
-                  className="px-3 py-2 bg-[#0d0d0d] text-white/70 font-mono font-bold text-[12px] focus:outline-none transition-all appearance-none pr-8 hover:bg-white/[0.03] border border-cyan-500/25"
+                  className="px-3 py-2 text-white/70 font-mono font-bold text-[12px] focus:outline-none transition-all appearance-none pr-8 rounded-xl"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: `1.5px solid ${colorWithOpacity(moduleColor, 0.25)}`,
+                  }}
                 >
                   {allModVersions.map((version, idx) => (
                     <option key={version.key} value={version.key}>
@@ -179,19 +207,19 @@ export default function ModulePage() {
           )}
 
           {/* Tabs */}
-          <div className="flex items-center gap-px">
+          <div className="flex items-center gap-2 px-1">
             {availableTabs.map((tab) => {
               const isActive = activeTab === tab
               return (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
-                  className={`relative px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.15em] transition-all border-b ${
-                    isActive
-                      ? 'bg-[#0d0d0d] text-white/80'
-                      : 'bg-transparent text-white/25 hover:text-white/45 border-transparent'
-                  }`}
-                  style={isActive ? { borderColor: colorWithOpacity(moduleColor, 0.5) } : undefined}
+                  className="relative px-5 py-2 text-[11px] font-extrabold uppercase tracking-[0.15em] transition-all rounded-full"
+                  style={{
+                    color: isActive ? moduleColor : 'var(--text-tertiary)',
+                    backgroundColor: isActive ? colorWithOpacity(moduleColor, 0.1) : 'transparent',
+                    border: isActive ? `1.5px solid ${colorWithOpacity(moduleColor, 0.3)}` : '1.5px solid transparent',
+                  }}
                 >
                   {tab}
                 </button>
@@ -200,7 +228,13 @@ export default function ModulePage() {
           </div>
 
           {/* Tab content */}
-          <div className="bg-[#0d0d0d] border border-white/[0.08] min-h-[400px] p-6">
+          <div
+            className="rounded-2xl min-h-[400px] p-6"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: `1.5px solid ${colorWithOpacity(moduleColor, 0.12)}`,
+            }}
+          >
             {activeTab === 'content' && <ModContent mod={mod} />}
             {activeTab === 'api' && <ModApi mod={mod} />}
             {activeTab === 'app' && mod.url_app && <ModApp mod={mod} moduleColor={moduleColor} />}

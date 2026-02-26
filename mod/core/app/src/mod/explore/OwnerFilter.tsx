@@ -32,7 +32,7 @@ export function OwnerFilter({ owners, selectedOwners, onToggleOwner, onClearFilt
           </button>
           
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 mt-2 bg-black/95 border-2 border-blue-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto min-w-[300px]">
+            <div className="absolute top-full left-0 mt-2 border-2 border-blue-500/60 rounded-lg shadow-2xl z-50 backdrop-blur-md max-h-60 overflow-y-auto min-w-[300px]" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               {owners.map(owner => {
                 const ownerColor = text2color(owner)
                 const isSelected = selectedOwners.includes(owner)

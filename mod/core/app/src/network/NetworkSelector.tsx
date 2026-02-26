@@ -141,7 +141,7 @@ export function NetworkSelector() {
 
         {/* Chain + env label */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-400">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
             {selectedChain.name}
           </span>
           <span
@@ -157,7 +157,8 @@ export function NetworkSelector() {
         </div>
 
         <ChevronDownIcon
-          className={`w-3 h-3 text-neutral-600 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
+          className={`w-3 h-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
+          style={{ color: 'var(--text-tertiary)' }}
         />
       </button>
 
@@ -171,18 +172,18 @@ export function NetworkSelector() {
             transition={{ duration: 0.15 }}
             className="absolute right-0 top-full mt-2 w-72 border-2 overflow-hidden z-50"
             style={{
-              background: 'rgba(10, 10, 10, 0.98)',
+              background: 'var(--bg-sidebar)',
               borderColor: `${selectedChain.color}30`,
               backdropFilter: 'blur(20px)',
-              boxShadow: `0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${selectedChain.color}10`,
+              boxShadow: `0 20px 60px rgba(0,0,0,0.3), 0 0 40px ${selectedChain.color}10`,
               borderRadius: '12px',
             }}
           >
             {/* Testnet / Mainnet Toggle */}
-            <div className="p-3 border-b border-neutral-800/50">
+            <div className="p-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
               <div
-                className="flex p-1 border border-neutral-800/80 bg-neutral-950/80"
-                style={{ borderRadius: '10px' }}
+                className="flex p-1"
+                style={{ borderRadius: '10px', border: '1px solid var(--border-input)', background: 'var(--bg-input)' }}
               >
                 {(['testnet', 'mainnet'] as NetworkEnvironment[]).map((env) => (
                   <button

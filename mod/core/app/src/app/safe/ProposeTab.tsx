@@ -9,7 +9,7 @@ import {
 import { CopyButton } from '@/ui/CopyButton'
 import { GlowCard } from './GlowCard'
 import {
-  ACCENT, inputClass, selectClass, btnClass,
+  ACCENT, inputClass, inputStyle, selectClass, btnClass,
   CONTRACT_ABIS, getWriteFunctions, getReadFunctions, getContracts,
 } from './shared'
 import { shorten } from '@/utils'
@@ -160,7 +160,7 @@ export function ProposeTab({
   if (!safeInfo) {
     return (
       <GlowCard color={ACCENT}>
-        <p className="text-white/40 text-center py-4">Load a Safe first</p>
+        <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>Load a Safe first</p>
       </GlowCard>
     )
   }
@@ -172,8 +172,8 @@ export function ProposeTab({
 
         {/* Contract selector */}
         <div className="mb-4">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-1 block">Contract</label>
-          <select value={selectedContract} onChange={(e) => setSelectedContract(e.target.value)} className={selectClass}>
+          <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>Contract</label>
+          <select value={selectedContract} onChange={(e) => setSelectedContract(e.target.value)} className={selectClass} style={inputStyle}>
             <option value="">Select a contract...</option>
             {contracts.map((c) => (
               <option key={c.name} value={c.name}>{c.name} ({shorten(c.address, 6, 4)})</option>
@@ -183,18 +183,20 @@ export function ProposeTab({
 
         {/* Write / Read toggle */}
         {selectedContract && (
-          <div className="flex gap-1 mb-4 p-1 bg-white/[0.03] rounded-lg">
+          <div className="flex gap-1 mb-4 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-input)' }}>
             <button
               onClick={() => setProposeMode('write')}
               className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${
-                proposeMode === 'write' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-white/30 hover:text-white/50'
+                proposeMode === 'write' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : ''
               }`}
+              style={proposeMode !== 'write' ? { color: 'var(--text-tertiary)' } : undefined}
             >Write</button>
             <button
               onClick={() => setProposeMode('read')}
               className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${
-                proposeMode === 'read' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-white/30 hover:text-white/50'
+                proposeMode === 'read' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : ''
               }`}
+              style={proposeMode !== 'read' ? { color: 'var(--text-tertiary)' } : undefined}
             >Read</button>
           </div>
         )}
@@ -204,8 +206,8 @@ export function ProposeTab({
           <>
             {selectedContract && writeFunctions.length > 0 && (
               <div className="mb-4">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-1 block">Function</label>
-                <select value={selectedFunction} onChange={(e) => setSelectedFunction(e.target.value)} className={selectClass}>
+                <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>Function</label>
+                <select value={selectedFunction} onChange={(e) => setSelectedFunction(e.target.value)} className={selectClass} style={inputStyle}>
                   <option value="">Select a function...</option>
                   {writeFunctions.map((fn) => (
                     <option key={fn.name} value={fn.name}>
@@ -216,13 +218,13 @@ export function ProposeTab({
               </div>
             )}
             {selectedContract && writeFunctions.length === 0 && (
-              <p className="text-white/30 text-sm">No write functions found for this contract ABI</p>
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No write functions found for this contract ABI</p>
             )}
             <FnArgsInput inputs={selectedFn?.inputs} args={fnArgs} setArgs={setFnArgs} color="amber" />
             {selectedFn && (
               <div className="mb-4">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-1 block">ETH Value (optional)</label>
-                <input type="text" value={ethValue} onChange={(e) => setEthValue(e.target.value)} placeholder="0" className={inputClass} />
+                <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>ETH Value (optional)</label>
+                <input type="text" value={ethValue} onChange={(e) => setEthValue(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
               </div>
             )}
             {selectedFn && (
@@ -245,8 +247,8 @@ export function ProposeTab({
           <>
             {selectedContract && readFunctions.length > 0 && (
               <div className="mb-4">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-1 block">Function</label>
-                <select value={selectedReadFunction} onChange={(e) => setSelectedReadFunction(e.target.value)} className={selectClass}>
+                <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>Function</label>
+                <select value={selectedReadFunction} onChange={(e) => setSelectedReadFunction(e.target.value)} className={selectClass} style={inputStyle}>
                   <option value="">Select a function...</option>
                   {readFunctions.map((fn) => (
                     <option key={fn.name} value={fn.name}>
@@ -258,7 +260,7 @@ export function ProposeTab({
               </div>
             )}
             {selectedContract && readFunctions.length === 0 && (
-              <p className="text-white/30 text-sm">No read functions found for this contract ABI</p>
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No read functions found for this contract ABI</p>
             )}
             <FnArgsInput inputs={selectedReadFn?.inputs} args={readArgs} setArgs={setReadArgs} color="emerald" />
             {selectedReadFn && (
@@ -271,7 +273,7 @@ export function ProposeTab({
               </button>
             )}
             {readResult !== null && (
-              <div className="mt-4 p-3 bg-white/[0.03] border border-emerald-500/20 rounded-lg">
+              <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500/60">Result</span>
                   <CopyButton text={readResult} size="sm" />
@@ -288,8 +290,8 @@ export function ProposeTab({
         <GlowCard color={ACCENT} delay={0.2}>
           <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">Target Contract</div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-white/60">{selectedContractInfo.name}</span>
-            <span className="font-mono text-white/40">{shorten(selectedContractInfo.address)}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{selectedContractInfo.name}</span>
+            <span className="font-mono" style={{ color: 'var(--text-tertiary)' }}>{shorten(selectedContractInfo.address)}</span>
             <CopyButton text={selectedContractInfo.address} size="sm" />
           </div>
         </GlowCard>
@@ -300,12 +302,12 @@ export function ProposeTab({
         <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-400/70 mb-4">Send ETH</h2>
         <div className="space-y-3">
           <div>
-            <label className="text-[10px] text-white/30 mb-0.5 block">Recipient Address</label>
-            <input type="text" value={sendEthTo} onChange={(e) => setSendEthTo(e.target.value)} placeholder="0x..." className={inputClass} />
+            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>Recipient Address</label>
+            <input type="text" value={sendEthTo} onChange={(e) => setSendEthTo(e.target.value)} placeholder="0x..." className={inputClass} style={inputStyle} />
           </div>
           <div>
-            <label className="text-[10px] text-white/30 mb-0.5 block">Amount (ETH)</label>
-            <input type="text" value={sendEthAmount} onChange={(e) => setSendEthAmount(e.target.value)} placeholder="0.01" className={inputClass} />
+            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>Amount (ETH)</label>
+            <input type="text" value={sendEthAmount} onChange={(e) => setSendEthAmount(e.target.value)} placeholder="0.01" className={inputClass} style={inputStyle} />
           </div>
           <button
             onClick={handleSendEth}
@@ -323,7 +325,7 @@ export function ProposeTab({
         <GlowCard color="#22d3ee" delay={0.1}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-cyan-400/70">Last TX Params</h2>
-            <button onClick={() => setLastTxParams(null)} className="text-[10px] text-white/30 hover:text-white/60">dismiss</button>
+            <button onClick={() => setLastTxParams(null)} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>dismiss</button>
           </div>
           <div className="space-y-1.5 text-xs font-mono">
             {[
@@ -339,7 +341,7 @@ export function ProposeTab({
             ].map(([label, val]) => (
               <div key={label} className="flex gap-2">
                 <span className="text-cyan-400/50 shrink-0 w-20">{label}</span>
-                <span className="text-white/70 break-all">{val}</span>
+                <span className="break-all" style={{ color: 'var(--text-primary)' }}>{val}</span>
                 {(label === 'safe' || label === 'to' || label === 'safeTxHash') && (
                   <CopyButton text={val.split(' ')[0]} size="sm" />
                 )}
@@ -358,10 +360,10 @@ function FnArgsInput({ inputs, args, setArgs, color }: {
   if (!inputs || inputs.length === 0) return null
   return (
     <div className="mb-4 space-y-3">
-      <label className="text-[11px] font-bold uppercase tracking-wider text-white/40 block">Arguments</label>
+      <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Arguments</label>
       {inputs.map((inp: any, i: number) => (
         <div key={i}>
-          <label className="text-[10px] text-white/30 mb-0.5 block">
+          <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>
             {inp.name || `arg${i}`} <span className={`text-${color}-500/40`}>({inp.type})</span>
           </label>
           {inp.type === 'bool' ? (
@@ -369,6 +371,7 @@ function FnArgsInput({ inputs, args, setArgs, color }: {
               value={args[i] || ''}
               onChange={(e) => { const next = [...args]; next[i] = e.target.value; setArgs(next) }}
               className={selectClass}
+              style={inputStyle}
             >
               <option value="">Select...</option>
               <option value="true">true</option>
@@ -381,6 +384,7 @@ function FnArgsInput({ inputs, args, setArgs, color }: {
               onChange={(e) => { const next = [...args]; next[i] = e.target.value; setArgs(next) }}
               placeholder={inp.type}
               className={inputClass}
+              style={inputStyle}
             />
           )}
         </div>

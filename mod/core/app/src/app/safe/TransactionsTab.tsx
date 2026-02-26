@@ -39,7 +39,7 @@ export function TransactionsTab({
   if (!safeInfo) {
     return (
       <GlowCard color={ACCENT}>
-        <p className="text-white/40 text-center py-4">Load a Safe first</p>
+        <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>Load a Safe first</p>
       </GlowCard>
     )
   }
@@ -64,7 +64,8 @@ export function TransactionsTab({
           <button
             onClick={onRefresh}
             disabled={txLoading}
-            className={`${btnClass} bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 text-xs`}
+            className={`${btnClass} text-xs`}
+            style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-strong)' }}
           >
             {txLoading ? <ArrowPathIcon className="w-3 h-3 animate-spin" /> : 'Refresh'}
           </button>
@@ -73,7 +74,7 @@ export function TransactionsTab({
 
       {pendingTxs.length === 0 && !txLoading && (
         <GlowCard color={ACCENT}>
-          <p className="text-white/40 text-center py-4">No pending transactions</p>
+          <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>No pending transactions</p>
         </GlowCard>
       )}
 
@@ -139,11 +140,11 @@ export function TransactionsTab({
               </div>
 
               {tx.confirmations && tx.confirmations.length > 0 && (
-                <div className="border-t border-white/[0.06] pt-2">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Confirmations</div>
+                <div className="pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
+                  <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Confirmations</div>
                   <div className="flex flex-wrap gap-2">
                     {tx.confirmations.map((c, ci) => (
-                      <span key={ci} className="flex items-center gap-1 px-2 py-1 rounded bg-white/[0.04] text-[10px] font-mono text-white/50">
+                      <span key={ci} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)' }}>
                         <CheckCircleIcon className="w-3 h-3 text-emerald-400/60" />
                         {shorten(c.owner, 4, 4)}
                       </span>
@@ -157,19 +158,19 @@ export function TransactionsTab({
       })}
 
       {/* Executed History */}
-      <div className="border-t border-white/[0.06] mt-6 pt-4">
+      <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border-color)' }}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-white/40">Executed History</h2>
-          {historyLoading && <ArrowPathIcon className="w-3 h-3 animate-spin text-white/20" />}
+          <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Executed History</h2>
+          {historyLoading && <ArrowPathIcon className="w-3 h-3 animate-spin" style={{ color: 'var(--text-tertiary)' }} />}
         </div>
       {historyLoading && executedTxs.length === 0 && (
         <GlowCard color={ACCENT}>
-          <p className="text-white/40 text-center py-4">Loading history...</p>
+          <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>Loading history...</p>
         </GlowCard>
       )}
       {!historyLoading && executedTxs.length === 0 && (
         <GlowCard color={ACCENT}>
-          <p className="text-white/40 text-center py-4">No executed transactions found</p>
+          <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>No executed transactions found</p>
         </GlowCard>
       )}
       {executedTxs.length > 0 && (
@@ -187,10 +188,10 @@ export function TransactionsTab({
                       }`}>
                         {tx.success ? 'success' : 'failed'}
                       </span>
-                      <span className="text-[10px] text-white/20 font-mono">#{tx.blockNumber}</span>
+                      <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>#{tx.blockNumber}</span>
                     </div>
-                    <div className="text-xs text-white/50 mb-1">
-                      <span className="text-white/30">To:</span>{' '}
+                    <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+                      <span style={{ color: 'var(--text-tertiary)' }}>To:</span>{' '}
                       <span className="font-mono">{shorten(tx.to)}</span>
                       {contracts.find((c) => c.address.toLowerCase() === tx.to.toLowerCase()) && (
                         <span className="ml-2 text-amber-500/60">
@@ -199,16 +200,16 @@ export function TransactionsTab({
                       )}
                     </div>
                     {tx.data && tx.data !== '0x' && (
-                      <div className="text-xs text-white/30 font-mono truncate max-w-md">
+                      <div className="text-xs font-mono truncate max-w-md" style={{ color: 'var(--text-tertiary)' }}>
                         {tx.data.slice(0, 66)}...
                       </div>
                     )}
                     {tx.value !== '0' && (
-                      <div className="text-xs text-white/50 mt-1">
-                        Value: <span className="font-mono text-white/70">{ethers.formatEther(tx.value)} ETH</span>
+                      <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                        Value: <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{ethers.formatEther(tx.value)} ETH</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-3 text-[10px] text-white/20 mt-1">
+                    <div className="flex items-center gap-3 text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
                       {tx.timestamp > 0 && (
                         <span>{new Date(tx.timestamp * 1000).toLocaleString()}</span>
                       )}
@@ -241,8 +242,8 @@ function TxDetails({ tx, contracts }: {
 }) {
   return (
     <>
-      <div className="text-xs text-white/50 mb-1">
-        <span className="text-white/30">To:</span>{' '}
+      <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+        <span style={{ color: 'var(--text-tertiary)' }}>To:</span>{' '}
         <span className="font-mono">{shorten(tx.to)}</span>
         {contracts.find((c) => c.address.toLowerCase() === tx.to.toLowerCase()) && (
           <span className="ml-2 text-amber-500/60">
@@ -251,16 +252,16 @@ function TxDetails({ tx, contracts }: {
         )}
       </div>
       {tx.data && tx.data !== '0x' && (
-        <div className="text-xs text-white/30 font-mono truncate max-w-md">
+        <div className="text-xs font-mono truncate max-w-md" style={{ color: 'var(--text-tertiary)' }}>
           {tx.data.slice(0, 66)}...
         </div>
       )}
       {tx.value !== '0' && (
-        <div className="text-xs text-white/50 mt-1">
-          Value: <span className="font-mono text-white/70">{ethers.formatEther(tx.value)} ETH</span>
+        <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+          Value: <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{ethers.formatEther(tx.value)} ETH</span>
         </div>
       )}
-      <div className="text-[10px] text-white/20 mt-1">
+      <div className="text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
         {new Date(tx.submissionDate).toLocaleString()}
       </div>
     </>

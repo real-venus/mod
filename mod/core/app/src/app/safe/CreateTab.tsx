@@ -9,7 +9,7 @@ import {
 import { ethers } from 'ethers'
 import { toast } from 'react-toastify'
 import { GlowCard } from './GlowCard'
-import { ACCENT, inputClass, btnClass } from './shared'
+import { ACCENT, inputClass, inputStyle, btnClass } from './shared'
 import { createSafe } from '@/network/safe'
 
 export function CreateTab({
@@ -91,23 +91,25 @@ export function CreateTab({
         <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500/70 mb-4">Deploy Contracts</h2>
         <div className="space-y-3">
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-1 block">SafeProxyFactory Address</label>
+            <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>SafeProxyFactory Address</label>
             <input
               type="text"
               value={factoryAddress}
               onChange={(e) => setFactoryAddress(e.target.value)}
               placeholder="0x..."
               className={inputClass}
+              style={inputStyle}
             />
           </div>
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-1 block">Safe Singleton Address</label>
+            <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>Safe Singleton Address</label>
             <input
               type="text"
               value={singletonAddress}
               onChange={(e) => setSingletonAddress(e.target.value)}
               placeholder="0x..."
               className={inputClass}
+              style={inputStyle}
             />
           </div>
         </div>
@@ -127,13 +129,14 @@ export function CreateTab({
         <div className="space-y-2">
           {owners.map((owner, idx) => (
             <div key={idx} className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-white/30 w-5 text-center shrink-0">{idx + 1}</span>
+              <span className="text-[11px] font-bold w-5 text-center shrink-0" style={{ color: 'var(--text-tertiary)' }}>{idx + 1}</span>
               <input
                 type="text"
                 value={owner}
                 onChange={(e) => updateOwner(idx, e.target.value)}
                 placeholder="0x..."
                 className={`${inputClass} flex-1`}
+                style={inputStyle}
               />
               {owners.length > 1 && (
                 <button
@@ -158,8 +161,9 @@ export function CreateTab({
             value={threshold}
             onChange={(e) => setThreshold(Math.max(1, Math.min(owners.length, parseInt(e.target.value) || 1)))}
             className={`${inputClass} w-20 text-center`}
+            style={inputStyle}
           />
-          <span className="text-white/40 text-sm">of {owners.length} owner{owners.length !== 1 ? 's' : ''} required to confirm</span>
+          <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>of {owners.length} owner{owners.length !== 1 ? 's' : ''} required to confirm</span>
         </div>
       </GlowCard>
 

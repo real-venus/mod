@@ -53,7 +53,7 @@ export const text2color = (text: string): string => {
   }
   const h = hash % 360
   // Convert HSL to hex for better cross-browser compatibility (especially Safari)
-  const [r, g, b] = hslToRgb(h, 70, 60)
+  const [r, g, b] = hslToRgb(h, 85, 55)
   return rgbToHex(r, g, b)
 }
 

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   other: {
-    'color-scheme': 'dark',
+    'color-scheme': 'dark light',
   },
 }
 
@@ -19,10 +19,9 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
-        <meta name="color-scheme" content="dark" />
-        <meta name="supported-color-schemes" content="dark" />
+        <meta name="color-scheme" content="dark light" />
       </head>
       <body className={inter.className}>
         <Providers>

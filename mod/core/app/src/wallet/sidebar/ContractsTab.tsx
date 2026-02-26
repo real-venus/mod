@@ -374,7 +374,7 @@ export function ContractsTab({ show }: ContractsTabProps) {
 
                       {/* No params indicator */}
                       {fn.inputs.length === 0 && fn.outputs.length === 0 && (
-                        <div className="ml-2.5 text-[8px] font-mono text-cyan-500/20">() -> void</div>
+                        <div className="ml-2.5 text-[8px] font-mono text-cyan-500/20">{'() -> void'}</div>
                       )}
 
                       {/* Mutability badge */}

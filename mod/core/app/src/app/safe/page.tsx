@@ -32,7 +32,7 @@ import { TransactionsTab } from './TransactionsTab'
 import { ProposeTab } from './ProposeTab'
 import { OwnersTab } from './OwnersTab'
 import { CreateTab } from './CreateTab'
-import { ACCENT, inputClass, btnClass } from './shared'
+import { ACCENT, inputClass, inputStyle, btnClass } from './shared'
 
 export const dynamic = 'force-dynamic'
 
@@ -181,11 +181,11 @@ export default function SafePage() {
   ]
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <p className="text-white/50 text-sm">Manage multisig accounts and propose transactions</p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Manage multisig accounts and propose transactions</p>
         </motion.div>
 
         {/* Safe address input */}
@@ -193,7 +193,7 @@ export default function SafePage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <label className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1 block">Safe Address</label>
-              <input type="text" value={safeAddress} onChange={(e) => setSafeAddress(e.target.value)} placeholder="0x..." className={inputClass} />
+              <input type="text" value={safeAddress} onChange={(e) => setSafeAddress(e.target.value)} placeholder="0x..." className={inputClass} style={inputStyle} />
             </div>
             <div className="flex items-end">
               <button onClick={loadSafe} disabled={loading} className={`${btnClass} bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30`}>
@@ -205,22 +205,22 @@ export default function SafePage() {
             <div className="mt-4 flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <UserGroupIcon className="w-4 h-4 text-amber-500/60" />
-                <span className="text-white/50">Owners:</span>
-                <span className="text-white font-mono">{safeInfo.owners.length}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Owners:</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeInfo.owners.length}</span>
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheckIcon className="w-4 h-4 text-amber-500/60" />
-                <span className="text-white/50">Threshold:</span>
-                <span className="text-white font-mono">{safeInfo.threshold}/{safeInfo.owners.length}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Threshold:</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeInfo.threshold}/{safeInfo.owners.length}</span>
               </div>
               <div className="flex items-center gap-2">
                 <HashtagIcon className="w-4 h-4 text-amber-500/60" />
-                <span className="text-white/50">Nonce:</span>
-                <span className="text-white font-mono">{safeInfo.nonce}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Nonce:</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeInfo.nonce}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-white/50">ETH:</span>
-                <span className="text-white font-mono">{parseFloat(ethBalance).toFixed(4)}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>ETH:</span>
+                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{parseFloat(ethBalance).toFixed(4)}</span>
               </div>
               {isOwner && (
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -232,7 +232,7 @@ export default function SafePage() {
         </GlowCard>
 
         {/* Tab bar */}
-        <div className="flex gap-1 mb-6 border-b border-white/[0.06] overflow-x-auto">
+        <div className="flex gap-1 mb-6 overflow-x-auto" style={{ borderBottom: '2px solid var(--border-color)' }}>
           {tabs.map((tab) => {
             const active = activeTab === tab.key
             const Icon = tab.icon
@@ -241,8 +241,9 @@ export default function SafePage() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`relative px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap ${
-                  active ? 'text-amber-400' : 'text-white/40 hover:text-white/60'
+                  active ? 'text-amber-400' : ''
                 }`}
+                style={!active ? { color: 'var(--text-tertiary)' } : {}}
               >
                 <Icon className="w-4 h-4" />
                 {tab.label}

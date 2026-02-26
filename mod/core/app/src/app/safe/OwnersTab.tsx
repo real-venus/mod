@@ -11,7 +11,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { CopyButton } from '@/ui/CopyButton'
 import { GlowCard } from './GlowCard'
-import { ACCENT, inputClass, selectClass, btnClass } from './shared'
+import { ACCENT, inputClass, inputStyle, selectClass, btnClass } from './shared'
 import { shorten } from '@/utils'
 import {
   proposeSafeTransaction,
@@ -89,7 +89,7 @@ export function OwnersTab({
   if (!safeInfo) {
     return (
       <GlowCard color={ACCENT}>
-        <p className="text-white/40 text-center py-4">Load a Safe first</p>
+        <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>Load a Safe first</p>
       </GlowCard>
     )
   }
@@ -108,17 +108,18 @@ export function OwnersTab({
               <div
                 key={i}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
-                  isMe ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white/[0.03]'
+                  isMe ? 'bg-emerald-500/10 border border-emerald-500/20' : ''
                 }`}
+                style={!isMe ? { backgroundColor: 'var(--bg-input)' } : undefined}
               >
                 {isMe && <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />}
-                <span className="font-mono text-sm text-white/80 flex-1 break-all">{owner}</span>
+                <span className="font-mono text-sm flex-1 break-all" style={{ color: 'var(--text-primary)' }}>{owner}</span>
                 <CopyButton text={owner} size="sm" />
               </div>
             )
           })}
         </div>
-        <div className="mt-3 text-xs text-white/30">
+        <div className="mt-3 text-xs" style={{ color: 'var(--text-tertiary)' }}>
           Threshold: {safeInfo.threshold}/{safeInfo.owners.length}
         </div>
       </GlowCard>
@@ -130,12 +131,12 @@ export function OwnersTab({
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="text-[10px] text-white/30 mb-0.5 block">New Owner Address</label>
-            <input type="text" value={newOwnerAddr} onChange={(e) => setNewOwnerAddr(e.target.value)} placeholder="0x..." className={inputClass} />
+            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>New Owner Address</label>
+            <input type="text" value={newOwnerAddr} onChange={(e) => setNewOwnerAddr(e.target.value)} placeholder="0x..." className={inputClass} style={inputStyle} />
           </div>
           <div>
-            <label className="text-[10px] text-white/30 mb-0.5 block">New Threshold (default: current)</label>
-            <input type="number" value={newThreshold} onChange={(e) => setNewThreshold(e.target.value)} placeholder={String(safeInfo.threshold)} className={inputClass} />
+            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>New Threshold (default: current)</label>
+            <input type="number" value={newThreshold} onChange={(e) => setNewThreshold(e.target.value)} placeholder={String(safeInfo.threshold)} className={inputClass} style={inputStyle} />
           </div>
           <button
             onClick={handleAddOwner}
@@ -154,8 +155,8 @@ export function OwnersTab({
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="text-[10px] text-white/30 mb-0.5 block">Owner to Remove</label>
-            <select value={removeOwnerAddr} onChange={(e) => setRemoveOwnerAddr(e.target.value)} className={selectClass}>
+            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>Owner to Remove</label>
+            <select value={removeOwnerAddr} onChange={(e) => setRemoveOwnerAddr(e.target.value)} className={selectClass} style={inputStyle}>
               <option value="">Select owner...</option>
               {safeInfo.owners.map((o, i) => (
                 <option key={i} value={o}>
@@ -165,8 +166,8 @@ export function OwnersTab({
             </select>
           </div>
           <div>
-            <label className="text-[10px] text-white/30 mb-0.5 block">New Threshold (default: {Math.max(safeInfo.threshold - 1, 1)})</label>
-            <input type="number" value={removeThreshold} onChange={(e) => setRemoveThreshold(e.target.value)} placeholder={String(Math.max(safeInfo.threshold - 1, 1))} className={inputClass} />
+            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>New Threshold (default: {Math.max(safeInfo.threshold - 1, 1)})</label>
+            <input type="number" value={removeThreshold} onChange={(e) => setRemoveThreshold(e.target.value)} placeholder={String(Math.max(safeInfo.threshold - 1, 1))} className={inputClass} style={inputStyle} />
           </div>
           <button
             onClick={handleRemoveOwner}
@@ -185,8 +186,8 @@ export function OwnersTab({
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="text-[10px] text-white/30 mb-0.5 block">New Threshold (current: {safeInfo.threshold})</label>
-            <input type="number" value={changeThresholdVal} onChange={(e) => setChangeThresholdVal(e.target.value)} placeholder={String(safeInfo.threshold)} min={1} max={safeInfo.owners.length} className={inputClass} />
+            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>New Threshold (current: {safeInfo.threshold})</label>
+            <input type="number" value={changeThresholdVal} onChange={(e) => setChangeThresholdVal(e.target.value)} placeholder={String(safeInfo.threshold)} min={1} max={safeInfo.owners.length} className={inputClass} style={inputStyle} />
           </div>
           <button
             onClick={handleChangeThreshold}

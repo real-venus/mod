@@ -148,12 +148,13 @@ export function WalletSidebar(props: WalletSidebarProps) {
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 400, opacity: 0 }}
         transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-        className={`fixed top-0 right-0 h-screen shadow-2xl z-[90] overflow-y-auto custom-scrollbar font-mono bg-[#0a0a0a] ${isResizing ? 'select-none' : ''}`}
+        className={`fixed top-0 right-0 h-screen shadow-2xl z-[90] overflow-y-auto custom-scrollbar font-mono ${isResizing ? 'select-none' : ''}`}
         style={{
           width: `${sidebarWidth}px`,
           borderLeft: `1px solid ${userColor}30`,
-          boxShadow: `-40px 0 80px rgba(0, 0, 0, 0.9), 0 0 120px ${userColor}15`,
-          cursor: isResizing ? 'ew-resize' : 'default'
+          boxShadow: `-40px 0 80px rgba(0, 0, 0, 0.5), 0 0 120px ${userColor}15`,
+          cursor: isResizing ? 'ew-resize' : 'default',
+          backgroundColor: 'var(--bg-secondary)',
         }}
       >
         {/* Resize Handle */}
@@ -161,7 +162,7 @@ export function WalletSidebar(props: WalletSidebarProps) {
           className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-white/5 transition-colors z-[100] group"
           onMouseDown={() => setIsResizing(true)}
         >
-          <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-0.5 h-16 bg-neutral-800 group-hover:bg-neutral-500 transition-colors rounded-full" />
+          <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-0.5 h-16 transition-colors rounded-full" style={{ backgroundColor: 'var(--border-input)' }} />
         </div>
         {isResizing && (
           <style>{`body { cursor: ew-resize !important; user-select: none; }`}</style>

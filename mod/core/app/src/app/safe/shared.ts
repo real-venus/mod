@@ -12,8 +12,9 @@ import TokenABI from '@/contracts/token/Token.sol/Token.json'
 
 export const ACCENT = '#f59e0b'
 
-export const inputClass = 'w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-white/30 focus:border-amber-500/50 focus:outline-none transition-colors'
-export const selectClass = 'w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500/50 focus:outline-none transition-colors appearance-none cursor-pointer'
+export const inputClass = 'w-full rounded-lg px-3 py-2 text-sm font-mono focus:border-amber-500/50 focus:outline-none transition-colors'
+export const inputStyle = { backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)' } as const
+export const selectClass = 'w-full rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 focus:outline-none transition-colors appearance-none cursor-pointer'
 export const btnClass = 'px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed'
 
 export const CONTRACT_ABIS: Record<string, any[]> = {

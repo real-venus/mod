@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CubeIcon, MagnifyingGlassIcon, PlusIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
+import { CubeIcon, MagnifyingGlassIcon, PlusIcon, Bars3Icon, XMarkIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { WalletHeader } from '@/wallet/WalletHeader'
@@ -21,8 +21,47 @@ import {
   LayoutProvider,
   useLayoutContext,
 } from '@/context/LayoutContext'
-import { ThemeProvider } from '@/context/ThemeContext'
+import { ThemeProvider, useTheme } from '@/context/ThemeContext'
 import { SplitScreenControls } from '@/components/SplitScreenControls'
+
+function ThemedToast() {
+  const { effectiveTheme } = useTheme()
+  return (
+    <ToastContainer
+      position="bottom-right"
+      autoClose={3000}
+      hideProgressBar={false}
+      newestOnTop={true}
+      closeOnClick
+      rtl={false}
+      pauseOnFocusLoss
+      draggable
+      pauseOnHover
+      theme={effectiveTheme === 'dark' ? 'dark' : 'light'}
+      style={{ zIndex: 9999 }}
+    />
+  )
+}
+
+function ThemeToggle() {
+  const { effectiveTheme, setTheme } = useTheme()
+  const toggle = () => setTheme(effectiveTheme === 'dark' ? 'light' : 'dark')
+
+  return (
+    <button
+      onClick={toggle}
+      className="shrink-0 flex items-center justify-center transition-all hover:opacity-80 rounded-lg"
+      style={{ width: '34px', height: '34px', background: 'var(--bg-input)' }}
+      title={effectiveTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {effectiveTheme === 'dark' ? (
+        <SunIcon className="w-4 h-4 text-white" />
+      ) : (
+        <MoonIcon className="w-4 h-4 text-black" />
+      )}
+    </button>
+  )
+}
 
 function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenuOpen: (v: boolean) => void }) {
   const { handleSearch, searchFilters } = useSearchContext()
@@ -105,7 +144,7 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
         className="fixed top-0 left-0 right-0 z-[60] flex items-center gap-0 px-4"
         style={{
           height: '48px',
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.98) 80%, rgba(0,0,0,0))',
+          background: `linear-gradient(to bottom, var(--bg-header) 80%, transparent)`,
           backdropFilter: 'blur(16px)',
           fontFamily: 'IBM Plex Mono, monospace',
         }}
@@ -113,20 +152,20 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
         {/* Hamburger */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="shrink-0 flex items-center justify-center transition-all hover:bg-white/[0.04] mr-2"
+          className="shrink-0 flex items-center justify-center transition-all hover:opacity-80 mr-2"
           style={{ width: '40px', height: '36px' }}
         >
           {menuOpen ? (
             <XMarkIcon className="w-5 h-5 text-green-400" />
           ) : (
-            <Bars3Icon className="w-5 h-5 text-white/50" />
+            <Bars3Icon className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
           )}
         </button>
 
         {/* Search bar - always visible, centered, takes most space */}
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-2xl">
-            <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
+            <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
             <input
               ref={inputRef}
               type="text"
@@ -135,19 +174,23 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
               onKeyDown={handleKeyDown}
               onFocus={() => setSearchOpen(true)}
               placeholder="Search mods..."
-              className="w-full bg-white/[0.04] border border-white/[0.08] text-white text-[14px] font-bold placeholder-white/25 focus:outline-none focus:border-green-500/40 focus:bg-white/[0.06] transition-all rounded-xl"
+              className="w-full text-[14px] font-bold focus:outline-none focus:border-green-500/40 transition-all rounded-xl"
               style={{
                 paddingLeft: '2.5rem',
                 paddingRight: searchOpen ? '3.5rem' : '1rem',
                 height: '36px',
                 fontFamily: 'inherit',
                 letterSpacing: '0.03em',
+                backgroundColor: 'var(--bg-input)',
+                border: '1px solid var(--border-input)',
+                color: 'var(--text-primary)',
               }}
             />
             {searchOpen && inputValue && (
               <button
                 onClick={closeSearch}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white text-[10px] font-bold px-1.5 py-0.5 bg-white/[0.06] rounded-md hover:bg-white/[0.1] transition-all"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-all"
+                style={{ color: 'var(--text-secondary)', background: 'var(--bg-input)' }}
               >
                 ESC
               </button>
@@ -175,6 +218,7 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
             />
           </Link>
 
+          <ThemeToggle />
           <NetworkSelector />
           <WalletHeader />
         </div>
@@ -191,10 +235,10 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
             className="fixed left-0 top-0 bottom-0 z-[59] flex flex-col overflow-y-auto custom-scrollbar"
             style={{
               width: '220px',
-              background: 'rgba(8,8,12,0.98)',
+              background: 'var(--bg-sidebar)',
               backdropFilter: 'blur(16px)',
               fontFamily: 'IBM Plex Mono, monospace',
-              borderRight: '1px solid rgba(255,255,255,0.06)',
+              borderRight: '1px solid var(--border-color)',
             }}
           >
             {/* Spacer for top header */}
@@ -208,7 +252,9 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="flex items-center px-4 py-2.5 transition-all hover:bg-white/[0.03]"
+                    className="flex items-center px-4 py-2.5 transition-all"
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                    onMouseLeave={e => { if (!pathname?.startsWith(item.href)) e.currentTarget.style.background = 'transparent' }}
                     style={{
                       borderLeft: isActive ? `3px solid ${item.color}` : '3px solid transparent',
                       background: isActive ? `${item.color}08` : undefined,
@@ -216,7 +262,7 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
                   >
                     <span
                       className="text-[13px] font-extrabold uppercase tracking-[0.1em]"
-                      style={{ color: isActive ? item.color : 'rgba(255,255,255,0.4)' }}
+                      style={{ color: isActive ? item.color : 'var(--text-secondary)' }}
                     >
                       {item.label}
                     </span>
@@ -259,7 +305,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     : 'border-b-2 border-green-500/30'
 
   return (
-    <div className="flex h-screen bg-black transition-all duration-200" style={{ paddingTop: '48px', marginLeft: menuOpen ? '220px' : '0px' }}>
+    <div className="flex h-screen transition-all duration-200" style={{ paddingTop: '48px', marginLeft: menuOpen ? '220px' : '0px', backgroundColor: 'var(--bg-primary)' }}>
       {/* Global header with tabs */}
       <GlobalSearchBar menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
 
@@ -307,19 +353,7 @@ export default function Providers({
               <ControlPanelProvider>
                 <LayoutProvider>
                   <LayoutContent>{children}</LayoutContent>
-                  <ToastContainer
-                    position="bottom-right"
-                    autoClose={3000}
-                    hideProgressBar={false}
-                    newestOnTop={true}
-                    closeOnClick
-                    rtl={false}
-                    pauseOnFocusLoss
-                    draggable
-                    pauseOnHover
-                    theme="dark"
-                    style={{ zIndex: 9999 }}
-                  />
+                  <ThemedToast />
                 </LayoutProvider>
               </ControlPanelProvider>
             </SplitScreenProvider>

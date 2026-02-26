@@ -91,22 +91,22 @@ export function SidebarHeader({
 
   return (
     <>
-      <div className="sticky top-0 z-10 border-b border-neutral-800/80 bg-neutral-950/95 backdrop-blur-md">
+      <div className="sticky top-0 z-10 backdrop-blur-md" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-sidebar)' }}>
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <button
               onClick={copyAddress}
               className={`text-xs font-bold font-mono tracking-wider transition-all cursor-pointer ${
-                copiedAddress ? 'text-green-400' : 'text-neutral-400 hover:text-neutral-200'
+                copiedAddress ? 'text-green-400' : ''
               }`}
-              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+              style={{ fontFamily: 'IBM Plex Mono, monospace', ...(!copiedAddress ? { color: 'var(--text-secondary)' } : {}) }}
               title="Click to copy full address"
             >
               {copiedAddress ? 'COPIED!' : shortAddress}
             </button>
             <span
-              className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-neutral-800/80 text-neutral-500"
-              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+              className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)', fontFamily: 'IBM Plex Mono, monospace' }}
             >
               {walletMode || 'web3'}
             </span>
@@ -128,14 +128,16 @@ export function SidebarHeader({
             </button>
             <button
               onClick={handleSignOut}
-              className="text-neutral-600 hover:text-red-400 transition-colors p-1"
+              className="hover:text-red-400 transition-colors p-1"
+              style={{ color: 'var(--text-tertiary)' }}
               title="Sign out"
             >
               <ArrowRightOnRectangleIcon className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
-              className="text-neutral-600 hover:text-neutral-300 transition-colors p-1"
+              className="transition-colors p-1"
+              style={{ color: 'var(--text-tertiary)' }}
             >
               <XMarkIcon className="w-4 h-4" />
             </button>
@@ -145,7 +147,7 @@ export function SidebarHeader({
           <span className="text-lg font-black font-mono tabular-nums text-green-400" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
             ${marketCredit.toFixed(2)}
           </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">credit</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>credit</span>
           <div className="flex-1" />
           <div
             className={`w-2 h-2 rounded-full ${isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}
@@ -155,13 +157,14 @@ export function SidebarHeader({
         {/* Daily Spending Limit */}
         {dailyLimit !== null && (
           <div className="px-4 pb-3">
-            <div className="bg-white/[0.02] border border-neutral-800/60 rounded-lg px-3 py-2">
+            <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">Daily Limit</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Daily Limit</span>
                 {!isEditing && (
                   <button
                     onClick={() => { setIsEditing(true); setNewLimit(dailyLimit.toFixed(2)) }}
-                    className="text-neutral-600 hover:text-amber-400 transition-colors p-0.5"
+                    className="hover:text-amber-400 transition-colors p-0.5"
+                    style={{ color: 'var(--text-tertiary)' }}
                     title="Change daily limit"
                   >
                     <PencilIcon className="w-3 h-3" />
@@ -175,7 +178,8 @@ export function SidebarHeader({
                     type="number"
                     value={newLimit}
                     onChange={(e) => setNewLimit(e.target.value)}
-                    className="flex-1 bg-black border border-amber-500/30 rounded px-2 py-1 text-sm font-mono text-white focus:outline-none focus:border-amber-400/60"
+                    className="flex-1 border border-amber-500/30 rounded px-2 py-1 text-sm font-mono focus:outline-none focus:border-amber-400/60"
+                    style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                     placeholder="1000"
                     autoFocus
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSaveLimit(); if (e.key === 'Escape') setIsEditing(false) }}
@@ -189,7 +193,8 @@ export function SidebarHeader({
                   </button>
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="px-1 py-1 text-neutral-500 hover:text-neutral-300 transition-colors"
+                    className="px-1 py-1 transition-colors"
+                    style={{ color: 'var(--text-secondary)' }}
                   >
                     <XMarkIcon className="w-3.5 h-3.5" />
                   </button>
@@ -200,10 +205,10 @@ export function SidebarHeader({
                     <span className="text-sm font-bold font-mono tabular-nums text-amber-400" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
                       ${dailyRemaining !== null ? dailyRemaining.toFixed(2) : '—'}
                     </span>
-                    <span className="text-[9px] text-neutral-500">remaining of ${dailyLimit.toFixed(2)}</span>
+                    <span className="text-[9px]" style={{ color: 'var(--text-secondary)' }}>remaining of ${dailyLimit.toFixed(2)}</span>
                   </div>
                   {dailyLimit > 0 && (
-                    <div className="w-full h-1 bg-neutral-800 rounded-full overflow-hidden">
+                    <div className="w-full h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-input)' }}>
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{

@@ -77,14 +77,14 @@ export function WalletHeader() {
     <div className="flex items-center gap-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center bg-[#0d0d0d] border-2 border-neutral-800 hover:bg-white/[0.03] hover:border-neutral-600 transition-all relative gap-2 px-3"
-        style={{ height: '48px', borderRadius: '0px', fontFamily: 'IBM Plex Mono, monospace' }}
+        className="flex items-center border-2 transition-all relative gap-2 px-3"
+        style={{ height: '48px', borderRadius: '0px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-input)' }}
       >
-        <WalletIcon className="w-5 h-5 text-neutral-400 flex-shrink-0" />
+        <WalletIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
         <span className="text-sm font-black font-mono tabular-nums text-green-400">
           ${balances.marketCredit.toFixed(2)}
         </span>
-        <span className="text-[10px] font-bold font-mono tabular-nums text-neutral-500">
+        <span className="text-[10px] font-bold font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
           -{transactions.totalCost24h.toFixed(2)}/d
         </span>
         <span className={`text-[10px] font-bold font-mono tabular-nums ${tokenExpiry.isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>

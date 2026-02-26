@@ -16,7 +16,7 @@ export function GlowCard({ children, color, delay = 0, className = '' }: {
         className="absolute -inset-[1px] rounded-xl opacity-40 group-hover:opacity-60 blur-sm transition-opacity duration-500"
         style={{ background: `linear-gradient(135deg, ${color}40, transparent 60%)` }}
       />
-      <div className="relative bg-black/80 border border-white/[0.08] rounded-xl p-6 backdrop-blur-xl h-full">
+      <div className="relative rounded-xl p-6 backdrop-blur-xl h-full" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
         {children}
       </div>
     </motion.div>

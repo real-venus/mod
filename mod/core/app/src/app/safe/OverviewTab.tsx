@@ -86,7 +86,7 @@ export function OverviewTab({
   if (!safeInfo && !loading) {
     return (
       <GlowCard color={ACCENT}>
-        <div className="text-center py-8 text-white/40">
+        <div className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
           <ShieldCheckIcon className="w-12 h-12 mx-auto mb-3 text-amber-500/30" />
           <p>Enter a Safe address and click Load to get started</p>
         </div>
@@ -107,11 +107,12 @@ export function OverviewTab({
               <div
                 key={i}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
-                  isMe ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white/[0.03]'
+                  isMe ? 'bg-emerald-500/10 border border-emerald-500/20' : ''
                 }`}
+                style={!isMe ? { backgroundColor: 'var(--bg-input)' } : {}}
               >
                 {isMe && <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />}
-                <span className="font-mono text-sm text-white/80 flex-1 break-all">{owner}</span>
+                <span className="font-mono text-sm flex-1 break-all" style={{ color: 'var(--text-primary)' }}>{owner}</span>
                 <CopyButton text={owner} size="sm" />
                 {isMe && (
                   <span className="text-[10px] font-bold text-emerald-400 uppercase">you</span>
@@ -125,18 +126,18 @@ export function OverviewTab({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <GlowCard color={ACCENT} delay={0.2}>
           <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">Threshold</div>
-          <div className="text-2xl font-bold text-white">{safeInfo.threshold} <span className="text-white/30 text-lg">/ {safeInfo.owners.length}</span></div>
-          <div className="text-xs text-white/40 mt-1">confirmations required</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{safeInfo.threshold} <span className="text-lg" style={{ color: 'var(--text-tertiary)' }}>/ {safeInfo.owners.length}</span></div>
+          <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>confirmations required</div>
         </GlowCard>
         <GlowCard color={ACCENT} delay={0.25}>
           <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">Nonce</div>
-          <div className="text-2xl font-bold text-white font-mono">{safeInfo.nonce}</div>
-          <div className="text-xs text-white/40 mt-1">transactions executed</div>
+          <div className="text-2xl font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{safeInfo.nonce}</div>
+          <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>transactions executed</div>
         </GlowCard>
         <GlowCard color={ACCENT} delay={0.3}>
           <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">ETH Balance</div>
-          <div className="text-2xl font-bold text-white font-mono">{parseFloat(ethBalance).toFixed(4)}</div>
-          <div className="text-xs text-white/40 mt-1">native balance</div>
+          <div className="text-2xl font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{parseFloat(ethBalance).toFixed(4)}</div>
+          <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>native balance</div>
         </GlowCard>
       </div>
 
@@ -147,7 +148,8 @@ export function OverviewTab({
           <button
             onClick={fetchTokenBalances}
             disabled={loadingBalances}
-            className="p-1.5 hover:bg-white/5 rounded-lg transition-all disabled:opacity-50"
+            className="p-1.5 rounded-lg transition-all disabled:opacity-50"
+            style={{ backgroundColor: 'var(--hover-bg)' }}
             title="Refresh balances"
           >
             <ArrowPathIcon className={`w-4 h-4 text-amber-500/60 ${loadingBalances ? 'animate-spin' : ''}`} />
@@ -155,20 +157,20 @@ export function OverviewTab({
         </div>
 
         {loadingBalances && tokenBalances.length === 0 ? (
-          <div className="flex items-center justify-center py-6 gap-2 text-white/40 text-xs">
+          <div className="flex items-center justify-center py-6 gap-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
             <ArrowPathIcon className="w-4 h-4 animate-spin" />
             <span>Loading balances...</span>
           </div>
         ) : tokenBalances.length === 0 ? (
-          <div className="text-center py-4 text-white/30 text-xs">No token balances found</div>
+          <div className="text-center py-4 text-xs" style={{ color: 'var(--text-tertiary)' }}>No token balances found</div>
         ) : (
           <div className="space-y-2">
             {/* ETH row */}
-            <div className="flex items-center justify-between px-3 py-2.5 bg-white/[0.03] rounded-lg">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white/50 uppercase tracking-wider font-mono">ETH</span>
+                <span className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-secondary)' }}>ETH</span>
               </div>
-              <span className="font-mono text-sm font-bold text-white tabular-nums">
+              <span className="font-mono text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
                 {parseFloat(ethBalance).toFixed(4)}
               </span>
             </div>
@@ -177,15 +179,16 @@ export function OverviewTab({
             {tokenBalances.map((token) => (
               <div
                 key={token.address}
-                className="flex items-center justify-between px-3 py-2.5 bg-white/[0.03] rounded-lg"
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg"
+                style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white/50 uppercase tracking-wider font-mono">
+                  <span className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-secondary)' }}>
                     {token.name === 'Market' ? 'MARKET' : token.symbol}
                   </span>
                   <CopyButton text={token.address} size="sm" />
                 </div>
-                <span className="font-mono text-sm font-bold text-white tabular-nums">
+                <span className="font-mono text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
                   {token.name === 'NativeToken'
                     ? token.balance.toFixed(4)
                     : `$${token.balance.toFixed(2)}`}
@@ -199,7 +202,7 @@ export function OverviewTab({
       <GlowCard color={ACCENT} delay={0.4}>
         <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">Safe Address</div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-sm text-white/80 break-all">{safeInfo.address}</span>
+          <span className="font-mono text-sm break-all" style={{ color: 'var(--text-primary)' }}>{safeInfo.address}</span>
           <CopyButton text={safeInfo.address} size="sm" />
         </div>
       </GlowCard>
