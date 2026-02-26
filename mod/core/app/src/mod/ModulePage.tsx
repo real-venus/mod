@@ -124,23 +124,18 @@ export default function ModulePage() {
 
   return (
     <div className="min-h-screen font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      <main className="relative flex-1 px-6 pt-24 pb-8">
-        <div className="max-w-5xl mx-auto space-y-6">
+      <main className="relative flex-1 px-6 pt-16 pb-8">
+        <div className="max-w-5xl mx-auto space-y-4">
           {/* Hero Header Card */}
           <div
             className="relative rounded-2xl overflow-hidden"
             style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: `2px solid ${colorWithOpacity(moduleColor, 0.5)}`,
+              background: `linear-gradient(135deg, ${colorWithOpacity(moduleColor, 0.12)} 0%, ${colorWithOpacity(moduleColor, 0.04)} 100%)`,
+              border: `2px solid var(--bg-primary)`,
             }}
           >
-            {/* Top accent bar */}
-            <div
-              className="absolute top-0 left-0 right-0 h-[3px]"
-              style={{ background: moduleColor }}
-            />
-            <div className="relative p-8">
-              <ModCard mod={mod} card_enabled={false} />
+            <div className="relative px-6 py-4">
+              <ModCard mod={mod} card_enabled={false} compact={true} />
             </div>
           </div>
 

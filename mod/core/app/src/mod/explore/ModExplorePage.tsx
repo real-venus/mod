@@ -171,70 +171,44 @@ export default function ModExplorePage() {
     <div className="min-h-screen font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
 
 
-      <div className="relative max-w-7xl mx-auto px-6 pt-20 pb-12 z-20">
+      <div className="relative max-w-7xl mx-auto px-6 pt-4 pb-12 z-20">
 
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-end gap-6 pb-0" style={{ borderBottom: '2px solid var(--border-color)' }}>
-            {/* Logo / title */}
-            <div className="flex items-center gap-3 shrink-0 pb-3.5">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}>
-                <span className="text-[14px] font-black select-none" style={{ color: 'var(--text-secondary)' }}>&gt;_</span>
-              </div>
-              <h1 className="text-[24px] font-black tracking-tight uppercase leading-none" style={{ color: 'var(--text-primary)' }}>MODULES</h1>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none flex-1">
-              {TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`relative px-5 py-3.5 text-[13px] font-extrabold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase border-b-3 -mb-px rounded-t-lg ${
-                    activeTab !== tab.key ? 'border-transparent' : ''
-                  }`}
-                  style={activeTab === tab.key
-                    ? { color: 'var(--text-primary)', borderColor: 'var(--text-primary)' }
-                    : { color: 'var(--text-tertiary)' }}
-                >
-                  {tab.label}
-                  {tab.key === 'mods' && (
-                    <span className="ml-2 text-[11px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)' }}>
-                      {mods.length}
-                    </span>
-                  )}
-                  {tab.key === 'myMods' && user?.key && (
-                    <span className="ml-2 text-[11px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)' }}>
-                      {mods.filter(m => m.key === user.key).length}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Create button */}
-            <Link
-              href="/create"
-              className="shrink-0 px-5 py-2.5 mb-2 text-[13px] font-black uppercase tracking-widest transition-all rounded-xl hover:opacity-80"
-              style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '2px solid var(--border-color)' }}
-            >
-              + Create Mod
-            </Link>
+        {/* Header — single compact row */}
+        <div className="flex items-center gap-4 mb-4" style={{ borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px' }}>
+          {/* Tabs */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+            {TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className="relative px-3 py-1.5 text-[12px] font-extrabold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase rounded-lg"
+                style={activeTab === tab.key
+                  ? { color: 'var(--text-primary)', background: 'var(--bg-input)' }
+                  : { color: 'var(--text-tertiary)' }}
+              >
+                {tab.label}
+                {tab.key === 'mods' && (
+                  <span className="ml-1.5 text-[11px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>
+                    {mods.length}
+                  </span>
+                )}
+                {tab.key === 'myMods' && user?.key && (
+                  <span className="ml-1.5 text-[11px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>
+                    {mods.filter(m => m.key === user.key).length}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
-        </div>
 
-        {/* Controls row */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            {searchTermToUse && (
-              <span className="text-[12px] font-extrabold font-mono px-3 py-1.5 rounded-lg" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}>
-                &gt; &quot;{searchTermToUse}&quot;
-              </span>
-            )}
-            <span className="text-[12px] font-extrabold font-mono uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              {filteredMods.length} module{filteredMods.length !== 1 ? 's' : ''}
+          {searchTermToUse && (
+            <span className="text-[11px] font-extrabold font-mono px-2.5 py-1 rounded-lg" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)' }}>
+              &gt; &quot;{searchTermToUse}&quot;
             </span>
-          </div>
+          )}
+
+          <div className="flex-1" />
+
           <ModCardSettings
             sort={sort}
             onSortChange={setSort}
@@ -245,6 +219,14 @@ export default function ModExplorePage() {
             onToggleOwner={toggleOwner}
             onClearFilters={clearOwnerFilters}
           />
+
+          <Link
+            href="/create"
+            className="shrink-0 px-4 py-1.5 text-[12px] font-black uppercase tracking-widest transition-all rounded-lg hover:opacity-80 flex items-center"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1.5px solid var(--border-color)' }}
+          >
+            + Create Mod
+          </Link>
         </div>
 
         {error && (

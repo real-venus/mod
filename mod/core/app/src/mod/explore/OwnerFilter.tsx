@@ -17,18 +17,17 @@ export function OwnerFilter({ owners, selectedOwners, onToggleOwner, onClearFilt
   if (owners.length === 0) return null
 
   return (
-    <div className="mb-4">
-      <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-sm font-bold text-gray-400 uppercase tracking-wide">Filter by Owner:</span>
-        
+    <div>
+      <div className="flex items-center gap-2 flex-wrap">
+
         {/* Dropdown for adding owners */}
         <div className="relative">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="px-4 py-2 rounded-lg border-2 border-blue-500/40 bg-blue-500/10 text-blue-400 font-bold text-sm hover:bg-blue-500/20 transition-all flex items-center gap-2"
+            className="px-2.5 py-1.5 rounded-lg border-2 border-blue-500/40 bg-blue-500/10 text-blue-400 font-bold text-[12px] hover:bg-blue-500/20 transition-all flex items-center gap-1.5"
           >
             Add Owner
-            <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
           
           {isDropdownOpen && (
@@ -66,7 +65,7 @@ export function OwnerFilter({ owners, selectedOwners, onToggleOwner, onClearFilt
           return (
             <div
               key={owner}
-              className="px-3 py-1.5 rounded-full border-2 font-mono text-sm font-bold transition-all flex items-center gap-2"
+              className="px-2.5 py-1 rounded-full border-2 font-mono text-[12px] font-bold transition-all flex items-center gap-1.5"
               style={{
                 backgroundColor: `${ownerColor}30`,
                 borderColor: ownerColor,
@@ -89,7 +88,7 @@ export function OwnerFilter({ owners, selectedOwners, onToggleOwner, onClearFilt
         {selectedOwners.length > 0 && (
           <button
             onClick={onClearFilters}
-            className="px-3 py-1.5 rounded-full border-2 border-red-500/40 bg-red-500/10 text-red-400 font-bold text-sm hover:bg-red-500/20 transition-all"
+            className="px-2.5 py-1 rounded-full border-2 border-red-500/40 bg-red-500/10 text-red-400 font-bold text-[12px] hover:bg-red-500/20 transition-all"
           >
             Clear All
           </button>

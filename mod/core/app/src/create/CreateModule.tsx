@@ -212,14 +212,14 @@ export default function CreateModule() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
-            className="rounded-xl p-4 mb-4"
-            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}
+            className="rounded-2xl p-4 mb-4"
+            style={{ background: 'var(--bg-secondary)', border: '1.5px solid var(--border-color)' }}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2.5 mb-1">
+                <div className="flex items-center gap-2.5 mb-1.5">
                   <span className="text-green-500 dark:text-green-400 font-bold text-base">{selectedRepo.full_name}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded text-green-600/60 dark:text-green-400/60 border border-green-500/20 uppercase tracking-wider font-bold">git</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md text-green-600/60 dark:text-green-400/60 border border-green-500/20 uppercase tracking-wider font-bold">git</span>
                 </div>
                 {selectedRepo.description && (
                   <p className="text-xs leading-relaxed mb-2.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{selectedRepo.description}</p>
@@ -240,7 +240,7 @@ export default function CreateModule() {
               </div>
               <button
                 onClick={clearSelection}
-                className="p-1 rounded transition-colors shrink-0"
+                className="p-1.5 rounded-lg transition-all hover:bg-red-500/10"
                 style={{ color: 'var(--text-secondary)' }}
               >
                 <XMarkIcon className="w-4 h-4" />
@@ -262,21 +262,22 @@ export default function CreateModule() {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="user/repo  or  github.com/user/repo.git  or  Qm..."
-                className="w-full px-4 py-3.5 rounded-xl text-sm focus:outline-none transition-all"
+                className="w-full px-4 py-3 rounded-2xl text-sm focus:outline-none transition-all placeholder:text-[var(--text-tertiary)]"
                 style={{
-                  background: 'var(--bg-surface)',
-                  border: `1px solid ${url ? (valid ? 'rgba(34,197,94,0.4)' : '#ef4444') : 'var(--border-color)'}`,
+                  background: 'var(--bg-secondary)',
+                  border: `1.5px solid ${url ? (valid ? 'rgba(34,197,94,0.4)' : '#ef4444') : 'var(--border-color)'}`,
                   color: 'var(--text-primary)',
+                  boxShadow: url && valid ? '0 0 0 3px rgba(34,197,94,0.08)' : '0 1px 3px rgba(0,0,0,0.06)',
                 }}
               />
               {url && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
                     valid ? 'text-green-500 dark:text-green-400 border border-green-500/20' : 'text-red-500 dark:text-red-400 border border-red-500/20'
                   }`}>
                     {inputType}
                   </span>
-                  <button onClick={() => setUrl('')} className="transition-colors" style={{ color: 'var(--text-secondary)' }}>
+                  <button onClick={() => setUrl('')} className="transition-colors hover:text-red-400" style={{ color: 'var(--text-secondary)' }}>
                     <XMarkIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -290,11 +291,12 @@ export default function CreateModule() {
       <button
         onClick={handleSubmit}
         disabled={!valid || isSubmitting || !user || !registerToKey.trim()}
-        className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-[0.15em] transition-all disabled:opacity-15 disabled:cursor-not-allowed active:scale-[0.99] mb-5"
+        className="w-full py-3 rounded-2xl font-bold text-[13px] uppercase tracking-[0.15em] transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99] mb-6"
         style={{
-          background: valid ? 'rgba(34,197,94,0.1)' : 'var(--bg-surface)',
-          border: `1px solid ${valid ? 'rgba(34,197,94,0.35)' : 'var(--border-color)'}`,
-          color: valid ? '#16a34a' : 'var(--text-secondary)',
+          background: valid ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(16,185,129,0.1) 100%)' : 'var(--bg-secondary)',
+          border: `1.5px solid ${valid ? 'rgba(34,197,94,0.4)' : 'var(--border-color)'}`,
+          color: valid ? '#22c55e' : 'var(--text-secondary)',
+          boxShadow: valid ? '0 0 0 3px rgba(34,197,94,0.06)' : '0 1px 3px rgba(0,0,0,0.06)',
         }}
       >
         {isSubmitting ? (
@@ -361,9 +363,9 @@ export default function CreateModule() {
 
       {/* Divider */}
       {!selectedRepo && (
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-4 mb-5">
           <div className="flex-1 h-px" style={{ background: 'var(--border-color)' }} />
-          <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>or search</span>
+          <span className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: 'var(--text-secondary)' }}>or search</span>
           <div className="flex-1 h-px" style={{ background: 'var(--border-color)' }} />
         </div>
       )}
@@ -372,7 +374,7 @@ export default function CreateModule() {
       {!selectedRepo && (
         <div className="flex-1 space-y-3">
           <div className="relative">
-            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-secondary)' }} />
+            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
             {isSearching && (
               <ArrowPathIcon className="w-3.5 h-3.5 absolute right-3.5 top-1/2 -translate-y-1/2 text-green-500/60 animate-spin" />
             )}
@@ -381,11 +383,12 @@ export default function CreateModule() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="search github repositories..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-lg text-sm focus:outline-none transition-all"
+              className="w-full pl-10 pr-10 py-2.5 rounded-2xl text-sm focus:outline-none transition-all placeholder:text-[var(--text-tertiary)]"
               style={{
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                border: '1.5px solid var(--border-color)',
                 color: 'var(--text-primary)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
               }}
             />
           </div>
@@ -396,13 +399,13 @@ export default function CreateModule() {
 
           {/* Quick suggestions */}
           {!searchQuery.trim() && searchResults.length === 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+            <div className="flex items-center gap-2 flex-wrap pt-1">
               {['machine learning', 'solidity', 'react', 'rust cli', 'python api'].map((s) => (
                 <button
                   key={s}
                   onClick={() => setSearchQuery(s)}
-                  className="text-[11px] px-2.5 py-1 rounded-full hover:text-green-500 dark:hover:text-green-400 transition-all"
-                  style={{ border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+                  className="text-[11px] px-3 py-1.5 rounded-full hover:text-green-500 dark:hover:text-green-400 hover:border-green-500/30 transition-all"
+                  style={{ border: '1.5px solid var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-secondary)', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
                 >
                   {s}
                 </button>
@@ -412,15 +415,15 @@ export default function CreateModule() {
 
           {/* Results */}
           {searchResults.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {searchResults.map((repo) => (
                 <button
                   key={repo.full_name}
                   onClick={() => selectRepo(repo)}
-                  className="text-left p-3 rounded-lg transition-all group hover:border-green-500/30"
-                  style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}
+                  className="text-left p-3.5 rounded-xl transition-all group hover:border-green-500/30"
+                  style={{ background: 'var(--bg-secondary)', border: '1.5px solid var(--border-color)' }}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
                     <span className="text-[13px] font-bold group-hover:text-green-500 dark:group-hover:text-green-300 transition-colors truncate" style={{ color: 'var(--text-primary)' }}>
                       {repo.full_name}
                     </span>
@@ -430,7 +433,7 @@ export default function CreateModule() {
                     </div>
                   </div>
                   {repo.description && (
-                    <p className="text-[11px] line-clamp-2 leading-relaxed mb-1.5" style={{ color: 'var(--text-secondary)' }}>{repo.description}</p>
+                    <p className="text-[11px] line-clamp-2 leading-relaxed mb-2" style={{ color: 'var(--text-secondary)' }}>{repo.description}</p>
                   )}
                   <div className="flex items-center gap-3">
                     {repo.language && (
@@ -447,11 +450,11 @@ export default function CreateModule() {
           )}
 
           {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && !searchError && (
-            <p className="text-xs text-center py-6" style={{ color: 'var(--text-secondary)' }}>no repositories found</p>
+            <p className="text-xs text-center py-6" style={{ color: 'var(--text-tertiary)' }}>no repositories found</p>
           )}
 
           {!user && !result && !error && (
-            <p className="text-xs text-center pt-6" style={{ color: 'var(--text-secondary)' }}>connect wallet to register modules</p>
+            <p className="text-xs text-center pt-6" style={{ color: 'var(--text-tertiary)' }}>connect wallet to register modules</p>
           )}
         </div>
       )}
