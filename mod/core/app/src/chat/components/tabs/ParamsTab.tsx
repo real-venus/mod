@@ -41,9 +41,9 @@ export function ParamsTab({
   }
 
   return (
-    <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent">
+    <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-y-auto p-4 scrollbar-thin">
       {/* Params Panel */}
-      <div className="flex-shrink-0 max-h-[50vh] overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent">
+      <div className="flex-shrink-0 max-h-[50vh] overflow-y-auto scrollbar-thin">
         {selectedFunction && schema?.[selectedFunction] ? (
           <SchemaParamsPanel
             selectedFunction={selectedFunction}
@@ -55,8 +55,8 @@ export function ParamsTab({
           />
         ) : (
           <div
-            className="flex items-center justify-center h-full text-neutral-500 text-xs uppercase tracking-wider py-8"
-            style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+            className="flex items-center justify-center h-full text-xs uppercase tracking-wider py-8"
+            style={{ fontFamily: 'IBM Plex Mono, monospace', color: 'var(--text-tertiary)' }}
           >
             ┌─ SELECT A FUNCTION TO EDIT PARAMETERS ─┐
           </div>
@@ -69,16 +69,15 @@ export function ParamsTab({
           <button
             type="button"
             onClick={onCancel}
-            className="w-full px-8 py-3 text-sm font-bold uppercase tracking-widest rounded-2xl border-2 border-red-600 bg-red-950/40 text-red-400 hover:bg-red-900/60 hover:text-red-300 transition-all flex items-center justify-center gap-3 relative overflow-hidden group"
+            className="w-full px-8 py-3 text-sm font-bold uppercase tracking-widest rounded-2xl border-2 border-red-600 text-red-500 transition-all flex items-center justify-center gap-3 relative overflow-hidden group"
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
-              letterSpacing: '0.15em'
+              letterSpacing: '0.15em',
+              backgroundColor: 'var(--bg-input)',
             }}
           >
-            <span className="absolute inset-0 bg-red-600/10 group-hover:bg-red-600/20 transition-all" />
             <span className="text-xl relative z-10">■</span>
             <span className="relative z-10">STOP</span>
-            {/* ASCII corner brackets */}
             <span className="absolute top-0 left-0 text-red-600/60 text-xs leading-none p-0.5">┌</span>
             <span className="absolute top-0 right-0 text-red-600/60 text-xs leading-none p-0.5">┐</span>
             <span className="absolute bottom-0 left-0 text-red-600/60 text-xs leading-none p-0.5">└</span>
@@ -89,20 +88,21 @@ export function ParamsTab({
             type="button"
             onClick={handleButtonClick}
             disabled={!canSubmit}
-            className="w-full px-8 py-3 text-sm font-bold uppercase tracking-widest rounded-2xl border-2 border-yellow-600 bg-yellow-950/40 text-yellow-400 hover:bg-yellow-900/60 hover:text-yellow-300 disabled:border-neutral-700 disabled:bg-neutral-900/40 disabled:text-neutral-600 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 relative overflow-hidden group"
+            className="w-full px-8 py-3 text-sm font-bold uppercase tracking-widest rounded-2xl border-2 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 relative overflow-hidden group"
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
-              letterSpacing: '0.15em'
+              letterSpacing: '0.15em',
+              backgroundColor: 'var(--bg-input)',
+              borderColor: canSubmit ? '#CA8A04' : 'var(--border-color)',
+              color: canSubmit ? '#CA8A04' : 'var(--text-tertiary)',
             }}
           >
-            <span className="absolute inset-0 bg-yellow-600/10 group-hover:bg-yellow-600/20 disabled:group-hover:bg-transparent transition-all" />
             <span className="text-xl relative z-10">⚡</span>
             <span className="relative z-10">SEND</span>
-            {/* ASCII corner brackets */}
-            <span className="absolute top-0 left-0 text-yellow-600/60 text-xs leading-none p-0.5 group-disabled:text-neutral-700/60">┌</span>
-            <span className="absolute top-0 right-0 text-yellow-600/60 text-xs leading-none p-0.5 group-disabled:text-neutral-700/60">┐</span>
-            <span className="absolute bottom-0 left-0 text-yellow-600/60 text-xs leading-none p-0.5 group-disabled:text-neutral-700/60">└</span>
-            <span className="absolute bottom-0 right-0 text-yellow-600/60 text-xs leading-none p-0.5 group-disabled:text-neutral-700/60">┘</span>
+            <span className="absolute top-0 left-0 text-xs leading-none p-0.5" style={{ color: canSubmit ? 'rgba(202, 138, 4, 0.6)' : 'var(--text-tertiary)' }}>┌</span>
+            <span className="absolute top-0 right-0 text-xs leading-none p-0.5" style={{ color: canSubmit ? 'rgba(202, 138, 4, 0.6)' : 'var(--text-tertiary)' }}>┐</span>
+            <span className="absolute bottom-0 left-0 text-xs leading-none p-0.5" style={{ color: canSubmit ? 'rgba(202, 138, 4, 0.6)' : 'var(--text-tertiary)' }}>└</span>
+            <span className="absolute bottom-0 right-0 text-xs leading-none p-0.5" style={{ color: canSubmit ? 'rgba(202, 138, 4, 0.6)' : 'var(--text-tertiary)' }}>┘</span>
           </button>
         )}
       </div>
@@ -114,8 +114,8 @@ export function ParamsTab({
             <button
               type="button"
               onClick={() => setShowRecentTx(!showRecentTx)}
-              className="w-full flex items-center gap-2 px-2 py-1 text-xs font-bold text-neutral-600 hover:text-green-400 transition-all mb-2 uppercase tracking-wider"
-              style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+              className="w-full flex items-center gap-2 px-2 py-1 text-xs font-bold transition-all mb-2 uppercase tracking-wider"
+              style={{ fontFamily: 'IBM Plex Mono, monospace', color: 'var(--text-tertiary)' }}
             >
               <span className="text-[10px]">{showRecentTx ? '▼' : '▶'}</span>
               <span>OUTPUT</span>

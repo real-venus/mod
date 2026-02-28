@@ -7,6 +7,7 @@ import { SidebarHeader } from './SidebarHeader'
 import { CreditTab } from './CreditTab'
 import { TransactionsTab } from './TransactionsTab'
 import { AccountsTab } from './AccountsTab'
+import { PortfolioTab } from './PortfolioTab'
 
 function TabButton({ active, onClick, icon, label, colorActive, colorInactive }: {
   active: boolean
@@ -121,6 +122,7 @@ export function WalletSidebar(props: WalletSidebarProps) {
     activeTab, openTab,
   } = props
 
+  const showPortfolio = activeTab === 'portfolio'
   const showCredit = activeTab === 'credit'
   const showTxs = activeTab === 'txs'
   const showWallets = activeTab === 'wallets'
@@ -177,38 +179,23 @@ export function WalletSidebar(props: WalletSidebarProps) {
           onClose={onClose}
           marketCredit={marketCredit}
           address={props.address}
-          tokenBalances={props.tokenBalances}
-          customTokens={props.customTokens}
-          customTokenBalances={props.customTokenBalances}
-          sendFromPortfolio={props.sendFromPortfolio}
-          setSendFromPortfolio={props.setSendFromPortfolio}
-          transferRecipient={props.transferRecipient}
-          setTransferRecipient={props.setTransferRecipient}
-          transferAmount={props.transferAmount}
-          setTransferAmount={props.setTransferAmount}
-          isTransferring={props.isTransferring}
-          setTransferTokenType={props.setTransferTokenType}
-          topUpError={props.topUpError}
-          setTopUpError={props.setTopUpError}
-          topUpSuccess={props.topUpSuccess}
-          setTopUpSuccess={props.setTopUpSuccess}
-          showAddToken={props.showAddToken}
-          setShowAddToken={props.setShowAddToken}
-          newTokenAddress={props.newTokenAddress}
-          setNewTokenAddress={props.setNewTokenAddress}
-          isAddingToken={props.isAddingToken}
-          isRefreshingBalances={props.isRefreshingBalances}
-          onRefreshBalances={props.onRefreshBalances}
-          onTransfer={props.onTransfer}
-          onSendETH={props.onSendETH}
-          onSendCustomToken={props.onSendCustomToken}
-          onRemoveCustomToken={props.onRemoveCustomToken}
-          onAddCustomToken={props.onAddCustomToken}
         />
 
         {/* Action Tabs */}
         <div className="px-5 py-4">
           <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
+            <TabButton
+              active={showPortfolio}
+              onClick={() => openTab('portfolio')}
+              icon={
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              }
+              label="SEND"
+              colorActive="from-purple-500/30 to-pink-500/30 border-purple-400 text-purple-300 shadow-purple-500/50"
+              colorInactive="from-purple-950/40 to-pink-950/40 border-purple-900/60 text-purple-600 hover:text-purple-300 hover:border-purple-400/60 hover:shadow-purple-500/30"
+            />
             <TabButton
               active={showCredit}
               onClick={() => openTab('credit')}
@@ -238,6 +225,38 @@ export function WalletSidebar(props: WalletSidebarProps) {
               colorInactive="from-cyan-950/40 to-blue-950/40 border-cyan-900/60 text-cyan-600 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30"
             />
           </div>
+
+          <PortfolioTab
+            show={showPortfolio}
+            tokenBalances={props.tokenBalances}
+            customTokens={props.customTokens}
+            customTokenBalances={props.customTokenBalances}
+            marketCredit={marketCredit}
+            sendFromPortfolio={props.sendFromPortfolio}
+            setSendFromPortfolio={props.setSendFromPortfolio}
+            transferRecipient={props.transferRecipient}
+            setTransferRecipient={props.setTransferRecipient}
+            transferAmount={props.transferAmount}
+            setTransferAmount={props.setTransferAmount}
+            isTransferring={props.isTransferring}
+            setTransferTokenType={props.setTransferTokenType}
+            topUpError={props.topUpError}
+            setTopUpError={props.setTopUpError}
+            topUpSuccess={props.topUpSuccess}
+            setTopUpSuccess={props.setTopUpSuccess}
+            showAddToken={props.showAddToken}
+            setShowAddToken={props.setShowAddToken}
+            newTokenAddress={props.newTokenAddress}
+            setNewTokenAddress={props.setNewTokenAddress}
+            isAddingToken={props.isAddingToken}
+            isRefreshing={props.isRefreshingBalances}
+            onRefreshBalances={props.onRefreshBalances}
+            onTransfer={props.onTransfer}
+            onSendETH={props.onSendETH}
+            onSendCustomToken={props.onSendCustomToken}
+            onRemoveCustomToken={props.onRemoveCustomToken}
+            onAddCustomToken={props.onAddCustomToken}
+          />
 
           <CreditTab
             show={showCredit}

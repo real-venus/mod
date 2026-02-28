@@ -196,10 +196,10 @@ export default function Chat() {
   const canSubmit = chatState.selectedModules.length > 0 && !!chatState.selectedFunction
 
   return (
-    <div className="relative flex h-full w-full bg-black overflow-hidden">
+    <div className="relative flex h-full w-full overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="w-full h-full p-6">
         <div className="w-full h-full max-w-7xl mx-auto overflow-hidden">
-          <div className="h-full flex flex-col p-4 gap-3 bg-black" style={{ fontFamily: 'IBM Plex Mono, Menlo, Monaco, monospace' }}>
+          <div className="h-full flex flex-col p-4 gap-3" style={{ fontFamily: 'IBM Plex Mono, Menlo, Monaco, monospace', backgroundColor: 'var(--bg-primary)' }}>
 
             {/* Module Selector - Top */}
             <div className="flex-shrink-0">

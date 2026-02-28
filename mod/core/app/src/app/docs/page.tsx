@@ -793,14 +793,14 @@ function CodeBlock({ lang, value }: { lang: string; value: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="relative group rounded-lg overflow-hidden border border-white/10 bg-black/60">
-      <div className="flex items-center justify-between px-4 py-1.5 bg-white/5 border-b border-white/10">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-gray-500">{lang}</span>
-        <button onClick={copy} className="text-[10px] font-mono text-gray-500 hover:text-gray-300 transition-colors">
+    <div className="relative group rounded-lg overflow-hidden border bg-gray-50 dark:bg-black/60" style={{ borderColor: 'var(--border-color)' }}>
+      <div className="flex items-center justify-between px-4 py-1.5 border-b" style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
+        <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>{lang}</span>
+        <button onClick={copy} className="text-[10px] font-mono transition-colors" style={{ color: 'var(--text-secondary)' }}>
           {copied ? 'COPIED' : 'COPY'}
         </button>
       </div>
-      <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono text-gray-300 whitespace-pre">
+      <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono whitespace-pre" style={{ color: 'var(--text-primary)' }}>
         {value}
       </pre>
     </div>
@@ -809,12 +809,12 @@ function CodeBlock({ lang, value }: { lang: string; value: string }) {
 
 function TableBlock({ headers, rows }: { headers: string[]; rows: string[][] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-white/10">
+    <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border-color)' }}>
       <table className="w-full text-xs font-mono">
         <thead>
-          <tr className="bg-white/5">
+          <tr style={{ backgroundColor: 'var(--bg-input)' }}>
             {headers.map((h, i) => (
-              <th key={i} className="text-left px-4 py-2 text-gray-400 font-bold uppercase tracking-wider border-b border-white/10">
+              <th key={i} className="text-left px-4 py-2 font-bold uppercase tracking-wider border-b" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>
                 {h}
               </th>
             ))}
@@ -822,9 +822,9 @@ function TableBlock({ headers, rows }: { headers: string[]; rows: string[][] }) 
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+            <tr key={i} className="border-b transition-colors" style={{ borderColor: 'var(--border-color)' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
               {row.map((cell, j) => (
-                <td key={j} className="px-4 py-2.5 text-gray-300">
+                <td key={j} className="px-4 py-2.5" style={{ color: 'var(--text-primary)' }}>
                   {cell}
                 </td>
               ))}
@@ -839,7 +839,7 @@ function TableBlock({ headers, rows }: { headers: string[]; rows: string[][] }) 
 function BlockRenderer({ block }: { block: ContentBlock }) {
   switch (block.kind) {
     case 'text':
-      return <p className="text-sm text-gray-300 leading-relaxed">{block.value}</p>;
+      return <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{block.value}</p>;
     case 'code':
       return <CodeBlock lang={block.lang} value={block.value} />;
     case 'table':
@@ -848,8 +848,8 @@ function BlockRenderer({ block }: { block: ContentBlock }) {
       return (
         <ul className="space-y-1.5">
           {block.items.map((item, i) => (
-            <li key={i} className="flex gap-2 text-sm text-gray-300 leading-relaxed">
-              <span className="text-emerald-400 mt-0.5 shrink-0">&#x25B8;</span>
+            <li key={i} className="flex gap-2 text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+              <span className="text-emerald-500 dark:text-emerald-400 mt-0.5 shrink-0">&#x25B8;</span>
               <span>{item}</span>
             </li>
           ))}
@@ -881,7 +881,9 @@ function Section({ section, isExpanded, onToggle, index }: {
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-4 p-5 text-left transition-all hover:bg-white/5"
+        className="w-full flex items-center gap-4 p-5 text-left transition-all"
+        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
       >
         <div
           className="flex items-center justify-center w-10 h-10 rounded-lg border shrink-0"
@@ -961,32 +963,37 @@ export default function DocsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 sm:p-8 pt-20 sm:pt-24">
+    <div className="min-h-screen p-4 sm:p-8 pt-20 sm:pt-24" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       <div className="max-w-5xl mx-auto">
         {/* header */}
         <div className="mb-8">
           <h1 className="text-4xl font-black uppercase tracking-wider mb-2 bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
             Documentation
           </h1>
-          <p className="text-gray-400 font-mono text-sm">
+          <p className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
             Everything you need to know about MOD Protocol — framework, app, architecture, and tokenomics
           </p>
         </div>
 
         {/* search */}
         <div className="relative mb-6">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search docs..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-sm font-mono text-gray-200 placeholder-gray-600 focus:outline-none focus:border-purple-500/50 focus:bg-white/[0.07] transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm font-mono focus:outline-none focus:border-purple-500/50 transition-colors"
+            style={{
+              border: '1px solid var(--border-input)',
+              backgroundColor: 'var(--bg-input)',
+              color: 'var(--text-primary)',
+            }}
           />
         </div>
 
         {/* tabs */}
-        <div className="flex flex-wrap gap-1 mb-8 p-1 rounded-xl bg-white/5 border border-white/10">
+        <div className="flex flex-wrap gap-1 mb-8 p-1 rounded-xl border" style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
           {TABS.map(tab => {
             const isActive = activeTab === tab.key;
             return (
@@ -996,12 +1003,26 @@ export default function DocsPage() {
                 className={`
                   flex items-center gap-2 px-4 py-2.5 rounded-lg font-mono text-xs uppercase tracking-wider transition-all
                   ${isActive
-                    ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-white border border-purple-500/40 shadow-lg shadow-purple-500/10'
-                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent'
+                    ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/40 shadow-lg shadow-purple-500/10'
+                    : 'border border-transparent'
                   }
                 `}
+                style={{
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  backgroundColor: isActive ? undefined : 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
               >
-                <span className={`text-[10px] ${isActive ? 'text-purple-400' : 'text-gray-600'}`}>
+                <span className={`text-[10px] ${isActive ? 'text-purple-400' : ''}`} style={{ color: isActive ? undefined : 'var(--text-tertiary)' }}>
                   {tab.prefix}
                 </span>
                 <span>{tab.label}</span>
@@ -1012,7 +1033,7 @@ export default function DocsPage() {
 
         {/* section count */}
         {search.trim() && (
-          <p className="text-xs font-mono text-gray-600 mb-4">
+          <p className="text-xs font-mono mb-4" style={{ color: 'var(--text-tertiary)' }}>
             {filteredSections.length} section{filteredSections.length !== 1 ? 's' : ''} matching &quot;{search}&quot;
           </p>
         )}
@@ -1029,15 +1050,15 @@ export default function DocsPage() {
             />
           ))}
           {filteredSections.length === 0 && (
-            <div className="text-center py-16 text-gray-600 font-mono text-sm">
+            <div className="text-center py-16 font-mono text-sm" style={{ color: 'var(--text-tertiary)' }}>
               No sections match your search.
             </div>
           )}
         </div>
 
         {/* footer */}
-        <div className="mt-16 pt-8 border-t border-white/10 text-center">
-          <p className="text-gray-600 font-mono text-xs">
+        <div className="mt-16 pt-8 border-t text-center" style={{ borderColor: 'var(--border-color)' }}>
+          <p className="font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>
             MOD Protocol — &quot;Simplicity is the ultimate sophistication.&quot;
           </p>
         </div>

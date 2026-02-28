@@ -13,8 +13,8 @@ export default function Home() {
   }, [router])
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="text-neutral-500 font-mono text-sm">Redirecting to modules...</div>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>Redirecting to modules...</div>
     </div>
   )
 }

@@ -45,7 +45,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await cryptoWaitReady()
         if (cancelled) return
 
-        setNetwork(new Network('test'))
+        // setNetwork(new Network('test')) // Disabled to prevent WebSocket connection errors
 
         const storedUser = localStorage.getItem('user_data')
         const walletMode = localStorage.getItem('wallet_mode')

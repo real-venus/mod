@@ -59,6 +59,7 @@ class OpenRouter:
         model:str = None,
         free = False,
         max_tokens: int = 10000000,
+        text_only = True ,
         temperature: float = 1.0,
         **kwargs
     ) -> str :

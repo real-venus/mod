@@ -260,9 +260,9 @@ export function NetworkSelector() {
                       <div
                         className="w-9 h-9 flex items-center justify-center text-lg rounded-xl transition-all duration-200"
                         style={{
-                          background: isSelected ? `${chain.color}20` : `${chain.color}0a`,
-                          color: isSelected ? chain.color : `${chain.color}60`,
-                          border: `1px solid ${isSelected ? `${chain.color}40` : `${chain.color}15`}`,
+                          background: isSelected ? `${chain.color}20` : `${chain.color}15`,
+                          color: isSelected ? chain.color : `${chain.color}90`,
+                          border: `1px solid ${isSelected ? `${chain.color}40` : `${chain.color}30`}`,
                         }}
                       >
                         {chain.icon}
@@ -270,14 +270,14 @@ export function NetworkSelector() {
 
                       <span
                         className="text-[11px] font-black uppercase tracking-wider transition-colors duration-200"
-                        style={{ color: isSelected ? chain.color : '#737373' }}
+                        style={{ color: isSelected ? chain.color : '#a3a3a3' }}
                       >
                         {chain.name}
                       </span>
 
                       <span
                         className="text-[9px] font-bold uppercase tracking-wider transition-colors duration-200"
-                        style={{ color: isSelected ? `${chain.color}80` : '#404040' }}
+                        style={{ color: isSelected ? `${chain.color}80` : '#737373' }}
                       >
                         {networkEnv === 'testnet' ? chain.testnetName : chain.mainnetName}
                       </span>

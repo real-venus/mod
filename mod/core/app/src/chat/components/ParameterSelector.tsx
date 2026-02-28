@@ -66,9 +66,10 @@ export function ParameterSelector({
         type="button"
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         onKeyDown={handleKeyDown}
-        className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest rounded-xl border-2 border-green-600/50 bg-green-950/40 text-green-400 hover:bg-green-900/60 transition-all flex items-center gap-2"
+        className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest rounded-xl border-2 border-green-600/50 text-green-500 transition-all flex items-center gap-2"
         style={{
           fontFamily: 'IBM Plex Mono, monospace',
+          backgroundColor: 'var(--bg-input)',
         }}
       >
         <span>{selectedParameter}</span>
@@ -77,7 +78,7 @@ export function ParameterSelector({
 
       {/* Dropdown Menu - Grid Layout - Opens Upward */}
       {isDropdownOpen && (
-        <div className="absolute bottom-full left-0 mb-2 bg-black/95 border-2 border-green-500/40 rounded-xl shadow-2xl z-[9999] backdrop-blur-md overflow-hidden p-2">
+        <div className="absolute bottom-full left-0 mb-2 border-2 border-green-500/40 rounded-xl shadow-2xl z-[9999] backdrop-blur-md overflow-hidden p-2" style={{ backgroundColor: 'var(--bg-surface)' }}>
           <div
             className="grid gap-2"
             style={{
@@ -90,13 +91,14 @@ export function ParameterSelector({
                 key={param}
                 type="button"
                 onClick={() => selectParameter(param)}
-                className={`aspect-square flex flex-col items-center justify-center gap-2 px-4 py-3 text-white transition-all font-bold rounded-lg border-2 ${
+                className={`aspect-square flex flex-col items-center justify-center gap-2 px-4 py-3 transition-all font-bold rounded-lg border-2 ${
                   idx === selectedIndex
                     ? 'bg-green-500/20 border-green-500/60 backdrop-blur-sm'
-                    : 'bg-black/60 border-green-500/20 hover:bg-green-500/10 hover:border-green-500/40'
+                    : 'border-green-500/20 hover:bg-green-500/10 hover:border-green-500/40'
                 }`}
                 style={{
                   fontFamily: 'IBM Plex Mono, monospace',
+                  color: 'var(--text-primary)',
                 }}
               >
                 <span className="text-2xl">📝</span>

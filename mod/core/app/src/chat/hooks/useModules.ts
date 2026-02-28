@@ -39,11 +39,6 @@ export function useModules({
         const mods = await client.call('mods', { search: searchQuery })
         const sortedModules = Array.isArray(mods) ? sortModules(mods) : []
         setAllModules(sortedModules)
-
-        // Auto-select first module if none selected
-        if (selectedModules.length === 0 && sortedModules.length > 0) {
-          setSelectedModules([sortedModules[0]])
-        }
       } catch (err) {
         console.error('Failed to load modules:', err)
         setAllModules([])

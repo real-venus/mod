@@ -89,7 +89,7 @@ export function SchemaParamsPanel({
     >
       {/* Header - only show controls when there are actual params */}
       <div className="flex justify-between items-center gap-2 mb-3">
-        <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider">
+        <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
           {paramEntries.length} param{paramEntries.length !== 1 ? 's' : ''}
         </div>
         <div className="flex gap-1.5">
@@ -99,7 +99,8 @@ export function SchemaParamsPanel({
                 e.stopPropagation()
                 setIsExpanded(!isExpanded)
               }}
-              className="px-2 py-1 transition-all text-[10px] font-bold text-white/20 hover:text-white/50"
+              className="px-2 py-1 transition-all text-[10px] font-bold"
+              style={{ color: 'var(--text-tertiary)' }}
             >
               {isExpanded ? '[-]' : '[+]'}
             </button>
@@ -110,8 +111,9 @@ export function SchemaParamsPanel({
                 e.stopPropagation()
                 toggleColumns()
               }}
-              className="px-2 py-1 transition-all text-[10px] font-bold text-white/20 hover:text-white/50"
+              className="px-2 py-1 transition-all text-[10px] font-bold"
               title="Toggle columns"
+              style={{ color: 'var(--text-tertiary)' }}
             >
               {columns}col
             </button>
@@ -121,7 +123,8 @@ export function SchemaParamsPanel({
               e.stopPropagation()
               handleResetParams()
             }}
-            className="px-2 py-1 transition-all text-[10px] font-bold text-white/20 hover:text-white/40"
+            className="px-2 py-1 transition-all text-[10px] font-bold"
+            style={{ color: 'var(--text-tertiary)' }}
           >
             reset
           </button>
@@ -135,28 +138,33 @@ export function SchemaParamsPanel({
           maxHeight: shouldCollapse && !isExpanded ? '300px' : '600px',
           transition: 'max-height 0.3s ease',
           scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(64, 64, 64, 0.5) transparent'
+          scrollbarColor: 'var(--scrollbar-thumb) transparent'
         }}
       >
         <div className={`grid gap-3 ${getGridCols()}`}>
           {paramEntries.map(([key, value]: [string, any]) => (
             <div key={key} className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-white/50">
-                {key} <span className="text-white/20 text-[10px]">({value.type})</span>
+              <label className="text-[11px] font-bold" style={{ color: 'var(--text-secondary)' }}>
+                {key} <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>({value.type})</span>
               </label>
               <input
                 type="text"
                 value={params[key] ?? ''}
                 onChange={(e) => handleParamChange(key, e.target.value)}
                 placeholder={value.value !== '_empty' ? String(value.value) : '...'}
-                className="text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.03] border border-white/[0.08] placeholder-white/15 hover:border-white/[0.15] focus:border-white/25 transition-colors font-mono"
+                className="px-3 py-2 focus:outline-none text-[12px] transition-colors font-mono"
+                style={{
+                  color: 'var(--text-primary)',
+                  backgroundColor: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
+                }}
               />
             </div>
           ))}
           {Object.entries(customParams).map(([key, value]) => (
             <div key={key} className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-white/50 flex justify-between items-center">
-                <span>{key} <span className="text-white/20 text-[10px]">(custom)</span></span>
+              <label className="text-[11px] font-bold flex justify-between items-center" style={{ color: 'var(--text-secondary)' }}>
+                <span>{key} <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>(custom)</span></span>
                 <button
                   onClick={() => handleRemoveCustomParam(key)}
                   className="text-red-500/40 hover:text-red-400 text-[10px] transition-colors"
@@ -173,7 +181,12 @@ export function SchemaParamsPanel({
                   handleParamChange(key, e.target.value)
                 }}
                 placeholder="..."
-                className="text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.03] border border-white/[0.08] placeholder-white/15 hover:border-white/[0.15] focus:border-white/25 transition-colors font-mono"
+                className="px-3 py-2 focus:outline-none text-[12px] transition-colors font-mono"
+                style={{
+                  color: 'var(--text-primary)',
+                  backgroundColor: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
+                }}
               />
             </div>
           ))}
@@ -181,25 +194,40 @@ export function SchemaParamsPanel({
 
         {/* Add custom parameter */}
         {hasKwargs && (
-          <div className="mt-4 pt-3 border-t border-white/[0.06]">
+          <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={newParamKey}
                 onChange={(e) => setNewParamKey(e.target.value)}
                 placeholder="key"
-                className="flex-1 text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.03] border border-white/[0.08] placeholder-white/15 hover:border-white/[0.15] focus:border-white/25 transition-colors font-mono"
+                className="flex-1 px-3 py-2 focus:outline-none text-[12px] transition-colors font-mono"
+                style={{
+                  color: 'var(--text-primary)',
+                  backgroundColor: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
+                }}
               />
               <input
                 type="text"
                 value={newParamValue}
                 onChange={(e) => setNewParamValue(e.target.value)}
                 placeholder="value"
-                className="flex-1 text-white/80 px-3 py-2 focus:outline-none text-[12px] bg-white/[0.03] border border-white/[0.08] placeholder-white/15 hover:border-white/[0.15] focus:border-white/25 transition-colors font-mono"
+                className="flex-1 px-3 py-2 focus:outline-none text-[12px] transition-colors font-mono"
+                style={{
+                  color: 'var(--text-primary)',
+                  backgroundColor: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
+                }}
               />
               <button
                 onClick={handleAddCustomParam}
-                className="px-3 py-2 transition-all text-[10px] font-bold text-white/30 hover:text-white/60 border border-white/[0.08] hover:border-white/[0.15] bg-white/[0.03]"
+                className="px-3 py-2 transition-all text-[10px] font-bold"
+                style={{
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-input)',
+                }}
               >
                 +
               </button>

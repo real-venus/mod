@@ -119,14 +119,19 @@ export function InputsTab({
             <button
               type="button"
               onClick={() => setShowParamDropdown(!showParamDropdown)}
-              className="h-full w-full px-3 text-base font-bold rounded-2xl bg-black/80 border-2 border-white/10 hover:border-purple-500/50 text-white transition-all flex items-center justify-between backdrop-blur-sm group"
+              className="h-full w-full px-3 text-base font-bold rounded-2xl border-2 transition-all flex items-center justify-between backdrop-blur-sm group"
               disabled={isLoading}
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderColor: 'var(--border-input)',
+                color: 'var(--text-primary)',
+              }}
             >
               <span className="truncate text-sm">{selectedInputParam || inputParamOptions[0] || 'param'}</span>
-              <span className={`text-xs text-neutral-400 transition-transform ${showParamDropdown ? 'rotate-180' : ''}`}>▼</span>
+              <span className={`text-xs transition-transform ${showParamDropdown ? 'rotate-180' : ''}`} style={{ color: 'var(--text-tertiary)' }}>▼</span>
             </button>
             {showParamDropdown && (
-              <div className="absolute top-full mt-2 left-0 right-0 bg-black/95 border-2 border-purple-500/40 rounded-xl shadow-2xl overflow-hidden z-[9999] backdrop-blur-xl">
+              <div className="absolute top-full mt-2 left-0 right-0 border-2 border-purple-500/40 rounded-xl shadow-2xl overflow-hidden z-[9999] backdrop-blur-xl" style={{ backgroundColor: 'var(--bg-surface)' }}>
                 {inputParamOptions.map(param => (
                   <button
                     key={param}
@@ -135,7 +140,8 @@ export function InputsTab({
                       setSelectedInputParam(param)
                       setShowParamDropdown(false)
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-purple-500/20 text-white border-b border-white/5 last:border-b-0 transition-all"
+                    className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-purple-500/20 transition-all"
+                    style={{ color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}
                   >
                     {param}
                   </button>
@@ -152,12 +158,15 @@ export function InputsTab({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="enter message..."
-            className="w-full h-full bg-black/80 border-2 border-white/10 text-white px-5 py-3 rounded-2xl text-base focus:outline-none focus:border-purple-500/50 placeholder-gray-600 resize-none transition-all backdrop-blur-sm"
+            className="w-full h-full border-2 px-5 py-3 rounded-2xl text-base focus:outline-none focus:border-purple-500/50 resize-none transition-all backdrop-blur-sm"
             disabled={isLoading}
             style={{
               fontFamily: 'SF Pro Display, -apple-system, sans-serif',
               letterSpacing: '-0.01em',
               lineHeight: '1.5',
+              backgroundColor: 'var(--bg-surface)',
+              borderColor: 'var(--border-input)',
+              color: 'var(--text-primary)',
             }}
           />
         </div>
@@ -180,40 +189,55 @@ export function InputsTab({
 
       {/* CHAT/PARAMS/CODE tabs - BELOW FUNCTION SELECTOR */}
       <div className="flex-shrink-0">
-        <div className="flex gap-0 rounded-2xl bg-neutral-900/40 backdrop-blur-sm border border-neutral-800/50 p-1 overflow-hidden">
+        <div className="flex gap-0 rounded-2xl backdrop-blur-sm border p-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
           <button
             type="button"
             onClick={() => setViewMode('chat')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all border-2 ${
               viewMode === 'chat'
-                ? 'bg-transparent text-white border-2 border-white shadow-lg'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5 border-2 border-transparent'
+                ? 'bg-transparent shadow-lg'
+                : 'border-transparent'
             }`}
-            style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+            style={{
+              fontFamily: 'SF Pro Display, -apple-system, sans-serif',
+              letterSpacing: '-0.01em',
+              color: viewMode === 'chat' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              borderColor: viewMode === 'chat' ? 'var(--border-strong)' : 'transparent',
+            }}
           >
             💬 CHAT
           </button>
           <button
             type="button"
             onClick={() => setViewMode('params')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all border-2 ${
               viewMode === 'params'
-                ? 'bg-transparent text-white border-2 border-white shadow-lg'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5 border-2 border-transparent'
+                ? 'bg-transparent shadow-lg'
+                : 'border-transparent'
             }`}
-            style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+            style={{
+              fontFamily: 'SF Pro Display, -apple-system, sans-serif',
+              letterSpacing: '-0.01em',
+              color: viewMode === 'params' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              borderColor: viewMode === 'params' ? 'var(--border-strong)' : 'transparent',
+            }}
           >
             📝 PARAMS
           </button>
           <button
             type="button"
             onClick={() => setViewMode('code')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all border-2 ${
               viewMode === 'code'
-                ? 'bg-transparent text-white border-2 border-white shadow-lg'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5 border-2 border-transparent'
+                ? 'bg-transparent shadow-lg'
+                : 'border-transparent'
             }`}
-            style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+            style={{
+              fontFamily: 'SF Pro Display, -apple-system, sans-serif',
+              letterSpacing: '-0.01em',
+              color: viewMode === 'code' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              borderColor: viewMode === 'code' ? 'var(--border-strong)' : 'transparent',
+            }}
           >
             💻 CODE
           </button>
@@ -221,7 +245,7 @@ export function InputsTab({
       </div>
 
       {/* Content area - BELOW TABS */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent">
+      <div className="flex-1 overflow-y-auto scrollbar-thin">
         {viewMode === 'chat' ? (
           <div className="space-y-3">
             {/* Recent Transaction Section */}
@@ -231,7 +255,8 @@ export function InputsTab({
                 <button
                   type="button"
                   onClick={() => setShowRecentTx(!showRecentTx)}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-neutral-500 hover:text-purple-400 transition-all mb-2"
+                  className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold transition-all mb-2"
+                  style={{ color: 'var(--text-tertiary)' }}
                 >
                   <span className="text-[10px]">{showRecentTx ? '▼' : '▶'}</span>
                   <span>Recent Transaction</span>
@@ -261,7 +286,7 @@ export function InputsTab({
                 numColumns={2}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-neutral-500 text-sm">
+              <div className="flex items-center justify-center h-full text-sm" style={{ color: 'var(--text-tertiary)' }}>
                 Select a function to edit parameters
               </div>
             )}
@@ -270,17 +295,17 @@ export function InputsTab({
             <RecentTransaction />
           </div>
         ) : (
-          <div className="bg-neutral-950/60 border border-neutral-800/30 rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm h-full">
+          <div className="rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm h-full" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}>
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800/30">
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
               <div className="flex items-center gap-3">
                 <span className="text-lg">💻</span>
                 <div className="flex flex-col">
-                  <h3 className="text-white text-sm font-semibold" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}>
+                  <h3 className="text-sm font-semibold" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>
                     Function Code
                   </h3>
                   {selectedFunction && (
-                    <span className="text-neutral-500 text-xs font-medium">
+                    <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
                       {selectedFunction}
                     </span>
                   )}
@@ -295,13 +320,14 @@ export function InputsTab({
             <div className="flex-1 overflow-auto p-5 scrollbar-thin">
               {hasCode ? (
                 <pre
-                  className="text-sm text-neutral-200 leading-relaxed select-text"
+                  className="text-sm leading-relaxed select-text"
                   style={{
                     fontFamily: 'SF Mono, Monaco, Consolas, monospace',
                     userSelect: 'text',
                     WebkitUserSelect: 'text',
                     MozUserSelect: 'text',
-                    msUserSelect: 'text'
+                    msUserSelect: 'text',
+                    color: 'var(--text-primary)',
                   }}
                 >
                   <code className="select-text" style={{ userSelect: 'text' }}>{functionCode}</code>
@@ -310,7 +336,7 @@ export function InputsTab({
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
                     <div className="text-4xl mb-3 opacity-30">📄</div>
-                    <p className="text-neutral-500 text-sm">No code available for this function</p>
+                    <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No code available for this function</p>
                   </div>
                 </div>
               )}

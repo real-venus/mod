@@ -57,15 +57,17 @@ export function UnifiedControlBar({
           <button
             type="button"
             onClick={() => setActiveTab('chat')}
-            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl ${
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl border-2 ${
               activeTab === 'chat'
-                ? 'bg-black text-green-400 border-2 border-green-500'
-                : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/30 border-2 border-transparent'
+                ? 'text-green-500 border-green-500'
+                : 'border-transparent'
             }`}
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
               letterSpacing: '0.2em',
-              minHeight: '64px'
+              minHeight: '64px',
+              backgroundColor: activeTab === 'chat' ? 'var(--bg-surface)' : 'transparent',
+              color: activeTab === 'chat' ? undefined : 'var(--text-tertiary)',
             }}
           >
             {activeTab === 'chat' && (
@@ -84,23 +86,26 @@ export function UnifiedControlBar({
           <button
             type="button"
             onClick={() => setActiveTab('params')}
-            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl ${
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl border-2 ${
               activeTab === 'params'
-                ? 'bg-black text-white border-2 border-white'
-                : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/30 border-2 border-transparent'
+                ? 'border-current'
+                : 'border-transparent'
             }`}
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
               letterSpacing: '0.2em',
-              minHeight: '64px'
+              minHeight: '64px',
+              backgroundColor: activeTab === 'params' ? 'var(--bg-surface)' : 'transparent',
+              color: activeTab === 'params' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              borderColor: activeTab === 'params' ? 'var(--border-strong)' : 'transparent',
             }}
           >
             {activeTab === 'params' && (
               <>
-                <span className="absolute top-0 left-0 text-white text-[8px] leading-none p-0.5">┌</span>
-                <span className="absolute top-0 right-0 text-white text-[8px] leading-none p-0.5">┐</span>
-                <span className="absolute bottom-0 left-0 text-white text-[8px] leading-none p-0.5">└</span>
-                <span className="absolute bottom-0 right-0 text-white text-[8px] leading-none p-0.5">┘</span>
+                <span className="absolute top-0 left-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>┌</span>
+                <span className="absolute top-0 right-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>┐</span>
+                <span className="absolute bottom-0 left-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>└</span>
+                <span className="absolute bottom-0 right-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>┘</span>
               </>
             )}
             <span>📋</span>
@@ -111,23 +116,26 @@ export function UnifiedControlBar({
           <button
             type="button"
             onClick={() => setActiveTab('code')}
-            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl ${
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl border-2 ${
               activeTab === 'code'
-                ? 'bg-black text-white border-2 border-white'
-                : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/30 border-2 border-transparent'
+                ? 'border-current'
+                : 'border-transparent'
             }`}
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
               letterSpacing: '0.2em',
-              minHeight: '64px'
+              minHeight: '64px',
+              backgroundColor: activeTab === 'code' ? 'var(--bg-surface)' : 'transparent',
+              color: activeTab === 'code' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              borderColor: activeTab === 'code' ? 'var(--border-strong)' : 'transparent',
             }}
           >
             {activeTab === 'code' && (
               <>
-                <span className="absolute top-0 left-0 text-white text-[8px] leading-none p-0.5">┌</span>
-                <span className="absolute top-0 right-0 text-white text-[8px] leading-none p-0.5">┐</span>
-                <span className="absolute bottom-0 left-0 text-white text-[8px] leading-none p-0.5">└</span>
-                <span className="absolute bottom-0 right-0 text-white text-[8px] leading-none p-0.5">┘</span>
+                <span className="absolute top-0 left-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>┌</span>
+                <span className="absolute top-0 right-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>┐</span>
+                <span className="absolute bottom-0 left-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>└</span>
+                <span className="absolute bottom-0 right-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>┘</span>
               </>
             )}
             <span>💻</span>
@@ -138,30 +146,33 @@ export function UnifiedControlBar({
           <button
             type="button"
             onClick={() => setActiveTab('outputs')}
-            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl ${
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-bold uppercase tracking-widest transition-all relative rounded-2xl border-2 ${
               activeTab === 'outputs'
-                ? 'bg-black text-white border-2 border-white'
-                : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/30 border-2 border-transparent'
+                ? 'border-current'
+                : 'border-transparent'
             }`}
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
               letterSpacing: '0.2em',
-              minHeight: '64px'
+              minHeight: '64px',
+              backgroundColor: activeTab === 'outputs' ? 'var(--bg-surface)' : 'transparent',
+              color: activeTab === 'outputs' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              borderColor: activeTab === 'outputs' ? 'var(--border-strong)' : 'transparent',
             }}
           >
             {activeTab === 'outputs' && (
               <>
-                <span className="absolute top-0 left-0 text-white text-[8px] leading-none p-0.5">┌</span>
-                <span className="absolute top-0 right-0 text-white text-[8px] leading-none p-0.5">┐</span>
-                <span className="absolute bottom-0 left-0 text-white text-[8px] leading-none p-0.5">└</span>
-                <span className="absolute bottom-0 right-0 text-white text-[8px] leading-none p-0.5">┘</span>
+                <span className="absolute top-0 left-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>┌</span>
+                <span className="absolute top-0 right-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>┐</span>
+                <span className="absolute bottom-0 left-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>└</span>
+                <span className="absolute bottom-0 right-0 text-[8px] leading-none p-0.5" style={{ color: 'var(--text-secondary)' }}>┘</span>
               </>
             )}
             <span className="flex items-center gap-2">
               <span>📤</span>
               <span>OUTPUTS</span>
               {pendingCount > 0 && (
-                <span className="bg-white text-black text-[9px] font-black rounded px-1.5 py-0.5 min-w-[18px] text-center border border-white">
+                <span className="text-[9px] font-black rounded px-1.5 py-0.5 min-w-[18px] text-center" style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-primary)', border: '1px solid var(--border-strong)' }}>
                   {pendingCount}
                 </span>
               )}

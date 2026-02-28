@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { userContext } from '@/context/UserContext'
 import { WalletIcon } from '@heroicons/react/24/outline'
 import { AnimatePresence } from 'framer-motion'
@@ -20,7 +20,8 @@ export function WalletHeader() {
   const { user, signOut, switchWallet, client } = userContext()
   const [isOpen, setIsOpen] = useState(false)
   const [copiedAddress, setCopiedAddress] = useState(false)
-  const [activeTab, setActiveTab] = useState<string | null>('txs')
+  const [activeTab, setActiveTab] = useState<string | null>('portfolio')
+  const walletRef = useRef<HTMLDivElement>(null)
 
   const address = user?.key || ''
   const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''
@@ -33,8 +34,6 @@ export function WalletHeader() {
   const transactions = useTransactions(user?.key, client)
   const transfers = useTransfers({
     userKey: user?.key,
-    walletMode: user?.wallet_mode || '',
-    client,
     marketCredit: balances.marketCredit,
     tokenBalances: balances.tokenBalances,
     fetchMarketCredit: balances.fetchMarketCredit,
@@ -69,12 +68,29 @@ export function WalletHeader() {
     if (activeTab === 'txs' && user?.key) transactions.fetchUserTransactions()
   }, [activeTab])
 
+  // Close wallet sidebar when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (walletRef.current && !walletRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen])
+
   if (!user) {
     return <WalletAuthButton />
   }
 
   return (
-    <div className="flex items-center gap-0">
+    <div ref={walletRef} className="flex items-center gap-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center border-2 transition-all relative gap-2 px-3"

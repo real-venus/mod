@@ -90,16 +90,14 @@ export default function Home() {
   }, [])
 
   return (
-    // …rest of your JSX unchanged
-
-    <div className="min-h-screen bg-black relative overflow-hidden font-mono">
-      {/* Ising Model Background */}
+    <div className="min-h-screen relative overflow-hidden font-mono" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      {/* Matrix Background */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
-        <div className="flex gap-1 text-green-500 text-xs">
+        <div className="flex gap-1 text-emerald-500 dark:text-green-500 text-xs">
           {matrixRain.map((col, i) => (
             <div key={i} className="flex flex-col">
               {col.map((char, j) => (
-                <span key={j} className={j === col.length - 1 ? 'text-white' : ''}>
+                <span key={j} className={j === col.length - 1 ? 'text-emerald-600 dark:text-white' : ''}>
                   {char}
                 </span>
               ))}
@@ -110,17 +108,17 @@ export default function Home() {
 
       {/* Scanlines */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,0,0.03) 2px, rgba(0,255,0,0.03) 4px)'
+        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16,185,129,0.03) 2px, rgba(16,185,129,0.03) 4px)'
       }} />
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
-        
+
         {/* ASCII Pattern Border */}
         <motion.div
           animate={{ opacity: [0.3, 0.7, 0.3] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="text-green-500 text-2xl mb-8 tracking-widest"
+          className="text-emerald-500 dark:text-green-500 text-2xl mb-8 tracking-widest"
         >
           {ASCII_PATTERNS[pattern].repeat(10)}
         </motion.div>
@@ -131,31 +129,32 @@ export default function Home() {
           animate={{ opacity: 1 }}
           className="mb-8 relative"
         >
-          <div className="text-7xl font-bold text-white tracking-wider relative">
-            <span className="absolute inset-0 text-cyan-400" style={{ clipPath: 'inset(0 0 50% 0)', transform: 'translateX(-3px)' }}>
+          <div className="text-7xl font-bold tracking-wider relative" style={{ color: 'var(--text-primary)' }}>
+            <span className="absolute inset-0 text-cyan-500 dark:text-cyan-400" style={{ clipPath: 'inset(0 0 50% 0)', transform: 'translateX(-3px)' }}>
               {glitchText}
             </span>
-            <span className="absolute inset-0 text-purple-500" style={{ clipPath: 'inset(50% 0 0 0)', transform: 'translateX(3px)' }}>
+            <span className="absolute inset-0 text-purple-600 dark:text-purple-500" style={{ clipPath: 'inset(50% 0 0 0)', transform: 'translateX(3px)' }}>
               {glitchText}
             </span>
             <span className="relative">
               MODCHAIN
             </span>
           </div>
-          <div className="text-center text-white text-lg mt-3 tracking-[0.5em]">
+          <div className="text-center text-lg mt-3 tracking-[0.5em]" style={{ color: 'var(--text-primary)' }}>
             ▓▒░ DECENTRALIZED MODULE REGISTRY ░▒▓
           </div>
         </motion.div>
 
         {/* Core Info Box */}
         <motion.div
-          animate={{ 
-            boxShadow: ['0 0 20px rgba(0,255,255,0.3)', '0 0 40px rgba(138,43,226,0.6)', '0 0 20px rgba(0,255,255,0.3)']
+          animate={{
+            boxShadow: ['0 0 20px rgba(6,182,212,0.3)', '0 0 40px rgba(139,92,246,0.6)', '0 0 20px rgba(6,182,212,0.3)']
           }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="border-2 border-cyan-400 p-8 bg-black/95 backdrop-blur-sm mb-8 max-w-4xl rounded-lg"
+          className="border-2 border-cyan-500 dark:border-cyan-400 p-8 backdrop-blur-sm mb-8 max-w-4xl rounded-lg"
+          style={{ backgroundColor: 'var(--bg-secondary)' }}
         >
-          <pre className="text-white text-sm leading-relaxed">
+          <pre className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
 {`╔═══════════════════════════════════════════════════════════╗
 ║  MODCHAIN: BLOCKCHAIN MODULE REGISTRY                     ║
 ╠═══════════════════════════════════════════════════════════╣
@@ -186,27 +185,29 @@ export default function Home() {
 
         {/* CTA Buttons */}
         <div className="flex gap-6">
-          <motion.div 
-            whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(0,255,255,0.6)' }} 
+          <motion.div
+            whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(6,182,212,0.6)' }}
             whileTap={{ scale: 0.95 }}
           >
             <Link
               href="/chat"
-              className="px-8 py-4 border-2 border-cyan-400 bg-cyan-400/10 text-white font-bold hover:bg-cyan-400 hover:text-black transition-all relative overflow-hidden group bloc rounded-lg"
+              className="px-8 py-4 border-2 border-cyan-500 dark:border-cyan-400 bg-cyan-500/10 dark:bg-cyan-400/10 font-bold hover:bg-cyan-500 dark:hover:bg-cyan-400 hover:text-white dark:hover:text-black transition-all rounded-lg"
+              style={{ color: 'var(--text-primary)' }}
             >
-              <span className="relative z-10"> CHAT_INTERFACE</span>
+              <span className="relative z-10">CHAT_INTERFACE</span>
             </Link>
           </motion.div>
-          
-          <motion.div 
-            whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(138,43,226,0.6)' }} 
+
+          <motion.div
+            whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(139,92,246,0.6)' }}
             whileTap={{ scale: 0.95 }}
           >
             <Link
               href="/user/explore"
-              className="px-8 py-4 border-2 border-purple-500 bg-purple-500/10 text-white font-bold hover:bg-purple-500 hover:text-black transition-all bloc rounded-lg"
+              className="px-8 py-4 border-2 border-purple-600 dark:border-purple-500 bg-purple-600/10 dark:bg-purple-500/10 font-bold hover:bg-purple-600 dark:hover:bg-purple-500 hover:text-white dark:hover:text-black transition-all rounded-lg"
+              style={{ color: 'var(--text-primary)' }}
             >
-               JOIN_NETWORK
+              JOIN_NETWORK
             </Link>
           </motion.div>
         </div>
@@ -215,7 +216,7 @@ export default function Home() {
         <motion.div
           animate={{ opacity: [0.3, 0.7, 0.3] }}
           transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-          className="text-cyan-400 text-2xl mt-8 tracking-widest"
+          className="text-cyan-500 dark:text-cyan-400 text-2xl mt-8 tracking-widest"
         >
           {ASCII_PATTERNS[(pattern + 4) % ASCII_PATTERNS.length].repeat(10)}
         </motion.div>
@@ -224,7 +225,7 @@ export default function Home() {
         <motion.div
           animate={{ opacity: [1, 0] }}
           transition={{ duration: 0.8, repeat: Infinity }}
-          className="text-cyan-400 text-3xl mt-3"
+          className="text-cyan-500 dark:text-cyan-400 text-3xl mt-3"
         >
           █
         </motion.div>

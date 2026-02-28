@@ -98,28 +98,29 @@ export function PortfolioTab({
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="mt-3 pt-3 border-t border-neutral-800/50 overflow-hidden"
+          className="mt-3 pt-3 overflow-hidden"
+          style={{ borderTop: '1px solid var(--border-color)' }}
         >
           <div className="space-y-1.5">
             <div className="flex items-center justify-between px-1 mb-2">
-              <span className="text-xs text-neutral-600 uppercase tracking-wider font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>TOKEN BALANCES</span>
+              <span className="text-xs uppercase tracking-wider font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace', color: 'var(--text-tertiary)' }}>TOKEN BALANCES</span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => { setShowAddToken(!showAddToken); setSendFromPortfolio(null) }}
-                  className="p-1 hover:bg-neutral-800 transition-all"
+                  className="p-1 transition-all rounded"
                   title="Add custom token"
                   style={{ borderRadius: 0 }}
                 >
-                  <PlusCircleIcon className={`w-3.5 h-3.5 ${showAddToken ? 'text-purple-400' : 'text-neutral-500'}`} />
+                  <PlusCircleIcon className={`w-3.5 h-3.5 ${showAddToken ? 'text-purple-400' : ''}`} style={!showAddToken ? { color: 'var(--text-tertiary)' } : {}} />
                 </button>
                 <button
                   onClick={onRefreshBalances}
                   disabled={isRefreshing}
-                  className="p-1 hover:bg-neutral-800 transition-all disabled:opacity-50"
+                  className="p-1 transition-all disabled:opacity-50 rounded"
                   title="Refresh balances"
                   style={{ borderRadius: 0 }}
                 >
-                  <ArrowPathIcon className={`w-3.5 h-3.5 text-neutral-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} style={{ color: 'var(--text-tertiary)' }} />
                 </button>
               </div>
             </div>
@@ -140,8 +141,8 @@ export function PortfolioTab({
                       value={newTokenAddress}
                       onChange={(e) => setNewTokenAddress(e.target.value)}
                       placeholder="Token address 0x..."
-                      className="flex-1 bg-neutral-900/80 border border-neutral-800/60 px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-purple-500/50 text-neutral-300 transition-colors"
-                      style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace' }}
+                      className="flex-1 px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                      style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
                     />
                     <button
                       onClick={onAddCustomToken}
@@ -157,7 +158,7 @@ export function PortfolioTab({
             </AnimatePresence>
 
             {allTokens.length === 0 ? (
-              <div className="text-center py-6 text-neutral-600 text-xs">
+              <div className="text-center py-6 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 {isRefreshing ? (
                   <div className="flex items-center justify-center gap-2">
                     <ArrowPathIcon className="w-4 h-4 animate-spin" />
@@ -183,14 +184,15 @@ export function PortfolioTab({
                       className={`w-full flex items-center justify-between px-3 py-2.5 text-xs transition-all ${
                         isSelected
                           ? 'bg-blue-500/10 border border-blue-500/30'
-                          : 'bg-neutral-900/80 border border-neutral-800/60 hover:border-neutral-700/60'
+                          : 'hover:border-opacity-60'
                       }`}
                       style={{
                         borderRadius: isSelected ? '8px 8px 0 0' : '8px',
-                        fontFamily: 'IBM Plex Mono, monospace'
+                        fontFamily: 'IBM Plex Mono, monospace',
+                        ...(!isSelected ? { backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' } : {}),
                       }}
                     >
-                      <span className="flex items-center gap-1.5 font-bold text-neutral-500 uppercase tracking-wider">
+                      <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                         {token.symbol}
                         {token.address && (
                           <span onClick={(e) => e.stopPropagation()}>
@@ -207,7 +209,7 @@ export function PortfolioTab({
                           </button>
                         )}
                       </span>
-                      <span className="font-mono font-bold text-neutral-300 tabular-nums">
+                      <span className="font-mono font-bold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                         {token.isETH
                           ? `${token.balance.toFixed(4)} ETH`
                           : token.isCustom
@@ -224,8 +226,8 @@ export function PortfolioTab({
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
                           transition={{ duration: 0.15 }}
-                          className="overflow-hidden bg-neutral-900/60 border border-t-0 border-blue-500/20 px-3 py-3 space-y-2"
-                          style={{ borderRadius: '0 0 8px 8px', fontFamily: 'IBM Plex Mono, monospace' }}
+                          className="overflow-hidden border border-t-0 border-blue-500/20 px-3 py-3 space-y-2"
+                          style={{ borderRadius: '0 0 8px 8px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-input)' }}
                         >
                           <input
                             type="text"
@@ -233,8 +235,8 @@ export function PortfolioTab({
                             onChange={(e) => setTransferRecipient(e.target.value)}
                             disabled={isTransferring}
                             placeholder="Recipient 0x..."
-                            className="w-full bg-black/60 border border-neutral-800/60 px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-blue-500/40 text-neutral-300 transition-colors"
-                            style={{ borderRadius: '6px' }}
+                            className="w-full px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-blue-500/40 transition-colors"
+                            style={{ borderRadius: '6px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
                           />
                           <input
                             type="number"
@@ -244,8 +246,8 @@ export function PortfolioTab({
                             min="0"
                             step="0.01"
                             placeholder="Amount"
-                            className="w-full bg-black/60 border border-neutral-800/60 px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-blue-500/40 text-neutral-300 transition-colors"
-                            style={{ borderRadius: '6px' }}
+                            className="w-full px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-blue-500/40 transition-colors"
+                            style={{ borderRadius: '6px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
                           />
                           <button
                             onClick={() => {

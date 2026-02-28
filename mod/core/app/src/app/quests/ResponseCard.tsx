@@ -11,10 +11,10 @@ interface ResponseCardProps {
 
 export default function ResponseCard({ response, onEdit }: ResponseCardProps) {
   const [editing, setEditing] = useState(false);
-  const [editContent, setEditContent] = useState(response.content);
+  const [editContent, setEditContent] = useState(response.content || '');
   const [saving, setSaving] = useState(false);
 
-  const cardColor = text2color(response.id + response.content.slice(0, 20));
+  const cardColor = text2color(response.id + (response.content || '').slice(0, 20));
 
   const handleSave = async () => {
     if (!editContent.trim() || !onEdit) return;
@@ -102,7 +102,7 @@ export default function ResponseCard({ response, onEdit }: ResponseCardProps) {
                 {saving ? 'SAVING...' : 'SAVE'}
               </button>
               <button
-                onClick={() => { setEditing(false); setEditContent(response.content); }}
+                onClick={() => { setEditing(false); setEditContent(response.content || ''); }}
                 className="px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider transition-colors rounded-lg"
                 style={{
                   border: `2px solid ${colorWithOpacity(cardColor, 0.3)}`,
@@ -119,7 +119,7 @@ export default function ResponseCard({ response, onEdit }: ResponseCardProps) {
               className="text-[15px] leading-relaxed font-bold"
               style={{ color: 'var(--text-primary)', opacity: 0.85 }}
             >
-              {response.content}
+              {response.content || ''}
             </p>
             {response.status === 'approved' && (response as any).payment_hash && (
               <div

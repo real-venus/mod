@@ -27,22 +27,22 @@ export function CodeTab({
         className="flex-1 relative rounded-lg overflow-hidden"
         style={{
           fontFamily: 'IBM Plex Mono, Menlo, Monaco, Courier New, monospace',
-          background: 'linear-gradient(135deg, rgba(20,20,20,0.95) 0%, rgba(10,10,10,0.98) 100%)',
+          backgroundColor: 'var(--bg-surface)',
         }}
       >
         {/* ASCII border */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neutral-600 to-transparent" />
-        <div className="absolute top-0 left-0 w-px h-full bg-gradient-to-b from-neutral-600 via-neutral-700 to-neutral-600" />
-        <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-neutral-600 via-neutral-700 to-neutral-600" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neutral-600 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-color), transparent)' }} />
+        <div className="absolute top-0 left-0 w-px h-full" style={{ background: 'linear-gradient(to bottom, var(--border-color), var(--border-input), var(--border-color))' }} />
+        <div className="absolute top-0 right-0 w-px h-full" style={{ background: 'linear-gradient(to bottom, var(--border-color), var(--border-input), var(--border-color))' }} />
+        <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-color), transparent)' }} />
 
-        <div className="h-full border border-neutral-700/50 flex flex-col">
+        <div className="h-full flex flex-col" style={{ border: '1px solid var(--border-color)' }}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700/50 bg-neutral-900/40">
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)' }}>
             <div className="flex items-center gap-3">
               <span className="text-purple-400">💻</span>
               <div className="flex flex-col">
-                <h3 className="text-white text-xs font-bold uppercase tracking-widest" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                <h3 className="text-xs font-bold uppercase tracking-widest" style={{ fontFamily: 'IBM Plex Mono, monospace', color: 'var(--text-primary)' }}>
                   SOURCE CODE
                 </h3>
                 {selectedFunction && (
@@ -58,10 +58,10 @@ export function CodeTab({
           </div>
 
           {/* Code display */}
-          <div className="flex-1 overflow-auto p-4 scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent">
+          <div className="flex-1 overflow-auto p-4 scrollbar-thin">
             {hasCode ? (
               <pre
-                className="text-xs text-purple-300 leading-relaxed select-text"
+                className="text-xs text-purple-500 leading-relaxed select-text"
                 style={{
                   fontFamily: 'IBM Plex Mono, Monaco, Consolas, monospace',
                   userSelect: 'text',
@@ -77,7 +77,7 @@ export function CodeTab({
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <div className="text-4xl mb-3 opacity-30">┌─┐</div>
-                  <p className="text-neutral-500 text-xs uppercase tracking-wider" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+                  <p className="text-xs uppercase tracking-wider" style={{ fontFamily: 'IBM Plex Mono, monospace', color: 'var(--text-tertiary)' }}>
                     NO CODE AVAILABLE
                   </p>
                 </div>

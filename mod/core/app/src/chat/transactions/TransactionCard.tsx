@@ -56,7 +56,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
     if (hasResult && (s === 'pending' || s === 'running')) {
       return {
         dot: 'bg-emerald-500',
-        text: 'text-emerald-400',
+        text: 'text-emerald-500',
         bg: 'bg-emerald-500/10',
         border: 'border-emerald-500/30',
         glow: 'shadow-[0_0_15px_rgba(16,185,129,0.3)]',
@@ -66,7 +66,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
 
     if (s === 'running') return {
       dot: 'bg-blue-500',
-      text: 'text-blue-400',
+      text: 'text-blue-500',
       bg: 'bg-blue-500/10',
       border: 'border-blue-500/30',
       glow: 'shadow-[0_0_15px_rgba(59,130,246,0.3)]',
@@ -74,7 +74,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
     }
     if (s === 'pending') return {
       dot: 'bg-amber-500',
-      text: 'text-amber-400',
+      text: 'text-amber-500',
       bg: 'bg-amber-500/10',
       border: 'border-amber-500/30',
       glow: 'shadow-[0_0_15px_rgba(245,158,11,0.3)]',
@@ -82,7 +82,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
     }
     if (s === 'success' || s === 'finished' || s === 'complete') return {
       dot: 'bg-emerald-500',
-      text: 'text-emerald-400',
+      text: 'text-emerald-500',
       bg: 'bg-emerald-500/10',
       border: 'border-emerald-500/30',
       glow: 'shadow-[0_0_15px_rgba(16,185,129,0.3)]',
@@ -90,7 +90,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
     }
     return {
       dot: 'bg-red-500',
-      text: 'text-red-400',
+      text: 'text-red-500',
       bg: 'bg-red-500/10',
       border: 'border-red-500/30',
       glow: 'shadow-[0_0_15px_rgba(239,68,68,0.3)]',
@@ -107,21 +107,21 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
   const hasResults = tx.result !== undefined
 
   const renderValue = (value: any) => {
-    if (value === null || value === undefined) return <span className="text-neutral-600 text-sm font-mono">null</span>
+    if (value === null || value === undefined) return <span className="text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>null</span>
     if (typeof value === 'object') {
       return (
-        <pre className="text-sm text-green-400 overflow-x-auto whitespace-pre-wrap leading-relaxed font-mono">
+        <pre className="text-sm text-green-500 overflow-x-auto whitespace-pre-wrap leading-relaxed font-mono">
           {JSON.stringify(value, null, 2)}
         </pre>
       )
     }
-    return <span className="text-green-400 text-sm break-all font-mono">{String(value)}</span>
+    return <span className="text-green-500 text-sm break-all font-mono">{String(value)}</span>
   }
 
   return (
     <div
-      className={`group border-2 rounded-lg backdrop-blur-sm transition-all cursor-pointer relative overflow-hidden bg-black/80 border-purple-500/60 hover:border-purple-500/80`}
-      style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+      className={`group border-2 rounded-lg backdrop-blur-sm transition-all cursor-pointer relative overflow-hidden border-purple-500/60 hover:border-purple-500/80`}
+      style={{ fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-surface)' }}
     >
       {/* Progress bar for running/pending transactions */}
       {isInProgress && (
@@ -147,7 +147,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
       )}
 
       {/* Header - Terminal Style */}
-      <div className={`flex items-center gap-2 border-b border-purple-500/30 ${compact ? 'px-2 py-2' : 'px-4 py-3'}`}>
+      <div className={`flex items-center gap-2 ${compact ? 'px-2 py-2' : 'px-4 py-3'}`} style={{ borderBottom: '1px solid var(--border-color)' }}>
         {/* Hash/ID with icon */}
         {(tx.hash || tx.cid) && (
           <div className="flex items-center gap-1">
@@ -164,7 +164,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
         </div>
 
         {/* Function name */}
-        <div className={`${compact ? 'text-xs' : 'text-sm'} font-bold truncate text-cyan-400 flex-1 min-w-0`}>
+        <div className={`${compact ? 'text-xs' : 'text-sm'} font-bold truncate text-cyan-500 flex-1 min-w-0`}>
           {tx.fn}
         </div>
 
@@ -193,24 +193,24 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
           {/* Cost */}
           <div className="flex items-center gap-0.5">
             <span className="text-purple-500 text-xs">$</span>
-            <span className="text-cyan-400 font-bold">{cost}</span>
+            <span className="text-cyan-500 font-bold">{cost}</span>
           </div>
 
           {/* Duration */}
           {isInProgress ? (
             <div className="flex items-center gap-0.5">
               <span className="text-purple-500 text-xs">⏱</span>
-              <span className="text-cyan-400 font-bold tabular-nums">{elapsedTime}s</span>
+              <span className="text-cyan-500 font-bold tabular-nums">{elapsedTime}s</span>
             </div>
           ) : tx.delta !== undefined && (
             <div className="flex items-center gap-0.5">
               <span className="text-purple-500 text-xs">⏱</span>
-              <span className="text-cyan-400 font-bold">{tx.delta.toFixed(1)}s</span>
+              <span className="text-cyan-500 font-bold">{tx.delta.toFixed(1)}s</span>
             </div>
           )}
 
           {!compact && !isInProgress && (
-            <span className="text-purple-400/60 text-xs font-medium">{time}</span>
+            <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>{time}</span>
           )}
         </div>
       </div>
@@ -220,14 +220,15 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
         <div className="px-4 pb-4 pt-3">
           {/* Tabs - Terminal style */}
           {hasParams && hasResults && (
-            <div className="flex gap-0 mb-3 border border-purple-500/40 rounded-lg p-1 bg-black/50">
+            <div className="flex gap-0 mb-3 border border-purple-500/40 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-input)' }}>
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveTab('results'); }}
                 className={`flex-1 px-3 py-1.5 text-xs font-bold uppercase rounded transition-all ${
                   activeTab === 'results'
-                    ? 'bg-purple-500/20 text-cyan-400 border border-purple-500'
-                    : 'text-neutral-500 hover:text-purple-300'
+                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
+                    : 'hover:text-purple-400'
                 }`}
+                style={{ color: activeTab === 'results' ? undefined : 'var(--text-tertiary)' }}
               >
                 Result
               </button>
@@ -235,9 +236,10 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
                 onClick={(e) => { e.stopPropagation(); setActiveTab('params'); }}
                 className={`flex-1 px-3 py-1.5 text-xs font-bold uppercase rounded transition-all ${
                   activeTab === 'params'
-                    ? 'bg-purple-500/20 text-cyan-400 border border-purple-500'
-                    : 'text-neutral-500 hover:text-purple-300'
+                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
+                    : 'hover:text-purple-400'
                 }`}
+                style={{ color: activeTab === 'params' ? undefined : 'var(--text-tertiary)' }}
               >
                 Params
               </button>
@@ -245,7 +247,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
           )}
 
           {/* Content */}
-          <div className="bg-black border border-purple-500/40 rounded-lg p-4 max-h-64 overflow-auto">
+          <div className="border border-purple-500/40 rounded-lg p-4 max-h-64 overflow-auto" style={{ backgroundColor: 'var(--bg-input)' }}>
             {activeTab === 'results' && hasResults ? renderValue(tx.result) : hasParams ? renderValue(tx.params) : null}
           </div>
         </div>

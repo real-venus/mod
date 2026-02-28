@@ -79,6 +79,7 @@ class Dev:
     def init_memory(self, **kwargs):
         kwargs['goal'] = self.goal
         kwargs['output_format'] = self.output_format
+        kwargs['initial_context'] = m.fn('select_files')(path=kwargs['path'], query=kwargs['query'])
         for k,v in kwargs.items():
             self.memory.add(k, v)
             if k.startswith('fork') and v != None:

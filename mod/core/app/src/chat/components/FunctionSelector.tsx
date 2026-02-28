@@ -190,10 +190,22 @@ export function FunctionSelector({
     }
   }, [isDropdownOpen])
 
-  // Auto-select first function if none selected
+  // Auto-select "forward" function if available, otherwise first function
+  // Only auto-select when switching modules (when current function doesn't exist in new module)
   useEffect(() => {
-    if (!selectedFunction && allFunctions.length > 0) {
-      setSelectedFunction(allFunctions[0].name)
+    if (allFunctions.length > 0) {
+      // Check if the currently selected function exists in the new module
+      const currentFnExists = allFunctions.some(fn => fn.name === selectedFunction)
+
+      if (!currentFnExists) {
+        // Current function doesn't exist - pick a new one
+        const forwardFn = allFunctions.find(fn => fn.name === 'forward')
+        if (forwardFn) {
+          setSelectedFunction('forward')
+        } else {
+          setSelectedFunction(allFunctions[0].name)
+        }
+      }
     }
   }, [allFunctions, selectedFunction, setSelectedFunction])
 
@@ -203,8 +215,13 @@ export function FunctionSelector({
       <button
         type="button"
         onClick={isDropdownOpen ? closeDropdown : openDropdown}
-        className="h-full w-full px-6 py-4 rounded-2xl bg-black/80 border-2 border-white/10 hover:border-purple-500/50 text-white transition-all flex items-center justify-between backdrop-blur-sm group"
-        style={{ minHeight: '64px' }}
+        className="h-full w-full px-6 py-4 rounded-2xl border-2 transition-all flex items-center justify-between backdrop-blur-sm group"
+        style={{
+          minHeight: '64px',
+          backgroundColor: 'var(--bg-surface)',
+          borderColor: 'var(--border-input)',
+          color: 'var(--text-primary)',
+        }}
       >
         {isDropdownOpen ? (
           // Search input when dropdown is open
@@ -216,23 +233,25 @@ export function FunctionSelector({
             onKeyDown={handleKeyDown}
             onClick={(e) => e.stopPropagation()}
             placeholder="search..."
-            className="flex-1 bg-transparent text-white text-lg font-bold focus:outline-none placeholder-neutral-600"
+            className="flex-1 bg-transparent text-lg font-bold focus:outline-none"
             style={{
               fontFamily: 'SF Pro Display, -apple-system, sans-serif',
               letterSpacing: '-0.01em',
+              color: 'var(--text-primary)',
             }}
             autoFocus
           />
         ) : (
           // Selected function display when dropdown is closed
           <span className="flex-1 text-left truncate text-lg font-bold">
-            {selectedFunction || <span className="text-neutral-600">select...</span>}
+            {selectedFunction || <span style={{ color: 'var(--text-tertiary)' }}>select...</span>}
           </span>
         )}
 
         {/* Dropdown arrow */}
         <span
-          className={`text-sm text-neutral-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+          className={`text-sm transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+          style={{ color: 'var(--text-tertiary)' }}
         >
           ▼
         </span>
@@ -240,19 +259,19 @@ export function FunctionSelector({
 
       {/* Dropdown Menu - Functions List Only */}
       {isDropdownOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-transparent rounded-xl shadow-2xl z-[9999] backdrop-blur-md overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-2 rounded-xl shadow-2xl z-[9999] backdrop-blur-md overflow-hidden" style={{ backgroundColor: 'var(--bg-surface)' }}>
           {/* Function list - Scrollable */}
           <div
             ref={listRef}
-            className="overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-neutral-700/50 scrollbar-track-transparent hover:scrollbar-thumb-neutral-600/50"
+            className="overflow-y-auto overflow-x-hidden scrollbar-thin"
             style={{
               maxHeight: 'calc(100vh - 200px)',
               scrollbarWidth: 'thin',
-              scrollbarColor: 'rgba(64, 64, 64, 0.5) transparent'
+              scrollbarColor: 'var(--scrollbar-thumb) transparent'
             }}
           >
             {filteredFunctions.length === 0 ? (
-              <div className="px-4 py-6 text-center text-neutral-500 text-sm">
+              <div className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>
                 {searchQuery ? 'No matching functions' : 'No functions available'}
               </div>
             ) : (
@@ -265,21 +284,24 @@ export function FunctionSelector({
                   }}
                   type="button"
                   onClick={() => selectFunction(name)}
-                  className={`w-full text-left px-4 py-3 text-white transition-all font-medium flex justify-between items-center ${
-                    idx === selectedIndex ? 'bg-purple-500/20 backdrop-blur-sm' : 'hover:bg-white/5'
+                  className={`w-full text-left px-4 py-3 transition-all font-medium flex justify-between items-center ${
+                    idx === selectedIndex ? 'bg-purple-500/20 backdrop-blur-sm' : ''
                   }`}
+                  style={{ color: 'var(--text-primary)' }}
+                  onMouseEnter={(e) => { if (idx !== selectedIndex) e.currentTarget.style.backgroundColor = 'var(--hover-bg)' }}
+                  onMouseLeave={(e) => { if (idx !== selectedIndex) e.currentTarget.style.backgroundColor = 'transparent' }}
                 >
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-semibold">{name}</span>
-                    <span className="text-neutral-500 text-xs">from: {moduleName}</span>
+                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>from: {moduleName}</span>
                     {owner && (
-                      <span className="text-neutral-600 text-[10px]">
+                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
                         {owner.slice(0, 8)}...{owner.slice(-6)}
                       </span>
                     )}
                   </div>
                   {searchQuery && distance > 0 && (
-                    <span className="text-xs text-neutral-600 font-medium">~{distance.toFixed(2)}</span>
+                    <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>~{distance.toFixed(2)}</span>
                   )}
                 </button>
               ))

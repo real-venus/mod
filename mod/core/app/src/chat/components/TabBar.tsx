@@ -27,16 +27,21 @@ export function TabBar({
   return (
     <div className="flex-shrink-0">
       {/* Tabs - Full width */}
-      <div className="flex gap-0 rounded-2xl bg-neutral-900/40 backdrop-blur-sm border border-neutral-800/50 p-1 overflow-hidden">
+      <div className="flex gap-0 rounded-2xl backdrop-blur-sm border p-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
         <button
           type="button"
           onClick={() => setActiveTab('params')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all border-2 ${
             activeTab === 'params'
-              ? 'bg-transparent text-white border-2 border-white shadow-lg'
-              : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5 border-2 border-transparent'
+              ? 'bg-transparent shadow-lg'
+              : 'border-transparent'
           }`}
-          style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+          style={{
+            fontFamily: 'SF Pro Display, -apple-system, sans-serif',
+            letterSpacing: '-0.01em',
+            color: activeTab === 'params' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            borderColor: activeTab === 'params' ? 'var(--border-strong)' : 'transparent',
+          }}
         >
           📥 PARAMS
         </button>
@@ -44,17 +49,22 @@ export function TabBar({
         <button
           type="button"
           onClick={() => setActiveTab('outputs')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all border-2 ${
             activeTab === 'outputs'
-              ? 'bg-transparent text-white border-2 border-white shadow-lg'
-              : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5 border-2 border-transparent'
+              ? 'bg-transparent shadow-lg'
+              : 'border-transparent'
           }`}
-          style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif', letterSpacing: '-0.01em' }}
+          style={{
+            fontFamily: 'SF Pro Display, -apple-system, sans-serif',
+            letterSpacing: '-0.01em',
+            color: activeTab === 'outputs' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            borderColor: activeTab === 'outputs' ? 'var(--border-strong)' : 'transparent',
+          }}
         >
           <span className="flex items-center gap-2">
             📤 OUTPUTS
             {pendingCount > 0 && (
-              <span className="bg-white text-black text-xs font-bold rounded-full min-w-[22px] h-5 px-1.5 flex items-center justify-center shadow-sm">
+              <span className="text-xs font-bold rounded-full min-w-[22px] h-5 px-1.5 flex items-center justify-center shadow-sm" style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
                 {pendingCount}
               </span>
             )}

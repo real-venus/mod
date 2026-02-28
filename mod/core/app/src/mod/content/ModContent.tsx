@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { CopyButton } from '@/ui/CopyButton'
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { CopyButton } from '@/ui/CopyButton';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -17,81 +17,98 @@ import {
   FilmIcon,
   MusicalNoteIcon,
   ArchiveBoxIcon,
-  ArrowsUpDownIcon,
-} from '@heroicons/react/24/outline'
-import { ModuleType } from '@/types'
-import { userContext } from '@/context'
-import { text2color, colorWithOpacity } from '@/utils'
+  HashtagIcon
+} from '@heroicons/react/24/outline';
+import { ModuleType } from '@/types';
+import { userContext } from '@/context';
+import { useTheme } from '@/context/ThemeContext';
+
 
 export interface ModContentProps {
   mod: {
-    content: Record<string, string> | undefined | string
-  }
+    content: Record<string, string> | undefined | string;
+  };
 }
 
 export type FileNode = {
-  name: string
-  path: string
-  type: 'file' | 'folder'
-  children?: FileNode[]
-  content?: string
-  language?: string
-  hash?: string
-  lineCount?: number
-  size?: string
-  cid?: string
-}
+  name: string;
+  path: string;
+  type: 'file' | 'folder';
+  children?: FileNode[];
+  content?: string;
+  language?: string;
+  hash?: string;
+  lineCount?: number;
+  size?: string;
+  cid?: string;
+};
 
 export const ui = {
-  panel: '#0b0b0b',
-  panelAlt: '#121212',
-  panelAlt2: '#151515',
-  border: '#2a2a2a',
-  text: '#e7e7e7',
-  textDim: '#a8a8a8',
-  green: '#22c55e',
-  yellow: '#facc15',
-}
+  dark: {
+    panel: '#0d0d0d',
+    panelAlt: '#000000',
+    panelAlt2: '#06060a',
+    border: 'rgba(255, 255, 255, 0.06)',
+    borderDim: 'rgba(255, 255, 255, 0.03)',
+    text: '#e7e7e7',
+    textDim: 'rgba(255, 255, 255, 0.35)',
+    green: '#22c55e',
+    yellow: '#facc15',
+    glow: 'rgba(96, 165, 250, 0.15)',
+  },
+  light: {
+    panel: '#ffffff',
+    panelAlt: '#f9fafb',
+    panelAlt2: '#f3f4f6',
+    border: 'rgba(0, 0, 0, 0.1)',
+    borderDim: 'rgba(0, 0, 0, 0.05)',
+    text: '#1f2937',
+    textDim: 'rgba(0, 0, 0, 0.5)',
+    green: '#22c55e',
+    yellow: '#facc15',
+    glow: 'rgba(96, 165, 250, 0.15)',
+  },
+};
 
 export const getFileIcon = (filename: string) => {
-  const ext = filename.split('.').pop()?.toLowerCase() || ''
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
   const iconMap: Record<string, any> = {
     ts: CodeBracketIcon, tsx: CodeBracketIcon, js: CodeBracketIcon, jsx: CodeBracketIcon, py: CodeBracketIcon,
     json: DocumentChartBarIcon, css: DocumentTextIcon, html: DocumentTextIcon, md: DocumentTextIcon, txt: DocumentTextIcon,
     jpg: PhotoIcon, jpeg: PhotoIcon, png: PhotoIcon, gif: PhotoIcon, svg: PhotoIcon,
     mp4: FilmIcon, avi: FilmIcon, mov: FilmIcon, mp3: MusicalNoteIcon, wav: MusicalNoteIcon, zip: ArchiveBoxIcon, tar: ArchiveBoxIcon, gz: ArchiveBoxIcon,
-  }
-  return iconMap[ext] || DocumentIcon
-}
+  };
+  return iconMap[ext] || DocumentIcon;
+};
 
 export const getLanguageFromPath = (path: string): string => {
-  const ext = path.split('.').pop()?.toLowerCase() || ''
+  const ext = path.split('.').pop()?.toLowerCase() || '';
   const langMap: Record<string, string> = {
     ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
     py: 'python', json: 'json', css: 'css', html: 'html', md: 'markdown',
-  }
-  return langMap[ext] || 'text'
-}
+  };
+  return langMap[ext] || 'text';
+};
 
 export const languageColors: Record<string, string> = {
   typescript: 'text-blue-400', javascript: 'text-yellow-400', python: 'text-green-400',
   json: 'text-orange-400', css: 'text-pink-400', html: 'text-red-400',
   markdown: 'text-gray-400', text: 'text-gray-300',
-}
+};
 
 export const formatFileSize = (bytes: number): string =>
-  bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`
+  bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
 
 export const buildFileTree = (files: Record<string, string>): FileNode[] => {
-  const root: FileNode = { name: '', path: '', type: 'folder', children: [] }
+  const root: FileNode = { name: '', path: '', type: 'folder', children: [] };
 
   Object.entries(files).forEach(([path, content]) => {
-    const parts = path.split('/').filter(Boolean)
-    let current = root
+    const parts = path.split('/').filter(Boolean);
+    let current = root;
     parts.forEach((part, idx) => {
-      const isFile = idx === parts.length - 1
-      const currentPath = parts.slice(0, idx + 1).join('/')
-      let child = current.children!.find((c) => c.name === part)
+      const isFile = idx === parts.length - 1;
+      const currentPath = parts.slice(0, idx + 1).join('/');
+      let child = current.children!.find((c) => c.name === part);
       if (!child) {
         child = {
           name: part,
@@ -103,26 +120,26 @@ export const buildFileTree = (files: Record<string, string>): FileNode[] => {
           cid: isFile ? content : undefined,
           lineCount: isFile ? content.split('\n').length : undefined,
           size: isFile ? formatFileSize(content.length) : undefined,
-        }
-        current.children!.push(child)
+        };
+        current.children!.push(child);
       }
-      if (!isFile) current = child
-    })
-  })
+      if (!isFile) current = child;
+    });
+  });
 
   const sortNodes = (nodes?: FileNode[]) => {
-    if (!nodes) return
-    nodes.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'folder' ? -1 : 1))
-    nodes.forEach((n) => sortNodes(n.children))
-  }
-  sortNodes(root.children)
-  return root.children || []
-}
+    if (!nodes) return;
+    nodes.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'folder' ? -1 : 1));
+    nodes.forEach((n) => sortNodes(n.children));
+  };
+  sortNodes(root.children);
+  return root.children || [];
+};
 
 export const highlightSearchTerm = (text: string, term: string) => {
-  if (!term) return text
-  const safe = term.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')
-  const parts = text.split(new RegExp(`(${safe})`, 'gi'))
+  if (!term) return text;
+  const safe = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${safe})`, 'gi'));
   return (
     <>
       {parts.map((p, i) =>
@@ -133,56 +150,82 @@ export const highlightSearchTerm = (text: string, term: string) => {
         )
       )}
     </>
-  )
-}
+  );
+};
+
 
 export function FileTreeItem({
-  node, level, onSelect, expandedFolders, toggleFolder, selectedPath, onCopy, searchTerm,
+  node, level, onSelect, expandedFolders, toggleFolder, selectedPath, onCopy, searchTerm, isLight,
 }: {
-  node: FileNode; level: number; onSelect: (n: FileNode) => void
-  expandedFolders: Set<string>; toggleFolder: (p: string) => void; selectedPath?: string
-  onCopy: (n: FileNode) => void; searchTerm?: string
+  node: FileNode; level: number; onSelect: (n: FileNode) => void;
+  expandedFolders: Set<string>; toggleFolder: (p: string) => void; selectedPath?: string;
+  onCopy: (n: FileNode) => void; searchTerm?: string; isLight: boolean;
 }) {
-  const isExpanded = expandedFolders.has(node.path)
-  const isSelected = selectedPath === node.path
-  const FileIcon = node.type === 'file' ? getFileIcon(node.name) : (isExpanded ? FolderOpenIcon : FolderIcon)
+  const isExpanded = expandedFolders.has(node.path);
+  const isSelected = selectedPath === node.path;
+  const FileIcon = node.type === 'file' ? getFileIcon(node.name) : (isExpanded ? FolderOpenIcon : FolderIcon);
+  const [showCid, setShowCid] = useState(false);
 
   const matchesSearch = searchTerm
     ? node.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       node.path.toLowerCase().includes(searchTerm.toLowerCase())
-    : true
+    : true;
 
-  const handleClick = () => (node.type === 'folder' ? toggleFolder(node.path) : onSelect(node))
-  if (!matchesSearch && node.type === 'file') return null
+  const handleClick = () => (node.type === 'folder' ? toggleFolder(node.path) : onSelect(node));
+  if (!matchesSearch && node.type === 'file') return null;
 
   return (
     <div>
       <div
-        className={`group micro-row flex cursor-pointer items-center px-3 py-1.5 text-[12px] transition-all duration-150 hover:bg-white/[0.04]
-        ${isSelected ? 'bg-white/[0.06] text-white/90' : 'text-white/50'}
-        ${matchesSearch && searchTerm ? 'ring-1 ring-yellow-400/40' : ''}`}
-        style={{ paddingLeft: `${level * 16 + 12}px` }}
+        className={`group micro-row flex cursor-pointer items-center px-3 py-2.5 text-[11px] transition-all duration-200 rounded-lg mx-1
+        ${isSelected
+          ? `bg-gradient-to-r from-blue-500/20 to-blue-400/10 shadow-lg shadow-blue-500/10 ${isLight ? 'text-gray-900' : 'text-white'}`
+          : `${isLight ? 'text-gray-600 hover:bg-black/5' : 'text-gray-400 hover:bg-white/5'}`}
+        ${matchesSearch && searchTerm ? 'ring-1 ring-yellow-400/40 bg-yellow-400/5' : ''}`}
+        style={{ paddingLeft: `${level * 12 + 12}px` }}
         onClick={handleClick}
         title={node.path}
       >
         {node.type === 'folder' ? (
-          isExpanded ? <ChevronDownIcon className="mr-2 h-3.5 w-3.5" /> : <ChevronRightIcon className="mr-2 h-3.5 w-3.5" />
+          isExpanded ? <ChevronDownIcon className="mr-1.5 h-3.5 w-3.5" /> : <ChevronRightIcon className="mr-1.5 h-3.5 w-3.5" />
         ) : null}
-        <FileIcon className={`mr-2 h-4 w-4 flex-shrink-0 ${node.type === 'folder' ? 'text-amber-400/50' : 'text-white/25'}`} />
+        <FileIcon className={`mr-2.5 h-4 w-4 flex-shrink-0 ${node.type === 'folder' ? 'text-amber-400' : 'text-blue-400'}`} />
         <span className="flex-1 truncate font-mono font-medium">
           {searchTerm ? highlightSearchTerm(node.name, searchTerm) : node.name}
         </span>
         {node.type === 'file' ? (
           <>
-            <span className="ml-2 text-[10px] opacity-40 font-mono">{node.size}</span>
+            <span className="ml-2 text-[10px] opacity-50 font-mono">{node.size}</span>
+            <div
+              className="relative ml-1.5"
+              onMouseEnter={() => setShowCid(true)}
+              onMouseLeave={() => setShowCid(false)}
+            >
+              <HashtagIcon className="h-3.5 w-3.5 text-blue-400/60 hover:text-blue-400 transition-colors" />
+              {showCid && node.cid && (
+                <div
+                  className={`absolute right-0 top-6 z-50 border px-3 py-2 text-[10px] font-mono whitespace-nowrap shadow-xl ${isLight ? 'text-blue-700 bg-white' : 'text-blue-300 bg-gray-900'}`}
+                  style={{ borderColor: 'rgba(96, 165, 250, 0.4)' }}
+                >
+                  {node.cid.length > 46 ? `${node.cid.slice(0, 46)}...` : node.cid}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onCopy(node); }}
+              className={`ml-1.5 opacity-0 transition-all group-hover:opacity-100 p-1.5 rounded-md ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+              title="Copy file content"
+            >
+              <ClipboardDocumentIcon className={`h-3.5 w-3.5 ${isLight ? 'text-black/40 hover:text-black' : 'text-gray-400 hover:text-white'}`} />
+            </button>
           </>
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); onCopy(node); }}
-            className="ml-2 opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:bg-white/10 rounded"
+            className={`ml-1.5 opacity-0 transition-all group-hover:opacity-100 p-1.5 rounded-md ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
             title="Copy folder contents"
           >
-            <ClipboardDocumentIcon className="h-3.5 w-3.5 text-white/40 hover:text-white/60" />
+            <ClipboardDocumentIcon className={`h-3.5 w-3.5 ${isLight ? 'text-black/40 hover:text-black' : 'text-gray-400 hover:text-white'}`} />
           </button>
         )}
       </div>
@@ -199,83 +242,97 @@ export function FileTreeItem({
               selectedPath={selectedPath}
               onCopy={onCopy}
               searchTerm={searchTerm}
+              isLight={isLight}
             />
           ))}
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default function ModContent({ mod }: { mod: ModuleType }) {
-  const files = typeof mod.content === 'object' && mod.content !== null ? mod.content : {}
-  const { client } = userContext()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [fileSearchTerm, setFileSearchTerm] = useState('')
-  const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set())
-  const [selectedFile, setSelectedFile] = useState<string | null>(mod.content && typeof mod.content === 'object' ? Object.keys(mod.content)[0] : null)
-  const [fileTree, setFileTree] = useState<FileNode[]>([])
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-  const [searchResults, setSearchResults] = useState<{ path: string; lineNumbers: number[] }[]>([])
-  const codeRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const [fileContents, setFileContents] = useState<Record<string, string>>({})
-  const [dividerPosition, setDividerPosition] = useState(280)
-  const isDragging = useRef(false)
 
-  const modColor = text2color(mod.name || mod.key)
+export default function ModContent({ mod }: { mod: ModuleType }) {
+  const files = typeof mod.content === 'object' && mod.content !== null ? mod.content : {};
+  const { client } = userContext();
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
+  const theme = isLight ? ui.light : ui.dark;
+  const [searchTerm, setSearchTerm] = useState('');
+  const [fileSearchTerm, setFileSearchTerm] = useState('');
+  const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
+  const [selectedFile, setSelectedFile] = useState<string | null>(mod.content && typeof mod.content === 'object' ? Object.keys(mod.content)[0] : null);
+  const [fileTree, setFileTree] = useState<FileNode[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [searchResults, setSearchResults] = useState<{ path: string; lineNumbers: number[] }[]>([]);
+  const codeRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [fileContents, setFileContents] = useState<Record<string, string>>({});
+
+
+  const handleFileSelect = async (node: FileNode) => {
+    if (node.type !== 'file') return;
+    setSelectedFile(node.path);
+    if (node.cid && client && !fileContents[node.path]) {
+      try {
+        const res = await client.call('get', { cid: node.cid });
+        setFileContents(prev => ({ ...prev, [node.path]: res }));
+      } catch (err) {
+        console.error('Failed to fetch content for', node.path, err);
+      }
+    }
+    const el = codeRefs.current[node.path];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   useEffect(() => {
-    const tree = buildFileTree(files)
-    setFileTree(tree)
+    const tree = buildFileTree(files);
+    setFileTree(tree);
     if (!selectedFile) {
        for (let n of tree) {
-          if (n.type === 'file') {
-            setSelectedFile(n.path)
-            break
+          handleFileSelect(n).then(() => {});
+          break;
        }
       }
-    }
-    const all = new Set<string>()
-    const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }})
-    collect(tree)
-    setExpandedFolders(new Set())
-    if (tree.length > 0 && tree[0].type === 'file') setSelectedFile(tree[0].path)
-  }, [files, selectedFile])
+
+    // Start with all folders collapsed by default
+    setExpandedFolders(new Set());
+    if (tree.length > 0 && tree[0].type === 'file') setSelectedFile(tree[0].path);
+  }, [files, selectedFile]);
 
   useEffect(() => {
-    if (!fileSearchTerm) return
-    const folders = new Set<string>()
+    if (!fileSearchTerm) return;
+    const folders = new Set<string>();
     const check = (n: FileNode, parent = '') => {
-      const cp = parent ? `${parent}/${n.name}` : n.name
+      const cp = parent ? `${parent}/${n.name}` : n.name;
       if (n.name.toLowerCase().includes(fileSearchTerm.toLowerCase()) || n.path.toLowerCase().includes(fileSearchTerm.toLowerCase())) {
-        const parts = cp.split('/').filter(Boolean)
-        for (let i = 0; i < parts.length - 1; i++) folders.add(parts.slice(0, i + 1).join('/'))
+        const parts = cp.split('/').filter(Boolean);
+        for (let i = 0; i < parts.length - 1; i++) folders.add(parts.slice(0, i + 1).join('/'));
       }
-      n.children?.forEach((c) => check(c, cp))
-    }
-    fileTree.forEach((n) => check(n))
-    setExpandedFolders((prev) => { const newSet = new Set(prev); folders.forEach(folder => newSet.add(folder)); return newSet; })
-  }, [fileSearchTerm, fileTree])
+      n.children?.forEach((c) => check(c, cp));
+    };
+    fileTree.forEach((n) => check(n));
+    setExpandedFolders((prev) => { const newSet = new Set(prev); folders.forEach(folder => newSet.add(folder)); return newSet; });
+  }, [fileSearchTerm, fileTree]);
 
   useEffect(() => {
     if (!searchTerm) { setSearchResults([]); return; }
-    const results: { path: string; lineNumbers: number[] }[] = []
+    const results: { path: string; lineNumbers: number[] }[] = [];
     Object.entries(files).forEach(([path, content]) => {
-      if (typeof content !== 'string') return
-      const lines = content.split('\n')
-      const matchLines: number[] = []
-      const q = searchTerm.toLowerCase()
-      lines.forEach((line, idx) => { if (line.toLowerCase().includes(q)) matchLines.push(idx + 1); })
-      if (matchLines.length) results.push({ path, lineNumbers: matchLines })
-    })
-    setSearchResults(results)
-    setCollapsedFiles(new Set())
-  }, [searchTerm, files])
+      if (typeof content !== 'string') return;
+      const lines = content.split('\n');
+      const matchLines: number[] = [];
+      const q = searchTerm.toLowerCase();
+      lines.forEach((line, idx) => { if (line.toLowerCase().includes(q)) matchLines.push(idx + 1); });
+      if (matchLines.length) results.push({ path, lineNumbers: matchLines });
+    });
+    setSearchResults(results);
+    setCollapsedFiles(new Set());
+  }, [searchTerm, files]);
 
   const fileSections = useMemo(() =>
     Object.entries(files)
       .map(([path, content]) => {
-        if (typeof content !== 'string') return null
+        if (typeof content !== 'string') return null;
         return {
           path,
           name: path.split('/').pop() || path,
@@ -284,200 +341,159 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
           cid: content,
           lineCount: content.split('\n').length,
           size: formatFileSize(content.length),
-        }
+        };
       })
       .filter((s): s is NonNullable<typeof s> => s !== null),
     [files]
-  )
+  );
 
   const filteredSections = useMemo(() => {
-    if (!searchTerm) return fileSections
-    const q = searchTerm.toLowerCase()
-    return fileSections.filter((s) => s && (s.path.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)))
-  }, [fileSections, searchTerm])
+    if (!searchTerm) return fileSections;
+    const q = searchTerm.toLowerCase();
+    return fileSections.filter((s) => s && (s.path.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)));
+  }, [fileSections, searchTerm]);
 
   const stats = useMemo(() => {
-    const totalLines = filteredSections.reduce((sum, s) => sum + s.lineCount, 0)
-    const totalSize = filteredSections.reduce((sum, s) => sum + s.content.length, 0)
-    return { fileCount: filteredSections.length, totalLines, totalSize: formatFileSize(totalSize) }
-  }, [filteredSections])
+    const totalLines = filteredSections.reduce((sum, s) => sum + s.lineCount, 0);
+    const totalSize = filteredSections.reduce((sum, s) => sum + s.content.length, 0);
+    return { fileCount: filteredSections.length, totalLines, totalSize: formatFileSize(totalSize) };
+  }, [filteredSections]);
 
-  const toggleFile = (path: string) => setCollapsedFiles((prev) => { const n = new Set(prev); n.has(path) ? n.delete(path) : n.add(path); return n; })
-  const toggleFolder = (path: string) => setExpandedFolders((prev) => { const n = new Set(prev); n.has(path) ? n.delete(path) : n.add(path); return n; })
-
-  const handleFileSelect = async (node: FileNode) => {
-    if (node.type !== 'file') return
-    setSelectedFile(node.path)
-    if (node.cid && client && !fileContents[node.path]) {
-      try {
-        const res = await client.call('get', { cid: node.cid })
-        setFileContents(prev => ({ ...prev, [node.path]: res }))
-      } catch (err) {
-        console.error('Failed to fetch content for', node.path, err)
-      }
-    }
-    const el = codeRefs.current[node.path]
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  const toggleFile = (path: string) => setCollapsedFiles((prev) => { const n = new Set(prev); n.has(path) ? n.delete(path) : n.add(path); return n; });
+  const toggleFolder = (path: string) => setExpandedFolders((prev) => { const n = new Set(prev); n.has(path) ? n.delete(path) : n.add(path); return n; });
 
   const copyFileContent = (node: FileNode) => {
     if (node.type === 'file' && node.content) {
-      navigator.clipboard.writeText(node.content)
-      return
+      navigator.clipboard.writeText(node.content);
+      return;
     }
     if (node.type === 'folder') {
-      const buffer: string[] = []
+      const buffer: string[] = [];
       const walk = (n: FileNode) => {
-        if (n.type === 'file' && n.content) buffer.push(`// ${n.path}\n${n.content}`)
-        n.children?.forEach(walk)
-      }
-      walk(node)
-      navigator.clipboard.writeText(buffer.join('\n\n'))
+        if (n.type === 'file' && n.content) buffer.push(`// ${n.path}\n${n.content}`);
+        n.children?.forEach(walk);
+      };
+      walk(node);
+      navigator.clipboard.writeText(buffer.join('\n\n'));
     }
-  }
-
-  const handleMouseDown = () => {
-    isDragging.current = true
-  }
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging.current) return
-      const newPos = e.clientX
-      if (newPos > 180 && newPos < 600) {
-        setDividerPosition(newPos)
-      }
-    }
-
-    const handleMouseUp = () => {
-      isDragging.current = false
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [])
+  };
 
   const renderLineNumbers = (content: string, startLine: number, path: string) => {
-    const lines = content.split('\n')
-    const matches = searchResults.find((r) => r.path === path)?.lineNumbers || []
+    const lines = content.split('\n');
+    const matches = searchResults.find((r) => r.path === path)?.lineNumbers || [];
     return (
-      <div className="select-none pr-3 font-mono text-[11px] text-white/20 leading-relaxed">
+      <div className="select-none pr-3 font-mono text-[14px]" style={{ color: theme.textDim }}>
         {lines.map((_, i) => {
-          const ln = startLine + i
-          const isMatch = matches.includes(ln)
+          const ln = startLine + i;
+          const isMatch = matches.includes(ln);
           return (
-            <div key={i} className={`text-right ${isMatch ? 'bg-yellow-400/20 text-yellow-400 font-bold' : ''}`}>
+            <div key={i} className={`text-right ${isMatch ? 'bg-yellow-400/20 text-yellow-400' : ''}`}>
               {ln}
             </div>
-          )
+          );
         })}
       </div>
-    )
-  }
+    );
+  };
 
   const renderCode = (content: string, language: string, path: string) => {
-    const langColor = languageColors[language] || 'text-gray-300'
-    const lines = content.split('\n')
-    const matches = searchResults.find((r) => r.path === path)?.lineNumbers || []
+    const lines = content.split('\n');
+    const matches = searchResults.find((r) => r.path === path)?.lineNumbers || [];
     return (
       <pre className="micro-scroll micro-edge-x flex-1 overflow-x-auto">
-        <code className={`font-mono text-[12px] leading-relaxed ${langColor}`}>
+        <code className={`font-mono text-[14px] leading-relaxed ${isLight ? 'text-gray-900' : 'text-gray-300'}`}>
           {lines.map((line, i) => {
-            const ln = i + 1
-            const isMatch = matches.includes(ln)
+            const ln = i + 1;
+            const isMatch = matches.includes(ln);
             return (
               <div key={i} className={isMatch ? 'bg-yellow-400/20' : ''}>
                 {searchTerm ? highlightSearchTerm(line, searchTerm) : line}
               </div>
-            )
+            );
           })}
         </code>
       </pre>
-    )
-  }
+    );
+  };
+
+  const topFile = fileSections[0];
 
   return (
-    <div className="font-mono" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-extrabold" style={{ color: modColor }}>[CNT]</span>
-          <h3 className="text-[12px] font-extrabold text-white/60 uppercase tracking-[0.15em]">
-            Content
-          </h3>
+    <div className="overflow-hidden font-mono p-4" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: theme.panelAlt }}>
+      <div className="px-6 py-4 rounded-2xl shadow-2xl" style={{ backgroundColor: theme.panel, border: `1px solid ${theme.border}` }}>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="px-2.5 py-1 rounded-full bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30">
+              <span className="text-[10px] font-bold text-green-400">CNT</span>
+            </div>
+            <h3 className="text-[13px] font-bold tracking-wide" style={{ color: theme.text }}>
+              File Explorer
+            </h3>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] font-medium">
+            <span className="px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{stats.fileCount} files</span>
+            <span className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">{stats.totalLines} lines</span>
+            <span className="px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">{stats.totalSize}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-[11px] font-bold text-amber-400/40">
-          <span>{stats.fileCount} files</span>
-          <span>{stats.totalLines} lines</span>
-          <span>{stats.totalSize}</span>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="mb-4">
         <div className="relative">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-400/60" />
           <input
             type="text"
-            placeholder="Search in code content..."
+            placeholder="Search in code content…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white/[0.04] border border-white/[0.1] pl-10 pr-20 py-2.5 text-[12px] outline-none font-mono transition-all focus:border-white/[0.2] text-white/70 placeholder-white/20"
+            className={`w-full rounded-xl border pl-11 pr-16 py-3 text-[12px] outline-none transition-all focus:border-blue-500/40 focus:shadow-lg focus:shadow-blue-500/10 ${isLight ? 'bg-gray-50 focus:bg-white' : 'bg-white/[0.03] focus:bg-white/[0.06]'}`}
+            style={{ borderColor: theme.border, color: theme.text }}
           />
           {searchTerm && (
-            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-white/30">
-              {searchResults.length} files, {searchResults.reduce((s, r) => s + r.lineNumbers.length, 0)} matches
+            <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+              <span className="text-[10px] font-medium text-yellow-400">
+                {searchResults.length} files, {searchResults.reduce((s, r) => s + r.lineNumbers.length, 0)} matches
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Main content area */}
-      <div className="flex relative border border-white/[0.08]">
-        {/* File explorer */}
-        <div className="micro-scroll-y max-h-[600px] overflow-y-auto border-r border-white/[0.08] py-3" style={{ width: `${dividerPosition}px`, backgroundColor: 'rgba(0,0,0,0.3)' }}>
-          <div className="px-3 mb-3">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-white/30">File Explorer</h4>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => {
-                    const all = new Set<string>()
-                    const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }})
-                    collect(fileTree)
-                    setExpandedFolders(all)
-                  }}
-                  className="text-white/20 hover:text-white/50 p-1 transition-all"
-                  title="Expand all"
-                >
-                  <ChevronDownIcon className="h-3 w-3" />
-                </button>
-                <button
-                  onClick={() => setExpandedFolders(new Set())}
-                  className="text-white/20 hover:text-white/50 p-1 transition-all"
-                  title="Collapse all"
-                >
-                  <ChevronRightIcon className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
+      <div className="flex gap-4 mt-4">
+        <div className="micro-scroll-y w-72 max-h-[600px] overflow-y-auto p-4 rounded-2xl shadow-xl" style={{ backgroundColor: theme.panelAlt2, border: `1px solid ${theme.border}` }}>
+          <div className="mb-4">
+            <h3 className="mb-3 text-[11px] font-bold tracking-wide" style={{ color: theme.textDim }}>Files</h3>
             <div className="relative">
-              <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-white/20" />
+              <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-blue-400/60" />
               <input
                 type="text"
-                placeholder="Filter files..."
+                placeholder="Filter files…"
                 value={fileSearchTerm}
                 onChange={(e) => setFileSearchTerm(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] pl-7 pr-2 py-1.5 text-[11px] outline-none font-mono transition-all focus:border-white/[0.15] text-white/60 placeholder-white/15"
+                className={`w-full rounded-lg border pl-9 pr-3 py-2.5 text-[11px] outline-none transition-all focus:border-blue-500/40 ${isLight ? 'bg-gray-50 focus:bg-white' : 'bg-white/[0.03] focus:bg-white/[0.06]'}`}
+                style={{ borderColor: theme.border, color: theme.text }}
               />
             </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => {
+                  const all = new Set<string>();
+                  const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }});
+                  collect(fileTree);
+                  setExpandedFolders(all);
+                }}
+                className={`text-xs transition-all p-1.5 rounded-md text-blue-400/70 hover:text-blue-400 ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+                title="Expand all"
+              >
+                <ChevronDownIcon className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setExpandedFolders(new Set())}
+                className={`text-xs transition-all p-1.5 rounded-md text-blue-400/70 hover:text-blue-400 ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+                title="Collapse all"
+              >
+                <ChevronRightIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
-          <div>
+          <div className="space-y-0.5">
             {fileTree.map((node) => (
               <FileTreeItem
                 key={node.path}
@@ -489,49 +505,57 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                 selectedPath={selectedFile || undefined}
                 onCopy={copyFileContent}
                 searchTerm={fileSearchTerm}
+                isLight={isLight}
               />
             ))}
           </div>
         </div>
 
-        {/* Divider */}
-        <div
-          className="absolute top-0 bottom-0 w-px cursor-col-resize hover:opacity-100 transition-all"
-          style={{ left: `${dividerPosition}px`, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.1)' }}
-          onMouseDown={handleMouseDown}
-        />
-
-        {/* Code panel */}
-        <div className="micro-scroll-y max-h-[600px] flex-1 overflow-y-auto">
+        <div className="micro-scroll-y max-h-[600px] flex-1 overflow-y-auto rounded-2xl shadow-xl p-4" style={{ backgroundColor: theme.panel, border: `1px solid ${theme.border}` }}>
           {filteredSections.map((section) => {
-            const isCollapsed = collapsedFiles.has(section.path)
-            const isSelected = selectedFile === section.path
-            const FileIcon = getFileIcon(section.name)
-            const matches = searchResults.find((r) => r.path === section.path)?.lineNumbers.length || 0
-            if (selectedFile && !isSelected) return null
-            if (!client) return null
-            const content = fileContents[section.path] || section.content
+            const isCollapsed = collapsedFiles.has(section.path);
+            const isSelected = selectedFile === section.path;
+            const FileIcon = getFileIcon(section.name);
+            const matches = searchResults.find((r) => r.path === section.path)?.lineNumbers.length || 0;
+            if (selectedFile && !isSelected) return null;
+            if (!client) return null;
+            const content = fileContents[section.path] || section.content;
 
             return (
               <div
                 key={section.path}
                 ref={(el) => { codeRefs.current[section.path] = el; }}
-                className={`${matches ? 'ring-1 ring-yellow-400/20' : ''}`}
+                className={`overflow-hidden mb-4 rounded-xl border transition-all duration-200
+                ${isSelected ? 'border-blue-400/40 shadow-xl shadow-blue-500/10' : ''}
+                ${matches ? 'border-yellow-400/40 shadow-lg shadow-yellow-500/10' : ''}`}
+                style={{ borderColor: isSelected || matches ? undefined : ui.border, backgroundColor: ui.panelAlt2 }}
               >
                 <div
-                  className="flex cursor-pointer items-center justify-between px-4 py-3 bg-white/[0.03] hover:bg-white/[0.05] transition-all border-b border-white/[0.06]"
+                  className={`flex cursor-pointer items-center justify-between px-5 py-3.5 transition-all duration-200 rounded-t-xl ${isLight ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
                   onClick={() => toggleFile(section.path)}
                 >
-                  <div className="micro-row flex items-center gap-3">
-                    {isCollapsed ? <ChevronRightIcon className="h-4 w-4 text-white/25" /> : <ChevronDownIcon className="h-4 w-4 text-white/25" />}
-                    <FileIcon className="h-4 w-4 text-white/25" />
-                    <span className="font-mono text-[12px] font-bold" style={{ color: modColor }}>
-                      {section.name}
+                  <div className="micro-row flex items-center gap-3 flex-1 min-w-0">
+                    {isCollapsed ? <ChevronRightIcon className="h-4 w-4 flex-shrink-0" style={{ color: theme.textDim }} /> : <ChevronDownIcon className="h-4 w-4 flex-shrink-0" style={{ color: theme.textDim }} />}
+                    <FileIcon className="h-5 w-5 text-blue-400 flex-shrink-0" />
+                    <span className={`font-mono text-[13px] font-medium ${isLight ? 'text-gray-900' : 'text-white'} truncate`}>
+                      {searchTerm && section.path.toLowerCase().includes(searchTerm.toLowerCase())
+                        ? highlightSearchTerm(section.path, searchTerm)
+                        : section.path}
                     </span>
-                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 ${languageColors[section.language]}`}>{section.language}</span>
-                    {!!matches && <span className="text-[10px] text-yellow-400/60 font-bold">{matches} matches</span>}
+                    <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full border flex-shrink-0 ${languageColors[section.language]} ${isLight ? 'bg-gray-200' : 'bg-black/40'}`}
+                      style={{ borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)' }}>
+                      {section.language}
+                    </span>
+                    {/* CID Display - Inline with filename */}
+                    <span className={`text-[10px] font-mono select-all px-2.5 py-1 rounded-md flex-shrink-0 ${isLight ? 'text-blue-700 bg-blue-50' : 'text-blue-300/80 bg-blue-500/10'}`}
+                      style={{ border: `1px solid ${isLight ? 'rgba(59, 130, 246, 0.2)' : 'rgba(96, 165, 250, 0.2)'}` }}
+                      onClick={(e) => e.stopPropagation()}
+                      title={section.cid}>
+                      {section.cid.length > 20 ? `${section.cid.slice(0, 10)}...${section.cid.slice(-8)}` : section.cid}
+                    </span>
+                    {!!matches && <span className="text-[10px] text-yellow-400 font-medium px-2.5 py-1 rounded-full bg-yellow-400/10 border border-yellow-500/20 flex-shrink-0">{matches} matches</span>}
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] font-mono text-white/25">
+                  <div className="flex items-center gap-4 text-[10px] font-bold uppercase flex-shrink-0 ml-4" style={{ color: theme.textDim }}>
                     <span>{section.size}</span>
                     <span>{section.lineCount} lines</span>
                     <CopyButton content={content} />
@@ -539,52 +563,53 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                 </div>
 
                 {!isCollapsed && (
-                  <div className="flex" style={{ backgroundColor: '#06060a' }}>
+                  <div className="flex rounded-b-xl overflow-hidden" style={{ backgroundColor: theme.panelAlt2 }}>
                     {renderLineNumbers(content, 1, section.path)}
-                    <div className="micro-scroll micro-edge-x flex-1 overflow-x-auto p-4">
+                    <div className="micro-scroll micro-edge-x flex-1 overflow-x-auto p-5">
                       {renderCode(content, section.language, section.path)}
                     </div>
                   </div>
                 )}
               </div>
-            )
+            );
           })}
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between mt-4">
-        <div className="text-[11px] font-bold text-white/30">
+      <div className="flex items-center justify-between px-6 py-4 mt-4 rounded-2xl shadow-xl" style={{ backgroundColor: theme.panel, border: `1px solid ${theme.border}` }}>
+        <div className="text-[11px] font-medium" style={{ color: theme.textDim }}>
           {searchTerm && searchResults.length > 0 && (
-            <span>Found &quot;{searchTerm}&quot; in {searchResults.length} files</span>
+            <span className="px-3 py-1.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+              Found "{searchTerm}" in {searchResults.length} files
+            </span>
           )}
         </div>
         <button
           onClick={() => {
-            const all = filteredSections.map((s) => `// ${s.path}\n${s.content}`).join('\n\n')
-            navigator.clipboard.writeText(all)
+            const all = filteredSections.map((s) => `// ${s.path}\n${s.content}`).join('\n\n');
+            navigator.clipboard.writeText(all);
           }}
-          className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 border border-white/[0.08] hover:border-white/[0.15] text-white/30 hover:text-white/60 transition-all"
+          className="flex items-center gap-2.5 text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-all px-4 py-2.5 rounded-xl hover:bg-blue-500/10 border border-blue-500/20 shadow-lg shadow-blue-500/5"
         >
-          <DocumentIcon className="h-3.5 w-3.5" />
+          <DocumentIcon className="h-4 w-4" />
           Copy All Code
         </button>
       </div>
 
       <style jsx>{`
         .micro-scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-        .micro-scroll:hover { scrollbar-color: rgba(255,255,255,0.14) transparent; }
-        .micro-scroll::-webkit-scrollbar { height: 6px; background: transparent; }
+        .micro-scroll:hover { scrollbar-color: rgba(96, 165, 250, 0.3) transparent; }
+        .micro-scroll::-webkit-scrollbar { height: 8px; background: transparent; }
         .micro-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 9999px; }
-        .micro-scroll:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+        .micro-scroll:hover::-webkit-scrollbar-thumb { background: rgba(96, 165, 250, 0.25); }
         .micro-scroll::-webkit-scrollbar-track { background: transparent; }
-        .micro-scroll-y { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent; }
-        .micro-scroll-y::-webkit-scrollbar { width: 8px; background: transparent; }
-        .micro-scroll-y::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 9999px; }
+        .micro-scroll-y { scrollbar-width: thin; scrollbar-color: rgba(96, 165, 250, 0.2) transparent; }
+        .micro-scroll-y::-webkit-scrollbar { width: 10px; background: transparent; }
+        .micro-scroll-y::-webkit-scrollbar-thumb { background: rgba(96, 165, 250, 0.2); border-radius: 9999px; }
         .micro-scroll-y::-webkit-scrollbar-track { background: transparent; }
         .micro-edge-x { -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent); mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent); }
         .micro-row { min-height: 32px; }
       `}</style>
     </div>
-  )
+  );
 }

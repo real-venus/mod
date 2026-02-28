@@ -16,8 +16,6 @@ const ERC20_ABI = [
 
 interface UseTransfersArgs {
   userKey: string | undefined
-  walletMode: string
-  client: any
   marketCredit: number
   tokenBalances: Record<string, number>
   fetchMarketCredit: () => Promise<void>
@@ -25,7 +23,7 @@ interface UseTransfersArgs {
 }
 
 export function useTransfers({
-  userKey, walletMode, client,
+  userKey,
   marketCredit, tokenBalances,
   fetchMarketCredit, fetchCustomTokenBalances,
 }: UseTransfersArgs) {
@@ -65,34 +63,23 @@ export function useTransfers({
     setTopUpError(null)
     setTopUpSuccess(null)
     try {
-      const wm = walletMode || localStorage.getItem('wallet_mode') || 'local'
-      if (wm === 'local' && client) {
-        const result = await client.call('credit', {
-          stable_amount: amount,
-          payment_token: selectedToken.toLowerCase()
-        })
-        if (result.error) throw new Error(result.error)
-        await fetchMarketCredit()
-        setTopUpSuccess(`Successfully added $${amount.toFixed(2)} using ${selectedToken}!`)
-      } else {
-        if (typeof window === 'undefined' || !window.ethereum) {
-          throw new Error('MetaMask is required for web3 wallet mode')
-        }
-        const { MarketAllowanceManager } = await import('@/network/marketAllowance')
-        const chainConfig = modConfig.chain?.['testnet']
-        if (!chainConfig) throw new Error('Chain config not found')
-        const allowanceManager = new MarketAllowanceManager(chainConfig)
-        await allowanceManager.increaseMarketAllowance(userKey, amount, selectedToken)
-        await allowanceManager.addMarketCredit(userKey, amount, selectedToken)
-        await fetchMarketCredit()
-        setTopUpSuccess(`Successfully added $${amount.toFixed(2)} using ${selectedToken}!`)
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error('No wallet connected. Please install MetaMask or another wallet.')
       }
+      const { MarketAllowanceManager } = await import('@/network/marketAllowance')
+      const chainConfig = modConfig.chain?.['testnet']
+      if (!chainConfig) throw new Error('Chain config not found')
+      const allowanceManager = new MarketAllowanceManager(chainConfig)
+      await allowanceManager.increaseMarketAllowance(userKey, amount, selectedToken)
+      await allowanceManager.addMarketCredit(userKey, amount, selectedToken)
+      await fetchMarketCredit()
+      setTopUpSuccess(`Successfully added $${amount.toFixed(2)} using ${selectedToken}!`)
       setTopUpAmount('')
       setTimeout(() => { setShowTopUpForm(false); setTopUpSuccess(null) }, 3000)
     } catch (err: any) {
       let msg = err?.message || String(err)
       if (msg.includes('1010')) msg = 'Insufficient balance for transaction.'
-      else if (msg.toLowerCase().includes('cancel')) msg = 'Transaction cancelled by user.'
+      else if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user rejected')) msg = 'Transaction cancelled by user.'
       setTopUpError(msg)
     } finally {
       setIsProcessing(false)
@@ -129,41 +116,25 @@ export function useTransfers({
     setTopUpError(null)
     setTopUpSuccess(null)
     try {
-      const wm = walletMode || localStorage.getItem('wallet_mode') || 'local'
+      if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet connected. Please install MetaMask or another wallet.')
       if (transferTokenType === 'MARKET') {
-        if (wm === 'local' && client) {
-          const result = await client.call('transfer', {
-            to: transferRecipient, amount, token: 'market', sender: userKey
-          })
-          if (result.error) throw new Error(result.error)
-        } else {
-          if (typeof window === 'undefined' || !window.ethereum) throw new Error('MetaMask is required for web3 wallet mode')
-          const { Market } = await import('@/network/Market')
-          const chainConfig = modConfig.chain?.['testnet']
-          if (!chainConfig) throw new Error('Chain config not found')
-          const market = new Market(chainConfig)
-          await market.transferMarketCredit(userKey, transferRecipient, amount)
-        }
+        const { Market } = await import('@/network/Market')
+        const chainConfig = modConfig.chain?.['testnet']
+        if (!chainConfig) throw new Error('Chain config not found')
+        const market = new Market(chainConfig)
+        await market.transferMarketCredit(userKey, transferRecipient, amount)
       } else {
-        if (wm === 'local' && client) {
-          const result = await client.call('transfer', {
-            to: transferRecipient, amount, token: transferTokenType.toLowerCase(), sender: userKey
-          })
-          if (result.error) throw new Error(result.error)
-        } else {
-          if (typeof window === 'undefined' || !window.ethereum) throw new Error('MetaMask is required for web3 wallet mode')
-          const chainConfig = modConfig.chain?.['testnet']
-          if (!chainConfig) throw new Error('Chain config not found')
-          const tokenAddress = chainConfig.contracts?.[transferTokenType]?.address
-          if (!tokenAddress) throw new Error(`${transferTokenType} contract not found`)
-          const browserProvider = new ethers.BrowserProvider(window.ethereum)
-          const signer = await browserProvider.getSigner(userKey)
-          const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer)
-          const tokenDecimals = await contract.decimals()
-          const amountInWei = ethers.parseUnits(amount.toString(), tokenDecimals)
-          const tx = await contract.transfer(transferRecipient, amountInWei)
-          await tx.wait()
-        }
+        const chainConfig = modConfig.chain?.['testnet']
+        if (!chainConfig) throw new Error('Chain config not found')
+        const tokenAddress = chainConfig.contracts?.[transferTokenType]?.address
+        if (!tokenAddress) throw new Error(`${transferTokenType} contract not found`)
+        const browserProvider = new ethers.BrowserProvider(window.ethereum)
+        const signer = await browserProvider.getSigner(userKey)
+        const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer)
+        const tokenDecimals = await contract.decimals()
+        const amountInWei = ethers.parseUnits(amount.toString(), tokenDecimals)
+        const tx = await contract.transfer(transferRecipient, amountInWei)
+        await tx.wait()
       }
       await fetchMarketCredit()
       setTopUpSuccess(`Successfully transferred $${amount.toFixed(2)} ${transferTokenType} to ${transferRecipient.slice(0, 8)}...${transferRecipient.slice(-6)}!`)

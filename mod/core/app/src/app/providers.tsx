@@ -69,8 +69,10 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
   const pathname = usePathname()
   const inputRef = useRef<HTMLInputElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
+  const createDropdownRef = useRef<HTMLDivElement>(null)
   const [inputValue, setInputValue] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [createDropdownOpen, setCreateDropdownOpen] = useState(false)
 
   const navItems = [
     { href: '/mod/explore', label: 'MODS', color: '#10b981' },
@@ -137,6 +139,19 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
     handleSearch('')
   }
 
+  // Close create dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (createDropdownRef.current && !createDropdownRef.current.contains(e.target as Node)) {
+        setCreateDropdownOpen(false)
+      }
+    }
+    if (createDropdownOpen) {
+      document.addEventListener('mousedown', handler)
+      return () => document.removeEventListener('mousedown', handler)
+    }
+  }, [createDropdownOpen])
+
   return (
     <>
       <div
@@ -198,18 +213,103 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
           </div>
         </div>
 
-        {/* Right side: + New, Logo, Network, Wallet */}
+        {/* Right side: + CREATE, Logo, Network, Wallet */}
         <div className="shrink-0 flex items-center gap-1 ml-3">
-          <Link
-            href="/create"
-            className="shrink-0 flex items-center gap-2 px-4 border hover:opacity-80 transition-all"
-            style={{ height: '40px', fontFamily: 'inherit', borderRadius: '20px', borderColor: 'var(--border-strong)' }}
-          >
-            <PlusIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
-            <span className="text-[14px] font-extrabold uppercase tracking-wider whitespace-nowrap hidden sm:inline" style={{ color: 'var(--text-primary)' }}>
-              NEW
-            </span>
-          </Link>
+          <div ref={createDropdownRef} className="relative">
+            <button
+              onClick={() => setCreateDropdownOpen(!createDropdownOpen)}
+              className="shrink-0 flex items-center gap-2 px-5 border hover:opacity-80 transition-all"
+              style={{ height: '44px', fontFamily: 'inherit', borderRadius: '22px', borderColor: 'var(--border-strong)', background: createDropdownOpen ? 'var(--bg-input)' : 'transparent' }}
+            >
+              <PlusIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
+              <span className="text-[15px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap hidden sm:inline" style={{ color: 'var(--text-primary)' }}>
+                CREATE
+              </span>
+            </button>
+
+            {/* Dropdown popout */}
+            <AnimatePresence>
+              {createDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                  transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+                  className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden shadow-2xl border"
+                  style={{
+                    background: 'var(--bg-sidebar)',
+                    borderColor: 'var(--border-strong)',
+                    backdropFilter: 'blur(16px)',
+                    fontFamily: 'IBM Plex Mono, monospace',
+                  }}
+                >
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        router.push('/create')
+                        setCreateDropdownOpen(false)
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 transition-all hover:bg-opacity-60"
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <PlusIcon className="w-4 h-4" style={{ color: '#10b981' }} />
+                      <div className="flex flex-col items-start">
+                        <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                          New Module
+                        </span>
+                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
+                          Create a new module
+                        </span>
+                      </div>
+                    </button>
+
+                    <div className="border-t mx-2" style={{ borderColor: 'var(--border-color)' }} />
+
+                    <button
+                      onClick={() => {
+                        router.push('/quests')
+                        setCreateDropdownOpen(false)
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 transition-all hover:bg-opacity-60"
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <PlusIcon className="w-4 h-4" style={{ color: '#0bf58c' }} />
+                      <div className="flex flex-col items-start">
+                        <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                          New Quest
+                        </span>
+                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
+                          Create a new quest
+                        </span>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        router.push('/chat')
+                        setCreateDropdownOpen(false)
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 transition-all hover:bg-opacity-60"
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <PlusIcon className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                      <div className="flex flex-col items-start">
+                        <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                          New Chat
+                        </span>
+                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
+                          Start a new conversation
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           <ThemeToggle />
           <NetworkSelector />

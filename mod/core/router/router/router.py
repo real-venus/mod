@@ -26,6 +26,7 @@ class Router:
         self.chain = m.mod(chain)()
         self.cache = m.mod(cache)()
         self.auth = m.mod(auth)()
+        self.client = m.mod('client')()
         self.threads['sync'] = m.thread(self.sync_loop)
 
     def get(self, cid: str) -> Dict[str, Any]:
@@ -51,7 +52,7 @@ class Router:
                 owner = None,
                 timeout=1000, 
                 # cache params
-                update = False, 
+                update = True, 
                 max_age = 3600,
                 # extra params for (run)
                 **extra_params) -> Any:
@@ -349,8 +350,8 @@ class Router:
         assert isinstance(params, dict)
         m.put(path, task)
         try:
-            if mod in m.servers() and mod != 'api':
-                result = m.fn('client/call')(fn=task['fn'], params=params, timeout=task['timeout'])
+            if mod in m.servers():
+                result = self.client.call(fn=task['fn'], params=params, timeout=task['timeout'])
             else:
                 result = m.fn(task['fn'])
                 if callable(result):
