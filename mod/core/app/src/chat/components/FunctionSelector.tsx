@@ -3,7 +3,8 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { text2color } from '@/utils'
 import type { Module, ModuleSchema } from '../types'
-import { userContext } from '@/context';
+import { userContext } from '@/context'
+import { normalizeSchema } from '../utils'
 
 
 interface FunctionSelectorProps {
@@ -55,8 +56,11 @@ export function FunctionSelector({
         schema = module.schema
       }
 
+      // Normalize schema (convert list format to map format if needed)
+      const normalizedSchema = normalizeSchema(schema)
+
       // Extract function names from schema
-      Object.keys(schema).forEach(fnName => {
+      Object.keys(normalizedSchema).forEach(fnName => {
         if (!functionsMap.has(fnName)) {
           functionsMap.set(fnName, {
             name: fnName,

@@ -259,8 +259,8 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   const isLight = effectiveTheme === 'light';
   const theme = isLight ? ui.light : ui.dark;
   const [searchTerm, setSearchTerm] = useState('');
-  const [fileSearchTerm, setFileSearchTerm] = useState('');
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
+  const [selectedVersion, setSelectedVersion] = useState<number>(0);
   const [selectedFile, setSelectedFile] = useState<string | null>(mod.content && typeof mod.content === 'object' ? Object.keys(mod.content)[0] : null);
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -300,11 +300,11 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   }, [files, selectedFile]);
 
   useEffect(() => {
-    if (!fileSearchTerm) return;
+    if (!searchTerm) return;
     const folders = new Set<string>();
     const check = (n: FileNode, parent = '') => {
       const cp = parent ? `${parent}/${n.name}` : n.name;
-      if (n.name.toLowerCase().includes(fileSearchTerm.toLowerCase()) || n.path.toLowerCase().includes(fileSearchTerm.toLowerCase())) {
+      if (n.name.toLowerCase().includes(searchTerm.toLowerCase()) || n.path.toLowerCase().includes(searchTerm.toLowerCase())) {
         const parts = cp.split('/').filter(Boolean);
         for (let i = 0; i < parts.length - 1; i++) folders.add(parts.slice(0, i + 1).join('/'));
       }
@@ -312,7 +312,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     };
     fileTree.forEach((n) => check(n));
     setExpandedFolders((prev) => { const newSet = new Set(prev); folders.forEach(folder => newSet.add(folder)); return newSet; });
-  }, [fileSearchTerm, fileTree]);
+  }, [searchTerm, fileTree]);
 
   useEffect(() => {
     if (!searchTerm) { setSearchResults([]); return; }
@@ -352,6 +352,19 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     const q = searchTerm.toLowerCase();
     return fileSections.filter((s) => s && (s.path.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)));
   }, [fileSections, searchTerm]);
+
+  const filteredTree = useMemo(() => {
+    if (!searchTerm) return fileTree;
+    const matchesSearch = (n: FileNode): boolean => {
+      if (n.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          n.path.toLowerCase().includes(searchTerm.toLowerCase())) return true;
+      if (n.type === 'folder' && n.children) {
+        return n.children.some(matchesSearch);
+      }
+      return false;
+    };
+    return fileTree.filter(matchesSearch);
+  }, [fileTree, searchTerm]);
 
   const stats = useMemo(() => {
     const totalLines = filteredSections.reduce((sum, s) => sum + s.lineCount, 0);
@@ -418,40 +431,62 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
 
   const topFile = fileSections[0];
 
+  // Mock versions for now - can be replaced with actual version data from mod
+  const versions = [
+    { version: '1.0.0', timestamp: Date.now(), label: 'latest' },
+    { version: '0.9.0', timestamp: Date.now() - 86400000, label: '' },
+    { version: '0.8.0', timestamp: Date.now() - 172800000, label: '' },
+  ];
+
   return (
     <div className="overflow-hidden font-mono p-4" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: theme.panelAlt }}>
-      <div className="px-6 py-4 rounded-2xl shadow-2xl" style={{ backgroundColor: theme.panel, border: `1px solid ${theme.border}` }}>
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="px-2.5 py-1 rounded-full bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30">
-              <span className="text-[10px] font-bold text-green-400">CNT</span>
-            </div>
-            <h3 className="text-[13px] font-bold tracking-wide" style={{ color: theme.text }}>
-              File Explorer
-            </h3>
+      {/* Single line header with search and stats */}
+      <div className="px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4" style={{ backgroundColor: theme.panel, border: `1px solid ${theme.border}` }}>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="px-2.5 py-1 rounded-full bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30">
+            <span className="text-[10px] font-bold text-green-400">CNT</span>
           </div>
-          <div className="flex items-center gap-3 text-[10px] font-medium">
-            <span className="px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{stats.fileCount} files</span>
-            <span className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">{stats.totalLines} lines</span>
-            <span className="px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">{stats.totalSize}</span>
-          </div>
+          <h3 className="text-[13px] font-bold tracking-wide whitespace-nowrap" style={{ color: theme.text }}>
+            File Explorer
+          </h3>
         </div>
-        <div className="relative">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-400/60" />
+
+        {/* Search bar - flex-1 to take remaining space */}
+        <div className="relative flex-1 max-w-md">
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-blue-400/60" />
           <input
             type="text"
-            placeholder="Search in code content…"
+            placeholder="Search files and content…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={`w-full rounded-xl border pl-11 pr-16 py-3 text-[12px] outline-none transition-all focus:border-blue-500/40 focus:shadow-lg focus:shadow-blue-500/10 ${isLight ? 'bg-gray-50 focus:bg-white' : 'bg-white/[0.03] focus:bg-white/[0.06]'}`}
+            className={`w-full rounded-lg border pl-9 pr-3 py-2 text-[11px] outline-none transition-all focus:border-blue-500/40 ${isLight ? 'bg-gray-50 focus:bg-white' : 'bg-white/[0.03] focus:bg-white/[0.06]'}`}
             style={{ borderColor: theme.border, color: theme.text }}
           />
-          {searchTerm && (
-            <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
-              <span className="text-[10px] font-medium text-yellow-400">
-                {searchResults.length} files, {searchResults.reduce((s, r) => s + r.lineNumbers.length, 0)} matches
-              </span>
-            </div>
+        </div>
+
+        {/* Version selector */}
+        <select
+          value={selectedVersion}
+          onChange={(e) => setSelectedVersion(Number(e.target.value))}
+          className={`px-3 py-2 rounded-lg text-[11px] font-medium border outline-none transition-all flex-shrink-0 ${isLight ? 'bg-gray-50 text-gray-900' : 'bg-white/[0.03] text-white'}`}
+          style={{ borderColor: theme.border }}
+        >
+          {versions.map((v, idx) => (
+            <option key={idx} value={idx}>
+              v{v.version} {v.label && `(${v.label})`}
+            </option>
+          ))}
+        </select>
+
+        {/* Stats */}
+        <div className="flex items-center gap-2 text-[10px] font-medium flex-shrink-0">
+          <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">{stats.fileCount} files</span>
+          <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 whitespace-nowrap">{stats.totalLines} lines</span>
+          <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 whitespace-nowrap">{stats.totalSize}</span>
+          {searchTerm && searchResults.length > 0 && (
+            <span className="px-2.5 py-1 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 whitespace-nowrap">
+              {searchResults.reduce((s, r) => s + r.lineNumbers.length, 0)} matches
+            </span>
           )}
         </div>
       </div>
@@ -459,42 +494,33 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
       <div className="flex gap-4 mt-4">
         <div className="micro-scroll-y w-72 max-h-[600px] overflow-y-auto p-4 rounded-2xl shadow-xl" style={{ backgroundColor: theme.panelAlt2, border: `1px solid ${theme.border}` }}>
           <div className="mb-4">
-            <h3 className="mb-3 text-[11px] font-bold tracking-wide" style={{ color: theme.textDim }}>Files</h3>
-            <div className="relative">
-              <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-blue-400/60" />
-              <input
-                type="text"
-                placeholder="Filter files…"
-                value={fileSearchTerm}
-                onChange={(e) => setFileSearchTerm(e.target.value)}
-                className={`w-full rounded-lg border pl-9 pr-3 py-2.5 text-[11px] outline-none transition-all focus:border-blue-500/40 ${isLight ? 'bg-gray-50 focus:bg-white' : 'bg-white/[0.03] focus:bg-white/[0.06]'}`}
-                style={{ borderColor: theme.border, color: theme.text }}
-              />
-            </div>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => {
-                  const all = new Set<string>();
-                  const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }});
-                  collect(fileTree);
-                  setExpandedFolders(all);
-                }}
-                className={`text-xs transition-all p-1.5 rounded-md text-blue-400/70 hover:text-blue-400 ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
-                title="Expand all"
-              >
-                <ChevronDownIcon className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => setExpandedFolders(new Set())}
-                className={`text-xs transition-all p-1.5 rounded-md text-blue-400/70 hover:text-blue-400 ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
-                title="Collapse all"
-              >
-                <ChevronRightIcon className="h-3.5 w-3.5" />
-              </button>
+            <div className="flex items-center justify-between">
+              <h3 className="text-[11px] font-bold tracking-wide" style={{ color: theme.textDim }}>Files</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    const all = new Set<string>();
+                    const collect = (nodes: FileNode[]) => nodes.forEach((n) => { if (n.type === 'folder') { all.add(n.path); n.children && collect(n.children); }});
+                    collect(fileTree);
+                    setExpandedFolders(all);
+                  }}
+                  className={`text-xs transition-all p-1.5 rounded-md text-blue-400/70 hover:text-blue-400 ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+                  title="Expand all"
+                >
+                  <ChevronDownIcon className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setExpandedFolders(new Set())}
+                  className={`text-xs transition-all p-1.5 rounded-md text-blue-400/70 hover:text-blue-400 ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+                  title="Collapse all"
+                >
+                  <ChevronRightIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
           <div className="space-y-0.5">
-            {fileTree.map((node) => (
+            {filteredTree.map((node) => (
               <FileTreeItem
                 key={node.path}
                 node={node}
@@ -504,7 +530,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                 toggleFolder={toggleFolder}
                 selectedPath={selectedFile || undefined}
                 onCopy={copyFileContent}
-                searchTerm={fileSearchTerm}
+                searchTerm={searchTerm}
                 isLight={isLight}
               />
             ))}
@@ -528,34 +554,36 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                 className={`overflow-hidden mb-4 rounded-xl border transition-all duration-200
                 ${isSelected ? 'border-blue-400/40 shadow-xl shadow-blue-500/10' : ''}
                 ${matches ? 'border-yellow-400/40 shadow-lg shadow-yellow-500/10' : ''}`}
-                style={{ borderColor: isSelected || matches ? undefined : ui.border, backgroundColor: ui.panelAlt2 }}
+                style={{ borderColor: isSelected || matches ? undefined : theme.border, backgroundColor: theme.panelAlt2 }}
               >
                 <div
                   className={`flex cursor-pointer items-center justify-between px-5 py-3.5 transition-all duration-200 rounded-t-xl ${isLight ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
                   onClick={() => toggleFile(section.path)}
                 >
-                  <div className="micro-row flex items-center gap-3 flex-1 min-w-0">
+                  <div className="micro-row flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                     {isCollapsed ? <ChevronRightIcon className="h-4 w-4 flex-shrink-0" style={{ color: theme.textDim }} /> : <ChevronDownIcon className="h-4 w-4 flex-shrink-0" style={{ color: theme.textDim }} />}
                     <FileIcon className="h-5 w-5 text-blue-400 flex-shrink-0" />
-                    <span className={`font-mono text-[13px] font-medium ${isLight ? 'text-gray-900' : 'text-white'} truncate`}>
+                    <span className={`font-mono text-[13px] font-medium ${isLight ? 'text-gray-900' : 'text-white'} truncate flex-shrink`}>
                       {searchTerm && section.path.toLowerCase().includes(searchTerm.toLowerCase())
                         ? highlightSearchTerm(section.path, searchTerm)
                         : section.path}
                     </span>
-                    <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full border flex-shrink-0 ${languageColors[section.language]} ${isLight ? 'bg-gray-200' : 'bg-black/40'}`}
-                      style={{ borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)' }}>
-                      {section.language}
-                    </span>
-                    {/* CID Display - Inline with filename */}
-                    <span className={`text-[10px] font-mono select-all px-2.5 py-1 rounded-md flex-shrink-0 ${isLight ? 'text-blue-700 bg-blue-50' : 'text-blue-300/80 bg-blue-500/10'}`}
-                      style={{ border: `1px solid ${isLight ? 'rgba(59, 130, 246, 0.2)' : 'rgba(96, 165, 250, 0.2)'}` }}
-                      onClick={(e) => e.stopPropagation()}
-                      title={section.cid}>
-                      {section.cid.length > 20 ? `${section.cid.slice(0, 10)}...${section.cid.slice(-8)}` : section.cid}
-                    </span>
-                    {!!matches && <span className="text-[10px] text-yellow-400 font-medium px-2.5 py-1 rounded-full bg-yellow-400/10 border border-yellow-500/20 flex-shrink-0">{matches} matches</span>}
+                    <div className="flex items-center gap-2 flex-shrink-0 whitespace-nowrap">
+                      <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full border ${languageColors[section.language]} ${isLight ? 'bg-gray-200' : 'bg-black/40'}`}
+                        style={{ borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)' }}>
+                        {section.language}
+                      </span>
+                      {/* CID Display - Inline with filename */}
+                      <span className={`text-[10px] font-mono select-all px-2.5 py-1 rounded-md ${isLight ? 'text-blue-700 bg-blue-50' : 'text-blue-300/80 bg-blue-500/10'}`}
+                        style={{ border: `1px solid ${isLight ? 'rgba(59, 130, 246, 0.2)' : 'rgba(96, 165, 250, 0.2)'}` }}
+                        onClick={(e) => e.stopPropagation()}
+                        title={section.cid}>
+                        {section.cid.length > 20 ? `${section.cid.slice(0, 10)}...${section.cid.slice(-8)}` : section.cid}
+                      </span>
+                      {!!matches && <span className="text-[10px] text-yellow-400 font-medium px-2.5 py-1 rounded-full bg-yellow-400/10 border border-yellow-500/20">{matches} matches</span>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4 text-[10px] font-bold uppercase flex-shrink-0 ml-4" style={{ color: theme.textDim }}>
+                  <div className="flex items-center gap-4 text-[10px] font-bold uppercase flex-shrink-0 ml-4 whitespace-nowrap" style={{ color: theme.textDim }}>
                     <span>{section.size}</span>
                     <span>{section.lineCount} lines</span>
                     <CopyButton content={content} />

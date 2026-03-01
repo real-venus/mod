@@ -43,33 +43,33 @@ class Router:
         """
         return self.folder_path + '/' + path
     
-    def call(self , 
-                # function call params
-                fn: str = 'api/edit',  
-                params: Dict[str, Any] = {}, 
-                token = None, 
-                wait=True,
-                owner = None,
-                timeout=1000, 
-                # cache params
-                update = True, 
-                max_age = 3600,
-                # extra params for (run)
-                **extra_params) -> Any:
-        params = {
-            'fn': fn,
-            'params': params, 
-            'token': token,
-            'owner': owner,
-            'timeout': timeout,
-            'wait' : wait,
-            **extra_params
+    # def call(self , 
+    #             # function call params
+    #             fn: str = 'api/edit',  
+    #             params: Dict[str, Any] = {}, 
+    #             token = None, 
+    #             wait=True,
+    #             owner = None,
+    #             timeout=1000, 
+    #             # cache params
+    #             update = True, 
+    #             max_age = 3600,
+    #             # extra params for (run)
+    #             **extra_params) -> Any:
+    #     params = {
+    #         'fn': fn,
+    #         'params': params, 
+    #         'token': token,
+    #         'owner': owner,
+    #         'timeout': timeout,
+    #         'wait' : wait,
+    #         **extra_params
 
-        }
-        return self.cache.forward(fn=self.run, params=params, update=update, max_age=max_age)
+    #     }
+    #     return self.cache.forward(fn=self.run, params=params, update=update, max_age=max_age)
         
 
-    def run(self , 
+    def call(self , 
                 fn: str = 'api/edit',  
                 params: Dict[str, Any] = {}, 
                 token = None, 
@@ -250,7 +250,7 @@ class Router:
         return len(list(self.cid2future.values()))
     
             
-    def sync_tasks(self):
+    def sync_tasks(self,timeout=1000):
         self.last_time_sync = m.time()
         n_tasks = self.n_tasks()
         if n_tasks == 0:
@@ -258,7 +258,7 @@ class Router:
         else:
             future2path = {future: path for path, future in self.cid2future.items()}
 
-        for future in m.as_completed(future2path.keys()):
+        for future in m.as_completed(future2path.keys(), timeout=timeout):
             path = future2path.pop(future)
             try:
                 print(f"Result({path})")

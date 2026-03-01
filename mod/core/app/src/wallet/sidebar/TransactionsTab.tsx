@@ -66,11 +66,17 @@ export function TransactionsTab({
                 (() => {
                   const filteredTxs = userTransactions.filter(tx => {
                     if (txsStatusFilter === 'all') return true
+
+                    // Check if transaction has actually completed (has result)
+                    const hasCompleted = tx.result !== undefined && tx.result !== null
+
                     if (txsStatusFilter === 'pending') {
-                      return tx.status === 'pending' || tx.status === 'running'
+                      // Only show as pending if it doesn't have a result yet
+                      return !hasCompleted && (tx.status === 'pending' || tx.status === 'running')
                     }
                     if (txsStatusFilter === 'complete') {
-                      return tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete' || tx.status === 'error' || tx.status === 'failed'
+                      // Show as complete if it has a result OR if status indicates completion
+                      return hasCompleted || tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete' || tx.status === 'error' || tx.status === 'failed'
                     }
                     return true
                   })

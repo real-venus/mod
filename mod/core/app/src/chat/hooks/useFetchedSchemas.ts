@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react'
-import type { Client, Module, ModuleSchema } from '../types'
+import type { Client, Module, ModuleSchema, FunctionSchema } from '../types'
+import { normalizeSchema } from '../utils'
 
 interface UseFetchedSchemasProps {
   selectedModules: Module[]
@@ -10,7 +11,7 @@ interface UseFetchedSchemasProps {
 
 /**
  * Hook to fetch and cache module schemas from CIDs
- * Returns a map of all schemas (both direct and fetched)
+ * Returns a map of all schemas (both direct and fetched), normalized to map format
  */
 export function useFetchedSchemas({ selectedModules, client }: UseFetchedSchemasProps) {
   const [fetchedSchemas, setFetchedSchemas] = useState<Map<string, ModuleSchema>>(new Map())
@@ -38,7 +39,7 @@ export function useFetchedSchemas({ selectedModules, client }: UseFetchedSchemas
       try {
         const schema = await client.call('get', { cid })
         console.log(`Fetched schema for ${module.name}:`, schema)
-
+        
         setFetchedSchemas(prev => new Map(prev).set(cid, schema))
       } catch (err) {
         console.error(`Failed to fetch schema for ${module.name} with CID ${cid}:`, err)
@@ -49,8 +50,8 @@ export function useFetchedSchemas({ selectedModules, client }: UseFetchedSchemas
   }, [selectedModules, client])
 
   // Build combined schema map from all selected modules
-  const getCombinedSchema = (): ModuleSchema => {
-    const schema: ModuleSchema = {}
+  const getCombinedSchema = (): Record<string, any> => {
+    const schema: Record<string, any> = {}
 
     selectedModules.forEach(module => {
       if (!module.schema) return
@@ -66,8 +67,11 @@ export function useFetchedSchemas({ selectedModules, client }: UseFetchedSchemas
         moduleSchema = module.schema
       }
 
+      // Normalize schema (convert list format to map format if needed)
+      const normalizedSchema = normalizeSchema(moduleSchema)
+
       // Merge into combined schema
-      Object.assign(schema, moduleSchema)
+      Object.assign(schema, normalizedSchema)
     })
 
     return schema
@@ -75,6 +79,6 @@ export function useFetchedSchemas({ selectedModules, client }: UseFetchedSchemas
 
   return {
     fetchedSchemas,
-    combinedSchema: getCombinedSchema()
+    combinedSchema: getCombinedSchema() as Record<string, FunctionSchema>
   }
 }

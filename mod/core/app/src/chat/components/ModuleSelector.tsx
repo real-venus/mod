@@ -99,7 +99,8 @@ export function ModuleSelector({
     } else if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault()
       if (filteredModules.length > 0) {
-        addModule(filteredModules[selectedIndex].module)
+        // Always select the first option (index 0) when pressing Enter
+        addModule(filteredModules[0].module)
       }
     } else if (e.key === 'Escape') {
       setInputValue('')
@@ -294,18 +295,13 @@ export function ModuleSelector({
                     <span className="text-base">{module.name}</span>
                     {date && (
                       <span className="text-[10px] font-mono whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>
-                        {date} ({timeAgo})
+                        UPDATED {date}
                       </span>
                     )}
                   </div>
                   {module.key && (
                     <span className="text-xs font-mono text-purple-500">
-                      owner: {module.key.slice(0, 8)}...{module.key.slice(-6)}
-                    </span>
-                  )}
-                  {module.cid && (
-                    <span className="text-xs font-mono text-cyan-500">
-                      cid: {module.cid.slice(0, 12)}...{module.cid.slice(-8)}
+                      CID: {module.key.slice(0, 8)}...{module.key.slice(-6)}
                     </span>
                   )}
                 </div>

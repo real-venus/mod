@@ -19,7 +19,7 @@ export class Client {
   }
 
 
-  public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, headers: any = {}, timeout: number = 30000, onCancel?: () => void, wait: boolean = true): Promise<any> {
+  public async call(fn: string = 'info', params: Record<string, any> | FormData = {}, wait: boolean = true, headers: any = {}, timeout: number = 30000, onCancel?: () => void): Promise<any> {
     
     // if / in fn, treat as path and do not append to url
     let isPathCall = false;
@@ -63,9 +63,6 @@ export class Client {
 
       clearTimeout(timeoutId);
 
-      console.log('[Safari Debug] Response status:', response.status);
-      console.log('[Safari Debug] Response headers:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[Safari Debug] Error response body:', errorText);
@@ -82,13 +79,13 @@ export class Client {
       }
 
       const contentType = response.headers.get('Content-Type');
-      console.log('[Safari Debug] Content-Type:', contentType);
 
       if (contentType?.includes('text/event-stream')) {
         return this.handleStream(response);
       }
       if (contentType?.includes('application/json')) {
         let result = await response.json();
+        console.log('[Safari Debug] JSON response:', result);
         if (result && result.success === false) {
           let error_msg = JSON.stringify(result);
           throw new Error(`API Error: ${error_msg}`);
@@ -99,19 +96,9 @@ export class Client {
         return result;
       }
       const textResult = await response.text();
-      console.log('[Safari Debug] Text response:', textResult);
       return textResult;
     } catch (error: any) {
       clearTimeout(timeoutId);
-
-      console.error('[Safari Debug] ========== FETCH ERROR ==========');
-      console.error('[Safari Debug] Error name:', error.name);
-      console.error('[Safari Debug] Error message:', error.message);
-      console.error('[Safari Debug] Error stack:', error.stack);
-      console.error('[Safari Debug] URL:', url);
-      console.error('[Safari Debug] Headers:', headers);
-      console.error('[Safari Debug] Body:', body);
-      console.error('[Safari Debug] ================================');
 
       if (error.name === 'AbortError') {
         throw new Error('Request cancelled or timed out');

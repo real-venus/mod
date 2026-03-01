@@ -7,6 +7,7 @@ import { CopyButton } from '@/ui/CopyButton'
 import { toast } from 'react-toastify'
 import modConfig from '@/config.json'
 import { text2color, colorWithOpacity } from '@/utils'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import TreasuryABI from '@/contracts/treasury/Treasury.sol/Treasury.json'
 import MarketABI from '@/contracts/market/Market.sol/Market.json'
@@ -38,16 +39,38 @@ interface FnInfo {
   kind: 'read' | 'write'
 }
 
-function getContracts(): { name: string; address: string }[] {
+interface ExecutionResult {
+  fn: string
+  params: any
+  result: any
+  status: 'success' | 'error'
+  time: number
+  cost?: number
+  delta?: number
+  hash?: string
+}
+
+interface CustomContract {
+  name: string
+  address: string
+  abi: any[]
+  abiCid?: string
+}
+
+function getContracts(customContracts: CustomContract[]): { name: string; address: string }[] {
   const chainConfig = (modConfig.chain as any)?.testnet
-  if (!chainConfig?.contracts) return []
-  const entries = Object.entries(chainConfig.contracts) as [string, any][]
-  const treasury = entries.find(([name]) => name === 'Treasury')
-  const rest = entries
-    .filter(([name]) => name !== 'Treasury' && name !== 'Safe')
-    .sort(([a], [b]) => a.localeCompare(b))
-  const ordered = treasury ? [treasury, ...rest] : rest
-  return ordered.map(([name, val]) => ({ name, address: val.address }))
+  const baseContracts = chainConfig?.contracts ? (() => {
+    const entries = Object.entries(chainConfig.contracts) as [string, any][]
+    const treasury = entries.find(([name]) => name === 'Treasury')
+    const rest = entries
+      .filter(([name]) => name !== 'Treasury' && name !== 'Safe')
+      .sort(([a], [b]) => a.localeCompare(b))
+    const ordered = treasury ? [treasury, ...rest] : rest
+    return ordered.map(([name, val]) => ({ name, address: val.address }))
+  })() : []
+
+  const custom = customContracts.map(c => ({ name: c.name, address: c.address }))
+  return [...baseContracts, ...custom]
 }
 
 function getAllFunctions(abi: any[]): FnInfo[] {
@@ -109,11 +132,12 @@ function FnArgsInput({ inputs, args, setArgs }: {
 }
 
 export default function ContractsPage() {
-  const [selectedContract, setSelectedContract] = useState('')
+  const [selectedContract, setSelectedContract] = useState('Market')
   const [search, setSearch] = useState('')
   const [showRead, setShowRead] = useState(true)
   const [showWrite, setShowWrite] = useState(true)
   const [fnSearch, setFnSearch] = useState('')
+  const [viewMode, setViewMode] = useState<'txs' | 'chat'>('txs')
 
   const [selectedFnName, setSelectedFnName] = useState('')
   const [fnArgs, setFnArgs] = useState<string[]>([])
@@ -121,15 +145,25 @@ export default function ContractsPage() {
   const [sending, setSending] = useState(false)
   const [readResult, setReadResult] = useState<string | null>(null)
   const [reading, setReading] = useState(false)
+  const [executionHistory, setExecutionHistory] = useState<ExecutionResult[]>([])
+  const [expandedTxIdx, setExpandedTxIdx] = useState<number | null>(null)
+  const [customContracts, setCustomContracts] = useState<CustomContract[]>([])
+  const [showAddContract, setShowAddContract] = useState(false)
+  const [newContractName, setNewContractName] = useState('')
+  const [newContractAddress, setNewContractAddress] = useState('')
+  const [newContractAbiCid, setNewContractAbiCid] = useState('')
+  const [newContractAbiJson, setNewContractAbiJson] = useState('')
+  const [addingContract, setAddingContract] = useState(false)
 
   const fnSearchRef = useRef<HTMLInputElement>(null)
 
-  const contracts = getContracts()
+  const contracts = getContracts(customContracts)
   const filteredContracts = search
     ? contracts.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
     : contracts
   const contractInfo = contracts.find((c) => c.name === selectedContract)
-  const abi = selectedContract ? CONTRACT_ABIS[selectedContract] : null
+  const customContract = customContracts.find(c => c.name === selectedContract)
+  const abi = customContract ? customContract.abi : (selectedContract ? CONTRACT_ABIS[selectedContract] : null)
   const allFunctions = abi ? getAllFunctions(abi) : []
 
   const visibleFunctions = allFunctions.filter(f => {
@@ -157,27 +191,151 @@ export default function ContractsPage() {
     setReadResult(null)
   }, [selectedFnName]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load custom contracts from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('customContracts')
+    if (stored) {
+      try {
+        setCustomContracts(JSON.parse(stored))
+      } catch (err) {
+        console.error('Failed to load custom contracts:', err)
+      }
+    }
+  }, [])
+
+  async function handleAddContract() {
+    if (!newContractName || !newContractAddress) {
+      toast.error('Contract name and address are required')
+      return
+    }
+
+    if (!newContractAbiCid && !newContractAbiJson) {
+      toast.error('Either ABI CID or ABI JSON is required')
+      return
+    }
+
+    setAddingContract(true)
+    try {
+      let abi: any[]
+
+      if (newContractAbiJson) {
+        // Parse JSON ABI
+        try {
+          abi = JSON.parse(newContractAbiJson)
+          if (!Array.isArray(abi)) {
+            throw new Error('ABI must be an array')
+          }
+        } catch (err: any) {
+          toast.error('Invalid ABI JSON: ' + err.message)
+          setAddingContract(false)
+          return
+        }
+      } else {
+        // Fetch ABI from IPFS using CID
+        // TODO: Implement IPFS fetching when client is available
+        // For now, just show error
+        toast.error('IPFS ABI fetching not yet implemented. Please use ABI JSON instead.')
+        setAddingContract(false)
+        return
+      }
+
+      const newContract: CustomContract = {
+        name: newContractName,
+        address: newContractAddress,
+        abi,
+        abiCid: newContractAbiCid || undefined
+      }
+
+      const updated = [...customContracts, newContract]
+      setCustomContracts(updated)
+      localStorage.setItem('customContracts', JSON.stringify(updated))
+
+      toast.success(`Contract "${newContractName}" added successfully`)
+
+      // Reset form
+      setNewContractName('')
+      setNewContractAddress('')
+      setNewContractAbiCid('')
+      setNewContractAbiJson('')
+      setShowAddContract(false)
+    } catch (err: any) {
+      console.error('Failed to add contract:', err)
+      toast.error(err.message || 'Failed to add contract')
+    } finally {
+      setAddingContract(false)
+    }
+  }
+
+  function handleRemoveContract(contractName: string) {
+    const updated = customContracts.filter(c => c.name !== contractName)
+    setCustomContracts(updated)
+    localStorage.setItem('customContracts', JSON.stringify(updated))
+    toast.success(`Contract "${contractName}" removed`)
+    if (selectedContract === contractName) {
+      setSelectedContract('Market')
+    }
+  }
+
   async function handleRead() {
     if (!contractInfo || !selectedFnEntry || !abi) return
     setReading(true)
     setReadResult(null)
+    const startTime = Date.now()
     try {
       if (!window.ethereum) throw new Error('No wallet connected')
       const provider = new ethers.BrowserProvider(window.ethereum)
       const contract = new ethers.Contract(contractInfo.address, abi, provider)
       const result = await contract[selectedFnEntry.name](...fnArgs)
+      const delta = (Date.now() - startTime) / 1000
+
+      let formattedResult: any
       if (Array.isArray(result)) {
         const formatted = result.map((v: any, i: number) => {
           const outputName = selectedFnEntry.outputs[i]?.name || `[${i}]`
           return `${outputName}: ${v.toString()}`
         })
-        setReadResult(formatted.join('\n'))
+        formattedResult = formatted.join('\n')
+        setReadResult(formattedResult)
       } else {
-        setReadResult(result.toString())
+        formattedResult = result.toString()
+        setReadResult(formattedResult)
       }
+
+      // Add to execution history
+      const execution: ExecutionResult = {
+        fn: selectedFnEntry.name,
+        params: fnArgs.reduce((acc, val, idx) => {
+          const paramName = selectedFnEntry.inputs[idx]?.name || `arg${idx}`
+          acc[paramName] = val
+          return acc
+        }, {} as any),
+        result: formattedResult,
+        status: 'success',
+        time: Math.floor(Date.now() / 1000),
+        delta,
+        cost: 0
+      }
+      setExecutionHistory(prev => [execution, ...prev])
     } catch (err: any) {
       console.error(err)
-      setReadResult(`Error: ${err?.message || 'Read failed'}`)
+      const errorMsg = err?.message || 'Read failed'
+      setReadResult(`Error: ${errorMsg}`)
+
+      // Add error to execution history
+      const execution: ExecutionResult = {
+        fn: selectedFnEntry.name,
+        params: fnArgs.reduce((acc, val, idx) => {
+          const paramName = selectedFnEntry.inputs[idx]?.name || `arg${idx}`
+          acc[paramName] = val
+          return acc
+        }, {} as any),
+        result: errorMsg,
+        status: 'error',
+        time: Math.floor(Date.now() / 1000),
+        delta: (Date.now() - startTime) / 1000,
+        cost: 0
+      }
+      setExecutionHistory(prev => [execution, ...prev])
     } finally {
       setReading(false)
     }
@@ -186,6 +344,7 @@ export default function ContractsPage() {
   async function handleWrite() {
     if (!contractInfo || !selectedFnEntry || !abi) return
     setSending(true)
+    const startTime = Date.now()
     try {
       if (!window.ethereum) throw new Error('No wallet connected')
       const provider = new ethers.BrowserProvider(window.ethereum)
@@ -194,14 +353,50 @@ export default function ContractsPage() {
       const value = ethValue ? ethers.parseEther(ethValue) : BigInt(0)
       const tx = await contract[selectedFnEntry.name](...fnArgs, { value })
       toast.success(`TX sent: ${tx.hash.slice(0, 12)}...`)
-      await tx.wait()
+      const receipt = await tx.wait()
+      const delta = (Date.now() - startTime) / 1000
       toast.success('TX confirmed')
+
+      // Add to execution history
+      const execution: ExecutionResult = {
+        fn: selectedFnEntry.name,
+        params: fnArgs.reduce((acc, val, idx) => {
+          const paramName = selectedFnEntry.inputs[idx]?.name || `arg${idx}`
+          acc[paramName] = val
+          return acc
+        }, {} as any),
+        result: { hash: receipt.hash, status: receipt.status },
+        status: 'success',
+        time: Math.floor(Date.now() / 1000),
+        delta,
+        hash: receipt.hash,
+        cost: 0
+      }
+      setExecutionHistory(prev => [execution, ...prev])
+
       setSelectedFnName('')
       setFnArgs([])
       setEthValue('')
     } catch (err: any) {
       console.error(err)
-      toast.error(err?.reason || err?.message || 'Transaction failed')
+      const errorMsg = err?.reason || err?.message || 'Transaction failed'
+      toast.error(errorMsg)
+
+      // Add error to execution history
+      const execution: ExecutionResult = {
+        fn: selectedFnEntry.name,
+        params: fnArgs.reduce((acc, val, idx) => {
+          const paramName = selectedFnEntry.inputs[idx]?.name || `arg${idx}`
+          acc[paramName] = val
+          return acc
+        }, {} as any),
+        result: errorMsg,
+        status: 'error',
+        time: Math.floor(Date.now() / 1000),
+        delta: (Date.now() - startTime) / 1000,
+        cost: 0
+      }
+      setExecutionHistory(prev => [execution, ...prev])
     } finally {
       setSending(false)
     }
@@ -210,64 +405,359 @@ export default function ContractsPage() {
   const readCount = allFunctions.filter(f => f.kind === 'read').length
   const writeCount = allFunctions.filter(f => f.kind === 'write').length
 
+  const renderTransactionCard = (exec: ExecutionResult, idx: number) => {
+    const isExpanded = expandedTxIdx === idx
+    const statusColor = exec.status === 'success' ? 'emerald' : 'red'
+    const statusText = exec.status === 'success' ? 'SUC' : 'ERR'
+
+    return (
+      <div
+        key={idx}
+        onClick={() => setExpandedTxIdx(isExpanded ? null : idx)}
+        className={`border-2 rounded-lg backdrop-blur-sm transition-all cursor-pointer relative overflow-hidden ${
+          exec.status === 'success'
+            ? 'border-emerald-500/60 hover:border-emerald-500/80'
+            : 'border-red-500/60 hover:border-red-500/80'
+        }`}
+        style={{ fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-surface)' }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+          {exec.hash && (
+            <div className="flex items-center gap-1">
+              <div className="text-purple-500 text-sm">📄</div>
+              <CopyButton text={exec.hash} size="sm" showValueOnHover={true} />
+            </div>
+          )}
+
+          <div className="flex items-center gap-1">
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${
+              exec.status === 'success' ? 'text-emerald-500' : 'text-red-500'
+            }`}>
+              {statusText}
+            </span>
+          </div>
+
+          <div className="text-xs font-bold truncate text-cyan-500 flex-1 min-w-0">
+            {exec.fn}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-0.5">
+              <span className="text-purple-500 text-xs">$</span>
+              <span className="text-cyan-500 font-bold">{exec.cost?.toFixed(2) || '0.00'}</span>
+            </div>
+
+            {exec.delta !== undefined && (
+              <div className="flex items-center gap-0.5">
+                <span className="text-purple-500 text-xs">⏱</span>
+                <span className="text-cyan-500 font-bold">{exec.delta.toFixed(1)}s</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Input preview when collapsed */}
+        {!isExpanded && (
+          <div className="px-3 py-2" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)' }}>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-500">INPUT:</span>
+              <span className="text-xs font-mono truncate" style={{ color: 'var(--text-tertiary)' }}>
+                {JSON.stringify(exec.params)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Expanded Content */}
+        {isExpanded && (
+          <div className="px-3 pb-3 pt-2 space-y-2">
+            {/* Input */}
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-purple-500 mb-1">INPUT:</div>
+              <pre className="text-xs font-mono p-2 rounded" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)' }}>
+                {JSON.stringify(exec.params, null, 2)}
+              </pre>
+            </div>
+
+            {/* Result */}
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-purple-500 mb-1">RESULT:</div>
+              <pre className={`text-xs font-mono p-2 rounded ${
+                exec.status === 'success' ? 'text-emerald-400' : 'text-red-400'
+              }`} style={{ backgroundColor: 'var(--bg-input)' }}>
+                {typeof exec.result === 'object' ? JSON.stringify(exec.result, null, 2) : exec.result}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderChatMessage = (exec: ExecutionResult, idx: number) => {
+    return (
+      <div key={idx} className="space-y-2">
+        {/* User message */}
+        <div className="flex justify-end">
+          <div className="max-w-[80%] px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-500 mb-1">{exec.fn}</div>
+            <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
+              {JSON.stringify(exec.params, null, 2)}
+            </div>
+          </div>
+        </div>
+
+        {/* Assistant response */}
+        <div className="flex justify-start">
+          <div className={`max-w-[80%] px-4 py-2 rounded-lg ${
+            exec.status === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/30'
+              : 'bg-red-500/10 border-red-500/30'
+          } border`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                exec.status === 'success' ? 'text-emerald-500' : 'text-red-500'
+              }`}>
+                {exec.status === 'success' ? 'SUCCESS' : 'ERROR'}
+              </span>
+              {exec.delta && (
+                <span className="text-[9px] font-mono text-purple-500/60">{exec.delta.toFixed(1)}s</span>
+              )}
+            </div>
+            <pre className={`text-xs font-mono whitespace-pre-wrap ${
+              exec.status === 'success' ? 'text-emerald-400' : 'text-red-400'
+            }`}>
+              {typeof exec.result === 'object' ? JSON.stringify(exec.result, null, 2) : exec.result}
+            </pre>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-full">
-      <div className="max-w-7xl mx-auto px-8 py-10">
+    <div className="min-h-full flex flex-col">
+      <div className="max-w-7xl mx-auto px-8 py-10 w-full flex-1 flex flex-col">
         {/* Page header */}
         <div className="flex items-center gap-4 mb-2">
           <div className="w-2 h-2 rounded-full bg-cyan-400" style={{ boxShadow: '0 0 8px rgba(0,255,255,0.6)' }} />
           <h1 className="text-2xl font-bold uppercase tracking-[0.15em] font-mono" style={{ color: 'var(--text-primary)' }}>Contracts</h1>
           <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, var(--border-color), transparent)' }} />
+
+          {/* View mode toggle */}
+          <div className="flex gap-1 p-0.5 bg-black/60 border border-cyan-500/15 rounded">
+            <button
+              onClick={() => setViewMode('txs')}
+              className={`px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] font-mono rounded-sm transition-all ${
+                viewMode === 'txs'
+                  ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30 shadow-[0_0_8px_rgba(168,85,247,0.1)]'
+                  : 'text-white/25 hover:text-purple-400/50 border border-transparent'
+              }`}
+            >TXS</button>
+            <button
+              onClick={() => setViewMode('chat')}
+              className={`px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] font-mono rounded-sm transition-all ${
+                viewMode === 'chat'
+                  ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_8px_rgba(0,255,255,0.1)]'
+                  : 'text-white/25 hover:text-cyan-400/50 border border-transparent'
+              }`}
+            >CHAT</button>
+          </div>
+
           <span className="text-[12px] font-mono" style={{ color: 'var(--text-tertiary)' }}>[{contracts.length}]</span>
         </div>
-        <p className="text-[14px] mb-8 ml-6 font-mono" style={{ color: 'var(--text-tertiary)' }}>Interact with deployed smart contracts</p>
+        <p className="text-[14px] mb-6 ml-6 font-mono" style={{ color: 'var(--text-tertiary)' }}>Interact with deployed smart contracts</p>
 
-        {/* Search */}
-        <div className="mb-8 relative">
-          <MagnifyingGlassIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search contracts..."
-            className="w-full rounded-xl pl-14 pr-6 py-4 text-[15px] font-mono focus:outline-none transition-all"
-            style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
-          />
+        {/* Search and Add Contract */}
+        <div className="mb-4 flex gap-2">
+          <div className="flex-1 relative">
+            <MagnifyingGlassIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search contracts..."
+              className="w-full rounded-xl pl-14 pr-6 py-3 text-[14px] font-mono focus:outline-none transition-all"
+              style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <button
+            onClick={() => setShowAddContract(!showAddContract)}
+            className="px-4 py-3 rounded-xl text-[13px] font-bold font-mono uppercase tracking-wider transition-all bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/20"
+          >
+            + ADD
+          </button>
         </div>
 
+        {/* Add Contract Form */}
+        <AnimatePresence>
+          {showAddContract && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden mb-4"
+            >
+              <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" style={{ boxShadow: '0 0 6px rgba(0,255,255,0.8)' }} />
+                  <h3 className="text-[13px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-primary)' }}>Add Custom Contract</h3>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Contract Name */}
+                  <div>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      Contract Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newContractName}
+                      onChange={(e) => setNewContractName(e.target.value)}
+                      placeholder="MyContract"
+                      className="w-full rounded-lg px-3 py-2 text-[13px] font-mono focus:outline-none transition-all"
+                      style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+
+                  {/* Contract Address */}
+                  <div>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      Contract Address
+                    </label>
+                    <input
+                      type="text"
+                      value={newContractAddress}
+                      onChange={(e) => setNewContractAddress(e.target.value)}
+                      placeholder="0x..."
+                      className="w-full rounded-lg px-3 py-2 text-[13px] font-mono focus:outline-none transition-all"
+                      style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+
+                  {/* ABI CID (optional) */}
+                  <div>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      ABI CID <span style={{ color: 'var(--text-tertiary)' }}>(optional - not yet supported)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newContractAbiCid}
+                      onChange={(e) => setNewContractAbiCid(e.target.value)}
+                      placeholder="Qm..."
+                      disabled
+                      className="w-full rounded-lg px-3 py-2 text-[13px] font-mono focus:outline-none transition-all opacity-50 cursor-not-allowed"
+                      style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+
+                  {/* ABI JSON */}
+                  <div>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      ABI JSON <span style={{ color: 'var(--text-tertiary)' }}>(paste ABI array)</span>
+                    </label>
+                    <textarea
+                      value={newContractAbiJson}
+                      onChange={(e) => setNewContractAbiJson(e.target.value)}
+                      placeholder='[{"type":"function","name":"transfer","inputs":[...],...}]'
+                      rows={6}
+                      className="w-full rounded-lg px-3 py-2 text-[12px] font-mono focus:outline-none transition-all resize-none"
+                      style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={handleAddContract}
+                      disabled={addingContract}
+                      className="flex-1 py-2.5 rounded-lg text-[12px] font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 bg-emerald-500/12 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
+                    >
+                      {addingContract ? (
+                        <>
+                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        'Add Contract'
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddContract(false)
+                        setNewContractName('')
+                        setNewContractAddress('')
+                        setNewContractAbiCid('')
+                        setNewContractAbiJson('')
+                      }}
+                      className="px-4 py-2.5 rounded-lg text-[12px] font-bold font-mono uppercase tracking-wider transition-all border hover:bg-white/5"
+                      style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-color)' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Contract Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-10">
+        <div className="flex flex-wrap gap-2 mb-6">
           {filteredContracts.map((c) => {
             const cardColor = text2color(c.name)
             const isSelected = selectedContract === c.name
+            const isCustom = customContracts.some(cc => cc.name === c.name)
             return (
-              <button
-                key={c.name}
-                onClick={() => setSelectedContract(isSelected ? '' : c.name)}
-                className="group relative p-4 rounded-xl text-left transition-all duration-200 overflow-hidden"
-                style={{
-                  border: isSelected ? `1.5px solid ${cardColor}` : `1.5px solid var(--border-color)`,
-                  backgroundColor: isSelected ? colorWithOpacity(cardColor, 0.06) : 'var(--bg-secondary)',
-                  boxShadow: isSelected
-                    ? `0 0 20px ${colorWithOpacity(cardColor, 0.12)}`
-                    : 'var(--card-shadow)',
-                }}
-              >
-                {/* Corner accents */}
-                <div className="absolute top-0 left-0 w-3 h-px transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
-                <div className="absolute top-0 left-0 w-px h-3 transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
-                <div className="absolute bottom-0 right-0 w-3 h-px transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
-                <div className="absolute bottom-0 right-0 w-px h-3 transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
+              <div key={c.name} className="relative group/card">
+                <button
+                  onClick={() => setSelectedContract(isSelected ? '' : c.name)}
+                  className="relative px-3 py-2 rounded-lg text-left transition-all duration-200 overflow-hidden"
+                  style={{
+                    border: isSelected ? `1.5px solid ${cardColor}` : `1.5px solid var(--border-color)`,
+                    backgroundColor: isSelected ? colorWithOpacity(cardColor, 0.06) : 'var(--bg-secondary)',
+                    boxShadow: isSelected
+                      ? `0 0 20px ${colorWithOpacity(cardColor, 0.12)}`
+                      : 'var(--card-shadow)',
+                  }}
+                >
+                  {/* Corner accents */}
+                  <div className="absolute top-0 left-0 w-2 h-px transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
+                  <div className="absolute top-0 left-0 w-px h-2 transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
+                  <div className="absolute bottom-0 right-0 w-2 h-px transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
+                  <div className="absolute bottom-0 right-0 w-px h-2 transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
 
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full transition-all" style={{
-                    backgroundColor: isSelected ? cardColor : 'var(--text-tertiary)',
-                    boxShadow: isSelected ? `0 0 6px ${cardColor}` : 'none',
-                  }} />
-                  <div className="text-[14px] font-bold font-mono truncate" style={{ color: isSelected ? cardColor : 'var(--text-primary)' }}>{c.name}</div>
-                </div>
-                <div className="text-[11px] font-mono mt-1.5 ml-3.5 truncate" style={{ color: 'var(--text-tertiary)' }}>{shorten(c.address, 6, 4)}</div>
-              </button>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full transition-all" style={{
+                      backgroundColor: isSelected ? cardColor : 'var(--text-tertiary)',
+                      boxShadow: isSelected ? `0 0 6px ${cardColor}` : 'none',
+                    }} />
+                    <div className="text-[13px] font-bold font-mono" style={{ color: isSelected ? cardColor : 'var(--text-primary)' }}>{c.name}</div>
+                    {isCustom && (
+                      <span className="text-[8px] px-1 py-0.5 rounded font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">CUSTOM</span>
+                    )}
+                    <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{shorten(c.address, 4, 3)}</div>
+                  </div>
+                </button>
+
+                {/* Remove button for custom contracts */}
+                {isCustom && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (confirm(`Remove custom contract "${c.name}"?`)) {
+                        handleRemoveContract(c.name)
+                      }
+                    }}
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500/80 text-white text-xs font-bold opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-red-500 flex items-center justify-center"
+                    title="Remove custom contract"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             )
           })}
           {filteredContracts.length === 0 && (

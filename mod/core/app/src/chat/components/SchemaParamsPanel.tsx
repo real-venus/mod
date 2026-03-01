@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react'
+import { userContext } from '@/context/UserContext'
 
 interface SchemaParamsPanelProps {
   selectedFunction: string
@@ -27,6 +28,9 @@ export function SchemaParamsPanel({
   const [newParamKey, setNewParamKey] = useState('')
   const [newParamValue, setNewParamValue] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // Get user wallet address
+  const { user } = userContext()
 
   useEffect(() => {
     const checkWidth = () => {
@@ -66,10 +70,24 @@ export function SchemaParamsPanel({
     return null
   }
 
-  const paramEntries = Object.entries(schema[selectedFunction].input || {})
-    .filter(([key]) => key !== 'self' && key !== 'cls' && key !== 'kwargs')
+  const functionSchema = schema[selectedFunction]
+  const input = functionSchema.input || {}
 
-  const hasKwargs = Object.keys(schema[selectedFunction].input || {}).includes('kwargs')
+  // Handle both array and object format
+  let paramEntries: [string, any][]
+  let hasKwargs = false
+
+  if (Array.isArray(input)) {
+    // New array format: [{name, value, type}, ...]
+    paramEntries = input
+      .filter(param => param.name !== 'kwargs')
+      .map(param => [param.name, { type: param.type, value: param.value }])
+    hasKwargs = input.some(param => param.name === 'kwargs')
+  } else {
+    // Old object format
+    paramEntries = Object.entries(input).filter(([key]) => key !== 'kwargs')
+    hasKwargs = Object.keys(input).includes('kwargs')
+  }
   const hasParams = paramEntries.length > 0 || Object.keys(customParams).length > 0 || hasKwargs
 
   // Hide entirely when no params and no kwargs
@@ -142,25 +160,46 @@ export function SchemaParamsPanel({
         }}
       >
         <div className={`grid gap-3 ${getGridCols()}`}>
-          {paramEntries.map(([key, value]: [string, any]) => (
-            <div key={key} className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold" style={{ color: 'var(--text-secondary)' }}>
-                {key} <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>({value.type})</span>
-              </label>
-              <input
-                type="text"
-                value={params[key] ?? ''}
-                onChange={(e) => handleParamChange(key, e.target.value)}
-                placeholder={value.value !== '_empty' ? String(value.value) : '...'}
-                className="px-3 py-2 focus:outline-none text-[12px] transition-colors font-mono"
-                style={{
-                  color: 'var(--text-primary)',
-                  backgroundColor: 'var(--bg-input)',
-                  border: '1px solid var(--border-color)',
-                }}
-              />
-            </div>
-          ))}
+          {paramEntries.map(([key, value]: [string, any]) => {
+            const isAddressType = value.type?.toLowerCase().includes('address')
+            const hasUserAddress = user?.key
+
+            return (
+              <div key={key} className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                  <span>
+                    {key} <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>({value.type})</span>
+                  </span>
+                  {isAddressType && hasUserAddress && (
+                    <button
+                      type="button"
+                      onClick={() => handleParamChange(key, user.key || '')}
+                      className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border transition-all hover:bg-green-500/20"
+                      style={{
+                        borderColor: 'var(--border-color)',
+                        color: 'var(--text-tertiary)',
+                      }}
+                      title="Use my wallet address"
+                    >
+                      isme
+                    </button>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={params[key] ?? ''}
+                  onChange={(e) => handleParamChange(key, e.target.value)}
+                  placeholder={value.value !== '_empty' ? String(value.value) : '...'}
+                  className="px-3 py-2 focus:outline-none text-[12px] transition-colors font-mono"
+                  style={{
+                    color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                />
+              </div>
+            )
+          })}
           {Object.entries(customParams).map(([key, value]) => (
             <div key={key} className="flex flex-col gap-1.5">
               <label className="text-[11px] font-bold flex justify-between items-center" style={{ color: 'var(--text-secondary)' }}>

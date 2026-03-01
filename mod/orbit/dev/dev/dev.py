@@ -69,7 +69,7 @@ class Dev:
         Get the tools available for the agent
         """
         tools = tools or self.tools
-        schema =  {t: m.schema(t)[self.tool_fn_name] for t in tools}
+        schema =  {t: m.schema(t, return_mode='dict')[self.tool_fn_name] for t in tools}
         new_schema = {}
         for k,v in schema.items():
             new_schema[k] = v

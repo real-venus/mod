@@ -10,20 +10,28 @@ export interface Client {
 
 // Module Schema Types
 export interface SchemaInputParam {
+  name?: string  // Parameter name (used in list format)
   type: string
   value: string | number | boolean
+  position?: number  // Argument position in function signature
 }
 
 export interface FunctionSchema {
-  input: Record<string, SchemaInputParam>
+  name?: string  // Function name (used in list format)
+  // Input can be either:
+  // 1. Map format: { paramName: SchemaInputParam, ... }
+  // 2. List format: [{ name: "paramName", type: "...", value: ... }, ...]
+  input: Record<string, SchemaInputParam> | SchemaInputParam[]
   output?: Record<string, any>
   cost?: number
   content?: string
+  args?: string[]  // Ordered list of argument names
 }
 
-export interface ModuleSchema {
-  [functionName: string]: FunctionSchema
-}
+// Schema can be either:
+// 1. Map format: { functionName: FunctionSchema, ... }
+// 2. List format: [{ name: "functionName", input: {...}, ... }, ...]
+export type ModuleSchema = Record<string, FunctionSchema> | FunctionSchema[]
 
 export interface Module {
   name: string
@@ -45,6 +53,8 @@ export interface Message {
   function?: string
   params?: Record<string, any>
   isLoading?: boolean
+  cid?: string  // Content ID for the message
+  inputCid?: string  // CID of the input that generated this response
 }
 
 // Transaction Types

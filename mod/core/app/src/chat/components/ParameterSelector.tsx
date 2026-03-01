@@ -2,10 +2,17 @@
 
 import { useState, useRef, useEffect } from 'react'
 
+interface ParameterInfo {
+  name: string
+  type?: string
+  value?: any
+}
+
 interface ParameterSelectorProps {
   parameters: string[]
   selectedParameter: string
   setSelectedParameter: (param: string) => void
+  schema?: Record<string, { type: string; value: any }>
 }
 
 /**
@@ -14,7 +21,8 @@ interface ParameterSelectorProps {
 export function ParameterSelector({
   parameters,
   selectedParameter,
-  setSelectedParameter
+  setSelectedParameter,
+  schema
 }: ParameterSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -76,35 +84,63 @@ export function ParameterSelector({
         <span className={`text-[8px] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
       </button>
 
-      {/* Dropdown Menu - Grid Layout - Opens Upward */}
+      {/* Dropdown Menu - Clean List - Opens Upward */}
       {isDropdownOpen && (
-        <div className="absolute bottom-full left-0 mb-2 border-2 border-green-500/40 rounded-xl shadow-2xl z-[9999] backdrop-blur-md overflow-hidden p-2" style={{ backgroundColor: 'var(--bg-surface)' }}>
-          <div
-            className="grid gap-2"
-            style={{
-              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-              maxWidth: '500px'
-            }}
-          >
-            {parameters.map((param, idx) => (
-              <button
-                key={param}
-                type="button"
-                onClick={() => selectParameter(param)}
-                className={`aspect-square flex flex-col items-center justify-center gap-2 px-4 py-3 transition-all font-bold rounded-lg border-2 ${
-                  idx === selectedIndex
-                    ? 'bg-green-500/20 border-green-500/60 backdrop-blur-sm'
-                    : 'border-green-500/20 hover:bg-green-500/10 hover:border-green-500/40'
-                }`}
-                style={{
-                  fontFamily: 'IBM Plex Mono, monospace',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <span className="text-2xl">📝</span>
-                <span className="text-xs uppercase tracking-wider">{param}</span>
-              </button>
-            ))}
+        <div
+          className="absolute bottom-full left-0 mb-2 border-2 border-green-500/40 rounded-xl shadow-2xl z-[9999] backdrop-blur-md overflow-hidden"
+          style={{
+            backgroundColor: 'var(--bg-surface)',
+            minWidth: '280px',
+            maxWidth: '400px'
+          }}
+        >
+          <div className="flex flex-col max-h-96 overflow-y-auto">
+            {parameters.map((param, idx) => {
+              const paramInfo = schema?.[param]
+              const isSelected = param === selectedParameter
+              const isHighlighted = idx === selectedIndex
+              const isEmpty = paramInfo?.value === '_empty'
+              const showValue = paramInfo?.value && !isEmpty
+
+              return (
+                <button
+                  key={param}
+                  type="button"
+                  onClick={() => selectParameter(param)}
+                  className={`flex items-center justify-between gap-3 px-4 py-3 transition-all font-mono text-left border-b ${
+                    isHighlighted || isSelected
+                      ? 'bg-green-500/20 border-green-500/40'
+                      : 'border-green-500/10 hover:bg-green-500/10'
+                  }`}
+                  style={{
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    color: 'var(--text-primary)',
+                    borderBottomColor: idx === parameters.length - 1 ? 'transparent' : undefined
+                  }}
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {isSelected && (
+                      <span className="text-green-500 text-sm flex-shrink-0">✓</span>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold truncate">{param}</div>
+                      {paramInfo?.type && (
+                        <div className="text-[10px] mt-0.5 opacity-60">
+                          {paramInfo.type}
+                          {showValue && (
+                            <span className="ml-2 opacity-80">
+                              = {String(paramInfo.value).length > 30
+                                  ? String(paramInfo.value).substring(0, 30) + '...'
+                                  : String(paramInfo.value)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

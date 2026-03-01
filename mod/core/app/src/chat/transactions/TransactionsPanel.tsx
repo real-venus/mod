@@ -42,7 +42,7 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  const [expandedIndices, setExpandedIndices] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter)
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
@@ -50,6 +50,7 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
   const [pageSize] = useState(50)
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
+  const [viewMode, setViewMode] = useState<'current' | 'past'>('current')
   const [totalCount, setTotalCount] = useState(0)
   const [uniqueOwners, setUniqueOwners] = useState<string[]>([])
 
@@ -134,30 +135,79 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
     }
     if (statusFilter !== 'all') {
       filtered = filtered.filter(tx => {
-        if (statusFilter === 'success') return tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete'
+        // Check if transaction has actually completed (has result)
+        const hasCompleted = tx.result !== undefined && tx.result !== null
+
+        if (statusFilter === 'success') {
+          // Show as success if it has a result (completed) OR if status indicates success
+          return hasCompleted || tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete'
+        }
         if (statusFilter === 'error') return tx.status === 'error' || tx.status === 'failed' || tx.status === 'cancelled'
-        if (statusFilter === 'pending') return tx.status === 'pending' || tx.status === 'running'
+        if (statusFilter === 'pending') {
+          // Only show as pending if it doesn't have a result yet
+          return !hasCompleted && (tx.status === 'pending' || tx.status === 'running')
+        }
         return true
       })
     }
     if (ownerFilter !== 'all') {
       filtered = filtered.filter(tx => tx.owner === ownerFilter)
     }
+
+    // Sort first (newest first)
     filtered.sort((a, b) => {
       const timeA = parseInt(a.time) || 0
       const timeB = parseInt(b.time) || 0
       return sortOrder === 'newest' ? timeB - timeA : timeA - timeB
     })
+
+    // Filter by view mode
+    if (viewMode === 'current') {
+      // Current mode: only show the MOST RECENT transaction (first one after sort)
+      filtered = filtered.slice(0, 1)
+    } else {
+      // Past mode: show all completed/finished transactions
+      filtered = filtered.filter(tx => {
+        const hasCompleted = tx.result !== undefined && tx.result !== null
+        return hasCompleted || tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete' || tx.status === 'error' || tx.status === 'failed' || tx.status === 'cancelled'
+      })
+    }
+
     setFilteredTransactions(filtered)
-  }, [transactions, searchQuery, statusFilter, ownerFilter, sortOrder, selectedModules])
+
+    // Set expanded indices after filtering
+    if (filtered.length > 0) {
+      // Always expand the first (most recent) transaction
+      setExpandedIndices(new Set([0]))
+    } else {
+      setExpandedIndices(new Set())
+    }
+  }, [transactions, searchQuery, statusFilter, ownerFilter, sortOrder, viewMode, selectedModules])
 
   const handleToggleExpand = (idx: number) => {
-    setExpandedIdx(expandedIdx === idx ? null : idx)
+    // In current mode, don't allow toggling - always expanded
+    if (viewMode === 'current') return
+
+    setExpandedIndices(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(idx)) {
+        newSet.delete(idx)
+      } else {
+        newSet.add(idx)
+      }
+      return newSet
+    })
   }
 
-  const successCount = filteredTransactions.filter(tx => tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete').length
+  const successCount = filteredTransactions.filter(tx => {
+    const hasCompleted = tx.result !== undefined && tx.result !== null
+    return hasCompleted || tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete'
+  }).length
   const errorCount = filteredTransactions.filter(tx => tx.status === 'error' || tx.status === 'failed' || tx.status === 'cancelled').length
-  const pendingCount = filteredTransactions.filter(tx => tx.status === 'pending' || tx.status === 'running').length
+  const pendingCount = filteredTransactions.filter(tx => {
+    const hasCompleted = tx.result !== undefined && tx.result !== null
+    return !hasCompleted && (tx.status === 'pending' || tx.status === 'running')
+  }).length
   const totalCost = filteredTransactions.reduce((sum, tx) => sum + (tx.cost || 0), 0)
   const hasFilters = ownerFilter !== 'all' || statusFilter !== 'all' || searchQuery
 
@@ -166,10 +216,31 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
       {/* Compact Single-Line Header */}
       <div className="flex-shrink-0 px-4 py-3 border-b border-neutral-800 bg-gradient-to-b from-neutral-900/80 to-transparent">
         <div className="flex items-center gap-3">
-          {/* Transaction count */}
+          {/* View Mode Toggle - OUTPUT / HISTORY */}
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-cyan-400">{filteredTransactions.length}</span>
-            <span className="text-neutral-600 text-sm font-semibold uppercase tracking-wide">txs</span>
+            <button
+              onClick={() => setViewMode('current')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                viewMode === 'current'
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  : 'bg-neutral-900 text-neutral-500 hover:text-neutral-400 border border-neutral-800'
+              }`}
+            >
+              <span>📄</span>
+              <span>OUTPUT</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('past')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                viewMode === 'past'
+                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                  : 'bg-neutral-900 text-neutral-500 hover:text-neutral-400 border border-neutral-800'
+              }`}
+            >
+              <span className="text-sm font-mono">{filteredTransactions.length}</span>
+              <span>messages</span>
+            </button>
           </div>
 
           {/* Search - compressed */}
@@ -314,7 +385,8 @@ export const TransactionsPanel = forwardRef<{ handleSync: () => void }, Transact
             <TransactionCard
               tx={tx}
               idx={idx}
-              isExpanded={expandedIdx === idx}
+              isExpanded={expandedIndices.has(idx)}
+              isCurrentMode={viewMode === 'current'}
             />
           </div>
         ))}

@@ -522,7 +522,7 @@ export default function QuestsPage() {
             {questSubFilter === 'mine' && !user?.token ? renderEmpty('Sign in to view your quests.') :
             loading ? renderLoading() :
             displayedQuests.length === 0 ? renderEmpty((searchQuery || statusFilter !== 'all' || valueFilter !== 'all') ? 'No quests match your filters.' : questSubFilter === 'mine' ? 'No quests created yet.' : 'No quests found.') : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {displayedQuests.map(quest => (
                   <QuestCard key={quest.id} quest={quest} userKey={user?.key} />
                 ))}

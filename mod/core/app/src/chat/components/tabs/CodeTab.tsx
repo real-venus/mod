@@ -1,7 +1,8 @@
 "use client";
 
 import { CopyButton } from '@/ui/CopyButton'
-import type { Module, ModuleSchema } from '../../types'
+import type { Module, ModuleSchema, FunctionSchema } from '../../types'
+import { normalizeSchema } from '../../utils'
 
 interface CodeTabProps {
   selectedModules: Module[]
@@ -16,7 +17,10 @@ export function CodeTab({
   selectedFunction
 }: CodeTabProps) {
   // Get schema from first selected module
-  const schema = selectedModules[0]?.schema as ModuleSchema | undefined
+  const rawSchema = selectedModules[0]?.schema
+  const schema: Record<string, FunctionSchema> | undefined = rawSchema
+    ? normalizeSchema(rawSchema as ModuleSchema)
+    : undefined
   const functionCode = schema?.[selectedFunction]?.content || ''
   const hasCode = functionCode.length > 0
 

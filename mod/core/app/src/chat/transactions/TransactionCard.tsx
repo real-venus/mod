@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { CopyButton } from '@/ui/CopyButton'
 import { timeAgo, text2color } from '@/utils'
+import { userContext } from '@/context'
 
 interface Transaction {
   fn: string
@@ -26,15 +27,39 @@ interface TransactionCardProps {
   idx: number
   isExpanded?: boolean
   compact?: boolean
+  isCurrentMode?: boolean
 }
 
-export function TransactionCard({ tx, idx, isExpanded = false, compact = false }: TransactionCardProps) {
-  const [activeTab, setActiveTab] = useState<'params' | 'results'>('results')
+export function TransactionCard({ tx, idx, isExpanded = false, compact = false, isCurrentMode = false }: TransactionCardProps) {
+  const { client } = userContext()
+  const [activeTab, setActiveTab] = useState<'params' | 'results' | 'code'>('results')
   const [elapsedTime, setElapsedTime] = useState(0)
+  const [moduleCode, setModuleCode] = useState<string | null>(null)
+  const [loadingCode, setLoadingCode] = useState(false)
 
   // Check if transaction is truly complete - has result means it's done
   const hasCompleted = tx.result !== undefined && tx.result !== null
   const isInProgress = (tx.status === 'running' || tx.status === 'pending') && !hasCompleted
+
+  // Fetch module code when CODE tab is selected
+  useEffect(() => {
+    if (activeTab === 'code' && !moduleCode && !loadingCode && client && tx.module) {
+      setLoadingCode(true)
+      client.call('get', { k: tx.module })
+        .then((result: any) => {
+          if (result?.content) {
+            setModuleCode(result.content)
+          }
+        })
+        .catch((err: any) => {
+          console.error('Failed to load module code:', err)
+          setModuleCode('// Failed to load code')
+        })
+        .finally(() => {
+          setLoadingCode(false)
+        })
+    }
+  }, [activeTab, moduleCode, loadingCode, client, tx.module])
 
   // Update elapsed time for running transactions
   useEffect(() => {
@@ -107,20 +132,60 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
   const hasResults = tx.result !== undefined
 
   const renderValue = (value: any) => {
-    if (value === null || value === undefined) return <span className="text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>null</span>
+    if (value === null || value === undefined) return <span className="text-sm font-mono text-gray-500">null</span>
     if (typeof value === 'object') {
+      const jsonString = JSON.stringify(value, null, 2)
+
+      // Syntax highlighted JSON
+      const highlightedJson = jsonString
+        .split('\n')
+        .map((line, i) => {
+          // Color property names (keys)
+          line = line.replace(/"([^"]+)":/g, '<span class="text-cyan-400">"$1"</span>:')
+          // Color string values
+          line = line.replace(/: "([^"]+)"/g, ': <span class="text-green-400">"$1"</span>')
+          // Color numbers
+          line = line.replace(/: (\d+\.?\d*)/g, ': <span class="text-purple-400">$1</span>')
+          // Color booleans
+          line = line.replace(/: (true|false)/g, ': <span class="text-yellow-400">$1</span>')
+          // Color null
+          line = line.replace(/: null/g, ': <span class="text-gray-500">null</span>')
+          return line
+        })
+        .join('\n')
+
       return (
-        <pre className="text-sm text-green-500 overflow-x-auto whitespace-pre-wrap leading-relaxed font-mono">
-          {JSON.stringify(value, null, 2)}
-        </pre>
+        <div className="relative group">
+          <pre
+            className="text-sm overflow-x-auto leading-relaxed font-mono p-3 rounded-lg border"
+            style={{
+              backgroundColor: 'rgba(0,0,0,0.3)',
+              borderColor: 'rgba(100,100,100,0.2)'
+            }}
+            dangerouslySetInnerHTML={{ __html: highlightedJson }}
+          />
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <CopyButton text={jsonString} size="sm" />
+          </div>
+        </div>
       )
     }
-    return <span className="text-green-500 text-sm break-all font-mono">{String(value)}</span>
+    return <span className="text-green-400 text-sm break-all font-mono">{String(value)}</span>
+  }
+
+  const renderPreview = (value: any) => {
+    if (value === null || value === undefined) return 'null'
+    if (typeof value === 'object') {
+      const jsonString = JSON.stringify(value)
+      return jsonString.length > 60 ? jsonString.slice(0, 60) + '...' : jsonString
+    }
+    const strValue = String(value)
+    return strValue.length > 60 ? strValue.slice(0, 60) + '...' : strValue
   }
 
   return (
     <div
-      className={`group border-2 rounded-lg backdrop-blur-sm transition-all cursor-pointer relative overflow-hidden border-purple-500/60 hover:border-purple-500/80`}
+      className={`group border-2 rounded-lg backdrop-blur-sm transition-all ${isCurrentMode ? '' : 'cursor-pointer'} relative overflow-hidden border-purple-500/60 hover:border-purple-500/80`}
       style={{ fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-surface)' }}
     >
       {/* Progress bar for running/pending transactions */}
@@ -148,16 +213,9 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
 
       {/* Header - Terminal Style */}
       <div className={`flex items-center gap-2 ${compact ? 'px-2 py-2' : 'px-4 py-3'}`} style={{ borderBottom: '1px solid var(--border-color)' }}>
-        {/* Hash/ID with icon */}
-        {(tx.hash || tx.cid) && (
-          <div className="flex items-center gap-1">
-            <div className={`text-purple-500 ${compact ? 'text-sm' : 'text-lg'}`}>📄</div>
-            <CopyButton text={tx.hash || tx.cid || ''} size="sm" showValueOnHover={true} />
-          </div>
-        )}
-
-        {/* Status indicator */}
-        <div className="flex items-center gap-1">
+        {/* Status indicator with animation for in-progress */}
+        <div className="flex items-center gap-1.5">
+          <div className={`w-2 h-2 rounded-full ${status.dot} ${isInProgress ? 'animate-pulse' : ''}`} />
           <span className={`${compact ? 'text-[10px]' : 'text-xs'} font-bold uppercase tracking-wider ${status.text}`}>
             {compact ? status.displayStatus.slice(0, 3) : status.displayStatus}
           </span>
@@ -167,6 +225,59 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
         <div className={`${compact ? 'text-xs' : 'text-sm'} font-bold truncate text-cyan-500 flex-1 min-w-0`}>
           {tx.fn}
         </div>
+
+        {/* Hash/ID with icon */}
+        {(tx.hash || tx.cid) && (
+          <div className="flex items-center gap-1">
+            <div className={`text-purple-500 ${compact ? 'text-sm' : 'text-base'}`}>📄</div>
+            <CopyButton text={tx.hash || tx.cid || ''} size="sm" showValueOnHover={true} />
+          </div>
+        )}
+
+        {/* Tabs - inline on header when expanded */}
+        {isExpanded && (hasParams || hasResults || tx.module) && (
+          <div className="flex gap-0 border border-purple-500/40 rounded-lg p-0.5" style={{ backgroundColor: 'var(--bg-input)' }}>
+            {hasResults && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setActiveTab('results'); }}
+                className={`px-2 py-1 text-xs font-bold uppercase rounded transition-all ${
+                  activeTab === 'results'
+                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
+                    : 'hover:text-purple-400'
+                }`}
+                style={{ color: activeTab === 'results' ? undefined : 'var(--text-tertiary)' }}
+              >
+                Result
+              </button>
+            )}
+            {hasParams && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setActiveTab('params'); }}
+                className={`px-2 py-1 text-xs font-bold uppercase rounded transition-all ${
+                  activeTab === 'params'
+                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
+                    : 'hover:text-purple-400'
+                }`}
+                style={{ color: activeTab === 'params' ? undefined : 'var(--text-tertiary)' }}
+              >
+                Params
+              </button>
+            )}
+            {tx.module && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setActiveTab('code'); }}
+                className={`px-2 py-1 text-xs font-bold uppercase rounded transition-all ${
+                  activeTab === 'code'
+                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
+                    : 'hover:text-purple-400'
+                }`}
+                style={{ color: activeTab === 'code' ? undefined : 'var(--text-tertiary)' }}
+              >
+                Code
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Right side info */}
         <div className={`flex items-center gap-2 ${compact ? 'text-xs' : 'text-sm'}`}>
@@ -196,11 +307,12 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
             <span className="text-cyan-500 font-bold">{cost}</span>
           </div>
 
-          {/* Duration */}
+          {/* Duration - Enhanced with live timer */}
           {isInProgress ? (
-            <div className="flex items-center gap-0.5">
-              <span className="text-purple-500 text-xs">⏱</span>
-              <span className="text-cyan-500 font-bold tabular-nums">{elapsedTime}s</span>
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-blue-500/10 border border-blue-500/30">
+              <span className="text-blue-500 text-xs">⏱</span>
+              <span className="text-blue-400 font-bold tabular-nums">{elapsedTime}s</span>
+              <span className="text-blue-400 text-xs animate-pulse">●</span>
             </div>
           ) : tx.delta !== undefined && (
             <div className="flex items-center gap-0.5">
@@ -209,46 +321,85 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false }
             </div>
           )}
 
-          {!compact && !isInProgress && (
-            <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>{time}</span>
+          {/* Timestamp */}
+          {!compact && (
+            <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-tertiary)' }}>{time}</span>
           )}
         </div>
       </div>
 
-      {/* Expanded Content */}
-      {isExpanded && (hasParams || hasResults) && (
-        <div className="px-4 pb-4 pt-3">
-          {/* Tabs - Terminal style */}
-          {hasParams && hasResults && (
-            <div className="flex gap-0 mb-3 border border-purple-500/40 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-input)' }}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setActiveTab('results'); }}
-                className={`flex-1 px-3 py-1.5 text-xs font-bold uppercase rounded transition-all ${
-                  activeTab === 'results'
-                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
-                    : 'hover:text-purple-400'
-                }`}
-                style={{ color: activeTab === 'results' ? undefined : 'var(--text-tertiary)' }}
-              >
-                Result
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setActiveTab('params'); }}
-                className={`flex-1 px-3 py-1.5 text-xs font-bold uppercase rounded transition-all ${
-                  activeTab === 'params'
-                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
-                    : 'hover:text-purple-400'
-                }`}
-                style={{ color: activeTab === 'params' ? undefined : 'var(--text-tertiary)' }}
-              >
-                Params
-              </button>
+      {/* Input preview when collapsed - Enhanced to show first positional param */}
+      {!isExpanded && hasParams && (
+        <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)' }}>
+          <div className="flex items-start gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-500 flex-shrink-0">Input:</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
+                {typeof tx.params === 'object' && tx.params !== null ? (
+                  <div className="space-y-0.5">
+                    {/* Show first positional param prominently */}
+                    {Object.entries(tx.params).slice(0, 1).map(([key, value]) => (
+                      <div key={key} className="font-semibold">
+                        <span className="text-cyan-400">{key}</span>
+                        <span className="text-purple-500">:</span>{' '}
+                        <span className="text-green-400">{renderPreview(value)}</span>
+                      </div>
+                    ))}
+                    {/* Show count of remaining params */}
+                    {Object.keys(tx.params).length > 1 && (
+                      <div className="text-purple-400 text-[10px] mt-1">
+                        +{Object.keys(tx.params).length - 1} more param{Object.keys(tx.params).length > 2 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-green-400">{renderPreview(tx.params)}</span>
+                )}
+              </div>
             </div>
-          )}
+          </div>
+        </div>
+      )}
 
+      {/* Waiting state indicator when collapsed */}
+      {!isExpanded && isInProgress && (
+        <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: 'var(--bg-input)', borderBottom: '1px solid var(--border-color)' }}>
+          <div className="flex items-center gap-2 flex-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            <span className="text-xs font-medium text-blue-400">Waiting for result...</span>
+            <span className="text-xs text-blue-500 tabular-nums font-mono">{elapsedTime}s</span>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded Content */}
+      {isExpanded && (hasParams || hasResults || tx.module) && (
+        <div className="px-4 pb-4 pt-3">
           {/* Content */}
-          <div className="border border-purple-500/40 rounded-lg p-4 max-h-64 overflow-auto" style={{ backgroundColor: 'var(--bg-input)' }}>
-            {activeTab === 'results' && hasResults ? renderValue(tx.result) : hasParams ? renderValue(tx.params) : null}
+          <div className="border border-purple-500/40 rounded-lg p-4 max-h-96 overflow-auto scrollbar-thin scrollbar-thumb-purple-900/50" style={{ backgroundColor: 'var(--bg-input)' }}>
+            {activeTab === 'results' && hasResults && renderValue(tx.result)}
+            {activeTab === 'params' && hasParams && renderValue(tx.params)}
+            {activeTab === 'code' && (
+              loadingCode ? (
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-500/30 border-t-purple-500" />
+                  <span>Loading code...</span>
+                </div>
+              ) : moduleCode ? (
+                <div className="relative group">
+                  <pre className="text-sm text-green-500 overflow-x-auto whitespace-pre-wrap leading-relaxed font-mono">
+                    {moduleCode}
+                  </pre>
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <CopyButton text={moduleCode} size="sm" />
+                  </div>
+                </div>
+              ) : (
+                <span className="text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                  No code available
+                </span>
+              )
+            )}
           </div>
         </div>
       )}

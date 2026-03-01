@@ -249,7 +249,7 @@ class Store:
     def get_json(self, path: str= 'test/a')-> Union[dict, list]:
         path = self.get_path(path, filetype=self.filetype)
         data = self.get_text(path)
-        data = json.loads(data)
+        data = json.loads(data, strict=False)
         return data 
 
     def put_json(self, path: str= 'test/a', data: Union[dict, list]=None) -> str:

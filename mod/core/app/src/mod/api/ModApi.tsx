@@ -69,19 +69,23 @@ export default function ModApi({ mod }: ModApiProps) {
 
   // Get param entries for a function
   const getFnParams = (fnName: string) => {
-    const fnSchema = schema[fnName]
+    const fnSchema = (schema as Record<string, any>)[fnName]
     if (!fnSchema?.input) return []
+    // if it is a array just get the names and types, else if it is a dict get the entries excluding self, cls and kwargs
+    if (Array.isArray(fnSchema.input)) {
+      return fnSchema.input.map((param: any) => [param.name, { type: param.type, value: param.value }])
+    }
     return Object.entries(fnSchema.input)
       .filter(([key]) => key !== 'self' && key !== 'cls' && key !== 'kwargs')
   }
 
   const getFnOutput = (fnName: string) => {
-    const fnSchema = schema[fnName]
+    const fnSchema = (schema as Record<string, any>)[fnName]
     return fnSchema?.output || null
   }
 
   const hasKwargs = (fnName: string) => {
-    const fnSchema = schema[fnName]
+    const fnSchema = (schema as Record<string, any>)[fnName]
     return fnSchema?.input ? Object.keys(fnSchema.input).includes('kwargs') : false
   }
 

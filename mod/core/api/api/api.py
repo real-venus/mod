@@ -557,6 +557,7 @@ class  Api:
         schema = self.get(mod_info['schema'])
         if fn is not None:
             schema = schema.get(fn, {})
+
         return schema
 
     def setback(self, mod:str, cid:str, key=None, safety=True) -> Dict[str, Any]:

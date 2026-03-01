@@ -10,7 +10,7 @@ import { ChatTab } from './components/tabs/ChatTab'
 import { ParamsTab } from './components/tabs/ParamsTab'
 import { CodeTab } from './components/tabs/CodeTab'
 import { TxsTab } from './components/tabs/TxsTab'
-import type { TabType, TransactionsPanelRef, Transaction } from './types'
+import type { TabType, TransactionsPanelRef, Transaction, SchemaInputParam, FunctionSchema } from './types'
 
 /**
  * Main Chat component - refactored for cleaner architecture
@@ -42,16 +42,40 @@ export default function Chat() {
     client: chatState.client
   })
 
-  const combinedSchema = Object.keys(fetchedCombinedSchema).length > 0 ? fetchedCombinedSchema : null
+  const combinedSchema: Record<string, FunctionSchema> | null = Object.keys(fetchedCombinedSchema).length > 0 ? fetchedCombinedSchema : null
 
   // Get input param options for selected function
   const inputParamOptions = useMemo(() => {
-    if (!chatState.selectedFunction || !combinedSchema?.[chatState.selectedFunction]?.input) {
+    if (!chatState.selectedFunction || !combinedSchema?.[chatState.selectedFunction]) {
       return []
     }
-    return Object.keys(combinedSchema[chatState.selectedFunction].input).filter(
-      k => k !== 'self' && k !== 'cls' && k !== 'kwargs'
-    )
+    const functionSchema = combinedSchema[chatState.selectedFunction]
+
+    if (!functionSchema.input) {
+      return []
+    }
+
+    // Input is already normalized to map format by useFetchedSchemas
+    const input = functionSchema.input as Record<string, SchemaInputParam>
+    const entries = Object.entries(input)
+      .filter(([k]) => k !== 'self' && k !== 'cls' && k !== 'kwargs')
+      .sort((a, b) => {
+        const posA = a[1]?.position ?? Number.MAX_SAFE_INTEGER
+        const posB = b[1]?.position ?? Number.MAX_SAFE_INTEGER
+        return posA - posB
+      })
+
+    return entries.map(([k]) => k)
+  }, [chatState.selectedFunction, combinedSchema])
+
+  // Get parameter schema for dropdown display
+  const paramSchema = useMemo(() => {
+    if (!chatState.selectedFunction || !combinedSchema?.[chatState.selectedFunction]?.input) {
+      return undefined
+    }
+
+    // Input is already normalized to map format by useFetchedSchemas
+    return combinedSchema[chatState.selectedFunction].input as Record<string, { type: string; value: any }>
   }, [chatState.selectedFunction, combinedSchema])
 
   // Auto-select first parameter when function changes or params load
@@ -138,7 +162,7 @@ export default function Chat() {
           {
             fn,
             params: callParams,
-            wait: chatState.wait,
+            wait: true,
             token: chatState.client.token
           }
         )
@@ -221,51 +245,62 @@ export default function Chat() {
               pendingCount={0}
             />
 
-            {/* Tab Content */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-              {activeTab === 'chat' && (
-                <ChatTab
-                  messages={chatState.messages}
-                  input={chatState.input}
-                  setInput={chatState.setInput}
-                  isLoading={chatState.isLoading}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  canSubmit={canSubmit}
-                  inputParamOptions={inputParamOptions}
-                  selectedInputParam={chatState.selectedInputParam}
-                  setSelectedInputParam={chatState.setSelectedInputParam}
-                  recentTransaction={recentTransaction}
-                />
-              )}
+            {/* Main Content Area - Flex column with outputs first, then input */}
+            <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
+              {/* Tab Content - Takes remaining space */}
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {activeTab === 'chat' && (
+                  <ChatTab
+                    messages={chatState.messages}
+                    input={chatState.input}
+                    setInput={chatState.setInput}
+                    isLoading={chatState.isLoading}
+                    onSubmit={handleSubmit}
+                    onCancel={handleCancel}
+                    canSubmit={canSubmit}
+                    inputParamOptions={inputParamOptions}
+                    selectedInputParam={chatState.selectedInputParam}
+                    setSelectedInputParam={chatState.setSelectedInputParam}
+                    recentTransaction={recentTransaction}
+                    paramSchema={paramSchema}
+                  />
+                )}
 
-              {activeTab === 'params' && (
-                <ParamsTab
-                  params={chatState.params}
-                  handleParamChange={handleParamChange}
-                  handleResetParams={handleResetParams}
-                  schema={combinedSchema}
-                  selectedFunction={chatState.selectedFunction}
-                  isLoading={chatState.isLoading}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  canSubmit={canSubmit}
-                  recentTransaction={recentTransaction}
-                />
-              )}
+                {activeTab === 'params' && (
+                  <ParamsTab
+                    params={chatState.params}
+                    handleParamChange={handleParamChange}
+                    handleResetParams={handleResetParams}
+                    schema={combinedSchema}
+                    selectedFunction={chatState.selectedFunction}
+                    isLoading={chatState.isLoading}
+                    onSubmit={handleSubmit}
+                    onCancel={handleCancel}
+                    canSubmit={canSubmit}
+                    recentTransaction={recentTransaction}
+                  />
+                )}
 
-              {activeTab === 'code' && (
-                <CodeTab
-                  selectedModules={chatState.selectedModules}
-                  selectedFunction={chatState.selectedFunction}
-                />
-              )}
+                {activeTab === 'code' && (
+                  <CodeTab
+                    selectedModules={chatState.selectedModules}
+                    selectedFunction={chatState.selectedFunction}
+                  />
+                )}
 
-              {activeTab === 'outputs' && (
-                <TxsTab
-                  ref={transactionsPanelRef}
-                  selectedModules={chatState.selectedModules}
-                />
+                {activeTab === 'outputs' && (
+                  <TxsTab
+                    ref={transactionsPanelRef}
+                    selectedModules={chatState.selectedModules}
+                  />
+                )}
+              </div>
+
+              {/* Input Area - Only show for chat and params tabs */}
+              {(activeTab === 'chat' || activeTab === 'params') && (
+                <div className="flex-shrink-0">
+                  {/* This space reserved for shared input controls if needed */}
+                </div>
               )}
             </div>
 

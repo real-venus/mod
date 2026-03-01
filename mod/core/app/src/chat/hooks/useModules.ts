@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from 'react'
-import type { Module, ModuleSchema, Client } from '../types'
-import { sortModules } from '../utils'
+import type { Module, ModuleSchema, Client, FunctionSchema } from '../types'
+import { sortModules, normalizeSchema } from '../utils'
 
 interface UseModulesProps {
   client: Client | null
@@ -99,10 +99,11 @@ export function useModules({
     if (!selectedFunction) return
 
     // Find the schema for the selected function from any selected module
-    let functionSchema: any = null
+    let functionSchema: FunctionSchema | null = null
     for (const module of selectedModules) {
       if (module.schema && typeof module.schema === 'object') {
-        const schema = module.schema as ModuleSchema
+        const rawSchema = module.schema as ModuleSchema
+        const schema = normalizeSchema(rawSchema)
         if (schema[selectedFunction]) {
           functionSchema = schema[selectedFunction]
           break

@@ -724,17 +724,18 @@ class Mod:
         
         fn_signature = inspect.signature(fn_obj)
 
-        schema = {'input': {}, 'output': {}, 'docs': '', 'cost': 0, 'name': '',  'content': None}
+        schema = {'input': [], 'output': {}, 'docs': '', 'cost': 0, 'name': '',  'content': None}
         if public:
             schema['content'] = inspect.getsource(fn_obj)
-        for k,v in dict(fn_signature._parameters).items():
+        for i, (k,v) in enumerate(dict(fn_signature._parameters).items()):
             if k  in avoid_arguments:
                 continue
             else:
-                schema['input'][k] = {
+                schema['input'].append({
+                        'name': k,
                         'value': "_empty"  if v.default == inspect._empty else v.default, 
                         'type': '_empty' if v.default == inspect._empty else str(type(v.default)).split("'")[1] 
-                }
+                })
 
         # OUTPUT SCHEMA
         schema['output'] = {
@@ -755,7 +756,7 @@ class Mod:
     
     
 
-    def schema(self, obj = None , search=None , public=True,  verbose=False, **kwargs)->dict:
+    def schema(self, obj = None , search=None , public=True, return_mode='dict',  verbose=False, **kwargs)->dict:
         '''
         Get function schema of function in self
         '''   
@@ -768,12 +769,18 @@ class Mod:
         print(f'Getting schema for mod {obj}')
         fns = self.fns(obj, search=search, **kwargs)
         obj = self.mod(obj)
-        
+        schema = {}
         for fn in fns:
             try:
                 schema[fn] = self.fnschema(getattr(obj, fn), public=public,  **kwargs)
             except Exception as e:
                 print(self.error(e)) if verbose else None
+        if return_mode == 'list':
+            return list(schema.values())
+        elif return_mode == 'dict':
+            return schema
+        else: 
+            raise Exception('Invalid return mode', return_mode)
         return schema
 
     def code(self, obj = None,  **kwargs) -> Union[str, Dict[str, str]]:

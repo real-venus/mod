@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 
 export function Header() {
   const pathname = usePathname();
@@ -21,10 +20,9 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
-              className={cn(
-                "transition-colors hover:text-foreground/80",
+              className={`transition-colors hover:text-foreground/80 ${
                 pathname === item.href ? "text-foreground" : "text-foreground/60"
-              )}
+              }`}
             >
               {item.label}
             </Link>

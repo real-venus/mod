@@ -40,18 +40,19 @@ export function OwnerFilter({ owners, selectedOwners, onToggleOwner, onClearFilt
                     key={owner}
                     onClick={() => {
                       onToggleOwner(owner)
-                      setIsDropdownOpen(false)
+                      if (!isSelected) {
+                        setIsDropdownOpen(false)
+                      }
                     }}
-                    disabled={isSelected}
                     className={`w-full text-left px-4 py-3 border-b border-blue-500/30 last:border-b-0 transition-all font-mono text-sm ${
-                      isSelected ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-500/20'
+                      isSelected ? 'bg-blue-500/30 font-bold' : 'hover:bg-blue-500/20'
                     }`}
                     style={{
                       color: ownerColor
                     }}
                   >
                     {owner.slice(0, 8)}...{owner.slice(-6)}
-                    {isSelected && <span className="ml-2 text-xs">(selected)</span>}
+                    {isSelected && <span className="ml-2 text-xs">✓</span>}
                   </button>
                 )
               })}

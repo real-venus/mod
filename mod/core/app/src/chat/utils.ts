@@ -16,7 +16,95 @@ import {
   ERROR_STATUSES,
   PENDING_STATUSES
 } from './constants'
-import type { Transaction, Module, SchemaInputParam } from './types'
+import type { Transaction, Module, SchemaInputParam, ModuleSchema, FunctionSchema } from './types'
+
+/**
+ * Normalizes the input field to map format
+ * Handles both map format { paramName: SchemaInputParam } and list format [{ name: paramName, ... }]
+ * @param input - Input in either format
+ * @returns Input as a map with parameter names as keys
+ */
+export function normalizeInput(
+  input: Record<string, SchemaInputParam> | SchemaInputParam[]
+): Record<string, SchemaInputParam> {
+  // Already a map
+  if (!Array.isArray(input)) {
+    console.log('normalizeInput - already a map, keys:', Object.keys(input))
+    return input
+  }
+
+  console.log('normalizeInput - converting list to map, input:', input)
+
+  // Convert list to map
+  const normalized: Record<string, SchemaInputParam> = {}
+  input.forEach((paramSchema, index) => {
+    // Use the 'name' field as the key if it exists
+    // Otherwise fall back to the index as a string (for numeric keys like "0", "1", etc.)
+    const paramName = paramSchema.name || String(index)
+
+    // Create a copy without the 'name' field since it's now the key
+    const { name, ...rest } = paramSchema
+    normalized[paramName] = rest as SchemaInputParam
+  })
+
+  console.log('normalizeInput - output map keys:', Object.keys(normalized))
+
+  return normalized
+}
+
+/**
+ * Normalizes a function schema by ensuring input is in map format
+ * @param fnSchema - Function schema to normalize
+ * @returns Normalized function schema with input as a map
+ */
+export function normalizeFunctionSchema(fnSchema: FunctionSchema): FunctionSchema {
+  return {
+    ...fnSchema,
+    input: normalizeInput(fnSchema.input)
+  }
+}
+
+/**
+ * Normalizes a schema to map format
+ * Handles both map format { fnName: FunctionSchema } and list format [{ name: fnName, ... }]
+ * Also normalizes the input field within each function schema
+ * @param schema - Schema in either format
+ * @returns Schema as a map with function names as keys
+ */
+export function normalizeSchema(schema: ModuleSchema): Record<string, FunctionSchema> {
+  // Already a map
+  if (!Array.isArray(schema)) {
+    console.log('normalizeSchema - input is already a map, keys:', Object.keys(schema))
+    // Still need to normalize the input fields within each function schema
+    const normalized: Record<string, FunctionSchema> = {}
+    Object.entries(schema).forEach(([fnName, fnSchema]) => {
+      normalized[fnName] = normalizeFunctionSchema(fnSchema)
+    })
+    console.log('normalizeSchema - normalized map keys:', Object.keys(normalized))
+    return normalized
+  }
+
+  console.log('normalizeSchema - converting list to map, input:', schema)
+
+  // Convert list to map
+  const normalized: Record<string, FunctionSchema> = {}
+  schema.forEach((fnSchema, index) => {
+    // Use the 'name' field as the key if it exists
+    // Otherwise fall back to the index as a string (for numeric keys like "0", "1", etc.)
+    const fnName = fnSchema.name || String(index)
+    console.log(`normalizeSchema - function ${index}: name="${fnName}"`, fnSchema)
+
+    // Create a copy without the 'name' field since it's now the key
+    const { name, ...rest } = fnSchema
+
+    // Normalize the function schema (which will normalize its input field)
+    normalized[fnName] = normalizeFunctionSchema(rest as FunctionSchema)
+  })
+
+  console.log('normalizeSchema - output map keys:', Object.keys(normalized))
+
+  return normalized
+}
 
 /**
  * Formats an address or hash for display
@@ -187,24 +275,30 @@ export function sortModules(modules: Module[]): Module[] {
 
 /**
  * Filters functions from schema, excluding special parameters
- * @param schema - Module schema
+ * Handles both map and list formats
+ * @param schema - Module schema (map or list format)
  * @returns Array of function names
  */
-export function extractFunctions(schema: Record<string, any>): string[] {
-  return Object.keys(schema)
+export function extractFunctions(schema: ModuleSchema | Record<string, any>): string[] {
+  const normalizedSchema = normalizeSchema(schema as ModuleSchema)
+  return Object.keys(normalizedSchema)
     .filter(fn => fn !== 'self' && fn !== 'cls')
     .sort()
 }
 
 /**
  * Gets input parameters for a function, excluding special parameters
- * @param functionSchema - Function schema
+ * Handles both map and array formats
+ * @param functionSchema - Function schema input (map or array)
  * @returns Array of parameter names
  */
-export function getInputParams(functionSchema: Record<string, SchemaInputParam>): string[] {
+export function getInputParams(functionSchema: Record<string, SchemaInputParam> | SchemaInputParam[]): string[] {
   if (!functionSchema) return []
 
-  return Object.keys(functionSchema)
+  // Normalize to map format first
+  const normalizedInput = normalizeInput(functionSchema)
+
+  return Object.keys(normalizedInput)
     .filter(key => key !== 'self' && key !== 'cls')
 }
 
@@ -219,11 +313,12 @@ export function isEmptyValue(value: any): boolean {
 
 /**
  * Extracts default parameters from function schema
+ * Handles both map and array formats for input
  * @param functionSchema - Function schema with input definitions
  * @returns Object with default parameter values
  */
 export function extractDefaultParams(
-  functionSchema: { input?: Record<string, SchemaInputParam> }
+  functionSchema: { input?: Record<string, SchemaInputParam> | SchemaInputParam[] }
 ): Record<string, any> {
   const defaultParams: Record<string, any> = {}
 
@@ -231,12 +326,15 @@ export function extractDefaultParams(
     return defaultParams
   }
 
-  const inputKeys = Object.keys(functionSchema.input).filter(
+  // Normalize input to map format
+  const normalizedInput = normalizeInput(functionSchema.input)
+
+  const inputKeys = Object.keys(normalizedInput).filter(
     k => k !== 'self' && k !== 'cls'
   )
 
   // Extract non-empty default values
-  Object.entries(functionSchema.input).forEach(([key, value]) => {
+  Object.entries(normalizedInput).forEach(([key, value]) => {
     if (!isEmptyValue(value.value)) {
       defaultParams[key] = value.value
     }
@@ -245,7 +343,7 @@ export function extractDefaultParams(
   // Handle kwargs by including all parameters
   const hasKwargs = inputKeys.some(k => k === 'kwargs')
   if (hasKwargs) {
-    Object.entries(functionSchema.input).forEach(([key, value]) => {
+    Object.entries(normalizedInput).forEach(([key, value]) => {
       if (key !== 'self' && key !== 'cls' && key !== 'kwargs' && !(key in defaultParams)) {
         defaultParams[key] = !isEmptyValue(value.value) ? value.value : ''
       }
@@ -253,6 +351,61 @@ export function extractDefaultParams(
   }
 
   return defaultParams
+}
+
+/**
+ * Gets sorted parameter entries from function schema
+ * Sorts by args array if available, then by position field, then by Object.keys order
+ * Handles both map and array formats for input
+ * @param functionSchema - Function schema with input and optional args array
+ * @returns Sorted array of [paramName, paramValue] tuples
+ */
+export function getSortedParamEntries(
+  functionSchema: { input?: Record<string, SchemaInputParam> | SchemaInputParam[]; args?: string[] }
+): [string, SchemaInputParam][] {
+  if (!functionSchema.input) return []
+
+  // Normalize input to map format
+  const normalizedInput = normalizeInput(functionSchema.input)
+
+  let entries = Object.entries(normalizedInput).filter(
+    ([key]) => key !== 'self' && key !== 'cls' && key !== 'kwargs'
+  )
+
+  // If schema has args array, use that order
+  if (functionSchema.args && Array.isArray(functionSchema.args)) {
+    const argsOrder = functionSchema.args.filter(
+      k => k !== 'self' && k !== 'cls' && k !== 'kwargs'
+    )
+    entries.sort((a, b) => {
+      const indexA = argsOrder.indexOf(a[0])
+      const indexB = argsOrder.indexOf(b[0])
+      if (indexA === -1) return 1
+      if (indexB === -1) return -1
+      return indexA - indexB
+    })
+  } else {
+    // Sort by position field
+    entries.sort((a, b) => {
+      const posA = a[1]?.position ?? Number.MAX_SAFE_INTEGER
+      const posB = b[1]?.position ?? Number.MAX_SAFE_INTEGER
+      return posA - posB
+    })
+  }
+
+  return entries as [string, SchemaInputParam][]
+}
+
+/**
+ * Gets sorted parameter names from function schema
+ * Handles both map and array formats for input
+ * @param functionSchema - Function schema
+ * @returns Sorted array of parameter names
+ */
+export function getSortedParamNames(
+  functionSchema: { input?: Record<string, SchemaInputParam> | SchemaInputParam[]; args?: string[] }
+): string[] {
+  return getSortedParamEntries(functionSchema).map(([name]) => name)
 }
 
 /**

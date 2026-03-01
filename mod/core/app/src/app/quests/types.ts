@@ -42,21 +42,21 @@ export type QuestTab = 'quests' | 'responses' | 'stats' | 'leaderboard' | 'creat
 export function getStatusStyle(status: string) {
   switch (status) {
     case 'open':
-      return 'bg-green-500/10 text-green-400 border-green-500/40';
+      return 'bg-green-500/15 text-green-400';
     case 'completed':
-      return 'bg-blue-400/10 text-blue-400 border-blue-400/40';
+      return 'bg-blue-400/15 text-blue-400';
     case 'in_review':
-      return 'bg-amber-400/10 text-amber-400 border-amber-400/40';
+      return 'bg-amber-400/15 text-amber-400';
     case 'cancelled':
-      return 'bg-red-400/10 text-red-400 border-red-400/40';
+      return 'bg-red-400/15 text-red-400';
     case 'approved':
-      return 'bg-green-500/10 text-green-400 border-green-500/40';
+      return 'bg-green-500/15 text-green-400';
     case 'rejected':
-      return 'bg-red-400/10 text-red-400 border-red-400/40';
+      return 'bg-red-400/15 text-red-400';
     case 'pending':
-      return 'bg-amber-400/10 text-amber-400 border-amber-400/40';
+      return 'bg-amber-400/15 text-amber-400';
     default:
-      return 'bg-white/5 text-white/40 border-white/20';
+      return 'bg-white/5 text-white/40';
   }
 }
 

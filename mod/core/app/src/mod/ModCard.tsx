@@ -47,12 +47,15 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
         </div>
 
         {/* Name + fn count */}
-        <code
-          className="font-black font-mono tracking-tight text-[22px] flex-shrink-0"
-          style={{ color: modColor }}
-        >
-          {mod.name}
-        </code>
+        <div className="flex items-center gap-2">
+          <code
+            className="font-black font-mono tracking-tight text-[22px] flex-shrink-0"
+            style={{ color: modColor }}
+          >
+            {mod.name}
+          </code>
+          <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
+        </div>
 
         {fnCount > 0 && (
           <div
@@ -191,6 +194,7 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
               >
                 {mod.name}
               </code>
+              <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
               {fnCount > 0 && (
                 <div
                   className={`flex items-center gap-1 rounded-full flex-shrink-0 ${isExpanded ? 'px-2.5 py-1 text-[12px]' : 'px-2 py-0.5 text-[10px]'}`}
@@ -241,10 +245,10 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
         </div>
 
         {/* Metadata pills */}
-        <div className={`flex items-center flex-wrap ${isExpanded ? 'gap-2.5' : 'gap-1.5'}`}>
+        <div className={`flex items-center overflow-x-auto ${isExpanded ? 'gap-2.5' : 'gap-1.5'}`}>
           {/* Timestamp */}
           <div
-            className={`flex items-center gap-1.5 rounded-lg ${isExpanded ? 'px-3 py-1.5 text-[12px]' : 'px-2.5 py-1 text-[10px]'}`}
+            className={`flex items-center gap-1.5 rounded-lg flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[12px]' : 'px-2.5 py-1 text-[10px]'}`}
             style={{
               background: 'var(--bg-input)',
               border: '1.5px solid var(--border-color)',
@@ -256,7 +260,7 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
 
           {/* Owner key */}
           <div
-            className={`flex items-center gap-1.5 rounded-lg cursor-default ${isExpanded ? 'px-3 py-1.5 text-[12px]' : 'px-2.5 py-1 text-[10px]'}`}
+            className={`flex items-center gap-1.5 rounded-lg cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[12px]' : 'px-2.5 py-1 text-[10px]'}`}
             style={{
               background: 'var(--bg-input)',
               border: '1.5px solid var(--border-color)',
@@ -276,7 +280,7 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
           {/* IPFS CID */}
           {mod.cid && (
             <div
-              className={`flex items-center gap-1.5 rounded-lg cursor-default ${isExpanded ? 'px-3 py-1.5 text-[12px]' : 'px-2.5 py-1 text-[10px]'}`}
+              className={`flex items-center gap-1.5 rounded-lg cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[12px]' : 'px-2.5 py-1 text-[10px]'}`}
               style={{
                 background: 'var(--bg-input)',
                 border: '1.5px solid var(--border-color)',
@@ -295,7 +299,7 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
           {/* Network badge */}
           {mod.url && (
             <div
-              className={`flex items-center gap-1 rounded-lg ${isExpanded ? 'px-2.5 py-1.5 text-[12px]' : 'px-2 py-1 text-[10px]'}`}
+              className={`flex items-center gap-1 rounded-lg flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-2.5 py-1.5 text-[12px]' : 'px-2 py-1 text-[10px]'}`}
               style={{
                 background: 'var(--bg-input)',
                 border: '1.5px solid var(--border-color)',
