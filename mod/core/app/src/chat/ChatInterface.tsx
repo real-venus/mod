@@ -758,10 +758,28 @@ export default function ChatInterface() {
                                   <div className="flex items-center gap-2">
                                     <span className={`text-[10px] font-bold uppercase ${
                                       isLight ? 'text-gray-500' : 'text-neutral-500'
-                                    }`}>CID:</span>
+                                    }`}>OWNER:</span>
                                     <code className={`text-xs font-mono ${
                                       isLight ? 'text-blue-700' : 'text-blue-400'
                                     }`}>{m.owner.slice(0, 8)}...{m.owner.slice(-6)}</code>
+                                  </div>
+                                )}
+                                {(m.updated || m.created) && (
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold uppercase ${
+                                      isLight ? 'text-gray-500' : 'text-neutral-500'
+                                    }`}>UPDATED:</span>
+                                    <span className={`text-xs font-mono ${
+                                      isLight ? 'text-gray-600' : 'text-neutral-400'
+                                    }`}>
+                                      {new Date((m.updated || m.created)! * 1000).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
                                   </div>
                                 )}
                               </div>

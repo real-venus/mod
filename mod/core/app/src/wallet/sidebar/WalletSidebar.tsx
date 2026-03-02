@@ -20,12 +20,19 @@ function TabButton({ active, onClick, icon, label, colorActive, colorInactive }:
   return (
     <button
       onClick={onClick}
-      className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-2 transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
+      className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-[3px] transition-all duration-300 text-[11px] font-bold uppercase shadow-lg hover:scale-105 ${
         active
           ? `bg-gradient-to-br ${colorActive}`
           : `bg-gradient-to-br ${colorInactive}`
       }`}
-      style={{ fontFamily: 'IBM Plex Mono, monospace', borderRadius: '12px', width: '72px', height: '72px' }}
+      style={{
+        fontFamily: 'IBM Plex Mono, monospace',
+        borderRadius: '12px',
+        width: '72px',
+        height: '72px',
+        borderColor: active ? undefined : 'var(--border-strong)',
+        color: active ? undefined : 'var(--text-primary)',
+      }}
     >
       {icon}
       <span>{label}</span>

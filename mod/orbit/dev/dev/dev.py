@@ -43,11 +43,7 @@ class Dev:
     output_format=  """
             make sure the params is a legit json string within the STEP ANCHORS
             YOU CANNOT RESPOND WITH MULTIPLE PLANS BRO JUST ONE PLAN
-            <PLAN>
-            <STEP>{tool:str, params:dict}</STEP> # STEP 1 
-            <STEP>{tool:str, params:dict}</STEP> # STEP 2
             <STEP>{tool:finish, params:dict}</STEP> # FINAL STEP
-            </PLAN>
     """
 
     tool_fn_name = 'forward'
@@ -86,7 +82,7 @@ class Dev:
                 self.memory.add(f'fork({k})', m.fn('select_files')(path=m.dp(v), query=kwargs['query']))
 
     def forward(self, 
-                query: str = 'make this like the base ', 
+                query: str = 'make me a readme ', 
                 mod='base',
                 model: Optional[str] = 'anthropic/claude-opus-4.5',
                 path=None,
@@ -94,7 +90,6 @@ class Dev:
                 max_tokens: int = 1000000, 
                 steps = 10,
                 tools = None,
-                safety=False,
                 # for saving only (need the key)
                 save = False,
                 key=None,
@@ -115,42 +110,41 @@ class Dev:
             self.memory.update({'step':step, 'files': os.listdir(path) , 'pwd': path})
             memory = str(self.memory.get())
             output = self.model.forward(str(memory), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
-            plan = self.plan(output, safety=safety)
+            plan = self.plan(output)
             self.memory.add('plan', plan)
-            # if plan[-1]['tool'].lower() == 'finish':
-            #     print('Finishing Agent')
-            #     break
+            if plan[-1]['tool'].lower() == 'finish':
+                print('Finishing Agent')
+                break
         if save:
             return m.fn('api/reg')(mod=mod, key=key, comment=query)
         return plan
 
 
-    def plan(self, text:str, safety=True) -> str:
+    def plan(self, text:str) -> str:
         """
         Generate a plan based on the output text from the model.
         """
         plan = self.get_plan(text)
-        plan = self.run_plan(plan, safety=safety)
+        plan = self.run_plan(plan)
         return plan
 
+    def get_step(self, text):
+        text = text.split(self.anchors['tool'][0])[1].split(self.anchors['tool'][1])[0]
+        m.print("STEP:", text, color='yellow')
+        try:
+            step = json.loads(text)
+        except json.JSONDecodeError as e:
+            step = m.tool('fix_json')(text)
+            if isinstance(step, str):
+                step = json.loads(step)
+        assert 'tool' in text
+        assert 'params' in text
+        return step
     def get_plan(self, output:str) -> list:
         """
         Parse the output text to extract the plan consisting of steps with tools and parameters.
         """
 
-
-        def get_step(text):
-            text = text.split(self.anchors['tool'][0])[1].split(self.anchors['tool'][1])[0]
-            m.print("STEP:", text, color='yellow')
-            try:
-                step = json.loads(text)
-            except json.JSONDecodeError as e:
-                step = m.tool('fix_json')(text)
-                if isinstance(step, str):
-                    step = json.loads(step)
-            assert 'tool' in text
-            assert 'params' in text
-            return step
 
         text = ''
         plan = []
@@ -158,19 +152,15 @@ class Dev:
             text += ch
             m.print(ch, end='')
             if bool(self.anchors['tool'][0] in text and self.anchors['tool'][1] in text):
-                step = get_step(text)
+                step = self.get_step(text)
                 plan.append(step)
-                text = text.split(self.anchors['tool'][-1])[-1]
+                break
         return plan
 
-    def run_plan(self, plan: List[Dict[str, Any]], safety=True) -> List[Dict[str, Any]]:
+    def run_plan(self, plan: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Execute a plan consisting of steps with tools and parameters.
         """
-        if safety:
-            input_text = input("Do you want to execute the plan? (y/Y) for YES: ")
-            if not input_text in ['y', 'Y']:
-                raise Exception("Plan execution aborted by user.")
         for i, step in enumerate(plan):
             if step['tool'].lower() in ['finish', 'review']:
                 m.print(f"Step {i+1}/{len(plan)}: {step['tool']} with params {step['params']}", color='green')

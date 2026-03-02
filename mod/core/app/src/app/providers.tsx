@@ -23,6 +23,7 @@ import {
 } from '@/context/LayoutContext'
 import { ThemeProvider, useTheme } from '@/context/ThemeContext'
 import { SplitScreenControls } from '@/components/SplitScreenControls'
+import { getAllNavItems, getNavHref } from '@/config/navigation'
 
 function ThemedToast() {
   const { effectiveTheme } = useTheme()
@@ -74,15 +75,7 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
   const [searchOpen, setSearchOpen] = useState(false)
   const [createDropdownOpen, setCreateDropdownOpen] = useState(false)
 
-  const navItems = [
-    { href: '/mod/explore', label: 'MODS', color: '#10b981' },
-    { href: '/quests', label: 'QUESTS', color: '#0bf58c' },
-    { href: '/treasury', label: 'TREASURY', color: '#a855f7' },
-    { href: '/contracts', label: 'CONTRACTS', color: '#f59e0b' },
-    { href: '/docs', label: 'DOCS', color: '#a78bfa' },
-    { href: '/chat', label: 'CHAT', color: '#8b5cf6' },
-    { href: '/safe', label: 'SAFE', color: '#f59e0b' },
-  ]
+  const navItems = getAllNavItems()
 
   // No longer close sidebar on route change — sidebar persists
 
@@ -189,7 +182,7 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
               onKeyDown={handleKeyDown}
               onFocus={() => setSearchOpen(true)}
               placeholder="Search mods..."
-              className="w-full text-[14px] font-bold focus:outline-none focus:border-green-500/40 transition-all rounded-xl"
+              className="w-full text-[16px] font-bold focus:outline-none focus:border-green-500/40 transition-all rounded-xl"
               style={{
                 paddingLeft: '2.5rem',
                 paddingRight: searchOpen ? '3.5rem' : '1rem',
@@ -215,101 +208,16 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
 
         {/* Right side: + CREATE, Logo, Network, Wallet */}
         <div className="shrink-0 flex items-center gap-1 ml-3">
-          <div ref={createDropdownRef} className="relative">
-            <button
-              onClick={() => setCreateDropdownOpen(!createDropdownOpen)}
-              className="shrink-0 flex items-center gap-2 px-5 border hover:opacity-80 transition-all"
-              style={{ height: '44px', fontFamily: 'inherit', borderRadius: '22px', borderColor: 'var(--border-strong)', background: createDropdownOpen ? 'var(--bg-input)' : 'transparent' }}
-            >
-              <PlusIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
-              <span className="text-[15px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap hidden sm:inline" style={{ color: 'var(--text-primary)' }}>
-                CREATE
-              </span>
-            </button>
-
-            {/* Dropdown popout */}
-            <AnimatePresence>
-              {createDropdownOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                  transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
-                  className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden shadow-2xl border"
-                  style={{
-                    background: 'var(--bg-sidebar)',
-                    borderColor: 'var(--border-strong)',
-                    backdropFilter: 'blur(16px)',
-                    fontFamily: 'IBM Plex Mono, monospace',
-                  }}
-                >
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        router.push('/create')
-                        setCreateDropdownOpen(false)
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 transition-all hover:bg-opacity-60"
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <PlusIcon className="w-4 h-4" style={{ color: '#10b981' }} />
-                      <div className="flex flex-col items-start">
-                        <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
-                          New Module
-                        </span>
-                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
-                          Create a new module
-                        </span>
-                      </div>
-                    </button>
-
-                    <div className="border-t mx-2" style={{ borderColor: 'var(--border-color)' }} />
-
-                    <button
-                      onClick={() => {
-                        router.push('/quests')
-                        setCreateDropdownOpen(false)
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 transition-all hover:bg-opacity-60"
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <PlusIcon className="w-4 h-4" style={{ color: '#0bf58c' }} />
-                      <div className="flex flex-col items-start">
-                        <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
-                          New Quest
-                        </span>
-                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
-                          Create a new quest
-                        </span>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        router.push('/chat')
-                        setCreateDropdownOpen(false)
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 transition-all hover:bg-opacity-60"
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <PlusIcon className="w-4 h-4" style={{ color: '#8b5cf6' }} />
-                      <div className="flex flex-col items-start">
-                        <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
-                          New Chat
-                        </span>
-                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
-                          Start a new conversation
-                        </span>
-                      </div>
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <button
+            onClick={() => router.push('/create')}
+            className="shrink-0 flex items-center gap-2 px-5 border hover:opacity-80 transition-all"
+            style={{ height: '44px', fontFamily: 'inherit', borderRadius: '22px', borderColor: 'var(--border-strong)', background: 'transparent' }}
+          >
+            <PlusIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
+            <span className="text-[17px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap hidden sm:inline" style={{ color: 'var(--text-primary)' }}>
+              CREATE
+            </span>
+          </button>
 
           <ThemeToggle />
           <NetworkSelector />
@@ -340,11 +248,12 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
             {/* Nav items */}
             <div className="flex-1 py-1">
               {navItems.map(item => {
+                const finalHref = getNavHref(item)
                 const isActive = pathname?.startsWith(item.href)
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={finalHref}
                     className="flex items-center px-4 py-2.5 transition-all"
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
                     onMouseLeave={e => { if (!pathname?.startsWith(item.href)) e.currentTarget.style.background = 'transparent' }}
@@ -354,7 +263,7 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
                     }}
                   >
                     <span
-                      className="text-[13px] font-extrabold uppercase tracking-[0.1em]"
+                      className="text-[15px] font-extrabold uppercase tracking-[0.1em]"
                       style={{ color: isActive ? item.color : 'var(--text-secondary)' }}
                     >
                       {item.label}

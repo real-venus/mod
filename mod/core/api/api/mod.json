@@ -4,6 +4,7 @@
     "fns" :  [
                 "mods",
                 "names", 
+                "set_version", 
                 "reg", 
                 "edit",
                 "mod",

@@ -396,6 +396,28 @@ export default function CreateModule() {
                 </div>
 
                 <div className="space-y-3">
+                  {/* Module Name Input */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] uppercase tracking-[0.2em] font-bold px-1" style={{ color: 'var(--text-secondary)' }}>
+                      Module Name
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="module-name"
+                      className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all placeholder:text-[var(--text-tertiary)]"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1.5px solid var(--border-color)',
+                        color: 'var(--text-primary)',
+                      }}
+                    />
+                    <p className="text-[10px] px-1" style={{ color: 'var(--text-tertiary)' }}>
+                      Auto-detected from repository. You can customize it here.
+                    </p>
+                  </div>
+
                   {/* Wait toggle */}
                   <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
                     <div className="flex-1">
@@ -493,6 +515,30 @@ export default function CreateModule() {
                   </div>
                 )}
               </div>
+
+              {/* Module Name Input */}
+              {url && valid && (
+                <div className="space-y-2">
+                  <label className="text-[11px] uppercase tracking-[0.2em] font-bold px-1" style={{ color: 'var(--text-secondary)' }}>
+                    Module Name
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="module-name"
+                    className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all placeholder:text-[var(--text-tertiary)]"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1.5px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                  <p className="text-[10px] px-1" style={{ color: 'var(--text-tertiary)' }}>
+                    Auto-detected from URL. You can customize it here.
+                  </p>
+                </div>
+              )}
 
               <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}>
                 <div className="text-blue-500/60 mt-0.5">ℹ</div>

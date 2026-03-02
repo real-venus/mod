@@ -103,7 +103,7 @@ export function ChatTab({
               </span>
             </button>
             <button
-              onClick={() => setViewMode('history')}
+              onClick={() => setViewMode(viewMode === 'history' ? 'present' : 'history')}
               className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all ${
                 viewMode === 'history'
                   ? 'text-purple-400'

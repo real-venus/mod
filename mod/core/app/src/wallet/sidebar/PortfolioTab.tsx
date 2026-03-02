@@ -68,11 +68,18 @@ export function PortfolioTab({
   const allTokens: { key: string; symbol: string; balance: number; address?: string; decimals?: number; isCustom?: boolean; isETH?: boolean }[] = []
 
   for (const [token, balance] of Object.entries(tokenBalances)) {
+    // Get token info for native token
+    let decimals = 18 // default
+    if (token === 'NativeToken') {
+      decimals = 18 // NativeToken uses 18 decimals
+    }
+
     allTokens.push({
       key: token,
       symbol: token,
       balance: Number(balance) || 0,
       address: tokenAddressMap[token],
+      decimals: token === 'NativeToken' ? decimals : undefined,
       isETH: token === 'ETH',
     })
   }
@@ -212,7 +219,7 @@ export function PortfolioTab({
                       <span className="font-mono font-bold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                         {token.isETH
                           ? `${token.balance.toFixed(4)} ETH`
-                          : token.isCustom
+                          : token.isCustom || token.symbol === 'NativeToken'
                           ? `${token.balance.toFixed(4)} ${token.symbol}`
                           : `$${token.balance.toFixed(2)}`}
                       </span>
@@ -254,6 +261,8 @@ export function PortfolioTab({
                               if (token.isETH) {
                                 onSendETH()
                               } else if (token.isCustom && token.address && token.decimals != null) {
+                                onSendCustomToken(token.address, token.symbol, token.decimals)
+                              } else if (token.symbol === 'NativeToken' && token.address && token.decimals != null) {
                                 onSendCustomToken(token.address, token.symbol, token.decimals)
                               } else if (token.symbol === 'MARKET') {
                                 setTransferTokenType('MARKET')

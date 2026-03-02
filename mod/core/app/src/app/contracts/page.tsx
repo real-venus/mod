@@ -57,7 +57,7 @@ interface CustomContract {
   abiCid?: string
 }
 
-function getContracts(customContracts: CustomContract[]): { name: string; address: string }[] {
+function getContracts(customContracts: CustomContract[]): { name: string; address: string; abiCid?: string }[] {
   const chainConfig = (modConfig.chain as any)?.testnet
   const baseContracts = chainConfig?.contracts ? (() => {
     const entries = Object.entries(chainConfig.contracts) as [string, any][]
@@ -66,10 +66,10 @@ function getContracts(customContracts: CustomContract[]): { name: string; addres
       .filter(([name]) => name !== 'Treasury' && name !== 'Safe')
       .sort(([a], [b]) => a.localeCompare(b))
     const ordered = treasury ? [treasury, ...rest] : rest
-    return ordered.map(([name, val]) => ({ name, address: val.address }))
+    return ordered.map(([name, val]) => ({ name, address: val.address, abiCid: val.abi }))
   })() : []
 
-  const custom = customContracts.map(c => ({ name: c.name, address: c.address }))
+  const custom = customContracts.map(c => ({ name: c.name, address: c.address, abiCid: c.abiCid }))
   return [...baseContracts, ...custom]
 }
 
@@ -137,7 +137,6 @@ export default function ContractsPage() {
   const [showRead, setShowRead] = useState(true)
   const [showWrite, setShowWrite] = useState(true)
   const [fnSearch, setFnSearch] = useState('')
-  const [viewMode, setViewMode] = useState<'txs' | 'chat'>('txs')
 
   const [selectedFnName, setSelectedFnName] = useState('')
   const [fnArgs, setFnArgs] = useState<string[]>([])
@@ -545,26 +544,6 @@ export default function ContractsPage() {
           <h1 className="text-2xl font-bold uppercase tracking-[0.15em] font-mono" style={{ color: 'var(--text-primary)' }}>Contracts</h1>
           <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, var(--border-color), transparent)' }} />
 
-          {/* View mode toggle */}
-          <div className="flex gap-1 p-0.5 bg-black/60 border border-cyan-500/15 rounded">
-            <button
-              onClick={() => setViewMode('txs')}
-              className={`px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] font-mono rounded-sm transition-all ${
-                viewMode === 'txs'
-                  ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30 shadow-[0_0_8px_rgba(168,85,247,0.1)]'
-                  : 'text-white/25 hover:text-purple-400/50 border border-transparent'
-              }`}
-            >TXS</button>
-            <button
-              onClick={() => setViewMode('chat')}
-              className={`px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] font-mono rounded-sm transition-all ${
-                viewMode === 'chat'
-                  ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_8px_rgba(0,255,255,0.1)]'
-                  : 'text-white/25 hover:text-cyan-400/50 border border-transparent'
-              }`}
-            >CHAT</button>
-          </div>
-
           <span className="text-[12px] font-mono" style={{ color: 'var(--text-tertiary)' }}>[{contracts.length}]</span>
         </div>
         <p className="text-[14px] mb-6 ml-6 font-mono" style={{ color: 'var(--text-tertiary)' }}>Interact with deployed smart contracts</p>
@@ -729,16 +708,24 @@ export default function ContractsPage() {
                   <div className="absolute bottom-0 right-0 w-2 h-px transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
                   <div className="absolute bottom-0 right-0 w-px h-2 transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
 
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full transition-all" style={{
-                      backgroundColor: isSelected ? cardColor : 'var(--text-tertiary)',
-                      boxShadow: isSelected ? `0 0 6px ${cardColor}` : 'none',
-                    }} />
-                    <div className="text-[13px] font-bold font-mono" style={{ color: isSelected ? cardColor : 'var(--text-primary)' }}>{c.name}</div>
-                    {isCustom && (
-                      <span className="text-[8px] px-1 py-0.5 rounded font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">CUSTOM</span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full transition-all" style={{
+                        backgroundColor: isSelected ? cardColor : 'var(--text-tertiary)',
+                        boxShadow: isSelected ? `0 0 6px ${cardColor}` : 'none',
+                      }} />
+                      <div className="text-[13px] font-bold font-mono" style={{ color: isSelected ? cardColor : 'var(--text-primary)' }}>{c.name}</div>
+                      {isCustom && (
+                        <span className="text-[8px] px-1 py-0.5 rounded font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">CUSTOM</span>
+                      )}
+                      <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{shorten(c.address, 4, 3)}</div>
+                    </div>
+                    {c.abiCid && (
+                      <div className="flex items-center gap-1 ml-4">
+                        <span className="text-[9px] font-mono" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
+                        <span className="text-[9px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(c.abiCid, 8, 6)}</span>
+                      </div>
                     )}
-                    <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{shorten(c.address, 4, 3)}</div>
                   </div>
                 </button>
 
@@ -786,6 +773,13 @@ export default function ContractsPage() {
                 <span className="text-[13px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(contractInfo.address)}</span>
                 <CopyButton text={contractInfo.address} size="sm" />
               </div>
+              {contractInfo.abiCid && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+                  <span className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
+                  <span className="text-[12px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(contractInfo.abiCid, 10, 8)}</span>
+                  <CopyButton text={contractInfo.abiCid} size="sm" />
+                </div>
+              )}
 
               <div className="flex-1" />
 

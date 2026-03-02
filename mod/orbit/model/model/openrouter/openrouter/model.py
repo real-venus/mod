@@ -149,16 +149,13 @@ class OpenRouter:
         """
         get the api keys
         """
-        api_key = api_key or self.env_varname
-        # first check environment variable
-        if self.env_varname in os.environ:
-            return os.environ[self.env_varname]
-        keys = self.store.get(self.api_path, [])
-        if len(keys) > 0:
-            return random.choice(keys)
+        if api_key is  None:
+            api_key =  random.choice(self.store.get(self.api_path, []))
         else:
-            return ''
-            print(f"No API key found in store.")
+            if api_key in os.environ or api_key.startswith('$'):
+                api_key =  os.environ[self.env_varname]
+        assert api_key.startswith('sk-'), 'Invalid API key'
+        return api_key
 
     def keys(self):
         """
@@ -179,8 +176,19 @@ class OpenRouter:
         return keys
     
     def set_key(self, key):
+        
         return self.set_keys(key)
-
+    
+    # def set_env_var(self, key = None):
+    #     os.environ[self.env_varname] = key or self.api_key()
+    #     cmd = f"echo 'export {self.env_varname}="{os.environ[self.env_varname]}"' >> ~/.zshrc"
+    #     return os.system(cmd)
+        
+    #     import subprocess
+    #     subprocess.run(cmd, shell=True)
+    #     subprocess.run("source ~/.zshrc", shell=True)
+    #     subprocess.run("echo 'Environment variable set. Please restart your terminal.'", shell=True)
+    #     return os.environ[self.env_varname]
 
     def rm_key(self, key):
         keys = self.store.get(self.api_path, [])

@@ -40,17 +40,17 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
           className="flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-xl"
           style={{
             backgroundColor: colorWithOpacity(modColor, 0.1),
-            border: `2px solid ${colorWithOpacity(modColor, 0.3)}`,
+            border: `2px solid var(--text-primary)`,
           }}
         >
-          <CubeIcon style={{ width: '18px', height: '18px', color: modColor, strokeWidth: 2.5 }} />
+          <CubeIcon style={{ width: '18px', height: '18px', color: 'var(--text-primary)', strokeWidth: 2.5 }} />
         </div>
 
         {/* Name + fn count */}
         <div className="flex items-center gap-2">
           <code
             className="font-black font-mono tracking-tight text-[22px] flex-shrink-0"
-            style={{ color: modColor }}
+            style={{ color: 'var(--text-primary)' }}
           >
             {mod.name}
           </code>
@@ -150,9 +150,9 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
       style={{
         fontFamily: 'IBM Plex Mono, Courier New, monospace',
         ...(card_enabled ? {
-          backgroundColor: 'var(--bg-secondary)',
-          border: isHovered ? `2px solid ${colorWithOpacity(modColor, 0.5)}` : '2px solid var(--border-strong)',
-          boxShadow: isHovered ? 'var(--card-shadow-hover)' : 'var(--card-shadow)',
+          background: `linear-gradient(135deg, ${colorWithOpacity(modColor, 0.15)} 0%, ${colorWithOpacity(modColor, 0.05)} 100%)`,
+          border: isHovered ? `2px solid ${colorWithOpacity(modColor, 0.6)}` : `2px solid ${colorWithOpacity(modColor, 0.3)}`,
+          boxShadow: isHovered ? `0 8px 24px ${colorWithOpacity(modColor, 0.2)}` : `0 2px 8px ${colorWithOpacity(modColor, 0.1)}`,
           transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
           transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
         } : {}),
@@ -169,14 +169,14 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
             className={`flex items-center justify-center flex-shrink-0 ${isExpanded ? 'w-16 h-16 rounded-2xl' : 'w-13 h-13 rounded-xl'}`}
             style={{
               backgroundColor: colorWithOpacity(modColor, 0.1),
-              border: `2px solid ${colorWithOpacity(modColor, 0.3)}`,
+              border: `2px solid var(--text-primary)`,
             }}
           >
             <CubeIcon
               style={{
                 width: isExpanded ? '28px' : '24px',
                 height: isExpanded ? '28px' : '24px',
-                color: modColor,
+                color: 'var(--text-primary)',
                 strokeWidth: 2.5,
               }}
             />
@@ -187,7 +187,7 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
               <code
                 className={`font-black font-mono tracking-tight truncate block ${isExpanded ? 'text-[28px]' : 'text-[17px]'}`}
                 style={{
-                  color: modColor,
+                  color: 'var(--text-primary)',
                   textShadow: 'none',
                   transition: 'all 0.3s ease',
                 }}

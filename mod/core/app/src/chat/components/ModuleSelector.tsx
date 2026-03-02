@@ -155,7 +155,7 @@ export function ModuleSelector({
 
   return (
     <div className="relative">
-      <div className="flex items-center gap-3 border-2 border-purple-500/40 px-5 py-4 rounded-xl" style={{ backgroundColor: 'var(--bg-surface)' }}>
+      <div className="flex items-center gap-3 border-2 border-purple-500/40 px-6 py-5 rounded-xl" style={{ backgroundColor: 'var(--bg-surface)' }}>
         {/* Selected module - single line compact */}
         {sortedModules.length > 0 ? (
           sortedModules.map(module => {
@@ -176,7 +176,7 @@ export function ModuleSelector({
                 }}
               >
                 {/* Module Name */}
-                <code className="text-lg font-black tracking-wide" style={{ color: color }}>
+                <code className="text-lg font-black tracking-wide" style={{ color: 'black' }}>
                   {module.name}
                 </code>
 
@@ -190,7 +190,7 @@ export function ModuleSelector({
                   title={`Copy Key: ${module.key}`}
                   style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}
                 >
-                  <KeyIcon className="h-5 w-5 transition-transform group-hover:rotate-12" style={{ color: keyColor }} />
+                  <KeyIcon className="h-5 w-5 transition-transform group-hover:rotate-12" style={{ color: 'black' }} />
                 </button>
 
                 {/* CID - Icon with hover effect */}
@@ -201,7 +201,7 @@ export function ModuleSelector({
                     title={`Copy CID: ${module.cid}`}
                     style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}
                   >
-                    <CubeIcon className="h-5 w-5 transition-transform group-hover:rotate-12" style={{ color: cidColor }} />
+                    <CubeIcon className="h-5 w-5 transition-transform group-hover:rotate-12" style={{ color: 'black' }} />
                   </button>
                 )}
 
@@ -216,7 +216,7 @@ export function ModuleSelector({
                     title="Show QR Code"
                     style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}
                   >
-                    <QrCodeIcon className="h-5 w-5 cursor-pointer transition-transform" style={{ color: cidColor }} />
+                    <QrCodeIcon className="h-5 w-5 cursor-pointer transition-transform" style={{ color: 'black' }} />
                   </button>
                 )}
 

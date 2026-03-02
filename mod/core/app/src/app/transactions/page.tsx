@@ -2,172 +2,180 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { userContext } from '@/context/UserContext';
-import { TransactionStats } from './stats';
+import { TransactionCard } from '@/chat/transactions/TransactionCard';
 
 export default function TransactionsPage() {
-  const { client } = userContext();
+  const { client, user } = userContext();
   const searchParams = useSearchParams();
   const [txs, setTxs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(searchParams.get('q') || '');
-  const [status, setStatus] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'complete'>('all');
+  const [showMyTxs, setShowMyTxs] = useState(true);
+  const [expandedTxIdx, setExpandedTxIdx] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchTxs = async () => {
       if (!client) return;
       setLoading(true);
       try {
-        const result = await client.call('tx/search', { query: search, status: status !== 'all' ? status : undefined });
-        setTxs(result?.data || []);
+        const result = await client.call('txs', { df: 0, n: 1000, page: 0 });
+        const txs = Array.isArray(result) ? result : [];
+        setTxs(txs);
       } catch (e) { console.error(e); }
       setLoading(false);
     };
     fetchTxs();
-  }, [client, search, status]);
+  }, [client]);
 
-  const filtered = txs.filter(tx => status === 'all' || tx.status === status);
-
-  const getStatusColors = (txStatus: string) => {
-    switch(txStatus) {
-      case 'success':
-        return 'bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/40 border-2 border-green-300 dark:border-green-700';
-      case 'pending':
-        return 'bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/40 border-2 border-yellow-300 dark:border-yellow-700';
-      case 'failed':
-        return 'bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-900/30 dark:to-rose-900/40 border-2 border-red-300 dark:border-red-700';
-      default:
-        return 'bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-800 dark:to-slate-800 border-2 border-gray-300 dark:border-gray-600';
+  const filtered = txs.filter(tx => {
+    // Filter by user
+    if (showMyTxs && user?.key) {
+      if (tx.key !== user.key && tx.owner !== user.key && tx.client !== user.key) {
+        return false;
+      }
     }
-  };
 
-  const getStatusBadge = (txStatus: string) => {
-    switch(txStatus) {
-      case 'success':
-        return <span className="px-4 py-2 rounded-full text-base font-bold bg-green-600 dark:bg-green-500 text-white shadow-lg">✓ Success</span>;
-      case 'pending':
-        return <span className="px-4 py-2 rounded-full text-base font-bold bg-yellow-600 dark:bg-yellow-500 text-white shadow-lg">⏳ Pending</span>;
-      case 'failed':
-        return <span className="px-4 py-2 rounded-full text-base font-bold bg-red-600 dark:bg-red-500 text-white shadow-lg">✗ Failed</span>;
-      default:
-        return <span className="px-4 py-2 rounded-full text-base font-bold bg-gray-600 dark:bg-gray-500 text-white shadow-lg">Unknown</span>;
+    // Filter by status
+    if (statusFilter !== 'all') {
+      const hasCompleted = tx.result !== undefined && tx.result !== null;
+      if (statusFilter === 'complete') {
+        if (!(hasCompleted || tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete')) {
+          return false;
+        }
+      } else if (statusFilter === 'pending') {
+        if (hasCompleted || !(tx.status === 'pending' || tx.status === 'running')) {
+          return false;
+        }
+      }
     }
-  };
+
+    // Filter by search query
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return (
+        (tx.fn && tx.fn.toLowerCase().includes(q)) ||
+        (tx.hash && tx.hash.toLowerCase().includes(q)) ||
+        (tx.owner && tx.owner.toLowerCase().includes(q)) ||
+        (tx.client && tx.client.toLowerCase().includes(q)) ||
+        (tx.method && tx.method.toLowerCase().includes(q))
+      );
+    }
+
+    return true;
+  });
+
+  const totalCost24h = filtered.reduce((acc, tx) => {
+    const now = Date.now() / 1000;
+    const twentyFourHoursAgo = now - (24 * 60 * 60);
+    if (parseInt(tx.time) >= twentyFourHoursAgo && tx.cost) {
+      return acc + parseFloat(tx.cost);
+    }
+    return acc;
+  }, 0);
+
+  const count24h = filtered.filter(tx => {
+    const now = Date.now() / 1000;
+    const twentyFourHoursAgo = now - (24 * 60 * 60);
+    return parseInt(tx.time) >= twentyFourHoursAgo;
+  }).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">Transactions</h1>
+    <div className="min-h-screen p-6" style={{ fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-primary)' }}>
+      <div className="max-w-7xl mx-auto space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>Transactions</h1>
 
-        {/* Collapsible Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+          {/* My Txs Toggle */}
           <button
-            onClick={() => setFiltersOpen(!filtersOpen)}
-            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            onClick={() => setShowMyTxs(!showMyTxs)}
+            className="flex items-center gap-2 px-4 py-2 border-2 rounded-lg transition-all font-bold text-sm"
+            style={{
+              backgroundColor: showMyTxs ? 'var(--bg-surface)' : 'transparent',
+              borderColor: showMyTxs ? 'var(--border-strong)' : 'var(--border-color)',
+              color: showMyTxs ? 'var(--text-accent)' : 'var(--text-secondary)',
+            }}
           >
-            <span className="text-lg font-semibold text-gray-900 dark:text-white">Filters & Search</span>
-            <svg className={`w-6 h-6 text-gray-500 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <span className={showMyTxs ? 'text-cyan-500' : ''}>👤</span>
+            <span>{showMyTxs ? 'My Txs' : 'All Txs'}</span>
           </button>
-
-          {filtersOpen && (
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search transactions..."
-                className="w-full px-4 py-3 text-lg border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-transparent focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-              />
-              <div className="flex flex-wrap gap-3">
-                {(['all', 'success', 'pending', 'failed'] as const).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setStatus(s)}
-                    className={`px-5 py-2.5 text-base font-semibold rounded-lg transition-all transform hover:scale-105 ${
-                      status === s
-                        ? 'bg-blue-600 text-white shadow-lg'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <div className="text-base text-gray-600 dark:text-gray-400 font-medium">
-                Showing {filtered.length} result{filtered.length !== 1 ? 's' : ''}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Stats */}
-        <TransactionStats txs={filtered} />
+        {/* Search & Filters - Always Visible */}
+        <div className="border-2 rounded-xl p-4 space-y-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-strong)' }}>
+          {/* Search Bar */}
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by function, hash, owner..."
+            className="w-full px-4 py-3 text-base border-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-purple-500"
+            style={{
+              backgroundColor: 'var(--bg-input)',
+              borderColor: 'var(--border-color)',
+              color: 'var(--text-primary)',
+            }}
+          />
+
+          {/* Filter Buttons & Stats */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex gap-2">
+              {(['all', 'pending', 'complete'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className="px-4 py-2 text-sm font-bold uppercase rounded-lg transition-all border-2"
+                  style={{
+                    backgroundColor: statusFilter === s ? 'var(--bg-input)' : 'transparent',
+                    borderColor: statusFilter === s ? 'var(--border-strong)' : 'var(--border-color)',
+                    color: statusFilter === s ? 'var(--text-accent)' : 'var(--text-secondary)',
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+
+            {/* 24h Stats */}
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase tracking-wider font-bold" style={{ color: 'var(--text-tertiary)' }}>24H</span>
+                <span className="font-mono font-bold text-amber-400 tabular-nums">${totalCost24h.toFixed(2)}</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>({count24h})</span>
+              </div>
+              <div className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Transaction List */}
         {loading ? (
-          <div className="text-center py-16">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-lg text-gray-500">Loading transactions...</p>
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-2 border-purple-500/30 border-t-purple-500" />
+              <p className="text-base font-medium" style={{ color: 'var(--text-secondary)' }}>Loading transactions...</p>
+            </div>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <p className="text-xl text-gray-500 dark:text-gray-400">No transactions found</p>
+          <div className="text-center py-20 border-2 rounded-xl" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+            <p className="text-lg font-medium" style={{ color: 'var(--text-secondary)' }}>No transactions found</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filtered.map((tx, i) => (
+          <div className="space-y-3">
+            {filtered.map((tx, idx) => (
               <div
-                key={tx.hash || i}
-                className={`${getStatusColors(tx.status)} rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 p-6`}
+                key={tx.cid || tx.hash || idx}
+                onClick={() => setExpandedTxIdx(expandedTxIdx === idx ? null : idx)}
               >
-                <div className="flex flex-col gap-4">
-                  {/* Top Section - Hash and Status Badge */}
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="font-mono text-lg font-bold text-gray-900 dark:text-white">
-                        {tx.hash?.slice(0, 16)}...{tx.hash?.slice(-8)}
-                      </div>
-                      <div className="text-base text-gray-600 dark:text-gray-300 mt-1">
-                        {tx.timestamp ? new Date(tx.timestamp).toLocaleString() : 'No timestamp'}
-                      </div>
-                    </div>
-                    {getStatusBadge(tx.status)}
-                  </div>
-
-                  {/* Details Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-4 border-t-2 border-gray-300/50 dark:border-gray-600/50">
-                    <div className="flex flex-col">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Method</span>
-                      <span className="font-semibold text-lg text-gray-900 dark:text-white mt-1">{tx.method || 'transfer'}</span>
-                    </div>
-
-                    <div className="flex flex-col">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Amount</span>
-                      <span className="font-bold text-xl text-gray-900 dark:text-white mt-1">{tx.amount || '0'}</span>
-                    </div>
-
-                    <div className="flex flex-col">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Cost</span>
-                      <span className="font-bold text-xl text-gray-900 dark:text-white mt-1">{tx.cost || '0'}</span>
-                    </div>
-
-                    <div className="flex flex-col">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Client</span>
-                      <span className="font-semibold text-lg text-gray-900 dark:text-white mt-1 truncate" title={tx.client}>
-                        {tx.client ? (tx.client.length > 12 ? `${tx.client.slice(0, 8)}...${tx.client.slice(-4)}` : tx.client) : '-'}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Owner</span>
-                      <span className="font-semibold text-lg text-gray-900 dark:text-white mt-1 truncate" title={tx.owner}>
-                        {tx.owner ? (tx.owner.length > 12 ? `${tx.owner.slice(0, 8)}...${tx.owner.slice(-4)}` : tx.owner) : '-'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <TransactionCard
+                  tx={tx}
+                  idx={idx}
+                  isExpanded={expandedTxIdx === idx}
+                  compact={false}
+                />
               </div>
             ))}
           </div>

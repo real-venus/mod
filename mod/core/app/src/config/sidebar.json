@@ -1,0 +1,68 @@
+{
+  "navigation": [
+    {
+      "href": "/mod/explore",
+      "label": "MODS",
+      "color": "#10b981",
+      "type": "direct"
+    },
+    {
+      "href": "/quests",
+      "label": "QUESTS",
+      "color": "#0bf58c",
+      "type": "direct"
+    },
+    {
+      "href": "/treasury",
+      "label": "TREASURY",
+      "color": "#a855f7",
+      "type": "direct"
+    },
+    {
+      "href": "/contracts",
+      "label": "CONTRACTS",
+      "color": "#f59e0b",
+      "type": "direct"
+    },
+    {
+      "href": "/transactions",
+      "label": "TRANSACTIONS",
+      "color": "#3b82f6",
+      "type": "direct"
+    },
+    {
+      "href": "/docs",
+      "label": "DOCS",
+      "color": "#a78bfa",
+      "type": "direct"
+    },
+    {
+      "href": "/chat",
+      "label": "CHAT",
+      "color": "#8b5cf6",
+      "type": "direct"
+    },
+    {
+      "href": "/safe",
+      "label": "SAFE",
+      "color": "#f59e0b",
+      "type": "direct"
+    }
+  ],
+  "additionalModules": [],
+  "_comment": "Add module names here to include them in the sidebar. Example: [\"agent\", \"ipfs\", \"cache\"]",
+  "availableRoutes": [
+    "mod",
+    "quests",
+    "treasury",
+    "contracts",
+    "transactions",
+    "docs",
+    "chat",
+    "safe",
+    "network",
+    "buidl",
+    "create",
+    "home"
+  ]
+}

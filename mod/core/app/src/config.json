@@ -17,6 +17,7 @@
         "mod",
         "versions",
         "txs",
+        "set_version", 
         "call",
         "get",
         "users",

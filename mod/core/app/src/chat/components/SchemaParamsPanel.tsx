@@ -45,6 +45,35 @@ export function SchemaParamsPanel({
     return () => window.removeEventListener('resize', checkWidth)
   }, [numColumns])
 
+  // Auto-populate address fields with user's wallet address on function change
+  useEffect(() => {
+    if (!selectedFunction || !schema || !user?.key) return
+
+    const functionSchema = schema[selectedFunction]
+    const input = functionSchema?.input
+    if (!input) return
+
+    let paramEntries: [string, any][]
+    if (Array.isArray(input)) {
+      paramEntries = input
+        .filter(param => param.name !== 'kwargs')
+        .map(param => [param.name, { type: param.type, value: param.value }])
+    } else {
+      paramEntries = Object.entries(input).filter(([key]) => key !== 'kwargs')
+    }
+
+    // Auto-fill address parameters with user's wallet address if empty
+    paramEntries.forEach(([key, value]: [string, any]) => {
+      const isAddressType = value.type?.toLowerCase().includes('address')
+      const currentValue = params[key]
+      const isEmpty = !currentValue || currentValue === '' || currentValue === '_empty'
+
+      if (isAddressType && isEmpty) {
+        handleParamChange(key, user.key)
+      }
+    })
+  }, [selectedFunction, user?.key])
+
   const toggleColumns = () => {
     setColumns(prev => prev === 1 ? 2 : 1)
   }

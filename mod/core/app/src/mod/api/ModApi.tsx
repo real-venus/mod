@@ -188,14 +188,14 @@ export default function ModApi({ mod }: ModApiProps) {
                       className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono"
                       style={{
                         backgroundColor: colorWithOpacity(modColor, 0.12),
-                        color: modColor,
+                        color: 'var(--text-primary)',
                         border: `1px solid ${colorWithOpacity(modColor, 0.2)}`,
                       }}
                     >
                       fn
                     </span>
                     <span className="text-[14px] font-bold font-mono truncate" style={{
-                      color: isActive ? modColor : 'var(--text-primary)',
+                      color: 'var(--text-primary)',
                     }}>{fn}</span>
                   </div>
 
@@ -252,7 +252,7 @@ export default function ModApi({ mod }: ModApiProps) {
                   className="px-3 py-1 rounded-lg text-[11px] font-bold uppercase font-mono"
                   style={{
                     backgroundColor: colorWithOpacity(modColor, 0.12),
-                    color: modColor,
+                    color: 'var(--text-primary)',
                     border: `1px solid ${colorWithOpacity(modColor, 0.25)}`,
                   }}
                 >fn</span>
@@ -262,7 +262,7 @@ export default function ModApi({ mod }: ModApiProps) {
               {/* Full signature */}
               <div className="px-4 py-3 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
                 <code className="text-[13px] font-mono leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                  <span style={{ color: modColor, opacity: 0.6 }}>fn </span>
+                  <span style={{ color: 'var(--text-primary)', opacity: 0.4 }}>fn </span>
                   {selectedFunction}
                   <span style={{ color: 'var(--text-tertiary)' }}>(</span>
                   {selectedFnParams.map(([key, value]: [string, any], i: number) => (
