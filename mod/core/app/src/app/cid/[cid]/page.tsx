@@ -79,17 +79,13 @@ export default function CidViewer() {
       <div className="max-w-6xl mx-auto space-y-4">
         {/* Header */}
         <div className="border-b border-white/10 pb-4">
-          <h1 className="text-2xl font-bold text-white mb-1">CID Viewer</h1>
+          <h1 className="text-2xl font-bold text-white mb-1">{cid}</h1>
           <p className="text-xs text-white/50 uppercase tracking-wide">Content-addressed data</p>
         </div>
 
         {/* CID Info */}
         <div className="border border-white/20 p-4">
           <div className="flex items-center justify-between">
-            <div className="flex-1 mr-4">
-              <div className="text-xs text-white/50 mb-1 uppercase">CID</div>
-              <div className="font-mono text-sm text-white break-all">{cid}</div>
-            </div>
             <CopyButton text={cid as string} size="sm" />
           </div>
         </div>
