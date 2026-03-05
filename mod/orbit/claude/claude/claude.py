@@ -102,7 +102,7 @@ class Mod:
         logger.info("Searching for Anthropic API key...")
 
         # Check environment variables
-        api_key = os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('CLAUDE_API_KEY')
+        api_key = os.environ.get('ANTHROPIC_AUTH_TOKEN')
 
         if api_key:
             logger.info("Found API key in environment variables")
@@ -259,6 +259,7 @@ class Mod:
                 model: str = "sonnet",
                 output_format: str = "json",
                 bypass_permissions: bool = True,
+                stream_output: bool = True,
                 additional_options: Optional[Dict[str, Any]] = None, **kwargs) -> Union[str, Dict[str, Any]]:
         """
         Execute a Claude Code query in the background without user prompts.
@@ -269,6 +270,7 @@ class Mod:
             model: Model to use (sonnet, opus, haiku)
             output_format: Output format (json, text, stream-json)
             bypass_permissions: If True, bypasses all permission checks
+            stream_output: If True, streams output in real-time so you can see what Claude is doing
             additional_options: Additional CLI options as key-value pairs
 
         Returns:
@@ -278,7 +280,8 @@ class Mod:
             >>> mod = Mod()
             >>> result = mod.forward(
             ...     query="Analyze the main.py file and suggest improvements",
-            ...     path="/path/to/project"
+            ...     path="/path/to/project",
+            ...     stream_output=True  # See output in real-time
             ... )
         """
         if mod != None:
@@ -343,34 +346,118 @@ class Mod:
         # Execute Claude Code
         logger.info("Sending request to Claude Code...")
         try:
-            result = subprocess.run(
-                cmd,
-                cwd=work_dir,
-                capture_output=True,
-                text=True,
-                env=env,
-                timeout=300  # 5 minute timeout
-            )
+            if stream_output:
+                # Stream output in real-time
+                print("\n" + "="*60)
+                print("CLAUDE CODE OUTPUT (LIVE)")
+                print("="*60 + "\n")
 
-            logger.info(f"Claude Code returned with exit code: {result.returncode}")
+                process = subprocess.Popen(
+                    cmd,
+                    cwd=work_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env,
+                    bufsize=1,
+                    universal_newlines=True
+                )
 
-            if result.returncode != 0:
-                logger.error(f"Claude Code error: {result.stderr}")
-                raise RuntimeError(f"Claude Code error: {result.stderr}")
+                stdout_lines = []
+                stderr_lines = []
 
-            logger.info("Successfully received response from Claude Code")
+                # Read output in real-time
+                import select
+                import time
 
-            # Parse output based on format
-            if output_format == "json":
-                try:
-                    parsed = json.loads(result.stdout)
-                    logger.debug(f"Successfully parsed JSON response")
-                    return parsed
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON: {e}")
-                    return {"raw_output": result.stdout, "error": "Failed to parse JSON"}
+                while True:
+                    # Check if process has finished
+                    retcode = process.poll()
 
-            return result.stdout
+                    # Read stdout
+                    if process.stdout:
+                        line = process.stdout.readline()
+                        if line:
+                            print(line, end='', flush=True)
+                            stdout_lines.append(line)
+
+                    # Read stderr
+                    if process.stderr:
+                        err_line = process.stderr.readline()
+                        if err_line:
+                            print(f"[STDERR] {err_line}", end='', flush=True)
+                            stderr_lines.append(err_line)
+
+                    if retcode is not None:
+                        # Process finished, read any remaining output
+                        if process.stdout:
+                            remaining = process.stdout.read()
+                            if remaining:
+                                print(remaining, end='', flush=True)
+                                stdout_lines.append(remaining)
+                        if process.stderr:
+                            remaining_err = process.stderr.read()
+                            if remaining_err:
+                                print(f"[STDERR] {remaining_err}", end='', flush=True)
+                                stderr_lines.append(remaining_err)
+                        break
+
+                    time.sleep(0.01)
+
+                print("\n" + "="*60)
+                print("CLAUDE CODE FINISHED")
+                print("="*60 + "\n")
+
+                stdout_text = ''.join(stdout_lines)
+                stderr_text = ''.join(stderr_lines)
+
+                if retcode != 0:
+                    logger.error(f"Claude Code error: {stderr_text}")
+                    raise RuntimeError(f"Claude Code error: {stderr_text}")
+
+                logger.info("Successfully received response from Claude Code")
+
+                # Parse output based on format
+                if output_format == "json":
+                    try:
+                        parsed = json.loads(stdout_text)
+                        logger.debug(f"Successfully parsed JSON response")
+                        return parsed
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse JSON: {e}")
+                        return {"raw_output": stdout_text, "error": "Failed to parse JSON"}
+
+                return stdout_text
+            else:
+                # Capture output silently (original behavior)
+                result = subprocess.run(
+                    cmd,
+                    cwd=work_dir,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=300  # 5 minute timeout
+                )
+
+                logger.info(f"Claude Code returned with exit code: {result.returncode}")
+
+                if result.returncode != 0:
+                    logger.error(f"Claude Code error: {result.stderr}")
+                    raise RuntimeError(f"Claude Code error: {result.stderr}")
+
+                logger.info("Successfully received response from Claude Code")
+
+                # Parse output based on format
+                if output_format == "json":
+                    try:
+                        parsed = json.loads(result.stdout)
+                        logger.debug(f"Successfully parsed JSON response")
+                        return parsed
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse JSON: {e}")
+                        return {"raw_output": result.stdout, "error": "Failed to parse JSON"}
+
+                return result.stdout
 
         except subprocess.TimeoutExpired:
             logger.error("Claude Code request timed out after 5 minutes")
@@ -381,13 +468,15 @@ class Mod:
 
     def analyze_code(self,
                      path: str,
-                     focus: Optional[str] = None) -> Dict[str, Any]:
+                     focus: Optional[str] = None,
+                     stream_output: bool = False) -> Dict[str, Any]:
         """
         Analyze code in a directory or file.
 
         Args:
             path: Path to directory or file
             focus: Optional specific aspect to focus on (e.g., "performance", "security")
+            stream_output: If True, streams output in real-time
 
         Returns:
             Analysis results as a dictionary
@@ -396,7 +485,7 @@ class Mod:
         if focus:
             query += f" focusing on {focus}"
 
-        return self.forward(query=query, path=path)
+        return self.forward(query=query, path=path, stream_output=stream_output)
 
     def generate_code(self,
                      description: str,
@@ -465,7 +554,8 @@ class Mod:
                   file_path: str,
                   instructions: str,
                   path: Optional[str] = None,
-                  mod = None) -> Dict[str, Any]:
+                  mod = None,
+                  stream_output: bool = False) -> Dict[str, Any]:
         """
         Edit a specific file based on instructions.
 
@@ -474,6 +564,7 @@ class Mod:
             instructions: Instructions on what changes to make
             path: Working directory (defaults to self.default_path)
             mod: Optional mod object to get path from
+            stream_output: If True, streams output in real-time
 
         Returns:
             Edit results from Claude Code
@@ -483,7 +574,8 @@ class Mod:
             >>> result = mod.edit_file(
             ...     file_path="main.py",
             ...     instructions="Add error handling to the parse_config function",
-            ...     path="/path/to/project"
+            ...     path="/path/to/project",
+            ...     stream_output=True
             ... )
         """
         if mod is not None:
@@ -493,7 +585,7 @@ class Mod:
 
         query = f"Edit the file {file_path}: {instructions}"
 
-        return self.forward(query=query, path=work_dir)
+        return self.forward(query=query, path=work_dir, stream_output=stream_output)
 
     def run_task(self,
                 task: str,

@@ -4,19 +4,37 @@ import { KeyIcon, CubeIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import { ModuleType } from '@/types'
 import Link from 'next/link'
 import { CopyButton } from '@/ui/CopyButton'
-import { Clock, Zap, Box, Globe, Lock } from 'lucide-react'
-import { useState } from 'react'
+import { Clock, Zap, Box, Globe, Lock, ChevronDown, Users, GitBranch } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { QRCode } from '@/ui/QRCode'
 
 interface ModCardProps {
   mod: ModuleType
   card_enabled?: boolean
   compact?: boolean
+  allVersions?: ModuleType[]
+  onVersionSelect?: (modKey: string) => void
+  historicalVersions?: any[]
+  selectedHistoricalIndex?: number
+  onHistoricalVersionChange?: (index: number) => void
 }
 
-export default function ModCard({ mod, card_enabled = true, compact = false }: ModCardProps) {
+export default function ModCard({
+  mod,
+  card_enabled = true,
+  compact = false,
+  allVersions = [],
+  onVersionSelect,
+  historicalVersions = [],
+  selectedHistoricalIndex = 0,
+  onHistoricalVersionChange
+}: ModCardProps) {
   const [isNameQrHovered, setIsNameQrHovered] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const [ownerDropdownOpen, setOwnerDropdownOpen] = useState(false)
+  const [versionDropdownOpen, setVersionDropdownOpen] = useState(false)
+  const ownerDropdownRef = useRef<HTMLDivElement>(null)
+  const versionDropdownRef = useRef<HTMLDivElement>(null)
 
   const modColor = text2color(mod.name || mod.key)
   const keyColor = text2color(mod.key)
@@ -27,6 +45,42 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
   const fnCount = mod.schema ? Object.keys(mod.schema).length : 0
 
   const isExpanded = !card_enabled && !compact
+
+  // Find current index in all versions
+  const currentVersionIndex = allVersions.findIndex(v => v.key === mod.key)
+  const hasMultipleOwners = allVersions.length > 1
+  const hasHistoricalVersions = historicalVersions.length > 0
+
+  const handleOwnerSelect = (ownerKey: string) => {
+    if (onVersionSelect) {
+      onVersionSelect(ownerKey)
+    }
+    setOwnerDropdownOpen(false)
+  }
+
+  const handleHistoricalSelect = (index: number) => {
+    if (onHistoricalVersionChange) {
+      onHistoricalVersionChange(index)
+    }
+    setVersionDropdownOpen(false)
+  }
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ownerDropdownRef.current && !ownerDropdownRef.current.contains(event.target as Node)) {
+        setOwnerDropdownOpen(false)
+      }
+      if (versionDropdownRef.current && !versionDropdownRef.current.contains(event.target as Node)) {
+        setVersionDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   // Compact single-line layout for expanded page header
   if (compact) {
@@ -90,39 +144,165 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
             <span className="font-bold" style={{ color: 'var(--text-secondary)' }} title={updatedTimeStr}>{agoStr || updatedTimeStr}</span>
           </div>
 
-          <div
-            className="flex items-center gap-1.5 rounded-lg cursor-default px-2.5 py-1 text-[10px]"
-            style={{
-              background: 'var(--bg-input)',
-              border: '1.5px solid var(--border-color)',
-            }}
-            title={mod.key}
-            onClick={(e) => e.preventDefault()}
-          >
-            <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
-              <KeyIcon className="w-3 h-3 transition-all duration-200 hover:scale-110" style={{ color: 'var(--text-secondary)', strokeWidth: 2.5 }} />
-            </Link>
-            <code className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
-              {shorten(mod.key, 4, 4)}
-            </code>
-            <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
-          </div>
-
-          {mod.cid && (
+          {/* Owner key with dropdown */}
+          <div className="relative" ref={ownerDropdownRef}>
             <div
-              className="flex items-center gap-1.5 rounded-lg cursor-default px-2.5 py-1 text-[10px]"
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] cursor-pointer"
               style={{
                 background: 'var(--bg-input)',
                 border: '1.5px solid var(--border-color)',
               }}
-              title={mod.cid}
-              onClick={(e) => e.preventDefault()}
+              title={mod.key}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (hasMultipleOwners) setOwnerDropdownOpen(!ownerDropdownOpen)
+              }}
             >
-              <Box size={9} style={{ color: 'var(--text-tertiary)' }} />
+              {hasMultipleOwners && (
+                <div className="flex items-center gap-0.5 mr-1">
+                  <Users size={9} style={{ color: 'var(--text-tertiary)' }} />
+                  <span className="text-[9px] font-extrabold" style={{ color: 'var(--text-tertiary)' }}>
+                    {currentVersionIndex + 1}/{allVersions.length}
+                  </span>
+                </div>
+              )}
+              <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
+                <KeyIcon className="w-3 h-3 transition-all duration-200 hover:scale-110" style={{ color: 'var(--text-secondary)', strokeWidth: 2.5 }} />
+              </Link>
               <code className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
-                {shorten(mod.cid || '', 4, 4)}
+                {shorten(mod.key, 4, 4)}
               </code>
-              <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
+              <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
+              {hasMultipleOwners && (
+                <ChevronDown size={11} style={{ color: 'var(--text-secondary)' }} />
+              )}
+            </div>
+
+            {/* Owner Dropdown Menu */}
+            {hasMultipleOwners && ownerDropdownOpen && (
+              <div
+                className="absolute top-full mt-1 right-0 z-50 rounded-lg overflow-hidden min-w-[200px] max-h-[300px] overflow-y-auto"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1.5px solid var(--border-color)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                }}
+              >
+                {allVersions.map((version, idx) => (
+                  <div
+                    key={version.key}
+                    className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-all"
+                    style={{
+                      backgroundColor: idx === currentVersionIndex ? colorWithOpacity(modColor, 0.1) : 'transparent',
+                      borderBottom: idx < allVersions.length - 1 ? '1px solid var(--border-color)' : 'none',
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleOwnerSelect(version.key)
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = colorWithOpacity(modColor, 0.15)
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = idx === currentVersionIndex ? colorWithOpacity(modColor, 0.1) : 'transparent'
+                    }}
+                  >
+                    <KeyIcon className="w-3 h-3" style={{ color: 'var(--text-secondary)', strokeWidth: 2.5 }} />
+                    <code className="font-mono text-[10px] font-bold flex-1" style={{ color: 'var(--text-secondary)' }}>
+                      {shorten(version.key, 6, 6)}
+                    </code>
+                    {idx === currentVersionIndex && (
+                      <span className="text-[9px] font-bold" style={{ color: modColor }}>✓</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* CID with historical version dropdown */}
+          {mod.cid && (
+            <div className="relative" ref={versionDropdownRef}>
+              <div
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] cursor-pointer"
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1.5px solid var(--border-color)',
+                }}
+                title={mod.cid}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  if (hasHistoricalVersions) setVersionDropdownOpen(!versionDropdownOpen)
+                }}
+              >
+                {hasHistoricalVersions && (
+                  <div className="flex items-center gap-0.5 mr-1">
+                    <GitBranch size={9} style={{ color: 'var(--text-tertiary)' }} />
+                    <span className="text-[9px] font-extrabold" style={{ color: 'var(--text-tertiary)' }}>
+                      v{historicalVersions.length - selectedHistoricalIndex}
+                    </span>
+                  </div>
+                )}
+                <Box size={9} style={{ color: 'var(--text-tertiary)' }} />
+                <code className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
+                  {shorten(mod.cid || '', 4, 4)}
+                </code>
+                <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
+                {hasHistoricalVersions && (
+                  <ChevronDown size={11} style={{ color: 'var(--text-secondary)' }} />
+                )}
+              </div>
+
+              {/* Version Dropdown Menu */}
+              {hasHistoricalVersions && versionDropdownOpen && (
+                <div
+                  className="absolute top-full mt-1 right-0 z-50 rounded-lg overflow-hidden min-w-[200px] max-h-[300px] overflow-y-auto"
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1.5px solid var(--border-color)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  }}
+                >
+                  {historicalVersions.map((version, idx) => {
+                    const versionNum = historicalVersions.length - idx
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-all"
+                        style={{
+                          backgroundColor: idx === selectedHistoricalIndex ? colorWithOpacity(modColor, 0.1) : 'transparent',
+                          borderBottom: idx < historicalVersions.length - 1 ? '1px solid var(--border-color)' : 'none',
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleHistoricalSelect(idx)
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = colorWithOpacity(modColor, 0.15)
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = idx === selectedHistoricalIndex ? colorWithOpacity(modColor, 0.1) : 'transparent'
+                        }}
+                      >
+                        <GitBranch size={9} style={{ color: 'var(--text-tertiary)' }} />
+                        <span className="text-[10px] font-bold" style={{ color: 'var(--text-secondary)' }}>
+                          v{versionNum}
+                        </span>
+                        <code className="font-mono text-[9px] flex-1 truncate" style={{ color: 'var(--text-tertiary)' }}>
+                          {shorten(version.data || version.cid || '', 6, 6)}
+                        </code>
+                        {idx === selectedHistoricalIndex && (
+                          <span className="text-[9px] font-bold" style={{ color: modColor }}>✓</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -146,12 +326,11 @@ export default function ModCard({ mod, card_enabled = true, compact = false }: M
 
   const cardContent = (
     <div
-      className={`relative font-mono overflow-visible group rounded-2xl h-full ${card_enabled ? 'cursor-pointer' : ''}`}
+      className={`relative font-mono overflow-visible group rounded-2xl h-full ${card_enabled ? 'cursor-pointer border-2 border-black dark:border-white' : ''}`}
       style={{
         fontFamily: 'IBM Plex Mono, Courier New, monospace',
         ...(card_enabled ? {
           background: `linear-gradient(135deg, ${colorWithOpacity(modColor, 0.15)} 0%, ${colorWithOpacity(modColor, 0.05)} 100%)`,
-          border: isHovered ? `2px solid ${colorWithOpacity(modColor, 0.6)}` : `2px solid ${colorWithOpacity(modColor, 0.3)}`,
           boxShadow: isHovered ? `0 8px 24px ${colorWithOpacity(modColor, 0.2)}` : `0 2px 8px ${colorWithOpacity(modColor, 0.1)}`,
           transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
           transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',

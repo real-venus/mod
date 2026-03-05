@@ -68,7 +68,7 @@ export function SchemaParamsPanel({
       const currentValue = params[key]
       const isEmpty = !currentValue || currentValue === '' || currentValue === '_empty'
 
-      if (isAddressType && isEmpty) {
+      if (isAddressType && isEmpty && user?.key) {
         handleParamChange(key, user.key)
       }
     })

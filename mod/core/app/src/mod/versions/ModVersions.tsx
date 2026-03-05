@@ -10,6 +10,8 @@ import { toast } from 'react-toastify'
 
 interface ModVersionsProps {
   mod: ModuleType
+  selectedVersionIndex?: number
+  onVersionChange?: (index: number) => void
 }
 
 interface Version {
@@ -20,7 +22,7 @@ interface Version {
   created: string
 }
 
-export default function ModVersions({ mod }: ModVersionsProps) {
+export default function ModVersions({ mod, selectedVersionIndex = 0, onVersionChange }: ModVersionsProps) {
   const { client } = userContext()
   const [versions, setVersions] = useState<Version[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,20 +113,26 @@ export default function ModVersions({ mod }: ModVersionsProps) {
         <div className="space-y-1 max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
           {sortedVersions.map((ver, idx) => {
             const originalIdx = versions.length - versions.indexOf(ver)
+            const versionIndex = versions.indexOf(ver)
+            const isSelected = versionIndex === selectedVersionIndex
             return (
               <div
-                key={versions.indexOf(ver)}
-                className="flex items-center justify-between gap-4 px-4 py-3 transition-all group rounded-lg"
+                key={versionIndex}
+                className="flex items-center justify-between gap-4 px-4 py-3 transition-all group rounded-lg cursor-pointer"
+                onClick={() => onVersionChange?.(versionIndex)}
                 style={{
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-input)',
+                  border: isSelected ? `2px solid ${modColor}` : '1px solid var(--border-color)',
+                  backgroundColor: isSelected ? colorWithOpacity(modColor, 0.1) : 'var(--bg-input)',
                 }}
               >
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   {/* Version number */}
                   <div className="flex items-center gap-1.5">
                     <GitBranch className="w-3.5 h-3.5 flex-shrink-0" style={{ color: modColor }} />
-                    <span className="text-[12px] font-extrabold" style={{ color: modColor }}>v{originalIdx}</span>
+                    <span className="text-[12px] font-extrabold" style={{ color: modColor }}>
+                      v{originalIdx}
+                      {isSelected && <span className="ml-2 text-[9px] font-bold" style={{ color: modColor }}>(ACTIVE)</span>}
+                    </span>
                   </div>
 
                   {/* Date */}

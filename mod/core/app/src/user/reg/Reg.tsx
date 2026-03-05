@@ -67,14 +67,56 @@ export const Reg = ( ) => {
     fetchLocalModules()
   }, [client, registrationType])
 
-  const handleUrlChange = (value: string, inferredType: UrlType) => {
+  const handleUrlChange = async (value: string, inferredType: UrlType) => {
     setModUrl(value)
     setUrlType(inferredType)
-    let name = value.split('/')[value.split('/').length - 1]
-    name = name.endsWith('.git') ? name.slice(0, -4) : name
-    name = name.toLowerCase()
-    setModName(name)
-    updateFieldValue('name', name)
+
+    // If it's a fork type, fetch the module data to pre-populate fields
+    if (inferredType === 'fork' && value.trim() && client) {
+      try {
+        const modPath = value.trim()
+        const parts = modPath.split('/')
+        let modName = parts.length === 2 ? parts[1] : parts[0]
+
+        // Try to fetch the existing module
+        const existingMods = await client.call('mods', { search: modName })
+        const existingMod = Array.isArray(existingMods) ? existingMods.find((m: any) => m.name === modName) : null
+
+        if (existingMod) {
+          setModName(modName)
+          updateFieldValue('name', modName)
+          updateFieldValue('cid', existingMod.cid || '')
+
+          // Set desc if available
+          if (existingMod.desc) {
+            const descField = customFields.find(f => f.name === 'desc')
+            if (descField) {
+              updateCustomField(customFields.indexOf(descField), { value: existingMod.desc })
+            } else {
+              setCustomFields(prev => [...prev, { name: 'desc', type: 'string', value: existingMod.desc }])
+            }
+          }
+        } else {
+          setModName(modName)
+          updateFieldValue('name', modName)
+        }
+      } catch (err) {
+        console.error('Failed to fetch module for fork:', err)
+        // Fallback to just using the name
+        const modPath = value.trim()
+        const parts = modPath.split('/')
+        let name = parts.length === 2 ? parts[1] : parts[0]
+        setModName(name.toLowerCase())
+        updateFieldValue('name', name.toLowerCase())
+      }
+    } else {
+      // Original logic for other URL types
+      let name = value.split('/')[value.split('/').length - 1]
+      name = name.endsWith('.git') ? name.slice(0, -4) : name
+      name = name.toLowerCase()
+      setModName(name)
+      updateFieldValue('name', name)
+    }
   }
 
   const handleNameChange = (e: any) => {

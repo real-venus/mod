@@ -1,0 +1,29 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy mod framework (assuming it's accessible)
+COPY ../../.. /mod
+
+# Set PYTHONPATH to include mod
+ENV PYTHONPATH="/mod:${PYTHONPATH}"
+
+# Copy polycopy module
+COPY polycopy /app/polycopy
+COPY requirements.txt /app/
+COPY server /app/server
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r server/requirements.txt
+
+# Expose API port
+EXPOSE 8001
+
+# Run the API server
+CMD ["python", "server/api.py"]

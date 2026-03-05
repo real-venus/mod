@@ -1,0 +1,3 @@
+# Polycopy - Polymarket Copy Trading SDK
+requests>=2.31.0
+eth-account>=0.9.0

@@ -90,29 +90,42 @@ export function WalletHeader() {
   }
 
   return (
-    <div ref={walletRef} className="flex items-center gap-0">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center border-2 transition-all relative gap-2 px-3"
-        style={{ height: '40px', borderRadius: '20px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
-      >
-        <WalletIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-        <span className="text-sm font-black font-mono tabular-nums text-green-400">
-          ${balances.marketCredit.toFixed(2)}
-        </span>
-        <span className="text-[10px] font-bold font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-          -{transactions.totalCost24h.toFixed(2)}/d
-        </span>
-        <span className={`text-[10px] font-bold font-mono tabular-nums ${tokenExpiry.isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>
-          {tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()}
-        </span>
-        <div
-          className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-sm transition-colors ${
-            tokenExpiry.isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
-          }`}
-          title={tokenExpiry.isTokenExpired ? 'Token Expired - Click to Refresh' : 'Connected'}
-        />
-      </button>
+    <div ref={walletRef} className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={copyAddress}
+          className="flex items-center border-2 transition-all hover:opacity-80 gap-2 px-3"
+          style={{ height: '40px', borderRadius: '20px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
+          title={copiedAddress ? 'Copied!' : 'Click to copy address'}
+        >
+          <span className="text-xs font-bold font-mono" style={{ color: 'var(--text-secondary)' }}>
+            {copiedAddress ? '✓ Copied' : shortAddress}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center border-2 transition-all relative gap-2 px-3"
+          style={{ height: '40px', borderRadius: '20px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
+        >
+          <WalletIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+          <span className="text-sm font-black font-mono tabular-nums text-green-400">
+            ${balances.marketCredit.toFixed(2)}
+          </span>
+          <span className="text-[10px] font-bold font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+            -{transactions.totalCost24h.toFixed(2)}/d
+          </span>
+          <span className={`text-[10px] font-bold font-mono tabular-nums ${tokenExpiry.isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>
+            {tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()}
+          </span>
+          <div
+            className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-sm transition-colors ${
+              tokenExpiry.isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
+            }`}
+            title={tokenExpiry.isTokenExpired ? 'Token Expired - Click to Refresh' : 'Connected'}
+          />
+        </button>
+      </div>
 
       <AnimatePresence>
         {isOpen && (

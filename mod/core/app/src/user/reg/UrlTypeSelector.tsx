@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from 'react'
-import { Github, Database, HardDrive, Cloud, Coins } from 'lucide-react'
+import { Github, Database, HardDrive, Cloud, Coins, GitBranch } from 'lucide-react'
 
-export type UrlType = 'git' | 'ipfs' | 'arweave' | 's3' | 'filecoin'
+export type UrlType = 'git' | 'ipfs' | 'arweave' | 's3' | 'filecoin' | 'fork'
 
 interface UrlTypeSelectorProps {
   value: string
@@ -12,6 +12,7 @@ interface UrlTypeSelectorProps {
 }
 
 const URL_PATTERNS = {
+  fork: /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$|^[a-zA-Z0-9_-]+$/,
   git: /^(https?:\/\/)?(github\.com|gitlab\.com|bitbucket\.org)/i,
   ipfs: /^(ipfs:\/\/|Qm[a-zA-Z0-9]{44}|baf[a-zA-Z0-9]+)/i,
   arweave: /^(ar:\/\/|[a-zA-Z0-9_-]{43})/,
@@ -20,6 +21,7 @@ const URL_PATTERNS = {
 }
 
 const URL_TYPES: { id: UrlType; label: string; icon: any; placeholder: string }[] = [
+  { id: 'fork', label: 'Fork', icon: GitBranch, placeholder: 'orbit/claude or hyperliquid' },
   { id: 'git', label: 'Git', icon: Github, placeholder: 'https://github.com/username/repo' },
   { id: 'ipfs', label: 'IPFS', icon: Database, placeholder: 'ipfs://Qm... or Qm...' },
   { id: 'arweave', label: 'Arweave', icon: HardDrive, placeholder: 'ar://... or arweave hash' },

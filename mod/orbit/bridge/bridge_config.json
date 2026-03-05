@@ -1,0 +1,8 @@
+{
+  "rpc_url": "http://localhost:8545",
+  "bridge_contract": "0x0000000000000000000000000000000000000000",
+  "token_contract": "0x0000000000000000000000000000000000000000",
+  "operator_key": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+  "snapshot_path": "bridge/total_balances.json",
+  "signature_timeout": 300
+}

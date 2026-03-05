@@ -24,6 +24,7 @@ import {
 import { ThemeProvider, useTheme } from '@/context/ThemeContext'
 import { SplitScreenControls } from '@/components/SplitScreenControls'
 import { getAllNavItems, getNavHref } from '@/config/navigation'
+import { MetaMaskProvider } from '@/wallet/MetaMaskProvider'
 
 function ThemedToast() {
   const { effectiveTheme } = useTheme()
@@ -348,20 +349,22 @@ export default function Providers({
 }) {
   return (
     <ThemeProvider>
-      <UserProvider>
-        <MarketCreditProvider>
-          <SearchProvider>
-            <SplitScreenProvider>
-              <ControlPanelProvider>
-                <LayoutProvider>
-                  <LayoutContent>{children}</LayoutContent>
-                  <ThemedToast />
-                </LayoutProvider>
-              </ControlPanelProvider>
-            </SplitScreenProvider>
-          </SearchProvider>
-        </MarketCreditProvider>
-      </UserProvider>
+      <MetaMaskProvider>
+        <UserProvider>
+          <MarketCreditProvider>
+            <SearchProvider>
+              <SplitScreenProvider>
+                <ControlPanelProvider>
+                  <LayoutProvider>
+                    <LayoutContent>{children}</LayoutContent>
+                    <ThemedToast />
+                  </LayoutProvider>
+                </ControlPanelProvider>
+              </SplitScreenProvider>
+            </SearchProvider>
+          </MarketCreditProvider>
+        </UserProvider>
+      </MetaMaskProvider>
     </ThemeProvider>
   )
 }

@@ -1,64 +1,113 @@
-# BaseMod 🚀
+# Sr25519 to ERC20 Bridge 🌉
 
-> *"Simplicity is the ultimate sophistication."* - Leonardo da Vinci
+> *Bridge your Substrate tokens to Base with cryptographic proof of ownership*
+
+## 🎉 No API Keys Required!
+
+Develop and test the complete bridge stack locally **without any API keys**. See [NO_API_KEYS.md](./NO_API_KEYS.md) and [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md).
 
 ## Overview
 
-BaseMod is a foundational Python module providing core functionality and utilities for building elegant, modular systems. Engineered with simplicity and extensibility at its core, it serves as a battle-tested template for creating production-ready applications.
+A trustless bridge system that enables users to claim ERC20 tokens on Base by proving ownership of their sr25519 addresses on Substrate-based chains. The bridge operator acts as a trusted intermediary, verifying cryptographic signatures and distributing tokens.
 
 ## ✨ Features
 
-- **🔢 Mathematical Operations**: Efficient utilities for calculations and data processing
-- **💰 Cryptocurrency Integration**: Real-time price fetching from CoinGecko API with robust error handling
-- **🏛️ Clean Architecture**: Modular, extensible design following SOLID principles
-- **🛡️ Production Ready**: Battle-tested, reliable, and optimized for performance
-- **🐳 Docker Support**: Containerized deployment for consistency across environments
-- **📦 Lightweight**: Minimal dependencies, maximum efficiency
+- **🔑 Cryptographic Proof**: Users prove ownership via sr25519 signatures
+- **🚫 No Double Claims**: On-chain enforcement prevents duplicate claims
+- **📊 Snapshot Support**: Rust tool for capturing Substrate chain state
+- **⚡ Batch Processing**: Efficient batch distribution of tokens
+- **🎯 Simple UX**: Connect Subwallet + MetaMask, sign, and claim
+- **🛡️ Production Ready**: Smart contracts, API backend, and React frontend
+- **🐳 Docker Support**: Containerized deployment for consistency
 
 ## 🚀 Quick Start
 
-### Installation
+### 🏃 Local Development (No API Keys Required!)
+
+Get started in under 2 minutes with zero configuration:
 
 ```bash
-# Clone or navigate to the base module directory
-cd /Users/broski/mod/mod/_orbit/base
+# Install
+npm install && pip install -r requirements.txt
 
-# Install dependencies
-pip install -r requirements.txt
+# Compile & test
+npx hardhat compile && npx hardhat test
+
+# Start local blockchain
+npx hardhat node
+
+# Deploy to local network (in another terminal)
+npx hardhat run scripts/deploy.js --network localhost
+
+# Start backend
+python mod.py
 ```
 
-### Basic Usage
+**See [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) for complete local setup guide.**
 
-```python
-from base.mod import BaseMod
+### 🌐 Testnet/Mainnet Deployment
 
-# Initialize the module
-mod = BaseMod()
+For real network deployment, see **[QUICKSTART.md](./QUICKSTART.md)**.
 
-# Perform mathematical operations
-result = mod.multiply(5, 10)
-print(f"Result: {result}")  # Output: Result: 50
+Required:
+- `PRIVATE_KEY` in `.env` for deployment
 
-# Fetch real-time cryptocurrency prices
-price = mod.get_bittenso_price()
-print(f"Current Bittenso price: ${price:,.2f}")
+Optional:
+- `BASESCAN_API_KEY` for contract verification (can deploy without this)
+
+### 3. Generate Snapshot
+
+```bash
+cd bridge
+cargo run -- snap --show-report
+```
+
+### 4. Start Backend
+
+```bash
+python mod.py
+```
+
+### 5. Integrate Frontend
+
+```tsx
+import Sr25519Bridge from './frontend/Sr25519Bridge';
+
+export default function Page() {
+  return <Sr25519Bridge />;
+}
 ```
 
 ## 📚 Documentation
 
-For comprehensive documentation, advanced examples, and complete API reference, see **[TUTORIAL.md](TUTORIAL.md)**.
+- **[NO_API_KEYS.md](./NO_API_KEYS.md)** - 🎉 No API keys needed! Start here
+- **[LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md)** - ⭐ Complete local setup guide (2 minutes)
+- **[QUICKSTART.md](./QUICKSTART.md)** - Deploy to testnet/mainnet
+- **[BRIDGE.md](./BRIDGE.md)** - Complete architecture and API reference
+- **[IMPLEMENTATION.md](./IMPLEMENTATION.md)** - Implementation details
 
 ## 🏗️ Project Structure
 
 ```
-base/
-├── base/
-│   └── mod.py          # Core BaseMod implementation
-├── Dockerfile          # Docker configuration for containerization
-├── docker-compose.yml  # Multi-container orchestration
-├── requirements.txt    # Python dependencies
-├── TUTORIAL.md         # Comprehensive tutorial and examples
-└── README.md           # Project overview (this file)
+bridge/
+├── contracts/
+│   ├── BridgeToken.sol       # ERC20 token for bridged assets
+│   └── Sr25519Bridge.sol     # Bridge contract with claim tracking
+├── frontend/
+│   └── Sr25519Bridge.tsx     # React component (Subwallet + MetaMask)
+├── scripts/
+│   └── deploy.js             # Hardhat deployment script
+├── test/
+│   └── Bridge.test.js        # Contract tests
+├── bridge/                   # Rust snapshot tool
+│   └── src/main.rs          # Substrate chain snapshot
+├── mod.py                    # Python FastAPI backend
+├── hardhat.config.js         # Hardhat configuration
+├── package.json              # Node dependencies
+├── requirements.txt          # Python dependencies
+├── QUICKSTART.md            # Quick start guide
+├── BRIDGE.md                # Full documentation
+└── README.md                # This file
 ```
 
 ## 🐳 Docker Deployment

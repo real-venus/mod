@@ -1,0 +1,17 @@
+[package]
+name = "snapper"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+clap = { version = "4.5.50", features = ["derive"] }
+frame-decode = "0.10.0"
+frame-metadata = "23.0.0"
+hex.workspace = true
+parity-scale-codec = "3.7.5"
+scale-value = "0.18.1"
+serde.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
+subxt.workspace = true
+tokio = { workspace = true, features = ["full"] }

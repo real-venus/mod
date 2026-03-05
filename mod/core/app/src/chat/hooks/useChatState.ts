@@ -22,8 +22,8 @@ export function useChatState(): ChatState {
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
   // Module selection - NOW USING OBJECTS
-  const [selectedModules, setSelectedModules] = useState<Module[]>([])
-  const [selectedFunction, setSelectedFunction] = useState<string>('')
+  const [selectedModules, setSelectedModules] = useState<Module[]>([{ name: 'model.openrouter', key: '' }])
+  const [selectedFunction, setSelectedFunction] = useState<string>('forward')
 
   // All available modules
   const [allModules, setAllModules] = useState<Module[]>([])

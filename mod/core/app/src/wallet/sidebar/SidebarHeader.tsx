@@ -97,52 +97,51 @@ export function SidebarHeader({
     <>
       <div className="sticky top-0 z-10 backdrop-blur-md" style={{ backgroundColor: 'var(--bg-sidebar)' }}>
         {/* Compact top bar: close + sign out */}
-        <div className="flex items-center justify-between px-3 pt-2 pb-0">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <div className="flex items-center gap-2.5">
             <div
-              className={`w-2 h-2 rounded-full flex-shrink-0 ${isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}
-              style={{ boxShadow: isTokenExpired ? '0 0 6px rgba(234,179,8,0.5)' : '0 0 6px rgba(34,197,94,0.4)' }}
+              className={`w-3 h-3 rounded-full flex-shrink-0 ${isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}
+              style={{ boxShadow: isTokenExpired ? '0 0 8px rgba(234,179,8,0.6)' : '0 0 8px rgba(34,197,94,0.5)' }}
             />
             <span
-              className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+              className="text-sm font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-md"
               style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-tertiary)', fontFamily: 'IBM Plex Mono, monospace' }}
             >
               {walletMode || 'web3'}
             </span>
           </div>
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={handleRefreshToken}
               disabled={isRefreshing}
-              className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-all text-[10px] font-bold font-mono tabular-nums ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded transition-all text-sm font-bold font-mono tabular-nums ${
                 isTokenExpired ? 'text-red-400 hover:bg-red-500/10' : 'hover:bg-white/5'
               }`}
               style={{ fontFamily: 'IBM Plex Mono, monospace', ...(!isTokenExpired ? { color: 'var(--text-tertiary)' } : {}) }}
               title="Refresh session"
             >
-              <ArrowPathIcon className={`w-2.5 h-2.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               {tokenExpiry || getTokenExpiry()}
             </button>
             <button
               onClick={handleSignOut}
-              className="hover:text-red-400 transition-colors p-1 rounded hover:bg-white/5"
-              style={{ color: 'var(--text-tertiary)' }}
+              className="text-red-500 hover:text-red-400 transition-colors p-2 rounded hover:bg-red-500/10"
               title="Sign out"
             >
-              <ArrowRightStartOnRectangleIcon className="w-3 h-3" />
+              <ArrowRightStartOnRectangleIcon className="w-5 h-5" />
             </button>
             <button
               onClick={onClose}
-              className="transition-colors p-1 rounded hover:bg-white/5"
+              className="transition-colors p-2 rounded hover:bg-white/5"
               style={{ color: 'var(--text-tertiary)' }}
             >
-              <XMarkIcon className="w-3 h-3" />
+              <XMarkIcon className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Hero section: address + credit */}
-        <div className="px-3 pt-2 pb-3 relative">
+        <div className="px-4 pt-1 pb-4 relative">
           <button
             onClick={copyAddress}
             onMouseEnter={() => setAddressHovered(true)}
@@ -151,14 +150,14 @@ export function SidebarHeader({
             title={address}
           >
             <span
-              className={`text-sm font-bold font-mono tracking-wide transition-all ${copiedAddress ? 'text-green-400' : 'group-hover:opacity-70'}`}
+              className={`text-xl font-bold font-mono tracking-wide transition-all ${copiedAddress ? 'text-green-400' : 'group-hover:opacity-70'}`}
               style={{ fontFamily: 'IBM Plex Mono, monospace', ...(!copiedAddress ? { color: 'var(--text-secondary)' } : {}) }}
             >
               {copiedAddress ? 'COPIED' : shortAddress}
             </span>
             {addressHovered && !copiedAddress && (
               <div
-                className="absolute left-0 top-full mt-1 z-50 px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap shadow-lg"
+                className="absolute left-0 top-full mt-1 z-50 px-2 py-1 rounded text-xs font-mono whitespace-nowrap shadow-lg"
                 style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}
               >
                 {address}
@@ -166,9 +165,9 @@ export function SidebarHeader({
             )}
           </button>
 
-          <div className="flex items-baseline gap-2 mt-1">
+          <div className="flex items-baseline gap-2 mt-2">
             <span
-              className="text-2xl font-black font-mono tabular-nums tracking-tight"
+              className="text-4xl font-black font-mono tabular-nums tracking-tight"
               style={{ fontFamily: 'IBM Plex Mono, monospace', color: marketCredit > 0 ? '#4ade80' : 'var(--text-primary)' }}
             >
               ${marketCredit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -177,16 +176,16 @@ export function SidebarHeader({
 
           {/* Daily limit bar - sleek inline */}
           {dailyLimit !== null && (
-            <div className="mt-2.5">
+            <div className="mt-3">
               {isEditing ? (
-                <div className="flex items-center gap-1.5 rounded-md px-2 py-1.5" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                  <span className="text-[9px] font-bold uppercase tracking-wider flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>Limit</span>
-                  <span className="text-amber-400 text-xs font-bold">$</span>
+                <div className="flex items-center gap-2 rounded-md px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+                  <span className="text-xs font-bold uppercase tracking-wider flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>Limit</span>
+                  <span className="text-amber-400 text-base font-bold">$</span>
                   <input
                     type="number"
                     value={newLimit}
                     onChange={(e) => setNewLimit(e.target.value)}
-                    className="flex-1 border border-amber-500/30 rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:border-amber-400/60"
+                    className="flex-1 border border-amber-500/30 rounded px-2 py-1 text-sm font-mono focus:outline-none focus:border-amber-400/60"
                     style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                     placeholder="1000"
                     autoFocus
@@ -195,25 +194,25 @@ export function SidebarHeader({
                   <button
                     onClick={handleSaveLimit}
                     disabled={isSaving}
-                    className="p-0.5 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-40"
+                    className="p-1 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-40"
                   >
-                    {isSaving ? <ArrowPathIcon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
+                    {isSaving ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <CheckIcon className="w-4 h-4" />}
                   </button>
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="p-0.5 transition-colors"
+                    className="p-1 transition-colors"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    <XMarkIcon className="w-3 h-3" />
+                    <XMarkIcon className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div
-                  className="group flex items-center gap-2 cursor-pointer"
+                  className="group flex items-center gap-3 cursor-pointer"
                   onClick={() => { setIsEditing(true); setNewLimit(dailyLimit.toFixed(2)) }}
                   title="Click to edit daily limit"
                 >
-                  <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-color)' }}>
+                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-color)' }}>
                     <div
                       className="h-full rounded-full transition-all duration-700 ease-out"
                       style={{
@@ -222,7 +221,7 @@ export function SidebarHeader({
                       }}
                     />
                   </div>
-                  <span className="text-[10px] font-mono tabular-nums flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-tertiary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                  <span className="text-sm font-mono tabular-nums flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-tertiary)', fontFamily: 'IBM Plex Mono, monospace' }}>
                     ${dailyRemaining !== null ? dailyRemaining.toFixed(0) : '—'}<span className="opacity-50">/{dailyLimit.toFixed(0)}</span>
                   </span>
                 </div>
@@ -231,7 +230,7 @@ export function SidebarHeader({
           )}
         </div>
 
-        <div className="mx-3 mb-0" style={{ borderBottom: '1px solid var(--border-color)' }} />
+        <div className="mx-4 mb-0" style={{ borderBottom: '1px solid var(--border-color)' }} />
       </div>
 
       <AnimatePresence>
@@ -241,19 +240,19 @@ export function SidebarHeader({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="mx-4 mt-3 px-3 py-2 border border-yellow-500/40 bg-yellow-500/5 rounded-lg overflow-hidden"
+            className="mx-4 mt-3 px-4 py-3 border border-yellow-500/40 bg-yellow-500/5 rounded-lg overflow-hidden"
           >
             <div className="flex items-center justify-between">
-              <span className="text-yellow-400 font-bold text-[11px] uppercase tracking-wider" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+              <span className="text-yellow-400 font-bold text-sm uppercase tracking-wider" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
                 TOKEN EXPIRED
               </span>
               <button
                 onClick={handleRefreshToken}
                 disabled={isRefreshing}
-                className="flex items-center gap-1 px-2 py-1 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 font-bold text-[10px] uppercase transition-all rounded-md disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-2 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 font-bold text-xs uppercase transition-all rounded-md disabled:opacity-50"
                 style={{ fontFamily: 'IBM Plex Mono, monospace' }}
               >
-                <ArrowPathIcon className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 REFRESH
               </button>
             </div>

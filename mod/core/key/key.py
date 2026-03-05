@@ -126,6 +126,10 @@ class Key:
         return {'address':address, 'crypto_type':crypto_type}
 
 
+    def priv(self, key, crypto_type=None):
+        return self.get_key(key, crypto_type=crypto_type).private_key.hex()
+
+
     def get_crypto_type(self, crypto_type=None):
         if crypto_type == None:
             crypto_type = self.crypto_type

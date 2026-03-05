@@ -12,6 +12,41 @@ class OpenRouter:
     api_path = 'apikeys' # path to store api keys (relative to storage_path)
     env_varname = 'OPENROUTER_API_KEY' # environment variable name for api key
 
+    @classmethod
+    def create(cls, copy_from=None, **kwargs):
+        """
+        Create a new OpenRouter instance, optionally copying settings from another mod/instance.
+
+        Args:
+            copy_from: Another OpenRouter instance or mod to copy settings from
+            **kwargs: Override any settings from the copied instance
+
+        Returns:
+            OpenRouter: A new OpenRouter instance
+        """
+        if copy_from is not None:
+            # If copy_from is a mod, try to access its instance
+            if hasattr(copy_from, '__self__'):
+                copy_from = copy_from.__self__
+
+            # Extract settings from the source instance
+            base_settings = {
+                'api_key': getattr(copy_from, 'api_key', lambda: None)() if callable(getattr(copy_from, 'api_key', None)) else None,
+                'url': getattr(copy_from, 'url', None),
+                'timeout': getattr(copy_from, 'client', None) and getattr(copy_from.client, 'timeout', None),
+                'prompt': getattr(copy_from, 'prompt', None),
+                'model': getattr(copy_from, 'model', None),
+                'max_retries': getattr(copy_from, 'client', None) and getattr(copy_from.client, 'max_retries', None),
+                'path': getattr(copy_from, 'store', None) and getattr(copy_from.store, 'path', None),
+            }
+            # Filter out None values
+            base_settings = {k: v for k, v in base_settings.items() if v is not None}
+            # Merge with kwargs, giving priority to kwargs
+            base_settings.update(kwargs)
+            return cls(**base_settings)
+        else:
+            return cls(**kwargs)
+
     def __init__(
         self,
         api_key = None,

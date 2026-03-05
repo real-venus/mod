@@ -275,13 +275,250 @@ class HyperliquidMod:
         position = self.get_position(address, symbol)
         if not position:
             return {"error": "No position found"}
-        
+
         pos_data = position.get("position", {})
         size = abs(float(pos_data.get("szi", 0)))
         is_long = float(pos_data.get("szi", 0)) > 0
-        
+
         if size == 0:
             return {"error": "Position size is zero"}
-        
+
         # Close by selling if long, buying if short
         return self.market_order(symbol, not is_long, size)
+
+    # VAULT METHODS
+    def get_vault_details(self, vault_address: str) -> Dict[str, Any]:
+        """Get details about a specific vault
+
+        Args:
+            vault_address: Vault contract address
+        """
+        payload = {"type": "vaultDetails", "vaultAddress": vault_address}
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def get_user_vault_balance(self, address: str, vault_address: str) -> Dict[str, Any]:
+        """Get user's balance in a specific vault
+
+        Args:
+            address: User address
+            vault_address: Vault contract address
+        """
+        payload = {
+            "type": "userVaultEquity",
+            "user": address,
+            "vaultAddress": vault_address
+        }
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def deposit_to_vault(self, vault_address: str, amount: float) -> Dict[str, Any]:
+        """Deposit USDC into a vault
+
+        Args:
+            vault_address: Vault contract address
+            amount: Amount of USDC to deposit
+        """
+        if not self.api_key:
+            raise ValueError("API key required for vault deposits")
+
+        payload = {
+            "type": "vaultTransfer",
+            "vaultAddress": vault_address,
+            "isDeposit": True,
+            "usd": amount
+        }
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": self.api_key
+        }
+
+        response = requests.post(self.exchange_url, json=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
+    def withdraw_from_vault(self, vault_address: str, amount: float) -> Dict[str, Any]:
+        """Withdraw USDC from a vault
+
+        Args:
+            vault_address: Vault contract address
+            amount: Amount of USDC to withdraw
+        """
+        if not self.api_key:
+            raise ValueError("API key required for vault withdrawals")
+
+        payload = {
+            "type": "vaultTransfer",
+            "vaultAddress": vault_address,
+            "isDeposit": False,
+            "usd": amount
+        }
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": self.api_key
+        }
+
+        response = requests.post(self.exchange_url, json=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
+    def list_vaults(self) -> List[Dict[str, Any]]:
+        """Get list of all available vaults"""
+        payload = {"type": "vaults"}
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def get_vault_performance(self, vault_address: str, start_time: Optional[int] = None, end_time: Optional[int] = None) -> Dict[str, Any]:
+        """Get historical performance data for a vault
+
+        Args:
+            vault_address: Vault contract address
+            start_time: Start timestamp in milliseconds
+            end_time: End timestamp in milliseconds
+        """
+        payload = {
+            "type": "vaultHistoricalPnl",
+            "vaultAddress": vault_address,
+            "startTime": start_time,
+            "endTime": end_time
+        }
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def get_user_vault_history(self, address: str) -> List[Dict[str, Any]]:
+        """Get user's vault deposit/withdrawal history
+
+        Args:
+            address: User address
+        """
+        payload = {"type": "userVaultHistory", "user": address}
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    # TRADER EXPLORATION METHODS
+    def get_leaderboard(self, leaderboard_type: str = "pnl") -> List[Dict[str, Any]]:
+        """Get trader leaderboard
+
+        Args:
+            leaderboard_type: Type of leaderboard (pnl, roi, volume)
+        """
+        payload = {"type": "leaderboard", "leaderboardType": leaderboard_type}
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def get_user_profile(self, address: str) -> Dict[str, Any]:
+        """Get detailed trader profile and statistics
+
+        Args:
+            address: Trader address
+        """
+        payload = {"type": "userProfile", "user": address}
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def get_user_pnl_history(self, address: str, start_time: Optional[int] = None, end_time: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get historical PnL for a trader
+
+        Args:
+            address: Trader address
+            start_time: Start timestamp in milliseconds
+            end_time: End timestamp in milliseconds
+        """
+        payload = {
+            "type": "userHistoricalPnl",
+            "user": address,
+            "startTime": start_time,
+            "endTime": end_time
+        }
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def get_user_trade_stats(self, address: str) -> Dict[str, Any]:
+        """Get trading statistics for a user
+
+        Args:
+            address: Trader address
+        """
+        payload = {"type": "userTradeStats", "user": address}
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def search_traders_by_volume(self, min_volume: float = 1000000) -> List[Dict[str, Any]]:
+        """Search for high-volume traders
+
+        Args:
+            min_volume: Minimum trading volume in USD
+        """
+        leaderboard = self.get_leaderboard("volume")
+        return [
+            trader for trader in leaderboard
+            if float(trader.get("volume", 0)) >= min_volume
+        ]
+
+    def get_vault_leaderboard(self) -> List[Dict[str, Any]]:
+        """Get vault performance leaderboard"""
+        payload = {"type": "vaultLeaderboard"}
+        response = requests.post(self.info_url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def get_top_vaults(self, sort_by: str = "pnl", limit: int = 10) -> List[Dict[str, Any]]:
+        """Get top performing vaults
+
+        Args:
+            sort_by: Sort metric (pnl, apy, tvl)
+            limit: Number of vaults to return
+        """
+        vaults = self.list_vaults()
+        if sort_by == "pnl":
+            sorted_vaults = sorted(vaults, key=lambda v: float(v.get("pnl", 0)), reverse=True)
+        elif sort_by == "apy":
+            sorted_vaults = sorted(vaults, key=lambda v: float(v.get("apy", 0)), reverse=True)
+        elif sort_by == "tvl":
+            sorted_vaults = sorted(vaults, key=lambda v: float(v.get("tvl", 0)), reverse=True)
+        else:
+            sorted_vaults = vaults
+        return sorted_vaults[:limit]
+
+    def analyze_trader(self, address: str) -> Dict[str, Any]:
+        """Comprehensive trader analysis
+
+        Args:
+            address: Trader address
+
+        Returns:
+            Dict with profile, positions, recent fills, PnL history
+        """
+        return {
+            "profile": self.get_user_profile(address),
+            "state": self.fetch_user_state(address),
+            "recent_fills": self.get_user_fills(address),
+            "pnl_history": self.get_user_pnl_history(address),
+            "open_orders": self.get_open_orders(address),
+            "stats": self.get_user_trade_stats(address)
+        }
+
+    def analyze_vault(self, vault_address: str) -> Dict[str, Any]:
+        """Comprehensive vault analysis
+
+        Args:
+            vault_address: Vault contract address
+
+        Returns:
+            Dict with details, performance, positions
+        """
+        return {
+            "details": self.get_vault_details(vault_address),
+            "performance": self.get_vault_performance(vault_address)
+        }

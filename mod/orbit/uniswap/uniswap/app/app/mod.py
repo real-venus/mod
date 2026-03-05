@@ -1,2 +1,0 @@
-class App:
-    desc = 'app'
