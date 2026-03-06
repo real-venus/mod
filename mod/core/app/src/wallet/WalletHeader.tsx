@@ -92,7 +92,7 @@ export function WalletHeader() {
   return (
     <div ref={walletRef} className="flex items-center gap-2">
       <div className="flex items-center gap-2">
-        <button
+        {/* <button
           onClick={copyAddress}
           className="flex items-center border-2 transition-all hover:opacity-80 gap-2 px-3"
           style={{ height: '40px', borderRadius: '20px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
@@ -101,7 +101,7 @@ export function WalletHeader() {
           <span className="text-xs font-bold font-mono" style={{ color: 'var(--text-secondary)' }}>
             {copiedAddress ? '✓ Copied' : shortAddress}
           </span>
-        </button>
+        </button> */}
 
         <button
           onClick={() => setIsOpen(!isOpen)}
