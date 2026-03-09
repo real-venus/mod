@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./oracle/IPriceOracleAdapter.sol";
+import "./score/ScoreL1.sol";
+
 /**
  * @title AssetPredictionMarket
  * @dev Single-asset prediction market with oracle adapter and separate score calculator
@@ -102,8 +110,8 @@ contract AssetPredictionMarket is ReentrancyGuard {
             lockedAmounts[i] = pred.lockedAmount;
         }
         
-        // Use ScoreCalculator for batch scoring
-        ScoreCalculator calculator = ScoreCalculator(scoreCalculator);
+        // Use ScoreL1 for batch scoring
+        ScoreL1 calculator = ScoreL1(scoreCalculator);
         (uint256[] memory scores, uint256 totalScore) = calculator.calculateBatchScores(
             predictedPrices,
             lockedAmounts,

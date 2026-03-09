@@ -183,6 +183,38 @@ body {
   animation: fade-slide-up 0.6s ease-out;
 }
 
+/* Toast customizations */
+.Toastify__toast {
+  background: rgba(26, 26, 46, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.Toastify__toast--success {
+  border-left: 4px solid var(--accent-green);
+}
+
+.Toastify__toast--error {
+  border-left: 4px solid #ff4444;
+}
+
+.Toastify__toast--info {
+  border-left: 4px solid var(--accent-blue);
+}
+
+.Toastify__progress-bar--success {
+  background: var(--accent-green);
+}
+
+.Toastify__progress-bar--error {
+  background: #ff4444;
+}
+
+.Toastify__progress-bar--info {
+  background: var(--accent-blue);
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

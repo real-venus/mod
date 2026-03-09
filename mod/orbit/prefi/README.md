@@ -1,172 +1,352 @@
-# PreFi - Decentralized Prediction Finance Protocol
+# 🎯 PreFi - Modular Prediction Markets on Base
 
-## Overview
-PreFi is a decentralized prediction market protocol that uses L2 distance-based scoring to reward accurate predictions. Users stake tokens on price predictions, and rewards are distributed based on prediction accuracy weighted by stake amount.
+> **The first prediction market platform with pluggable oracle support**
 
-## Core Features
+![PreFi](https://img.shields.io/badge/Base-Mainnet-blue) ![Uniswap V3](https://img.shields.io/badge/Uniswap-V3-pink) ![Chainlink](https://img.shields.io/badge/Chainlink-Oracle-blue) ![Polymarket](https://img.shields.io/badge/Polymarket-Integrated-purple)
 
-### 🎯 L2 Distance Scoring
-- Uses Euclidean distance (L2 norm) to measure prediction accuracy
-- Score formula: `stake / (1 + distance²)`
-- Closer predictions with higher stakes earn more rewards
+Predict anything. Use any data source. Win rewards.
 
-### 💰 Staking Mechanism
-- Minimum stake requirement configurable by admin
-- Stake tokens locked until market resolution
-- Proportional reward distribution based on scores
-
-### 🔮 Oracle Integration
-- Trusted oracle resolves markets with actual prices
-- Time-locked markets prevent early resolution
-- Immutable resolution once set
-
-### 🛡️ Security Features
-- ReentrancyGuard protection
-- Pausable in emergencies
-- Owner-controlled admin functions
-- Platform fee mechanism (max 10%)
-
-## Smart Contracts
-
-### PreFiCore.sol
-Main contract handling:
-- Market creation and management
-- Prediction submission and staking
-- Market resolution via oracle
-- Reward calculation and distribution
-- Fee collection
-
-### ScoreL2.sol
-Separate scoring contract for:
-- L2 distance calculations
-- Score computation
-- Batch processing
-- Square root approximations
-
-## Usage
-
-### Creating a Market
-```solidity
-bytes32 marketId = preFi.createMarket(
-    "BTC/USD",
-    block.timestamp + 7 days
-);
-```
-
-### Making a Prediction
-```solidity
-// Approve tokens first
-token.approve(address(preFi), stakeAmount);
-
-// Submit prediction
-preFi.predict(
-    marketId,
-    50000 * 1e18, // predicted price
-    1000 * 1e18   // stake amount
-);
-```
-
-### Resolving Market (Oracle)
-```solidity
-preFi.resolveMarket(
-    marketId,
-    48500 * 1e18 // actual price
-);
-```
-
-### Claiming Rewards
-```solidity
-preFi.claimReward(marketId);
-```
-
-## Scoring Algorithm
-
-### Distance Calculation
-```
-distance² = (predicted_price - actual_price)²
-```
-
-### Score Calculation
-```
-score = (stake_amount × 10¹⁸) / (10¹⁸ + distance²)
-```
-
-### Reward Distribution
-```
-reward = (user_score / total_score) × reward_pool
-reward_pool = total_staked - platform_fee
-```
-
-## Configuration
-
-### Constructor Parameters
-- `stakeToken`: ERC20 token address for staking
-- `oracle`: Address authorized to resolve markets
-- `minStake`: Minimum stake amount required
-- `platformFee`: Fee in basis points (100 = 1%)
-
-### Admin Functions
-- `setOracle(address)`: Update oracle address
-- `setMinStake(uint256)`: Update minimum stake
-- `setPlatformFee(uint256)`: Update platform fee
-- `withdrawFees()`: Withdraw accumulated fees
-- `pause()/unpause()`: Emergency controls
-
-## Events
-
-```solidity
-event MarketCreated(bytes32 marketId, string asset, uint256 targetTimestamp);
-event PredictionMade(bytes32 marketId, address predictor, uint256 predictedPrice, uint256 stakedAmount);
-event MarketResolved(bytes32 marketId, uint256 actualPrice);
-event RewardClaimed(bytes32 marketId, address predictor, uint256 reward);
-```
-
-## Security Considerations
-
-1. **Oracle Trust**: System relies on honest oracle for price feeds
-2. **Front-running**: Consider using commit-reveal for predictions
-3. **Market Manipulation**: Minimum stake helps prevent spam
-4. **Fee Limits**: Platform fee capped at 10%
-5. **Reentrancy**: Protected via ReentrancyGuard
-
-## Deployment
+## ⚡ Quick Start
 
 ```bash
-# Install dependencies
-npm install @openzeppelin/contracts
+# Install
+npm install && cd app && npm install
 
-# Compile
+# Deploy to testnet
+npx hardhat run scripts/deploy-modular.js --network baseSepolia
+
+# Launch UI
+cd app && npm run dev
+```
+
+**→ Full guide:** [QUICKSTART.md](./QUICKSTART.md)
+
+## ✨ Why PreFi?
+
+### 🔌 Modular Oracle System
+
+**First prediction market to support multiple oracle types:**
+
+- 🦄 **Uniswap V3** - Decentralized TWAP for any token pair
+- 🔗 **Chainlink** - Professional-grade price feeds
+- 🎲 **Polymarket** - Real-world event outcomes
+- 🛠️ **Custom** - Build your own oracle for ANY data
+
+### 🎯 Fair L2 Distance Scoring
+
+Mathematical accuracy-based rewards:
+```
+score = stake / (1 + distance²)
+```
+
+Closer predictions + higher stakes = bigger rewards
+
+### 🚀 Production Ready
+
+- ⚡ Deploy in 5 minutes
+- 🔐 Audited patterns (OpenZeppelin)
+- 📱 Beautiful responsive UI
+- 🌐 Base mainnet & testnet support
+- ✅ Fully tested contracts
+
+## 📊 What You Can Build
+
+### Financial Markets
+- Token price predictions (ETH, BTC, alts)
+- DeFi TVL forecasts
+- Trading volume estimates
+- Custom token analytics
+
+### Real-World Events
+- Elections & politics
+- Sports outcomes
+- Economic indicators
+- Entertainment awards
+
+### Custom Predictions
+- GitHub stars by date
+- Weather forecasts
+- Social media metrics
+- NFT floor prices
+- DAO governance
+
+**→ See examples:** [FEATURES.md](./FEATURES.md)
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│           PreFi Modular Contract            │
+│  ┌────────────────────────────────────────┐ │
+│  │    L2 Distance Scoring Engine          │ │
+│  └────────────────────────────────────────┘ │
+└──────────┬──────────────┬──────────────┬────┘
+           │              │              │
+     ┌─────▼────┐  ┌──────▼─────┐  ┌────▼─────┐
+     │ Uniswap  │  │ Chainlink  │  │Polymarket│
+     │ V3 TWAP  │  │Price Feeds │  │ Markets  │
+     └──────────┘  └────────────┘  └──────────┘
+                        │
+                   ┌────▼────┐
+                   │ Custom  │
+                   │ Oracles │
+                   └─────────┘
+```
+
+## 📦 Installation
+
+```bash
+# Clone repo
+cd /Users/broski/mod/mod/orbit/prefi
+
+# Install contract dependencies
+npm install
+
+# Install frontend dependencies
+cd app && npm install
+
+# Compile contracts
 npx hardhat compile
-
-# Deploy
-npx hardhat run scripts/deploy.js --network mainnet
 ```
 
-## Testing
+## 🚀 Deployment
+
+### Testnet (Recommended First)
 
 ```bash
-npx hardhat test
+# 1. Configure environment
+cp .env.example .env
+# Add your PRIVATE_KEY
+
+# 2. Deploy contracts
+npx hardhat run scripts/deploy-modular.js --network baseSepolia
+
+# 3. Update frontend config
+cd app
+cp .env.example .env
+# Add contract addresses and WALLETCONNECT_PROJECT_ID
+
+# 4. Run frontend
+npm run dev
 ```
 
-## License
-MIT
+### Mainnet
 
-## Contributing
-Contributions welcome! Please submit PRs with tests.
+```bash
+# Deploy to Base mainnet
+npx hardhat run scripts/deploy-modular.js --network base
+```
 
-## Roadmap
+**→ Full deployment guide:** [DEPLOY.md](./DEPLOY.md)
 
-- [ ] Multi-asset support
-- [ ] Automated oracle integration (Chainlink)
+## 🔮 Oracle Usage
+
+### Uniswap V3 - Token Prices
+
+```javascript
+const oracleData = ethers.utils.defaultAbiCoder.encode(
+    ["address", "address", "uint24", "uint32"],
+    [WETH, USDC, 3000, 1800] // 0.3% pool, 30min TWAP
+);
+
+await preFi.createMarket(
+    "ETH/USD Prediction",
+    assetId,
+    0, // UNISWAP_V3
+    oracleData,
+    7 * 24 * 60 * 60
+);
+```
+
+### Chainlink - Major Assets
+
+```javascript
+await preFi.createMarket(
+    "BTC/USD (Chainlink)",
+    ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BTC/USD")),
+    1, // CHAINLINK
+    "0x", // No data needed
+    duration
+);
+```
+
+### Polymarket - Events
+
+```javascript
+await preFi.createMarket(
+    "Will Bitcoin hit $100k in 2024?",
+    marketId,
+    2, // POLYMARKET  
+    ethers.utils.defaultAbiCoder.encode(["bool"], [true]), // YES price
+    30 * 24 * 60 * 60
+);
+```
+
+**→ Oracle guide:** [ORACLES.md](./ORACLES.md)
+
+## 🎨 UI Features
+
+- ✨ Glassmorphism design
+- 🎭 Animated gradients
+- 📱 Mobile responsive
+- 🌙 Dark mode
+- 💫 Smooth transitions
+- 🔔 Toast notifications
+- 📊 Real-time updates
+- 🎯 Intuitive UX
+
+## 📚 Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [QUICKSTART.md](./QUICKSTART.md) | 5-minute setup guide |
+| [DEPLOY.md](./DEPLOY.md) | Comprehensive deployment |
+| [ORACLES.md](./ORACLES.md) | Oracle types & integration |
+| [FEATURES.md](./FEATURES.md) | Complete feature overview |
+| [README_COMPLETE.md](./README_COMPLETE.md) | Full technical docs |
+
+## 🛠️ Tech Stack
+
+### Smart Contracts
+- Solidity 0.8.19
+- Hardhat
+- OpenZeppelin (Security)
+- Uniswap V3 SDK
+- Chainlink Contracts
+
+### Frontend
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- Wagmi + Viem
+- RainbowKit
+- Ethers.js v6
+- Framer Motion
+
+### Oracles
+- Uniswap V3 TWAP
+- Chainlink Price Feeds
+- Polymarket Adapter
+- Custom Oracle Interface
+
+## 🌐 Networks
+
+### Base Mainnet (8453)
+- **RPC**: https://mainnet.base.org
+- **Explorer**: https://basescan.org
+- **Uniswap Factory**: `0x33128a8fC17869897dcE68Ed026d694621f6FDfD`
+
+### Base Sepolia (84532)
+- **RPC**: https://sepolia.base.org
+- **Explorer**: https://sepolia.basescan.org
+- **Faucet**: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
+
+## 🔐 Security
+
+- ✅ ReentrancyGuard on all state changes
+- ✅ Pausable emergency stop
+- ✅ Access control (Ownable)
+- ✅ SafeERC20 for transfers
+- ✅ Input validation
+- ✅ Staleness checks
+- ✅ Open source
+- ✅ Based on OpenZeppelin
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+npx hardhat test
+
+# With gas reporting
+REPORT_GAS=true npx hardhat test
+
+# Coverage
+npx hardhat coverage
+```
+
+## 📈 Example Markets
+
+### Price Predictions
+```
+"ETH will be $5,000 on Jan 1, 2025"
+Oracle: Chainlink ETH/USD
+Reward: Closest prediction wins
+```
+
+### Binary Events
+```
+"Will Bitcoin reach $100k in 2024?"
+Oracle: Polymarket
+Outcome: YES/NO
+```
+
+### Custom Metrics
+```
+"Uniswap V3 TVL in 30 days"
+Oracle: Custom (DeFi Llama API)
+Reward: Proportional to accuracy
+```
+
+## 🎁 Coming Soon
+
+- [ ] Chainlink Automation (auto-settle)
+- [ ] Mobile app (React Native)
+- [ ] Social features (leaderboards)
 - [ ] NFT prediction receipts
 - [ ] Governance token
-- [ ] Cross-chain deployment
-- [ ] Advanced scoring models (L1, custom)
-- [ ] Prediction pools/syndicates
-- [ ] Mobile app integration
+- [ ] Cross-chain (Optimism, Arbitrum)
+- [ ] Advanced charting
+- [ ] Prediction pools
 
-## Contact
+## 🤝 Contributing
 
-Discord: [Join PreFi Community]
-Twitter: [@PreFiProtocol]
-GitHub: [github.com/prefi]
+Contributions welcome!
+
+1. Fork the repo
+2. Create feature branch
+3. Commit changes
+4. Push and PR
+
+## 📝 License
+
+MIT License - see [LICENSE](./LICENSE)
+
+## 🙏 Acknowledgments
+
+- **Base** - Amazing L2 platform
+- **Uniswap** - Decentralized oracle infrastructure
+- **Chainlink** - Professional oracle network
+- **Polymarket** - Prediction market innovation
+- **OpenZeppelin** - Security primitives
+
+## 📞 Support
+
+- **Docs**: See docs folder
+- **Issues**: [GitHub Issues](https://github.com/yourusername/prefi/issues)
+- **Discord**: [Join Community]
+- **Twitter**: [@PreFiProtocol]
+
+---
+
+## ⚡ TL;DR
+
+**Deploy a prediction market in 3 commands:**
+
+```bash
+npm install && cd app && npm install
+npx hardhat run scripts/deploy-modular.js --network baseSepolia
+cd app && npm run dev
+```
+
+**→ Read:** [QUICKSTART.md](./QUICKSTART.md)
+
+---
+
+<div align="center">
+
+**Built with ❤️ on Base**
+
+[Deploy Now](./QUICKSTART.md) • [Docs](./DEPLOY.md) • [Oracles](./ORACLES.md) • [Features](./FEATURES.md)
+
+</div>
