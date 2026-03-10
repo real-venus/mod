@@ -43,11 +43,9 @@ class Dev:
 
     output_format=  """
             YOU NEED TO RESPOND WITHIN THE ANCHORS FOR PARSING FOR EACH STEP
-            MAKE SURE THE PLAN IS ATOMIC, DONT READ SOMETHING AND CREATE SOMETHING IF IT INVOLVES YOU TO READ IT AGAIN LOL
-            <PLAN>
-            <STEP>{tool:finish, params:dict}</STEP> # STEP 1
-            <STEP>{tool:str, params:dict}</STEP> # STEP 2 
-            </PLAN>
+            THE STEPS WILL BE RECORDED AND PLACED IN THE MEMORY FOR FUTURE REFERENCE, SO MAKE SURE TO ONLY RESPOND WITH THE TOOLS YOU WANT TO USE AND THE PARAMETERS IN A JSON FORMAT
+            THE TOOLS YOU HAVE AT YOUR DISPOSAL ARE: {tools}
+            <STEP>{tool:str, params:dict}</STEP> # 
 
             IF YOU ARE FINISHED USE THE FINAL STEP
     """
@@ -127,12 +125,34 @@ class Dev:
         return plan
 
 
-    def plan(self, text:str) -> str:
+    def plan(self, output:str) -> str:
         """
         Generate a plan based on the output text from the model.
         """
-        plan = self.get_plan(text)
-        plan = self.run_plan(plan)
+        text = ''
+        plan = []
+        for ch in output:
+            text += ch
+            m.print(ch, end='')
+            if self.is_step(text):
+                step = self.get_step(text)
+                plan.append(step)
+                break
+
+        for i, step in enumerate(plan):
+            if step['tool'].lower() in ['finish', 'review']:
+                m.print(f"Step {i+1}/{len(plan)}: {step['tool']} with params {step['params']}", color='green')
+                break
+            else:
+                result = m.tool(step['tool'])(**step['params'])
+                plan[i]['result'] = result
+                m.print(f"Step {i+1}/{len(plan)} executed: {step['tool']} with params {step['params']} -> result: {result}", color='green')
+
+        if len(plan) > 0 and plan[-1]['tool'].lower() == 'finish':
+            m.print("Plan is complete, stopping execution.", color='green')
+        else:
+            m.print("Plan is not complete, continuing to next step.", color='yellow')
+
         return plan
 
     def get_step(self, text):
@@ -147,38 +167,7 @@ class Dev:
         assert 'tool' in text
         assert 'params' in text
         return step
-    def get_plan(self, output:str) -> list:
-        """
-        Parse the output text to extract the plan consisting of steps with tools and parameters.
-        """
+    
 
-
-        text = ''
-        plan = []
-        for ch in output:
-            text += ch
-            m.print(ch, end='')
-            if bool(self.anchors['tool'][0] in text and self.anchors['tool'][1] in text):
-                step = self.get_step(text)
-                plan.append(step)
-                break
-        return plan
-
-    def run_plan(self, plan: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Execute a plan consisting of steps with tools and parameters.
-        """
-        for i, step in enumerate(plan):
-            if step['tool'].lower() in ['finish', 'review']:
-                m.print(f"Step {i+1}/{len(plan)}: {step['tool']} with params {step['params']}", color='green')
-                break
-            else:
-                result = m.tool(step['tool'])(**step['params'])
-                plan[i]['result'] = result
-                m.print(f"Step {i+1}/{len(plan)} executed: {step['tool']} with params {step['params']} -> result: {result}", color='green')
-
-        if len(plan) > 0 and plan[-1]['tool'].lower() == 'finish':
-            m.print("Plan is complete, stopping execution.", color='green')
-        else:
-            m.print("Plan is not complete, continuing to next step.", color='yellow')
-        return plan
+    def is_step(self, text):
+        return bool(self.anchors['tool'][0] in text and self.anchors['tool'][1] in text)
