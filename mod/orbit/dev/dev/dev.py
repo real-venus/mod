@@ -33,6 +33,7 @@ class Dev:
         - PLEASE IF YOU ARE GIVEN MULTIPLE STEPS, DONT ONE SHOT IT, READ RELEVENT INFO FIRST, THEN EXECUTE ON THE SECOND STEP, DONT WASTE RESOURCES, BE EFFICIENT, BE SMART, BE A GENIUS, BE A STAR, BE A GOD, BE A KING, BE A LEGEND
         - MAKE SURE TO FINISH WHAT YOU WERE ASKED TO BEFORE FINISHING
         MAKE SURE YOU UNDERSTAND THE CONTEXT BEFORE YOU CHANGE YOU ENVIORNMENT WITH THE TOOLS AT YOUR DISPOSAL
+        - MAKE SURE YOU AVOID REDUNDANT STEPS AND MINIMIZE THE STEPS
     """
 
     anchors = {
@@ -41,9 +42,14 @@ class Dev:
             }
 
     output_format=  """
-            make sure the params is a legit json string within the STEP ANCHORS
-            YOU CANNOT RESPOND WITH MULTIPLE PLANS BRO JUST ONE PLAN
-            <STEP>{tool:finish, params:dict}</STEP> # FINAL STEP
+            YOU NEED TO RESPOND WITHIN THE ANCHORS FOR PARSING FOR EACH STEP
+            MAKE SURE THE PLAN IS ATOMIC, DONT READ SOMETHING AND CREATE SOMETHING IF IT INVOLVES YOU TO READ IT AGAIN LOL
+            <PLAN>
+            <STEP>{tool:finish, params:dict}</STEP> # STEP 1
+            <STEP>{tool:str, params:dict}</STEP> # STEP 2 
+            </PLAN>
+
+            IF YOU ARE FINISHED USE THE FINAL STEP
     """
 
     tool_fn_name = 'forward'
@@ -75,7 +81,7 @@ class Dev:
     def init_memory(self, **kwargs):
         kwargs['goal'] = self.goal
         kwargs['output_format'] = self.output_format
-        kwargs['initial_context'] = m.fn('select_files')(path=kwargs['path'], query=kwargs['query'])
+        # kwargs['initial_context'] = m.fn('select_files')(path=kwargs['path'], query=kwargs['query'])
         for k,v in kwargs.items():
             self.memory.add(k, v)
             if k.startswith('fork') and v != None:
@@ -112,6 +118,7 @@ class Dev:
             output = self.model.forward(str(memory), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
             plan = self.plan(output)
             self.memory.add('plan', plan)
+            print(f"Step {step+1}/{steps} executed with plan: {plan}", color='green')
             if plan[-1]['tool'].lower() == 'finish':
                 print('Finishing Agent')
                 break
@@ -169,6 +176,7 @@ class Dev:
                 result = m.tool(step['tool'])(**step['params'])
                 plan[i]['result'] = result
                 m.print(f"Step {i+1}/{len(plan)} executed: {step['tool']} with params {step['params']} -> result: {result}", color='green')
+
         if len(plan) > 0 and plan[-1]['tool'].lower() == 'finish':
             m.print("Plan is complete, stopping execution.", color='green')
         else:

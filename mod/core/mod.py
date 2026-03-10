@@ -1477,7 +1477,7 @@ class Mod:
 
     def tree(self, 
             search=None, 
-            depth=4,
+            depth=1,
             orbit = 'all', 
             key=None,
             **kwargs):

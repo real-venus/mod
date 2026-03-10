@@ -145,9 +145,10 @@ class OpenRouter:
         if stream:
             def stream_generator( result):
                 for token in result:
-                    token = token.choices[0].delta.content
-                    item['result'] += token
-                    yield token
+                    if len(token.choices) > 0:
+                        token = token.choices[0].delta.content
+                        item['result'] += token
+                        yield token
                 self.store.put(path, item)
             return stream_generator(result)
         else:

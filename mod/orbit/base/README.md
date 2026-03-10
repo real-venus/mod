@@ -1,95 +1,142 @@
-# 🚀 Orbit Base
+# 🛸 Orbit Base
 
-> A powerful, modular foundation for building AI-powered automation agents.
+<div align="center">
+
+```
+   ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣤⣶⣶⣶⣶⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀
+   ⠀⠀⠀⠀⢀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣤⡀⠀⠀⠀⠀
+   ⠀⠀⠀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⠀⠀⠀
+   ⠀⢀⣾⣿⡿⠿⠛⠛⠛⠉⠉⠉⠉⠛⠛⠛⠿⠿⣿⣿⣿⣿⣿⣷⡀⠀
+   ⠀⣾⣿⣿⣇⠀⣀⣀⣠⣤⣤⣤⣤⣤⣀⣀⠀⠀⠀⠈⠙⠻⣿⣿⣷⠀
+   ⢠⣿⣿⣿⣿⡿⠿⠟⠛⠛⠛⠛⠛⠛⠻⠿⢿⣿⣶⣤⣀⣠⣿⣿⣿⡄
+   ⢸⣿⣿⣿⣿⣇⣀⣀⣤⣤⣤⣤⣤⣄⣀⣀⠀⠀⠉⠛⢿⣿⣿⣿⣿⡇
+   ⠘⣿⣿⣿⣿⣿⠿⠿⠛⠛⠛⠛⠛⠛⠿⠿⣿⣶⣦⣤⣾⣿⣿⣿⣿⠃
+   ⠀⢿⣿⣿⣿⣿⣤⣤⣤⣤⣶⣶⣦⣤⣤⣄⡀⠈⠙⣿⣿⣿⣿⣿⡿⠀
+   ⠀⠈⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣾⣿⣿⣿⣿⡿⠁⠀
+   ⠀⠀⠀⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠀⠀⠀
+   ⠀⠀⠀⠀⠈⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠛⠁⠀⠀⠀⠀
+   ⠀⠀⠀⠀⠀⠀⠀⠈⠙⠛⠛⠿⠿⠿⠿⠛⠛⠋⠁⠀⠀⠀⠀⠀⠀⠀
+```
+
+### **Two Tools. Infinite Possibilities.**
+
+*The minimalist AI agent framework that proves less is more.*
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Docker](https://img.shields.io/badge/docker-ready-brightgreen.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](https://www.docker.com/)
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+[**Quick Start**](#-quick-start) · [**Philosophy**](#-philosophy) · [**Examples**](#-examples) · [**Tutorial**](TUTORIAL.md)
+
+</div>
+
+---
 
 ## 🎯 What is Orbit Base?
 
-Orbit Base is a lightweight yet powerful framework for creating autonomous coding agents. It provides the essential building blocks for file manipulation, command execution, and intelligent task orchestration.
-
-## ✨ Features
-
-- **🔧 File Operations** - Create, read, update, and manage files programmatically
-- **💻 Command Execution** - Run shell commands with full output capture
-- **🐳 Docker Ready** - Containerized deployment out of the box
-- **🧩 Modular Design** - Easily extend with custom tools
-- **⚡ Lightweight** - Minimal dependencies, maximum performance
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.8+
-- Docker (optional)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone <repo-url>
-cd orbit/base
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Using Docker
-
-```bash
-# Build and run with docker-compose
-docker-compose up --build
-
-# Or build manually
-docker build -t orbit-base .
-docker run -it orbit-base
-```
-
-## 📖 Usage
+Orbit Base is an AI agent framework built on a radical premise: **an AI with just two tools—file creation and command execution—can accomplish anything a developer can.**
 
 ```python
 from base import Agent
 
-# Initialize the agent
 agent = Agent()
-
-# Execute a task
-result = agent.run("create a hello world script")
+agent.run("Create a Flask API with user authentication")
+# That's it. The agent figures out the rest.
 ```
-
-## 🛠️ Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `create_file` | Create new files with specified content |
-| `cmd` | Execute shell commands |
-
-## 📁 Project Structure
-
-```
-orbit/base/
-├── base/              # Core module
-├── requirements.txt   # Python dependencies
-├── Dockerfile         # Container definition
-├── docker-compose.yml # Multi-container setup
-├── TUTORIAL.md        # Detailed tutorial
-└── README.md          # You are here
-```
-
-## 📚 Documentation
-
-For detailed usage and examples, check out the [Tutorial](TUTORIAL.md).
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-<p align="center">Built with ❤️ by the Orbit Team</p>
+## 💡 Philosophy
+
+> *"Simplicity is the ultimate sophistication."* — Leonardo da Vinci
+
+| Traditional Frameworks | Orbit Base |
+|------------------------|------------|
+| 🔧 50+ specialized tools | ✨ **2 universal tools** |
+| 📚 Weeks to learn | ⚡ **Minutes to master** |
+| 🔗 Complex chains & graphs | 🎯 **Direct execution** |
+| 🔒 Framework lock-in | 🔓 **Pure Python** |
+
+**The insight:** Every developer action reduces to two primitives—**writing files** and **running commands**.
+
+---
+
+## ⚡ Quick Start
+
+```bash
+git clone <repo-url> && cd orbit/base
+pip install -r requirements.txt
+python -c "from base import Agent; Agent().run('create hello.py that prints hello world')"
+```
+
+**Docker:**
+```bash
+docker-compose up --build
+```
+
+---
+
+## 🔧 The Two Tools
+
+### 📄 `create_file`
+```python
+create_file(file_path="app/main.py", content="print('Hello!')", overwrite=True)
+```
+
+### ⚡ `cmd`
+```python
+cmd("python main.py")        # Execute
+cmd("pip install flask")    # Install
+cmd("git init")              # Version control
+```
+
+---
+
+## 🎯 Examples
+
+```python
+agent.run("Create a web scraper for HN headlines")
+agent.run("Set up a FastAPI project with Docker")
+agent.run("Refactor utils.py to async functions")
+agent.run("Build a backup script with timestamps")
+```
+
+---
+
+## 🏗️ Structure
+
+```
+orbit/base/
+├── base/              # Core: agent.py + tools.py
+├── Dockerfile         # Container config
+├── docker-compose.yml
+├── requirements.txt
+└── TUTORIAL.md        # Deep dive
+```
+
+---
+
+## 🤝 Contributing
+
+```bash
+git checkout -b feature/awesome
+# Make changes, test, document
+git push origin feature/awesome
+```
+
+---
+
+## 📜 License
+
+MIT — Do whatever you want. See [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+**Built for builders who ship.**
+
+<sub>Made with 🔥 by developers who hate complexity</sub>
+
+</div>

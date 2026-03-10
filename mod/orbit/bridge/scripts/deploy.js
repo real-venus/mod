@@ -27,7 +27,9 @@ async function main() {
 
   // Deploy BridgeToken
   const BridgeToken = await hre.ethers.getContractFactory("BridgeToken");
-  const token = await BridgeToken.deploy(TOKEN_NAME, TOKEN_SYMBOL, INITIAL_SUPPLY);
+  const token = await BridgeToken.deploy(TOKEN_NAME, TOKEN_SYMBOL, INITIAL_SUPPLY, {
+    gasLimit: 5000000 // Increase gas limit for deployment
+  });
   await token.waitForDeployment();
   const tokenAddress = await token.getAddress();
 

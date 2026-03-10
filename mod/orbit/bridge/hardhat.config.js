@@ -21,7 +21,9 @@ module.exports = {
     baseSepolia: {
       url: process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 84532
+      chainId: 84532,
+      gasPrice: "auto", // Let provider determine gas price
+      gas: 5000000 // Increase gas limit
     },
     // Base mainnet (PRIVATE_KEY only required for actual deployment)
     base: {
