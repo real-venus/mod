@@ -1,0 +1,15 @@
+{
+  "network": "baseSepolia",
+  "chainId": 84532,
+  "operator": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
+  "token": {
+    "address": "0x00D873Fb0917604393d047316bf84f2D3F8D22Eb",
+    "name": "Bridged Commune",
+    "symbol": "BCOM",
+    "initialSupply": "1000000000000000000"
+  },
+  "bridge": {
+    "address": "0xA1CEAd67E61C92D17D03A0290c10Ea49fC687F89"
+  },
+  "deployedAt": "2026-03-10T17:31:03.608Z"
+}

@@ -35,18 +35,42 @@ async function main() {
 
   console.log("✓ BridgeToken deployed to:", tokenAddress);
 
+  // Wait a bit before next deployment to avoid nonce issues
+  console.log("\nWaiting for network confirmation...");
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
   // Deploy Sr25519Bridge
   console.log("\n=== Deploying Sr25519Bridge ===");
+
+  // Force nonce refresh to avoid nonce mismatch
+  const currentNonce = await hre.ethers.provider.getTransactionCount(deployer.address, "latest");
+  console.log("Current nonce:", currentNonce);
+
   const Sr25519Bridge = await hre.ethers.getContractFactory("Sr25519Bridge");
-  const bridge = await Sr25519Bridge.deploy(tokenAddress);
+  const bridge = await Sr25519Bridge.deploy(tokenAddress, {
+    gasLimit: 5000000, // Increase gas limit for deployment
+    nonce: currentNonce
+  });
   await bridge.waitForDeployment();
   const bridgeAddress = await bridge.getAddress();
 
   console.log("✓ Sr25519Bridge deployed to:", bridgeAddress);
 
+  // Wait before approval transaction
+  console.log("\nWaiting for network confirmation...");
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
   // Approve bridge to spend operator's tokens
   console.log("\n=== Approving bridge to spend tokens ===");
-  const approveTx = await token.approve(bridgeAddress, INITIAL_SUPPLY);
+
+  // Force nonce refresh for approval
+  const approveNonce = await hre.ethers.provider.getTransactionCount(deployer.address, "latest");
+  console.log("Approve nonce:", approveNonce);
+
+  const approveTx = await token.approve(bridgeAddress, INITIAL_SUPPLY, {
+    gasLimit: 100000,
+    nonce: approveNonce
+  });
   await approveTx.wait();
 
   console.log("✓ Bridge approved to spend", INITIAL_SUPPLY, "tokens");
