@@ -683,74 +683,72 @@ export default function ContractsPage() {
           )}
         </AnimatePresence>
 
-        {/* Contract Grid */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {filteredContracts.map((c) => {
-            const cardColor = text2color(c.name)
-            const isSelected = selectedContract === c.name
-            const isCustom = customContracts.some(cc => cc.name === c.name)
-            return (
-              <div key={c.name} className="relative group/card">
-                <button
-                  onClick={() => setSelectedContract(isSelected ? '' : c.name)}
-                  className="relative px-3 py-2 rounded-lg text-left transition-all duration-200 overflow-hidden"
-                  style={{
-                    border: isSelected ? `1.5px solid ${cardColor}` : `1.5px solid var(--border-color)`,
-                    backgroundColor: isSelected ? colorWithOpacity(cardColor, 0.06) : 'var(--bg-secondary)',
-                    boxShadow: isSelected
-                      ? `0 0 20px ${colorWithOpacity(cardColor, 0.12)}`
-                      : 'var(--card-shadow)',
-                  }}
-                >
-                  {/* Corner accents */}
-                  <div className="absolute top-0 left-0 w-2 h-px transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
-                  <div className="absolute top-0 left-0 w-px h-2 transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
-                  <div className="absolute bottom-0 right-0 w-2 h-px transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
-                  <div className="absolute bottom-0 right-0 w-px h-2 transition-colors" style={{ backgroundColor: isSelected ? cardColor : 'var(--border-color)' }} />
-
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full transition-all" style={{
-                        backgroundColor: isSelected ? cardColor : 'var(--text-tertiary)',
-                        boxShadow: isSelected ? `0 0 6px ${cardColor}` : 'none',
-                      }} />
-                      <div className="text-[13px] font-bold font-mono" style={{ color: isSelected ? cardColor : 'var(--text-primary)' }}>{c.name}</div>
-                      {isCustom && (
-                        <span className="text-[8px] px-1 py-0.5 rounded font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">CUSTOM</span>
-                      )}
-                      <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{shorten(c.address, 4, 3)}</div>
-                    </div>
-                    {c.abiCid && (
-                      <div className="flex items-center gap-1 ml-4">
-                        <span className="text-[9px] font-mono" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
-                        <span className="text-[9px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(c.abiCid, 8, 6)}</span>
-                      </div>
-                    )}
-                  </div>
-                </button>
-
-                {/* Remove button for custom contracts */}
-                {isCustom && (
+        {/* Contract Grid - Only show when no contract is selected */}
+        {!selectedContract && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {filteredContracts.map((c) => {
+              const cardColor = text2color(c.name)
+              const isCustom = customContracts.some(cc => cc.name === c.name)
+              return (
+                <div key={c.name} className="relative group/card">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (confirm(`Remove custom contract "${c.name}"?`)) {
-                        handleRemoveContract(c.name)
-                      }
+                    onClick={() => setSelectedContract(c.name)}
+                    className="relative px-3 py-2 rounded-lg text-left transition-all duration-200 overflow-hidden hover:scale-[1.02]"
+                    style={{
+                      border: `1.5px solid var(--border-color)`,
+                      backgroundColor: 'var(--bg-secondary)',
+                      boxShadow: 'var(--card-shadow)',
                     }}
-                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500/80 text-white text-xs font-bold opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-red-500 flex items-center justify-center"
-                    title="Remove custom contract"
                   >
-                    ×
+                    {/* Corner accents */}
+                    <div className="absolute top-0 left-0 w-2 h-px transition-colors" style={{ backgroundColor: 'var(--border-color)' }} />
+                    <div className="absolute top-0 left-0 w-px h-2 transition-colors" style={{ backgroundColor: 'var(--border-color)' }} />
+                    <div className="absolute bottom-0 right-0 w-2 h-px transition-colors" style={{ backgroundColor: 'var(--border-color)' }} />
+                    <div className="absolute bottom-0 right-0 w-px h-2 transition-colors" style={{ backgroundColor: 'var(--border-color)' }} />
+
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full transition-all" style={{
+                          backgroundColor: 'var(--text-tertiary)',
+                        }} />
+                        <div className="text-[13px] font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{c.name}</div>
+                        {isCustom && (
+                          <span className="text-[8px] px-1 py-0.5 rounded font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">CUSTOM</span>
+                        )}
+                        <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{shorten(c.address, 4, 3)}</div>
+                      </div>
+                      {c.abiCid && (
+                        <div className="flex items-center gap-1 ml-4">
+                          <span className="text-[9px] font-mono" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
+                          <span className="text-[9px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(c.abiCid, 8, 6)}</span>
+                        </div>
+                      )}
+                    </div>
                   </button>
-                )}
-              </div>
-            )
-          })}
-          {filteredContracts.length === 0 && (
-            <div className="col-span-full text-center text-[15px] font-mono py-12" style={{ color: 'var(--text-tertiary)' }}>-- NO CONTRACTS FOUND --</div>
-          )}
-        </div>
+
+                  {/* Remove button for custom contracts */}
+                  {isCustom && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm(`Remove custom contract "${c.name}"?`)) {
+                          handleRemoveContract(c.name)
+                        }
+                      }}
+                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500/80 text-white text-xs font-bold opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-red-500 flex items-center justify-center"
+                      title="Remove custom contract"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+            {filteredContracts.length === 0 && (
+              <div className="col-span-full text-center text-[15px] font-mono py-12" style={{ color: 'var(--text-tertiary)' }}>-- NO CONTRACTS FOUND --</div>
+            )}
+          </div>
+        )}
 
         {/* Selected contract interaction */}
         {contractInfo && (() => {
@@ -762,6 +760,24 @@ export default function ContractsPage() {
           }}>
             {/* Subtle top glow */}
             <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: colorWithOpacity(activeColor, 0.4) }} />
+
+            {/* Back button */}
+            <div className="mb-4">
+              <button
+                onClick={() => setSelectedContract('')}
+                className="px-4 py-2 rounded-lg text-[12px] font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-2 hover:scale-[1.02]"
+                style={{
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-surface)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Contracts
+              </button>
+            </div>
 
             {/* Contract header bar */}
             <div className="flex items-center gap-4 flex-wrap mb-6">

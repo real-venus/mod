@@ -1485,7 +1485,8 @@ class Mod:
         get the full tree of the mods, local and core
         """
         tree = {}
-        orbits = self.orbits if orbit == 'all' else [orbit]
+
+        orbits = sorted(self.orbits, reverse=True) if orbit == 'all' else [orbit]
         for orbit in orbits:
             tree.update(self.orbit(orbit, search=search, depth=depth, key=key, **kwargs))
         tree = dict(sorted(tree.items(), key=lambda item: item[0]))
@@ -1727,60 +1728,23 @@ class Mod:
     def cpmod(self, from_mod:str = 'dev', to_mod:str = 'dev2', force=True):
         return self.fn('factory/cpmod')(from_mod=from_mod, to_mod=to_mod, force=force)
 
-    def mvmod(self, from_mod:str = 'dev', to_mod:str = 'dev2'):
-        """
-        Move the mod to the git repository
-        """
-        from_path = self.dirpath(from_mod)
-        to_path = self.paths["orbit"]["inner"] + '/' + to_mod.replace('.', '/')
-        for f in self.files(from_path):
-            print(f'Moving {f} to {to_path + "/" + f[len(from_path)+1:]}')
-
-        
-        self.mv(from_path, to_path)
-        self.tree(update=1)
-        return {'from': {'mod': from_mod, 'path': from_path}, 'to': {'mod': to_mod, 'path': to_path}}
-
-    mv_mod = mvmod
+    
+    def rmmod(self, mod:str = 'test'):
+        return self.fn('factory/rmmod')(mod=mod)
 
     def rmmod(self, mod:str = 'dev'):
-        """
-        Remove the mod from the git repository
-        """
-        path = self.dirpath(mod)
-        assert os.path.exists(path), f'Mod {mod} does not exist'
-        self.rm(path)
-        self.tree(update=1)
-        return {'success': True, 'msg': f'removed {mod}', 'path': path}
-
+        return self.fn('factory/rmmod')(mod=mod)
+    
     def address2key(self, *args, **kwargs):
         return self.fn('key/address2key')(*args, **kwargs)
 
-    def clone(self, mod:str = 'dev', name:str = None):
-        repo2path = self.repo2path()
-        if os.path.exists(mod):
-            to_path =  self.paths["orbit"]["inner"] + '/' + mod.split('/')[-1]
-            from_path = mod
-            self.rm(to_path)
-            self.cp(from_path, to_path)
-            assert os.path.exists(to_path), f'Failed to copy {from_path} to {to_path}'
-        elif 'github.com' in mod:
-            code_link = mod
-            mod = name or mod.split('/')[-1].replace('.git', '')
-            # clone ionto the mods path
-            to_path = self.paths["orbit"]["inner"] + '/' + mod
-            cmd = f'git clone {code_link} {self.paths["orbit"]["inner"]}/{mod}'
-            self.cmd(cmd, cwd=self.paths["orbit"]["inner"])
-        else:
-            raise Exception(f'Mod {mod} does not exist')
-        git_path = to_path + '/.git'
-        if os.path.exists(git_path):
-            self.rm(git_path)
-        self.tree(update=1)
-        return {'success': True, 'msg': 'added mod',  'to': to_path}
-
     rm_mod = rmmod
 
+    def token(self, *args, **kwargs):
+        return self.fn('auth/token')(*args, **kwargs)
+
+    def clone(self, mod, name):
+        return self.fn('factory/clone')(mod=mod, name=name)
     def initialize(self, globals_input:dict):
         for fn in dir(self):
             if fn.startswith('_'):

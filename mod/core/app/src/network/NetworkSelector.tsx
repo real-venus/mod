@@ -120,11 +120,10 @@ export function NetworkSelector() {
       {/* Compact trigger */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center gap-2 px-2.5 border transition-all hover:brightness-110 active:scale-[0.98]"
+        className="flex items-center gap-2 px-2.5 border transition-all hover:brightness-110 active:scale-[0.98] rounded-full"
         style={{
           height: '36px',
-          borderRadius: '20px',
-          fontFamily: 'IBM Plex Mono, monospace',
+          fontFamily: 'var(--font-digital), monospace',
           borderColor: 'var(--border-strong)',
           background: `${selectedChain.color}08`,
         }}
@@ -141,11 +140,11 @@ export function NetworkSelector() {
 
         {/* Chain + env label */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+          <span className="text-sm font-digital uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
             {selectedChain.name}
           </span>
           <span
-            className="text-[9px] font-bold uppercase tracking-wider px-1 py-px"
+            className="text-xs font-digital uppercase tracking-wider px-1 py-px rounded"
             style={{
               background: networkEnv === 'mainnet' ? '#10b98115' : '#f59e0b15',
               color: networkEnv === 'mainnet' ? '#10b981' : '#f59e0b',
@@ -170,13 +169,12 @@ export function NetworkSelector() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-72 border-2 overflow-hidden z-50"
+            className="absolute right-0 top-full mt-2 w-72 border-2 overflow-hidden z-50 rounded-xl"
             style={{
               background: 'var(--bg-sidebar)',
               borderColor: `${selectedChain.color}30`,
               backdropFilter: 'blur(20px)',
               boxShadow: `0 20px 60px rgba(0,0,0,0.3), 0 0 40px ${selectedChain.color}10`,
-              borderRadius: '12px',
             }}
           >
             {/* Testnet / Mainnet Toggle */}
@@ -189,10 +187,9 @@ export function NetworkSelector() {
                   <button
                     key={env}
                     onClick={() => handleEnvToggle(env)}
-                    className="flex-1 relative py-2 text-[11px] font-black uppercase tracking-widest transition-all duration-200"
+                    className="flex-1 relative py-2 text-sm font-digital uppercase tracking-widest transition-all duration-200 rounded-lg"
                     style={{
-                      borderRadius: '8px',
-                      fontFamily: 'IBM Plex Mono, monospace',
+                      fontFamily: 'var(--font-digital), monospace',
                       ...(networkEnv === env
                         ? {
                             background: env === 'mainnet'
@@ -232,10 +229,9 @@ export function NetworkSelector() {
                     <button
                       key={chain.id}
                       onClick={() => handleChainSelect(chain)}
-                      className="relative flex flex-col items-center gap-2 py-3.5 px-3 border-2 transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] group"
+                      className="relative flex flex-col items-center gap-2 py-3.5 px-3 border-2 transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] group rounded-xl"
                       style={{
-                        borderRadius: '12px',
-                        fontFamily: 'IBM Plex Mono, monospace',
+                        fontFamily: 'var(--font-digital), monospace',
                         borderColor: isSelected ? `${chain.color}60` : '#262626',
                         background: isSelected
                           ? `linear-gradient(145deg, ${chain.color}12 0%, ${chain.color}06 50%, transparent 100%)`
@@ -269,14 +265,14 @@ export function NetworkSelector() {
                       </div>
 
                       <span
-                        className="text-[11px] font-black uppercase tracking-wider transition-colors duration-200"
+                        className="text-sm font-digital uppercase tracking-wider transition-colors duration-200"
                         style={{ color: isSelected ? chain.color : '#a3a3a3' }}
                       >
                         {chain.name}
                       </span>
 
                       <span
-                        className="text-[9px] font-bold uppercase tracking-wider transition-colors duration-200"
+                        className="text-xs font-digital uppercase tracking-wider transition-colors duration-200"
                         style={{ color: isSelected ? `${chain.color}80` : '#737373' }}
                       >
                         {networkEnv === 'testnet' ? chain.testnetName : chain.mainnetName}

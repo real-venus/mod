@@ -1,8 +1,6 @@
-# GraphQL Requirements
-# Add your GraphQL dependencies here
+# LocalFS Requirements
+base58>=2.1.0
+protobuf>=4.0.0
 
-graphene>=3.0
-graphql-core>=3.2.0
-graphql-relay>=3.2.0
-gql>=3.0.0
-requests_toolbelt
+# Optional: for building Rust extensions
+# maturin>=1.0,<2.0

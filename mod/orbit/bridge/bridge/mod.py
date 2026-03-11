@@ -80,7 +80,6 @@ class Bridge:
         self.config_path = os.path.join(self.path, 'deployment.json')
         self.config = m.get_json(self.config_path, default={})
         # check contracts and add ABIs if not present
-        
         for contract in self.config.get(self.network, {}).get('contracts', {}):
             if 'abi' not in self.config[self.network]['contracts'][contract] or update:
                 abi_map = self.abi_map()
@@ -494,9 +493,13 @@ class Bridge:
         tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    def deploy(self):
+    def deploy(self, network=None):
         """Deploy bridge contracts."""
-        return os.system(f'cd {self.path} && npm run deploy:{self.network}')
+        if network:
+            self.network = network
+        os.system(f'cd {self.path} && npm run deploy:{self.network}')
+        self.set_config(update=True)
+        return self.config
 
     def compile(self):
         """Compile bridge contracts."""

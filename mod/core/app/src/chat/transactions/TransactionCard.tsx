@@ -186,7 +186,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
   return (
     <div
       className={`group border-2 rounded-lg backdrop-blur-sm transition-all ${isCurrentMode ? '' : 'cursor-pointer'} relative overflow-hidden border-purple-500/60 hover:border-purple-500/80`}
-      style={{ fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-surface)' }}
+      style={{ fontFamily: 'var(--font-digital), monospace', backgroundColor: 'var(--bg-surface)' }}
     >
       {/* Progress bar for running/pending transactions */}
       {isInProgress && (
@@ -216,13 +216,13 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
         {/* Status indicator with animation for in-progress */}
         <div className="flex items-center gap-1.5">
           <div className={`w-2 h-2 rounded-full ${status.dot} ${isInProgress ? 'animate-pulse' : ''}`} />
-          <span className={`${compact ? 'text-[10px]' : 'text-xs'} font-bold uppercase tracking-wider ${status.text}`}>
+          <span className={`${compact ? 'text-sm' : 'text-sm'} font-digital uppercase tracking-wider ${status.text}`}>
             {compact ? status.displayStatus.slice(0, 3) : status.displayStatus}
           </span>
         </div>
 
         {/* Function name */}
-        <div className={`${compact ? 'text-xs' : 'text-sm'} font-bold truncate text-cyan-500 flex-1 min-w-0`}>
+        <div className={`${compact ? 'text-sm' : 'text-base'} font-digital truncate text-cyan-500 flex-1 min-w-0`}>
           {tx.fn}
         </div>
 
@@ -236,11 +236,11 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
 
         {/* Tabs - inline on header when expanded */}
         {isExpanded && (hasParams || hasResults || tx.module) && (
-          <div className="flex gap-0 border border-purple-500/40 rounded-lg p-0.5" style={{ backgroundColor: 'var(--bg-input)' }}>
+          <div className="flex gap-0 border border-purple-500/40 p-0.5 rounded-lg" style={{ backgroundColor: 'var(--bg-input)' }}>
             {hasResults && (
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveTab('results'); }}
-                className={`px-2 py-1 text-xs font-bold uppercase rounded transition-all ${
+                className={`px-2 py-1 text-xs font-digital uppercase rounded transition-all ${
                   activeTab === 'results'
                     ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
                     : 'hover:text-purple-400'
@@ -253,7 +253,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
             {hasParams && (
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveTab('params'); }}
-                className={`px-2 py-1 text-xs font-bold uppercase rounded transition-all ${
+                className={`px-2 py-1 text-xs font-digital uppercase rounded transition-all ${
                   activeTab === 'params'
                     ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
                     : 'hover:text-purple-400'
@@ -266,7 +266,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
             {tx.module && (
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveTab('code'); }}
-                className={`px-2 py-1 text-xs font-bold uppercase rounded transition-all ${
+                className={`px-2 py-1 text-xs font-digital uppercase rounded transition-all ${
                   activeTab === 'code'
                     ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
                     : 'hover:text-purple-400'
@@ -332,7 +332,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
       {!isExpanded && hasParams && (
         <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)' }}>
           <div className="flex items-start gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-500 flex-shrink-0">Input:</span>
+            <span className="text-sm font-digital uppercase tracking-wider text-purple-500 flex-shrink-0">Input:</span>
             <div className="flex-1 min-w-0">
               <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
                 {typeof tx.params === 'object' && tx.params !== null ? (

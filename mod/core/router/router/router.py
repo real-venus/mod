@@ -43,31 +43,6 @@ class Router:
         """
         return self.folder_path + '/' + path
     
-    # def call(self , 
-    #             # function call params
-    #             fn: str = 'api/edit',  
-    #             params: Dict[str, Any] = {}, 
-    #             token = None, 
-    #             wait=True,
-    #             owner = None,
-    #             timeout=1000, 
-    #             # cache params
-    #             update = True, 
-    #             max_age = 3600,
-    #             # extra params for (run)
-    #             **extra_params) -> Any:
-    #     params = {
-    #         'fn': fn,
-    #         'params': params, 
-    #         'token': token,
-    #         'owner': owner,
-    #         'timeout': timeout,
-    #         'wait' : wait,
-    #         **extra_params
-
-    #     }
-    #     return self.cache.forward(fn=self.run, params=params, update=update, max_age=max_age)
-        
 
     def call(self , 
                 fn: str = 'api/edit',  
@@ -336,6 +311,11 @@ class Router:
 
     def tasks(self) -> bool:
         return list(self.cid2future.keys())
+    
+
+    @property
+    def namespace(self):
+        return m.namespace()
 
     def run_task(self, **task:dict) -> Any:
         """
@@ -350,12 +330,12 @@ class Router:
         assert isinstance(params, dict)
         m.put(path, task)
         try:
-            if mod in m.servers():
-                result = self.client.call(fn=task['fn'], params=params, timeout=task['timeout'])
+            url = self.namespace.get(mod, None)
+            if url != None:
+                result = self.client.call(url + '/' + fn, params=params, timeout=task['timeout'])
             else:
                 result = m.fn(task['fn'])
-                if callable(result):
-                    result = result(**params)
+                result = result(**params) if callable(result) else result
             task['status'] = 'success'
         except Exception as e:
             result = m.detailed_error(e)

@@ -4,7 +4,6 @@ class Mod:
     Base mod - Uniswap GraphQL scraper
     """
 
-    def forward(self, text, *extra_text) -> int:
+    def forward(self, a=1, b=2) -> int:
         """Multiply two numbers and return the result."""
-        text =  ' '.join([text] + list(extra_text))
-        return text
+        return a + b

@@ -85,7 +85,7 @@ export function CopyButton({ text, content, size = 'md', showShortened = false, 
 
       {showValueOnHover && isHovered && copyContent && (
         <div
-          className={`absolute left-full top-1/2 -translate-y-1/2 ml-1.5 ${size === 'sm' ? 'px-2.5 py-1 text-[10px]' : 'px-4 py-2 text-xs'} rounded-md border font-mono whitespace-nowrap z-50 pointer-events-none`}
+          className={`absolute left-full top-1/2 -translate-y-1/2 ml-1.5 ${size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-4 py-2 text-sm'} rounded-md border font-digital whitespace-nowrap z-50 pointer-events-none`}
           style={{
             backgroundColor: isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(0, 0, 0, 0.95)',
             borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',

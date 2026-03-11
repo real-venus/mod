@@ -358,15 +358,16 @@ export function WalletAuthButton() {
       {/* Trigger Button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center h-10 px-4 rounded-full transition-all duration-200 border-2 gap-2"
+        className="flex items-center h-10 px-4 transition-all duration-200 border-2 gap-2 rounded-full"
         style={{
           backgroundColor: isExpanded ? 'var(--text-primary)' : 'var(--bg-secondary)',
           borderColor: isExpanded ? 'var(--text-primary)' : 'var(--border-strong)',
           color: isExpanded ? 'var(--bg-primary)' : 'var(--text-primary)',
+          fontFamily: 'var(--font-digital), monospace',
         }}
       >
         <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v3H6V3a2 2 0 0 1 2-2zm3 5V3a3 3 0 0 0-6 0v3H2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6H11zm-1 1v6H4V7h8z"/></svg>
-        <span className="text-[13px] font-bold tracking-wide">Sign in</span>
+        <span className="text-base font-digital tracking-wide">Sign in</span>
         <svg className={`w-2.5 h-2.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="currentColor"><path d="M6 8.5L1 3.5h10L6 8.5z"/></svg>
       </button>
 
@@ -419,16 +420,16 @@ export function WalletAuthButton() {
                     layoutId="auth-accent"
                     transition={{ duration: 0.3 }}
                   />
-                  <span className="text-[13px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--text-primary)' }}>Mod Protocol</span>
+                  <span className="text-base font-digital uppercase tracking-[0.2em]" style={{ color: 'var(--text-primary)' }}>Mod Protocol</span>
                 </div>
-                <h1 className="text-[32px] font-bold tracking-tight leading-none" style={{ color: 'var(--text-primary)' }}>
+                <h1 className="text-[40px] font-digital tracking-tight leading-none" style={{ color: 'var(--text-primary)' }}>
                   Sign in
                 </h1>
               </div>
 
               {/* Provider Selection */}
               <div className="mb-5">
-                <span className="block text-[13px] font-semibold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--text-primary)' }}>Select provider</span>
+                <span className="block text-base font-digital uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--text-primary)' }}>Select provider</span>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                   {wallets.map(({ mode, label, Logo, tag, disabled, onClick }) => {
                     const isSelected = authMode === mode
@@ -462,9 +463,9 @@ export function WalletAuthButton() {
                         }}>
                           <Logo size="w-6 h-6" />
                         </div>
-                        <span className="text-[11px] font-bold uppercase tracking-[0.08em] transition-colors duration-200"
+                        <span className="text-sm font-digital uppercase tracking-[0.08em] transition-colors duration-200"
                           style={isSelected ? { color } : { color: 'var(--text-tertiary)' }}>{tag}</span>
-                        <span className="text-[9px] mt-1 transition-colors duration-200"
+                        <span className="text-xs font-digital mt-1 transition-colors duration-200"
                           style={{ color: 'var(--text-tertiary)' }}>{label}</span>
                       </button>
                     )
@@ -485,7 +486,7 @@ export function WalletAuthButton() {
                       className="space-y-4"
                     >
                       <div>
-                        <label className="block text-[10px] font-medium uppercase tracking-[0.2em] mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                        <label className="block text-xs font-digital uppercase tracking-[0.2em] mb-2" style={{ color: 'var(--text-tertiary)' }}>
                           Passphrase
                         </label>
                         <div className="relative group">
@@ -496,7 +497,7 @@ export function WalletAuthButton() {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full h-12 pl-11 pr-4 rounded text-[14px] font-mono focus:outline-none focus:border-[#78a9ff]/40 transition-all duration-200"
+                            className="w-full h-12 pl-11 pr-4 text-base font-digital focus:outline-none focus:border-[#78a9ff]/40 transition-all duration-200 rounded"
                             style={{ backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)', boxShadow: password ? `0 0 0 1px ${activeColor}20` : 'none' }}
                             placeholder="Enter passphrase"
                             autoFocus

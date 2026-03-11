@@ -7,6 +7,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        digital: ['var(--font-digital)', 'monospace'],
+        orbitron: ['var(--font-orbitron)', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         background: "hsl(var(--background))",

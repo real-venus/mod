@@ -106,12 +106,14 @@ class Dev:
         path = path or  m.dp(mod)
         self.init_memory(query=query, tools=self.tool2schema(tools), path=path, steps=steps, **kwargs)
         # context specific initialization
+        history = []
         for step in range(steps):   
-            self.memory.updatex({'step':step, 'files': os.listdir(path) , 'pwd': path})
+            self.memory.update({'step':step, 'files': os.listdir(path) , 'pwd': path})
             memory = str(self.memory.get())
             output = self.model.forward(str(memory), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
             plan = self.plan(output)
-            self.memory.add('plan', plan)
+            history.append(plan)
+            self.memory.add('history', history)
             print(f"Step {step+1}/{steps} executed with plan: {plan}", color='green')
             if plan[-1]['tool'].lower() == 'finish':
                 print('Finishing Agent')

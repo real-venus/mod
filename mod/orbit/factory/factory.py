@@ -22,15 +22,23 @@ class Factory:
                 for f in m.files(to_path):
                     print(f'Removing {f}')
                     m.rm(f)
-        from_files = m.files(from_path)
-        for f in from_files:
-            m.cp(f, to_path + '/' + f[len(from_path)+1:])
+        self.ensure_files_renamed(from_path, to_path, from_mod, to_mod)
         # assert os.path.exists(to_path), f'Failed to copy {from_path} to {to_path}'
         m.tree(update=1)
         return { 
                 'from': {'mod': from_mod, 'path': from_path, 'cid': m.cid(from_mod)}, 
                 'to': {'path': to_path, 'mod': to_mod, 'cid': m.cid(to_mod)},
                 } 
+    
+
+    def ensure_files_renamed(self, from_path, to_path, from_mod, to_mod):
+        from_files = m.files(from_path)
+        for f in from_files:
+            new_path = to_path + '/' + f[len(from_path)+1:]
+            new_path = new_path.replace('/'+from_mod.replace('.', '/'), '/' + to_mod.replace('.', '/'))
+            if not os.path.exists(new_path):
+                m.cp(f, new_path)
+        return True
 
     def mvmod(self, from_mod:str = 'dev', to_mod:str = 'dev2'):
         """
@@ -39,10 +47,7 @@ class Factory:
         from_path = m.dirpath(from_mod)
         mods_path = m.get_mods_path()
         to_path = mods_path + '/' + to_mod.replace('.', '/')
-        for f in m.files(from_path):
-            print(f'Moving {f} to {to_path + "/" + f[len(from_path)+1:]}')
-
-        
+        self.ensure_files_renamed(from_path, to_path, from_mod, to_mod)
         m.mv(from_path, to_path)
         m.tree(update=1)
         return {'from': {'mod': from_mod, 'path': from_path}, 'to': {'mod': to_mod, 'path': to_path}}

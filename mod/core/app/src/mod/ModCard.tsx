@@ -86,8 +86,8 @@ export default function ModCard({
   if (compact) {
     return (
       <div
-        className="relative font-mono overflow-visible group flex items-center gap-4"
-        style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+        className="relative overflow-visible group flex items-center gap-4"
+        style={{ fontFamily: 'var(--font-digital), monospace' }}
       >
         {/* Icon */}
         <div
@@ -103,7 +103,7 @@ export default function ModCard({
         {/* Name + fn count */}
         <div className="flex items-center gap-2">
           <code
-            className="font-black font-mono tracking-tight text-[22px] flex-shrink-0"
+            className="font-digital tracking-tight text-3xl flex-shrink-0"
             style={{ color: 'var(--text-primary)' }}
           >
             {mod.name}

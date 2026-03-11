@@ -22,10 +22,10 @@ class  Api:
         self.key = m.key(key)
         self.auth = m.mod(auth)()
         self.registry_path = self.path('registry.json')
-        self.client = m.mod('server.client')()
+
+
+
         
-
-
 
     @property
     def router(self):
@@ -203,6 +203,12 @@ class  Api:
 
     def cid(self, mod, key=None, default=None) -> str:
         return  self.registry().get(self.key_address(key), {}).get(mod, default)
+
+
+    def rename(self, old_mod:str , new_mod:str, key=None) -> Dict[str, Any]:
+        old_dp = m.dp(old_mod, key=key)
+        new_dp = m.dp(new_mod, key=key)
+        return {'old_dp': old_dp, 'new_dp': new_dp, 'status': 'success'}
     
     def reg_info(self, mod:dict):
         mod = self.get(mod) if isinstance(mod, str) else mod
@@ -234,7 +240,7 @@ class  Api:
         return m.fn('wrap/forward')(mod)
     
     def add_schema(self, mod: str='store', public=True) -> str:
-        schema = self.wrap(mod)
+        schema = m.schema(mod)
         return self.put(schema)
 
     def get_url(self, url: str) -> str:

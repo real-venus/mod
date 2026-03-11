@@ -104,8 +104,8 @@ export function SidebarHeader({
               style={{ boxShadow: isTokenExpired ? '0 0 8px rgba(234,179,8,0.6)' : '0 0 8px rgba(34,197,94,0.5)' }}
             />
             <span
-              className="text-sm font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-md"
-              style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-tertiary)', fontFamily: 'IBM Plex Mono, monospace' }}
+              className="text-lg font-digital uppercase tracking-widest px-2.5 py-1.5 rounded-md"
+              style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-tertiary)' }}
             >
               {walletMode || 'web3'}
             </span>
@@ -114,10 +114,10 @@ export function SidebarHeader({
             <button
               onClick={handleRefreshToken}
               disabled={isRefreshing}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded transition-all text-sm font-bold font-mono tabular-nums ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded transition-all text-base font-digital tabular-nums ${
                 isTokenExpired ? 'text-red-400 hover:bg-red-500/10' : 'hover:bg-white/5'
               }`}
-              style={{ fontFamily: 'IBM Plex Mono, monospace', ...(!isTokenExpired ? { color: 'var(--text-tertiary)' } : {}) }}
+              style={{ fontFamily: 'var(--font-digital), monospace', ...(!isTokenExpired ? { color: 'var(--text-tertiary)' } : {}) }}
               title="Refresh session"
             >
               <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -150,8 +150,8 @@ export function SidebarHeader({
             title={address}
           >
             <span
-              className={`text-xl font-bold font-mono tracking-wide transition-all ${copiedAddress ? 'text-green-400' : 'group-hover:opacity-70'}`}
-              style={{ fontFamily: 'IBM Plex Mono, monospace', ...(!copiedAddress ? { color: 'var(--text-secondary)' } : {}) }}
+              className={`text-2xl font-digital tracking-wide transition-all ${copiedAddress ? 'text-green-400' : 'group-hover:opacity-70'}`}
+              style={{ fontFamily: 'var(--font-digital), monospace', ...(!copiedAddress ? { color: 'var(--text-secondary)' } : {}) }}
             >
               {copiedAddress ? 'COPIED' : shortAddress}
             </span>
@@ -167,8 +167,8 @@ export function SidebarHeader({
 
           <div className="flex items-baseline gap-2 mt-2">
             <span
-              className="text-4xl font-black font-mono tabular-nums tracking-tight"
-              style={{ fontFamily: 'IBM Plex Mono, monospace', color: marketCredit > 0 ? '#4ade80' : 'var(--text-primary)' }}
+              className="text-5xl font-digital tabular-nums tracking-tight"
+              style={{ fontFamily: 'var(--font-digital), monospace', color: marketCredit > 0 ? '#4ade80' : 'var(--text-primary)' }}
             >
               ${marketCredit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
@@ -179,7 +179,7 @@ export function SidebarHeader({
             <div className="mt-3">
               {isEditing ? (
                 <div className="flex items-center gap-2 rounded-md px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                  <span className="text-xs font-bold uppercase tracking-wider flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>Limit</span>
+                  <span className="text-sm font-digital uppercase tracking-wider flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>Limit</span>
                   <span className="text-amber-400 text-base font-bold">$</span>
                   <input
                     type="number"
@@ -221,7 +221,7 @@ export function SidebarHeader({
                       }}
                     />
                   </div>
-                  <span className="text-sm font-mono tabular-nums flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-tertiary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                  <span className="text-base font-digital tabular-nums flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital), monospace' }}>
                     ${dailyRemaining !== null ? dailyRemaining.toFixed(0) : '—'}<span className="opacity-50">/{dailyLimit.toFixed(0)}</span>
                   </span>
                 </div>
@@ -243,14 +243,13 @@ export function SidebarHeader({
             className="mx-4 mt-3 px-4 py-3 border border-yellow-500/40 bg-yellow-500/5 rounded-lg overflow-hidden"
           >
             <div className="flex items-center justify-between">
-              <span className="text-yellow-400 font-bold text-sm uppercase tracking-wider" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+              <span className="text-yellow-400 text-base font-digital uppercase tracking-wider">
                 TOKEN EXPIRED
               </span>
               <button
                 onClick={handleRefreshToken}
                 disabled={isRefreshing}
-                className="flex items-center gap-1.5 px-3 py-2 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 font-bold text-xs uppercase transition-all rounded-md disabled:opacity-50"
-                style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-400 text-sm font-digital uppercase transition-all rounded-md disabled:opacity-50"
               >
                 <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 REFRESH

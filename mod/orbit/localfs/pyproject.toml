@@ -1,0 +1,24 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "localfs"
+version = "0.1.0"
+description = "Content-addressable local filesystem storage with Python-to-Rust bindings"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "base58>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=23.0",
+]
+
+[tool.maturin]
+python-source = "."
+module-name = "localfs.localfs_rs"
+manifest-path = "localfs/rust/Cargo.toml"

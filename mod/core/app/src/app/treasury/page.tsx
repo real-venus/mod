@@ -804,6 +804,41 @@ export default function TreasuryPage() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
+                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Total Supply</span>
+                        <span className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
+                          {blocTimeTotalSupply !== '0' ? parseFloat(blocTimeTotalSupply).toLocaleString() : '...'}
+                        </span>
+                      </div>
+                      {blocTimeTotalSupply !== '0' && userBlocTimeBalance !== '0' && (
+                        <>
+                          <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
+                            <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Treasury Claim %</span>
+                            <span className="font-mono text-sm font-bold text-emerald-400">
+                              {((parseFloat(userBlocTimeBalance) / parseFloat(blocTimeTotalSupply)) * 100).toFixed(2)}%
+                            </span>
+                          </div>
+                          {/* Visual Bar showing ownership */}
+                          <div className="pt-2">
+                            <div className="w-full h-2 bg-gray-700/30 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full"
+                                style={{
+                                  width: `${Math.min(100, (parseFloat(userBlocTimeBalance) / parseFloat(blocTimeTotalSupply)) * 100)}%`
+                                }}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                                Your share
+                              </span>
+                              <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                                {((parseFloat(blocTimeTotalSupply) - parseFloat(userBlocTimeBalance)) / parseFloat(blocTimeTotalSupply) * 100).toFixed(2)}% others
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
                         <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Earn via Staking</span>
                         <button
                           onClick={() => setShowBlocTimeDetails(true)}
@@ -814,7 +849,7 @@ export default function TreasuryPage() {
                         </button>
                       </div>
                       {userBlocTimeBalance !== '0' && (
-                        <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
+                        <div className="flex items-center justify-between">
                           <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Voting Power</span>
                           <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
                             Active

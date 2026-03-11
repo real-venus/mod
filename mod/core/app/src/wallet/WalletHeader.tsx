@@ -15,6 +15,7 @@ import { useWalletAccounts } from './hooks/useWalletAccounts'
 import { useNetwork } from './hooks/useNetwork'
 import { useSidebarResize } from './hooks/useSidebarResize'
 import { WalletSidebar } from './sidebar/WalletSidebar'
+import { NetworkSelector } from '@/network/NetworkSelector'
 
 export function WalletHeader() {
   const { user, signOut, switchWallet, client } = userContext()
@@ -92,30 +93,22 @@ export function WalletHeader() {
   return (
     <div ref={walletRef} className="flex items-center gap-2">
       <div className="flex items-center gap-2">
-        {/* <button
-          onClick={copyAddress}
-          className="flex items-center border-2 transition-all hover:opacity-80 gap-2 px-3"
-          style={{ height: '40px', borderRadius: '20px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
-          title={copiedAddress ? 'Copied!' : 'Click to copy address'}
-        >
-          <span className="text-xs font-bold font-mono" style={{ color: 'var(--text-secondary)' }}>
-            {copiedAddress ? '✓ Copied' : shortAddress}
-          </span>
-        </button> */}
+        {/* Network Selector integrated */}
+        <NetworkSelector />
 
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center border-2 transition-all relative gap-2 px-3"
-          style={{ height: '40px', borderRadius: '20px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
+          className="flex items-center border-2 transition-all relative gap-2 px-3 rounded-xl"
+          style={{ height: '40px', fontFamily: 'var(--font-digital), monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
         >
           <WalletIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-          <span className="text-sm font-black font-mono tabular-nums text-green-400">
+          <span className="text-lg font-digital tabular-nums text-green-400">
             ${balances.marketCredit.toFixed(2)}
           </span>
-          <span className="text-[10px] font-bold font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+          <span className="text-sm font-digital tabular-nums" style={{ color: 'var(--text-secondary)' }}>
             -{transactions.totalCost24h.toFixed(2)}/d
           </span>
-          <span className={`text-[10px] font-bold font-mono tabular-nums ${tokenExpiry.isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>
+          <span className={`text-sm font-digital tabular-nums ${tokenExpiry.isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>
             {tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()}
           </span>
           <div

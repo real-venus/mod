@@ -8,7 +8,6 @@ import { MagnifyingGlassIcon, PlusIcon, Bars3Icon, XMarkIcon, SunIcon, MoonIcon 
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { WalletHeader } from '@/wallet/WalletHeader'
-import { NetworkSelector } from '@/network/NetworkSelector'
 import { UserProvider } from '@/context'
 import { SearchProvider, useSearchContext } from '@/context/SearchContext'
 import {
@@ -52,8 +51,8 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="shrink-0 flex items-center justify-center transition-all hover:opacity-80"
-      style={{ width: '34px', height: '34px', background: 'var(--bg-input)', borderRadius: '20px', border: '1px solid var(--border-strong)' }}
+      className="shrink-0 flex items-center justify-center transition-all hover:opacity-80 rounded-full"
+      style={{ width: '34px', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--border-strong)' }}
       title={effectiveTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       {effectiveTheme === 'dark' ? (
@@ -183,12 +182,12 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
               onKeyDown={handleKeyDown}
               onFocus={() => setSearchOpen(true)}
               placeholder="Search mods..."
-              className="w-full text-[16px] font-bold focus:outline-none focus:border-green-500/40 transition-all rounded-xl"
+              className="w-full text-lg font-digital focus:outline-none focus:border-green-500/40 transition-all rounded-xl"
               style={{
                 paddingLeft: '2.5rem',
                 paddingRight: searchOpen ? '3.5rem' : '1rem',
                 height: '36px',
-                fontFamily: 'inherit',
+                fontFamily: 'var(--font-digital), monospace',
                 letterSpacing: '0.03em',
                 backgroundColor: 'var(--bg-input)',
                 border: '1px solid var(--border-input)',
@@ -211,17 +210,16 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
         <div className="shrink-0 flex items-center gap-1 ml-3">
           <button
             onClick={() => router.push('/create')}
-            className="shrink-0 flex items-center gap-2 px-5 border hover:opacity-80 transition-all"
-            style={{ height: '44px', fontFamily: 'inherit', borderRadius: '22px', borderColor: 'var(--border-strong)', background: 'transparent' }}
+            className="shrink-0 flex items-center gap-2 px-5 border hover:opacity-80 transition-all rounded-full"
+            style={{ height: '44px', fontFamily: 'var(--font-digital), monospace', borderColor: 'var(--border-strong)', background: 'transparent' }}
           >
             <PlusIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
-            <span className="text-[17px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap hidden sm:inline" style={{ color: 'var(--text-primary)' }}>
+            <span className="text-xl font-digital uppercase tracking-[0.08em] whitespace-nowrap hidden sm:inline" style={{ color: 'var(--text-primary)' }}>
               CREATE
             </span>
           </button>
 
           <ThemeToggle />
-          <NetworkSelector />
           <WalletHeader />
         </div>
       </div>
@@ -264,7 +262,7 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
                     }}
                   >
                     <span
-                      className="text-[15px] font-extrabold uppercase tracking-[0.1em]"
+                      className="text-lg font-digital uppercase tracking-[0.1em]"
                       style={{ color: isActive ? item.color : 'var(--text-secondary)' }}
                     >
                       {item.label}

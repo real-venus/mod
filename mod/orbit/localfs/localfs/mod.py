@@ -1,519 +1,595 @@
-import requests
-import os
+"""
+LocalFS - Content-Addressable Local File Storage
+A local filesystem implementation that mimics IPFS behavior without requiring IPFS.
+Uses Python-to-Rust bindings for performance-critical hashing and I/O operations.
+"""
+
 import json
-import subprocess
-import platform
-import sys
-from typing import Optional, Dict, Any, List
+import os
+import hashlib
+from typing import Dict, Any
 from pathlib import Path
-import time
-import threading
+import base58
 import mod as m
 
-class  IpfsClient:
 
-    prefix = 'ipfs'
-    endpoints = ['pin', 'add_mod', 'reg', 'mod', 'pins']
-    """Simple IPFS client using requests library only."""
-    node_name = 'ipfs.node'
-    connected = False
-    _health_thread = None
-    _stop_health = False
+class LocalFS:
+    """
+    Content-addressable local filesystem storage.
+    Compatible with IPFS-like CID interface but purely local.
+    """
 
-    def __init__(self, url: str = None):
-        # self.ensure_ipfs_running()
-        self.set_conn(url)
+    prefix = 'local'
 
-    def _background_connect(self, url: str = None):
-        """Try to establish the initial connection in the background."""
-        try:
-            self.set_conn(url)
-            id = self.id()
-            self.connected = True
-
-            print(f"[ipfs] connected {id}")
-        except Exception as e:
-            self.connected = False
-            print(f"[ipfs] background connect failed: {e}")
-
-    def _start_health_check(self, interval: int = 30):
-        """Start a daemon thread that periodically checks IPFS connectivity."""
-        if self._health_thread and self._health_thread.is_alive():
-            return
-        self._stop_health = False
-        self._health_thread = threading.Thread(
-            target=self._health_loop, args=(interval,), daemon=True
-        )
-        self._health_thread.start()
-
-    def _health_loop(self, interval: int):
-        """Periodically ping the IPFS node; reconnect if down."""
-        while not self._stop_health:
-            try:
-                self.id()
-                if not self.connected:
-                    print("[ipfs] reconnected")
-                self.connected = True
-            except Exception:
-                if self.connected:
-                    print("[ipfs] connection lost, will retry...")
-                self.connected = False
-                # Try to re-establish connection
-                try:
-                    self.set_conn(None)
-                    self.id()
-                    self.connected = True
-                    print("[ipfs] reconnected")
-                except Exception:
-                    pass
-            time.sleep(interval)
-
-    def stop_health_check(self):
-        """Stop the background health-check thread."""
-        self._stop_health = True
-
-    def ensure_ipfs_running(self):
-        """Ensure that the IPFS node is running, start it if not."""
-        try:
-            self.id()  # Try to get node ID to check if it's running
-            print("IPFS node is running.")
-        except Exception:
-            print("IPFS node is not running. Attempting to start it...")
-            if self.start_node():
-                # Wait a moment for the node to start
-                time.sleep(5)
-                try:
-                    self.id()
-                    print("IPFS node started successfully.")
-                except Exception as e:
-                    print(f"Failed to connect to IPFS node after starting: {e}")
-            else:
-                print("Failed to start IPFS node.")
-
-    sessions = {}
-
-    @property
-    def session(self):
-        return self.sessions[self.url]
-    
-    def set_conn(self, url: str ,  host_options = [ '127.0.0.1', '0.0.0.0', node_name], timeout=1): 
-        t0 = time.time()
-        for host in host_options:
-            _url = str(url or f"http://{host}:5001/api/v0")
-            if _url in self.sessions:
-                self.url = _url
-                break
-        if not hasattr(self, 'url'):
-            for host in host_options:
-                _url = str(url or f"http://{host}:5001/api/v0")
-                try:
-                    self.url = _url
-                    self.sessions[_url] = requests.Session()
-                    self.id()
-                    print(f"Connected to IPFS node at {self.url}" , self.put('fam'))
-                    break
-                except Exception as e: 
-                    self.sessions.pop(_url, None)
-                    print(f"Could not connect to IPFS node at {_url}, trying next option {m.detailed_error(e)}.")
-                    pass
-        t1 = time.time()
-        return self.url
-    
-    def add_file(self, file_path: str) -> Dict[str, Any]:
-        """Add a single file to IPFS.
-        
-        Args:
-            file_path: Path to the file to add
-            
-        Returns:
-            Dictionary with IPFS hash and other metadata
+    def __init__(self, storage_path: str = None, use_rust=False):
         """
-        url = f"{self.url}/add"
-        
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"File not found: {file_path}")
-        
-        with open(file_path, 'rb') as f:
-            files = {'file': (os.path.basename(file_path), f)}
-            response = self.session.post(url, files=files)
-            response.raise_for_status()
-            return response.json()
+        Initialize LocalFS with a storage directory.
 
-    def put(self, data: Dict[str, Any] = None, pin=True) -> Dict[str, Any]:
-        """Add a JSON object to IPFS.
-        
         Args:
-            data: Dictionary to add as JSON
-            
-        Returns:
-            Dictionary with IPFS hash and other metadata
+            storage_path: Base directory for content storage.
+                         Defaults to ~/.localfs
         """
-        url = f"{self.url}/add"
-        json_str = json.dumps(data)
-        files = {'file': ('data.json', json_str)}
-        response = self.session.post(url, files=files)
-        response.raise_for_status()
-        cid =  response.json()["Hash"]
-        if pin:
-            self.pin_add(cid)
+        self.storage_path = Path(storage_path or os.path.expanduser('~/.localfs'))
+        self.blocks_path = self.storage_path / 'blocks'
+        self.pins_path = self.storage_path / 'pins'
+
+        # Ensure directories exist
+        self.blocks_path.mkdir(parents=True, exist_ok=True)
+        self.pins_path.mkdir(parents=True, exist_ok=True)
+
+        # Try to import Rust bindings, fall back to pure Python
+        self.ensure_bindings()
+
+    def _meta_path(self, cid: str) -> Path:
+        """
+        Get the filesystem path for a CID's metadata.
+
+        Args:
+            cid: Content identifier
+
+        Returns:
+            Path to the metadata JSON file
+        """
+        # Shard by first 4 chars of CID
+        shard = cid[:4]
+        meta_dir = self.blocks_path / shard
+        meta_dir.mkdir(exist_ok=True)
+        return meta_dir / f"{cid}.json"
+
+    def _save_meta(self, cid: str, metadata: Dict[str, Any]):
+        """Save metadata for a specific CID."""
+        meta_path = self._meta_path(cid)
+        with open(meta_path, 'w') as f:
+            json.dump(metadata, f, indent=2)
+
+    def _load_meta(self, cid: str) -> Dict[str, Any]:
+        """Load metadata for a specific CID."""
+        meta_path = self._meta_path(cid)
+        if meta_path.exists():
+            with open(meta_path, 'r') as f:
+                return json.load(f)
+        return {}
+
+    def _delete_meta(self, cid: str):
+        """Delete metadata for a specific CID."""
+        meta_path = self._meta_path(cid)
+        if meta_path.exists():
+            os.remove(meta_path)
+
+    def _compute_cid(self, data: bytes) -> str:
+        """
+        Compute a content identifier (CID) for the given data.
+        Uses SHA-256 hash encoded in base58 (IPFS CIDv0 style).
+        Wraps data in UnixFS/DAG-PB format for IPFS compatibility.
+
+        Args:
+            data: Raw bytes to hash
+
+        Returns:
+            CID string (Qm... format)
+        """
+        if self.use_rust:
+            # Use Rust implementation for faster hashing
+            return self.rust.compute_cid(data)
+        else:
+            # Pure Python implementation with UnixFS/DAG-PB encoding
+            # Build UnixFS Data protobuf structure
+            unixfs_data = self._encode_unixfs_data(data)
+
+            # Build DAG-PB node wrapping the UnixFS data
+            dag_pb_node = self._encode_dagpb_node(unixfs_data)
+
+            # Hash the DAG-PB encoded data
+            hash_bytes = hashlib.sha256(dag_pb_node).digest()
+
+            # Add multihash prefix for SHA-256 (0x12 = sha2-256, 0x20 = 32 bytes)
+            multihash = b'\x12\x20' + hash_bytes
+
+            return base58.b58encode(multihash).decode('ascii')
+
+    def _encode_unixfs_data(self, data: bytes) -> bytes:
+        """
+        Encode data in UnixFS protobuf format.
+        UnixFS Data protobuf structure:
+          message Data {
+            enum DataType {
+              Raw = 0;
+              Directory = 1;
+              File = 2;
+              Metadata = 3;
+              Symlink = 4;
+              HAMTShard = 5;
+            }
+            required DataType Type = 1;
+            optional bytes Data = 2;
+            optional uint64 filesize = 3;
+            repeated uint64 blocksizes = 4;
+            optional uint64 hashType = 5;
+            optional uint64 fanout = 6;
+          }
+
+        For a simple file:
+        - Type = 2 (File)
+        - Data = <file content>
+        - filesize = <size>
+        """
+        # Protobuf field encoding: (field_number << 3) | wire_type
+        # wire_type: 0=varint, 2=length-delimited
+
+        result = bytearray()
+
+        # Field 1: Type (varint) = 2 (File)
+        result.extend(b'\x08')  # field 1, wire type 0 (varint)
+        result.extend(b'\x02')  # value = 2 (File type)
+
+        # Field 2: Data (length-delimited)
+        if data:
+            result.extend(b'\x12')  # field 2, wire type 2 (length-delimited)
+            result.extend(self._encode_varint(len(data)))
+            result.extend(data)
+
+        # Field 3: filesize (varint) = size of data
+        result.extend(b'\x18')  # field 3, wire type 0 (varint)
+        result.extend(self._encode_varint(len(data)))
+
+        return bytes(result)
+
+    def _encode_dagpb_node(self, unixfs_data: bytes) -> bytes:
+        """
+        Encode a DAG-PB node containing UnixFS data.
+        DAG-PB protobuf structure:
+          message PBNode {
+            repeated PBLink Links = 2;
+            optional bytes Data = 1;
+          }
+
+        For a simple file with no links:
+        - Data = <UnixFS data>
+        """
+        result = bytearray()
+
+        # Field 1: Data (length-delimited)
+        result.extend(b'\x0a')  # field 1, wire type 2 (length-delimited)
+        result.extend(self._encode_varint(len(unixfs_data)))
+        result.extend(unixfs_data)
+
+        return bytes(result)
+
+    def _encode_varint(self, value: int) -> bytes:
+        """
+        Encode an integer as protobuf varint.
+        """
+        result = bytearray()
+        while value > 127:
+            result.append((value & 0x7F) | 0x80)
+            value >>= 7
+        result.append(value & 0x7F)
+        return bytes(result)
+
+    def _block_path(self, cid: str) -> Path:
+        """
+        Get the filesystem path for a CID's block.
+        Uses sharding to avoid too many files in one directory.
+
+        Args:
+            cid: Content identifier
+
+        Returns:
+            Path to the block file
+        """
+        # Shard by first 4 chars of CID
+        shard = cid[:4]
+        block_dir = self.blocks_path / shard
+        block_dir.mkdir(exist_ok=True)
+        return block_dir / cid
+
+    def put(self, data: Any, pin: bool = True) -> str:
+        """
+        Store data and return its CID.
+
+        Args:
+            data: Data to store (dict will be JSON serialized)
+            pin: Whether to pin the content
+
+        Returns:
+            CID string
+        """
+        # Convert data to bytes
+        if isinstance(data, dict) or isinstance(data, list):
+            data_bytes = json.dumps(data).encode('utf-8')
+        elif isinstance(data, str):
+            data_bytes = data.encode('utf-8')
+        elif isinstance(data, bytes):
+            data_bytes = data
+        else:
+            data_bytes = str(data).encode('utf-8')
+
+        # Compute CID
+        cid = self._compute_cid(data_bytes)
+
+        # Write block to disk
+        block_path = self._block_path(cid)
+        if self.use_rust:
+            # Use Rust for fast I/O
+            self.rust.write_block(str(block_path), data_bytes)
+        else:
+            with open(block_path, 'wb') as f:
+                f.write(data_bytes)
+
+        # Save metadata
+        metadata = {
+            'size': len(data_bytes),
+            'type': type(data).__name__,
+            'pinned': pin
+        }
+        self._save_meta(cid, metadata)
+
         return cid
-    add = put
-    def rm(self, cid: str) -> Dict[str, Any]:
-        """Remove a JSON object from IPFS by its hash.
-        
-        Args:
-            cid: IPFS hash of the JSON object
-        Returns:
-            Dictionary with removal status
+
+    add = put  # Alias for IPFS compatibility
+
+    def get(self, cid: str) -> Any:
         """
+        Retrieve data by CID.
+
+        Args:
+            cid: Content identifier
+
+        Returns:
+            Parsed data (dict if JSON, bytes otherwise)
+        """
+        # Handle prefix
+        if cid.startswith(f'{self.prefix}/'):
+            cid = cid[len(self.prefix) + 1:]
+
+        # Read block
+        block_path = self._block_path(cid)
+        if not block_path.exists():
+            raise FileNotFoundError(f"Block not found: {cid}")
+
+        if self.use_rust:
+            data_bytes = self.rust.read_block(str(block_path))
+        else:
+            with open(block_path, 'rb') as f:
+                data_bytes = f.read()
+
+        # Try to parse as JSON
         try:
-            self.pin_rm(cid)
-        except Exception as e:
-            print(f"Error unpinning {cid}: {e}")
-        return {"Status": "Removed"}
-
-    def get(self, cid: str) -> Dict[str, Any]:
-        """Retrieve a JSON object from IPFS by its hash.
+            output =  json.loads(data_bytes.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            output =  data_bytes
         
-        Args:
-            cid: IPFS hash of the JSON object
-        Returns:
-            Dictionary with the JSON content
-        """
-        if not isinstance(cid, str):
-            return cid
-        if cid.startswith(self.prefix + '/'):
-            cid = cid[len(self.prefix) + 1 :]
-        content = self.get_file(cid)
-        return json.loads(content)
-
-    def resolve_cid(self, ipfs_path: str) -> str:
-        return ipfs_path.replace(self.prefix + '/', '')
+        if isinstance(output, bytes):
+            return output.decode('utf-8', errors='replace')
+        return output
 
     def get_file(self, cid: str) -> bytes:
-        """Retrieve a file from IPFS by its hash.
-        
+        """
+        Retrieve raw file content by CID.
+
         Args:
-            cid: IPFS hash of the file
+            cid: Content identifier
+
         Returns:
-            File content as bytes
+            Raw bytes
         """
-        cid = self.resolve_cid(cid)
-        url = f"{self.url}/cat"
-        params = {'arg': cid}
-        response = self.session.post(url, params=params)
-        response.raise_for_status()
-        return response.content
+        if cid.startswith(f'{self.prefix}/'):
+            cid = cid[len(self.prefix) + 1:]
 
-    def cid(self, data: Dict[str, Any] = None) -> str:
-        """Add data to IPFS and return its CID.
-        
-        Args:
-            data: Dictionary to add as JSON 
+        block_path = self._block_path(cid)
+        if not block_path.exists():
+            raise FileNotFoundError(f"Block not found: {cid}")
 
+        if self.use_rust:
+            return self.rust.read_block(str(block_path))
+        else:
+            with open(block_path, 'rb') as f:
+                return f.read()
+
+    cat = get_file  # Alias for IPFS compatibility
+
+    def add_file(self, file_path: str) -> Dict[str, Any]:
         """
-        return self.add(data, pin=False)
+        Add a file from the filesystem.
 
-    def cat(self, cid: str) -> bytes:
-        """Retrieve content from IPFS by hash.
-        
         Args:
-            cid: IPFS hash of the content
-            
+            file_path: Path to file to add
+
         Returns:
-            Content as bytes
+            Dict with Hash (CID) and metadata
         """
-        url = f"{self.url}/cat"
-        params = {'arg': cid}
-        response = self.session.post(url, params=params)
-        response.raise_for_status()
-        return response.content
-    
-        
-        return {'success': True, 'path': output_path}
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        with open(file_path, 'rb') as f:
+            data = f.read()
+
+        cid = self.put(data, pin=True)
+
+        return {
+            'Hash': cid,
+            'Name': os.path.basename(file_path),
+            'Size': len(data)
+        }
+
+    def rm(self, cid: str) -> Dict[str, Any]:
+        """
+        Remove content by CID.
+
+        Args:
+            cid: Content identifier
+
+        Returns:
+            Status dict
+        """
+        # Remove block
+        block_path = self._block_path(cid)
+        if block_path.exists():
+            os.remove(block_path)
+
+        # Remove metadata
+        self._delete_meta(cid)
+
+        return {"Status": "Removed"}
+
+    def pin_add(self, cid: str) -> Dict[str, Any]:
+        """
+        Pin content to prevent garbage collection.
+
+        Args:
+            cid: Content identifier
+
+        Returns:
+            Pin status dict
+        """
+        metadata = self._load_meta(cid)
+        if not metadata:
+            raise ValueError(f"CID not found: {cid}")
+
+        metadata['pinned'] = True
+        self._save_meta(cid, metadata)
+
+        return {'Pins': [cid]}
 
     def pin_rm(self, cid: str) -> Dict[str, Any]:
-        """Unpin content from local IPFS node.
-        
-        Args:
-            cid: IPFS hash to unpin
-        Returns:
-            Dictionary with unpin status
-
         """
-        url = f"{self.url}/pin/rm"
-        params = {'arg': cid}
-        response = self.session.post(url, params=params)
-        response.raise_for_status()
-        return response.json()
-    def pinned(self, cid: str) -> bool:
-        """Check if content is pinned on local IPFS node.
-        
+        Unpin content.
+
         Args:
-            cid: IPFS hash to check
+            cid: Content identifier
 
         Returns:
-            True if pinned, False otherwise
+            Unpin status dict
         """
-        pins = self.pins()
-        return cid in pins.get('Keys', {})
+        metadata = self._load_meta(cid)
+        if metadata:
+            metadata['pinned'] = False
+            self._save_meta(cid, metadata)
 
-    
-    def pin_add(self, cid: str) -> Dict[str, Any]:
-        """Pin content to local IPFS node.
-        
-        Args:
-            cid: IPFS hash to pin
-            
-        Returns:
-            Dictionary with pin status
-        """
-        url = f"{self.url}/pin/add"
-        params = {'arg': cid}
-        response = self.session.post(url, params=params)
-        response.raise_for_status()
-        return response.json()
+        return {'Pins': [cid]}
 
     def pins(self, cid: str = None) -> Dict[str, Any]:
-        """List pinned content on local IPFS node.
-        
-        Returns:
-            Dictionary with pinned content
         """
-        url = f"{self.url}/pin/ls"
-        response = self.session.post(url)
-        response.raise_for_status()
-        if cid:
-            pins = response.json().get('Keys', {})
-            return {cid: pins.get(cid)} if cid in pins else {}
-        return response.json()
-    
-    def pin_rm(self, cid: str) -> Dict[str, Any]:
-        """Unpin content from local IPFS node.
-        
+        List pinned content.
+
         Args:
-            cid: IPFS hash to unpin
-            
+            cid: Optional specific CID to check
+
         Returns:
-            Dictionary with unpin status
+            Dict with Keys containing pinned CIDs
         """
-        url = f"{self.url}/pin/rm"
-        params = {'arg': cid}
-        response = self.session.post(url, params=params)
-        response.raise_for_status()
-        return response.json()
+        if cid:
+            metadata = self._load_meta(cid)
+            if metadata.get('pinned'):
+                return {'Keys': {cid: {'Type': 'recursive'}}}
+            return {'Keys': {}}
 
-    def _rm_all_pins(self) -> None:
-        """Unpin all content from local IPFS node."""
-        pins = self.pins()
-        for cid in pins.get('Keys', {}).keys():
-            print( f"Unpinning CID: {cid}")
-            try:
-                self.pin_rm(cid)
-            except Exception as e:
-                print(f"Error unpinning {cid}: {e}")
-    
+        # Scan all metadata files for pinned content
+        pinned = {}
+        for shard_dir in self.blocks_path.iterdir():
+            if shard_dir.is_dir():
+                for meta_file in shard_dir.glob('*.json'):
+                    cid = meta_file.stem
+                    metadata = self._load_meta(cid)
+                    if metadata.get('pinned'):
+                        pinned[cid] = {'Type': 'recursive'}
 
+        return {'Keys': pinned}
 
-    kubo_version = 'v0.32.1'
+    def pinned(self, cid: str) -> bool:
+        """
+        Check if content is pinned.
 
-    def install(self):
-        """Install IPFS (Kubo) if not already installed. Supports macOS, Linux, and Windows."""
-        if self.ipfs_installed():
-            print("IPFS is already installed.")
-            return True
-        print("Installing IPFS (Kubo)...")
-        system = platform.system().lower()
-        machine = platform.machine().lower()
-        # Map architecture names
-        arch_map = {
-            'x86_64': 'amd64', 'amd64': 'amd64',
-            'aarch64': 'arm64', 'arm64': 'arm64',
-        }
-        arch = arch_map.get(machine, machine)
-        try:
-            if system == 'darwin':
-                self._install_macos(arch)
-            elif system == 'linux':
-                self._install_linux(arch)
-            elif system == 'windows':
-                self._install_windows(arch)
-            else:
-                print(f"Unsupported platform: {system}")
-                return False
-            # Init repo after install
-            subprocess.run(['ipfs', 'init'], capture_output=True)
-            print("IPFS installed and initialized.")
-            return True
-        except Exception as e:
-            print(f"Failed to install IPFS: {e}")
-            return False
+        Args:
+            cid: Content identifier
 
-    def _install_macos(self, arch):
-        """Install Kubo on macOS via tarball download."""
-        tarball = f'kubo_{self.kubo_version}_darwin-{arch}.tar.gz'
-        url = f'https://dist.ipfs.tech/kubo/{self.kubo_version}/{tarball}'
-        tmp = '/tmp/kubo_install'
-        os.makedirs(tmp, exist_ok=True)
-        subprocess.run(['curl', '-L', '-o', f'{tmp}/{tarball}', url], check=True)
-        subprocess.run(['tar', '-xzf', f'{tmp}/{tarball}', '-C', tmp], check=True)
-        subprocess.run(['sudo', 'bash', f'{tmp}/kubo/install.sh'], check=True)
-        subprocess.run(['rm', '-rf', tmp])
+        Returns:
+            True if pinned
+        """
+        metadata = self._load_meta(cid)
+        return metadata.get('pinned', False)
 
-    def _install_linux(self, arch):
-        """Install Kubo on Linux via tarball download."""
-        tarball = f'kubo_{self.kubo_version}_linux-{arch}.tar.gz'
-        url = f'https://dist.ipfs.tech/kubo/{self.kubo_version}/{tarball}'
-        tmp = '/tmp/kubo_install'
-        os.makedirs(tmp, exist_ok=True)
-        subprocess.run(['curl', '-L', '-o', f'{tmp}/{tarball}', url], check=True)
-        subprocess.run(['tar', '-xzf', f'{tmp}/{tarball}', '-C', tmp], check=True)
-        subprocess.run(['sudo', 'bash', f'{tmp}/kubo/install.sh'], check=True)
-        subprocess.run(['rm', '-rf', tmp])
+    def cid(self, data: Any) -> str:
+        """
+        Compute CID without storing.
 
-    def _install_windows(self, arch):
-        """Install Kubo on Windows via zip download."""
-        zipname = f'kubo_{self.kubo_version}_windows-{arch}.zip'
-        url = f'https://dist.ipfs.tech/kubo/{self.kubo_version}/{zipname}'
-        tmp = os.path.join(os.environ.get('TEMP', 'C:\\Temp'), 'kubo_install')
-        os.makedirs(tmp, exist_ok=True)
-        zip_path = os.path.join(tmp, zipname)
-        subprocess.run(['powershell', '-Command', f"Invoke-WebRequest -Uri '{url}' -OutFile '{zip_path}'"], check=True)
-        subprocess.run(['powershell', '-Command', f"Expand-Archive -Path '{zip_path}' -DestinationPath '{tmp}' -Force"], check=True)
-        # Copy ipfs.exe to a directory on PATH
-        install_dir = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'ipfs')
-        os.makedirs(install_dir, exist_ok=True)
-        src = os.path.join(tmp, 'kubo', 'ipfs.exe')
-        dst = os.path.join(install_dir, 'ipfs.exe')
-        subprocess.run(['copy', src, dst], shell=True, check=True)
-        # Add to PATH if not already there
-        current_path = os.environ.get('PATH', '')
-        if install_dir not in current_path:
-            subprocess.run(['setx', 'PATH', f'{current_path};{install_dir}'], check=True)
-            os.environ['PATH'] = f'{current_path};{install_dir}'
-        subprocess.run(['rmdir', '/s', '/q', tmp], shell=True)
+        Args:
+            data: Data to compute CID for
 
-    def ipfs_installed(self):
-        """Check if the ipfs binary is available."""
-        try:
-            subprocess.run(['ipfs', '--version'], capture_output=True, check=True)
-            return True
-        except Exception:
-            return False
-        
-    def write_script(self, path: str, content: str) -> None:
-        """Write a script file with the given content."""
-        dirpath = os.path.dirname(__file__)
-        path = os.path.join(dirpath, path)
+        Returns:
+            CID string
+        """
+        # Convert to bytes
+        if isinstance(data, dict) or isinstance(data, list):
+            data_bytes = json.dumps(data).encode('utf-8')
+        elif isinstance(data, str):
+            data_bytes = data.encode('utf-8')
+        elif isinstance(data, bytes):
+            data_bytes = data
+        else:
+            data_bytes = str(data).encode('utf-8')
 
-        if isinstance(content, list):
-            content = '\n'.join(content)
-        with open(path, 'w') as f:
-            f.write(content)
-        os.chmod(path, 0o755)
+        return self._compute_cid(data_bytes)
+
+    def resolve_cid(self, path: str) -> str:
+        """
+        Resolve a path to a CID.
+
+        Args:
+            path: Path like 'local/Qm...'
+
+        Returns:
+            Just the CID part
+        """
+        if path.startswith(f'{self.prefix}/'):
+            return path[len(self.prefix) + 1:]
         return path
 
-    def start_node(self):
-        """Install IPFS if needed and start it as a background pm2 process."""
-        self.install()
-        # Init repo if it doesn't exist yet
-        ipfs_path = os.path.expanduser('~/.ipfs')
-        if not os.path.exists(ipfs_path):
-            subprocess.run(['ipfs', 'init'], capture_output=True)
-        # Check if already running in pm2
-
-        # if
-        # Start ipfs daemon via pm2
-        # script
-
-        path = self.write_script('start_ipfs.sh', ['#!/bin/bash', 'ipfs daemon'])
-        cmd = ['pm2', 'start', path, '--name', self.node_name, '--no-autorestart', '-f']
-        print(f"Starting IPFS node via pm2: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            print(f"IPFS node '{self.node_name}' started successfully.")
-            return True
-        else:
-            print(f"Failed to start IPFS node: {result.stderr}")
-            return False
-
-    def stop_node(self):
-        """Stop the IPFS pm2 process."""
-        result = subprocess.run(['pm2', 'delete', self.node_name], capture_output=True, text=True)
-        if result.returncode == 0:
-            print(f"IPFS node '{self.node_name}' stopped.")
-        else:
-            print(f"Failed to stop IPFS node: {result.stderr}")
-        return result.returncode == 0
-
-    def node_status(self):
-        """Check if the IPFS pm2 node is running."""
-        try:
-            result = subprocess.run(['pm2', 'jlist'], capture_output=True, text=True)
-            processes = json.loads(result.stdout) if result.returncode == 0 else []
-            for p in processes:
-                if p.get('name') == self.node_name:
-                    return p.get('pm2_env', {}).get('status', 'unknown')
-            return 'not_found'
-        except Exception:
-            return 'error'
-
-    def iscid(self, text: str = 'fsd') -> bool:
-        '''
-        Check if the text is an ipfs hash
-        '''
-        return isinstance(text, str) and (text.startswith('Qm') and len(text) == 46)
-
-    def id(self) -> Dict[str, Any]:
-        """Get IPFS node identity information.
-        
-        Returns:
-            Dictionary with node ID and addresses
+    def iscid(self, text: str) -> bool:
         """
-        response = self.session.post( f"{self.url}/id")
-        response.raise_for_status()
-        return response.json()
-    
-    def version(self) -> Dict[str, Any]:
-        """Get IPFS version information.
-        
-        Returns:
-            Dictionary with version details
-        """
-        url = f"{self.url}/version"
-        response = self.session.post(url)
-        response.raise_for_status()
-        return response.json()
+        Check if text looks like a valid CID.
 
+        Args:
+            text: String to check
+
+        Returns:
+            True if it looks like a CID
+        """
+        return isinstance(text, str) and text.startswith('Qm') and len(text) == 46
+
+    def valid_cid(self, cid: str) -> bool:
+        """
+        Check if a CID exists in storage.
+
+        Args:
+            cid: Content identifier
+
+        Returns:
+            True if the block exists
+        """
+        return self._block_path(cid).exists()
+
+    def gc(self, aggressive: bool = False) -> Dict[str, Any]:
+        """
+        Garbage collect unpinned blocks.
+
+        Args:
+            aggressive: If True, remove all unpinned blocks
+
+        Returns:
+            Dict with removed CIDs
+        """
+        removed = []
+
+        # Scan all metadata files
+        for shard_dir in self.blocks_path.iterdir():
+            if shard_dir.is_dir():
+                for meta_file in shard_dir.glob('*.json'):
+                    cid = meta_file.stem
+                    metadata = self._load_meta(cid)
+
+                    if not metadata.get('pinned') and (aggressive or True):
+                        try:
+                            # Remove block
+                            block_path = self._block_path(cid)
+                            if block_path.exists():
+                                os.remove(block_path)
+
+                            # Remove metadata
+                            self._delete_meta(cid)
+                            removed.append(cid)
+                        except Exception as e:
+                            print(f"Error removing {cid}: {e}")
+
+        return {'Removed': removed, 'Count': len(removed)}
+
+    def stats(self) -> Dict[str, Any]:
+        """
+        Get storage statistics.
+
+        Returns:
+            Dict with stats
+        """
+        total_blocks = 0
+        total_pinned = 0
+        total_size = 0
+
+        # Scan all metadata files
+        for shard_dir in self.blocks_path.iterdir():
+            if shard_dir.is_dir():
+                for meta_file in shard_dir.glob('*.json'):
+                    total_blocks += 1
+                    metadata = self._load_meta(meta_file.stem)
+                    total_size += metadata.get('size', 0)
+                    if metadata.get('pinned'):
+                        total_pinned += 1
+
+        return {
+            'blocks': total_blocks,
+            'pinned': total_pinned,
+            'total_size': total_size,
+            'storage_path': str(self.storage_path)
+        }
 
     def test(self) -> bool:
-        """Test connection to IPFS node by adding and retrieving test data.
-        
-        Returns:
-            True if test is successful, False otherwise
         """
-        test_obj = {"test_key": "test_value"}
-        print("Testing IPFS data connection...", test_obj)
+        Test storage by adding and retrieving data.
+
+        Returns:
+            True if test passes
+        """
+        test_obj = {"test_key": "test_value", "timestamp": m.time()}
+        print("Testing LocalFS storage...", test_obj)
+
         cid = self.add(test_obj)
-        retrieved_obj = self.get(cid)
-        return retrieved_obj == test_obj
+        print(f"Stored with CID: {cid}")
+
+        retrieved = self.get(cid)
+        print(f"Retrieved: {retrieved}")
+
+        success = retrieved == test_obj
+
+        # Cleanup
+        self.rm(cid)
+
+        return success
 
     def __str__(self):
-        return f"IpfsClient(url={self.url})"
+        return f"LocalFS(storage_path={self.storage_path})"
     
-    def valid_cid(self, cid: str) -> bool:
-        """Validate if a string is a valid IPFS CID.
-        
-        Args:
-            cid: String to validate
 
+    def ensure_bindings(self):
         """
-        try:
-            self.get(cid)
+        Ensure Rust bindings are available, attempt to compile if not.
+        """
+        if self.use_rust:
             return True
-        except Exception:
+        try:
+            from . import localfs_rs
+            self.rust = localfs_rs
+            self.use_rust = True
+            print("[localfs] Rust bindings are now available")
+            return True
+        except ImportError:
+            print("[localfs] Rust bindings still not available")
             return False
-
-    # def syncenv(self):
-    #     """Ensure that the IPFS environment is set up."""
-    #     m.fn('pm/up')(self.node_name)
