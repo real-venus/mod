@@ -3,15 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { userContext } from '@/context';
+import { useTheme } from '@/context/ThemeContext';
 import { CopyButton } from '@/ui/CopyButton';
 
 export default function CidViewer() {
   const { cid } = useParams();
   const { client } = userContext();
+  const { effectiveTheme } = useTheme();
   const [content, setContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contentType, setContentType] = useState<'json' | 'text' | 'code' | 'unknown'>('unknown');
+  const isLight = effectiveTheme === 'light';
 
   useEffect(() => {
     if (!cid || !client) return;
@@ -52,22 +55,26 @@ export default function CidViewer() {
   }, [cid, client]);
 
   const renderContent = () => {
+    const bgClass = isLight ? 'bg-gray-50' : 'bg-black';
+    const borderClass = isLight ? 'border-black/10' : 'border-white/20';
+    const textClass = isLight ? 'text-black/90' : 'text-white/90';
+
     if (contentType === 'json') {
       const jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
       return (
-        <pre className="text-sm overflow-auto bg-black p-4 border border-white/20 text-white/90 font-mono max-h-[600px]">
+        <pre className={`text-sm overflow-auto ${bgClass} p-4 border ${borderClass} ${textClass} font-mono max-h-[600px]`}>
           {JSON.stringify(jsonContent, null, 2)}
         </pre>
       );
     } else if (contentType === 'code' || contentType === 'text') {
       return (
-        <pre className="text-sm overflow-auto bg-black p-4 border border-white/20 text-white/90 font-mono max-h-[600px] whitespace-pre-wrap">
+        <pre className={`text-sm overflow-auto ${bgClass} p-4 border ${borderClass} ${textClass} font-mono max-h-[600px] whitespace-pre-wrap`}>
           {typeof content === 'string' ? content : JSON.stringify(content, null, 2)}
         </pre>
       );
     } else {
       return (
-        <div className="bg-black p-4 border border-white/20 text-white/80 font-mono text-sm">
+        <div className={`${bgClass} p-4 border ${borderClass} ${isLight ? 'text-black/80' : 'text-white/80'} font-mono text-sm`}>
           {typeof content === 'string' ? content : JSON.stringify(content)}
         </div>
       );
@@ -75,50 +82,52 @@ export default function CidViewer() {
   };
 
   return (
-    <div className="min-h-screen p-6 bg-black text-white" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
+    <div className={`min-h-screen p-6 ${isLight ? 'bg-white text-black' : 'bg-black text-white'}`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
       <div className="max-w-6xl mx-auto space-y-4">
-        {/* Header */}
-        <div className="border-b border-white/10 pb-4">
-          <h1 className="text-2xl font-bold text-white mb-1">{cid}</h1>
-          <p className="text-xs text-white/50 uppercase tracking-wide">Content-addressed data</p>
-        </div>
-
-        {/* CID Info */}
-        <div className="border border-white/20 p-4">
-          <div className="flex items-center justify-between">
-            <CopyButton text={cid as string} size="sm" />
+        {/* Header with CID and Copy Button */}
+        <div className={`border ${isLight ? 'border-black/10' : 'border-white/10'} rounded-lg p-6`}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isLight ? 'text-black/50' : 'text-white/50'}`}>
+                Content-Addressed Data
+              </div>
+              <h1 className={`text-lg font-bold font-mono break-all ${isLight ? 'text-black' : 'text-white'}`}>
+                {cid}
+              </h1>
+            </div>
+            <CopyButton text={cid as string} size="md" />
           </div>
         </div>
 
         {/* Loading State */}
         {loading && (
-          <div className="border border-white/20 p-8 text-center">
-            <div className="text-sm text-white/70">Loading...</div>
+          <div className={`border ${isLight ? 'border-black/20' : 'border-white/20'} rounded-lg p-8 text-center`}>
+            <div className={`text-sm ${isLight ? 'text-black/70' : 'text-white/70'}`}>Loading...</div>
           </div>
         )}
 
         {/* Error State */}
         {error && !loading && (
-          <div className="border border-white/30 p-4 bg-white/5">
-            <div className="text-sm font-bold text-white mb-2">Error</div>
-            <div className="text-sm text-white/70 font-mono">{error}</div>
+          <div className={`border ${isLight ? 'border-red-200 bg-red-50' : 'border-white/30 bg-white/5'} rounded-lg p-4`}>
+            <div className={`text-sm font-bold mb-2 ${isLight ? 'text-red-700' : 'text-white'}`}>Error</div>
+            <div className={`text-sm font-mono ${isLight ? 'text-red-600' : 'text-white/70'}`}>{error}</div>
           </div>
         )}
 
         {/* Content Display */}
         {content && !loading && !error && (
-          <div className="border border-white/20">
-            <div className="border-b border-white/10 p-4 flex items-center justify-between">
+          <div className={`border ${isLight ? 'border-black/20' : 'border-white/20'} rounded-lg overflow-hidden`}>
+            <div className={`border-b ${isLight ? 'border-black/10 bg-gray-50' : 'border-white/10'} p-4 flex items-center justify-between`}>
               <div>
-                <div className="text-sm font-bold text-white uppercase">{contentType}</div>
-                <div className="text-xs text-white/50 font-mono mt-1">
-                  {typeof content === 'string' ? content.length : JSON.stringify(content).length} bytes
+                <div className={`text-sm font-bold uppercase ${isLight ? 'text-black' : 'text-white'}`}>{contentType}</div>
+                <div className={`text-xs font-mono mt-1 ${isLight ? 'text-black/50' : 'text-white/50'}`}>
+                  {(typeof content === 'string' ? content.length : JSON.stringify(content).length).toLocaleString()} bytes
                 </div>
               </div>
               <div className="flex gap-2">
                 <CopyButton
                   text={typeof content === 'string' ? content : JSON.stringify(content, null, 2)}
-                  size="sm"
+                  size="md"
                 />
                 <button
                   onClick={() => {
@@ -130,13 +139,13 @@ export default function CidViewer() {
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  className="px-3 py-1 border border-white/20 hover:bg-white/5 text-xs font-mono uppercase transition-colors"
+                  className={`px-4 py-2 border ${isLight ? 'border-black/20 hover:bg-black/5 text-black' : 'border-white/20 hover:bg-white/5 text-white'} text-xs font-mono uppercase transition-colors rounded`}
                 >
                   Download
                 </button>
               </div>
             </div>
-            <div className="p-4">
+            <div className="p-0">
               {renderContent()}
             </div>
           </div>
@@ -144,20 +153,20 @@ export default function CidViewer() {
 
         {/* Metadata */}
         {content && !loading && !error && (
-          <div className="border border-white/20 p-4">
-            <div className="text-xs font-bold text-white/70 uppercase mb-3">Metadata</div>
-            <div className="grid grid-cols-3 gap-4 text-xs">
+          <div className={`border ${isLight ? 'border-black/20' : 'border-white/20'} rounded-lg p-6`}>
+            <div className={`text-xs font-bold uppercase mb-4 ${isLight ? 'text-black/70' : 'text-white/70'}`}>Metadata</div>
+            <div className="grid grid-cols-3 gap-6 text-xs">
               <div>
-                <div className="text-white/50 uppercase mb-1">Type</div>
-                <div className="text-white font-mono">{contentType}</div>
+                <div className={`uppercase mb-2 ${isLight ? 'text-black/50' : 'text-white/50'}`}>Type</div>
+                <div className={`font-mono font-semibold ${isLight ? 'text-black' : 'text-white'}`}>{contentType}</div>
               </div>
               <div>
-                <div className="text-white/50 uppercase mb-1">Format</div>
-                <div className="text-white font-mono">{typeof content}</div>
+                <div className={`uppercase mb-2 ${isLight ? 'text-black/50' : 'text-white/50'}`}>Format</div>
+                <div className={`font-mono font-semibold ${isLight ? 'text-black' : 'text-white'}`}>{typeof content}</div>
               </div>
               <div>
-                <div className="text-white/50 uppercase mb-1">Size</div>
-                <div className="text-white font-mono">
+                <div className={`uppercase mb-2 ${isLight ? 'text-black/50' : 'text-white/50'}`}>Size</div>
+                <div className={`font-mono font-semibold ${isLight ? 'text-black' : 'text-white'}`}>
                   {(typeof content === 'string' ? content.length : JSON.stringify(content).length).toLocaleString()} bytes
                 </div>
               </div>

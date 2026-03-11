@@ -5,7 +5,7 @@ const fs = require("fs");
  * Deploy Sr25519 Bridge contracts
  *
  * 1. Deploy BridgeToken with initial supply
- * 2. Deploy Sr25519Bridge contract
+ * 2. Deploy Bridge contract
  * 3. Approve bridge to spend operator's tokens
  * 4. Save deployment addresses
  */
@@ -39,22 +39,22 @@ async function main() {
   console.log("\nWaiting for network confirmation...");
   await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // Deploy Sr25519Bridge
-  console.log("\n=== Deploying Sr25519Bridge ===");
+  // Deploy Bridge
+  console.log("\n=== Deploying Bridge ===");
 
   // Force nonce refresh to avoid nonce mismatch
   const currentNonce = await hre.ethers.provider.getTransactionCount(deployer.address, "latest");
   console.log("Current nonce:", currentNonce);
 
-  const Sr25519Bridge = await hre.ethers.getContractFactory("Sr25519Bridge");
-  const bridge = await Sr25519Bridge.deploy(tokenAddress, {
+  const Bridge = await hre.ethers.getContractFactory("Bridge");
+  const bridge = await Bridge.deploy(tokenAddress, {
     gasLimit: 5000000, // Increase gas limit for deployment
     nonce: currentNonce
   });
   await bridge.waitForDeployment();
   const bridgeAddress = await bridge.getAddress();
 
-  console.log("✓ Sr25519Bridge deployed to:", bridgeAddress);
+  console.log("✓ Bridge deployed to:", bridgeAddress);
 
   // Wait before approval transaction
   console.log("\nWaiting for network confirmation...");
@@ -86,54 +86,49 @@ async function main() {
   console.log("Operator Balance:", operatorBalance.toString());
   console.log("Bridge Allowance:", allowance.toString());
 
+
   // Save deployment info
-  const deployment = {
-    network: hre.network.name,
+
+  // 
+  const deploymentPath = "deployment.json";
+
+  let deployment = {};
+  if (fs.existsSync(deploymentPath)) {
+    try {
+      const existingData = fs.readFileSync(deploymentPath);
+      deployment = JSON.parse(existingData);
+    } catch (error) {
+      console.warn("⚠️ Failed to read existing deployment.json, starting fresh.");
+    }
+  }
+
+
+
+  current_deployment = {
     chainId: hre.network.config.chainId,
     operator: deployer.address,
-    token: {
-      address: tokenAddress,
-      name: TOKEN_NAME,
-      symbol: TOKEN_SYMBOL,
-      initialSupply: INITIAL_SUPPLY
-    },
-    bridge: {
-      address: bridgeAddress
+    contracts: {
+      token: {
+        address: tokenAddress,
+        name: TOKEN_NAME,
+        symbol: TOKEN_SYMBOL,
+        initialSupply: INITIAL_SUPPLY
+      },
+      bridge: {
+        address: bridgeAddress
+      },
     },
     deployedAt: new Date().toISOString()
   };
+
+  deployment[hre.network.name] = current_deployment;
 
   fs.writeFileSync(
     "deployment.json",
     JSON.stringify(deployment, null, 2)
   );
 
-  console.log("\n✓ Deployment info saved to deployment.json");
 
-  // Generate bridge config for Python backend
-  const bridgeConfig = {
-    rpc_url: hre.network.config.url,
-    bridge_contract: bridgeAddress,
-    token_contract: tokenAddress,
-    operator_key: "YOUR_PRIVATE_KEY_HERE",
-    snapshot_path: "bridge/total_balances.json",
-    signature_timeout: 300
-  };
-
-  fs.writeFileSync(
-    "bridge_config.json",
-    JSON.stringify(bridgeConfig, null, 2)
-  );
-
-  console.log("✓ Bridge config template saved to bridge_config.json");
-  console.log("\n⚠ Remember to update bridge_config.json with your private key!");
-
-  // Verification command
-  if (hre.network.name !== "hardhat" && hre.network.name !== "localhost") {
-    console.log("\n=== Verification Commands ===");
-    console.log(`npx hardhat verify --network ${hre.network.name} ${tokenAddress} "${TOKEN_NAME}" "${TOKEN_SYMBOL}" "${INITIAL_SUPPLY}"`);
-    console.log(`npx hardhat verify --network ${hre.network.name} ${bridgeAddress} ${tokenAddress}`);
-  }
 }
 
 main()

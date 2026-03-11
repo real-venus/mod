@@ -6,8 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title BridgeToken
- * @dev ERC20 token for the sr25519 bridge
- * Bridge operator owns the supply and manages distribution
+ * @dev Simple ERC20 token with mint and burn capabilities for the owner
  */
 contract BridgeToken is ERC20, Ownable {
     constructor(
@@ -15,20 +14,34 @@ contract BridgeToken is ERC20, Ownable {
         string memory symbol,
         uint256 initialSupply
     ) ERC20(name, symbol) Ownable(msg.sender) {
-        _mint(msg.sender, initialSupply);
+        if (initialSupply > 0) {
+            _mint(msg.sender, initialSupply);
+        }
     }
 
     /**
-     * @dev Mint additional tokens (only owner)
+     * @dev Mint new tokens (only owner)
+     * @param to Address to receive minted tokens
+     * @param amount Amount of tokens to mint
      */
     function mint(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
     }
 
     /**
-     * @dev Burn tokens from owner's balance
+     * @dev Burn tokens from a specific address (only owner)
+     * @param from Address to burn tokens from
+     * @param amount Amount of tokens to burn
      */
-    function burn(uint256 amount) external onlyOwner {
+    function burnFrom(address from, uint256 amount) external onlyOwner {
+        _burn(from, amount);
+    }
+
+    /**
+     * @dev Burn tokens from caller's balance
+     * @param amount Amount of tokens to burn
+     */
+    function burn(uint256 amount) external {
         _burn(msg.sender, amount);
     }
 }

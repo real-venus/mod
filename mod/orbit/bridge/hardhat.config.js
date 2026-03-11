@@ -18,7 +18,7 @@ module.exports = {
       chainId: 31337
     },
     // Base Sepolia testnet (PRIVATE_KEY only required for actual deployment)
-    baseSepolia: {
+    testnet: {
       url: process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 84532,

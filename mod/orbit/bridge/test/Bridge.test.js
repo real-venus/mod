@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Sr25519Bridge", function () {
+describe("Bridge", function () {
   let token, bridge, owner, user1, user2;
   const INITIAL_SUPPLY = ethers.parseEther("1000000"); // 1M tokens
 
@@ -13,9 +13,9 @@ describe("Sr25519Bridge", function () {
     token = await BridgeToken.deploy("Bridged Commune", "BCOM", INITIAL_SUPPLY);
     await token.waitForDeployment();
 
-    // Deploy Sr25519Bridge
-    const Sr25519Bridge = await ethers.getContractFactory("Sr25519Bridge");
-    bridge = await Sr25519Bridge.deploy(await token.getAddress());
+    // Deploy Bridge
+    const Bridge = await ethers.getContractFactory("Bridge");
+    bridge = await Bridge.deploy(await token.getAddress());
     await bridge.waitForDeployment();
 
     // Approve bridge to spend owner's tokens
@@ -85,16 +85,16 @@ describe("Sr25519Bridge", function () {
       ethers.keccak256(ethers.toUtf8Bytes("5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty")),
       ethers.keccak256(ethers.toUtf8Bytes("5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y"))
     ];
-    const recipients = [];
-    const amounts = [];
+    let recipients;
+    let amounts;
 
     beforeEach(async function () {
-      recipients.push(user1.address, user2.address, owner.address);
-      amounts.push(
+      recipients = [user1.address, user2.address, owner.address];
+      amounts = [
         ethers.parseEther("1000"),
         ethers.parseEther("2000"),
         ethers.parseEther("3000")
-      );
+      ];
     });
 
     it("Should batch process multiple claims", async function () {
@@ -167,6 +167,53 @@ describe("Sr25519Bridge", function () {
     it("Should reject non-owner updating token", async function () {
       await expect(
         bridge.connect(user1).setToken(await token.getAddress())
+      ).to.be.reverted;
+    });
+  });
+
+  describe("Token Mint and Burn", function () {
+    const mintAmount = ethers.parseEther("1000");
+    const burnAmount = ethers.parseEther("500");
+
+    it("Should allow owner to mint tokens", async function () {
+      const initialBalance = await token.balanceOf(user1.address);
+
+      await token.mint(user1.address, mintAmount);
+
+      expect(await token.balanceOf(user1.address)).to.equal(initialBalance + mintAmount);
+    });
+
+    it("Should reject non-owner minting", async function () {
+      await expect(
+        token.connect(user1).mint(user1.address, mintAmount)
+      ).to.be.reverted;
+    });
+
+    it("Should allow owner to burn tokens from any address", async function () {
+      // First mint some to user1
+      await token.mint(user1.address, mintAmount);
+
+      const balanceBefore = await token.balanceOf(user1.address);
+      await token.burnFrom(user1.address, burnAmount);
+
+      expect(await token.balanceOf(user1.address)).to.equal(balanceBefore - burnAmount);
+    });
+
+    it("Should allow users to burn their own tokens", async function () {
+      // First mint some to user1
+      await token.mint(user1.address, mintAmount);
+
+      const balanceBefore = await token.balanceOf(user1.address);
+      await token.connect(user1).burn(burnAmount);
+
+      expect(await token.balanceOf(user1.address)).to.equal(balanceBefore - burnAmount);
+    });
+
+    it("Should reject non-owner burning from other addresses", async function () {
+      await token.mint(user1.address, mintAmount);
+
+      await expect(
+        token.connect(user2).burnFrom(user1.address, burnAmount)
       ).to.be.reverted;
     });
   });

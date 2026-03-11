@@ -15,9 +15,14 @@ class Mod:
         return self.model.forward(text)
     
 
-    def create_defense(self, text='whatup') -> int:
+    def defend(self, text='whatup') -> int:
         """Multiply two numbers and return the result."""
         
+
+    def attack(self, text='whatup') -> int:
+        """Multiply two numbers and return the result."""
+        
+
     
 
     

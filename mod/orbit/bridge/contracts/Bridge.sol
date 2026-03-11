@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
- * @title Sr25519Bridge
+ * @title Bridge
  * @dev Bridge contract for sr25519 to EVM token claims
  *
  * Flow:
@@ -15,7 +15,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * 3. Operator calls processClaim() to transfer tokens
  * 4. Each sr25519 address can only claim once
  */
-contract Sr25519Bridge is Ownable, ReentrancyGuard {
+contract Bridge is Ownable, ReentrancyGuard {
     IERC20 public token;
 
     // Mapping from sr25519 address (as string/bytes32) to claimed status

@@ -1,15 +1,1 @@
-{
-  "network": "baseSepolia",
-  "chainId": 84532,
-  "operator": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
-  "token": {
-    "address": "0x00D873Fb0917604393d047316bf84f2D3F8D22Eb",
-    "name": "Bridged Commune",
-    "symbol": "BCOM",
-    "initialSupply": "1000000000000000000"
-  },
-  "bridge": {
-    "address": "0xA1CEAd67E61C92D17D03A0290c10Ea49fC687F89"
-  },
-  "deployedAt": "2026-03-10T17:31:03.608Z"
-}
+{"testnet": {"chainId": 84532, "operator": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E", "contracts": {"token": {"address": "0x41026d9882304a890044a0F3c9d33ef6928505A4", "name": "Bridged Commune", "symbol": "BCOM", "initialSupply": "1000000000000000000", "abi": "QmZnq33KtdFVt8ZFHSeeWCR72wiYzBwgeHSGK1B4kDtzJp"}, "bridge": {"address": "0x6Dd96DAc82BD0ee8cd62b2AC389100Bd5c3445AA", "abi": "Qmf6BuQ8atcLozv9zTnPupM8Vc3ZFJvzaNeN8cKDdk8MCF"}}, "deployedAt": "2026-03-11T16:07:41.504Z"}}

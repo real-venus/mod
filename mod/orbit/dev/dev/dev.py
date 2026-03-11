@@ -104,14 +104,10 @@ class Dev:
         """
         # setup the memory and tools
         path = path or  m.dp(mod)
-        self.init_memory(
-            query=query,
-            tools=self.tool2schema(tools),
-            path=path,
-            steps=steps, **kwargs)
+        self.init_memory(query=query, tools=self.tool2schema(tools), path=path, steps=steps, **kwargs)
         # context specific initialization
         for step in range(steps):   
-            self.memory.update({'step':step, 'files': os.listdir(path) , 'pwd': path})
+            self.memory.updatex({'step':step, 'files': os.listdir(path) , 'pwd': path})
             memory = str(self.memory.get())
             output = self.model.forward(str(memory), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
             plan = self.plan(output)
