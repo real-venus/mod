@@ -47,6 +47,12 @@
       "label": "SAFE",
       "color": "#f59e0b",
       "type": "direct"
+    },
+    {
+      "href": "/bridge",
+      "label": "BRIDGE",
+      "color": "#06b6d4",
+      "type": "direct"
     }
   ],
   "additionalModules": [],
@@ -60,6 +66,7 @@
     "docs",
     "chat",
     "safe",
+    "bridge",
     "network",
     "buidl",
     "create",

@@ -157,6 +157,9 @@ export class Auth {
     // Sign with appropriate wallet adapter based on wallet mode
     if (wallet_mode === 'metamask') {
       authData.signature = await this.signWithMetamask(signatureData);
+    } else if (wallet_mode === 'injector' || wallet_mode === 'subwallet') {
+      // Use polkadot extension injector for sr25519
+      authData.signature = await this.signWithInjector(signatureData, walletAddress);
     } else if (wallet_mode === 'local') {
       // Always sign with client key (local key) for local mode
       authData.signature = await this.signLocal(signatureData);

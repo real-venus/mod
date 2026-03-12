@@ -85,6 +85,10 @@ export class Client {
       }
       if (contentType?.includes('application/json')) {
         let result = await response.json();
+        // if result is a dictionary and only has the result key, return the value of the result key
+        if (typeof result === 'object' && result !== null && 'result' in result && Object.keys(result).length === 1) {
+          result = result['result'];
+        }
         console.log('[Safari Debug] JSON response:', result);
         if (result && result.success === false) {
           let error_msg = JSON.stringify(result);
@@ -95,6 +99,7 @@ export class Client {
         }
         return result;
       }
+      // if it is a dictionary and result key exists, return result key
       const textResult = await response.text();
       return textResult;
     } catch (error: any) {

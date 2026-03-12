@@ -73,7 +73,9 @@ class Client:
                     raise Exception(result)
 
         if isinstance(result, bytes):
-            result = result.decode('utf-8')            
+            result = result.decode('utf-8')
+        if isinstance(result, dict) and 'result' in result:
+            result = result['result']          
         return result
 
     forward = call

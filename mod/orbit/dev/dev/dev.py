@@ -114,6 +114,7 @@ class Dev:
             plan = self.plan(output)
             history.append(plan)
             self.memory.add('history', history)
+            print(history)
             print(f"Step {step+1}/{steps} executed with plan: {plan}", color='green')
             if plan[-1]['tool'].lower() == 'finish':
                 print('Finishing Agent')

@@ -209,11 +209,11 @@ class Bridge:
 
     # ==================== BRIDGE FUNCTIONS ====================
 
-    def process_claim(self, sr25519_address: str, recipient: str, amount: int) -> Dict[str, Any]:
+    def process_claim(self, address: str, recipient: str, amount: int) -> Dict[str, Any]:
         """Process a claim after off-chain verification.
 
         Args:
-            sr25519_address: Sr25519 address hash (bytes32)
+            address: Sr25519 address hash (bytes32)
             recipient: EVM address to receive tokens
             amount: Amount of tokens to distribute
 
@@ -225,10 +225,10 @@ class Bridge:
             raise ValueError('Bridge contract not loaded')
 
         # Convert sr25519 address to bytes32
-        if not sr25519_address.startswith('0x'):
-            sr25519_hash = Web3.solidity_keccak(['string'], [sr25519_address])
+        if not address.startswith('0x'):
+            sr25519_hash = Web3.solidity_keccak(['string'], [address])
         else:
-            sr25519_hash = sr25519_address
+            sr25519_hash = address
 
         tx = bridge.functions.processClaim(
             sr25519_hash,
@@ -243,11 +243,37 @@ class Bridge:
         tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
+    def burn(self,address:str,  amount: int) -> Dict[str, Any]:
+        """Burn tokens to initiate transfer back to original chain.
+
+        Args:
+            amount: Amount of tokens to burn
+
+        Returns:
+            Transaction receipt
+        """
+        token = self.contracts.get('token')
+        if not token:
+            raise ValueError('Token contract not loaded')
+        
+        amount = int(amount * (10 ** self.decimals()))  # convert to wei
+
+        tx = token.functions.burn(
+            amount
+        ).build_transaction({
+            'from': address,
+            'nonce': self.w3.eth.get_transaction_count(self.account.address)
+        })
+
+        signed = self.w3.eth.account.sign_transaction(tx, self.account.key)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+        return self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
     def batch_process_claims(self, claims: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Batch process multiple claims.
 
         Args:
-            claims: List of claim dicts with keys: sr25519_address, recipient, amount
+            claims: List of claim dicts with keys: address, recipient, amount
 
         Returns:
             Transaction receipt
@@ -256,24 +282,24 @@ class Bridge:
         if not bridge:
             raise ValueError('Bridge contract not loaded')
 
-        sr25519_addresses = []
+        addresses = []
         recipients = []
         amounts = []
 
         for claim in claims:
             # Convert sr25519 address to bytes32
-            sr25519_addr = claim['sr25519_address']
+            sr25519_addr = claim['address']
             if not sr25519_addr.startswith('0x'):
                 sr25519_hash = Web3.solidity_keccak(['string'], [sr25519_addr])
             else:
                 sr25519_hash = sr25519_addr
 
-            sr25519_addresses.append(sr25519_hash)
+            addresses.append(sr25519_hash)
             recipients.append(self.checksum(claim['recipient']))
             amounts.append(claim['amount'])
 
         tx = bridge.functions.batchProcessClaims(
-            sr25519_addresses,
+            addresses,
             recipients,
             amounts
         ).build_transaction({
@@ -285,11 +311,11 @@ class Bridge:
         tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    def has_claimed(self, sr25519_address: str) -> bool:
+    def has_claimed(self, address: str) -> bool:
         """Check if sr25519 address has claimed.
 
         Args:
-            sr25519_address: Sr25519 address or hash
+            address: Sr25519 address or hash
 
         Returns:
             True if claimed
@@ -299,18 +325,18 @@ class Bridge:
             raise ValueError('Bridge contract not loaded')
 
         # Convert to bytes32
-        if not sr25519_address.startswith('0x'):
-            sr25519_hash = Web3.solidity_keccak(['string'], [sr25519_address])
+        if not address.startswith('0x'):
+            sr25519_hash = Web3.solidity_keccak(['string'], [address])
         else:
-            sr25519_hash = sr25519_address
+            sr25519_hash = address
 
         return bridge.functions.hasClaimed(sr25519_hash).call()
 
-    def claim_recipient(self, sr25519_address: str) -> str:
+    def claim_recipient(self, address: str) -> str:
         """Get EVM recipient for sr25519 address.
 
         Args:
-            sr25519_address: Sr25519 address or hash
+            address: Sr25519 address or hash
 
         Returns:
             EVM address that received the claim
@@ -320,10 +346,10 @@ class Bridge:
             raise ValueError('Bridge contract not loaded')
 
         # Convert to bytes32
-        if not sr25519_address.startswith('0x'):
-            sr25519_hash = Web3.solidity_keccak(['string'], [sr25519_address])
+        if not address.startswith('0x'):
+            sr25519_hash = Web3.solidity_keccak(['string'], [address])
         else:
-            sr25519_hash = sr25519_address
+            sr25519_hash = address
 
         return bridge.functions.claimRecipient(sr25519_hash).call()
 
@@ -396,6 +422,7 @@ class Bridge:
         if not token:
             raise ValueError('Token contract not loaded')
 
+        amount = int(amount * (10 ** self.decimals()))  # convert to wei
         tx = token.functions.mint(
             self.checksum(to),
             amount
@@ -436,7 +463,13 @@ class Bridge:
 
     # ==================== AUTH VERIFICATION ====================
 
-    def claim(self, token: str) -> str:
+    def clear_claims(self):
+        """Clear claimed balances (for testing)."""
+        self.claimed_balances = {}
+        self.save_claims()
+        return {'success': True, 'msg': 'Cleared claimed balances'}
+
+    def claim(self, auth_token: str, recipient: str) -> str:
         """Claim tokens with sr25519 signature verification.
 
         Args:
@@ -446,7 +479,7 @@ class Bridge:
             Result message
         """
         # Verify sr25519 signature
-        verified = self.auth.verify(token)
+        verified = self.auth.verify(auth_token)
         address = verified['key']
 
         # Check balances
@@ -458,6 +491,10 @@ class Bridge:
             self.claimed_balances[address] = amount
             self.save_claims()
             return f"Claimed {amount} tokens for address {address}"
+
+
+        # tranfer tokens on-chain to recipient
+        self.transfer(recipient, amount)
 
         return f"No tokens to claim for address {address}"
 

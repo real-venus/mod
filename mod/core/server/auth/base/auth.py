@@ -26,6 +26,16 @@ class Auth:
         self.set_key(key=key, crypto_type=crypto_type)
         self.max_age = max_age
 
+
+    def infer_crypto_type(self, key):
+        """
+        Infer the crypto type from the key
+        """
+        if key.startswith('0x'):
+            return 'ecdsa'
+        else:
+            return 'sr25519'
+
     def set_key(self, key, crypto_type=None):
         """
         Set the key to use for signing
@@ -89,6 +99,8 @@ class Auth:
             token = headers['token']
             headers = json.loads(self._base64url_decode(token))
 
+
+        crypto_type = self.infer_crypto_type(headers['key'])
         # ────────────────────────────────────────────────
         # FIX: Normalize MetaMask legacy v=27/28 → v=0/1
         # ────────────────────────────────────────────────
@@ -108,6 +120,8 @@ class Auth:
                 headers['signature'] = '0x' + r + s + f'{normalized_v:02x}'
                 print(f"Normalized legacy v={v} → {normalized_v}")
 
+        print('Verifying signature with headers:', headers)
+
         sig_data = self.sig_data(headers)   
         print('Hashing sig_data for verification:', m.hash(sig_data))
         # Now verify with (possibly normalized) signature
@@ -118,7 +132,8 @@ class Auth:
         assert self.key.verify(
             sig_data,
             signature=headers['signature'],
-            address=headers['key']
+            address=headers['key'],
+            crypto_type=crypto_type
         ), f'Invalid signature {sig_data} {headers}'
 
         return headers

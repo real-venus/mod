@@ -133,6 +133,16 @@
                     "address": "0x6F941E762C7Df3db8DfD0C47d53Acd85D73Da442",
                     "contract": "Debit",
                     "abi": "QmbPgToxEaDe5PKkhzsKptXTPGNY4TCWXGGNWtudhVJEZt"
+                },
+                "BridgeToken": {
+                    "address": "0x170b8F3d6bA907984233Fa3F75B68e83d1750640",
+                    "contract": "Token",
+                    "abi": "QmZnq33KtdFVt8ZFHSeeWCR72wiYzBwgeHSGK1B4kDtzJp"
+                },
+                "Bridge": {
+                    "address": "0x65f0414D968749Ff44eCC7B56A1a6AdE687E74c9",
+                    "contract": "Bridge",
+                    "abi": "Qmf6BuQ8atcLozv9zTnPupM8Vc3ZFJvzaNeN8cKDdk8MCF"
                 }
             }
         },

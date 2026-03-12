@@ -61,7 +61,7 @@ class Server:
         """
         runt the function
         """
-        return self.gate.forwrd(**request)
+        return self.gate.forward(**request)
 
     def get_port(self, port:Optional[int]=None, mod:Union[str, 'Module', Any]=None) -> int:
         if port == None: 
@@ -205,7 +205,7 @@ class Server:
             except Exception as e:
                 result = m.detailed_error(e)
                 m.print(f'Error in server function {fn}: {result} {e}', color='red')
-            return result
+            return  {'result': result}
 
         self.registry.reg(name, f'http://0.0.0.0:{port}')
         if run_mode == 'flask':
