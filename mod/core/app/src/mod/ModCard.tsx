@@ -91,20 +91,31 @@ export default function ModCard({
       >
         {/* Icon */}
         <div
-          className="flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-xl"
+          className="flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-md"
           style={{
-            backgroundColor: colorWithOpacity(modColor, 0.1),
-            border: `2px solid var(--text-primary)`,
+            backgroundColor: colorWithOpacity(modColor, 0.2),
+            border: `3px solid ${modColor}`,
+            boxShadow: `0 0 0 2px ${colorWithOpacity(modColor, 0.3)}, inset 0 0 0 2px ${colorWithOpacity(modColor, 0.1)}`,
           }}
         >
-          <CubeIcon style={{ width: '18px', height: '18px', color: 'var(--text-primary)', strokeWidth: 2.5 }} />
+          <CubeIcon style={{
+            width: '18px',
+            height: '18px',
+            color: modColor,
+            strokeWidth: 3,
+            filter: `drop-shadow(1px 1px 0px ${colorWithOpacity(modColor, 0.5)})`,
+          }} />
         </div>
 
         {/* Name + fn count */}
         <div className="flex items-center gap-2">
           <code
-            className="font-digital tracking-tight text-3xl flex-shrink-0"
-            style={{ color: 'var(--text-primary)' }}
+            className="font-pixel tracking-tight text-2xl flex-shrink-0"
+            style={{
+              color: modColor,
+              textShadow: `2px 2px 0px ${colorWithOpacity(modColor, 0.3)}`,
+              letterSpacing: '0.05em',
+            }}
           >
             {mod.name}
           </code>
@@ -326,14 +337,16 @@ export default function ModCard({
 
   const cardContent = (
     <div
-      className={`relative font-mono overflow-visible group rounded-2xl h-full ${card_enabled ? 'cursor-pointer border-2 border-black dark:border-white' : ''}`}
+      className={`relative font-mono overflow-visible group rounded-lg h-full ${card_enabled ? 'cursor-pointer border-4' : ''}`}
       style={{
         fontFamily: 'IBM Plex Mono, Courier New, monospace',
+        borderColor: card_enabled ? modColor : undefined,
+        imageRendering: 'pixelated',
         ...(card_enabled ? {
-          background: `linear-gradient(135deg, ${colorWithOpacity(modColor, 0.15)} 0%, ${colorWithOpacity(modColor, 0.05)} 100%)`,
-          boxShadow: isHovered ? `0 8px 24px ${colorWithOpacity(modColor, 0.2)}` : `0 2px 8px ${colorWithOpacity(modColor, 0.1)}`,
-          transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
-          transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
+          background: `linear-gradient(135deg, ${colorWithOpacity(modColor, 0.2)} 0%, ${colorWithOpacity(modColor, 0.08)} 100%)`,
+          boxShadow: isHovered ? `0 0 0 4px ${colorWithOpacity(modColor, 0.4)}, 0 8px 0 ${colorWithOpacity(modColor, 0.3)}` : `0 0 0 2px ${colorWithOpacity(modColor, 0.2)}, 0 4px 0 ${colorWithOpacity(modColor, 0.2)}`,
+          transition: 'all 0.15s cubic-bezier(0.22, 1, 0.36, 1)',
+          transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
         } : {}),
       }}
       onMouseEnter={() => card_enabled && setIsHovered(true)}
@@ -345,18 +358,20 @@ export default function ModCard({
         {/* Header: icon + name + fn count */}
         <div className={`flex items-start ${isExpanded ? 'gap-5 mb-5' : 'gap-4 mb-5'}`}>
           <div
-            className={`flex items-center justify-center flex-shrink-0 ${isExpanded ? 'w-16 h-16 rounded-2xl' : 'w-13 h-13 rounded-xl'}`}
+            className={`flex items-center justify-center flex-shrink-0 ${isExpanded ? 'w-16 h-16 rounded-md' : 'w-13 h-13 rounded-md'}`}
             style={{
-              backgroundColor: colorWithOpacity(modColor, 0.1),
-              border: `2px solid var(--text-primary)`,
+              backgroundColor: colorWithOpacity(modColor, 0.2),
+              border: `3px solid ${modColor}`,
+              boxShadow: `0 0 0 2px ${colorWithOpacity(modColor, 0.3)}, inset 0 0 0 2px ${colorWithOpacity(modColor, 0.1)}`,
             }}
           >
             <CubeIcon
               style={{
                 width: isExpanded ? '28px' : '24px',
                 height: isExpanded ? '28px' : '24px',
-                color: 'var(--text-primary)',
-                strokeWidth: 2.5,
+                color: modColor,
+                strokeWidth: 3,
+                filter: `drop-shadow(1px 1px 0px ${colorWithOpacity(modColor, 0.5)})`,
               }}
             />
           </div>
@@ -364,11 +379,12 @@ export default function ModCard({
           <div className="flex-1 min-w-0 pt-0.5">
             <div className="flex items-center gap-2.5">
               <code
-                className={`font-black font-mono tracking-tight truncate block ${isExpanded ? 'text-[28px]' : 'text-[17px]'}`}
+                className={`font-pixel font-black tracking-tight truncate block ${isExpanded ? 'text-[16px]' : 'text-[11px]'}`}
                 style={{
-                  color: 'var(--text-primary)',
-                  textShadow: 'none',
+                  color: modColor,
+                  textShadow: `2px 2px 0px ${colorWithOpacity(modColor, 0.3)}`,
                   transition: 'all 0.3s ease',
+                  letterSpacing: '0.05em',
                 }}
               >
                 {mod.name}
@@ -376,18 +392,18 @@ export default function ModCard({
               <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
               {fnCount > 0 && (
                 <div
-                  className={`flex items-center gap-1 rounded-full flex-shrink-0 ${isExpanded ? 'px-2.5 py-1 text-[12px]' : 'px-2 py-0.5 text-[10px]'}`}
+                  className={`font-pixel flex items-center gap-1 rounded flex-shrink-0 ${isExpanded ? 'px-2.5 py-1 text-[8px]' : 'px-2 py-0.5 text-[7px]'}`}
                   style={{
-                    background: 'var(--bg-input)',
-                    border: '1.5px solid var(--border-color)',
+                    background: 'rgba(234, 179, 8, 0.15)',
+                    border: '2px solid rgba(234, 179, 8, 0.4)',
                   }}
                 >
-                  <Zap size={isExpanded ? 11 : 9} style={{ color: 'var(--text-secondary)' }} />
-                  <span className="font-bold" style={{ color: 'var(--text-secondary)' }}>{fnCount}</span>
+                  <Zap size={isExpanded ? 10 : 8} style={{ color: '#eab308' }} />
+                  <span className="font-bold text-yellow-500">{fnCount}</span>
                 </div>
               )}
               {mod.public === false && (
-                <Lock size={isExpanded ? 14 : 12} className="flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+                <Lock size={isExpanded ? 12 : 10} className="flex-shrink-0" style={{ color: '#ef4444', filter: 'drop-shadow(1px 1px 0px rgba(239, 68, 68, 0.3))' }} />
               )}
             </div>
             {mod.desc && (
@@ -427,22 +443,22 @@ export default function ModCard({
         <div className={`flex items-center overflow-x-auto ${isExpanded ? 'gap-2.5' : 'gap-1.5'}`}>
           {/* Timestamp */}
           <div
-            className={`flex items-center gap-1.5 rounded-lg flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[12px]' : 'px-2.5 py-1 text-[10px]'}`}
+            className={`font-pixel flex items-center gap-1.5 rounded flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[8px]' : 'px-2.5 py-1 text-[7px]'}`}
             style={{
-              background: 'var(--bg-input)',
-              border: '1.5px solid var(--border-color)',
+              background: colorWithOpacity(modColor, 0.1),
+              border: `2px solid ${colorWithOpacity(modColor, 0.3)}`,
             }}
           >
-            <Clock size={isExpanded ? 11 : 9} style={{ color: 'var(--text-tertiary)' }} />
+            <Clock size={isExpanded ? 10 : 8} style={{ color: modColor }} />
             <span className="font-bold" style={{ color: 'var(--text-secondary)' }} title={updatedTimeStr}>{agoStr || updatedTimeStr}</span>
           </div>
 
           {/* Owner key */}
           <div
-            className={`flex items-center gap-1.5 rounded-lg cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[12px]' : 'px-2.5 py-1 text-[10px]'}`}
+            className={`font-pixel flex items-center gap-1.5 rounded cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[8px]' : 'px-2.5 py-1 text-[7px]'}`}
             style={{
-              background: 'var(--bg-input)',
-              border: '1.5px solid var(--border-color)',
+              background: colorWithOpacity(keyColor, 0.1),
+              border: `2px solid ${colorWithOpacity(keyColor, 0.3)}`,
             }}
             title={mod.key}
             onClick={(e) => e.preventDefault()}
@@ -459,16 +475,16 @@ export default function ModCard({
           {/* IPFS CID */}
           {mod.cid && (
             <div
-              className={`flex items-center gap-1.5 rounded-lg cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[12px]' : 'px-2.5 py-1 text-[10px]'}`}
+              className={`font-pixel flex items-center gap-1.5 rounded cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[8px]' : 'px-2.5 py-1 text-[7px]'}`}
               style={{
-                background: 'var(--bg-input)',
-                border: '1.5px solid var(--border-color)',
+                background: colorWithOpacity(cidColor, 0.1),
+                border: `2px solid ${colorWithOpacity(cidColor, 0.3)}`,
               }}
               title={mod.cid}
               onClick={(e) => e.preventDefault()}
             >
-              <Box size={isExpanded ? 11 : 9} style={{ color: 'var(--text-tertiary)' }} />
-              <code className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
+              <Box size={isExpanded ? 10 : 8} style={{ color: cidColor }} />
+              <code className="font-pixel font-bold" style={{ color: 'var(--text-secondary)' }}>
                 {shorten(mod.cid || '', 4, 4)}
               </code>
               <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
@@ -478,15 +494,15 @@ export default function ModCard({
           {/* Network badge */}
           {mod.url && (
             <div
-              className={`flex items-center gap-1 rounded-lg flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-2.5 py-1.5 text-[12px]' : 'px-2 py-1 text-[10px]'}`}
+              className={`font-pixel flex items-center gap-1 rounded flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-2.5 py-1.5 text-[8px]' : 'px-2 py-1 text-[7px]'}`}
               style={{
-                background: 'var(--bg-input)',
-                border: '1.5px solid var(--border-color)',
+                background: 'rgba(34, 197, 94, 0.15)',
+                border: '2px solid rgba(34, 197, 94, 0.4)',
               }}
               onClick={(e) => e.preventDefault()}
             >
               <Globe size={isExpanded ? 10 : 8} className="text-green-500" />
-              <span className="font-bold text-green-500">live</span>
+              <span className="font-bold text-green-500">LIVE</span>
             </div>
           )}
         </div>

@@ -538,32 +538,36 @@ export default function ContractsPage() {
   return (
     <div className="min-h-full flex flex-col">
       <div className="max-w-7xl mx-auto px-8 py-10 w-full flex-1 flex flex-col">
-        {/* Page header */}
-        <div className="flex items-center gap-4 mb-2">
-          <div className="w-2 h-2 rounded-full bg-cyan-400" style={{ boxShadow: '0 0 8px rgba(0,255,255,0.6)' }} />
-          <h1 className="text-2xl font-bold uppercase tracking-[0.15em] font-mono" style={{ color: 'var(--text-primary)' }}>Contracts</h1>
+        {/* Page header with search and add - all in one line */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" style={{ boxShadow: '0 0 8px rgba(0,255,255,0.6)' }} />
+          <h1 className="text-2xl font-bold uppercase tracking-[0.15em] font-mono shrink-0" style={{ color: 'var(--text-primary)' }}>Contracts</h1>
           <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, var(--border-color), transparent)' }} />
+          <span className="text-[12px] font-mono shrink-0" style={{ color: 'var(--text-tertiary)' }}>[{contracts.length}]</span>
 
-          <span className="text-[12px] font-mono" style={{ color: 'var(--text-tertiary)' }}>[{contracts.length}]</span>
-        </div>
-        <p className="text-[14px] mb-6 ml-6 font-mono" style={{ color: 'var(--text-tertiary)' }}>Interact with deployed smart contracts</p>
-
-        {/* Search and Add Contract */}
-        <div className="mb-4 flex gap-2">
-          <div className="flex-1 relative">
+          {/* Search - larger */}
+          <div className="relative w-[500px] shrink-0">
             <MagnifyingGlassIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && filteredContracts.length === 1) {
+                  setSelectedContract(filteredContracts[0].name)
+                  setSearch('')
+                }
+              }}
               placeholder="Search contracts..."
-              className="w-full rounded-xl pl-14 pr-6 py-3 text-[14px] font-mono focus:outline-none transition-all"
+              className="w-full rounded-xl pl-14 pr-6 py-4 text-[15px] font-mono focus:outline-none transition-all"
               style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
             />
           </div>
+
+          {/* Add button - larger */}
           <button
             onClick={() => setShowAddContract(!showAddContract)}
-            className="px-4 py-3 rounded-xl text-[13px] font-bold font-mono uppercase tracking-wider transition-all bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/20"
+            className="px-6 py-3 rounded-xl text-[15px] font-bold font-mono uppercase tracking-wider transition-all bg-cyan-500/10 text-cyan-400 border-2 border-cyan-500/30 hover:bg-cyan-500/20 hover:scale-[1.02] shrink-0"
           >
             + ADD
           </button>
@@ -683,10 +687,10 @@ export default function ContractsPage() {
           )}
         </AnimatePresence>
 
-        {/* Contract Grid - Only show when no contract is selected */}
-        {!selectedContract && (
+        {/* Contract Grid - Show when no contract is selected OR when searching */}
+        {(!selectedContract || search) && (
           <div className="flex flex-wrap gap-2 mb-6">
-            {filteredContracts.map((c) => {
+            {(filteredContracts.length > 0 ? filteredContracts : contracts).map((c) => {
               const cardColor = text2color(c.name)
               const isCustom = customContracts.some(cc => cc.name === c.name)
               return (
@@ -744,9 +748,6 @@ export default function ContractsPage() {
                 </div>
               )
             })}
-            {filteredContracts.length === 0 && (
-              <div className="col-span-full text-center text-[15px] font-mono py-12" style={{ color: 'var(--text-tertiary)' }}>-- NO CONTRACTS FOUND --</div>
-            )}
           </div>
         )}
 
@@ -761,11 +762,12 @@ export default function ContractsPage() {
             {/* Subtle top glow */}
             <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: colorWithOpacity(activeColor, 0.4) }} />
 
-            {/* Back button */}
-            <div className="mb-4">
+            {/* Contract header bar - Single line with back button, name, address, ABI, and Read/Write toggles */}
+            <div className="flex items-center gap-4 mb-6">
+              {/* Back button */}
               <button
                 onClick={() => setSelectedContract('')}
-                className="px-4 py-2 rounded-lg text-[12px] font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-2 hover:scale-[1.02]"
+                className="px-3 py-2 rounded-lg text-[12px] font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-2 hover:scale-[1.02] shrink-0"
                 style={{
                   border: '1.5px solid var(--border-color)',
                   backgroundColor: 'var(--bg-surface)',
@@ -777,20 +779,22 @@ export default function ContractsPage() {
                 </svg>
                 Back to Contracts
               </button>
-            </div>
 
-            {/* Contract header bar */}
-            <div className="flex items-center gap-4 flex-wrap mb-6">
-              <div className="flex items-center gap-3">
+              {/* Contract name */}
+              <div className="flex items-center gap-3 shrink-0">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: activeColor, boxShadow: `0 0 8px ${activeColor}` }} />
                 <h2 className="text-xl font-bold font-mono" style={{ color: activeColor }}>{contractInfo.name}</h2>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+
+              {/* Contract address */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg shrink-0" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
                 <span className="text-[13px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(contractInfo.address)}</span>
                 <CopyButton text={contractInfo.address} size="sm" />
               </div>
+
+              {/* ABI CID */}
               {contractInfo.abiCid && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg shrink-0" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
                   <span className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
                   <span className="text-[12px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(contractInfo.abiCid, 10, 8)}</span>
                   <CopyButton text={contractInfo.abiCid} size="sm" />
@@ -800,7 +804,7 @@ export default function ContractsPage() {
               <div className="flex-1" />
 
               {/* Read / Write filter toggles */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0">
                 <button
                   onClick={() => setShowRead(!showRead)}
                   className={`px-4 py-2 rounded-lg text-[12px] font-bold uppercase tracking-wider font-mono transition-all ${

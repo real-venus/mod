@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Press+Start+2P&display=swap');
 
 @layer base {
   * {
@@ -69,6 +69,15 @@
 
   code, pre, .mono {
     font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace;
+  }
+
+  /* Pixel font class */
+  .font-pixel {
+    font-family: 'Press Start 2P', 'JetBrains Mono', monospace;
+    text-rendering: optimizeSpeed;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: grayscale;
+    image-rendering: pixelated;
   }
 
   /* Digital font for all elements */

@@ -1450,7 +1450,7 @@ class Mod:
             v =  True
         return v
 
-    def search(self, search=None, tree=None, depth=1, max_depth=6 , key=None, orbit='all' ,**kwargs) -> Dict[str, str]:
+    def search(self, search=None, tree=None, depth=2, max_depth=6 , key=None, orbit='all' ,**kwargs) -> Dict[str, str]:
         """
         search the tree for a mod
         """
@@ -1465,7 +1465,7 @@ class Mod:
         tree_options = list(filter(lambda k: self.filter_fn(k, search), tree.keys()))
         if len(tree_options) >= 1:
             tree_options =  {k: tree[k] for k in tree_options}
-            tree_options = list(dict(sorted(tree_options.items(), key=lambda item: len(item[1]))).keys())
+            tree_options = list(dict(sorted(tree_options.items(), key=lambda item: len(item[0]))).keys())
             return {k: tree[k] for k in tree_options}
         elif depth < max_depth:
             return self.search(search=search, tree=None, depth=depth+1, max_depth=max_depth, orbit=orbit, **kwargs)
@@ -1477,7 +1477,7 @@ class Mod:
 
     def tree(self, 
             search=None, 
-            depth=1,
+            depth=None,
             orbit = 'all', 
             key=None,
             **kwargs):
@@ -1489,7 +1489,7 @@ class Mod:
         orbits = sorted(self.orbits, reverse=True) if orbit == 'all' else [orbit]
         for orbit in orbits:
             tree.update(self.orbit(orbit, search=search, depth=depth, key=key, **kwargs))
-        tree = dict(sorted(tree.items(), key=lambda item: item[0]))
+        tree = dict(sorted(tree.items(), key=lambda item: len(item[0])))
         return tree
 
     def dirpath(self, mod=None, relative=False, trials=4, key=None) -> str:
@@ -1500,8 +1500,7 @@ class Mod:
             return self.paths["lib"]
         if key is not None:
             return self.paths["orbit"]["outer"] + '/' + self.key_address(key) + '/' + mod.replace('.', '/')
-        tree = self.tree()
-        tree_options = list(self.search(search=mod, tree=tree).values())
+        tree_options = list(self.search(search=mod).values())
         if len(tree_options) == 0:
             if trials > 0:
                 self.tree(update=True)

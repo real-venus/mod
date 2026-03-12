@@ -75,6 +75,7 @@ export default function TreasuryPage() {
   const [safeThreshold, setSafeThreshold] = useState(0)
 
   const [holderInfo, setHolderInfo] = useState<HolderInfo | null>(null)
+  const [actualTokenBalances, setActualTokenBalances] = useState<Map<string, bigint>>(new Map())
 
   const [deposits, setDeposits] = useState<DepositEvent[]>([])
   const [depositsLoading, setDepositsLoading] = useState(false)
@@ -234,6 +235,20 @@ export default function TreasuryPage() {
         try {
           const hInfo = await treasury.getHolderInfo(walletAddress)
           setHolderInfo(hInfo)
+
+          // Fetch actual token balances from the blockchain
+          const balancesMap = new Map<string, bigint>()
+          for (const tokenAddr of hInfo.tokens) {
+            try {
+              const tokenContract = new ethers.Contract(tokenAddr, TokenABI.abi, provider)
+              const balance = await tokenContract.balanceOf(treasury.address)
+              balancesMap.set(tokenAddr.toLowerCase(), balance)
+            } catch (err) {
+              console.warn(`Could not fetch balance for token ${tokenAddr}:`, err)
+              balancesMap.set(tokenAddr.toLowerCase(), BigInt(0))
+            }
+          }
+          setActualTokenBalances(balancesMap)
         } catch {
           setHolderInfo(null)
         }
@@ -392,6 +407,41 @@ export default function TreasuryPage() {
   }
 
   async function handleWithdrawToken(tokenAddr: string, symbol: string) {
+    if (!holderInfo) {
+      toast.error('Holder info not loaded')
+      return
+    }
+
+    // Get actual treasury balance
+    const actualBalance = actualTokenBalances.get(tokenAddr.toLowerCase()) || BigInt(0)
+    if (actualBalance === BigInt(0)) {
+      toast.error(`Treasury has no ${symbol} balance available`)
+      return
+    }
+
+    // Get what the contract thinks is claimable
+    const tokenIndex = holderInfo.tokens.findIndex(t => t.toLowerCase() === tokenAddr.toLowerCase())
+    if (tokenIndex === -1) {
+      toast.error('Token not found in treasury')
+      return
+    }
+
+    const contractClaimable = holderInfo.claimableAmounts[tokenIndex]
+
+    // CRITICAL CHECK: Prevent transaction if contract's claimable exceeds actual balance
+    if (contractClaimable > actualBalance) {
+      const bal = tokenBalances.find(b => b.address.toLowerCase() === tokenAddr.toLowerCase())
+      const contractAmount = parseFloat(ethers.formatUnits(contractClaimable, bal?.decimals || 18))
+      const availableAmount = parseFloat(ethers.formatUnits(actualBalance, bal?.decimals || 18))
+
+      toast.error(
+        `Cannot claim: Contract calculated $${contractAmount.toFixed(2)} but treasury only has $${availableAmount.toFixed(2)}. ` +
+        `This is a contract issue - wait for more deposits or other users to claim their historical shares.`,
+        { autoClose: 8000 }
+      )
+      return
+    }
+
     execAdminAction(`Withdraw ${symbol}`, () => treasury.withdrawToken(walletAddress, tokenAddr))
   }
 
@@ -980,25 +1030,139 @@ export default function TreasuryPage() {
                     </span>
                   </div>
 
+                  {/* Ownership Breakdown */}
+                  <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Your Treasury Ownership</span>
+                      <span className="text-lg font-bold text-emerald-400">
+                        {(Number(holderInfo.ownershipPercentage) / 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                      <div>
+                        <div>Your BlocTime</div>
+                        <div className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
+                          {parseFloat(ethers.formatUnits(holderInfo.governanceBalance, 18)).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div>Total Supply</div>
+                        <div className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
+                          {blocTimeTotalSupply !== '0' ? parseFloat(blocTimeTotalSupply).toLocaleString() : '...'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
+                      <div className="text-[10px] mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Claims based on proportional share of treasury (minus {ownerPctDisplay}% owner fee)
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     {holderInfo.tokens.map((token, i) => {
                       const bal = tokenBalances.find(b => b.address.toLowerCase() === token.toLowerCase())
-                      const claimable = holderInfo.claimableAmounts[i]
-                      const claimableFormatted = ethers.formatUnits(claimable, bal?.decimals || 18)
-                      const claimableNum = parseFloat(claimableFormatted)
+                      const alreadyClaimed = holderInfo.claimedAmounts[i]
+                      const contractClaimable = holderInfo.claimableAmounts[i]
+
+                      // Get actual treasury balance for this token from provider
+                      const actualBalance = actualTokenBalances.get(token.toLowerCase()) || BigInt(0)
+
+                      // Check if contract's calculation exceeds actual balance (CONTRACT BUG)
+                      const contractExceedsBalance = contractClaimable > actualBalance
+
+                      // Calculate simple claimable: actualBalance * ownership% * (1 - ownerFee%)
+                      const ownershipPct = Number(holderInfo.ownershipPercentage) / 10000 // convert from basis points
+                      const ownerFeePct = Number(treasuryInfo?.ownerPct || 0) / 10000
+                      const distributablePct = 1 - ownerFeePct
+
+                      // User's share = actualBalance * distributablePct * ownershipPct
+                      const actualFormatted = ethers.formatUnits(actualBalance, bal?.decimals || 18)
+                      const actualNum = parseFloat(actualFormatted)
+                      const userShare = actualNum * distributablePct * ownershipPct
+
+                      const claimedFormatted = ethers.formatUnits(alreadyClaimed, bal?.decimals || 18)
+                      const claimedNum = parseFloat(claimedFormatted)
+
                       return (
-                        <div key={token} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                          <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>{bal?.symbol || token.slice(0, 8)}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold font-mono text-emerald-400">${claimableNum.toFixed(2)}</span>
-                            <button
-                              onClick={() => handleWithdrawToken(token, bal?.symbol || 'Token')}
-                              disabled={adminLoading !== null || claimable === BigInt(0)}
-                              className="px-3 py-1.5 text-[11px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-30 transition-all rounded-md"
-                            >
-                              {adminLoading === `Withdraw ${bal?.symbol || 'Token'}` ? '...' : 'Claim'}
-                            </button>
+                        <div key={token} className="p-2 rounded-lg space-y-1" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>{bal?.symbol || token.slice(0, 8)}</span>
+                              {contractExceedsBalance && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                                  Contract Error
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <div className="font-bold font-mono text-emerald-400">${userShare.toFixed(2)}</div>
+                                <div className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+                                  of ${actualNum.toFixed(2)} total
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleWithdrawToken(token, bal?.symbol || 'Token')}
+                                disabled={adminLoading !== null || actualBalance === BigInt(0) || contractExceedsBalance}
+                                className="px-3 py-1.5 text-[11px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-30 transition-all rounded-md"
+                              >
+                                {adminLoading === `Withdraw ${bal?.symbol || 'Token'}` ? '...' : 'Claim'}
+                              </button>
+                            </div>
                           </div>
+
+                          {/* Calculation breakdown */}
+                          <details className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                            <summary className="cursor-pointer hover:text-emerald-400 transition-colors">
+                              View calculation
+                            </summary>
+                            <div className="mt-2 p-2 rounded space-y-1" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                              <div className="flex justify-between">
+                                <span>Treasury balance:</span>
+                                <span className="font-mono">${actualNum.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Owner fee ({(ownerFeePct * 100).toFixed(2)}%):</span>
+                                <span className="font-mono">-${(actualNum * ownerFeePct).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between pt-1" style={{ borderTop: '1px solid var(--border-color)' }}>
+                                <span>Distributable:</span>
+                                <span className="font-mono">${(actualNum * distributablePct).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Your share ({(ownershipPct * 100).toFixed(2)}%):</span>
+                                <span className="font-mono font-bold text-emerald-400">${userShare.toFixed(2)}</span>
+                              </div>
+                              {claimedNum > 0 && (
+                                <div className="flex justify-between pt-1" style={{ borderTop: '1px solid var(--border-color)' }}>
+                                  <span>Already claimed (lifetime):</span>
+                                  <span className="font-mono">${claimedNum.toFixed(2)}</span>
+                                </div>
+                              )}
+                              {contractExceedsBalance && (
+                                <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
+                                  <div className="text-red-400 font-bold mb-1">⚠️ Contract Calculation Error</div>
+                                  <div className="text-[9px]">
+                                    Contract thinks you can claim: ${ethers.formatUnits(contractClaimable, bal?.decimals || 18)} {bal?.symbol}
+                                  </div>
+                                  <div className="text-[9px]">
+                                    But treasury only has: ${actualNum.toFixed(2)} total
+                                  </div>
+                                  <div className="text-[9px] mt-1 opacity-70">
+                                    This happens when the contract's historical calculation exceeds actual funds.
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </details>
+
+                          {/* Warning banner for contract error */}
+                          {contractExceedsBalance && (
+                            <div className="text-[10px] px-2 py-1.5 rounded bg-red-500/10 border border-red-500/30" style={{ color: 'var(--text-tertiary)' }}>
+                              🚫 <span className="text-red-400 font-bold">Cannot claim:</span> Contract's calculation exceeds treasury balance. Wait for deposits or contact admin.
+                            </div>
+                          )}
                         </div>
                       )
                     })}

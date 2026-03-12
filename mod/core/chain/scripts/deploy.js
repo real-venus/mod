@@ -43,14 +43,16 @@ async function main() {
     const Token = await hre.ethers.getContractFactory("Token");
 
     // Mock USDT
-    const usdtDeployTx = await Token.deploy("Tether USD", "USDT", hre.ethers.parseEther("1000000"));
+    let nonce = await deployer.getNonce('pending');
+    const usdtDeployTx = await Token.deploy("Tether USD", "USDT", hre.ethers.parseEther("1000000"), { nonce });
     await sendAndConfirm(usdtDeployTx.deploymentTransaction(), "Mock USDT deploy");
     usdt = usdtDeployTx;
     usdtAddress = await usdt.getAddress();
     console.log("Mock USDT deployed to:", usdtAddress);
 
     // Mock USDC
-    const usdcDeployTx = await Token.deploy("USD Coin", "USDC", hre.ethers.parseEther("1000000"));
+    nonce = await deployer.getNonce('pending');
+    const usdcDeployTx = await Token.deploy("USD Coin", "USDC", hre.ethers.parseEther("1000000"), { nonce });
     await sendAndConfirm(usdcDeployTx.deploymentTransaction(), "Mock USDC deploy");
     usdc = usdcDeployTx;
     usdcAddress = await usdc.getAddress();
@@ -68,8 +70,15 @@ async function main() {
 
   console.log("\n⚙️ Setting 1:1 oracle prices...");
   const usdPrice = 100000000n; // $1.00 with 8 decimals
-  await sendAndConfirm(oracle.setPrice(usdcAddress, usdPrice, 8), "USDC price set");
-  await sendAndConfirm(oracle.setPrice(usdtAddress, usdPrice, 8), "USDT price set");
+
+  // Get fresh nonce for USDC price
+  let nonce = await deployer.getNonce('pending');
+  await sendAndConfirm(oracle.setPrice(usdcAddress, usdPrice, 8, { nonce }), "USDC price set");
+
+  // Get fresh nonce for USDT price
+  nonce = await deployer.getNonce('pending');
+  await sendAndConfirm(oracle.setPrice(usdtAddress, usdPrice, 8, { nonce }), "USDT price set");
+
   console.log("USDC & USDT prices set to $1.00");
 
   // TokenGate
@@ -82,8 +91,12 @@ async function main() {
   console.log("TokenGate deployed to:", tokenGateAddress);
 
   console.log("\n⚙️ Whitelisting tokens in TokenGate...");
-  await sendAndConfirm(tokenGate.whitelistToken(usdcAddress), "USDC whitelist");
-  await sendAndConfirm(tokenGate.whitelistToken(usdtAddress), "USDT whitelist");
+  nonce = await deployer.getNonce('pending');
+  await sendAndConfirm(tokenGate.whitelistToken(usdcAddress, { nonce }), "USDC whitelist");
+
+  nonce = await deployer.getNonce('pending');
+  await sendAndConfirm(tokenGate.whitelistToken(usdtAddress, { nonce }), "USDT whitelist");
+
   console.log("USDC & USDT whitelisted");
 
   // Native Token
@@ -117,7 +130,8 @@ async function main() {
     { blocks: 50000, multiplier: 20000 },
     { blocks: 100000, multiplier: 30000 },
   ];
-  await sendAndConfirm(blocTime.setPoints(points), "Multiplier points set");
+  nonce = await deployer.getNonce('pending');
+  await sendAndConfirm(blocTime.setPoints(points, { nonce }), "Multiplier points set");
   console.log("Multiplier points set successfully");
 
   // Registry
@@ -137,7 +151,9 @@ async function main() {
   const treasury = treasuryDeployTx;
   const treasuryAddress = await treasury.getAddress();
   console.log("Treasury deployed to:", treasuryAddress);
-  await sendAndConfirm(treasury.setGovernanceToken(blocTimeAddress), "Governance token set");
+
+  nonce = await deployer.getNonce('pending');
+  await sendAndConfirm(treasury.setGovernanceToken(blocTimeAddress, { nonce }), "Governance token set");
   console.log("Governance token set to BlocTime");
 
   // Market
@@ -164,7 +180,8 @@ async function main() {
   console.log("Debit deployed to:", debitAddress);
 
   console.log("\n⚙️ Authorizing Debit contract on Market...");
-  await sendAndConfirm(market.setDebitContract(debitAddress), "Debit contract authorized");
+  nonce = await deployer.getNonce('pending');
+  await sendAndConfirm(market.setDebitContract(debitAddress, { nonce }), "Debit contract authorized");
   console.log("Debit contract authorized on Market");
 
   // Save to config.json (unchanged)
