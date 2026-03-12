@@ -72,7 +72,10 @@ class Bridge:
         self.load_contracts()
         # Load balances
         self.total_balances = self.get_total_balances()
-        self.claimed_balances = self.get_claims()
+
+    @property
+    def claimed_balances(self):
+        return self.get_claims()
 
 
     def set_config(self, update=False):
@@ -486,17 +489,13 @@ class Bridge:
         amount = self.total_balances.get(address, 0)
         assert self.claimed_balances.get(address, 0) == 0, "Tokens already claimed for this address"
 
-        if amount > 0:
-            # Mark as claimed locally
-            self.claimed_balances[address] = amount
-            self.save_claims()
-            return f"Claimed {amount} tokens for address {address}"
-
-
-        # tranfer tokens on-chain to recipient
-        self.transfer(recipient, amount)
-
-        return f"No tokens to claim for address {address}"
+        if amount == 0:
+            return  f"No tokens to claim for address {address}"
+        self.mint(recipient, amount)
+        # Mark as claimed locally
+        self.claimed_balances[address] = amount
+        self.save_claims()
+        return f"Claimed {amount} tokens for address {address}"
 
     def test(self):
         """Test claim flow."""

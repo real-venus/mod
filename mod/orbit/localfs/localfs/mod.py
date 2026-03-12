@@ -36,7 +36,7 @@ class LocalFS:
         # Ensure directories exist
         self.blocks_path.mkdir(parents=True, exist_ok=True)
         self.pins_path.mkdir(parents=True, exist_ok=True)
-
+        self.use_rust = use_rust
         # Try to import Rust bindings, fall back to pure Python
         self.ensure_bindings()
 
