@@ -22,7 +22,7 @@ import BlocTimeABI from '@/contracts/bloctime/BlocTime.sol/BlocTime.json'
 
 export const dynamic = 'force-dynamic'
 
-const tInputStyle = { backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)' } as const
+const tInputStyle = { backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)', color: 'var(--text-primary)' } as const
 
 type Tab = 'overview' | 'member' | 'owner'
 
@@ -609,7 +609,7 @@ export default function TreasuryPage() {
   if (!treasury.address) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="text-purple-400 text-xl font-mono">Treasury not configured</div>
+        <div className="text-purple-400 text-xl font-mono uppercase font-bold">Treasury not configured</div>
       </div>
     )
   }
@@ -621,18 +621,18 @@ export default function TreasuryPage() {
         {/* ── Header ── */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 flex items-center justify-center border border-purple-500/40 rounded-lg bg-purple-500/10">
+            <div className="w-10 h-10 flex items-center justify-center border-4 border-purple-500/40 bg-purple-500/10">
               <BuildingLibraryIcon className="w-6 h-6 text-purple-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Treasury</h1>
+              <h1 className="text-2xl font-bold uppercase font-digital" style={{ color: 'var(--text-primary)' }}>Treasury</h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                <span className="font-mono text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>
                   {treasury.address.slice(0, 6)}...{treasury.address.slice(-4)}
                 </span>
                 <CopyButton text={treasury.address} size="sm" />
                 {isSafeOwned && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold bg-green-500/15 border border-green-500/30 text-green-400 rounded">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase bg-green-500/15 border-4 border-green-500/30 text-green-400">
                     <ShieldCheckIcon className="w-3 h-3" /> MULTISIG
                   </span>
                 )}
@@ -643,21 +643,21 @@ export default function TreasuryPage() {
           <button
             onClick={() => fetchData()}
             disabled={loading}
-            className="flex items-center gap-1 px-3 py-2 hover:border-purple-500/30 rounded-lg hover:text-purple-400 text-xs transition-all"
-            style={{ border: '2px solid var(--border-strong)', color: 'var(--text-tertiary)' }}
+            className="flex items-center gap-1 px-3 py-2 hover:border-purple-500/30 hover:text-purple-400 text-xs transition-all uppercase font-bold"
+            style={{ border: '4px solid var(--border-strong)', color: 'var(--text-tertiary)' }}
           >
             <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex items-center gap-1" style={{ borderBottom: '2px solid var(--border-color)' }}>
+        <div className="flex items-center gap-1" style={{ borderBottom: '4px solid var(--border-color)' }}>
           {tabs.filter(t => t.show).map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2.5 text-sm font-bold transition-colors relative ${
-                activeTab === tab.key ? 'text-purple-400' : ''
+              className={`px-4 py-2.5 text-sm font-bold uppercase transition-colors relative border-4 ${
+                activeTab === tab.key ? 'text-purple-400 border-purple-500/40' : 'border-transparent'
               }`}
               style={activeTab !== tab.key ? { color: 'var(--text-tertiary)' } : {}}
             >
@@ -665,14 +665,14 @@ export default function TreasuryPage() {
               {activeTab === tab.key && (
                 <motion.div
                   layoutId="treasuryTab"
-                  className="absolute bottom-0 left-2 right-2 h-[2px] bg-purple-500"
+                  className="absolute bottom-0 left-2 right-2 h-[4px] bg-purple-500"
                   transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                 />
               )}
             </button>
           ))}
           <div className="flex-1" />
-          <span className="text-[10px] font-mono pb-2" style={{ color: 'var(--text-tertiary)' }}>
+          <span className="text-[10px] font-mono uppercase pb-2" style={{ color: 'var(--text-tertiary)' }}>
             {lastUpdate.toLocaleTimeString()}
           </span>
         </div>
@@ -688,20 +688,20 @@ export default function TreasuryPage() {
               className="space-y-4"
             >
               {/* ── Contract Addresses ── */}
-              <div className="rounded-xl p-5 grid grid-cols-1 md:grid-cols-3 gap-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+              <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}>
                 <div>
-                  <div className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>Treasury Address</div>
+                  <div className="text-xs mb-2 uppercase font-bold font-digital" style={{ color: 'var(--text-tertiary)' }}>Treasury Address</div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
+                    <span className="font-mono text-sm uppercase" style={{ color: 'var(--text-primary)' }}>
                       {treasury.address.slice(0, 6)}...{treasury.address.slice(-4)}
                     </span>
                     <CopyButton text={treasury.address} size="sm" />
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>Token Address (NAT)</div>
+                  <div className="text-xs mb-2 uppercase font-bold font-digital" style={{ color: 'var(--text-tertiary)' }}>Token Address (NAT)</div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
+                    <span className="font-mono text-sm uppercase" style={{ color: 'var(--text-primary)' }}>
                       {(() => {
                         const network = 'testnet'
                         const nativeAddr = (modConfig.chain as any)?.[network]?.contracts?.NativeToken?.address || ''
@@ -712,9 +712,9 @@ export default function TreasuryPage() {
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>BlocTime Address</div>
+                  <div className="text-xs mb-2 uppercase font-bold font-digital" style={{ color: 'var(--text-tertiary)' }}>BlocTime Address</div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
+                    <span className="font-mono text-sm uppercase" style={{ color: 'var(--text-primary)' }}>
                       {(() => {
                         const network = 'testnet'
                         const blocTimeAddr = (modConfig.chain as any)?.[network]?.contracts?.BlocTime?.address || ''
@@ -736,16 +736,16 @@ export default function TreasuryPage() {
                 if (modBal > 0) pieData.push({ name: modTokenSymbol, value: modBal })
 
                 return (
-                  <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+                  <div className="p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}>
                     <div className="flex items-center justify-between mb-5">
                       <div>
-                        <span className="text-xs font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>Total Treasury Value</span>
-                        <span className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{loading ? '...' : fmt(totalBalance)}</span>
+                        <span className="text-xs font-bold uppercase tracking-wider mb-1 block font-digital" style={{ color: 'var(--text-tertiary)' }}>Total Treasury Value</span>
+                        <span className="text-3xl font-bold font-digital" style={{ color: 'var(--text-primary)' }}>{loading ? '...' : fmt(totalBalance)}</span>
                       </div>
                       {parseFloat(marketUnclaimedFees) > 0 && (
                         <div className="text-right">
-                          <span className="text-xs block mb-1" style={{ color: 'var(--text-tertiary)' }}>Pending Fees</span>
-                          <span className="text-xl font-bold text-emerald-400">{fmt(parseFloat(marketUnclaimedFees))}</span>
+                          <span className="text-xs block mb-1 uppercase font-bold font-digital" style={{ color: 'var(--text-tertiary)' }}>Pending Fees</span>
+                          <span className="text-xl font-bold font-digital text-emerald-400">{fmt(parseFloat(marketUnclaimedFees))}</span>
                         </div>
                       )}
                     </div>
@@ -770,14 +770,14 @@ export default function TreasuryPage() {
                                 ))}
                               </Pie>
                               <Tooltip
-                                contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '12px' }}
+                                contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)', color: 'var(--text-primary)', fontSize: '12px' }}
                                 formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, '']}
                               />
                             </PieChart>
                           </ResponsiveContainer>
                         ) : (
-                          <div className="w-full h-full rounded-full flex items-center justify-center" style={{ border: '2px solid var(--border-color)' }}>
-                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>--</span>
+                          <div className="w-full h-full rounded-full flex items-center justify-center" style={{ border: '4px solid var(--border-color)' }}>
+                            <span className="text-xs uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>--</span>
                           </div>
                         )}
                       </div>
@@ -787,11 +787,11 @@ export default function TreasuryPage() {
                         {pieData.map((item, idx) => {
                           const pct = totalBalance > 0 ? ((item.value / totalBalance) * 100).toFixed(1) : '0'
                           return (
-                            <div key={item.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-purple-500/5 transition-colors">
+                            <div key={item.name} className="flex items-center justify-between p-2 hover:bg-purple-500/5 transition-colors border-4 border-transparent hover:border-purple-500/20">
                               <div className="flex items-center gap-3">
                                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                                <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>{item.name}</span>
-                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}>{pct}%</span>
+                                <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)' }}>{item.name}</span>
+                                <span className="text-xs px-1.5 py-0.5 uppercase font-bold" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}>{pct}%</span>
                               </div>
                               <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{fmt(item.value)}</span>
                             </div>
@@ -805,25 +805,25 @@ export default function TreasuryPage() {
 
               {/* ── Safe Info ── */}
               {isSafeOwned && (
-                <div className="rounded-xl p-5 border border-green-500/20 bg-green-500/[0.04]">
+                <div className="p-5 border-4 border-green-500/20 bg-green-500/[0.04]">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <ShieldCheckIcon className="w-5 h-5 text-green-400" />
-                      <span className="text-sm font-bold text-green-400">Multisig Treasury</span>
+                      <span className="text-sm font-bold uppercase font-digital text-green-400">Multisig Treasury</span>
                     </div>
-                    <div className="px-2.5 py-1 rounded-md bg-green-500/15 border border-green-500/30">
-                      <span className="text-xs font-bold text-green-400">
+                    <div className="px-2.5 py-1 bg-green-500/15 border-4 border-green-500/30">
+                      <span className="text-xs font-bold uppercase text-green-400">
                         {safeThreshold} of {safeOwners.length} required
                       </span>
                     </div>
                   </div>
                   <div className="space-y-2">
                     {safeOwners.map(addr => (
-                      <div key={addr} className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: addr.toLowerCase() === walletAddress.toLowerCase() ? 'var(--bg-secondary)' : 'transparent' }}>
+                      <div key={addr} className="flex items-center gap-3 p-2 border-4" style={{ backgroundColor: addr.toLowerCase() === walletAddress.toLowerCase() ? 'var(--bg-secondary)' : 'transparent', borderColor: addr.toLowerCase() === walletAddress.toLowerCase() ? 'var(--border-strong)' : 'transparent' }}>
                         <div className={`w-2 h-2 rounded-full ${addr.toLowerCase() === walletAddress.toLowerCase() ? 'bg-green-400' : 'bg-gray-500/40'}`} />
-                        <span className="font-mono text-xs flex-1" style={{ color: 'var(--text-secondary)' }}>{addr.slice(0, 6)}...{addr.slice(-4)}</span>
+                        <span className="font-mono text-xs flex-1 uppercase" style={{ color: 'var(--text-secondary)' }}>{addr.slice(0, 6)}...{addr.slice(-4)}</span>
                         {addr.toLowerCase() === walletAddress.toLowerCase() && (
-                          <span className="text-green-400 text-[10px] font-bold px-2 py-0.5 bg-green-500/20 rounded border border-green-500/30">YOUR WALLET</span>
+                          <span className="text-green-400 text-[10px] font-bold uppercase px-2 py-0.5 bg-green-500/20 border-4 border-green-500/30">YOUR WALLET</span>
                         )}
                       </div>
                     ))}
@@ -843,18 +843,18 @@ export default function TreasuryPage() {
               className="space-y-4"
             >
               {/* Unified Token Card (NAT & BlocTime) */}
-              <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+              <div className="p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}>
                 {/* Header with Toggle */}
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-xs font-bold uppercase tracking-wider font-digital" style={{ color: 'var(--text-tertiary)' }}>
                       {governanceToken !== ethers.ZeroAddress ? 'Governance Tokens' : 'Tokens'}
                     </span>
                   </div>
                   <button
                     onClick={() => setShowBlocTimeDetails(!showBlocTimeDetails)}
-                    className="text-xs px-3 py-1.5 rounded-md transition-all font-bold"
-                    style={{ backgroundColor: 'var(--bg-tertiary)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)' }}
+                    className="text-xs px-3 py-1.5 transition-all font-bold uppercase"
+                    style={{ backgroundColor: 'var(--bg-tertiary)', border: '4px solid var(--border-strong)', color: 'var(--text-primary)' }}
                   >
                     {showBlocTimeDetails ? 'Hide Staking' : 'Stake NAT'}
                   </button>
@@ -864,25 +864,25 @@ export default function TreasuryPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   {/* NAT Balance */}
                   <div>
-                    <h3 className="text-2xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+                    <h3 className="text-2xl font-bold mb-3 uppercase font-digital" style={{ color: 'var(--text-primary)' }}>
                       {modTokenSymbol}
                     </h3>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Your Balance</span>
+                        <span className="text-xs uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Your Balance</span>
                         <span className="font-mono text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
                           {parseFloat(userNatBalance).toLocaleString()}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Total Supply</span>
+                        <span className="text-xs uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Total Supply</span>
                         <span className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
                           {parseFloat(modTokenSupply).toLocaleString()}
                         </span>
                       </div>
                       {modTokenSupply !== '0' && userNatBalance !== '0' && (
-                        <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
-                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>% of Supply</span>
+                        <div className="flex items-center justify-between pt-2" style={{ borderTop: '4px solid var(--border-color)' }}>
+                          <span className="text-xs uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>% of Supply</span>
                           <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
                             {((parseFloat(userNatBalance) / parseFloat(modTokenSupply)) * 100).toFixed(2)}%
                           </span>
@@ -893,26 +893,26 @@ export default function TreasuryPage() {
 
                   {/* BlocTime Balance */}
                   <div>
-                    <h3 className="text-2xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+                    <h3 className="text-2xl font-bold mb-3 uppercase font-digital" style={{ color: 'var(--text-primary)' }}>
                       BTime
                     </h3>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Your Balance</span>
+                        <span className="text-xs uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Your Balance</span>
                         <span className="font-mono text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
                           {parseFloat(userBlocTimeBalance).toLocaleString()}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Total Supply</span>
+                        <span className="text-xs uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Total Supply</span>
                         <span className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
                           {blocTimeTotalSupply !== '0' ? parseFloat(blocTimeTotalSupply).toLocaleString() : '...'}
                         </span>
                       </div>
                       {blocTimeTotalSupply !== '0' && userBlocTimeBalance !== '0' && (
                         <>
-                          <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
-                            <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Treasury Claim %</span>
+                          <div className="flex items-center justify-between pt-2" style={{ borderTop: '4px solid var(--border-color)' }}>
+                            <span className="text-xs font-bold uppercase" style={{ color: 'var(--text-tertiary)' }}>Treasury Claim %</span>
                             <span className="font-mono text-sm font-bold text-emerald-400">
                               {((parseFloat(userBlocTimeBalance) / parseFloat(blocTimeTotalSupply)) * 100).toFixed(2)}%
                             </span>
@@ -938,11 +938,11 @@ export default function TreasuryPage() {
                           </div>
                         </>
                       )}
-                      <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
-                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Earn via Staking</span>
+                      <div className="flex items-center justify-between pt-2" style={{ borderTop: '4px solid var(--border-color)' }}>
+                        <span className="text-xs uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Earn via Staking</span>
                         <button
                           onClick={() => setShowBlocTimeDetails(true)}
-                          className="text-xs transition-colors font-bold"
+                          className="text-xs transition-colors font-bold uppercase"
                           style={{ color: 'var(--text-primary)' }}
                         >
                           Stake NAT →
@@ -950,8 +950,8 @@ export default function TreasuryPage() {
                       </div>
                       {userBlocTimeBalance !== '0' && (
                         <div className="flex items-center justify-between">
-                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Voting Power</span>
-                          <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                          <span className="text-xs uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Voting Power</span>
+                          <span className="font-mono text-sm font-bold uppercase" style={{ color: 'var(--text-primary)' }}>
                             Active
                           </span>
                         </div>
@@ -970,22 +970,22 @@ export default function TreasuryPage() {
                       transition={{ duration: 0.3 }}
                       className="overflow-hidden"
                     >
-                      <div className="pt-6 space-y-4" style={{ borderTop: '2px solid var(--border-color)' }}>
+                      <div className="pt-6 space-y-4" style={{ borderTop: '4px solid var(--border-color)' }}>
                         {/* Stake NAT Form */}
-                        <div className="rounded-lg p-5 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border-2 border-cyan-500/30">
+                        <div className="p-5 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border-4 border-cyan-500/30">
                           <div className="flex items-center gap-2 mb-5">
                             <BuildingLibraryIcon className="w-5 h-5 text-cyan-400" />
-                            <span className="text-base font-bold text-cyan-400">Stake NAT for BlocTime</span>
+                            <span className="text-base font-bold uppercase font-digital text-cyan-400">Stake NAT for BlocTime</span>
                             {blocTimeLoading && <ArrowPathIcon className="w-4 h-4 text-cyan-400 animate-spin ml-auto" />}
                           </div>
 
                           {/* Amount Input */}
                           <div className="mb-5">
                             <div className="flex items-center justify-between mb-2">
-                              <label className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Stake Amount (NAT)</label>
+                              <label className="text-xs font-bold uppercase font-digital" style={{ color: 'var(--text-tertiary)' }}>Stake Amount (NAT)</label>
                               <button
                                 onClick={() => setStakeAmount(userNatBalance)}
-                                className="text-[10px] px-2 py-1 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 transition-all font-bold"
+                                className="text-[10px] px-2 py-1 bg-cyan-500/15 border-4 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 transition-all font-bold uppercase"
                               >
                                 MAX: {parseFloat(userNatBalance).toLocaleString()}
                               </button>
@@ -995,7 +995,7 @@ export default function TreasuryPage() {
                               placeholder="0.0"
                               value={stakeAmount}
                               onChange={e => setStakeAmount(e.target.value)}
-                              className="w-full text-lg px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all text-center"
+                              className="w-full text-lg px-4 py-3 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 font-mono transition-all text-center"
                               style={tInputStyle}
                             />
                           </div>
@@ -1003,9 +1003,9 @@ export default function TreasuryPage() {
                           {/* Lock Blocks with Slider */}
                           <div className="mb-5">
                             <div className="flex items-center justify-between mb-3">
-                              <label className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Lock Duration (Blocks)</label>
+                              <label className="text-xs font-bold uppercase font-digital" style={{ color: 'var(--text-tertiary)' }}>Lock Duration (Blocks)</label>
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-mono px-2 py-1 rounded bg-purple-500/15 border border-purple-500/30 text-purple-400">
+                                <span className="text-xs font-mono px-2 py-1 bg-purple-500/15 border-4 border-purple-500/30 text-purple-400 uppercase font-bold">
                                   {lockBlocks ? Number(lockBlocks).toLocaleString() : '0'} blocks
                                 </span>
                               </div>
@@ -1019,7 +1019,7 @@ export default function TreasuryPage() {
                                 max={maxLockBlocks || 100000}
                                 value={lockBlocks || 1}
                                 onChange={e => setLockBlocks(e.target.value)}
-                                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                                className="w-full h-2 appearance-none cursor-pointer"
                                 style={{
                                   background: `linear-gradient(to right,
                                     rgb(6 182 212) 0%,
@@ -1038,10 +1038,10 @@ export default function TreasuryPage() {
                                   <button
                                     key={pct}
                                     onClick={() => setLockBlocks(blocks.toString())}
-                                    className="px-2 py-1.5 text-[10px] font-bold rounded transition-all hover:scale-105"
+                                    className="px-2 py-1.5 text-[10px] font-bold uppercase transition-all hover:scale-105"
                                     style={{
                                       backgroundColor: Number(lockBlocks) === blocks ? 'rgb(6 182 212 / 0.2)' : 'var(--bg-tertiary)',
-                                      border: Number(lockBlocks) === blocks ? '1px solid rgb(6 182 212 / 0.5)' : '1px solid var(--border-color)',
+                                      border: Number(lockBlocks) === blocks ? '4px solid rgb(6 182 212 / 0.5)' : '4px solid var(--border-color)',
                                       color: Number(lockBlocks) === blocks ? 'rgb(6 182 212)' : 'var(--text-tertiary)',
                                     }}
                                   >
@@ -1065,12 +1065,12 @@ export default function TreasuryPage() {
                                     setLockBlocks(val)
                                   }
                                 }}
-                                className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all text-center"
+                                className="w-full text-sm px-3 py-2 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 font-mono transition-all text-center"
                                 style={tInputStyle}
                               />
                               <div className="flex items-center justify-between mt-1.5 px-1">
-                                <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>Min: 1</span>
-                                <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+                                <span className="text-[9px] uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Min: 1</span>
+                                <span className="text-[9px] uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>
                                   Max: {(maxLockBlocks || 100000).toLocaleString()}
                                 </span>
                               </div>
@@ -1079,9 +1079,9 @@ export default function TreasuryPage() {
 
                           {/* Reward Preview */}
                           {lockBlocks && stakeAmount && parseFloat(stakeAmount) > 0 && (
-                            <div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
+                            <div className="mb-4 p-3 bg-purple-500/10 border-4 border-purple-500/30">
                               <div className="flex items-center justify-between text-xs">
-                                <span style={{ color: 'var(--text-tertiary)' }}>Estimated BlocTime Rewards</span>
+                                <span className="uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Estimated BlocTime Rewards</span>
                                 <span className="font-mono font-bold text-purple-400">
                                   {(() => {
                                     const multiplier = (Number(lockBlocks) / (maxLockBlocks || 100000))
@@ -1090,7 +1090,7 @@ export default function TreasuryPage() {
                                   })()}
                                 </span>
                               </div>
-                              <div className="mt-1.5 text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+                              <div className="mt-1.5 text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>
                                 Longer locks = higher multiplier (up to 2x at max duration)
                               </div>
                             </div>
@@ -1099,7 +1099,7 @@ export default function TreasuryPage() {
                           <button
                             onClick={handleStakeToBlocTime}
                             disabled={adminLoading !== null || !stakeAmount || !lockBlocks || parseFloat(stakeAmount) <= 0}
-                            className="w-full px-4 py-3 text-sm font-bold bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border-2 border-cyan-500/40 text-cyan-400 hover:from-cyan-500/30 hover:to-purple-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-lg"
+                            className="w-full px-4 py-3 text-sm font-bold uppercase bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border-4 border-cyan-500/40 text-cyan-400 hover:from-cyan-500/30 hover:to-purple-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                           >
                             {adminLoading === 'Stake to BlocTime' ? (
                               <span className="flex items-center justify-center gap-2">
@@ -1107,7 +1107,7 @@ export default function TreasuryPage() {
                                 Processing...
                               </span>
                             ) : (
-                              '🔒 Stake NAT'
+                              'STAKE NAT'
                             )}
                           </button>
                         </div>
@@ -1116,8 +1116,8 @@ export default function TreasuryPage() {
                         {userStakes.length > 0 && (
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Your Stakes</span>
-                              <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}>
+                              <span className="text-sm font-bold uppercase font-digital" style={{ color: 'var(--text-primary)' }}>Your Stakes</span>
+                              <span className="text-xs px-2 py-1 uppercase font-bold" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}>
                                 {userStakes.length}
                               </span>
                             </div>
@@ -1128,25 +1128,25 @@ export default function TreasuryPage() {
                                 const isUnlocked = stake.blocksRemaining === BigInt(0)
 
                                 return (
-                                  <div key={stake.id} className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                                  <div key={stake.id} className="p-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
                                     <div className="flex items-center justify-between mb-2">
                                       <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                                        <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-primary)' }}>
                                           {parseFloat(amountFormatted).toLocaleString()} {modTokenSymbol}
                                         </span>
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${isUnlocked ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                        <span className={`text-[10px] px-1.5 py-0.5 uppercase font-bold ${isUnlocked ? 'bg-green-500/20 text-green-400 border-4 border-green-500/30' : 'bg-amber-500/20 text-amber-400 border-4 border-amber-500/30'}`}>
                                           {isUnlocked ? 'Unlocked' : 'Locked'}
                                         </span>
                                       </div>
                                       <button
                                         onClick={() => handleUnstake(stake.id)}
                                         disabled={adminLoading !== null || !isUnlocked}
-                                        className="px-2.5 py-1 text-[11px] font-bold bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 disabled:opacity-30 transition-all rounded"
+                                        className="px-2.5 py-1 text-[11px] font-bold uppercase bg-cyan-500/15 border-4 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 disabled:opacity-30 transition-all"
                                       >
                                         {adminLoading === `Unstake ${stake.id}` ? '...' : 'Unstake'}
                                       </button>
                                     </div>
-                                    <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center justify-between text-xs uppercase">
                                       <span style={{ color: 'var(--text-tertiary)' }}>BTime: {parseFloat(blocTimeFormatted).toLocaleString()}</span>
                                       <span style={{ color: 'var(--text-tertiary)' }}>Blocks left: {stake.blocksRemaining.toString()}</span>
                                     </div>
@@ -1159,7 +1159,7 @@ export default function TreasuryPage() {
 
                         {!blocTimeLoading && userStakes.length === 0 && stakeAmount === '' && (
                           <div className="py-4 text-center">
-                            <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>No active stakes</div>
+                            <div className="text-xs uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>No active stakes</div>
                           </div>
                         )}
                       </div>
@@ -1170,41 +1170,41 @@ export default function TreasuryPage() {
 
               {/* Claimable Rewards */}
               {holderInfo && holderInfo.tokens.length > 0 && (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+                <div className="border-4 border-emerald-500/20 bg-emerald-500/[0.04] p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <WalletIcon className="w-4 h-4 text-emerald-400" />
-                      <span className="text-sm font-bold text-emerald-400">Claimable Rewards</span>
+                      <span className="text-sm font-bold uppercase font-digital text-emerald-400">Claimable Rewards</span>
                     </div>
-                    <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-xs font-mono uppercase" style={{ color: 'var(--text-tertiary)' }}>
                       {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                     </span>
                   </div>
 
                   {/* Ownership Breakdown */}
-                  <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                  <div className="mb-4 p-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Your Treasury Ownership</span>
-                      <span className="text-lg font-bold text-emerald-400">
+                      <span className="text-xs font-bold uppercase font-digital" style={{ color: 'var(--text-tertiary)' }}>Your Treasury Ownership</span>
+                      <span className="text-lg font-bold font-digital text-emerald-400">
                         {(Number(holderInfo.ownershipPercentage) / 100).toFixed(2)}%
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
                       <div>
-                        <div>Your BlocTime</div>
+                        <div className="uppercase font-bold">Your BlocTime</div>
                         <div className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
                           {parseFloat(ethers.formatUnits(holderInfo.governanceBalance, 18)).toLocaleString()}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div>Total Supply</div>
+                        <div className="uppercase font-bold">Total Supply</div>
                         <div className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
                           {blocTimeTotalSupply !== '0' ? parseFloat(blocTimeTotalSupply).toLocaleString() : '...'}
                         </div>
                       </div>
                     </div>
-                    <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
-                      <div className="text-[10px] mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                    <div className="mt-2 pt-2" style={{ borderTop: '4px solid var(--border-color)' }}>
+                      <div className="text-[10px] mb-1 uppercase" style={{ color: 'var(--text-tertiary)' }}>
                         Claims based on proportional share of treasury (minus {ownerPctDisplay}% owner fee)
                       </div>
                     </div>
@@ -1236,12 +1236,12 @@ export default function TreasuryPage() {
                       const claimedNum = parseFloat(claimedFormatted)
 
                       return (
-                        <div key={token} className="p-2 rounded-lg space-y-1" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                        <div key={token} className="p-2 space-y-1" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>{bal?.symbol || token.slice(0, 8)}</span>
+                              <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)' }}>{bal?.symbol || token.slice(0, 8)}</span>
                               {contractExceedsBalance && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                                <span className="text-[9px] px-1.5 py-0.5 bg-red-500/20 text-red-400 border-4 border-red-500/30 uppercase font-bold">
                                   Contract Error
                                 </span>
                               )}
@@ -1249,14 +1249,14 @@ export default function TreasuryPage() {
                             <div className="flex items-center gap-3">
                               <div className="text-right">
                                 <div className="font-bold font-mono text-emerald-400">${userShare.toFixed(2)}</div>
-                                <div className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+                                <div className="text-[9px] uppercase" style={{ color: 'var(--text-tertiary)' }}>
                                   of ${actualNum.toFixed(2)} total
                                 </div>
                               </div>
                               <button
                                 onClick={() => handleWithdrawToken(token, bal?.symbol || 'Token')}
                                 disabled={adminLoading !== null || actualBalance === BigInt(0) || contractExceedsBalance}
-                                className="px-3 py-1.5 text-[11px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-30 transition-all rounded-md"
+                                className="px-3 py-1.5 text-[11px] font-bold uppercase bg-emerald-500/15 border-4 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-30 transition-all"
                               >
                                 {adminLoading === `Withdraw ${bal?.symbol || 'Token'}` ? '...' : 'Claim'}
                               </button>
@@ -1264,11 +1264,11 @@ export default function TreasuryPage() {
                           </div>
 
                           {/* Calculation breakdown */}
-                          <details className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                            <summary className="cursor-pointer hover:text-emerald-400 transition-colors">
+                          <details className="text-[10px] uppercase" style={{ color: 'var(--text-tertiary)' }}>
+                            <summary className="cursor-pointer hover:text-emerald-400 transition-colors font-bold">
                               View calculation
                             </summary>
-                            <div className="mt-2 p-2 rounded space-y-1" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                            <div className="mt-2 p-2 space-y-1 border-4" style={{ backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)' }}>
                               <div className="flex justify-between">
                                 <span>Treasury balance:</span>
                                 <span className="font-mono">${actualNum.toFixed(2)}</span>
@@ -1277,7 +1277,7 @@ export default function TreasuryPage() {
                                 <span>Owner fee ({(ownerFeePct * 100).toFixed(2)}%):</span>
                                 <span className="font-mono">-${(actualNum * ownerFeePct).toFixed(2)}</span>
                               </div>
-                              <div className="flex justify-between pt-1" style={{ borderTop: '1px solid var(--border-color)' }}>
+                              <div className="flex justify-between pt-1" style={{ borderTop: '4px solid var(--border-color)' }}>
                                 <span>Distributable:</span>
                                 <span className="font-mono">${(actualNum * distributablePct).toFixed(2)}</span>
                               </div>
@@ -1286,14 +1286,14 @@ export default function TreasuryPage() {
                                 <span className="font-mono font-bold text-emerald-400">${userShare.toFixed(2)}</span>
                               </div>
                               {claimedNum > 0 && (
-                                <div className="flex justify-between pt-1" style={{ borderTop: '1px solid var(--border-color)' }}>
+                                <div className="flex justify-between pt-1" style={{ borderTop: '4px solid var(--border-color)' }}>
                                   <span>Already claimed (lifetime):</span>
                                   <span className="font-mono">${claimedNum.toFixed(2)}</span>
                                 </div>
                               )}
                               {contractExceedsBalance && (
-                                <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
-                                  <div className="text-red-400 font-bold mb-1">⚠️ Contract Calculation Error</div>
+                                <div className="pt-2 mt-2" style={{ borderTop: '4px solid var(--border-color)' }}>
+                                  <div className="text-red-400 font-bold mb-1 uppercase">Contract Calculation Error</div>
                                   <div className="text-[9px]">
                                     Contract thinks you can claim: ${ethers.formatUnits(contractClaimable, bal?.decimals || 18)} {bal?.symbol}
                                   </div>
@@ -1310,8 +1310,8 @@ export default function TreasuryPage() {
 
                           {/* Warning banner for contract error */}
                           {contractExceedsBalance && (
-                            <div className="text-[10px] px-2 py-1.5 rounded bg-red-500/10 border border-red-500/30" style={{ color: 'var(--text-tertiary)' }}>
-                              🚫 <span className="text-red-400 font-bold">Cannot claim:</span> Contract's calculation exceeds treasury balance. Wait for deposits or contact admin.
+                            <div className="text-[10px] px-2 py-1.5 bg-red-500/10 border-4 border-red-500/30 uppercase" style={{ color: 'var(--text-tertiary)' }}>
+                              <span className="text-red-400 font-bold">Cannot claim:</span> Contract's calculation exceeds treasury balance. Wait for deposits or contact admin.
                             </div>
                           )}
                         </div>
@@ -1322,7 +1322,7 @@ export default function TreasuryPage() {
                         <button
                           onClick={handleWithdrawAll}
                           disabled={adminLoading !== null}
-                          className="px-4 py-2 text-xs font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-30 transition-all rounded-lg"
+                          className="px-4 py-2 text-xs font-bold uppercase bg-emerald-500/15 border-4 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-30 transition-all"
                         >
                           {adminLoading === 'Withdraw All' ? '...' : 'Claim All'}
                         </button>
@@ -1334,25 +1334,25 @@ export default function TreasuryPage() {
 
               {/* Empty state if no rewards */}
               {!holderInfo?.tokens.length && (
-                <div className="rounded-xl p-8 text-center" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+                <div className="p-8 text-center" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}>
                   <WalletIcon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }} />
-                  <div className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>No claimable rewards</div>
-                  <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Rewards will appear here when you hold governance tokens</div>
+                  <div className="text-sm mb-2 uppercase font-bold" style={{ color: 'var(--text-secondary)' }}>No claimable rewards</div>
+                  <div className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Rewards will appear here when you hold governance tokens</div>
                 </div>
               )}
 
               {/* Contribute to Treasury */}
-              <div className="rounded-xl p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+              <div className="p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}>
                 <div className="flex items-center gap-2 mb-4">
                   <BuildingLibraryIcon className="w-4 h-4" style={{ color: 'var(--text-primary)' }} />
-                  <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Contribute to Treasury</span>
+                  <span className="text-sm font-bold uppercase font-digital" style={{ color: 'var(--text-primary)' }}>Contribute to Treasury</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <select
                     value={fundToken}
                     onChange={e => setFundToken(e.target.value)}
-                    className="text-sm px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 transition-all"
-                    style={{ fontFamily: 'inherit', backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)' }}
+                    className="text-sm px-4 py-2.5 focus:outline-none focus:ring-4 transition-all uppercase font-bold"
+                    style={{ fontFamily: 'inherit', backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)', color: 'var(--text-primary)' }}
                   >
                     <option value="">Select Token</option>
                     {tokenBalances.map(t => (
@@ -1365,24 +1365,24 @@ export default function TreasuryPage() {
                     placeholder="Amount"
                     value={fundAmount}
                     onChange={e => setFundAmount(e.target.value)}
-                    className="text-sm px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 font-mono transition-all"
+                    className="text-sm px-4 py-2.5 focus:outline-none focus:ring-4 font-mono transition-all"
                     style={tInputStyle}
                   />
                 </div>
                 <button
                   onClick={handleFundTreasury}
                   disabled={adminLoading !== null || !fundToken || !fundAmount}
-                  className="w-full mt-3 px-4 py-2.5 text-sm font-bold disabled:opacity-30 transition-all rounded-lg"
-                  style={{ backgroundColor: 'var(--bg-tertiary)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)' }}
+                  className="w-full mt-3 px-4 py-2.5 text-sm font-bold uppercase disabled:opacity-30 transition-all"
+                  style={{ backgroundColor: 'var(--bg-tertiary)', border: '4px solid var(--border-strong)', color: 'var(--text-primary)' }}
                 >
                   {adminLoading === 'Fund Treasury' ? 'Processing...' : 'Deposit to Treasury'}
                 </button>
               </div>
 
               {/* Your Deposits */}
-              <div className="rounded-xl p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+              <div className="p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}>
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Your Treasury Deposits</span>
+                  <span className="text-sm font-bold uppercase font-digital" style={{ color: 'var(--text-primary)' }}>Your Treasury Deposits</span>
                   <button
                     onClick={fetchDeposits}
                     disabled={depositsLoading}
@@ -1394,26 +1394,26 @@ export default function TreasuryPage() {
                 </div>
 
                 {depositsLoading ? (
-                  <div className="py-8 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading deposits...</div>
+                  <div className="py-8 text-center text-sm uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Loading deposits...</div>
                 ) : deposits.filter(dep => dep.funder.toLowerCase() === walletAddress.toLowerCase()).length === 0 ? (
                   <div className="py-8 text-center">
-                    <div className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>No deposits yet</div>
-                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Your deposits to the treasury will appear here</div>
+                    <div className="text-sm mb-2 uppercase font-bold" style={{ color: 'var(--text-secondary)' }}>No deposits yet</div>
+                    <div className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Your deposits to the treasury will appear here</div>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {deposits
                       .filter(dep => dep.funder.toLowerCase() === walletAddress.toLowerCase())
                       .map((dep, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}>
+                        <div key={idx} className="flex items-center justify-between p-3" style={{ backgroundColor: 'var(--bg-tertiary)', border: '4px solid var(--border-color)' }}>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-purple-400 font-bold text-sm">{dep.token}</span>
-                              <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                              <span className="text-purple-400 font-bold text-sm uppercase">{dep.token}</span>
+                              <span className="text-xs font-mono uppercase" style={{ color: 'var(--text-tertiary)' }}>
                                 {new Date(dep.timestamp * 1000).toLocaleDateString()}
                               </span>
                             </div>
-                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                            <span className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>
                               Block #{dep.blockNumber}
                             </span>
                           </div>
@@ -1425,9 +1425,9 @@ export default function TreasuryPage() {
               </div>
 
               {/* Your Claims History */}
-              <div className="rounded-xl p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+              <div className="p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}>
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Your Claims History</span>
+                  <span className="text-sm font-bold uppercase font-digital" style={{ color: 'var(--text-primary)' }}>Your Claims History</span>
                   <button
                     onClick={fetchClaims}
                     disabled={claimsLoading}
@@ -1439,29 +1439,29 @@ export default function TreasuryPage() {
                 </div>
 
                 {claimsLoading ? (
-                  <div className="py-8 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading claims...</div>
+                  <div className="py-8 text-center text-sm uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Loading claims...</div>
                 ) : claims.filter(claim => claim.holder.toLowerCase() === walletAddress.toLowerCase()).length === 0 ? (
                   <div className="py-8 text-center">
-                    <div className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>No claims yet</div>
-                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Your reward claims will appear here</div>
+                    <div className="text-sm mb-2 uppercase font-bold" style={{ color: 'var(--text-secondary)' }}>No claims yet</div>
+                    <div className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Your reward claims will appear here</div>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {claims
                       .filter(claim => claim.holder.toLowerCase() === walletAddress.toLowerCase())
                       .map((claim, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 rounded-lg border-l-4 border-pink-500" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderLeftColor: '#ec4899', borderLeftWidth: '4px' }}>
+                        <div key={idx} className="flex items-center justify-between p-3 border-l-4 border-pink-500" style={{ backgroundColor: 'var(--bg-tertiary)', border: '4px solid var(--border-color)', borderLeftColor: '#ec4899', borderLeftWidth: '4px' }}>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-pink-400 font-bold text-sm">{claim.token}</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-400 border border-pink-500/30">
+                              <span className="text-pink-400 font-bold text-sm uppercase">{claim.token}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 bg-pink-500/20 text-pink-400 border-4 border-pink-500/30 uppercase font-bold">
                                 CLAIMED
                               </span>
-                              <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                              <span className="text-xs font-mono uppercase" style={{ color: 'var(--text-tertiary)' }}>
                                 {new Date(claim.timestamp * 1000).toLocaleDateString()}
                               </span>
                             </div>
-                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                            <span className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>
                               Block #{claim.blockNumber}
                             </span>
                           </div>
@@ -1471,7 +1471,7 @@ export default function TreasuryPage() {
                               href={`https://sepolia.basescan.org/tx/${claim.txHash}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[9px] hover:text-pink-400 transition-colors"
+                              className="text-[9px] hover:text-pink-400 transition-colors uppercase font-bold"
                               style={{ color: 'var(--text-tertiary)' }}
                             >
                               View Tx →
@@ -1494,24 +1494,24 @@ export default function TreasuryPage() {
               exit={{ opacity: 0 }}
               className="space-y-4"
             >
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4">
+              <div className="border-4 border-amber-500/20 bg-amber-500/[0.04] p-4">
                 <div className="flex items-center gap-2">
                   <ShieldCheckIcon className="w-5 h-5 text-amber-400" />
-                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>Owner Controls</span>
-                  <span className="text-amber-400/50 text-xs ml-auto">
+                  <span className="font-bold uppercase font-digital" style={{ color: 'var(--text-primary)' }}>Owner Controls</span>
+                  <span className="text-amber-400/50 text-xs ml-auto uppercase font-bold">
                     {isOwner ? 'Direct Owner' : `Safe signer (${safeThreshold}/${safeOwners.length})`}
                   </span>
                 </div>
               </div>
 
               {/* Owner Withdrawals */}
-              <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
-                <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>Owner Withdrawals</p>
+              <div className="p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}>
+                <p className="text-xs mb-3 uppercase font-bold font-digital" style={{ color: 'var(--text-tertiary)' }}>Owner Withdrawals</p>
                 <div className="space-y-2">
                   {tokenBalances.map(tb => (
-                    <div key={tb.address} className="flex items-center justify-between py-2">
+                    <div key={tb.address} className="flex items-center justify-between py-2 border-4" style={{ borderColor: 'transparent' }}>
                       <div>
-                        <span className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{tb.symbol}</span>
+                        <span className="font-bold text-sm uppercase" style={{ color: 'var(--text-primary)' }}>{tb.symbol}</span>
                         <span className="text-xs ml-2" style={{ color: 'var(--text-tertiary)' }}>${tb.balance.toFixed(2)}</span>
                       </div>
                       <button
@@ -1521,7 +1521,7 @@ export default function TreasuryPage() {
                           () => treasury.ownerWithdraw(walletAddress, tb.address)
                         )}
                         disabled={adminLoading !== null}
-                        className="px-3 py-1.5 text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 disabled:opacity-30 transition-all rounded-lg"
+                        className="px-3 py-1.5 text-xs font-bold uppercase bg-amber-500/10 border-4 border-amber-500/30 text-amber-400 hover:bg-amber-500/20 disabled:opacity-30 transition-all"
                       >
                         {adminLoading === `Owner Withdraw ${tb.symbol}` ? '...' : isSafeSigner && !isOwner ? 'Propose' : 'Withdraw'}
                       </button>
@@ -1531,18 +1531,18 @@ export default function TreasuryPage() {
               </div>
 
               {/* Settings */}
-              <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
-                <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>Settings</p>
+              <div className="p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}>
+                <p className="text-xs mb-4 uppercase font-bold font-digital" style={{ color: 'var(--text-tertiary)' }}>Settings</p>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>Owner % (now: {ownerPctDisplay}%)</label>
+                    <label className="text-xs mb-1.5 block uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Owner % (now: {ownerPctDisplay}%)</label>
                     <div className="flex gap-2">
                       <input
                         type="number"
                         placeholder="e.g. 500 = 5%"
                         value={newOwnerPct}
                         onChange={e => setNewOwnerPct(e.target.value)}
-                        className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        className="text-sm px-3 py-2 focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
                         style={tInputStyle}
                       />
                       <button
@@ -1552,7 +1552,7 @@ export default function TreasuryPage() {
                           () => treasury.setOwnerPercentage(walletAddress, Number(newOwnerPct))
                         )}
                         disabled={adminLoading !== null || !newOwnerPct}
-                        className="px-4 py-2 text-xs font-bold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-lg"
+                        className="px-4 py-2 text-xs font-bold uppercase bg-purple-500/10 border-4 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all"
                       >
                         {adminLoading === 'Set Owner %' ? '...' : 'Set'}
                       </button>
@@ -1560,14 +1560,14 @@ export default function TreasuryPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>Governance Token</label>
+                    <label className="text-xs mb-1.5 block uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Governance Token</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         placeholder="0x..."
                         value={newGovToken}
                         onChange={e => setNewGovToken(e.target.value)}
-                        className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        className="text-sm px-3 py-2 focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
                         style={tInputStyle}
                       />
                       <button
@@ -1577,7 +1577,7 @@ export default function TreasuryPage() {
                           () => treasury.setGovernanceToken(walletAddress, newGovToken)
                         )}
                         disabled={adminLoading !== null || !newGovToken}
-                        className="px-4 py-2 text-xs font-bold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-lg"
+                        className="px-4 py-2 text-xs font-bold uppercase bg-purple-500/10 border-4 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all"
                       >
                         {adminLoading === 'Set Gov Token' ? '...' : 'Set'}
                       </button>
@@ -1585,14 +1585,14 @@ export default function TreasuryPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>Token Gate</label>
+                    <label className="text-xs mb-1.5 block uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Token Gate</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         placeholder="0x..."
                         value={newTokenGate}
                         onChange={e => setNewTokenGate(e.target.value)}
-                        className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
+                        className="text-sm px-3 py-2 focus:outline-none focus:border-purple-500/50 flex-1 font-mono"
                         style={tInputStyle}
                       />
                       <button
@@ -1602,7 +1602,7 @@ export default function TreasuryPage() {
                           () => treasury.setTokenGate(walletAddress, newTokenGate)
                         )}
                         disabled={adminLoading !== null || !newTokenGate}
-                        className="px-4 py-2 text-xs font-bold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all rounded-lg"
+                        className="px-4 py-2 text-xs font-bold uppercase bg-purple-500/10 border-4 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 disabled:opacity-30 transition-all"
                       >
                         {adminLoading === 'Set Token Gate' ? '...' : 'Set'}
                       </button>
@@ -1612,13 +1612,13 @@ export default function TreasuryPage() {
               </div>
 
               {/* Emergency Withdraw */}
-              <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4">
-                <p className="text-red-400/60 text-xs mb-3">Emergency Withdraw</p>
+              <div className="border-4 border-red-500/20 bg-red-500/[0.03] p-4">
+                <p className="text-red-400/60 text-xs mb-3 uppercase font-bold font-digital">Emergency Withdraw</p>
                 <div className="flex gap-2">
                   <select
                     value={emergencyToken}
                     onChange={e => setEmergencyToken(e.target.value)}
-                    className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1"
+                    className="text-sm px-3 py-2 focus:outline-none focus:border-red-500/50 flex-1 uppercase font-bold"
                     style={{ fontFamily: 'inherit', ...tInputStyle }}
                   >
                     <option value="">Token</option>
@@ -1631,7 +1631,7 @@ export default function TreasuryPage() {
                     placeholder="Amount"
                     value={emergencyAmount}
                     onChange={e => setEmergencyAmount(e.target.value)}
-                    className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1 font-mono"
+                    className="text-sm px-3 py-2 focus:outline-none focus:border-red-500/50 flex-1 font-mono"
                     style={tInputStyle}
                   />
                   <button
@@ -1645,7 +1645,7 @@ export default function TreasuryPage() {
                       )
                     }}
                     disabled={adminLoading !== null || !emergencyToken || !emergencyAmount}
-                    className="px-4 py-2 text-xs font-bold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-30 transition-all rounded-lg"
+                    className="px-4 py-2 text-xs font-bold uppercase bg-red-500/10 border-4 border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-30 transition-all"
                   >
                     {adminLoading === 'Emergency Withdraw' ? '...' : 'Execute'}
                   </button>
@@ -1653,10 +1653,10 @@ export default function TreasuryPage() {
               </div>
 
               {/* Transfer Ownership */}
-              <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03] p-4">
+              <div className="border-4 border-red-500/20 bg-red-500/[0.03] p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-red-400/60 text-xs">Transfer Ownership</p>
-                  <span className="text-red-400/30 text-[10px]">Irreversible</span>
+                  <p className="text-red-400/60 text-xs uppercase font-bold font-digital">Transfer Ownership</p>
+                  <span className="text-red-400/30 text-[10px] uppercase font-bold">Irreversible</span>
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -1664,7 +1664,7 @@ export default function TreasuryPage() {
                     placeholder="New owner (0x...)"
                     value={newOwner}
                     onChange={e => setNewOwner(e.target.value)}
-                    className="text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-red-500/50 flex-1 font-mono"
+                    className="text-sm px-3 py-2 focus:outline-none focus:border-red-500/50 flex-1 font-mono"
                     style={tInputStyle}
                   />
                   <button
@@ -1674,7 +1674,7 @@ export default function TreasuryPage() {
                       () => treasury.transferOwnership(walletAddress, newOwner)
                     )}
                     disabled={adminLoading !== null || !newOwner}
-                    className="px-4 py-2 text-xs font-bold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-30 transition-all rounded-lg"
+                    className="px-4 py-2 text-xs font-bold uppercase bg-red-500/10 border-4 border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-30 transition-all"
                   >
                     {adminLoading === 'Transfer Ownership' ? '...' : 'Transfer'}
                   </button>

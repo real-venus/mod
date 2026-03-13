@@ -101,15 +101,15 @@ function FnArgsInput({ inputs, args, setArgs }: {
     <div className="space-y-3">
       {inputs.map((inp: any, i: number) => (
         <div key={i}>
-          <label className="text-[12px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+          <label className="text-[12px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
             {inp.name || `arg${i}`} <span style={{ color: 'var(--text-tertiary)' }}>:: {inp.type}</span>
           </label>
           {inp.type === 'bool' ? (
             <select
               value={args[i] || ''}
               onChange={(e) => { const next = [...args]; next[i] = e.target.value; setArgs(next) }}
-              className="w-full rounded-xl px-4 py-3 text-[14px] font-mono focus:outline-none transition-all appearance-none cursor-pointer"
-              style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+              className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all appearance-none cursor-pointer uppercase"
+              style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
             >
               <option value="">Select...</option>
               <option value="true">true</option>
@@ -121,8 +121,8 @@ function FnArgsInput({ inputs, args, setArgs }: {
               value={args[i] || ''}
               onChange={(e) => { const next = [...args]; next[i] = e.target.value; setArgs(next) }}
               placeholder={inp.type}
-              className="w-full rounded-xl px-4 py-3 text-[14px] font-mono focus:outline-none transition-all"
-              style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+              className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all uppercase"
+              style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
             />
           )}
         </div>
@@ -413,12 +413,16 @@ export default function ContractsPage() {
       <div
         key={idx}
         onClick={() => setExpandedTxIdx(isExpanded ? null : idx)}
-        className={`border-2 rounded-lg backdrop-blur-sm transition-all cursor-pointer relative overflow-hidden ${
+        className={`backdrop-blur-sm transition-all cursor-pointer relative overflow-hidden ${
           exec.status === 'success'
-            ? 'border-emerald-500/60 hover:border-emerald-500/80'
-            : 'border-red-500/60 hover:border-red-500/80'
+            ? 'hover:border-emerald-500/80'
+            : 'hover:border-red-500/80'
         }`}
-        style={{ fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-surface)' }}
+        style={{
+          fontFamily: 'IBM Plex Mono, monospace',
+          backgroundColor: 'var(--bg-surface)',
+          border: exec.status === 'success' ? '4px solid rgba(16,185,129,0.6)' : '4px solid rgba(239,68,68,0.6)'
+        }}
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
@@ -474,7 +478,7 @@ export default function ContractsPage() {
             {/* Input */}
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-purple-500 mb-1">INPUT:</div>
-              <pre className="text-xs font-mono p-2 rounded" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)' }}>
+              <pre className="text-xs font-mono p-2" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)', border: '2px solid var(--border-color)' }}>
                 {JSON.stringify(exec.params, null, 2)}
               </pre>
             </div>
@@ -482,9 +486,9 @@ export default function ContractsPage() {
             {/* Result */}
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-purple-500 mb-1">RESULT:</div>
-              <pre className={`text-xs font-mono p-2 rounded ${
+              <pre className={`text-xs font-mono p-2 ${
                 exec.status === 'success' ? 'text-emerald-400' : 'text-red-400'
-              }`} style={{ backgroundColor: 'var(--bg-input)' }}>
+              }`} style={{ backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}>
                 {typeof exec.result === 'object' ? JSON.stringify(exec.result, null, 2) : exec.result}
               </pre>
             </div>
@@ -499,7 +503,7 @@ export default function ContractsPage() {
       <div key={idx} className="space-y-2">
         {/* User message */}
         <div className="flex justify-end">
-          <div className="max-w-[80%] px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+          <div className="max-w-[80%] px-4 py-2" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
             <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-500 mb-1">{exec.fn}</div>
             <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
               {JSON.stringify(exec.params, null, 2)}
@@ -509,11 +513,13 @@ export default function ContractsPage() {
 
         {/* Assistant response */}
         <div className="flex justify-start">
-          <div className={`max-w-[80%] px-4 py-2 rounded-lg ${
+          <div className={`max-w-[80%] px-4 py-2 ${
             exec.status === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30'
-              : 'bg-red-500/10 border-red-500/30'
-          } border`}>
+              ? 'bg-emerald-500/10'
+              : 'bg-red-500/10'
+          }`} style={{
+            border: exec.status === 'success' ? '4px solid rgba(16,185,129,0.4)' : '4px solid rgba(239,68,68,0.4)'
+          }}>
             <div className="flex items-center gap-2 mb-1">
               <span className={`text-[10px] font-bold uppercase tracking-wider ${
                 exec.status === 'success' ? 'text-emerald-500' : 'text-red-500'
@@ -558,16 +564,17 @@ export default function ContractsPage() {
                   setSearch('')
                 }
               }}
-              placeholder="Search contracts..."
-              className="w-full rounded-xl pl-14 pr-6 py-4 text-[15px] font-mono focus:outline-none transition-all"
-              style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+              placeholder="SEARCH CONTRACTS..."
+              className="w-full pl-14 pr-6 py-4 text-[15px] font-mono focus:outline-none transition-all uppercase"
+              style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
             />
           </div>
 
           {/* Add button - larger */}
           <button
             onClick={() => setShowAddContract(!showAddContract)}
-            className="px-6 py-3 rounded-xl text-[15px] font-bold font-mono uppercase tracking-wider transition-all bg-cyan-500/10 text-cyan-400 border-2 border-cyan-500/30 hover:bg-cyan-500/20 hover:scale-[1.02] shrink-0"
+            className="px-6 py-3 text-[15px] font-bold font-mono uppercase tracking-wider transition-all text-cyan-400 hover:scale-[1.02] shrink-0"
+            style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}
           >
             + ADD
           </button>
@@ -583,31 +590,31 @@ export default function ContractsPage() {
               transition={{ duration: 0.2 }}
               className="overflow-hidden mb-4"
             >
-              <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+              <div className="p-4 border-4" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" style={{ boxShadow: '0 0 6px rgba(0,255,255,0.8)' }} />
+                  <div className="w-1.5 h-1.5 bg-cyan-400" style={{ boxShadow: '0 0 6px rgba(0,255,255,0.8)' }} />
                   <h3 className="text-[13px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-primary)' }}>Add Custom Contract</h3>
                 </div>
 
                 <div className="space-y-3">
                   {/* Contract Name */}
                   <div>
-                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
                       Contract Name
                     </label>
                     <input
                       type="text"
                       value={newContractName}
                       onChange={(e) => setNewContractName(e.target.value)}
-                      placeholder="MyContract"
-                      className="w-full rounded-lg px-3 py-2 text-[13px] font-mono focus:outline-none transition-all"
-                      style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                      placeholder="MYCONTRACT"
+                      className="w-full px-3 py-2 text-[13px] font-mono focus:outline-none transition-all uppercase"
+                      style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
                     />
                   </div>
 
                   {/* Contract Address */}
                   <div>
-                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
                       Contract Address
                     </label>
                     <input
@@ -615,14 +622,14 @@ export default function ContractsPage() {
                       value={newContractAddress}
                       onChange={(e) => setNewContractAddress(e.target.value)}
                       placeholder="0x..."
-                      className="w-full rounded-lg px-3 py-2 text-[13px] font-mono focus:outline-none transition-all"
-                      style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                      className="w-full px-3 py-2 text-[13px] font-mono focus:outline-none transition-all"
+                      style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
                     />
                   </div>
 
                   {/* ABI CID (optional) */}
                   <div>
-                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
                       ABI CID <span style={{ color: 'var(--text-tertiary)' }}>(optional - not yet supported)</span>
                     </label>
                     <input
@@ -631,14 +638,14 @@ export default function ContractsPage() {
                       onChange={(e) => setNewContractAbiCid(e.target.value)}
                       placeholder="Qm..."
                       disabled
-                      className="w-full rounded-lg px-3 py-2 text-[13px] font-mono focus:outline-none transition-all opacity-50 cursor-not-allowed"
-                      style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                      className="w-full px-3 py-2 text-[13px] font-mono focus:outline-none transition-all opacity-50 cursor-not-allowed"
+                      style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
                     />
                   </div>
 
                   {/* ABI JSON */}
                   <div>
-                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
                       ABI JSON <span style={{ color: 'var(--text-tertiary)' }}>(paste ABI array)</span>
                     </label>
                     <textarea
@@ -646,8 +653,8 @@ export default function ContractsPage() {
                       onChange={(e) => setNewContractAbiJson(e.target.value)}
                       placeholder='[{"type":"function","name":"transfer","inputs":[...],...}]'
                       rows={6}
-                      className="w-full rounded-lg px-3 py-2 text-[12px] font-mono focus:outline-none transition-all resize-none"
-                      style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                      className="w-full px-3 py-2 text-[12px] font-mono focus:outline-none transition-all resize-none"
+                      style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
                     />
                   </div>
 
@@ -656,7 +663,8 @@ export default function ContractsPage() {
                     <button
                       onClick={handleAddContract}
                       disabled={addingContract}
-                      className="flex-1 py-2.5 rounded-lg text-[12px] font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 bg-emerald-500/12 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
+                      className="flex-1 py-2.5 text-[12px] font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 text-emerald-400 hover:bg-emerald-500/20"
+                      style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}
                     >
                       {addingContract ? (
                         <>
@@ -675,8 +683,8 @@ export default function ContractsPage() {
                         setNewContractAbiCid('')
                         setNewContractAbiJson('')
                       }}
-                      className="px-4 py-2.5 rounded-lg text-[12px] font-bold font-mono uppercase tracking-wider transition-all border hover:bg-white/5"
-                      style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-color)' }}
+                      className="px-4 py-2.5 text-[12px] font-bold font-mono uppercase tracking-wider transition-all hover:bg-white/5"
+                      style={{ color: 'var(--text-tertiary)', border: '4px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}
                     >
                       Cancel
                     </button>
@@ -697,27 +705,27 @@ export default function ContractsPage() {
                 <div key={c.name} className="relative group/card">
                   <button
                     onClick={() => setSelectedContract(c.name)}
-                    className="relative px-3 py-2 rounded-lg text-left transition-all duration-200 overflow-hidden hover:scale-[1.02]"
+                    className="relative px-3 py-2 text-left transition-all duration-200 overflow-hidden hover:scale-[1.02]"
                     style={{
-                      border: `1.5px solid var(--border-color)`,
+                      border: `4px solid var(--border-strong)`,
                       backgroundColor: 'var(--bg-secondary)',
                       boxShadow: 'var(--card-shadow)',
                     }}
                   >
                     {/* Corner accents */}
-                    <div className="absolute top-0 left-0 w-2 h-px transition-colors" style={{ backgroundColor: 'var(--border-color)' }} />
-                    <div className="absolute top-0 left-0 w-px h-2 transition-colors" style={{ backgroundColor: 'var(--border-color)' }} />
-                    <div className="absolute bottom-0 right-0 w-2 h-px transition-colors" style={{ backgroundColor: 'var(--border-color)' }} />
-                    <div className="absolute bottom-0 right-0 w-px h-2 transition-colors" style={{ backgroundColor: 'var(--border-color)' }} />
+                    <div className="absolute top-0 left-0 w-2 h-px transition-colors" style={{ backgroundColor: 'var(--border-strong)' }} />
+                    <div className="absolute top-0 left-0 w-px h-2 transition-colors" style={{ backgroundColor: 'var(--border-strong)' }} />
+                    <div className="absolute bottom-0 right-0 w-2 h-px transition-colors" style={{ backgroundColor: 'var(--border-strong)' }} />
+                    <div className="absolute bottom-0 right-0 w-px h-2 transition-colors" style={{ backgroundColor: 'var(--border-strong)' }} />
 
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full transition-all" style={{
+                        <div className="w-1.5 h-1.5 transition-all" style={{
                           backgroundColor: 'var(--text-tertiary)',
                         }} />
-                        <div className="text-[13px] font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{c.name}</div>
+                        <div className="text-[13px] font-bold font-mono uppercase" style={{ color: 'var(--text-primary)' }}>{c.name}</div>
                         {isCustom && (
-                          <span className="text-[8px] px-1 py-0.5 rounded font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">CUSTOM</span>
+                          <span className="text-[8px] px-1 py-0.5 font-mono font-bold bg-cyan-500/10 text-cyan-400" style={{ border: '2px solid rgba(0,255,255,0.3)' }}>CUSTOM</span>
                         )}
                         <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{shorten(c.address, 4, 3)}</div>
                       </div>
@@ -739,7 +747,8 @@ export default function ContractsPage() {
                           handleRemoveContract(c.name)
                         }
                       }}
-                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500/80 text-white text-xs font-bold opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-red-500 flex items-center justify-center"
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500/80 text-white text-xs font-bold opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-red-500 flex items-center justify-center"
+                      style={{ border: '2px solid var(--border-strong)' }}
                       title="Remove custom contract"
                     >
                       ×
@@ -755,21 +764,21 @@ export default function ContractsPage() {
         {contractInfo && (() => {
           const activeColor = text2color(contractInfo.name)
           return (
-          <div className="rounded-2xl p-6 relative overflow-hidden" style={{
-            border: `1.5px solid ${colorWithOpacity(activeColor, 0.3)}`,
+          <div className="p-6 relative overflow-hidden" style={{
+            border: `4px solid ${colorWithOpacity(activeColor, 0.5)}`,
             backgroundColor: 'var(--bg-secondary)',
           }}>
             {/* Subtle top glow */}
-            <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: colorWithOpacity(activeColor, 0.4) }} />
+            <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: colorWithOpacity(activeColor, 0.6) }} />
 
             {/* Contract header bar - Single line with back button, name, address, ABI, and Read/Write toggles */}
             <div className="flex items-center gap-4 mb-6">
               {/* Back button */}
               <button
                 onClick={() => setSelectedContract('')}
-                className="px-3 py-2 rounded-lg text-[12px] font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-2 hover:scale-[1.02] shrink-0"
+                className="px-3 py-2 text-[12px] font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-2 hover:scale-[1.02] shrink-0"
                 style={{
-                  border: '1.5px solid var(--border-color)',
+                  border: '4px solid var(--border-strong)',
                   backgroundColor: 'var(--bg-surface)',
                   color: 'var(--text-secondary)',
                 }}
@@ -782,20 +791,20 @@ export default function ContractsPage() {
 
               {/* Contract name */}
               <div className="flex items-center gap-3 shrink-0">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: activeColor, boxShadow: `0 0 8px ${activeColor}` }} />
-                <h2 className="text-xl font-bold font-mono" style={{ color: activeColor }}>{contractInfo.name}</h2>
+                <div className="w-2 h-2" style={{ backgroundColor: activeColor, boxShadow: `0 0 8px ${activeColor}` }} />
+                <h2 className="text-xl font-bold font-mono uppercase" style={{ color: activeColor }}>{contractInfo.name}</h2>
               </div>
 
               {/* Contract address */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg shrink-0" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+              <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}>
                 <span className="text-[13px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(contractInfo.address)}</span>
                 <CopyButton text={contractInfo.address} size="sm" />
               </div>
 
               {/* ABI CID */}
               {contractInfo.abiCid && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg shrink-0" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                  <span className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
+                <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}>
+                  <span className="text-[11px] font-mono uppercase" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
                   <span className="text-[12px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(contractInfo.abiCid, 10, 8)}</span>
                   <CopyButton text={contractInfo.abiCid} size="sm" />
                 </div>
@@ -807,23 +816,23 @@ export default function ContractsPage() {
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={() => setShowRead(!showRead)}
-                  className={`px-4 py-2 rounded-lg text-[12px] font-bold uppercase tracking-wider font-mono transition-all ${
+                  className={`px-4 py-2 text-[12px] font-bold uppercase tracking-wider font-mono transition-all ${
                     showRead
-                      ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                      ? 'bg-emerald-500/15 text-emerald-500'
                       : ''
                   }`}
-                  style={!showRead ? { border: '1px solid var(--border-color)', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-input)' } : {}}
+                  style={showRead ? { border: '4px solid rgba(16,185,129,0.4)' } : { border: '4px solid var(--border-color)', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-input)' }}
                 >
                   Read{readCount > 0 && ` (${readCount})`}
                 </button>
                 <button
                   onClick={() => setShowWrite(!showWrite)}
-                  className={`px-4 py-2 rounded-lg text-[12px] font-bold uppercase tracking-wider font-mono transition-all ${
+                  className={`px-4 py-2 text-[12px] font-bold uppercase tracking-wider font-mono transition-all ${
                     showWrite
-                      ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                      ? 'bg-amber-500/15 text-amber-500'
                       : ''
                   }`}
-                  style={!showWrite ? { border: '1px solid var(--border-color)', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-input)' } : {}}
+                  style={showWrite ? { border: '4px solid rgba(245,158,11,0.4)' } : { border: '4px solid var(--border-color)', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-input)' }}
                 >
                   Write{writeCount > 0 && ` (${writeCount})`}
                 </button>
@@ -842,16 +851,16 @@ export default function ContractsPage() {
                     type="text"
                     value={fnSearch}
                     onChange={(e) => setFnSearch(e.target.value)}
-                    placeholder="Search functions..."
-                    className="w-full rounded-xl pl-11 pr-20 py-3 text-[13px] font-mono focus:outline-none transition-all"
-                    style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                    placeholder="SEARCH FUNCTIONS..."
+                    className="w-full pl-11 pr-20 py-3 text-[13px] font-mono focus:outline-none transition-all uppercase"
+                    style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                     {fnSearch && (
                       <button
                         onClick={() => { setFnSearch(''); fnSearchRef.current?.focus() }}
-                        className="text-[10px] font-bold font-mono px-2 py-0.5 rounded transition-colors"
-                        style={{ color: 'var(--text-tertiary)' }}
+                        className="text-[10px] font-bold font-mono px-2 py-0.5 transition-colors"
+                        style={{ color: 'var(--text-tertiary)', border: '2px solid var(--border-color)' }}
                       >
                         CLR
                       </button>
@@ -872,7 +881,7 @@ export default function ContractsPage() {
                       <button
                         key={key}
                         onClick={() => setSelectedFnName(isActive ? '' : key)}
-                        className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-150 group relative overflow-hidden ${
+                        className={`w-full text-left px-4 py-3 transition-all duration-150 group relative overflow-hidden ${
                           isActive
                             ? isRead
                               ? 'bg-emerald-500/8'
@@ -881,13 +890,13 @@ export default function ContractsPage() {
                         }`}
                         style={{
                           border: isActive
-                            ? `1.5px solid ${isRead ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.4)'}`
-                            : '1.5px solid var(--border-color)',
+                            ? `4px solid ${isRead ? 'rgba(16,185,129,0.5)' : 'rgba(245,158,11,0.5)'}`
+                            : '4px solid var(--border-color)',
                           backgroundColor: !isActive ? 'var(--bg-surface)' : undefined,
                         }}
                       >
                         {/* Left accent bar */}
-                        <div className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full transition-colors" style={{
+                        <div className="absolute left-0 top-2 bottom-2 w-1 transition-colors" style={{
                           backgroundColor: isActive
                             ? isRead ? 'rgb(16,185,129)' : 'rgb(245,158,11)'
                             : 'transparent',
@@ -895,20 +904,20 @@ export default function ContractsPage() {
 
                         {/* Function name row */}
                         <div className="flex items-center gap-2.5 mb-1.5">
-                          <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${
+                          <span className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold font-mono ${
                             isRead
-                              ? 'bg-emerald-500/12 text-emerald-500 border border-emerald-500/20'
-                              : 'bg-amber-500/12 text-amber-500 border border-amber-500/20'
-                          }`}>
+                              ? 'bg-emerald-500/12 text-emerald-500'
+                              : 'bg-amber-500/12 text-amber-500'
+                          }`} style={{ border: isRead ? '2px solid rgba(16,185,129,0.3)' : '2px solid rgba(245,158,11,0.3)' }}>
                             {isRead ? 'R' : 'W'}
                           </span>
-                          <span className="text-[14px] font-bold font-mono truncate" style={{
+                          <span className="text-[14px] font-bold font-mono truncate uppercase" style={{
                             color: isActive
                               ? isRead ? 'rgb(16,185,129)' : 'rgb(245,158,11)'
                               : 'var(--text-primary)',
                           }}>{fn.name}</span>
                           {fn.stateMutability === 'payable' && (
-                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15 ml-auto shrink-0">payable</span>
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 bg-amber-500/10 text-amber-500/60 ml-auto shrink-0" style={{ border: '2px solid rgba(245,158,11,0.2)' }}>PAYABLE</span>
                           )}
                         </div>
 
@@ -944,7 +953,7 @@ export default function ContractsPage() {
                     )
                   })}
                   {filteredFunctions.length === 0 && (
-                    <div className="text-center text-[13px] font-mono py-12 rounded-xl" style={{ color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)' }}>
+                    <div className="text-center text-[13px] font-mono py-12 uppercase font-bold" style={{ color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}>
                       {visibleFunctions.length === 0 ? '-- NO FUNCTIONS --' : '-- NO MATCHES --'}
                     </div>
                   )}
@@ -956,28 +965,28 @@ export default function ContractsPage() {
                 {selectedFnEntry ? (() => {
                   const isRead = selectedFnEntry.kind === 'read'
                   return (
-                  <div className="rounded-xl p-5 space-y-4 relative overflow-hidden" style={{
-                    border: `1.5px solid ${isRead ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}`,
+                  <div className="p-5 space-y-4 relative overflow-hidden" style={{
+                    border: `4px solid ${isRead ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.4)'}`,
                     backgroundColor: 'var(--bg-surface)',
                   }}>
                     {/* Top accent line */}
-                    <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: isRead ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)' }} />
+                    <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: isRead ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.4)' }} />
 
                     {/* Function header */}
                     <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 rounded-lg text-[11px] font-bold uppercase font-mono ${
+                      <span className={`px-3 py-1 text-[11px] font-bold uppercase font-mono ${
                         isRead
-                          ? 'bg-emerald-500/12 text-emerald-500 border border-emerald-500/25'
-                          : 'bg-amber-500/12 text-amber-500 border border-amber-500/25'
-                      }`}>{selectedFnEntry.kind}</span>
-                      <span className="text-lg font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{selectedFnEntry.name}</span>
+                          ? 'bg-emerald-500/12 text-emerald-500'
+                          : 'bg-amber-500/12 text-amber-500'
+                      }`} style={{ border: isRead ? '2px solid rgba(16,185,129,0.3)' : '2px solid rgba(245,158,11,0.3)' }}>{selectedFnEntry.kind}</span>
+                      <span className="text-lg font-bold font-mono uppercase" style={{ color: 'var(--text-primary)' }}>{selectedFnEntry.name}</span>
                       {selectedFnEntry.stateMutability === 'payable' && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-500/60 border border-amber-500/15">payable</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 bg-amber-500/10 text-amber-500/60" style={{ border: '2px solid rgba(245,158,11,0.2)' }}>PAYABLE</span>
                       )}
                     </div>
 
                     {/* Full signature */}
-                    <div className="px-4 py-3 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+                    <div className="px-4 py-3" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}>
                       <code className="text-[13px] font-mono leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                         <span style={{ color: isRead ? 'rgb(16,185,129)' : 'rgb(245,158,11)', opacity: 0.6 }}>fn </span>
                         {selectedFnEntry.name}
@@ -1007,7 +1016,7 @@ export default function ContractsPage() {
                     {/* ETH value for write */}
                     {selectedFnEntry.kind === 'write' && (
                       <div>
-                        <label className="text-[12px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                        <label className="text-[12px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
                           ETH value <span style={{ color: 'var(--text-tertiary)' }}>:: optional</span>
                         </label>
                         <input
@@ -1015,8 +1024,8 @@ export default function ContractsPage() {
                           value={ethValue}
                           onChange={(e) => setEthValue(e.target.value)}
                           placeholder="0"
-                          className="w-full rounded-xl px-4 py-3 text-[14px] font-mono focus:outline-none transition-all"
-                          style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                          className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all"
+                          style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
                         />
                       </div>
                     )}
@@ -1025,12 +1034,13 @@ export default function ContractsPage() {
                     <button
                       onClick={isRead ? handleRead : handleWrite}
                       disabled={reading || sending}
-                      className={`w-full py-3.5 rounded-xl text-[14px] font-bold font-mono uppercase tracking-wider transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2.5 ${
+                      className={`w-full py-3.5 text-[14px] font-bold font-mono uppercase tracking-wider transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2.5 ${
                         isRead
-                          ? 'bg-emerald-500/12 text-emerald-500 border-[1.5px] border-emerald-500/30 hover:bg-emerald-500/20'
-                          : 'bg-amber-500/12 text-amber-500 border-[1.5px] border-amber-500/30 hover:bg-amber-500/20'
+                          ? 'bg-emerald-500/12 text-emerald-500 hover:bg-emerald-500/20'
+                          : 'bg-amber-500/12 text-amber-500 hover:bg-amber-500/20'
                       }`}
                       style={{
+                        border: isRead ? '4px solid rgba(16,185,129,0.4)' : '4px solid rgba(245,158,11,0.4)',
                         boxShadow: isRead
                           ? '0 0 20px rgba(16,185,129,0.08)'
                           : '0 0 20px rgba(245,158,11,0.08)',
@@ -1050,8 +1060,8 @@ export default function ContractsPage() {
 
                     {/* Read result */}
                     {readResult !== null && (
-                      <div className="p-4 rounded-xl relative overflow-hidden" style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid rgba(16,185,129,0.2)' }}>
-                        <div className="absolute top-0 left-0 right-0 h-px bg-emerald-500/20" />
+                      <div className="p-4 relative overflow-hidden" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid rgba(16,185,129,0.4)' }}>
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500/30" />
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[11px] font-bold uppercase tracking-wider font-mono text-emerald-500/60">Output</span>
                           <CopyButton text={readResult} size="sm" />
@@ -1062,24 +1072,24 @@ export default function ContractsPage() {
                   </div>
                   )
                 })() : (
-                  <div className="flex flex-col items-center justify-center h-80 rounded-xl" style={{
+                  <div className="flex flex-col items-center justify-center h-80" style={{
                     color: 'var(--text-tertiary)',
-                    border: '1.5px dashed var(--border-color)',
+                    border: '4px dashed var(--border-color)',
                     backgroundColor: 'var(--bg-input)',
                   }}>
-                    <div className="w-10 h-10 rounded-lg mb-4 flex items-center justify-center" style={{ border: '1.5px solid var(--border-color)' }}>
+                    <div className="w-10 h-10 mb-4 flex items-center justify-center" style={{ border: '4px solid var(--border-color)' }}>
                       <svg className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                     </div>
-                    <span className="text-[14px] font-mono">Select a function to interact</span>
+                    <span className="text-[14px] font-mono uppercase font-bold">Select a function to interact</span>
                   </div>
                 )}
               </div>
             </div>
 
             {!showRead && !showWrite && (
-              <p className="text-[14px] mt-6 text-center font-mono" style={{ color: 'var(--text-tertiary)' }}>Enable Read or Write to see functions</p>
+              <p className="text-[14px] mt-6 text-center font-mono uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Enable Read or Write to see functions</p>
             )}
           </div>
           )

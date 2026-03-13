@@ -20,6 +20,14 @@ interface UserContextType {
   balances: (token?: string) => Promise<Record<string, number>>
 }
 
+// Token cache structure for storing tokens per wallet address
+interface TokenCacheEntry {
+  token: string
+  timestamp: number
+  mode: string
+  type: string
+}
+
 const UserContext = createContext<UserContextType | null>(null)
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -28,6 +36,52 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [network, setNetwork] = useState<Network | null>(null)
   const [authLoading, setAuthLoading] = useState(false)
   const [expiryHandler, setExpiryHandler] = useState<TokenExpiryHandler | null>(null)
+
+  // Token cache: Maps wallet address (lowercase) to token cache entry
+  const tokenCacheRef = React.useRef<Map<string, TokenCacheEntry>>(new Map())
+
+  // Token validity duration in seconds (1 hour minus buffer for safety)
+  const TOKEN_VALIDITY_DURATION = 3600 - 60 // 59 minutes
+
+  /**
+   * Helper function to get or generate token with caching
+   */
+  const getOrGenerateToken = async (
+    address: string,
+    mode: string,
+    type: string
+  ): Promise<string> => {
+    const cacheKey = address.toLowerCase()
+    const cached = tokenCacheRef.current.get(cacheKey)
+
+    // Check if cached token is still valid
+    if (cached) {
+      const age = (Date.now() / 1000) - cached.timestamp
+      if (
+        age < TOKEN_VALIDITY_DURATION &&
+        cached.mode === mode &&
+        cached.type === type
+      ) {
+        console.log(`Using cached token for ${address}`)
+        return cached.token
+      }
+    }
+
+    // Generate new token
+    console.log(`Generating new token for ${address}`)
+    const auth = new Auth()
+    const token = await auth.token('', address, mode)
+
+    // Cache the token
+    tokenCacheRef.current.set(cacheKey, {
+      token,
+      timestamp: Date.now() / 1000,
+      mode,
+      type,
+    })
+
+    return token
+  }
 
   /**
    * Client-only initialization
@@ -50,6 +104,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedUser = localStorage.getItem('user_data')
         const walletMode = localStorage.getItem('wallet_mode')
         const walletAddress = localStorage.getItem('wallet_address')
+        const walletType = localStorage.getItem('wallet_type') || 'ecdsa'
         let walletToken = localStorage.getItem('wallet_token')
 
         if (storedUser && walletMode && walletAddress) {
@@ -57,9 +112,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(parsedUser)
 
           if (!walletToken) {
-            const auth = new Auth()
-            walletToken = await auth.token('', walletAddress, walletMode)
+            walletToken = await getOrGenerateToken(walletAddress, walletMode, walletType)
             localStorage.setItem('wallet_token', walletToken)
+          } else {
+            // Cache existing token from localStorage
+            tokenCacheRef.current.set(walletAddress.toLowerCase(), {
+              token: walletToken,
+              timestamp: Date.now() / 1000,
+              mode: walletMode,
+              type: walletType,
+            })
           }
 
           if (!cancelled) {
@@ -129,13 +191,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const walletAddress = localStorage.getItem('wallet_address')
     const walletMode = localStorage.getItem('wallet_mode') || 'local'
+    const walletType = localStorage.getItem('wallet_type') || 'ecdsa'
 
     if (!walletAddress) {
       throw new Error('Wallet address not found')
     }
 
-    const auth = new Auth()
-    const token = await auth.token('', walletAddress, walletMode)
+    const token = await getOrGenerateToken(walletAddress, walletMode, walletType)
 
     localStorage.setItem('wallet_token', token)
     setClient(new Client(undefined, token))
@@ -154,8 +216,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Wallet address missing')
     }
 
-    const auth = new Auth()
-    const token = await auth.token('', walletAddress, walletMode)
+    const token = await getOrGenerateToken(walletAddress, walletMode, walletType)
 
     localStorage.setItem('wallet_token', token)
 
@@ -211,8 +272,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    const auth = new Auth()
-    const token = await auth.token('', address, mode)
+    // Use cached token if available, otherwise generate new one
+    const token = await getOrGenerateToken(address, mode, type)
     localStorage.setItem('wallet_token', token)
 
     const userData: UserType = {
@@ -241,6 +302,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = () => {
     setUser(null)
     setClient(null)
+
+    // Clear token cache
+    tokenCacheRef.current.clear()
 
     if (typeof window !== 'undefined') {
       localStorage.removeItem('wallet_mode')

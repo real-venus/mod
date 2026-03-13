@@ -31,6 +31,7 @@ export function isTokenExpiringSoon(token: string, bufferSeconds: number = 300):
 
 /**
  * Get a fresh token from localStorage or refresh if needed
+ * Uses per-account token caching to avoid regenerating tokens when switching accounts
  * @param walletAddress - The wallet address
  * @param walletMode - The wallet mode (local, metamask, etc.)
  * @returns Promise<string> - Fresh token
@@ -42,7 +43,6 @@ export async function getFreshToken(
   if (typeof window === 'undefined') return null;
 
   try {
-    const currentToken = localStorage.getItem('wallet_token');
     const storedAddress = walletAddress || localStorage.getItem('wallet_address');
     const storedMode = walletMode || localStorage.getItem('wallet_mode') || 'local';
 
@@ -51,11 +51,20 @@ export async function getFreshToken(
       return null;
     }
 
+    // Use per-account token cache
+    const tokenCacheKey = `wallet_token_${storedAddress.toLowerCase()}`;
+    const cachedToken = localStorage.getItem(tokenCacheKey);
+
     // If token doesn't exist or is expiring soon, refresh it
-    if (!currentToken || isTokenExpiringSoon(currentToken)) {
-      console.log('Token is missing or expiring soon, refreshing...');
+    if (!cachedToken || isTokenExpiringSoon(cachedToken)) {
+      console.log(`Token for ${storedAddress} is missing or expiring soon, refreshing...`);
       const auth = new Auth();
       const newToken = await auth.token('', storedAddress, storedMode);
+
+      // Cache token for this specific account
+      localStorage.setItem(tokenCacheKey, newToken);
+
+      // Also update the global wallet_token for backwards compatibility
       localStorage.setItem('wallet_token', newToken);
 
       // Update user data in localStorage
@@ -73,7 +82,10 @@ export async function getFreshToken(
       return newToken;
     }
 
-    return currentToken;
+    // Update global wallet_token to match cached token
+    localStorage.setItem('wallet_token', cachedToken);
+
+    return cachedToken;
   } catch (error) {
     console.error('Error getting fresh token:', error);
     return null;

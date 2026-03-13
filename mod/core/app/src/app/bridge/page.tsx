@@ -108,8 +108,8 @@ export default function BridgePage() {
   // History search state
   const [historySearchQuery, setHistorySearchQuery] = useState('')
 
-  // Active tab - only claim now
-  const [activeTab, setActiveTab] = useState<'claim'>('claim')
+  // Active tab - only claim now (history removed but keeping type for future use)
+  const [activeTab, setActiveTab] = useState<'claim' | 'history'>('claim')
 
   // Auto-connect from user context and fetch unclaimed balance
   useEffect(() => {
