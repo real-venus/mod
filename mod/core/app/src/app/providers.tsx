@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MagnifyingGlassIcon, PlusIcon, Bars3Icon, XMarkIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, PlusIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { WalletHeader } from '@/wallet/WalletHeader'
@@ -24,6 +24,8 @@ import { ThemeProvider, useTheme } from '@/context/ThemeContext'
 import { SplitScreenControls } from '@/components/SplitScreenControls'
 import { getAllNavItems, getNavHref, NavItem } from '@/config/navigation'
 import { MetaMaskProvider } from '@/wallet/MetaMaskProvider'
+import { ThemeSelectorCompact } from '@/themes/ThemeSelectorCompact'
+import { ThemeInitializer } from '@/themes/ThemeInitializer'
 import {
   DndContext,
   closestCenter,
@@ -61,30 +63,6 @@ function ThemedToast() {
   )
 }
 
-function ThemeToggle() {
-  const { effectiveTheme, setTheme } = useTheme()
-  const toggle = () => setTheme(effectiveTheme === 'dark' ? 'light' : 'dark')
-
-  return (
-    <button
-      onClick={toggle}
-      className="shrink-0 flex items-center justify-center transition-all border-4"
-      style={{
-        width: '44px',
-        height: '44px',
-        backgroundColor: 'var(--bg-secondary)',
-        borderColor: 'var(--border-strong)'
-      }}
-      title={effectiveTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-    >
-      {effectiveTheme === 'dark' ? (
-        <SunIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
-      ) : (
-        <MoonIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
-      )}
-    </button>
-  )
-}
 
 // Sortable tab item component
 function SortableNavItem({ item, isActive, onRemove }: { item: NavItem; isActive: boolean; onRemove: () => void }) {
@@ -330,8 +308,8 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
           )}
         </button>
 
-        {/* Search bar - always visible, centered, takes most space */}
-        <div className="flex-1 flex items-center">
+        {/* Search bar and Create button - centered together */}
+        <div className="flex-1 flex items-center justify-center gap-2">
           <div className="relative w-full max-w-2xl">
             <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-primary)' }} />
             <input
@@ -369,10 +347,7 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
               </button>
             )}
           </div>
-        </div>
 
-        {/* Right side: + CREATE, Logo, Network, Wallet */}
-        <div className="shrink-0 flex items-center gap-2 ml-3">
           <button
             onClick={() => router.push('/create')}
             className="shrink-0 flex items-center gap-2 px-5 border-4 transition-all uppercase"
@@ -388,8 +363,10 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
               CREATE
             </span>
           </button>
+        </div>
 
-          <ThemeToggle />
+        {/* Right side: Wallet */}
+        <div className="shrink-0 flex items-center gap-2 ml-3">
           <WalletHeader />
         </div>
       </div>
@@ -413,6 +390,11 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
           >
             {/* Spacer for top header */}
             <div className="h-[48px] shrink-0" />
+
+            {/* Theme Selector at top */}
+            <div className="px-3 py-3 border-b-4" style={{ borderColor: 'var(--border-strong)' }}>
+              <ThemeSelectorCompact />
+            </div>
 
             {/* Nav items with drag and drop */}
             <DndContext
@@ -523,6 +505,7 @@ export default function Providers({
 }) {
   return (
     <ThemeProvider>
+      <ThemeInitializer />
       <MetaMaskProvider>
         <UserProvider>
           <MarketCreditProvider>

@@ -9,7 +9,6 @@ import { TransactionsTab } from './TransactionsTab'
 import { AccountsTab } from './AccountsTab'
 import { PortfolioTab } from './PortfolioTab'
 import { NetworkSelector } from '@/network/NetworkSelector'
-import { ThemeSelector } from '@/themes/ThemeSelector'
 
 function TabButton({ active, onClick, icon, label, colorActive, colorInactive }: {
   active: boolean
@@ -292,11 +291,6 @@ export function WalletSidebar(props: WalletSidebarProps) {
             totalCost24h={props.totalCost24h}
           />
 
-        </div>
-
-        {/* Theme Selector at Bottom */}
-        <div className="sticky bottom-0 p-4 border-t" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-          <ThemeSelector />
         </div>
       </motion.div>
     </div>

@@ -110,11 +110,12 @@ export default function ModCard({
         {/* Name + fn count */}
         <div className="flex items-center gap-2">
           <code
-            className="font-pixel tracking-tight text-2xl flex-shrink-0"
+            className="tracking-tight text-2xl flex-shrink-0"
             style={{
               color: modColor,
               textShadow: `2px 2px 0px ${colorWithOpacity(modColor, 0.3)}`,
               letterSpacing: '0.05em',
+              fontFamily: 'var(--font-digital), monospace',
             }}
           >
             {mod.name}
@@ -337,9 +338,9 @@ export default function ModCard({
 
   const cardContent = (
     <div
-      className={`relative font-mono overflow-visible group rounded-lg h-full ${card_enabled ? 'cursor-pointer border-2' : ''}`}
+      className={`relative font-mono overflow-visible group rounded-lg h-full ${card_enabled ? 'cursor-pointer border-4' : ''}`}
       style={{
-        fontFamily: 'IBM Plex Mono, Courier New, monospace',
+        fontFamily: 'var(--font-digital), monospace',
         borderColor: card_enabled ? modColor : undefined,
         imageRendering: 'pixelated',
         ...(card_enabled ? {
@@ -379,12 +380,13 @@ export default function ModCard({
           <div className="flex-1 min-w-0 pt-0.5">
             <div className="flex items-center gap-2.5">
               <code
-                className={`font-pixel font-black tracking-tight truncate block ${isExpanded ? 'text-[18px]' : 'text-[15px]'}`}
+                className={`font-black tracking-tight truncate block ${isExpanded ? 'text-[18px]' : 'text-[15px]'}`}
                 style={{
                   color: modColor,
                   textShadow: `2px 2px 0px ${colorWithOpacity(modColor, 0.3)}`,
                   transition: 'all 0.3s ease',
                   letterSpacing: '0.05em',
+                  fontFamily: 'var(--font-digital), monospace',
                 }}
               >
                 {mod.name}
@@ -392,10 +394,11 @@ export default function ModCard({
               <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
               {fnCount > 0 && (
                 <div
-                  className={`font-pixel flex items-center gap-1 rounded flex-shrink-0 ${isExpanded ? 'px-2.5 py-1 text-[10px]' : 'px-2 py-0.5 text-[9px]'}`}
+                  className={`flex items-center gap-1 rounded flex-shrink-0 ${isExpanded ? 'px-2.5 py-1 text-[10px]' : 'px-2 py-0.5 text-[9px]'}`}
                   style={{
                     background: 'rgba(234, 179, 8, 0.15)',
                     border: '1.5px solid rgba(234, 179, 8, 0.4)',
+                    fontFamily: 'var(--font-digital), monospace',
                   }}
                 >
                   <Zap size={isExpanded ? 11 : 9} style={{ color: '#eab308' }} />
@@ -407,7 +410,7 @@ export default function ModCard({
               )}
             </div>
             {mod.desc && (
-              <p className={`font-extrabold leading-relaxed mt-1.5 ${isExpanded ? 'text-[15px]' : 'text-[13px] line-clamp-1'}`} style={{ color: 'var(--text-secondary)' }}>
+              <p className={`font-extrabold leading-relaxed mt-1.5 ${isExpanded ? 'text-[15px]' : 'text-[13px] line-clamp-1'}`} style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital), monospace' }}>
                 {mod.desc}
               </p>
             )}
@@ -443,10 +446,11 @@ export default function ModCard({
         <div className={`flex items-center overflow-x-auto ${isExpanded ? 'gap-2.5' : 'gap-1.5'}`}>
           {/* Timestamp */}
           <div
-            className={`font-pixel flex items-center gap-1.5 rounded flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[10px]' : 'px-2.5 py-1 text-[9px]'}`}
+            className={`flex items-center gap-1.5 rounded flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[10px]' : 'px-2.5 py-1 text-[9px]'}`}
             style={{
               background: colorWithOpacity(modColor, 0.1),
               border: `1.5px solid ${colorWithOpacity(modColor, 0.3)}`,
+              fontFamily: 'var(--font-digital), monospace',
             }}
           >
             <Clock size={isExpanded ? 11 : 9} style={{ color: modColor }} />
@@ -455,10 +459,11 @@ export default function ModCard({
 
           {/* Owner key */}
           <div
-            className={`font-pixel flex items-center gap-1.5 rounded cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[10px]' : 'px-2.5 py-1 text-[9px]'}`}
+            className={`flex items-center gap-1.5 rounded cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[10px]' : 'px-2.5 py-1 text-[9px]'}`}
             style={{
               background: colorWithOpacity(keyColor, 0.1),
               border: `1.5px solid ${colorWithOpacity(keyColor, 0.3)}`,
+              fontFamily: 'var(--font-digital), monospace',
             }}
             title={mod.key}
             onClick={(e) => e.preventDefault()}
@@ -475,16 +480,17 @@ export default function ModCard({
           {/* IPFS CID */}
           {mod.cid && (
             <div
-              className={`font-pixel flex items-center gap-1.5 rounded cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[10px]' : 'px-2.5 py-1 text-[9px]'}`}
+              className={`flex items-center gap-1.5 rounded cursor-default flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-3 py-1.5 text-[10px]' : 'px-2.5 py-1 text-[9px]'}`}
               style={{
                 background: colorWithOpacity(cidColor, 0.1),
                 border: `1.5px solid ${colorWithOpacity(cidColor, 0.3)}`,
+                fontFamily: 'var(--font-digital), monospace',
               }}
               title={mod.cid}
               onClick={(e) => e.preventDefault()}
             >
               <Box size={isExpanded ? 11 : 9} style={{ color: cidColor }} />
-              <code className="font-pixel font-bold" style={{ color: 'var(--text-secondary)' }}>
+              <code className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
                 {shorten(mod.cid || '', 4, 4)}
               </code>
               <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
@@ -494,10 +500,11 @@ export default function ModCard({
           {/* Network badge */}
           {mod.url && (
             <div
-              className={`font-pixel flex items-center gap-1 rounded flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-2.5 py-1.5 text-[10px]' : 'px-2 py-1 text-[9px]'}`}
+              className={`flex items-center gap-1 rounded flex-shrink-0 whitespace-nowrap ${isExpanded ? 'px-2.5 py-1.5 text-[10px]' : 'px-2 py-1 text-[9px]'}`}
               style={{
                 background: 'rgba(34, 197, 94, 0.15)',
                 border: '1.5px solid rgba(34, 197, 94, 0.4)',
+                fontFamily: 'var(--font-digital), monospace',
               }}
               onClick={(e) => e.preventDefault()}
             >
