@@ -56,35 +56,44 @@ export function TreasuryHeader() {
 
   return (
     <div
-      className="relative flex items-center gap-2 px-4 py-2 bg-black/50 border border-purple-500/40 rounded-lg hover:border-purple-500/60 transition-all cursor-pointer hover:scale-105 active:scale-95"
-      style={{ height: '60px', minWidth: '60px', opacity: showTreasuryDetails ? 1 : 0.9 }}
+      className="relative flex items-center gap-3 px-4 py-2 border-4 transition-all cursor-pointer uppercase"
+      style={{
+        height: '44px',
+        minWidth: '80px',
+        backgroundColor: 'var(--bg-secondary)',
+        borderColor: 'var(--border-strong)',
+        fontFamily: 'var(--font-digital)'
+      }}
       onMouseEnter={() => setShowTreasuryDetails(true)}
       onMouseLeave={() => setShowTreasuryDetails(false)}
       onClick={handleClick}
       title={`Treasury Balance: $${totalUsdValue} - Click to go to Billing`}
     >
-      <div className="w-8 h-8 flex items-center justify-center bg-purple-500/20 border-2 border-purple-500/60 rounded-lg hover:bg-purple-500/30 transition-all">
-        <BuildingLibraryIcon className="w-5 h-5 text-purple-400" />
+      <div className="w-8 h-8 flex items-center justify-center border-4 transition-all" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-primary)' }}>
+        <BuildingLibraryIcon className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
       </div>
+      <span className="text-xl font-digital font-bold tracking-wide" style={{ color: 'var(--text-primary)' }}>
+        ${totalUsdValue}
+      </span>
 
       {showTreasuryDetails && (
         <>
-          <div className="absolute top-full left-0 mt-2 bg-black/95 backdrop-blur-xl border-2 border-purple-500/40 rounded-xl shadow-2xl p-4 z-50 min-w-[250px]">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-white/50 uppercase font-bold">Treasury</span>
-              <ChevronUpIcon className="w-4 h-4 text-white/50" />
+          <div className="absolute top-full left-0 mt-2 border-4 p-5 z-50 min-w-[320px]" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xl uppercase font-bold tracking-[0.2em]" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>▸ TREASURY</span>
+              <ChevronUpIcon className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
             </div>
-            
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs text-white/70 font-mono">
+
+            <div className="flex items-center gap-3 mb-4 border-4 p-3" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-primary)' }}>
+              <span className="text-base font-mono uppercase tracking-wide font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
                 {treasuryAddress.slice(0, 6)}...{treasuryAddress.slice(-4)}
               </span>
               <CopyButton text={treasuryAddress} size="sm" />
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-white/10">
-              <span className="text-xs text-white/50 uppercase font-bold">TOTAL USD</span>
-              <span className="text-sm text-green-400 font-mono font-bold">
+            <div className="flex items-center justify-between pt-4 border-t-4" style={{ borderColor: 'var(--border-strong)' }}>
+              <span className="text-xl uppercase font-bold tracking-[0.15em]" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>TOTAL</span>
+              <span className="text-2xl font-mono font-bold tabular-nums" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
                 ${totalUsdValue}
               </span>
             </div>

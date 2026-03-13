@@ -8,6 +8,7 @@ import { CreditTab } from './CreditTab'
 import { TransactionsTab } from './TransactionsTab'
 import { AccountsTab } from './AccountsTab'
 import { PortfolioTab } from './PortfolioTab'
+import { NetworkSelector } from '@/network/NetworkSelector'
 
 function TabButton({ active, onClick, icon, label, colorActive, colorInactive }: {
   active: boolean
@@ -185,10 +186,14 @@ export function WalletSidebar(props: WalletSidebarProps) {
           onClose={onClose}
           marketCredit={marketCredit}
           address={props.address}
+          walletHistory={props.walletHistory}
+          isSwitchingWallet={props.isSwitchingWallet}
+          onSwitchWallet={props.onSwitchWallet}
+          onRemoveFromHistory={props.onRemoveFromHistory}
         />
 
         {/* Action Tabs */}
-        <div className="px-5 py-4">
+        <div className="px-5 py-3">
           <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
             <TabButton
               active={showPortfolio}
@@ -221,14 +226,6 @@ export function WalletSidebar(props: WalletSidebarProps) {
               label="TXS"
               colorActive="from-amber-500/30 to-orange-500/30 border-amber-400 text-amber-300 shadow-amber-500/50"
               colorInactive="from-amber-950/40 to-orange-950/40 border-amber-900/60 text-amber-600 hover:text-amber-300 hover:border-amber-400/60 hover:shadow-amber-500/30"
-            />
-            <TabButton
-              active={showWallets}
-              onClick={() => openTab('wallets')}
-              icon={<ArrowsRightLeftIcon className="w-5 h-5" />}
-              label="ACCTS"
-              colorActive="from-cyan-500/30 to-blue-500/30 border-cyan-400 text-cyan-300 shadow-cyan-500/50"
-              colorInactive="from-cyan-950/40 to-blue-950/40 border-cyan-900/60 text-cyan-600 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30"
             />
           </div>
 
@@ -281,17 +278,6 @@ export function WalletSidebar(props: WalletSidebarProps) {
             onWithdraw={props.onWithdraw}
             topUpError={props.topUpError}
             topUpSuccess={props.topUpSuccess}
-          />
-
-          <AccountsTab
-            show={showWallets}
-            address={props.address}
-            walletMode={walletMode}
-            walletHistory={props.walletHistory}
-            isSwitchingWallet={props.isSwitchingWallet}
-            onSwitchWallet={props.onSwitchWallet}
-            onRemoveFromHistory={props.onRemoveFromHistory}
-            onSignOut={handleSignOut}
           />
 
           <TransactionsTab

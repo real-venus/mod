@@ -116,48 +116,51 @@ export function NetworkSelector() {
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Compact trigger */}
+    <div className="relative w-full" ref={dropdownRef}>
+      {/* Compact selector button */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center gap-2 px-2.5 border transition-all hover:brightness-110 active:scale-[0.98] rounded-full"
+        className="w-full flex items-center justify-between gap-2 px-2 py-2 border-2 transition-all"
         style={{
-          height: '36px',
           fontFamily: 'var(--font-digital), monospace',
           borderColor: 'var(--border-strong)',
-          background: `${selectedChain.color}08`,
+          backgroundColor: 'var(--bg-secondary)',
         }}
       >
-        {/* Chain icon */}
-        <div
-          className="w-5 h-5 flex items-center justify-center text-[13px] font-bold"
-          style={{
-            color: selectedChain.color,
-          }}
-        >
-          {selectedChain.icon}
-        </div>
-
-        {/* Chain + env label */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-digital uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-            {selectedChain.name}
-          </span>
-          <span
-            className="text-xs font-digital uppercase tracking-wider px-1 py-px rounded"
+        <div className="flex items-center gap-2">
+          {/* Chain icon */}
+          <div
+            className="w-6 h-6 flex items-center justify-center text-sm font-bold border-2"
             style={{
-              background: networkEnv === 'mainnet' ? '#10b98115' : '#f59e0b15',
-              color: networkEnv === 'mainnet' ? '#10b981' : '#f59e0b',
-              border: `1px solid ${networkEnv === 'mainnet' ? '#10b98120' : '#f59e0b20'}`,
+              color: 'var(--text-primary)',
+              borderColor: 'var(--border-strong)',
+              backgroundColor: 'var(--bg-primary)'
             }}
           >
-            {networkEnv === 'testnet' ? 'TEST' : 'MAIN'}
-          </span>
+            {selectedChain.icon}
+          </div>
+
+          {/* Chain + env label */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-digital uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)' }}>
+              {selectedChain.name}
+            </span>
+            <span
+              className="text-[10px] font-digital uppercase tracking-wider px-1.5 py-0.5 border font-bold"
+              style={{
+                backgroundColor: 'var(--bg-primary)',
+                color: 'var(--text-secondary)',
+                borderColor: 'var(--border-strong)',
+              }}
+            >
+              {networkEnv === 'testnet' ? 'TESTNET' : 'MAINNET'}
+            </span>
+          </div>
         </div>
 
         <ChevronDownIcon
-          className={`w-3 h-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
-          style={{ color: 'var(--text-tertiary)' }}
+          className={`w-4 h-4 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
+          style={{ color: 'var(--text-primary)' }}
         />
       </button>
 
@@ -165,56 +168,32 @@ export function NetworkSelector() {
       <AnimatePresence>
         {showDropdown && (
           <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-72 border-2 overflow-hidden z-50 rounded-xl"
+            className="absolute right-0 top-full mt-2 w-80 border-4 overflow-hidden z-50"
             style={{
-              background: 'var(--bg-sidebar)',
-              borderColor: `${selectedChain.color}30`,
-              backdropFilter: 'blur(20px)',
-              boxShadow: `0 20px 60px rgba(0,0,0,0.3), 0 0 40px ${selectedChain.color}10`,
+              background: 'var(--bg-secondary)',
+              borderColor: 'var(--border-strong)',
             }}
           >
             {/* Testnet / Mainnet Toggle */}
-            <div className="p-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <div
-                className="flex p-1"
-                style={{ borderRadius: '10px', border: '1px solid var(--border-input)', background: 'var(--bg-input)' }}
-              >
+            <div className="p-3 border-b-4" style={{ borderColor: 'var(--border-strong)' }}>
+              <div className="flex gap-2">
                 {(['testnet', 'mainnet'] as NetworkEnvironment[]).map((env) => (
                   <button
                     key={env}
                     onClick={() => handleEnvToggle(env)}
-                    className="flex-1 relative py-2 text-sm font-digital uppercase tracking-widest transition-all duration-200 rounded-lg"
+                    className="flex-1 py-3 text-base font-digital uppercase tracking-widest transition-all border-4 font-bold"
                     style={{
                       fontFamily: 'var(--font-digital), monospace',
-                      ...(networkEnv === env
-                        ? {
-                            background: env === 'mainnet'
-                              ? 'linear-gradient(135deg, #10b98118 0%, #059a6918 100%)'
-                              : 'linear-gradient(135deg, #f59e0b18 0%, #d9770618 100%)',
-                            color: env === 'mainnet' ? '#10b981' : '#f59e0b',
-                            boxShadow: env === 'mainnet'
-                              ? '0 0 20px #10b98110, inset 0 1px 0 #10b98115'
-                              : '0 0 20px #f59e0b10, inset 0 1px 0 #f59e0b15',
-                          }
-                        : { color: '#525252' }),
+                      backgroundColor: networkEnv === env ? 'var(--text-primary)' : 'var(--bg-primary)',
+                      color: networkEnv === env ? 'var(--bg-primary)' : 'var(--text-primary)',
+                      borderColor: 'var(--border-strong)'
                     }}
                   >
-                    {networkEnv === env && (
-                      <motion.div
-                        layoutId="envToggleTopbar"
-                        className="absolute inset-0"
-                        style={{
-                          borderRadius: '8px',
-                          border: `1px solid ${env === 'mainnet' ? '#10b98130' : '#f59e0b30'}`,
-                        }}
-                        transition={{ duration: 0.2 }}
-                      />
-                    )}
-                    <span className="relative z-10">{env}</span>
+                    {env}
                   </button>
                 ))}
               </div>
@@ -222,58 +201,51 @@ export function NetworkSelector() {
 
             {/* Chain Grid */}
             <div className="p-3">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {CHAINS.map((chain) => {
                   const isSelected = selectedChain.id === chain.id
                   return (
                     <button
                       key={chain.id}
                       onClick={() => handleChainSelect(chain)}
-                      className="relative flex flex-col items-center gap-2 py-3.5 px-3 border-2 transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] group rounded-xl"
+                      className="relative flex flex-col items-center gap-2 py-4 px-3 border-4 transition-all"
                       style={{
                         fontFamily: 'var(--font-digital), monospace',
-                        borderColor: isSelected ? `${chain.color}60` : '#262626',
-                        background: isSelected
-                          ? `linear-gradient(145deg, ${chain.color}12 0%, ${chain.color}06 50%, transparent 100%)`
-                          : 'linear-gradient(145deg, #0a0a0a 0%, #0d0d0d 100%)',
-                        boxShadow: isSelected
-                          ? `0 0 24px ${chain.color}15, inset 0 1px 0 ${chain.color}10`
-                          : 'none',
+                        borderColor: 'var(--border-strong)',
+                        backgroundColor: isSelected ? 'var(--text-primary)' : 'var(--bg-primary)',
                       }}
                     >
                       {isSelected && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="absolute top-2 right-2 w-2 h-2 rounded-full"
+                        <div
+                          className="absolute top-2 right-2 w-3 h-3 border-2"
                           style={{
-                            background: chain.color,
-                            boxShadow: `0 0 8px ${chain.color}80`,
+                            backgroundColor: 'var(--bg-primary)',
+                            borderColor: 'var(--bg-primary)',
                           }}
                         />
                       )}
 
                       <div
-                        className="w-9 h-9 flex items-center justify-center text-lg rounded-xl transition-all duration-200"
+                        className="w-10 h-10 flex items-center justify-center text-xl border-4 font-bold"
                         style={{
-                          background: isSelected ? `${chain.color}20` : `${chain.color}15`,
-                          color: isSelected ? chain.color : `${chain.color}90`,
-                          border: `1px solid ${isSelected ? `${chain.color}40` : `${chain.color}30`}`,
+                          borderColor: 'var(--border-strong)',
+                          backgroundColor: isSelected ? 'var(--bg-primary)' : 'var(--bg-secondary)',
+                          color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                         }}
                       >
                         {chain.icon}
                       </div>
 
                       <span
-                        className="text-sm font-digital uppercase tracking-wider transition-colors duration-200"
-                        style={{ color: isSelected ? chain.color : '#a3a3a3' }}
+                        className="text-base font-digital uppercase tracking-wider font-bold"
+                        style={{ color: isSelected ? 'var(--bg-primary)' : 'var(--text-primary)' }}
                       >
                         {chain.name}
                       </span>
 
                       <span
-                        className="text-xs font-digital uppercase tracking-wider transition-colors duration-200"
-                        style={{ color: isSelected ? `${chain.color}80` : '#737373' }}
+                        className="text-xs font-digital uppercase tracking-wider"
+                        style={{ color: isSelected ? 'var(--bg-primary)' : 'var(--text-tertiary)' }}
                       >
                         {networkEnv === 'testnet' ? chain.testnetName : chain.mainnetName}
                       </span>

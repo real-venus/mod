@@ -106,10 +106,19 @@ export default function ModulePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen font-mono relative overflow-hidden flex items-center justify-center" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)' }}>
-        <div className="flex items-center gap-3 z-20">
-          <span className="animate-pulse font-extrabold" style={{ color: 'var(--text-primary)' }}>_</span>
-          <span className="text-[12px] font-bold" style={{ color: 'var(--text-secondary)' }}>LOADING MODULE...</span>
+      <div
+        className="min-h-screen font-mono relative overflow-hidden flex items-center justify-center"
+        style={{
+          fontFamily: 'var(--font-digital), monospace',
+          backgroundColor: 'var(--bg-primary)',
+          background: `repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 2px), var(--bg-primary)`,
+        }}
+      >
+        <div className="flex flex-col items-center gap-5 z-20">
+          <div className="w-16 h-16 border-4 flex items-center justify-center" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
+            <span className="animate-pulse font-bold text-2xl" style={{ color: 'var(--text-primary)' }}>_</span>
+          </div>
+          <span className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>▸ LOADING MODULE...</span>
         </div>
       </div>
     )
@@ -117,14 +126,21 @@ export default function ModulePage() {
 
   if (error || !mod) {
     return (
-      <div className="min-h-screen font-mono relative overflow-hidden flex items-center justify-center p-6" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)' }}>
-        <div className="max-w-2xl w-full rounded-xl z-20" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-color)' }}>
-          <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
-            <span className="text-red-500 text-[11px] font-extrabold">[ERR]</span>
-            <span className="text-[11px] font-extrabold text-red-500 uppercase tracking-wider">Error</span>
+      <div
+        className="min-h-screen font-mono relative overflow-hidden flex items-center justify-center p-6"
+        style={{
+          fontFamily: 'var(--font-digital), monospace',
+          backgroundColor: 'var(--bg-primary)',
+          background: `repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 2px), var(--bg-primary)`,
+        }}
+      >
+        <div className="max-w-2xl w-full border-4 z-20" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
+          <div className="px-6 py-4 flex items-center gap-3 border-b-4" style={{ borderColor: 'var(--border-strong)' }}>
+            <span className="text-red-500 text-base font-bold" style={{ fontFamily: 'var(--font-digital)' }}>[ERR]</span>
+            <span className="text-base font-bold text-red-500 uppercase tracking-wider" style={{ fontFamily: 'var(--font-digital)' }}>▸ ERROR</span>
           </div>
-          <div className="px-5 py-4">
-            <p className="text-[12px] text-red-500 font-medium">{error || 'Module not found'}</p>
+          <div className="px-6 py-5">
+            <p className="text-base text-red-500 font-bold uppercase" style={{ fontFamily: 'var(--font-digital)' }}>{error || 'MODULE NOT FOUND'}</p>
           </div>
         </div>
       </div>
@@ -142,18 +158,26 @@ export default function ModulePage() {
   }
 
   return (
-    <div className="min-h-screen font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+    <div
+      className="min-h-screen font-mono relative overflow-hidden"
+      style={{
+        fontFamily: 'var(--font-digital), monospace',
+        backgroundColor: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+        background: `repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 2px), var(--bg-primary)`,
+      }}
+    >
       <main className="relative flex-1 px-6 pt-16 pb-8">
-        <div className="max-w-5xl mx-auto space-y-4">
+        <div className="max-w-5xl mx-auto space-y-6">
           {/* Hero Header Card */}
           <div
-            className="relative rounded-2xl overflow-hidden"
+            className="relative border-4 overflow-hidden"
             style={{
-              background: `linear-gradient(135deg, ${colorWithOpacity(moduleColor, 0.12)} 0%, ${colorWithOpacity(moduleColor, 0.04)} 100%)`,
-              border: `2px solid var(--bg-primary)`,
+              background: `linear-gradient(135deg, ${colorWithOpacity(moduleColor, 0.15)} 0%, ${colorWithOpacity(moduleColor, 0.05)} 100%)`,
+              borderColor: 'var(--border-strong)',
             }}
           >
-            <div className="relative px-6 py-4">
+            <div className="relative px-6 py-5">
               <ModCard
                 mod={mod}
                 card_enabled={false}
@@ -168,21 +192,31 @@ export default function ModulePage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-2 px-1">
+          <div className="flex items-center gap-3 border-b-4 pb-3" style={{ borderColor: 'var(--border-strong)' }}>
             {availableTabs.map((tab) => {
               const isActive = activeTab === tab
               return (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
-                  className="relative px-5 py-2 text-[11px] font-extrabold uppercase tracking-[0.15em] transition-all rounded-full"
-                  style={{
-                    color: isActive ? moduleColor : 'var(--text-tertiary)',
-                    backgroundColor: isActive ? colorWithOpacity(moduleColor, 0.1) : 'transparent',
-                    border: isActive ? `1.5px solid ${colorWithOpacity(moduleColor, 0.3)}` : '1.5px solid transparent',
-                  }}
+                  className="px-6 py-3 text-base font-bold uppercase tracking-wider transition-all border-4"
+                  style={
+                    isActive
+                      ? {
+                          color: 'var(--bg-primary)',
+                          backgroundColor: 'var(--text-primary)',
+                          borderColor: 'var(--text-primary)',
+                          fontFamily: 'var(--font-digital)',
+                        }
+                      : {
+                          color: 'var(--text-primary)',
+                          backgroundColor: 'var(--bg-primary)',
+                          borderColor: 'var(--border-color)',
+                          fontFamily: 'var(--font-digital)',
+                        }
+                  }
                 >
-                  {tab}
+                  ▸ {tab.toUpperCase()}
                 </button>
               )
             })}
@@ -190,10 +224,10 @@ export default function ModulePage() {
 
           {/* Tab content */}
           <div
-            className="rounded-2xl min-h-[400px] p-6"
+            className="min-h-[400px] p-6 border-4"
             style={{
               backgroundColor: 'var(--bg-secondary)',
-              border: `1.5px solid ${colorWithOpacity(moduleColor, 0.12)}`,
+              borderColor: 'var(--border-strong)',
             }}
           >
             {activeTab === 'content' && <ModContent mod={mod} />}
@@ -204,7 +238,7 @@ export default function ModulePage() {
             {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}
             {activeTab === 'edit' && !myMod && (
               <div className="flex items-center justify-center py-16">
-                <p className="text-[12px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Only the module owner can edit this module.</p>
+                <p className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ ONLY THE MODULE OWNER CAN EDIT THIS MODULE</p>
               </div>
             )}
           </div>

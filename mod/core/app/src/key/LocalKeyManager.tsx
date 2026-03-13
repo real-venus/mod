@@ -6,15 +6,18 @@ import { LoginHeader } from './LoginHeader'
 import { Key } from '@/key'
 import { cryptoWaitReady } from '@polkadot/util-crypto'
 
+type CryptoType = 'sr25519' | 'ecdsa'
+
 export function LocalKeyManager() {
   const { signIn, authLoading } = userContext()
   const [mnemonic, setMnemonic] = useState('')
+  const [cryptoType, setCryptoType] = useState<CryptoType>('ecdsa')
   const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    
+
     if (!mnemonic.trim()) {
       setError('Please enter a mnemonic phrase')
       return
@@ -22,11 +25,11 @@ export function LocalKeyManager() {
 
     try {
       await cryptoWaitReady()
-      const key = new Key(mnemonic.trim())
+      const key = new Key(mnemonic.trim(), cryptoType)
       localStorage.setItem('wallet_mode', 'local')
       localStorage.setItem('wallet_password', mnemonic.trim())
       localStorage.setItem('wallet_address', key.address)
-      localStorage.setItem('wallet_type', key.crypto_type)
+      localStorage.setItem('wallet_type', cryptoType)
       await signIn()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in')
@@ -39,10 +42,52 @@ export function LocalKeyManager() {
         <LoginHeader />
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Key Type Selection */}
           <div>
-            <label 
-              htmlFor="mnemonic" 
-              className="bloc text-xl font-bold mb-3 uppercase tracking-wider"
+            <label
+              className="block text-xl font-bold mb-3 uppercase tracking-wider"
+              style={{ color: '#00ff00', fontFamily: 'monospace' }}
+            >
+              KEY TYPE
+            </label>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setCryptoType('ecdsa')}
+                disabled={authLoading}
+                className="flex-1 py-4 rounded-xl border-4 font-bold text-lg uppercase tracking-wider transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: cryptoType === 'ecdsa' ? '#00ff0040' : '#00ff0010',
+                  borderColor: cryptoType === 'ecdsa' ? '#00ff00' : '#00ff0040',
+                  color: '#00ff00',
+                  boxShadow: cryptoType === 'ecdsa' ? '0 0 20px #00ff0050' : 'none',
+                  fontFamily: 'monospace'
+                }}
+              >
+                ECDSA
+              </button>
+              <button
+                type="button"
+                onClick={() => setCryptoType('sr25519')}
+                disabled={authLoading}
+                className="flex-1 py-4 rounded-xl border-4 font-bold text-lg uppercase tracking-wider transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: cryptoType === 'sr25519' ? '#00ff0040' : '#00ff0010',
+                  borderColor: cryptoType === 'sr25519' ? '#00ff00' : '#00ff0040',
+                  color: '#00ff00',
+                  boxShadow: cryptoType === 'sr25519' ? '0 0 20px #00ff0050' : 'none',
+                  fontFamily: 'monospace'
+                }}
+              >
+                SR25519
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="mnemonic"
+              className="block text-xl font-bold mb-3 uppercase tracking-wider"
               style={{ color: '#00ff00', fontFamily: 'monospace' }}
             >
               MNEMONIC PHRASE

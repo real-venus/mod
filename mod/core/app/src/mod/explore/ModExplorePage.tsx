@@ -8,7 +8,7 @@ import { ModuleType } from '@/types'
 import { useSearchContext } from '@/context/SearchContext'
 import { userContext } from '@/context'
 import { X, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
-import { CubeIcon } from '@heroicons/react/24/outline'
+import { CubeIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 type ModTab = 'mods' | 'myMods'
@@ -178,32 +178,50 @@ export default function ModExplorePage() {
   }[columns] || 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className="min-h-screen font-mono relative overflow-hidden" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-
-
+    <div
+      className="min-h-screen"
+      style={{
+        fontFamily: 'var(--font-digital), monospace',
+        backgroundColor: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+        background: `repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 2px), var(--bg-primary)`,
+      }}
+    >
       <div className="relative max-w-7xl mx-auto px-6 pt-4 pb-12 z-20">
 
         {/* Header — single compact row */}
-        <div className="flex items-center gap-4 mb-4" style={{ borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px' }}>
+        <div className="flex items-center gap-3 mb-6 border-b-4 pb-3" style={{ borderColor: 'var(--border-strong)' }}>
           {/* Tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
             {TABS.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className="relative px-3 py-1.5 text-[12px] font-extrabold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase rounded-lg"
-                style={activeTab === tab.key
-                  ? { color: 'var(--text-primary)', background: 'var(--bg-input)' }
-                  : { color: 'var(--text-tertiary)' }}
+                className="px-5 py-3 text-base font-bold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase border-4"
+                style={
+                  activeTab === tab.key
+                    ? {
+                        borderColor: 'var(--text-primary)',
+                        backgroundColor: 'var(--text-primary)',
+                        color: 'var(--bg-primary)',
+                        fontFamily: 'var(--font-digital)',
+                      }
+                    : {
+                        borderColor: 'var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-digital)',
+                      }
+                }
               >
-                {tab.label}
+                ▸ {tab.label}
                 {tab.key === 'mods' && (
-                  <span className="ml-1.5 text-[11px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="ml-2 text-sm font-bold" style={{ opacity: 0.7 }}>
                     {totalMods}
                   </span>
                 )}
                 {tab.key === 'myMods' && user?.key && (
-                  <span className="ml-1.5 text-[11px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="ml-2 text-sm font-bold" style={{ opacity: 0.7 }}>
                     {filteredMods.length}
                   </span>
                 )}
@@ -212,7 +230,7 @@ export default function ModExplorePage() {
           </div>
 
           {searchTermToUse && (
-            <span className="text-[11px] font-extrabold font-mono px-2.5 py-1 rounded-lg" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)' }}>
+            <span className="text-sm font-bold font-mono px-4 py-2 border-4 uppercase" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-strong)', fontFamily: 'var(--font-digital)' }}>
               &gt; &quot;{searchTermToUse}&quot;
             </span>
           )}
@@ -232,36 +250,38 @@ export default function ModExplorePage() {
 
           <Link
             href="/create"
-            className="shrink-0 px-4 py-1.5 text-[12px] font-black uppercase tracking-widest transition-all rounded-lg hover:opacity-80 flex items-center"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1.5px solid var(--border-color)' }}
+            className="shrink-0 px-6 py-3 text-base font-bold uppercase tracking-widest transition-all hover:opacity-80 flex items-center border-4"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', borderColor: 'var(--border-strong)', fontFamily: 'var(--font-digital)' }}
           >
-            + Create Mod
+            + CREATE MOD
           </Link>
         </div>
 
         {error && (
-          <div className="mb-5">
-            <div className="bg-red-500/[0.03] border border-red-500/20 rounded-xl flex items-start justify-between">
-              <div className="flex-1 px-5 py-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                  <span className="text-red-400/80 font-bold text-[12px] uppercase tracking-wider">Error</span>
+          <div className="mb-8">
+            <div className="border-4 flex items-start justify-between" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
+              <div className="flex-1 px-6 py-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-3 h-3 bg-red-400 animate-pulse" />
+                  <span className="text-red-400 font-bold text-base uppercase tracking-wider" style={{ fontFamily: 'var(--font-digital)' }}>▸ ERROR</span>
                 </div>
-                <div className="text-red-400/50 text-[13px] font-medium">{error}</div>
+                <div className="text-red-400 text-base font-bold" style={{ fontFamily: 'var(--font-digital)' }}>{error}</div>
               </div>
-              <div className="flex gap-2 p-3">
+              <div className="flex gap-3 p-4">
                 <button
                   onClick={fetchAll}
-                  className="flex items-center gap-2 px-4 py-2 border border-red-500/25 text-red-400/70 hover:bg-red-500/10 transition-all text-[11px] font-bold uppercase tracking-wider rounded-lg"
+                  className="flex items-center gap-2 px-5 py-3 border-4 text-red-400 transition-all text-sm font-bold uppercase tracking-wider"
+                  style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-primary)', fontFamily: 'var(--font-digital)' }}
                 >
-                  <RotateCcw size={13} />
-                  Retry
+                  <RotateCcw size={16} />
+                  RETRY
                 </button>
                 <button
                   onClick={() => setError(null)}
-                  className="p-2 border border-red-500/25 text-red-400/70 hover:bg-red-500/10 transition-all rounded-lg"
+                  className="p-3 border-4 text-red-400 transition-all"
+                  style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-primary)' }}
                 >
-                  <X size={13} />
+                  <X size={16} />
                 </button>
               </div>
             </div>
@@ -269,22 +289,22 @@ export default function ModExplorePage() {
         )}
 
         {!loading && filteredMods.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center py-24 rounded-2xl font-mono" style={{ backgroundColor: 'var(--bg-secondary)', border: '3px solid var(--border-color)' }}>
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: 'var(--bg-input)', border: '3px solid var(--border-color)' }}>
-              <CubeIcon className="w-6 h-6" style={{ color: 'var(--text-tertiary)' }} />
+          <div className="flex flex-col items-center justify-center py-24 font-mono border-4" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
+            <div className="w-16 h-16 flex items-center justify-center mb-6 border-4" style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-strong)' }}>
+              <CubeIcon className="w-8 h-8" style={{ color: 'var(--text-primary)' }} />
             </div>
-            <p className="text-[14px] font-bold" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
               {activeTab === 'myMods'
-                ? (user?.key ? 'No modules created yet' : 'Sign in to view your modules')
-                : (searchTermToUse || selectedOwners.length > 0 ? 'No modules match your filters' : 'No modules yet')}
+                ? (user?.key ? '▸ NO MODULES CREATED YET' : '▸ SIGN IN TO VIEW YOUR MODULES')
+                : (searchTermToUse || selectedOwners.length > 0 ? '▸ NO MODULES MATCH YOUR FILTERS' : '▸ NO MODULES YET')}
             </p>
             {(searchTermToUse || selectedOwners.length > 0) && (
               <button
                 onClick={() => { handleSearch(''); clearOwnerFilters() }}
-                className="mt-5 px-5 py-2.5 text-[12px] font-extrabold uppercase tracking-wider transition-all rounded-xl"
-                style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)', border: '3px solid var(--border-color)' }}
+                className="mt-8 px-8 py-4 text-base font-bold uppercase tracking-wider transition-all border-4"
+                style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', borderColor: 'var(--border-strong)', fontFamily: 'var(--font-digital)' }}
               >
-                Clear Filters
+                ▸ CLEAR FILTERS
               </button>
             )}
           </div>
@@ -292,11 +312,11 @@ export default function ModExplorePage() {
 
         {loading && (
           <div className="flex items-center justify-center py-24 font-mono">
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
-                <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border-color)', borderTopColor: 'var(--text-primary)' }} />
+            <div className="flex flex-col items-center gap-5">
+              <div className="w-16 h-16 border-4 flex items-center justify-center" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
+                <ArrowPathIcon className="w-8 h-8 animate-spin" style={{ color: 'var(--text-primary)' }} />
               </div>
-              <span className="text-[13px] font-bold" style={{ color: 'var(--text-secondary)' }}>Loading modules...</span>
+              <span className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>▸ LOADING MODULES...</span>
             </div>
           </div>
         )}
@@ -310,18 +330,18 @@ export default function ModExplorePage() {
         </div>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 pt-10 pb-4">
+          <div className="flex items-center justify-center gap-3 pt-10 pb-4">
             <button
               onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
               disabled={currentPage === 0}
-              className="flex items-center gap-1.5 px-4 py-2.5 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider rounded-xl"
-              style={{ border: '3px solid var(--border-color)', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
+              className="flex items-center gap-2 px-6 py-3 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-base font-bold uppercase tracking-wider border-4"
+              style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)', fontFamily: 'var(--font-digital)' }}
             >
-              <ChevronLeft size={14} strokeWidth={3} />
-              Prev
+              <ChevronLeft size={18} strokeWidth={3} />
+              PREV
             </button>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let pageIndex: number
                 if (totalPages <= 5) {
@@ -340,10 +360,12 @@ export default function ModExplorePage() {
                   <button
                     key={pageIndex}
                     onClick={() => setCurrentPage(pageIndex)}
-                    className="w-10 h-10 text-[12px] font-extrabold transition-all rounded-lg"
-                    style={currentPage === pageIndex
-                      ? { border: '3px solid var(--text-primary)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }
-                      : { border: '2px solid var(--border-color)', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-secondary)' }}
+                    className="w-12 h-12 text-base font-bold transition-all border-4"
+                    style={
+                      currentPage === pageIndex
+                        ? { borderColor: 'var(--text-primary)', color: 'var(--bg-primary)', backgroundColor: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }
+                        : { borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)', fontFamily: 'var(--font-digital)' }
+                    }
                   >
                     {displayNum}
                   </button>
@@ -354,15 +376,15 @@ export default function ModExplorePage() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
               disabled={currentPage === totalPages - 1}
-              className="flex items-center gap-1.5 px-4 py-2.5 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider rounded-xl"
-              style={{ border: '3px solid var(--border-color)', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
+              className="flex items-center gap-2 px-6 py-3 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-base font-bold uppercase tracking-wider border-4"
+              style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)', fontFamily: 'var(--font-digital)' }}
             >
-              Next
-              <ChevronRight size={14} strokeWidth={3} />
+              NEXT
+              <ChevronRight size={18} strokeWidth={3} />
             </button>
 
-            <span className="ml-2 text-[12px] font-extrabold" style={{ color: 'var(--text-tertiary)' }}>
-              {totalMods} total
+            <span className="ml-3 text-base font-bold uppercase border-4 px-4 py-3" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-input)', fontFamily: 'var(--font-digital)' }}>
+              {totalMods} TOTAL
             </span>
           </div>
         )}

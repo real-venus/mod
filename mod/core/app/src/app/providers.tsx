@@ -51,14 +51,19 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="shrink-0 flex items-center justify-center transition-all hover:opacity-80 rounded-full"
-      style={{ width: '34px', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--border-strong)' }}
+      className="shrink-0 flex items-center justify-center transition-all border-4"
+      style={{
+        width: '44px',
+        height: '44px',
+        backgroundColor: 'var(--bg-secondary)',
+        borderColor: 'var(--border-strong)'
+      }}
       title={effectiveTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       {effectiveTheme === 'dark' ? (
-        <SunIcon className="w-4 h-4 text-white" />
+        <SunIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
       ) : (
-        <MoonIcon className="w-4 h-4 text-black" />
+        <MoonIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
       )}
     </button>
   )
@@ -160,20 +165,25 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
         {/* Hamburger */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="shrink-0 flex items-center justify-center transition-all hover:opacity-80 mr-2"
-          style={{ width: '40px', height: '36px' }}
+          className="shrink-0 flex items-center justify-center transition-all border-4 mr-2"
+          style={{
+            width: '44px',
+            height: '44px',
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-strong)'
+          }}
         >
           {menuOpen ? (
-            <XMarkIcon className="w-5 h-5 text-green-400" />
+            <XMarkIcon className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
           ) : (
-            <Bars3Icon className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+            <Bars3Icon className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
           )}
         </button>
 
         {/* Search bar - always visible, centered, takes most space */}
         <div className="flex-1 flex items-center">
           <div className="relative w-full max-w-2xl">
-            <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+            <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-primary)' }} />
             <input
               ref={inputRef}
               type="text"
@@ -181,24 +191,29 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onFocus={() => setSearchOpen(true)}
-              placeholder="Search mods..."
-              className="w-full text-lg font-digital focus:outline-none focus:border-green-500/40 transition-all rounded-xl"
+              placeholder="SEARCH MODS..."
+              className="w-full text-lg font-digital focus:outline-none transition-all border-4 uppercase"
               style={{
-                paddingLeft: '2.5rem',
-                paddingRight: searchOpen ? '3.5rem' : '1rem',
-                height: '36px',
+                paddingLeft: '3rem',
+                paddingRight: searchOpen ? '4rem' : '1.5rem',
+                height: '44px',
                 fontFamily: 'var(--font-digital), monospace',
-                letterSpacing: '0.03em',
+                letterSpacing: '0.05em',
                 backgroundColor: 'var(--bg-input)',
-                border: '1px solid var(--border-input)',
+                borderColor: 'var(--border-strong)',
                 color: 'var(--text-primary)',
               }}
             />
             {searchOpen && inputValue && (
               <button
                 onClick={closeSearch}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-all"
-                style={{ color: 'var(--text-secondary)', background: 'var(--bg-input)' }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold px-2 py-1 border-2 transition-all uppercase"
+                style={{
+                  color: 'var(--text-primary)',
+                  backgroundColor: 'var(--bg-primary)',
+                  borderColor: 'var(--border-strong)',
+                  fontFamily: 'var(--font-digital)'
+                }}
               >
                 ESC
               </button>
@@ -207,14 +222,19 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
         </div>
 
         {/* Right side: + CREATE, Logo, Network, Wallet */}
-        <div className="shrink-0 flex items-center gap-1 ml-3">
+        <div className="shrink-0 flex items-center gap-2 ml-3">
           <button
             onClick={() => router.push('/create')}
-            className="shrink-0 flex items-center gap-2 px-5 border hover:opacity-80 transition-all rounded-full"
-            style={{ height: '44px', fontFamily: 'var(--font-digital), monospace', borderColor: 'var(--border-strong)', background: 'transparent' }}
+            className="shrink-0 flex items-center gap-2 px-5 border-4 transition-all uppercase"
+            style={{
+              height: '44px',
+              fontFamily: 'var(--font-digital), monospace',
+              borderColor: 'var(--border-strong)',
+              backgroundColor: 'var(--bg-secondary)'
+            }}
           >
-            <PlusIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
-            <span className="text-xl font-digital uppercase tracking-[0.08em] whitespace-nowrap hidden sm:inline" style={{ color: 'var(--text-primary)' }}>
+            <PlusIcon className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
+            <span className="text-xl font-digital font-bold tracking-wider whitespace-nowrap hidden sm:inline" style={{ color: 'var(--text-primary)' }}>
               CREATE
             </span>
           </button>

@@ -64,23 +64,24 @@ export function LoginHeader() {
               {searchCollapsed ? (
                 <button
                   onClick={() => setSearchCollapsed(false)}
-                  className="p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95"
-                  style={{height: '48px', width: '48px'}}
+                  className="p-3 bg-white/5 border-4 hover:bg-white/10 transition-all active:scale-95"
+                  style={{height: '44px', width: '44px', borderColor: 'var(--border-strong)'}}
                   title="Search"
                 >
                   <MagnifyingGlassIcon className="w-6 h-6 text-gray-400" />
                 </button>
               ) : (
                 <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-gray-400" />
                   <input
                     type="text"
                     value={inputValue}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     onBlur={() => !inputValue && setSearchCollapsed(window.innerWidth < 1200)}
-                    placeholder="Search mods..."
-                    className="bg-white/5 border border-white/10 text-white pl-10 pr-4 py-2.5 rounded-lg text-base hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all w-72"
+                    placeholder="SEARCH MODS..."
+                    className="bg-white/5 border-4 text-white pl-12 pr-5 text-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all w-72 font-bold uppercase tracking-wide"
+                    style={{height: '44px', borderColor: 'var(--border-strong)', fontFamily: 'var(--font-digital)'}}
                     autoFocus={!searchCollapsed}
                   />
                 </div>
@@ -89,17 +90,19 @@ export function LoginHeader() {
             
             <Link
               href="/create"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-all duration-200 backdrop-blur-md hover:shadow-lg active:scale-95"
+              className="flex items-center gap-2 px-4 border-4 transition-all duration-200 backdrop-blur-md hover:shadow-lg active:scale-95 uppercase"
               style={{
+                height: '44px',
                 backgroundColor: `${createColor}25`,
-                borderColor: `${createColor}80`,
+                borderColor: `${createColor}`,
                 color: createColor,
-                boxShadow: `0 0 10px ${createColor}20`,
+                boxShadow: `0 0 20px ${createColor}30`,
+                fontFamily: 'var(--font-digital)',
               }}
               title="Create Module"
             >
-              <PlusCircleIcon className="h-5 w-5" />
-              <span className="font-bold text-sm">CREATE</span>
+              <PlusCircleIcon className="h-6 w-6" />
+              <span className="font-bold text-xl tracking-wide">CREATE</span>
             </Link>
           </div>
         </div>
@@ -107,53 +110,58 @@ export function LoginHeader() {
         <div className="flex items-center justify-end gap-3">
           {isNarrow && (
             <div className="relative">
-              <button 
-                onMouseEnter={() => setShowMenu(true)} 
-                className="p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95" 
-                style={{height: '48px'}}
+              <button
+                onMouseEnter={() => setShowMenu(true)}
+                className="p-3 bg-white/5 border-4 hover:bg-white/10 transition-all active:scale-95"
+                style={{height: '44px', width: '44px', borderColor: 'var(--border-strong)'}}
                 title="Menu"
               >
                 <Bars3Icon className="h-6 w-6 text-white" />
               </button>
               {showMenu && (
-                <div 
-                  className="absolute top-full right-0 mt-2 border border-white/10 bg-black/95 backdrop-blur-md rounded-lg shadow-xl min-w-[200px]"
+                <div
+                  className="absolute top-full right-0 mt-2 border-4 bg-black/95 backdrop-blur-md shadow-xl min-w-[220px]"
+                  style={{borderColor: 'var(--border-strong)'}}
                   onMouseEnter={() => setShowMenu(true)}
                   onMouseLeave={() => setShowMenu(false)}
                 >
-                  <nav className="flex flex-col p-2">
+                  <nav className="flex flex-col p-3 gap-2">
                     <Link
                       href="/mod/explore"
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-all duration-200 mb-2 backdrop-blur-md ${
+                      className={`flex items-center gap-3 px-4 border-4 transition-all duration-200 backdrop-blur-md uppercase ${
                         isModsPage ? 'shadow-xl active:scale-95' : 'hover:shadow-lg active:scale-95'
                       }`}
                       style={{
+                        height: '44px',
                         backgroundColor: isModsPage ? `${modsColor}50` : `${modsColor}25`,
-                        borderColor: `${modsColor}80`,
+                        borderColor: `${modsColor}`,
                         color: modsColor,
-                        boxShadow: isModsPage ? `0 0 20px ${modsColor}50, inset 0 2px 8px ${modsColor}30` : `0 0 10px ${modsColor}20`,
+                        boxShadow: isModsPage ? `0 0 20px ${modsColor}50` : `0 0 10px ${modsColor}30`,
+                        fontFamily: 'var(--font-digital)',
                       }}
                       title="Modules"
                     >
-                      <CubeIcon className="h-5 w-5" />
-                      <span className="font-bold text-sm">MODS</span>
+                      <CubeIcon className="h-6 w-6" />
+                      <span className="font-bold text-xl tracking-wide">MODS</span>
                     </Link>
-                    
+
                     <Link
                       href="/user/explore"
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-all duration-200 backdrop-blur-md ${
+                      className={`flex items-center gap-3 px-4 border-4 transition-all duration-200 backdrop-blur-md uppercase ${
                         isUsersPage ? 'shadow-xl active:scale-95' : 'hover:shadow-lg active:scale-95'
                       }`}
                       style={{
+                        height: '44px',
                         backgroundColor: isUsersPage ? `${usersColor}50` : `${usersColor}25`,
-                        borderColor: `${usersColor}80`,
+                        borderColor: `${usersColor}`,
                         color: usersColor,
-                        boxShadow: isUsersPage ? `0 0 20px ${usersColor}50, inset 0 2px 8px ${usersColor}30` : `0 0 10px ${usersColor}20`,
+                        boxShadow: isUsersPage ? `0 0 20px ${usersColor}50` : `0 0 10px ${usersColor}30`,
+                        fontFamily: 'var(--font-digital)',
                       }}
                       title="Users"
                     >
-                      <UsersIcon className="h-5 w-5" />
-                      <span className="font-bold text-sm">USERS</span>
+                      <UsersIcon className="h-6 w-6" />
+                      <span className="font-bold text-xl tracking-wide">USERS</span>
                     </Link>
                   </nav>
                 </div>

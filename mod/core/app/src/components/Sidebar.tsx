@@ -138,14 +138,20 @@ export function Sidebar() {
   ]
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-20 bg-black border-r-2 backdrop-blur-xl transition-all duration-300 z-40" style={{ borderColor: 'rgba(0, 255, 0, 0.25)' }}>
+    <aside
+      className="fixed left-0 top-0 h-full w-20 border-r-4 transition-all duration-300 z-40"
+      style={{
+        backgroundColor: 'var(--bg-primary)',
+        borderColor: 'var(--border-strong)'
+      }}
+    >
       <div className="flex flex-col h-full p-3">
         {/* Logo */}
-        <div className="flex items-center justify-center mb-6 mt-2">
+        <div className="flex items-center justify-center mb-6 mt-2 border-4 p-2" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
           <Logo />
         </div>
 
-        {/* Main Navigation Grid - 3 columns */}
+        {/* Main Navigation */}
         <div className="grid grid-cols-1 gap-3 mb-6">
           {mainNavItems.map((item) => {
             const isActive = pathname === item.href
@@ -153,18 +159,16 @@ export function Sidebar() {
               <div key={item.id} className="relative" onMouseEnter={() => setHoveredSection(item.name)} onMouseLeave={() => setHoveredSection(null)}>
                 <Link
                   href={item.href}
-                  className={`flex items-center justify-center rounded-xl p-3 transition-all backdrop-blur-sm w-full ${
-                    isActive
-                      ? 'bg-opacity-20 border-2 shadow-lg'
-                      : 'border-2 border-white/20 hover:border-white/40 hover:bg-white/10'
-                  }`}
+                  className="flex items-center justify-center p-3 transition-all w-full border-4"
                   style={{
-                    backgroundColor: isActive ? `${item.color}33` : undefined,
-                    borderColor: isActive ? `${item.color}4D` : undefined,
-                    boxShadow: isActive ? `0 0 20px ${item.color}33` : '0 0 10px rgba(255,255,255,0.05)'
+                    backgroundColor: isActive ? 'var(--text-primary)' : 'var(--bg-secondary)',
+                    borderColor: 'var(--border-strong)'
                   }}
                 >
-                  <item.icon className="w-7 h-7" style={{ color: isActive ? item.color : '#9ca3af' }} />
+                  <item.icon
+                    className="w-7 h-7"
+                    style={{ color: isActive ? 'var(--bg-primary)' : 'var(--text-primary)' }}
+                  />
                 </Link>
                 <AnimatePresence>
                   {hoveredSection === item.name && (
@@ -176,8 +180,13 @@ export function Sidebar() {
                       className="absolute left-full ml-2 top-1/2 -translate-y-1/2 pointer-events-none z-50"
                     >
                       <div
-                        className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border whitespace-nowrap text-sm font-medium"
-                        style={{ borderColor: `${item.color}4D` }}
+                        className="px-4 py-2 border-4 whitespace-nowrap text-base font-bold uppercase"
+                        style={{
+                          backgroundColor: 'var(--bg-secondary)',
+                          borderColor: 'var(--border-strong)',
+                          color: 'var(--text-primary)',
+                          fontFamily: 'var(--font-digital)'
+                        }}
                       >
                         {item.name}
                       </div>
@@ -204,7 +213,15 @@ export function Sidebar() {
                   transition={{ duration: 0.15 }}
                   className="absolute left-full ml-2 top-1/2 -translate-y-1/2 pointer-events-none z-50"
                 >
-                  <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-blue-500/30 whitespace-nowrap text-sm font-medium">
+                  <div
+                    className="px-4 py-2 border-4 whitespace-nowrap text-base font-bold uppercase"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)',
+                      fontFamily: 'var(--font-digital)'
+                    }}
+                  >
                     Network
                   </div>
                 </motion.div>
@@ -223,7 +240,15 @@ export function Sidebar() {
                   transition={{ duration: 0.15 }}
                   className="absolute left-full ml-2 top-1/2 -translate-y-1/2 pointer-events-none z-50"
                 >
-                  <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl border border-orange-500/30 whitespace-nowrap text-sm font-medium">
+                  <div
+                    className="px-4 py-2 border-4 whitespace-nowrap text-base font-bold uppercase"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)',
+                      fontFamily: 'var(--font-digital)'
+                    }}
+                  >
                     Wallet
                   </div>
                 </motion.div>

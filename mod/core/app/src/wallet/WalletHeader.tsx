@@ -92,33 +92,35 @@ export function WalletHeader() {
 
   return (
     <div ref={walletRef} className="flex items-center gap-2">
-      <div className="flex items-center gap-2">
-        {/* Network Selector integrated */}
-        <NetworkSelector />
-
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center border-2 transition-all relative gap-2 px-3 rounded-xl"
-          style={{ height: '40px', fontFamily: 'var(--font-digital), monospace', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
-        >
-          <WalletIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-          <span className="text-lg font-digital tabular-nums text-green-400">
-            ${balances.marketCredit.toFixed(2)}
-          </span>
-          <span className="text-sm font-digital tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-            -{transactions.totalCost24h.toFixed(2)}/d
-          </span>
-          <span className={`text-sm font-digital tabular-nums ${tokenExpiry.isTokenExpired ? 'text-red-400' : 'text-cyan-500'}`}>
-            {tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()}
-          </span>
-          <div
-            className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-sm transition-colors ${
-              tokenExpiry.isTokenExpired ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
-            }`}
-            title={tokenExpiry.isTokenExpired ? 'Token Expired - Click to Refresh' : 'Connected'}
-          />
-        </button>
-      </div>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center border-4 transition-all relative gap-2 px-3 uppercase"
+        style={{
+          height: '44px',
+          fontFamily: 'var(--font-digital), monospace',
+          backgroundColor: 'var(--bg-secondary)',
+          borderColor: 'var(--border-strong)'
+        }}
+      >
+        <WalletIcon className="w-6 h-6 flex-shrink-0" style={{ color: 'var(--text-primary)' }} />
+        <span className="text-xl font-digital tabular-nums font-bold" style={{ color: 'var(--text-primary)' }}>
+          ${balances.marketCredit.toFixed(2)}
+        </span>
+        <span className="text-sm font-digital tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+          -{transactions.totalCost24h.toFixed(2)}/D
+        </span>
+        <span className="text-sm font-digital tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+          {tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()}
+        </span>
+        <div
+          className="absolute -top-1 -right-1 w-3 h-3 border-2 transition-colors"
+          style={{
+            backgroundColor: tokenExpiry.isTokenExpired ? 'var(--text-tertiary)' : 'var(--text-primary)',
+            borderColor: 'var(--bg-primary)'
+          }}
+          title={tokenExpiry.isTokenExpired ? 'Token Expired - Click to Refresh' : 'Connected'}
+        />
+      </button>
 
       <AnimatePresence>
         {isOpen && (
