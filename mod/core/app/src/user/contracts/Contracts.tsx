@@ -11,7 +11,11 @@ import { Zap, Eye, Edit3, RefreshCw, ChevronDown, ChevronUp, Sparkles } from 'lu
 
 const loadAbiFromIpfs = async (client: any, cid: string) => {
   try {
-    const abiData = await client.call('get', { cid })
+    let abiData = await client.call('get', { cid })
+    // if abi is in the filed then get the abi
+    if (abiData.abi !== null) {
+      abiData = abiData.abi
+    }
     return abiData
   } catch (err) {
     console.error('Error fetching ABI from IPFS:', err)

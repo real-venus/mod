@@ -40,8 +40,9 @@ export default function ModExplorePage() {
   })
 
   const [selectedOwners, setSelectedOwners] = useState<string[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(0) // API uses 0-based pagination
   const [itemsPerPage] = useState(20)
+  const [totalMods, setTotalMods] = useState(0)
 
   const searchTermToUse = searchFilters.searchTerm?.trim() || ''
 
@@ -94,7 +95,11 @@ export default function ModExplorePage() {
         return
       }
 
-      const params: any = {}
+      const params: any = {
+        page: currentPage,
+        page_size: itemsPerPage
+      }
+
       if (searchTermToUse) {
         params.search = searchTermToUse
       }
@@ -104,8 +109,19 @@ export default function ModExplorePage() {
       }
 
       const raw = (await client.call('mods', params)) as ModuleType[]
-      const allMods = Array.isArray(raw) ? raw : []
-      const sorted = sortModules(allMods)
+      const pageMods = Array.isArray(raw) ? raw : []
+
+      // If we got fewer mods than requested, we're on the last page
+      if (pageMods.length < itemsPerPage && currentPage === 0) {
+        setTotalMods(pageMods.length)
+      } else if (pageMods.length < itemsPerPage) {
+        setTotalMods(currentPage * itemsPerPage + pageMods.length)
+      } else {
+        // Estimate total based on page size - we'll refine as we paginate
+        setTotalMods((currentPage + 2) * itemsPerPage)
+      }
+
+      const sorted = sortModules(pageMods)
       setMods(sorted)
     } catch (err: any) {
       console.error('Error fetching modules:', err)
@@ -113,7 +129,7 @@ export default function ModExplorePage() {
     } finally {
       setLoading(false)
     }
-  }, [client, searchTermToUse, selectedOwners, sortModules])
+  }, [client, searchTermToUse, selectedOwners, sortModules, currentPage, itemsPerPage])
 
   useEffect(() => {
     fetchAll()
@@ -129,25 +145,19 @@ export default function ModExplorePage() {
 
   const filteredMods = useMemo(() => {
     let result = mods
-    if (selectedOwners.length > 0) {
-      result = result.filter(mod => selectedOwners.includes(mod.key))
-    }
     if (activeTab === 'myMods' && user?.key) {
       result = result.filter(mod => mod.key === user.key)
     }
     return result
-  }, [mods, selectedOwners, activeTab, user?.key])
+  }, [mods, activeTab, user?.key])
 
-  const totalPages = Math.ceil(filteredMods.length / itemsPerPage)
+  const totalPages = Math.ceil(totalMods / itemsPerPage)
 
-  const paginatedMods = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    return filteredMods.slice(startIndex, endIndex)
-  }, [filteredMods, currentPage, itemsPerPage])
+  // Mods are already paginated from the API
+  const paginatedMods = filteredMods
 
   useEffect(() => {
-    setCurrentPage(1)
+    setCurrentPage(0) // Reset to first page (0-based)
   }, [searchTermToUse, selectedOwners, sort, activeTab])
 
   const toggleOwner = (owner: string) => {
@@ -189,12 +199,12 @@ export default function ModExplorePage() {
                 {tab.label}
                 {tab.key === 'mods' && (
                   <span className="ml-1.5 text-[11px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>
-                    {mods.length}
+                    {totalMods}
                   </span>
                 )}
                 {tab.key === 'myMods' && user?.key && (
                   <span className="ml-1.5 text-[11px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>
-                    {mods.filter(m => m.key === user.key).length}
+                    {filteredMods.length}
                   </span>
                 )}
               </button>
@@ -302,8 +312,8 @@ export default function ModExplorePage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 pt-10 pb-4">
             <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
               className="flex items-center gap-1.5 px-4 py-2.5 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider rounded-xl"
               style={{ border: '3px solid var(--border-color)', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
             >
@@ -313,35 +323,37 @@ export default function ModExplorePage() {
 
             <div className="flex items-center gap-1.5">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number
+                let pageIndex: number
                 if (totalPages <= 5) {
-                  pageNum = i + 1
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i
+                  pageIndex = i
+                } else if (currentPage <= 2) {
+                  pageIndex = i
+                } else if (currentPage >= totalPages - 3) {
+                  pageIndex = totalPages - 5 + i
                 } else {
-                  pageNum = currentPage - 2 + i
+                  pageIndex = currentPage - 2 + i
                 }
+
+                const displayNum = pageIndex + 1 // Display 1-based to users
 
                 return (
                   <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
+                    key={pageIndex}
+                    onClick={() => setCurrentPage(pageIndex)}
                     className="w-10 h-10 text-[12px] font-extrabold transition-all rounded-lg"
-                    style={currentPage === pageNum
+                    style={currentPage === pageIndex
                       ? { border: '3px solid var(--text-primary)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-input)' }
                       : { border: '2px solid var(--border-color)', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-secondary)' }}
                   >
-                    {pageNum}
+                    {displayNum}
                   </button>
                 )
               })}
             </div>
 
             <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+              disabled={currentPage === totalPages - 1}
               className="flex items-center gap-1.5 px-4 py-2.5 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[11px] font-extrabold uppercase tracking-wider rounded-xl"
               style={{ border: '3px solid var(--border-color)', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}
             >
@@ -350,7 +362,7 @@ export default function ModExplorePage() {
             </button>
 
             <span className="ml-2 text-[12px] font-extrabold" style={{ color: 'var(--text-tertiary)' }}>
-              {filteredMods.length} total
+              {totalMods} total
             </span>
           </div>
         )}

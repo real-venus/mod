@@ -16,7 +16,7 @@ class Router:
     folder_path = m.abspath('~/.mod/api/router')
     intervals = {
         'sync_tasks': 10,
-        'sync_ious': 60,
+        # 'sync_ious': 60,
     }
 
     def __init__(self, store='ipfs', key=None, auth='auth', cache='router.cache', chain='chain',):
@@ -26,7 +26,6 @@ class Router:
         self.chain = m.mod(chain)()
         self.cache = m.mod(cache)()
         self.auth = m.mod(auth)()
-        self.client = m.mod('client')()
         self.threads['sync'] = m.thread(self.sync_loop)
 
     def get(self, cid: str) -> Dict[str, Any]:
@@ -315,7 +314,9 @@ class Router:
 
     @property
     def namespace(self):
-        return m.namespace()
+        namespace =  m.namespace()
+        namespace.pop('api')
+        return namespace
 
     def run_task(self, **task:dict) -> Any:
         """
@@ -329,10 +330,11 @@ class Router:
             params =  self.store.get(task['params'])
         assert isinstance(params, dict)
         m.put(path, task)
+        client = m.mod('client')()
         try:
-            url = self.namespace.get(mod, None)
-            if url != None:
-                result = self.client.call(url + '/' + fn, params=params, timeout=task['timeout'])
+            url = self.namespace.get(mod, None) 
+            if url != None  :
+                result = client.call(url + '/' + fn, params=params, timeout=task['timeout'])
             else:
                 result = m.fn(task['fn'])
                 result = result(**params) if callable(result) else result

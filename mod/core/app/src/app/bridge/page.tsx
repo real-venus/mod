@@ -11,6 +11,7 @@ import {
   XCircleIcon,
   ClockIcon,
   ClipboardDocumentIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMetaMask } from '@/wallet/MetaMaskProvider'
@@ -32,6 +33,12 @@ interface BridgeClaim {
   timestamp: number
   status: 'pending' | 'processing' | 'completed' | 'failed'
   txHash?: string
+}
+
+interface ClaimData {
+  amount: number
+  recipient: string
+  from: string
 }
 
 interface BalanceEntry {
@@ -67,13 +74,15 @@ export default function BridgePage() {
   const [sr25519Address, setSr25519Address] = useState('')
   const [recipientAddress, setRecipientAddress] = useState('')
   const [claimAmount, setClaimAmount] = useState('')
-  const [tokenBalance, setTokenBalance] = useState('0')
+  const [tokenBalance, setTokenBalance] = useState<string>('0')
   const [claims, setClaims] = useState<BridgeClaim[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [hasClaimed, setHasClaimed] = useState(false)
   const [unclaimedAmount, setUnclaimedAmount] = useState<string>('')
   const [balanceSheet, setBalanceSheet] = useState<BalanceSheet | null>(null)
-  const [claimedHistory, setClaimedHistory] = useState<Record<string, number>>({})
+  const [claimedHistory, setClaimedHistory] = useState<Record<string, ClaimData>>({})
+  const [contractOwner, setContractOwner] = useState<string | null>(null)
+  const [isOwner, setIsOwner] = useState(false)
 
   // Loading states
   const [loadingBalance, setLoadingBalance] = useState(false)
@@ -84,168 +93,162 @@ export default function BridgePage() {
   // Active tab
   const [activeTab, setActiveTab] = useState<'claim' | 'history' | 'balances'>('claim')
 
-  // Auto-connect sr25519 keys and fetch unclaimed balance
+  // Auto-connect from user context and fetch unclaimed balance
   useEffect(() => {
-    const initSr25519 = async () => {
-      if (user?.crypto_type === 'sr25519' && user.key) {
-        setSr25519Address(user.key)
-        setWalletConnection({
-          type: 'sr25519',
-          address: user.key,
-          chainId: null,
-          provider: null,
-        })
+    const initWallet = async () => {
+      // Use user.key as the primary wallet address (can be sr25519 or EVM)
+      if (user?.key) {
+        // For sr25519, use as source address
+        if (user.crypto_type === 'sr25519') {
+          setSr25519Address(user.key)
+          setWalletConnection({
+            type: 'sr25519',
+            address: user.key,
+            chainId: null,
+            provider: null,
+          })
 
-        // Only fetch data if client is available (has token)
-        if (client?.token) {
-          // Fetch unclaimed balance and claim status from bridge module
-          setLoadingUnclaimed(true)
-          try {
-            // Check if already claimed
-            const claimedResult = await client.call('bridge/has_claimed', { address: user.key })
-            const alreadyClaimed = claimedResult === true || claimedResult?.claimed === true
-            setHasClaimed(alreadyClaimed)
+          // Only fetch data if client is available (has token)
+          if (client?.token) {
+            // Fetch unclaimed balance and claim status from bridge module
+            setLoadingUnclaimed(true)
+            try {
+              // Check if already claimed
+              const claimedResult = await client.call('bridge/has_claimed', { address: user.key })
+              const alreadyClaimed = claimedResult === true || claimedResult?.claimed === true
+              setHasClaimed(alreadyClaimed)
 
-            if (!alreadyClaimed) {
-              // Fetch unclaimed balance
-              const unclaimedResult = await client.call('bridge/unclaimed', { address: user.key })
-              if (typeof unclaimedResult === 'number' || typeof unclaimedResult === 'string') {
-                const amount = unclaimedResult.toString()
-                console.log('Unclaimed balance:', amount)
-                setUnclaimedAmount(amount)
-                setClaimAmount(amount)
+              if (!alreadyClaimed) {
+                // Fetch unclaimed balance
+                const unclaimedResult = await client.call('bridge/unclaimed', { address: user.key })
+                if (typeof unclaimedResult === 'number' || typeof unclaimedResult === 'string') {
+                  const amount = unclaimedResult.toString()
+                  console.log('Unclaimed balance:', amount)
+                  setUnclaimedAmount(amount)
+                  setClaimAmount(amount)
+                }
+              } else {
+                toast.info('You have already claimed your tokens')
               }
-            } else {
-              toast.info('You have already claimed your tokens')
+            } catch (error: any) {
+              console.error('Failed to fetch bridge data:', error)
+              toast.error(error?.message || 'Failed to load claim status')
+            } finally {
+              setLoadingUnclaimed(false)
             }
-          } catch (error: any) {
-            console.error('Failed to fetch bridge data:', error)
-            toast.error(error?.message || 'Failed to load claim status')
-          } finally {
-            setLoadingUnclaimed(false)
+          }
+        } else {
+          // For EVM addresses, try to get provider from window.ethereum
+          if (typeof window !== 'undefined' && (window as any).ethereum) {
+            try {
+              const provider = new ethers.BrowserProvider((window as any).ethereum)
+              const network = await provider.getNetwork()
+
+              setWalletConnection({
+                type: 'metamask',
+                address: user.key,
+                chainId: Number(network.chainId),
+                provider: provider,
+              })
+            } catch (error) {
+              console.error('Error setting up provider:', error)
+              // Fallback without provider
+              setWalletConnection({
+                type: 'metamask',
+                address: user.key,
+                chainId: null,
+                provider: null,
+              })
+            }
+          } else {
+            setWalletConnection({
+              type: 'metamask',
+              address: user.key,
+              chainId: null,
+              provider: null,
+            })
           }
         }
       }
     }
 
-    initSr25519()
+    initWallet()
   }, [user, client])
 
-  // Sync MetaMask connection to wallet state
+  // Sync MetaMask connection for sr25519 users (to set recipient)
   useEffect(() => {
-    if (metamask.isConnected && metamask.account) {
-      // If sr25519 is already set, preserve it but add EVM as recipient
-      if (walletConnection.type === 'sr25519') {
-        setRecipientAddress(metamask.account)
-      } else {
-        setWalletConnection({
-          type: 'metamask',
-          address: metamask.account,
-          chainId: metamask.chainId,
-          provider: metamask.provider,
-        })
-        setRecipientAddress(metamask.account)
-      }
-    } else {
-      if (walletConnection.type === 'metamask') {
-        setWalletConnection({
-          type: null,
-          address: null,
-          chainId: null,
-          provider: null,
-        })
-      }
+    if (metamask.isConnected && metamask.account && walletConnection.type === 'sr25519') {
+      // For sr25519 users, MetaMask is used as recipient address
+      setRecipientAddress(metamask.account)
     }
-  }, [metamask.isConnected, metamask.account, metamask.chainId, metamask.provider])
+  }, [metamask.isConnected, metamask.account, walletConnection.type])
 
-  // Connect MetaMask
-  const connectMetaMask = async () => {
-    try {
-      await metamask.connect()
-    } catch (error) {
-      console.error('MetaMask connection error:', error)
-    }
-  }
-
-  // Connect Subwallet
+  // Connect SubWallet for EVM recipient
   const connectSubwallet = async () => {
     if (typeof window === 'undefined') return
 
     try {
-      // Check if Subwallet is installed
-      const subwalletProvider = (window as any).injectedWeb3?.['subwallet-js']
+      // First try SubWallet EVM mode via window.ethereum
+      if ((window as any).ethereum?.isSubWallet) {
+        const provider = new ethers.BrowserProvider((window as any).ethereum)
+        const accounts = await provider.send('eth_requestAccounts', [])
 
-      if (!subwalletProvider) {
-        toast.error('Subwallet is not installed. Please install the Subwallet extension.')
-        window.open('https://subwallet.app/download.html', '_blank')
-        return
-      }
-
-      // Enable Subwallet
-      const accounts = await subwalletProvider.enable()
-
-      if (accounts && accounts.length > 0) {
-        const address = accounts[0].address
-
-        // Create ethers provider from Subwallet's EVM provider
-        const evmProvider = (window as any).ethereum
-        if (evmProvider) {
-          const provider = new ethers.BrowserProvider(evmProvider)
-          const signer = await provider.getSigner()
-          const signerAddress = await signer.getAddress()
-          const network = await provider.getNetwork()
-
-          setWalletConnection({
-            type: 'subwallet',
-            address: signerAddress,
-            chainId: Number(network.chainId),
-            provider: provider,
-          })
-          setRecipientAddress(signerAddress)
-          toast.success('Subwallet connected successfully')
-        } else {
-          toast.error('Subwallet EVM mode not detected')
+        if (accounts && accounts.length > 0) {
+          setRecipientAddress(accounts[0])
+          toast.success('SubWallet connected for token recipient')
+          return
         }
       }
+
+      // Fallback: try MetaMask
+      if ((window as any).ethereum) {
+        const provider = new ethers.BrowserProvider((window as any).ethereum)
+        const accounts = await provider.send('eth_requestAccounts', [])
+
+        if (accounts && accounts.length > 0) {
+          setRecipientAddress(accounts[0])
+          toast.success('EVM wallet connected for token recipient')
+          return
+        }
+      }
+
+      toast.error('Please install SubWallet or MetaMask extension')
+      window.open('https://subwallet.app/download.html', '_blank')
     } catch (error: any) {
-      console.error('Subwallet connection error:', error)
+      console.error('SubWallet connection error:', error)
 
       if (error.code === 4001) {
         toast.error('Connection request rejected')
       } else {
-        toast.error('Failed to connect Subwallet')
+        toast.error('Failed to connect wallet')
       }
     }
   }
 
-  // Disconnect wallet
-  const disconnectWallet = () => {
-    if (walletConnection.type === 'metamask') {
-      metamask.disconnect()
-    }
-    setWalletConnection({
-      type: null,
-      address: null,
-      chainId: null,
-      provider: null,
-    })
-    setSr25519Address('')
-    setRecipientAddress('')
-    setTokenBalance('0')
-    toast.info('Wallet disconnected')
-  }
-
   // Fetch token balance
   const fetchBalance = useCallback(async () => {
-    if (!walletConnection.address || !walletConnection.provider) return
+    if (!walletConnection.address) return
 
     try {
       setLoadingBalance(true)
+      setTokenBalance('0') // Reset to 0 while loading
+
       const network = 'testnet'
       const tokenAddr = (modConfig.chain as any)?.[network]?.contracts?.BridgeToken?.address
 
       if (!tokenAddr) {
         console.warn('Bridge token address not configured')
+        return
+      }
+
+      // Get provider - use walletConnection provider or create from window.ethereum
+      let provider = walletConnection.provider
+      if (!provider && typeof window !== 'undefined' && (window as any).ethereum) {
+        provider = new ethers.BrowserProvider((window as any).ethereum)
+      }
+
+      if (!provider) {
+        console.warn('No provider available')
         return
       }
 
@@ -255,7 +258,7 @@ export default function BridgePage() {
           'function balanceOf(address) view returns (uint256)',
           'function decimals() view returns (uint8)',
         ],
-        walletConnection.provider
+        provider
       )
 
       const [balance, decimals] = await Promise.all([
@@ -263,20 +266,54 @@ export default function BridgePage() {
         tokenContract.decimals(),
       ])
 
-      setTokenBalance(ethers.formatUnits(balance, decimals))
+      const formattedBalance = ethers.formatUnits(balance, decimals)
+      console.log('Bridge token balance for', walletConnection.address, ':', formattedBalance, 'BT')
+      setTokenBalance(formattedBalance)
     } catch (error) {
       console.error('Error fetching balance:', error)
-      toast.error('Failed to fetch token balance')
+      setTokenBalance('0')
     } finally {
       setLoadingBalance(false)
     }
   }, [walletConnection.address, walletConnection.provider])
 
   useEffect(() => {
-    if (walletConnection.address) {
+    if (walletConnection.address && walletConnection.provider) {
       fetchBalance()
+    } else if (user?.key && user.crypto_type !== 'sr25519') {
+      // For EVM users without explicit provider, try to get balance via MetaMask
+      const tryFetchBalance = async () => {
+        if (typeof window !== 'undefined' && (window as any).ethereum) {
+          try {
+            const provider = new ethers.BrowserProvider((window as any).ethereum)
+            const network = 'testnet'
+            const tokenAddr = (modConfig.chain as any)?.[network]?.contracts?.BridgeToken?.address
+
+            if (!tokenAddr) return
+
+            const tokenContract = new ethers.Contract(
+              tokenAddr,
+              [
+                'function balanceOf(address) view returns (uint256)',
+                'function decimals() view returns (uint8)',
+              ],
+              provider
+            )
+
+            const [balance, decimals] = await Promise.all([
+              tokenContract.balanceOf(user.key),
+              tokenContract.decimals(),
+            ])
+
+            setTokenBalance(ethers.formatUnits(balance, decimals))
+          } catch (error) {
+            console.error('Error fetching balance:', error)
+          }
+        }
+      }
+      tryFetchBalance()
     }
-  }, [walletConnection.address, fetchBalance])
+  }, [walletConnection.address, walletConnection.provider, user?.key, fetchBalance])
 
   // Check if address has already claimed (for manual input)
   const checkHasClaimed = useCallback(async () => {
@@ -339,9 +376,6 @@ export default function BridgePage() {
       }
 
       setClaims(prev => [newClaim, ...prev])
-
-      // Generate signature and submit claim through bridge module
-      const message = `claim:${sr25519Address}:${recipientAddress}:${claimAmount}`
 
       // Call bridge claim with authenticated token
       const result = await client.call('bridge/claim', {
@@ -468,6 +502,58 @@ export default function BridgePage() {
     }
   }, [client, fetchBalanceSheet])
 
+  // Fetch contract owner and check if current user is owner
+  const fetchOwner = useCallback(async () => {
+    if (!client) return
+
+    try {
+      const ownerResult = await client.call('bridge/owner')
+      if (ownerResult) {
+        const ownerAddress = ownerResult.toLowerCase()
+        setContractOwner(ownerAddress)
+
+        // Check if current wallet is the owner
+        if (walletConnection.address) {
+          setIsOwner(walletConnection.address.toLowerCase() === ownerAddress)
+        }
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch owner:', error)
+    }
+  }, [client, walletConnection.address])
+
+  useEffect(() => {
+    if (client?.token && walletConnection.address) {
+      fetchOwner()
+    }
+  }, [client, walletConnection.address, fetchOwner])
+
+  // Delete a claim (owner only)
+  const deleteClaim = async (address: string) => {
+    if (!client || !isOwner) {
+      toast.error('Only the contract owner can delete claims')
+      return
+    }
+
+    try {
+      const confirmed = window.confirm(`Are you sure you want to delete the claim for ${formatAddress(address)}?`)
+      if (!confirmed) return
+
+      const result = await client.call('bridge/delete_claim', { address })
+
+      if (result?.success) {
+        toast.success('Claim deleted successfully')
+        // Refresh the balance sheet
+        fetchBalanceSheet()
+      } else {
+        toast.error(result?.msg || 'Failed to delete claim')
+      }
+    } catch (error: any) {
+      console.error('Delete claim error:', error)
+      toast.error(error?.message || 'Failed to delete claim')
+    }
+  }
+
   // Generate authentication token for sr25519
   const generateAuthToken = async () => {
     if (!user?.key || user.crypto_type !== 'sr25519') {
@@ -553,96 +639,21 @@ export default function BridgePage() {
           )}
         </div>
 
-        {/* Wallet Connection Card */}
-        {!walletConnection.address ? (
-          <div
-            className="rounded-xl p-6"
-            style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}
-          >
-            <div className="text-center mb-6">
-              <WalletIcon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }} />
-              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-                Connect Your EVM Wallet
-              </h2>
-              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                {user?.crypto_type === 'sr25519'
-                  ? 'Connect an EVM wallet to receive bridged tokens'
-                  : 'Choose your wallet to get started with the bridge'
-                }
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* MetaMask */}
-              <button
-                onClick={connectMetaMask}
-                disabled={metamask.isConnecting}
-                className="p-6 rounded-xl border-2 transition-all hover:border-orange-500/50 hover:bg-orange-500/5 group"
-                style={{
-                  backgroundColor: 'var(--bg-tertiary)',
-                  borderColor: 'var(--border-strong)'
-                }}
-              >
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 flex items-center justify-center rounded-full bg-orange-500/10 border border-orange-500/30">
-                    <span className="text-3xl">🦊</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--text-primary)' }}>
-                      MetaMask
-                    </h3>
-                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      {metamask.isConnecting ? 'Connecting...' : 'Connect with MetaMask'}
-                    </p>
-                  </div>
-                </div>
-              </button>
-
-              {/* Subwallet */}
-              <button
-                onClick={connectSubwallet}
-                className="p-6 rounded-xl border-2 transition-all hover:border-purple-500/50 hover:bg-purple-500/5 group"
-                style={{
-                  backgroundColor: 'var(--bg-tertiary)',
-                  borderColor: 'var(--border-strong)'
-                }}
-              >
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 flex items-center justify-center rounded-full bg-purple-500/10 border border-purple-500/30">
-                    <span className="text-3xl">💼</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--text-primary)' }}>
-                      Subwallet
-                    </h3>
-                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      Connect with Subwallet
-                    </p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-        ) : (
+        {walletConnection.address && (
           <>
-            {/* Connected Wallet Info */}
+            {/* Wallet Info - Compact Display */}
             <div
               className="rounded-xl p-4"
               style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 flex items-center justify-center rounded-full bg-green-500/10 border border-green-500/30">
-                    <span className="text-xl">
-                      {walletConnection.type === 'metamask' ? '🦊' : walletConnection.type === 'subwallet' ? '💼' : '🔑'}
-                    </span>
+                  <div className="w-10 h-10 flex items-center justify-center rounded-full bg-cyan-500/10 border border-cyan-500/30">
+                    <WalletIcon className="w-5 h-5 text-cyan-400" />
                   </div>
                   <div>
                     <div className="text-xs mb-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                      {walletConnection.type === 'sr25519'
-                        ? 'Sr25519 Wallet'
-                        : `Connected with ${walletConnection.type === 'metamask' ? 'MetaMask' : 'Subwallet'}`
-                      }
+                      {walletConnection.type === 'sr25519' ? 'Connected with' : 'Wallet'}
                     </div>
                     <button
                       onClick={() => copyToClipboard(walletConnection.address || '', 'Address')}
@@ -675,15 +686,6 @@ export default function BridgePage() {
                         {parseFloat(tokenBalance).toLocaleString()} BT
                       </div>
                     </div>
-                  )}
-                  {walletConnection.type !== 'sr25519' && (
-                    <button
-                      onClick={disconnectWallet}
-                      className="px-3 py-2 text-xs rounded-lg transition-all hover:bg-red-500/10 hover:border-red-500/30"
-                      style={{ border: '2px solid var(--border-strong)', color: 'var(--text-tertiary)' }}
-                    >
-                      Disconnect
-                    </button>
                   )}
                 </div>
               </div>
@@ -783,16 +785,49 @@ export default function BridgePage() {
                     </div>
                   )}
 
+                  {/* SubWallet Connection Prompt for sr25519 users */}
+                  {walletConnection.type === 'sr25519' && !recipientAddress && (
+                    <div
+                      className="rounded-xl p-6 border-2"
+                      style={{
+                        backgroundColor: 'rgba(139, 92, 246, 0.05)',
+                        borderColor: 'rgba(139, 92, 246, 0.3)'
+                      }}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-purple-500/10 border-2 border-purple-500/30">
+                          <span className="text-2xl">💼</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold mb-2 text-purple-400">
+                            Connect EVM Wallet to Receive Tokens
+                          </h3>
+                          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+                            You need to connect an EVM wallet (SubWallet or MetaMask) to receive your bridged tokens.
+                            Your sr25519 wallet will be used to verify ownership, and tokens will be sent to your EVM address.
+                          </p>
+                          <button
+                            onClick={connectSubwallet}
+                            className="px-6 py-3 bg-purple-500/15 border-2 border-purple-500/30 text-purple-400 hover:bg-purple-500/25 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
+                          >
+                            <span className="text-xl">💼</span>
+                            Connect EVM Wallet
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Claim Form */}
                   <div
-                    className="rounded-xl p-6"
+                    className="rounded-xl p-8"
                     style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}
                   >
-                    <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+                    <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
                       Submit Claim
                     </h3>
 
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {/* Unclaimed Balance Display */}
                       {walletConnection.type === 'sr25519' && (
                         <div
@@ -830,92 +865,111 @@ export default function BridgePage() {
 
                       {/* Sr25519 Address */}
                       <div>
-                        <label className="text-xs mb-1.5 block font-bold" style={{ color: 'var(--text-tertiary)' }}>
-                          Sr25519 Address *
+                        <label className="text-sm mb-2 block font-bold" style={{ color: 'var(--text-secondary)' }}>
+                          Sr25519 Address <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          type="text"
-                          placeholder="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-                          value={sr25519Address}
-                          onChange={e => setSr25519Address(e.target.value)}
-                          disabled={walletConnection.type === 'sr25519'}
-                          className="w-full text-sm px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                          style={{
-                            backgroundColor: 'var(--bg-input)',
-                            border: '2px solid var(--border-strong)',
-                            color: 'var(--text-primary)'
-                          }}
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+                            value={sr25519Address}
+                            onChange={e => setSr25519Address(e.target.value)}
+                            disabled={walletConnection.type === 'sr25519'}
+                            className="w-full text-sm px-4 py-3.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                            style={{
+                              backgroundColor: walletConnection.type === 'sr25519' ? 'rgba(6, 182, 212, 0.05)' : 'var(--bg-input)',
+                              border: '2px solid var(--border-strong)',
+                              color: 'var(--text-primary)'
+                            }}
+                          />
+                        </div>
                         {walletConnection.type === 'sr25519' && (
-                          <div className="text-xs mt-1 text-cyan-400">
-                            ✓ Using your connected Sr25519 wallet
+                          <div className="text-xs mt-2 flex items-center gap-1.5 text-cyan-400">
+                            <CheckCircleIcon className="w-4 h-4" />
+                            Using your connected sr25519 wallet
                           </div>
                         )}
                         {checkingClaim && (
-                          <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                            <ArrowPathIcon className="w-3 h-3 inline animate-spin mr-1" />
+                          <div className="text-xs mt-2 flex items-center gap-1.5" style={{ color: 'var(--text-tertiary)' }}>
+                            <ArrowPathIcon className="w-4 h-4 animate-spin" />
                             Checking claim status...
                           </div>
                         )}
                         {hasClaimed && !checkingClaim && walletConnection.type !== 'sr25519' && (
-                          <div className="text-xs mt-1 text-red-400">
-                            ⚠️ This address has already claimed tokens
+                          <div className="text-xs mt-2 flex items-center gap-1.5 text-red-400">
+                            <XCircleIcon className="w-4 h-4" />
+                            This address has already claimed tokens
                           </div>
                         )}
                       </div>
 
                       {/* Recipient Address */}
                       <div>
-                        <label className="text-xs mb-1.5 block font-bold" style={{ color: 'var(--text-tertiary)' }}>
-                          Recipient EVM Address *
+                        <label className="text-sm mb-2 block font-bold" style={{ color: 'var(--text-secondary)' }}>
+                          Recipient EVM Address <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          type="text"
-                          placeholder="0x..."
-                          value={recipientAddress}
-                          onChange={e => setRecipientAddress(e.target.value)}
-                          disabled={hasClaimed}
-                          className="w-full text-sm px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                          style={{
-                            backgroundColor: 'var(--bg-input)',
-                            border: '2px solid var(--border-strong)',
-                            color: 'var(--text-primary)'
-                          }}
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="0x..."
+                            value={recipientAddress}
+                            onChange={e => setRecipientAddress(e.target.value)}
+                            disabled={hasClaimed}
+                            className="w-full text-sm px-4 py-3.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                            style={{
+                              backgroundColor: recipientAddress ? 'rgba(6, 182, 212, 0.05)' : 'var(--bg-input)',
+                              border: recipientAddress ? '2px solid rgba(6, 182, 212, 0.3)' : '2px solid var(--border-strong)',
+                              color: 'var(--text-primary)'
+                            }}
+                          />
+                          {recipientAddress && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <CheckCircleIcon className="w-5 h-5 text-cyan-400" />
+                            </div>
+                          )}
+                        </div>
                         {walletConnection.type === 'sr25519' && !recipientAddress && (
-                          <div className="text-xs mt-1 text-yellow-400">
-                            ⚠️ Connect MetaMask or Subwallet above to set recipient address
+                          <div className="text-xs mt-2 flex items-center gap-1.5 text-amber-400">
+                            <ClockIcon className="w-4 h-4" />
+                            Connect an EVM wallet above to auto-fill this address
                           </div>
                         )}
-                        {walletConnection.type === 'sr25519' && recipientAddress && metamask.isConnected && (
-                          <div className="text-xs mt-1 text-cyan-400">
-                            ✓ Tokens will be sent to your connected EVM wallet
+                        {walletConnection.type === 'sr25519' && recipientAddress && (
+                          <div className="text-xs mt-2 flex items-center gap-1.5 text-cyan-400">
+                            <CheckCircleIcon className="w-4 h-4" />
+                            Tokens will be sent to this EVM address
                           </div>
                         )}
                       </div>
 
                       {/* Claim Amount */}
                       <div>
-                        <label className="text-xs mb-1.5 block font-bold" style={{ color: 'var(--text-tertiary)' }}>
-                          Claim Amount *
+                        <label className="text-sm mb-2 block font-bold" style={{ color: 'var(--text-secondary)' }}>
+                          Claim Amount <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          type="text"
-                          placeholder="0.0"
-                          value={claimAmount}
-                          onChange={e => setClaimAmount(e.target.value)}
-                          readOnly={walletConnection.type === 'sr25519'}
-                          disabled={hasClaimed}
-                          className="w-full text-sm px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all disabled:opacity-60 disabled:cursor-not-allowed read-only:bg-cyan-500/5"
-                          style={{
-                            backgroundColor: 'var(--bg-input)',
-                            border: '2px solid var(--border-strong)',
-                            color: 'var(--text-primary)'
-                          }}
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="0.0"
+                            value={claimAmount}
+                            onChange={e => setClaimAmount(e.target.value)}
+                            readOnly={walletConnection.type === 'sr25519'}
+                            disabled={hasClaimed}
+                            className="w-full text-lg px-4 py-3.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed read-only:bg-cyan-500/5 read-only:border-cyan-500/30"
+                            style={{
+                              backgroundColor: walletConnection.type === 'sr25519' ? 'rgba(6, 182, 212, 0.05)' : 'var(--bg-input)',
+                              border: walletConnection.type === 'sr25519' ? '2px solid rgba(6, 182, 212, 0.3)' : '2px solid var(--border-strong)',
+                              color: 'var(--text-primary)'
+                            }}
+                          />
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold" style={{ color: 'var(--text-tertiary)' }}>
+                            BT
+                          </div>
+                        </div>
                         {walletConnection.type === 'sr25519' && claimAmount && !hasClaimed && (
-                          <div className="text-xs mt-1 text-cyan-400">
-                            ✓ Full unclaimed balance will be claimed
+                          <div className="text-xs mt-2 flex items-center gap-1.5 text-cyan-400">
+                            <CheckCircleIcon className="w-4 h-4" />
+                            Full unclaimed balance will be claimed
                           </div>
                         )}
                       </div>
@@ -932,7 +986,7 @@ export default function BridgePage() {
                           loadingUnclaimed ||
                           parseFloat(claimAmount) <= 0
                         }
-                        className="w-full px-6 py-3 text-sm font-bold bg-cyan-500/15 border-2 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-lg"
+                        className="w-full px-6 py-4 text-base font-bold bg-cyan-500/15 border-2 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:border-cyan-500/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-lg mt-2"
                       >
                         {isProcessing ? (
                           <span className="flex items-center justify-center gap-2">
@@ -1093,8 +1147,8 @@ export default function BridgePage() {
                     ) : (
                       <div className="space-y-2">
                         {Object.entries(claimedHistory)
-                          .sort(([, a], [, b]) => Number(b) - Number(a))
-                          .map(([address, amount]) => (
+                          .sort(([, a], [, b]) => Number(b.amount) - Number(a.amount))
+                          .map(([address, claimData]) => (
                             <div
                               key={address}
                               className="flex items-center justify-between p-4 rounded-lg border hover:border-green-500/30 transition-all"
@@ -1103,20 +1157,50 @@ export default function BridgePage() {
                                 borderColor: 'var(--border-color)'
                               }}
                             >
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
                                 <CheckCircleIcon className="w-5 h-5 text-green-400 flex-shrink-0" />
-                                <button
-                                  onClick={() => copyToClipboard(address, 'Address')}
-                                  className="font-mono text-sm flex items-center gap-1 hover:text-cyan-400 transition-colors group"
-                                  style={{ color: 'var(--text-primary)' }}
-                                  title="Click to copy full address"
-                                >
-                                  {formatAddress(address)}
-                                  <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </button>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>From:</span>
+                                    <button
+                                      onClick={() => copyToClipboard(address, 'Sr25519 Address')}
+                                      className="font-mono text-sm flex items-center gap-1 hover:text-cyan-400 transition-colors group"
+                                      style={{ color: 'var(--text-primary)' }}
+                                      title="Click to copy full address"
+                                    >
+                                      {formatAddress(address)}
+                                      <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </button>
+                                  </div>
+                                  {claimData.recipient && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>To:</span>
+                                      <button
+                                        onClick={() => copyToClipboard(claimData.recipient, 'Recipient Address')}
+                                        className="font-mono text-xs flex items-center gap-1 hover:text-cyan-400 transition-colors group"
+                                        style={{ color: 'var(--text-secondary)' }}
+                                        title="Click to copy full address"
+                                      >
+                                        {formatAddress(claimData.recipient)}
+                                        <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                              <div className="font-mono text-lg font-bold text-green-400">
-                                {Number(amount).toLocaleString()} BT
+                              <div className="flex items-center gap-3">
+                                <div className="font-mono text-lg font-bold text-green-400">
+                                  {Number(claimData.amount).toLocaleString()} BT
+                                </div>
+                                {isOwner && (
+                                  <button
+                                    onClick={() => deleteClaim(address)}
+                                    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                    title="Delete claim"
+                                  >
+                                    <TrashIcon className="w-5 h-5" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -1245,8 +1329,8 @@ export default function BridgePage() {
                       </h3>
                       <div className="space-y-2">
                         {Object.entries(claimedHistory)
-                          .sort(([, a], [, b]) => Number(b) - Number(a))
-                          .map(([address, amount]) => (
+                          .sort(([, a], [, b]) => Number(b.amount) - Number(a.amount))
+                          .map(([address, claimData]) => (
                             <div
                               key={address}
                               className="flex items-center justify-between p-3 rounded-lg border"
@@ -1255,20 +1339,48 @@ export default function BridgePage() {
                                 borderColor: 'var(--border-color)'
                               }}
                             >
-                              <button
-                                onClick={() => copyToClipboard(address, 'Address')}
-                                className="font-mono text-xs flex items-center gap-1 hover:text-cyan-400 transition-colors group"
-                                style={{ color: 'var(--text-primary)' }}
-                                title="Click to copy full address"
-                              >
-                                {formatAddress(address)}
-                                <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </button>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>From:</span>
+                                  <button
+                                    onClick={() => copyToClipboard(address, 'Sr25519 Address')}
+                                    className="font-mono text-xs flex items-center gap-1 hover:text-cyan-400 transition-colors group"
+                                    style={{ color: 'var(--text-primary)' }}
+                                    title="Click to copy full address"
+                                  >
+                                    {formatAddress(address)}
+                                    <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </button>
+                                </div>
+                                {claimData.recipient && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>To:</span>
+                                    <button
+                                      onClick={() => copyToClipboard(claimData.recipient, 'Recipient Address')}
+                                      className="font-mono text-xs flex items-center gap-1 hover:text-cyan-400 transition-colors group"
+                                      style={{ color: 'var(--text-secondary)' }}
+                                      title="Click to copy full address"
+                                    >
+                                      {formatAddress(claimData.recipient)}
+                                      <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2">
                                 <div className="font-mono text-sm font-bold text-green-400">
-                                  {Number(amount).toLocaleString()}
+                                  {Number(claimData.amount).toLocaleString()}
                                 </div>
                                 <CheckCircleIcon className="w-4 h-4 text-green-400" />
+                                {isOwner && (
+                                  <button
+                                    onClick={() => deleteClaim(address)}
+                                    className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                    title="Delete claim"
+                                  >
+                                    <TrashIcon className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))}

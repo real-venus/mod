@@ -35,6 +35,15 @@ interface DepositEvent {
   blockNumber: number
 }
 
+interface ClaimEvent {
+  holder: string
+  token: string
+  amount: string
+  timestamp: number
+  txHash: string
+  blockNumber: number
+}
+
 function fmt(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
   if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`
@@ -79,6 +88,8 @@ export default function TreasuryPage() {
 
   const [deposits, setDeposits] = useState<DepositEvent[]>([])
   const [depositsLoading, setDepositsLoading] = useState(false)
+  const [claims, setClaims] = useState<ClaimEvent[]>([])
+  const [claimsLoading, setClaimsLoading] = useState(false)
 
   // ── BlocTime state ──
   const [blocTimeBalance, setBlocTimeBalance] = useState<string>('0')
@@ -302,9 +313,48 @@ export default function TreasuryPage() {
     }
   }, [treasury])
 
+  // ── Fetch claims ──
+  const fetchClaims = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.ethereum) return
+    try {
+      setClaimsLoading(true)
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const TreasuryABI = ['event TokensWithdrawn(address indexed holder, address indexed token, uint256 amount)']
+      const contract = new ethers.Contract(treasury.address, TreasuryABI, provider)
+      const currentBlock = await provider.getBlockNumber()
+      const fromBlock = Math.max(0, currentBlock - 10000)
+      const events = await contract.queryFilter(contract.filters.TokensWithdrawn(), fromBlock, currentBlock)
+      const parsed = events.filter((e): e is EventLog => 'args' in e)
+      const items: ClaimEvent[] = await Promise.all(
+        parsed.map(async (ev) => {
+          const block = await ev.getBlock()
+          let sym = 'UNKNOWN'; let dec = 18
+          try {
+            const tc = new ethers.Contract(ev.args.token, ['function symbol() view returns (string)', 'function decimals() view returns (uint8)'], provider)
+            sym = await tc.symbol(); dec = await tc.decimals()
+          } catch {}
+          return {
+            holder: ev.args.holder, token: sym,
+            amount: ethers.formatUnits(ev.args.amount, dec),
+            timestamp: block.timestamp, txHash: ev.transactionHash, blockNumber: ev.blockNumber,
+          }
+        })
+      )
+      items.sort((a, b) => b.timestamp - a.timestamp)
+      setClaims(items)
+    } catch (err) {
+      console.error('Error fetching claims:', err)
+    } finally {
+      setClaimsLoading(false)
+    }
+  }, [treasury])
+
   useEffect(() => {
-    if (activeTab === 'member' && walletAddress) fetchDeposits()
-  }, [activeTab, walletAddress, fetchDeposits])
+    if (activeTab === 'member' && walletAddress) {
+      fetchDeposits()
+      fetchClaims()
+    }
+  }, [activeTab, walletAddress, fetchDeposits, fetchClaims])
 
   // ── Fetch BlocTime data ──
   const fetchBlocTimeData = useCallback(async () => {
@@ -922,42 +972,143 @@ export default function TreasuryPage() {
                     >
                       <div className="pt-6 space-y-4" style={{ borderTop: '2px solid var(--border-color)' }}>
                         {/* Stake NAT Form */}
-                        <div className="rounded-lg p-4 bg-cyan-500/5 border border-cyan-500/20">
-                          <div className="flex items-center gap-2 mb-3">
-                            <BuildingLibraryIcon className="w-4 h-4 text-cyan-400" />
-                            <span className="text-sm font-bold text-cyan-400">Stake NAT for BlocTime</span>
+                        <div className="rounded-lg p-5 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border-2 border-cyan-500/30">
+                          <div className="flex items-center gap-2 mb-5">
+                            <BuildingLibraryIcon className="w-5 h-5 text-cyan-400" />
+                            <span className="text-base font-bold text-cyan-400">Stake NAT for BlocTime</span>
                             {blocTimeLoading && <ArrowPathIcon className="w-4 h-4 text-cyan-400 animate-spin ml-auto" />}
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>Amount (NAT)</label>
+
+                          {/* Amount Input */}
+                          <div className="mb-5">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Stake Amount (NAT)</label>
+                              <button
+                                onClick={() => setStakeAmount(userNatBalance)}
+                                className="text-[10px] px-2 py-1 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 transition-all font-bold"
+                              >
+                                MAX: {parseFloat(userNatBalance).toLocaleString()}
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              placeholder="0.0"
+                              value={stakeAmount}
+                              onChange={e => setStakeAmount(e.target.value)}
+                              className="w-full text-lg px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all text-center"
+                              style={tInputStyle}
+                            />
+                          </div>
+
+                          {/* Lock Blocks with Slider */}
+                          <div className="mb-5">
+                            <div className="flex items-center justify-between mb-3">
+                              <label className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Lock Duration (Blocks)</label>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono px-2 py-1 rounded bg-purple-500/15 border border-purple-500/30 text-purple-400">
+                                  {lockBlocks ? Number(lockBlocks).toLocaleString() : '0'} blocks
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Slider */}
+                            <div className="relative mb-4">
                               <input
-                                type="text"
-                                placeholder="0.0"
-                                value={stakeAmount}
-                                onChange={e => setStakeAmount(e.target.value)}
-                                className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all"
-                                style={tInputStyle}
+                                type="range"
+                                min="1"
+                                max={maxLockBlocks || 100000}
+                                value={lockBlocks || 1}
+                                onChange={e => setLockBlocks(e.target.value)}
+                                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                                style={{
+                                  background: `linear-gradient(to right,
+                                    rgb(6 182 212) 0%,
+                                    rgb(6 182 212) ${((Number(lockBlocks) || 1) / (maxLockBlocks || 100000)) * 100}%,
+                                    var(--bg-input) ${((Number(lockBlocks) || 1) / (maxLockBlocks || 100000)) * 100}%,
+                                    var(--bg-input) 100%)`,
+                                }}
                               />
                             </div>
+
+                            {/* Quick Presets */}
+                            <div className="grid grid-cols-4 gap-2 mb-3">
+                              {[0.25, 0.5, 0.75, 1].map((pct) => {
+                                const blocks = Math.floor((maxLockBlocks || 100000) * pct)
+                                return (
+                                  <button
+                                    key={pct}
+                                    onClick={() => setLockBlocks(blocks.toString())}
+                                    className="px-2 py-1.5 text-[10px] font-bold rounded transition-all hover:scale-105"
+                                    style={{
+                                      backgroundColor: Number(lockBlocks) === blocks ? 'rgb(6 182 212 / 0.2)' : 'var(--bg-tertiary)',
+                                      border: Number(lockBlocks) === blocks ? '1px solid rgb(6 182 212 / 0.5)' : '1px solid var(--border-color)',
+                                      color: Number(lockBlocks) === blocks ? 'rgb(6 182 212)' : 'var(--text-tertiary)',
+                                    }}
+                                  >
+                                    {pct === 1 ? 'MAX' : `${pct * 100}%`}
+                                  </button>
+                                )
+                              })}
+                            </div>
+
+                            {/* Manual Input */}
                             <div>
-                              <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>Lock Blocks</label>
                               <input
                                 type="number"
-                                placeholder={maxLockBlocks > 0 ? `max: ${maxLockBlocks.toLocaleString()}` : '100000'}
+                                placeholder={maxLockBlocks > 0 ? `1 to ${maxLockBlocks.toLocaleString()}` : '100000'}
                                 value={lockBlocks}
-                                onChange={e => setLockBlocks(e.target.value)}
-                                className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all"
+                                onChange={e => {
+                                  const val = e.target.value
+                                  const num = Number(val)
+                                  const max = maxLockBlocks || 100000
+                                  if (val === '' || (num >= 1 && num <= max)) {
+                                    setLockBlocks(val)
+                                  }
+                                }}
+                                className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all text-center"
                                 style={tInputStyle}
                               />
+                              <div className="flex items-center justify-between mt-1.5 px-1">
+                                <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>Min: 1</span>
+                                <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+                                  Max: {(maxLockBlocks || 100000).toLocaleString()}
+                                </span>
+                              </div>
                             </div>
                           </div>
+
+                          {/* Reward Preview */}
+                          {lockBlocks && stakeAmount && parseFloat(stakeAmount) > 0 && (
+                            <div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
+                              <div className="flex items-center justify-between text-xs">
+                                <span style={{ color: 'var(--text-tertiary)' }}>Estimated BlocTime Rewards</span>
+                                <span className="font-mono font-bold text-purple-400">
+                                  {(() => {
+                                    const multiplier = (Number(lockBlocks) / (maxLockBlocks || 100000))
+                                    const estimated = parseFloat(stakeAmount) * (1 + multiplier)
+                                    return estimated.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                                  })()}
+                                </span>
+                              </div>
+                              <div className="mt-1.5 text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+                                Longer locks = higher multiplier (up to 2x at max duration)
+                              </div>
+                            </div>
+                          )}
+
                           <button
                             onClick={handleStakeToBlocTime}
-                            disabled={adminLoading !== null || !stakeAmount || !lockBlocks}
-                            className="w-full mt-3 px-4 py-2.5 text-sm font-bold bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 disabled:opacity-30 transition-all rounded-lg"
+                            disabled={adminLoading !== null || !stakeAmount || !lockBlocks || parseFloat(stakeAmount) <= 0}
+                            className="w-full px-4 py-3 text-sm font-bold bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border-2 border-cyan-500/40 text-cyan-400 hover:from-cyan-500/30 hover:to-purple-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-lg"
                           >
-                            {adminLoading === 'Stake to BlocTime' ? 'Processing...' : 'Stake NAT'}
+                            {adminLoading === 'Stake to BlocTime' ? (
+                              <span className="flex items-center justify-center gap-2">
+                                <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                Processing...
+                              </span>
+                            ) : (
+                              '🔒 Stake NAT'
+                            )}
                           </button>
                         </div>
 
@@ -1267,6 +1418,65 @@ export default function TreasuryPage() {
                             </span>
                           </div>
                           <span className="text-emerald-400 font-bold font-mono">${parseFloat(dep.amount).toFixed(2)}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Your Claims History */}
+              <div className="rounded-xl p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Your Claims History</span>
+                  <button
+                    onClick={fetchClaims}
+                    disabled={claimsLoading}
+                    className="hover:text-pink-400 transition-colors"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    <ArrowPathIcon className={`w-4 h-4 ${claimsLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                {claimsLoading ? (
+                  <div className="py-8 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading claims...</div>
+                ) : claims.filter(claim => claim.holder.toLowerCase() === walletAddress.toLowerCase()).length === 0 ? (
+                  <div className="py-8 text-center">
+                    <div className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>No claims yet</div>
+                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Your reward claims will appear here</div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {claims
+                      .filter(claim => claim.holder.toLowerCase() === walletAddress.toLowerCase())
+                      .map((claim, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 rounded-lg border-l-4 border-pink-500" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderLeftColor: '#ec4899', borderLeftWidth: '4px' }}>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-pink-400 font-bold text-sm">{claim.token}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-400 border border-pink-500/30">
+                                CLAIMED
+                              </span>
+                              <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                                {new Date(claim.timestamp * 1000).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                              Block #{claim.blockNumber}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-pink-400 font-bold font-mono">${parseFloat(claim.amount).toFixed(2)}</div>
+                            <a
+                              href={`https://sepolia.basescan.org/tx/${claim.txHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[9px] hover:text-pink-400 transition-colors"
+                              style={{ color: 'var(--text-tertiary)' }}
+                            >
+                              View Tx →
+                            </a>
+                          </div>
                         </div>
                       ))}
                   </div>

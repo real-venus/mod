@@ -201,7 +201,6 @@ class Server:
                 headers = dict(request.headers)
                 params = request.get_json()
                 result = self.gate.forward(fn=fn, headers=headers, params=params, mod=self.mod)
-                print(f'RESULT>>>>>>>\n {result}', color='green')
             except Exception as e:
                 result = m.detailed_error(e)
                 m.print(f'Error in server function {fn}: {result} {e}', color='red')
