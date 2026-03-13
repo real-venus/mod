@@ -87,35 +87,39 @@ export default function ModCard({
     return (
       <div
         className="relative overflow-visible group flex items-center gap-4"
-        style={{ fontFamily: 'var(--font-digital), monospace' }}
+        style={{ fontFamily: 'JetBrains Mono, monospace' }}
       >
-        {/* Icon */}
+        {/* Icon with cyberpunk corners */}
         <div
-          className="flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-md"
+          className="flex items-center justify-center flex-shrink-0 w-12 h-12 relative"
           style={{
-            backgroundColor: colorWithOpacity(modColor, 0.2),
-            border: `2px solid ${modColor}`,
-            boxShadow: `0 0 0 1.5px ${colorWithOpacity(modColor, 0.3)}, inset 0 0 0 1.5px ${colorWithOpacity(modColor, 0.1)}`,
+            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+            border: `2px solid rgba(168, 85, 247, 0.5)`,
+            boxShadow: `0 0 20px rgba(168, 85, 247, 0.3)`,
           }}
         >
+          {/* Corner accents */}
+          <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400" />
+          <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-400" />
+
           <CubeIcon style={{
-            width: '20px',
-            height: '20px',
-            color: modColor,
+            width: '24px',
+            height: '24px',
+            color: '#a855f7',
             strokeWidth: 2.5,
-            filter: `drop-shadow(1px 1px 0px ${colorWithOpacity(modColor, 0.5)})`,
+            filter: `drop-shadow(0 0 8px rgba(168, 85, 247, 0.6))`,
           }} />
         </div>
 
         {/* Name + fn count */}
         <div className="flex items-center gap-2">
           <code
-            className="tracking-tight text-2xl flex-shrink-0"
+            className="tracking-tight text-2xl flex-shrink-0 uppercase"
             style={{
-              color: modColor,
-              textShadow: `2px 2px 0px ${colorWithOpacity(modColor, 0.3)}`,
+              color: '#06b6d4',
+              textShadow: `0 0 15px rgba(6, 182, 212, 0.8)`,
               letterSpacing: '0.05em',
-              fontFamily: 'var(--font-digital), monospace',
+              fontFamily: 'JetBrains Mono, monospace',
             }}
           >
             {mod.name}
@@ -125,44 +129,48 @@ export default function ModCard({
 
         {fnCount > 0 && (
           <div
-            className="flex items-center gap-1 rounded-full flex-shrink-0 px-2 py-0.5 text-[10px]"
+            className="flex items-center gap-1 flex-shrink-0 px-2.5 py-1 text-[10px] font-bold"
             style={{
-              background: 'var(--bg-input)',
-              border: '1.5px solid var(--border-color)',
+              background: 'rgba(34, 197, 94, 0.15)',
+              border: '2px solid rgba(34, 197, 94, 0.4)',
+              textShadow: '0 0 8px rgba(34, 197, 94, 0.6)',
+              boxShadow: '0 0 10px rgba(34, 197, 94, 0.2)',
             }}
           >
-            <Zap size={9} style={{ color: 'var(--text-secondary)' }} />
-            <span className="font-bold" style={{ color: 'var(--text-secondary)' }}>{fnCount}</span>
+            <Zap size={10} className="text-green-400" />
+            <span className="text-green-400">{fnCount}</span>
           </div>
         )}
 
         {mod.public === false && (
-          <Lock size={12} className="flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+          <Lock size={12} className="flex-shrink-0 text-red-400" style={{ filter: 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.6))' }} />
         )}
 
         {/* Spacer */}
         <div className="flex-1" />
 
         {/* Metadata pills inline */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <div
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px]"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold"
             style={{
-              background: 'var(--bg-input)',
-              border: '1.5px solid var(--border-color)',
+              background: 'rgba(6, 182, 212, 0.1)',
+              border: '2px solid rgba(6, 182, 212, 0.3)',
+              boxShadow: '0 0 15px rgba(6, 182, 212, 0.15)',
             }}
           >
-            <Clock size={9} style={{ color: 'var(--text-tertiary)' }} />
-            <span className="font-bold" style={{ color: 'var(--text-secondary)' }} title={updatedTimeStr}>{agoStr || updatedTimeStr}</span>
+            <Clock size={10} className="text-cyan-400" />
+            <span className="text-cyan-400" title={updatedTimeStr} style={{ textShadow: '0 0 8px rgba(6, 182, 212, 0.5)' }}>{agoStr || updatedTimeStr}</span>
           </div>
 
           {/* Owner key with dropdown */}
           <div className="relative" ref={ownerDropdownRef}>
             <div
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold cursor-pointer"
               style={{
-                background: 'var(--bg-input)',
-                border: '1.5px solid var(--border-color)',
+                background: 'rgba(168, 85, 247, 0.1)',
+                border: '2px solid rgba(168, 85, 247, 0.3)',
+                boxShadow: '0 0 15px rgba(168, 85, 247, 0.15)',
               }}
               title={mod.key}
               onClick={(e) => {
@@ -173,32 +181,32 @@ export default function ModCard({
             >
               {hasMultipleOwners && (
                 <div className="flex items-center gap-0.5 mr-1">
-                  <Users size={9} style={{ color: 'var(--text-tertiary)' }} />
-                  <span className="text-[9px] font-extrabold" style={{ color: 'var(--text-tertiary)' }}>
+                  <Users size={10} className="text-purple-400" />
+                  <span className="text-[9px] font-extrabold text-purple-400">
                     {currentVersionIndex + 1}/{allVersions.length}
                   </span>
                 </div>
               )}
               <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
-                <KeyIcon className="w-3 h-3 transition-all duration-200 hover:scale-110" style={{ color: 'var(--text-secondary)', strokeWidth: 2.5 }} />
+                <KeyIcon className="w-3.5 h-3.5 transition-all duration-200 hover:scale-110 text-purple-400" style={{ strokeWidth: 2.5, filter: 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.5))' }} />
               </Link>
-              <code className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
+              <code className="font-mono font-bold text-purple-400" style={{ textShadow: '0 0 8px rgba(168, 85, 247, 0.5)' }}>
                 {shorten(mod.key, 4, 4)}
               </code>
               <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
               {hasMultipleOwners && (
-                <ChevronDown size={11} style={{ color: 'var(--text-secondary)' }} />
+                <ChevronDown size={11} className="text-purple-400" />
               )}
             </div>
 
             {/* Owner Dropdown Menu */}
             {hasMultipleOwners && ownerDropdownOpen && (
               <div
-                className="absolute top-full mt-1 right-0 z-50 rounded-lg overflow-hidden min-w-[200px] max-h-[300px] overflow-y-auto"
+                className="absolute top-full mt-2 right-0 z-50 overflow-hidden min-w-[200px] max-h-[300px] overflow-y-auto"
                 style={{
                   background: 'var(--bg-secondary)',
-                  border: '1.5px solid var(--border-color)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  border: '2px solid rgba(168, 85, 247, 0.4)',
+                  boxShadow: '0 4px 20px rgba(168, 85, 247, 0.3), 0 0 30px rgba(168, 85, 247, 0.2)',
                 }}
               >
                 {allVersions.map((version, idx) => (
@@ -238,10 +246,11 @@ export default function ModCard({
           {mod.cid && (
             <div className="relative" ref={versionDropdownRef}>
               <div
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold cursor-pointer"
                 style={{
-                  background: 'var(--bg-input)',
-                  border: '1.5px solid var(--border-color)',
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: '2px solid rgba(6, 182, 212, 0.3)',
+                  boxShadow: '0 0 15px rgba(6, 182, 212, 0.15)',
                 }}
                 title={mod.cid}
                 onClick={(e) => {
@@ -252,30 +261,30 @@ export default function ModCard({
               >
                 {hasHistoricalVersions && (
                   <div className="flex items-center gap-0.5 mr-1">
-                    <GitBranch size={9} style={{ color: 'var(--text-tertiary)' }} />
-                    <span className="text-[9px] font-extrabold" style={{ color: 'var(--text-tertiary)' }}>
+                    <GitBranch size={10} className="text-cyan-400" />
+                    <span className="text-[9px] font-extrabold text-cyan-400">
                       v{historicalVersions.length - selectedHistoricalIndex}
                     </span>
                   </div>
                 )}
-                <Box size={9} style={{ color: 'var(--text-tertiary)' }} />
-                <code className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
+                <Box size={10} className="text-cyan-400" style={{ filter: 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.5))' }} />
+                <code className="font-mono font-bold text-cyan-400" style={{ textShadow: '0 0 8px rgba(6, 182, 212, 0.5)' }}>
                   {shorten(mod.cid || '', 4, 4)}
                 </code>
                 <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
                 {hasHistoricalVersions && (
-                  <ChevronDown size={11} style={{ color: 'var(--text-secondary)' }} />
+                  <ChevronDown size={11} className="text-cyan-400" />
                 )}
               </div>
 
               {/* Version Dropdown Menu */}
               {hasHistoricalVersions && versionDropdownOpen && (
                 <div
-                  className="absolute top-full mt-1 right-0 z-50 rounded-lg overflow-hidden min-w-[200px] max-h-[300px] overflow-y-auto"
+                  className="absolute top-full mt-2 right-0 z-50 overflow-hidden min-w-[200px] max-h-[300px] overflow-y-auto"
                   style={{
                     background: 'var(--bg-secondary)',
-                    border: '1.5px solid var(--border-color)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    border: '2px solid rgba(6, 182, 212, 0.4)',
+                    boxShadow: '0 4px 20px rgba(6, 182, 212, 0.3), 0 0 30px rgba(6, 182, 212, 0.2)',
                   }}
                 >
                   {historicalVersions.map((version, idx) => {
@@ -320,15 +329,16 @@ export default function ModCard({
 
           {mod.url && (
             <div
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px]"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold"
               style={{
-                background: 'var(--bg-input)',
-                border: '1.5px solid var(--border-color)',
+                background: 'rgba(34, 197, 94, 0.15)',
+                border: '2px solid rgba(34, 197, 94, 0.4)',
+                boxShadow: '0 0 15px rgba(34, 197, 94, 0.2)',
               }}
               onClick={(e) => e.preventDefault()}
             >
-              <Globe size={8} className="text-green-500" />
-              <span className="font-bold text-green-500">live</span>
+              <Globe size={10} className="text-green-400" style={{ filter: 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.6))' }} />
+              <span className="text-green-400 uppercase" style={{ textShadow: '0 0 8px rgba(34, 197, 94, 0.6)' }}>live</span>
             </div>
           )}
         </div>

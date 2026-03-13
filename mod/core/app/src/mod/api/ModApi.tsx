@@ -124,43 +124,53 @@ export default function ModApi({ mod }: ModApiProps) {
 
   return (
     <div
-      className="font-mono"
-      style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}
+      className="font-mono relative"
+      style={{ fontFamily: 'JetBrains Mono, monospace' }}
     >
+      {/* Cyberpunk ambient glow background */}
+      <div className="absolute inset-0 pointer-events-none opacity-30">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-cyan-500/20 blur-[120px] rounded-full" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/20 blur-[120px] rounded-full" />
+      </div>
+
       {/* Two-column layout */}
-      <div className="flex gap-6">
+      <div className="flex gap-6 relative">
         {/* Left: function list */}
         <div className="w-[340px] shrink-0">
           {/* Function search */}
           <div className="relative mb-4">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400" />
             <input
               ref={fnSearchRef}
               type="text"
               value={fnSearch}
               onChange={(e) => setFnSearch(e.target.value)}
               placeholder="Search functions..."
-              className="w-full rounded-xl pl-11 pr-20 py-3 text-[13px] font-mono font-bold focus:outline-none transition-all"
-              style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+              className="w-full pl-11 pr-20 py-3 text-[13px] font-mono font-bold focus:outline-none transition-all"
+              style={{
+                backgroundColor: 'var(--bg-input)',
+                border: '2px solid rgba(6, 182, 212, 0.3)',
+                color: 'var(--text-primary)',
+                boxShadow: '0 0 20px rgba(6, 182, 212, 0.1), inset 0 1px 1px rgba(6, 182, 212, 0.05)'
+              }}
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
               {fnSearch && (
                 <button
                   onClick={() => { setFnSearch(''); fnSearchRef.current?.focus() }}
-                  className="text-[10px] font-bold font-mono px-2 py-0.5 rounded transition-colors"
-                  style={{ color: 'var(--text-tertiary)' }}
+                  className="text-[10px] font-bold font-mono px-2 py-0.5 transition-colors text-cyan-400 hover:text-cyan-300"
                 >
                   CLR
                 </button>
               )}
-              <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-[10px] font-mono text-cyan-400/70">
                 {filteredFunctions.length}/{functions.length}
               </span>
             </div>
           </div>
 
           {/* Scrollable function cards */}
-          <div className="max-h-[600px] overflow-y-auto pr-1 space-y-1.5 custom-scrollbar">
+          <div className="max-h-[600px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
             {filteredFunctions.map(fn => {
               const isActive = selectedFunction === fn
               const fnParams = getFnParams(fn)
@@ -169,34 +179,51 @@ export default function ModApi({ mod }: ModApiProps) {
                 <button
                   key={fn}
                   onClick={() => handleSelectFunction(fn)}
-                  className="w-full text-left px-4 py-3 rounded-xl transition-all duration-150 group relative overflow-hidden"
+                  className="w-full text-left px-4 py-3 transition-all duration-200 group relative overflow-hidden"
                   style={{
                     border: isActive
-                      ? `1.5px solid ${colorWithOpacity(modColor, 0.4)}`
-                      : '1.5px solid var(--border-color)',
-                    backgroundColor: isActive ? colorWithOpacity(modColor, 0.08) : 'var(--bg-surface)',
+                      ? `2px solid rgba(6, 182, 212, 0.6)`
+                      : '2px solid rgba(6, 182, 212, 0.2)',
+                    backgroundColor: isActive
+                      ? 'rgba(6, 182, 212, 0.1)'
+                      : 'var(--bg-surface)',
+                    boxShadow: isActive
+                      ? '0 0 20px rgba(6, 182, 212, 0.3), inset 0 0 20px rgba(6, 182, 212, 0.05)'
+                      : 'none',
                   }}
                 >
+                  {/* Cyberpunk corner accent */}
+                  <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 opacity-50" />
+                  <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-400 opacity-50" />
+
                   {/* Left accent bar */}
-                  <div className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full transition-colors" style={{
-                    backgroundColor: isActive ? modColor : 'transparent',
+                  <div className="absolute left-0 top-2 bottom-2 w-1 transition-all" style={{
+                    background: isActive
+                      ? 'linear-gradient(180deg, rgba(6, 182, 212, 1), rgba(168, 85, 247, 1))'
+                      : 'transparent',
+                    boxShadow: isActive ? '0 0 10px rgba(6, 182, 212, 0.6)' : 'none',
                   }} />
 
                   {/* Function name row */}
                   <div className="flex items-center gap-2.5 mb-1">
                     <span
-                      className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono"
+                      className="shrink-0 px-2 py-0.5 text-[10px] font-bold font-mono uppercase"
                       style={{
-                        backgroundColor: colorWithOpacity(modColor, 0.12),
-                        color: 'var(--text-primary)',
-                        border: `1px solid ${colorWithOpacity(modColor, 0.2)}`,
+                        backgroundColor: 'rgba(6, 182, 212, 0.15)',
+                        color: '#06b6d4',
+                        border: `1px solid rgba(6, 182, 212, 0.4)`,
+                        textShadow: '0 0 8px rgba(6, 182, 212, 0.8)',
                       }}
                     >
                       fn
                     </span>
-                    <span className="text-[14px] font-bold font-mono truncate" style={{
-                      color: 'var(--text-primary)',
-                    }}>{fn}</span>
+                    <span
+                      className="text-[14px] font-bold font-mono truncate"
+                      style={{
+                        color: isActive ? '#06b6d4' : 'var(--text-primary)',
+                        textShadow: isActive ? '0 0 10px rgba(6, 182, 212, 0.5)' : 'none',
+                      }}
+                    >{fn}</span>
                   </div>
 
                   {/* Schema: params & output */}
@@ -204,33 +231,45 @@ export default function ModApi({ mod }: ModApiProps) {
                     {fnParams.length > 0 && (
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                         {fnParams.map(([key, value]: [string, any]) => (
-                          <span key={key} className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>{key}</span>
-                            <span style={{ color: 'var(--text-tertiary)' }}> : {value.type || 'any'}</span>
+                          <span key={key} className="text-[11px] font-mono">
+                            <span className="text-purple-400">{key}</span>
+                            <span style={{ color: 'var(--text-tertiary)' }}> : </span>
+                            <span className="text-cyan-400/70">{value.type || 'any'}</span>
                           </span>
                         ))}
                       </div>
                     )}
                     {fnOutput && (
-                      <div className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                        <span style={{ color: colorWithOpacity(modColor, 0.4) }}>{'\u2192'} </span>
+                      <div className="text-[11px] font-mono text-cyan-400/60">
+                        <span className="text-purple-400">{'\u2192'} </span>
                         <span>{typeof fnOutput === 'object' ? fnOutput.type || 'any' : fnOutput}</span>
                       </div>
                     )}
                     {fnParams.length === 0 && !fnOutput && (
-                      <span className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{'() -> void'}</span>
+                      <span className="text-[11px] font-mono text-cyan-400/60">{'() -> void'}</span>
                     )}
                   </div>
                 </button>
               )
             })}
             {filteredFunctions.length === 0 && (
-              <div className="text-center text-[13px] font-mono py-12 rounded-xl" style={{
-                color: 'var(--text-tertiary)',
-                backgroundColor: 'var(--bg-input)',
-                border: '1.5px solid var(--border-color)',
-              }}>
-                {functions.length === 0 ? '-- NO FUNCTIONS --' : '-- NO MATCHES --'}
+              <div
+                className="text-center text-[13px] font-mono py-12 relative overflow-hidden"
+                style={{
+                  color: '#06b6d4',
+                  backgroundColor: 'var(--bg-input)',
+                  border: '2px solid rgba(6, 182, 212, 0.3)',
+                  boxShadow: '0 0 20px rgba(6, 182, 212, 0.1)',
+                }}
+              >
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute inset-0" style={{
+                    background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(6, 182, 212, 0.1) 2px, rgba(6, 182, 212, 0.1) 4px)'
+                  }} />
+                </div>
+                <span className="relative font-bold uppercase tracking-wider" style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.5)' }}>
+                  {functions.length === 0 ? '// NO FUNCTIONS //' : '// NO MATCHES //'}
+                </span>
               </div>
             )}
           </div>
@@ -239,44 +278,68 @@ export default function ModApi({ mod }: ModApiProps) {
         {/* Right: interaction panel */}
         <div className="flex-1 min-w-0">
           {selectedFunction ? (
-            <div className="rounded-xl p-5 space-y-4 relative overflow-hidden" style={{
-              border: `1.5px solid ${colorWithOpacity(modColor, 0.2)}`,
+            <div className="p-5 space-y-4 relative overflow-hidden" style={{
+              border: `2px solid rgba(6, 182, 212, 0.4)`,
               backgroundColor: 'var(--bg-surface)',
+              boxShadow: '0 0 30px rgba(6, 182, 212, 0.15), inset 0 0 30px rgba(6, 182, 212, 0.03)',
             }}>
-              {/* Top accent line */}
-              <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: colorWithOpacity(modColor, 0.3) }} />
+              {/* Cyberpunk corner accents */}
+              <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-400" />
+              <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-purple-400" />
+              <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-purple-400" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyan-400" />
+
+              {/* Top scan line */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
 
               {/* Function header */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 relative">
                 <span
-                  className="px-3 py-1 rounded-lg text-[11px] font-bold uppercase font-mono"
+                  className="px-3 py-1 text-[11px] font-bold uppercase font-mono"
                   style={{
-                    backgroundColor: colorWithOpacity(modColor, 0.12),
-                    color: 'var(--text-primary)',
-                    border: `1px solid ${colorWithOpacity(modColor, 0.25)}`,
+                    backgroundColor: 'rgba(6, 182, 212, 0.15)',
+                    color: '#06b6d4',
+                    border: `1px solid rgba(6, 182, 212, 0.4)`,
+                    textShadow: '0 0 8px rgba(6, 182, 212, 0.8)',
                   }}
-                >fn</span>
-                <span className="text-lg font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{selectedFunction}</span>
+                >FN</span>
+                <span
+                  className="text-lg font-bold font-mono"
+                  style={{
+                    color: '#06b6d4',
+                    textShadow: '0 0 15px rgba(6, 182, 212, 0.6)',
+                  }}
+                >{selectedFunction}</span>
               </div>
 
               {/* Full signature */}
-              <div className="px-4 py-3 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                <code className="text-[13px] font-mono leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                  <span style={{ color: 'var(--text-primary)', opacity: 0.4 }}>fn </span>
-                  {selectedFunction}
-                  <span style={{ color: 'var(--text-tertiary)' }}>(</span>
+              <div className="px-4 py-3 relative" style={{
+                backgroundColor: 'var(--bg-input)',
+                border: '2px solid rgba(6, 182, 212, 0.2)',
+                boxShadow: 'inset 0 0 20px rgba(6, 182, 212, 0.05)',
+              }}>
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute inset-0" style={{
+                    background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(6, 182, 212, 0.1) 2px, rgba(6, 182, 212, 0.1) 4px)'
+                  }} />
+                </div>
+                <code className="text-[13px] font-mono leading-relaxed relative">
+                  <span className="text-cyan-400/40">fn </span>
+                  <span className="text-cyan-400">{selectedFunction}</span>
+                  <span className="text-purple-400">(</span>
                   {selectedFnParams.map(([key, value]: [string, any], i: number) => (
                     <span key={key}>
-                      {i > 0 && <span style={{ color: 'var(--text-tertiary)' }}>, </span>}
-                      <span>{key}</span>
-                      <span style={{ color: 'var(--text-tertiary)' }}> : {value.type || 'any'}</span>
+                      {i > 0 && <span className="text-purple-400">, </span>}
+                      <span className="text-purple-300">{key}</span>
+                      <span className="text-purple-400"> : </span>
+                      <span className="text-cyan-400/70">{value.type || 'any'}</span>
                     </span>
                   ))}
-                  <span style={{ color: 'var(--text-tertiary)' }}>)</span>
+                  <span className="text-purple-400">)</span>
                   {selectedFnOutput && (
-                    <span style={{ color: 'var(--text-tertiary)' }}>
-                      {' -> '}
-                      {typeof selectedFnOutput === 'object' ? selectedFnOutput.type || 'any' : selectedFnOutput}
+                    <span>
+                      <span className="text-purple-400"> {'->'} </span>
+                      <span className="text-cyan-400/70">{typeof selectedFnOutput === 'object' ? selectedFnOutput.type || 'any' : selectedFnOutput}</span>
                     </span>
                   )}
                 </code>
@@ -287,15 +350,20 @@ export default function ModApi({ mod }: ModApiProps) {
                 <div className="space-y-3">
                   {selectedFnParams.map(([key, value]: [string, any]) => (
                     <div key={key}>
-                      <label className="text-[12px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                        {key} <span style={{ color: 'var(--text-tertiary)' }}>:: {value.type || 'any'}</span>
+                      <label className="text-[12px] font-mono mb-1 block font-semibold text-cyan-400">
+                        {key} <span className="text-purple-400/70">:: {value.type || 'any'}</span>
                       </label>
                       {value.type === 'bool' ? (
                         <select
                           value={params[key] || ''}
                           onChange={(e) => handleParamChange(key, e.target.value)}
-                          className="w-full rounded-xl px-4 py-3 text-[14px] font-mono focus:outline-none transition-all appearance-none cursor-pointer"
-                          style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                          className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all appearance-none cursor-pointer"
+                          style={{
+                            backgroundColor: 'var(--bg-input)',
+                            border: '2px solid rgba(6, 182, 212, 0.3)',
+                            color: 'var(--text-primary)',
+                            boxShadow: '0 0 15px rgba(6, 182, 212, 0.1)'
+                          }}
                         >
                           <option value="">Select...</option>
                           <option value="true">true</option>
@@ -306,9 +374,14 @@ export default function ModApi({ mod }: ModApiProps) {
                           type="text"
                           value={params[key] ?? ''}
                           onChange={(e) => handleParamChange(key, e.target.value)}
-                          placeholder={value.value !== '_empty' ? String(value.value) : value.type || '...'}
-                          className="w-full rounded-xl px-4 py-3 text-[14px] font-mono focus:outline-none transition-all"
-                          style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                          placeholder={value.value !== '_empty' ? String(value.value) : value.type || '_empty'}
+                          className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all"
+                          style={{
+                            backgroundColor: 'var(--bg-input)',
+                            border: '2px solid rgba(6, 182, 212, 0.3)',
+                            color: 'var(--text-primary)',
+                            boxShadow: '0 0 15px rgba(6, 182, 212, 0.1)'
+                          }}
                         />
                       )}
                     </div>
@@ -382,25 +455,33 @@ export default function ModApi({ mod }: ModApiProps) {
               <button
                 onClick={handleExecute}
                 disabled={loading || !selectedFunction}
-                className="w-full py-3.5 rounded-xl text-[14px] font-bold font-mono uppercase tracking-wider transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2.5"
+                className="w-full py-3.5 text-[14px] font-bold font-mono uppercase tracking-wider transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2.5 relative overflow-hidden group"
                 style={{
-                  background: loading ? 'transparent' : colorWithOpacity(modColor, 0.1),
-                  borderWidth: '1.5px',
+                  background: loading
+                    ? 'transparent'
+                    : 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(168, 85, 247, 0.15))',
+                  borderWidth: '2px',
                   borderStyle: 'solid',
-                  borderColor: colorWithOpacity(modColor, loading ? 0.15 : 0.3),
-                  color: loading ? colorWithOpacity(modColor, 0.4) : modColor,
-                  boxShadow: `0 0 20px ${colorWithOpacity(modColor, 0.08)}`,
+                  borderColor: loading ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.5)',
+                  color: loading ? 'rgba(6, 182, 212, 0.4)' : '#06b6d4',
+                  boxShadow: loading
+                    ? 'none'
+                    : '0 0 30px rgba(6, 182, 212, 0.3), 0 0 60px rgba(168, 85, 247, 0.2)',
+                  textShadow: loading ? 'none' : '0 0 10px rgba(6, 182, 212, 0.8)',
                 }}
               >
+                {/* Hover glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+
                 {loading ? (
                   <>
-                    <span className="animate-pulse">_</span>
-                    <span>executing...</span>
+                    <span className="animate-pulse relative">_</span>
+                    <span className="relative">EXECUTING...</span>
                   </>
                 ) : (
                   <>
-                    <Zap className="w-4 h-4" />
-                    <span>execute {selectedFunction}</span>
+                    <Zap className="w-4 h-4 relative" />
+                    <span className="relative">EXECUTE {selectedFunction.toUpperCase()}</span>
                   </>
                 )}
               </button>
@@ -420,11 +501,27 @@ export default function ModApi({ mod }: ModApiProps) {
 
               {/* Result */}
               {result !== null && (
-                <div className="rounded-xl overflow-hidden" style={{ border: `1.5px solid ${colorWithOpacity(modColor, 0.2)}` }}>
-                  <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: colorWithOpacity(modColor, 0.2) }} />
-                  <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: `1px solid ${colorWithOpacity(modColor, 0.1)}` }}>
-                    <span className="text-[11px] font-bold uppercase tracking-wider font-mono" style={{ color: colorWithOpacity(modColor, 0.6) }}>
-                      output
+                <div className="overflow-hidden relative" style={{
+                  border: `2px solid rgba(6, 182, 212, 0.4)`,
+                  boxShadow: '0 0 20px rgba(6, 182, 212, 0.2)'
+                }}>
+                  {/* Corner accents */}
+                  <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
+                  <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-purple-400" />
+
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+                  <div className="flex items-center justify-between px-5 py-3 relative" style={{
+                    borderBottom: `2px solid rgba(6, 182, 212, 0.2)`,
+                    backgroundColor: 'rgba(6, 182, 212, 0.05)'
+                  }}>
+                    <span
+                      className="text-[11px] font-bold uppercase tracking-wider font-mono"
+                      style={{
+                        color: '#06b6d4',
+                        textShadow: '0 0 10px rgba(6, 182, 212, 0.6)'
+                      }}
+                    >
+                      ► OUTPUT
                     </span>
                     <CopyButton text={JSON.stringify(result, null, 2)} />
                   </div>
@@ -470,15 +567,26 @@ export default function ModApi({ mod }: ModApiProps) {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-80 rounded-xl" style={{
-              color: 'var(--text-tertiary)',
-              border: '1.5px dashed var(--border-color)',
+            <div className="flex flex-col items-center justify-center h-80 relative overflow-hidden" style={{
+              border: '2px dashed rgba(6, 182, 212, 0.3)',
               backgroundColor: 'var(--bg-input)',
             }}>
-              <div className="w-10 h-10 rounded-lg mb-4 flex items-center justify-center" style={{ border: `1.5px solid var(--border-color)` }}>
-                <Zap className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+              {/* Scanline effect */}
+              <div className="absolute inset-0 opacity-20">
+                <div className="absolute inset-0" style={{
+                  background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(6, 182, 212, 0.1) 2px, rgba(6, 182, 212, 0.1) 4px)'
+                }} />
               </div>
-              <span className="text-[14px] font-mono">Select a function to interact</span>
+
+              <div className="w-12 h-12 mb-4 flex items-center justify-center relative" style={{
+                border: `2px solid rgba(6, 182, 212, 0.4)`,
+                boxShadow: '0 0 20px rgba(6, 182, 212, 0.2)'
+              }}>
+                <Zap className="w-6 h-6 text-cyan-400" style={{ filter: 'drop-shadow(0 0 8px rgba(6, 182, 212, 0.6))' }} />
+              </div>
+              <span className="text-[14px] font-mono font-bold uppercase tracking-wider text-cyan-400/70 relative" style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.3)' }}>
+                ► SELECT FUNCTION TO EXECUTE
+              </span>
             </div>
           )}
         </div>

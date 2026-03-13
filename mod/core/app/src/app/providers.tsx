@@ -391,11 +391,6 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
             {/* Spacer for top header */}
             <div className="h-[48px] shrink-0" />
 
-            {/* Theme Selector at top */}
-            <div className="px-3 py-3 border-b-4" style={{ borderColor: 'var(--border-strong)' }}>
-              <ThemeSelectorCompact />
-            </div>
-
             {/* Nav items with drag and drop */}
             <DndContext
               sensors={sensors}
@@ -429,6 +424,11 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
                 </div>
               </SortableContext>
             </DndContext>
+
+            {/* Theme Selector at bottom */}
+            <div className="mt-auto px-3 py-3 border-t-4" style={{ borderColor: 'var(--border-strong)' }}>
+              <ThemeSelectorCompact expandUpwards={true} />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -448,7 +448,19 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   const { isHeaderMode } = useLayoutContext()
   const pathname = usePathname()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(() => {
+    // Initialize from localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebarOpen')
+      return saved === 'true'
+    }
+    return false
+  })
+
+  // Persist sidebar state to localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarOpen', String(menuOpen))
+  }, [menuOpen])
 
   useEffect(() => {
     if (isSplitScreen && leftPanelUrl === pathname) {

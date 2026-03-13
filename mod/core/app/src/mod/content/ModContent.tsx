@@ -177,19 +177,26 @@ export function FileTreeItem({
   return (
     <div>
       <div
-        className={`group micro-row flex cursor-pointer items-center px-3 py-2.5 text-[11px] transition-all duration-200 rounded-lg mx-1
+        className={`group micro-row flex cursor-pointer items-center px-3 py-2.5 text-[11px] transition-all duration-200 mx-1
         ${isSelected
-          ? `bg-gradient-to-r from-blue-500/20 to-blue-400/10 shadow-lg shadow-blue-500/10 ${isLight ? 'text-gray-900' : 'text-white'}`
+          ? `${isLight ? 'text-gray-900' : 'text-white'}`
           : `${isLight ? 'text-gray-600 hover:bg-black/5' : 'text-gray-400 hover:bg-white/5'}`}
         ${matchesSearch && searchTerm ? 'ring-1 ring-yellow-400/40 bg-yellow-400/5' : ''}`}
-        style={{ paddingLeft: `${level * 12 + 12}px` }}
+        style={{
+          paddingLeft: `${level * 12 + 12}px`,
+          backgroundColor: isSelected ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
+          border: isSelected ? '1px solid rgba(6, 182, 212, 0.3)' : '1px solid transparent',
+          boxShadow: isSelected ? '0 0 15px rgba(6, 182, 212, 0.2)' : 'none'
+        }}
         onClick={handleClick}
         title={node.path}
       >
         {node.type === 'folder' ? (
-          isExpanded ? <ChevronDownIcon className="mr-1.5 h-3.5 w-3.5" /> : <ChevronRightIcon className="mr-1.5 h-3.5 w-3.5" />
+          isExpanded ? <ChevronDownIcon className="mr-1.5 h-3.5 w-3.5 text-cyan-400" /> : <ChevronRightIcon className="mr-1.5 h-3.5 w-3.5 text-cyan-400" />
         ) : null}
-        <FileIcon className={`mr-2.5 h-4 w-4 flex-shrink-0 ${node.type === 'folder' ? 'text-amber-400' : 'text-blue-400'}`} />
+        <FileIcon className={`mr-2.5 h-4 w-4 flex-shrink-0 ${node.type === 'folder' ? 'text-purple-400' : 'text-cyan-400'}`} style={{
+          filter: node.type === 'folder' ? 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.5))' : 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.5))'
+        }} />
         <span className="flex-1 truncate font-mono font-medium">
           {searchTerm ? highlightSearchTerm(node.name, searchTerm) : node.name}
         </span>
@@ -439,28 +446,52 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   ];
 
   return (
-    <div className="overflow-hidden font-mono p-4" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace', backgroundColor: theme.panelAlt }}>
+    <div className="overflow-hidden font-mono p-4 relative" style={{ fontFamily: 'JetBrains Mono, monospace', backgroundColor: theme.panelAlt }}>
+      {/* Cyberpunk ambient glow background */}
+      <div className="absolute inset-0 pointer-events-none opacity-20">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/30 blur-[120px] rounded-full" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-500/30 blur-[120px] rounded-full" />
+      </div>
+
       {/* Single line header with search and stats */}
-      <div className="px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4" style={{ backgroundColor: theme.panel, border: `1px solid ${theme.border}` }}>
+      <div className="px-6 py-3 shadow-2xl flex items-center gap-4 relative" style={{
+        backgroundColor: theme.panel,
+        border: `2px solid rgba(6, 182, 212, 0.3)`,
+        boxShadow: '0 0 30px rgba(6, 182, 212, 0.15)'
+      }}>
+        {/* Corner accents */}
+        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
+        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-purple-400" />
+
         <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="px-2.5 py-1 rounded-full bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30">
-            <span className="text-[10px] font-bold text-green-400">CNT</span>
+          <div className="px-2.5 py-1 bg-gradient-to-r from-cyan-500/20 to-purple-500/20" style={{
+            border: '1px solid rgba(6, 182, 212, 0.4)',
+            boxShadow: '0 0 10px rgba(6, 182, 212, 0.3)'
+          }}>
+            <span className="text-[10px] font-bold text-cyan-400" style={{ textShadow: '0 0 8px rgba(6, 182, 212, 0.8)' }}>CNT</span>
           </div>
-          <h3 className="text-[13px] font-bold tracking-wide whitespace-nowrap" style={{ color: theme.text }}>
-            File Explorer
+          <h3 className="text-[13px] font-bold tracking-wide whitespace-nowrap uppercase" style={{
+            color: theme.text,
+            textShadow: isLight ? 'none' : '0 0 10px rgba(6, 182, 212, 0.3)'
+          }}>
+            ► FILE EXPLORER
           </h3>
         </div>
 
         {/* Search bar - flex-1 to take remaining space */}
         <div className="relative flex-1 max-w-md">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-blue-400/60" />
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-cyan-400" style={{ filter: 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.6))' }} />
           <input
             type="text"
-            placeholder="Search files and content…"
+            placeholder="Search files and content..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={`w-full rounded-lg border pl-9 pr-3 py-2 text-[11px] outline-none transition-all focus:border-blue-500/40 ${isLight ? 'bg-gray-50 focus:bg-white' : 'bg-white/[0.03] focus:bg-white/[0.06]'}`}
-            style={{ borderColor: theme.border, color: theme.text }}
+            className={`w-full border pl-9 pr-3 py-2 text-[11px] outline-none transition-all ${isLight ? 'bg-gray-50 focus:bg-white' : 'bg-white/[0.03] focus:bg-white/[0.06]'}`}
+            style={{
+              borderColor: 'rgba(6, 182, 212, 0.3)',
+              color: theme.text,
+              boxShadow: '0 0 15px rgba(6, 182, 212, 0.1)'
+            }}
           />
         </div>
 
@@ -468,8 +499,11 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         <select
           value={selectedVersion}
           onChange={(e) => setSelectedVersion(Number(e.target.value))}
-          className={`px-3 py-2 rounded-lg text-[11px] font-medium border outline-none transition-all flex-shrink-0 ${isLight ? 'bg-gray-50 text-gray-900' : 'bg-white/[0.03] text-white'}`}
-          style={{ borderColor: theme.border }}
+          className={`px-3 py-2 text-[11px] font-medium border outline-none transition-all flex-shrink-0 font-mono ${isLight ? 'bg-gray-50 text-gray-900' : 'bg-white/[0.03] text-white'}`}
+          style={{
+            borderColor: 'rgba(6, 182, 212, 0.3)',
+            boxShadow: '0 0 15px rgba(6, 182, 212, 0.1)'
+          }}
         >
           {versions.map((v, idx) => (
             <option key={idx} value={idx}>
@@ -479,23 +513,43 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         </select>
 
         {/* Stats */}
-        <div className="flex items-center gap-2 text-[10px] font-medium flex-shrink-0">
-          <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">{stats.fileCount} files</span>
-          <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 whitespace-nowrap">{stats.totalLines} lines</span>
-          <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 whitespace-nowrap">{stats.totalSize}</span>
+        <div className="flex items-center gap-2 text-[10px] font-medium flex-shrink-0 font-mono">
+          <span className="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 whitespace-nowrap" style={{
+            border: '1px solid rgba(6, 182, 212, 0.3)',
+            textShadow: '0 0 8px rgba(6, 182, 212, 0.5)'
+          }}>{stats.fileCount} files</span>
+          <span className="px-2.5 py-1 bg-purple-500/10 text-purple-400 whitespace-nowrap" style={{
+            border: '1px solid rgba(168, 85, 247, 0.3)',
+            textShadow: '0 0 8px rgba(168, 85, 247, 0.5)'
+          }}>{stats.totalLines} lines</span>
+          <span className="px-2.5 py-1 bg-purple-500/10 text-purple-400 whitespace-nowrap" style={{
+            border: '1px solid rgba(168, 85, 247, 0.3)',
+            textShadow: '0 0 8px rgba(168, 85, 247, 0.5)'
+          }}>{stats.totalSize}</span>
           {searchTerm && searchResults.length > 0 && (
-            <span className="px-2.5 py-1 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 whitespace-nowrap">
+            <span className="px-2.5 py-1 bg-yellow-500/10 text-yellow-400 whitespace-nowrap" style={{
+              border: '1px solid rgba(234, 179, 8, 0.3)',
+              textShadow: '0 0 8px rgba(234, 179, 8, 0.5)'
+            }}>
               {searchResults.reduce((s, r) => s + r.lineNumbers.length, 0)} matches
             </span>
           )}
         </div>
       </div>
 
-      <div className="flex gap-4 mt-4">
-        <div className="micro-scroll-y w-72 max-h-[600px] overflow-y-auto p-4 rounded-2xl shadow-xl" style={{ backgroundColor: theme.panelAlt2, border: `1px solid ${theme.border}` }}>
+      <div className="flex gap-4 mt-4 relative">
+        <div className="micro-scroll-y w-72 max-h-[600px] overflow-y-auto p-4 shadow-xl relative" style={{
+          backgroundColor: theme.panelAlt2,
+          border: `2px solid rgba(6, 182, 212, 0.3)`,
+          boxShadow: '0 0 30px rgba(6, 182, 212, 0.15)'
+        }}>
+          {/* Corner accents */}
+          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
+          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-purple-400" />
+
           <div className="mb-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-bold tracking-wide" style={{ color: theme.textDim }}>Files</h3>
+              <h3 className="text-[11px] font-bold tracking-wide uppercase text-cyan-400" style={{ textShadow: '0 0 8px rgba(6, 182, 212, 0.5)' }}>► Files</h3>
               <div className="flex gap-2">
                 <button
                   onClick={() => {
@@ -537,7 +591,15 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
           </div>
         </div>
 
-        <div className="micro-scroll-y max-h-[600px] flex-1 overflow-y-auto rounded-2xl shadow-xl p-4" style={{ backgroundColor: theme.panel, border: `1px solid ${theme.border}` }}>
+        <div className="micro-scroll-y max-h-[600px] flex-1 overflow-y-auto shadow-xl p-4 relative" style={{
+          backgroundColor: theme.panel,
+          border: `2px solid rgba(6, 182, 212, 0.3)`,
+          boxShadow: '0 0 30px rgba(6, 182, 212, 0.15)'
+        }}>
+          {/* Corner accents */}
+          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
+          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-purple-400" />
+
           {filteredSections.map((section) => {
             const isCollapsed = collapsedFiles.has(section.path);
             const isSelected = selectedFile === section.path;
@@ -551,10 +613,17 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
               <div
                 key={section.path}
                 ref={(el) => { codeRefs.current[section.path] = el; }}
-                className={`overflow-hidden mb-4 rounded-xl border transition-all duration-200
-                ${isSelected ? 'border-blue-400/40 shadow-xl shadow-blue-500/10' : ''}
-                ${matches ? 'border-yellow-400/40 shadow-lg shadow-yellow-500/10' : ''}`}
-                style={{ borderColor: isSelected || matches ? undefined : theme.border, backgroundColor: theme.panelAlt2 }}
+                className={`overflow-hidden mb-4 border transition-all duration-200 relative`}
+                style={{
+                  borderColor: isSelected ? 'rgba(6, 182, 212, 0.5)' : matches ? 'rgba(234, 179, 8, 0.5)' : theme.border,
+                  backgroundColor: theme.panelAlt2,
+                  boxShadow: isSelected
+                    ? '0 0 30px rgba(6, 182, 212, 0.3)'
+                    : matches
+                    ? '0 0 20px rgba(234, 179, 8, 0.2)'
+                    : 'none',
+                  borderWidth: '2px'
+                }}
               >
                 <div
                   className={`flex cursor-pointer items-center justify-between px-5 py-3.5 transition-all duration-200 rounded-t-xl ${isLight ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
@@ -604,10 +673,21 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-6 py-4 mt-4 rounded-2xl shadow-xl" style={{ backgroundColor: theme.panel, border: `1px solid ${theme.border}` }}>
-        <div className="text-[11px] font-medium" style={{ color: theme.textDim }}>
+      <div className="flex items-center justify-between px-6 py-4 mt-4 shadow-xl relative" style={{
+        backgroundColor: theme.panel,
+        border: `2px solid rgba(6, 182, 212, 0.3)`,
+        boxShadow: '0 0 30px rgba(6, 182, 212, 0.15)'
+      }}>
+        {/* Corner accents */}
+        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
+        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-purple-400" />
+
+        <div className="text-[11px] font-medium font-mono">
           {searchTerm && searchResults.length > 0 && (
-            <span className="px-3 py-1.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+            <span className="px-3 py-1.5 bg-yellow-500/10 text-yellow-400" style={{
+              border: '1px solid rgba(234, 179, 8, 0.3)',
+              textShadow: '0 0 8px rgba(234, 179, 8, 0.5)'
+            }}>
               Found "{searchTerm}" in {searchResults.length} files
             </span>
           )}
@@ -617,10 +697,16 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
             const all = filteredSections.map((s) => `// ${s.path}\n${s.content}`).join('\n\n');
             navigator.clipboard.writeText(all);
           }}
-          className="flex items-center gap-2.5 text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-all px-4 py-2.5 rounded-xl hover:bg-blue-500/10 border border-blue-500/20 shadow-lg shadow-blue-500/5"
+          className="flex items-center gap-2.5 text-[11px] font-medium font-mono text-cyan-400 hover:text-cyan-300 transition-all px-4 py-2.5 relative group"
+          style={{
+            border: '2px solid rgba(6, 182, 212, 0.3)',
+            boxShadow: '0 0 20px rgba(6, 182, 212, 0.2)',
+            textShadow: '0 0 8px rgba(6, 182, 212, 0.5)'
+          }}
         >
-          <DocumentIcon className="h-4 w-4" />
-          Copy All Code
+          <div className="absolute inset-0 bg-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <DocumentIcon className="h-4 w-4 relative" />
+          <span className="relative uppercase tracking-wider">Copy All Code</span>
         </button>
       </div>
 

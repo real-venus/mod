@@ -83,23 +83,45 @@ export default function ModVersions({ mod, selectedVersionIndex = 0, onVersionCh
   }
 
   return (
-    <div className="font-mono space-y-4" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+    <div className="font-mono space-y-4 relative" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+      {/* Cyberpunk ambient glow */}
+      <div className="absolute inset-0 pointer-events-none opacity-20">
+        <div className="absolute top-0 left-0 w-64 h-64 bg-cyan-500/30 blur-[120px] rounded-full" />
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-purple-500/30 blur-[120px] rounded-full" />
+      </div>
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-extrabold" style={{ color: modColor }}>[VER]</span>
-          <h3 className="text-[12px] font-extrabold uppercase tracking-[0.15em]" style={{ color: 'var(--text-secondary)' }}>
-            Versions
+      <div className="flex items-center justify-between relative px-4 py-3" style={{
+        border: '2px solid rgba(6, 182, 212, 0.3)',
+        background: 'rgba(6, 182, 212, 0.05)',
+        boxShadow: '0 0 20px rgba(6, 182, 212, 0.1)'
+      }}>
+        {/* Corner accents */}
+        <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400" />
+        <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-purple-400" />
+
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-extrabold text-cyan-400 uppercase" style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.6)' }}>► VER</span>
+          <h3 className="text-[13px] font-extrabold uppercase tracking-[0.15em] text-cyan-400" style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.4)' }}>
+            Version History
           </h3>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-bold" style={{ color: 'var(--text-tertiary)' }}>
+          <span className="text-[10px] font-bold text-purple-400 px-2 py-1" style={{
+            border: '1px solid rgba(168, 85, 247, 0.3)',
+            textShadow: '0 0 8px rgba(168, 85, 247, 0.5)'
+          }}>
             {versions.length} version{versions.length !== 1 ? 's' : ''}
           </span>
           <button
             onClick={() => setSortAsc(!sortAsc)}
-            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold transition-all rounded-md"
-            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold transition-all uppercase"
+            style={{
+              color: '#06b6d4',
+              border: '2px solid rgba(6, 182, 212, 0.3)',
+              boxShadow: '0 0 15px rgba(6, 182, 212, 0.15)',
+              textShadow: '0 0 8px rgba(6, 182, 212, 0.4)'
+            }}
           >
             <ArrowUpDown className="w-3 h-3" />
             {sortAsc ? 'Oldest' : 'Newest'}
@@ -108,9 +130,22 @@ export default function ModVersions({ mod, selectedVersionIndex = 0, onVersionCh
       </div>
 
       {versions.length === 0 ? (
-        <p className="text-center py-8 text-[12px]" style={{ color: 'var(--text-tertiary)' }}>No versions found</p>
+        <div className="text-center py-12 relative" style={{
+          border: '2px dashed rgba(6, 182, 212, 0.3)',
+          background: 'rgba(6, 182, 212, 0.05)'
+        }}>
+          {/* Scanline effect */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute inset-0" style={{
+              background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(6, 182, 212, 0.1) 2px, rgba(6, 182, 212, 0.1) 4px)'
+            }} />
+          </div>
+          <p className="text-[13px] font-bold uppercase tracking-wider text-cyan-400 relative" style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.5)' }}>
+            // NO VERSIONS FOUND //
+          </p>
+        </div>
       ) : (
-        <div className="space-y-1 max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+        <div className="space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar relative">
           {sortedVersions.map((ver, idx) => {
             const originalIdx = versions.length - versions.indexOf(ver)
             const versionIndex = versions.indexOf(ver)
@@ -118,33 +153,41 @@ export default function ModVersions({ mod, selectedVersionIndex = 0, onVersionCh
             return (
               <div
                 key={versionIndex}
-                className="flex items-center justify-between gap-4 px-4 py-3 transition-all group rounded-lg cursor-pointer"
+                className="flex items-center justify-between gap-4 px-4 py-3 transition-all group cursor-pointer relative"
                 onClick={() => onVersionChange?.(versionIndex)}
                 style={{
-                  border: isSelected ? `2px solid ${modColor}` : '1px solid var(--border-color)',
-                  backgroundColor: isSelected ? colorWithOpacity(modColor, 0.1) : 'var(--bg-input)',
+                  border: isSelected ? `2px solid rgba(6, 182, 212, 0.5)` : '2px solid rgba(6, 182, 212, 0.2)',
+                  backgroundColor: isSelected ? 'rgba(6, 182, 212, 0.1)' : 'var(--bg-input)',
+                  boxShadow: isSelected ? '0 0 25px rgba(6, 182, 212, 0.25)' : 'none',
                 }}
               >
-                <div className="flex items-center gap-4 flex-1 min-w-0">
+                {isSelected && (
+                  <>
+                    <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400" />
+                    <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-400" />
+                  </>
+                )}
+
+                <div className="flex items-center gap-4 flex-1 min-w-0 relative">
                   {/* Version number */}
                   <div className="flex items-center gap-1.5">
-                    <GitBranch className="w-3.5 h-3.5 flex-shrink-0" style={{ color: modColor }} />
-                    <span className="text-[12px] font-extrabold" style={{ color: modColor }}>
+                    <GitBranch className="w-4 h-4 flex-shrink-0 text-cyan-400" style={{ filter: 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.5))' }} />
+                    <span className="text-[13px] font-extrabold text-cyan-400" style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.6)' }}>
                       v{originalIdx}
-                      {isSelected && <span className="ml-2 text-[9px] font-bold" style={{ color: modColor }}>(ACTIVE)</span>}
+                      {isSelected && <span className="ml-2 text-[10px] font-bold text-purple-400" style={{ textShadow: '0 0 8px rgba(168, 85, 247, 0.6)' }}>(ACTIVE)</span>}
                     </span>
                   </div>
 
                   {/* Date */}
                   <div className="flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-                    <span className="text-[11px] font-mono" style={{ color: 'var(--text-secondary)' }}>{ver.updated}</span>
+                    <Clock className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
+                    <span className="text-[11px] font-mono text-purple-400">{ver.updated}</span>
                   </div>
 
                   {/* Hash */}
                   <div className="flex items-center gap-1.5">
-                    <Hash className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-                    <code className="text-[11px] font-mono" style={{ color: 'var(--text-secondary)' }}>
+                    <Hash className="w-3.5 h-3.5 flex-shrink-0 text-cyan-400/70" />
+                    <code className="text-[11px] font-mono text-cyan-400/70">
                       {ver.data.slice(0, 8)}...{ver.data.slice(-6)}
                     </code>
                     <CopyButton text={ver.data} size="sm" />
@@ -152,20 +195,25 @@ export default function ModVersions({ mod, selectedVersionIndex = 0, onVersionCh
 
                   {/* Comment */}
                   {ver.comment && (
-                    <span className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>{ver.comment}</span>
+                    <span className="text-[11px] truncate text-purple-400/70">{ver.comment}</span>
                   )}
                 </div>
 
                 <button
-                  onClick={() => handleSetVersion(ver.data, originalIdx)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all opacity-50 group-hover:opacity-100 rounded-md"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleSetVersion(ver.data, originalIdx)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all opacity-60 group-hover:opacity-100 relative"
                   style={{
-                    color: modColor,
-                    border: `1px solid ${colorWithOpacity(modColor, 0.4)}`,
+                    color: '#06b6d4',
+                    border: `2px solid rgba(6, 182, 212, 0.3)`,
                     backgroundColor: 'transparent',
+                    boxShadow: '0 0 15px rgba(6, 182, 212, 0.1)',
+                    textShadow: '0 0 8px rgba(6, 182, 212, 0.4)'
                   }}
                 >
-                  <RotateCcw className="w-3 h-3" />
+                  <RotateCcw className="w-3.5 h-3.5" />
                   Set
                 </button>
               </div>

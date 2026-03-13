@@ -29,7 +29,7 @@ interface CustomThemeColors {
   accentError: string
 }
 
-export function ThemeSelectorCompact() {
+export function ThemeSelectorCompact({ expandUpwards = false }: { expandUpwards?: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<string>('classic')
   const [showCustomEditor, setShowCustomEditor] = useState(false)
@@ -237,24 +237,7 @@ export function ThemeSelectorCompact() {
 
   return (
     <div className="relative">
-      {/* Theme Selector Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-3 px-4 py-4 border-4 transition-all hover:opacity-90 shadow-lg"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderColor: 'var(--border-strong)',
-          fontFamily: 'var(--font-digital)',
-        }}
-      >
-        <SwatchIcon className="w-7 h-7" style={{ color: 'var(--text-primary)' }} />
-        <span className="flex-1 text-left text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
-          {theme?.name || 'Classic'}
-        </span>
-        <ChevronDownIcon className={`w-6 h-6 transition-transform ${isOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--text-primary)' }} />
-      </button>
-
-      {/* Dropdown Panel - positioned below button */}
+      {/* Dropdown Panel - positioned above or below button */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -262,11 +245,17 @@ export function ThemeSelectorCompact() {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-x-4 border-b-4"
+            className="overflow-hidden border-x-4 border-t-4"
             style={{
               backgroundColor: 'var(--bg-surface)',
               borderColor: 'var(--border-strong)',
               boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+              ...(expandUpwards && {
+                position: 'absolute',
+                bottom: '100%',
+                left: 0,
+                right: 0,
+              }),
             }}
           >
             {!showCustomEditor ? (
@@ -452,6 +441,23 @@ export function ThemeSelectorCompact() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Theme Selector Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-3 px-4 py-4 border-4 transition-all hover:opacity-90 shadow-lg"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderColor: 'var(--border-strong)',
+          fontFamily: 'var(--font-digital)',
+        }}
+      >
+        <SwatchIcon className="w-7 h-7" style={{ color: 'var(--text-primary)' }} />
+        <span className="flex-1 text-left text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
+          {theme?.name || 'Classic'}
+        </span>
+        <ChevronDownIcon className={`w-6 h-6 transition-transform ${isOpen ? (expandUpwards ? '' : 'rotate-180') : (expandUpwards ? 'rotate-180' : '')}`} style={{ color: 'var(--text-primary)' }} />
+      </button>
     </div>
   )
 }
