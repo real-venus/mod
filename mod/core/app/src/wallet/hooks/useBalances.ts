@@ -29,6 +29,7 @@ async function fetchOnChainBalances(address: string): Promise<Record<string, num
     { symbol: 'USDC', address: CONTRACTS.USDC?.address },
     { symbol: 'USDT', address: CONTRACTS.USDT?.address },
     { symbol: 'NativeToken', address: CONTRACTS.NativeToken?.address },
+    { symbol: 'BridgeToken', address: CONTRACTS.BridgeToken?.address, decimals: 18 },
   ]
 
   const promises: Promise<void>[] = []

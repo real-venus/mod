@@ -62,6 +62,7 @@ export function PortfolioTab({
     USDT: (modConfig.chain as any)?.testnet?.contracts?.USDT?.address,
     MARKET: (modConfig.chain as any)?.testnet?.contracts?.Market?.address,
     NativeToken: (modConfig.chain as any)?.testnet?.contracts?.NativeToken?.address,
+    BridgeToken: (modConfig.chain as any)?.testnet?.contracts?.BridgeToken?.address,
   }
 
   // Build unified token list: built-in + custom
@@ -70,8 +71,8 @@ export function PortfolioTab({
   for (const [token, balance] of Object.entries(tokenBalances)) {
     // Get token info for native token
     let decimals = 18 // default
-    if (token === 'NativeToken') {
-      decimals = 18 // NativeToken uses 18 decimals
+    if (token === 'NativeToken' || token === 'BridgeToken') {
+      decimals = 18 // NativeToken and BridgeToken use 18 decimals
     }
 
     allTokens.push({
@@ -79,7 +80,7 @@ export function PortfolioTab({
       symbol: token,
       balance: Number(balance) || 0,
       address: tokenAddressMap[token],
-      decimals: token === 'NativeToken' ? decimals : undefined,
+      decimals: (token === 'NativeToken' || token === 'BridgeToken') ? decimals : undefined,
       isETH: token === 'ETH',
     })
   }
@@ -109,8 +110,15 @@ export function PortfolioTab({
           style={{ borderTop: '1px solid var(--border-color)' }}
         >
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between px-1 mb-2">
-              <span className="text-xs uppercase tracking-wider font-bold" style={{ fontFamily: 'IBM Plex Mono, monospace', color: 'var(--text-tertiary)' }}>TOKEN BALANCES</span>
+            <div className="flex items-center justify-between px-1 mb-3">
+              <span className="text-sm uppercase tracking-widest font-bold" style={{
+                fontFamily: 'var(--font-digital)',
+                color: 'var(--text-primary)',
+                textShadow: 'var(--effect-text-shadow, 0) 0px 10px var(--text-primary)',
+                letterSpacing: '0.2em'
+              }}>
+                TOKEN BALANCES
+              </span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => { setShowAddToken(!showAddToken); setSendFromPortfolio(null) }}
@@ -178,6 +186,7 @@ export function PortfolioTab({
             ) : (
               allTokens.map((token) => {
                 const isSelected = sendFromPortfolio === token.key
+                const isBridge = token.symbol === 'BridgeToken'
                 return (
                   <div key={token.key}>
                     <button
@@ -188,19 +197,20 @@ export function PortfolioTab({
                         setTopUpError(null)
                         setTopUpSuccess(null)
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 text-xs transition-all ${
-                        isSelected
-                          ? 'bg-blue-500/10 border border-blue-500/30'
-                          : 'hover:border-opacity-60'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3 py-3 text-sm transition-all border-2`}
                       style={{
-                        borderRadius: isSelected ? '8px 8px 0 0' : '8px',
-                        fontFamily: 'IBM Plex Mono, monospace',
-                        ...(!isSelected ? { backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' } : {}),
+                        borderRadius: '0px',
+                        fontFamily: 'var(--font-digital)',
+                        backgroundColor: isSelected ? 'var(--bg-input-hover)' : 'var(--bg-input)',
+                        borderColor: isSelected ? 'var(--border-strong)' : 'var(--border-color)',
+                        boxShadow: isSelected ? 'var(--card-shadow)' : 'none',
                       }}
                     >
-                      <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-                        {token.symbol}
+                      <span className={`flex items-center gap-1.5 font-bold uppercase tracking-widest text-sm`} style={{
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-digital)'
+                      }}>
+                        {token.symbol === 'BridgeToken' ? 'BRIDGE' : token.symbol}
                         {token.address && (
                           <span onClick={(e) => e.stopPropagation()}>
                             <CopyButton text={token.address} size="sm" />
@@ -216,9 +226,14 @@ export function PortfolioTab({
                           </button>
                         )}
                       </span>
-                      <span className="font-mono font-bold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                      <span className={`font-mono font-bold tabular-nums text-sm`} style={{
+                        color: token.balance > 0 ? 'var(--accent-success)' : 'var(--text-secondary)',
+                        fontFamily: 'var(--font-digital)',
+                      }}>
                         {token.isETH
                           ? `${token.balance.toFixed(4)} ETH`
+                          : token.symbol === 'BridgeToken'
+                          ? `${token.balance.toFixed(4)} BT`
                           : token.isCustom || token.symbol === 'NativeToken'
                           ? `${token.balance.toFixed(4)} ${token.symbol}`
                           : `$${token.balance.toFixed(2)}`}
@@ -233,17 +248,34 @@ export function PortfolioTab({
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
                           transition={{ duration: 0.15 }}
-                          className="overflow-hidden border border-t-0 border-blue-500/20 px-3 py-3 space-y-2"
-                          style={{ borderRadius: '0 0 8px 8px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-input)' }}
+                          className={`overflow-hidden px-3 py-3 space-y-2 ${
+                            isBridge
+                              ? 'border-4 border-t-0 border-cyan-500/30'
+                              : 'border border-t-0 border-blue-500/20'
+                          }`}
+                          style={{
+                            borderRadius: isBridge ? '0' : '0 0 8px 8px',
+                            fontFamily: isBridge ? 'var(--font-digital)' : 'IBM Plex Mono, monospace',
+                            backgroundColor: 'var(--bg-input)',
+                            ...(isBridge ? {
+                              background: `repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 2px), var(--bg-input)`
+                            } : {})
+                          }}
                         >
                           <input
                             type="text"
                             value={transferRecipient}
                             onChange={(e) => setTransferRecipient(e.target.value)}
                             disabled={isTransferring}
-                            placeholder="Recipient 0x..."
-                            className="w-full px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-blue-500/40 transition-colors"
-                            style={{ borderRadius: '6px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+                            placeholder="Recipient address..."
+                            className="w-full px-3 py-2 text-xs font-mono focus:outline-none transition-colors"
+                            style={{
+                              borderRadius: '0px',
+                              backgroundColor: 'var(--bg-primary)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-primary)',
+                              fontFamily: 'var(--font-digital)',
+                            }}
                           />
                           <input
                             type="number"
@@ -252,14 +284,22 @@ export function PortfolioTab({
                             disabled={isTransferring}
                             min="0"
                             step="0.01"
-                            placeholder="Amount"
-                            className="w-full px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-blue-500/40 transition-colors"
-                            style={{ borderRadius: '6px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+                            placeholder="Amount..."
+                            className="w-full px-3 py-2 text-xs font-mono focus:outline-none transition-colors"
+                            style={{
+                              borderRadius: '0px',
+                              backgroundColor: 'var(--bg-primary)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-primary)',
+                              fontFamily: 'var(--font-digital)',
+                            }}
                           />
                           <button
                             onClick={() => {
                               if (token.isETH) {
                                 onSendETH()
+                              } else if (token.symbol === 'BridgeToken' && token.address && token.decimals != null) {
+                                onSendCustomToken(token.address, token.symbol, token.decimals)
                               } else if (token.isCustom && token.address && token.decimals != null) {
                                 onSendCustomToken(token.address, token.symbol, token.decimals)
                               } else if (token.symbol === 'NativeToken' && token.address && token.decimals != null) {
@@ -276,15 +316,21 @@ export function PortfolioTab({
                               }
                             }}
                             disabled={!transferAmount || !transferRecipient || isTransferring}
-                            className="w-full py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold uppercase hover:bg-blue-500/20 hover:border-blue-500/50 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-                            style={{ borderRadius: '6px' }}
+                            className={`w-full py-2 text-xs font-bold uppercase transition-all disabled:opacity-40 flex items-center justify-center gap-2 border-2`}
+                            style={{
+                              borderRadius: '0px',
+                              fontFamily: 'var(--font-digital)',
+                              backgroundColor: 'var(--accent-primary)',
+                              borderColor: 'var(--accent-primary)',
+                              color: 'var(--bg-primary)',
+                            }}
                           >
                             {isTransferring ? (
                               <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
                             ) : (
                               <>
                                 <ArrowsRightLeftIcon className="w-3.5 h-3.5" />
-                                SEND {token.symbol}
+                                {isBridge ? '▸ ' : ''}SEND {token.symbol === 'BridgeToken' ? 'BT' : token.symbol}
                               </>
                             )}
                           </button>

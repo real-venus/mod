@@ -199,18 +199,22 @@ export function SidebarHeader({
                 onClick={copyAddress}
                 onMouseEnter={() => setAddressHovered(true)}
                 onMouseLeave={() => setAddressHovered(false)}
-                className="w-full h-full flex items-center justify-between gap-3 px-4 border-4 transition-all hover:opacity-80"
+                className="w-full h-full flex items-center justify-between gap-3 px-4 border-2 transition-all"
                 style={{
                   fontFamily: 'var(--font-digital), monospace',
                   backgroundColor: 'var(--bg-input)',
-                  borderColor: 'var(--border-strong)',
+                  borderColor: copiedAddress ? 'var(--accent-success)' : 'var(--border-strong)',
                   minHeight: '52px',
+                  borderRadius: '0px',
+                  boxShadow: copiedAddress ? 'var(--card-shadow)' : 'none',
                 }}
                 title="Click to copy address"
               >
                 <span
-                  className={`text-lg font-digital tracking-wide font-bold ${copiedAddress ? 'text-green-400' : ''}`}
-                  style={{ ...(!copiedAddress ? { color: 'var(--text-secondary)' } : {}) }}
+                  className={`text-lg font-digital tracking-wide font-bold`}
+                  style={{
+                    color: copiedAddress ? 'var(--accent-success)' : 'var(--text-primary)',
+                  }}
                 >
                   {copiedAddress ? 'COPIED' : shortAddress}
                 </span>
@@ -333,8 +337,9 @@ export function SidebarHeader({
             </button>
           </div>
 
-          {/* Token session row with credit and signout */}
+          {/* Combined row: Session + Network + Credit + Signout */}
           <div className="flex items-center gap-2 mt-2">
+            {/* Session token */}
             <div className="flex-1">
               <div
                 className="flex items-center justify-between gap-2 px-3 py-2 border-2 transition-all cursor-pointer hover:border-opacity-100"
@@ -462,6 +467,7 @@ export function SidebarHeader({
                       {/* Verify Tab */}
                       {tokenTab === 'verify' && (() => {
                         const decoded = decodeToken()
+                        const currentToken = getStoredToken()
                         return (
                           <div>
                             <div className="text-xs font-digital uppercase tracking-wider mb-3 font-bold" style={{ color: 'var(--text-tertiary)' }}>
@@ -549,6 +555,36 @@ export function SidebarHeader({
                                   </div>
                                 </div>
                               </div>
+                            ) : currentToken ? (
+                              <div>
+                                <div className="text-xs font-digital uppercase tracking-wider mb-2 font-bold" style={{ color: 'var(--text-tertiary)' }}>
+                                  Current Token (Not JWT Format)
+                                </div>
+                                <div
+                                  className="px-3 py-2 border-2 text-xs font-mono break-all"
+                                  style={{
+                                    fontFamily: 'IBM Plex Mono, monospace',
+                                    backgroundColor: 'var(--bg-input)',
+                                    borderColor: 'var(--border-color)',
+                                    color: 'var(--text-primary)',
+                                    maxHeight: '200px',
+                                    overflowY: 'auto',
+                                  }}
+                                >
+                                  {currentToken}
+                                </div>
+                                <button
+                                  onClick={copyToken}
+                                  className="mt-3 w-full px-3 py-2 border-2 font-digital text-xs uppercase font-bold transition-all hover:opacity-80"
+                                  style={{
+                                    backgroundColor: copiedToken ? 'var(--bg-secondary)' : 'var(--bg-primary)',
+                                    borderColor: 'var(--border-strong)',
+                                    color: copiedToken ? '#4ade80' : 'var(--text-primary)',
+                                  }}
+                                >
+                                  {copiedToken ? 'COPIED!' : 'COPY TOKEN'}
+                                </button>
+                              </div>
                             ) : (
                               <div
                                 className="px-3 py-6 border-2 text-center text-sm"
@@ -558,7 +594,7 @@ export function SidebarHeader({
                                   color: 'var(--text-tertiary)',
                                 }}
                               >
-                                No valid token to verify
+                                No token available
                               </div>
                             )}
                           </div>
@@ -622,14 +658,20 @@ export function SidebarHeader({
               </AnimatePresence>
             </div>
 
+            {/* Network selector inline */}
+            <div className="flex-shrink-0" style={{ minWidth: '180px' }}>
+              <NetworkSelector />
+            </div>
+
             {/* Credit display */}
             <div
-              className="flex items-center justify-center px-4 border-4 font-digital font-bold tabular-nums tracking-tight text-xl"
+              className="flex items-center justify-center px-4 border-2 font-digital font-bold tabular-nums tracking-tight text-lg flex-shrink-0"
               style={{
                 backgroundColor: 'var(--bg-input)',
-                borderColor: 'var(--border-strong)',
+                borderColor: marketCredit > 0 ? 'var(--accent-success)' : 'var(--accent-error)',
                 minHeight: '40px',
-                color: marketCredit > 0 ? '#4ade80' : 'var(--text-primary)',
+                borderRadius: '0px',
+                color: marketCredit > 0 ? 'var(--accent-success)' : 'var(--accent-error)',
               }}
               title="Market Credit"
             >
@@ -650,11 +692,6 @@ export function SidebarHeader({
             >
               <ArrowRightStartOnRectangleIcon className="w-5 h-5" />
             </button>
-          </div>
-
-          {/* Network selector row */}
-          <div className="mt-2">
-            <NetworkSelector />
           </div>
         </div>
 
@@ -699,17 +736,28 @@ export function SidebarHeader({
                   onClick={() => { setIsEditing(true); setNewLimit(dailyLimit.toFixed(2)) }}
                   title="Click to edit daily limit"
                 >
-                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-color)' }}>
+                  <div className="flex-1 h-3 overflow-hidden border" style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    borderColor: 'var(--border-color)',
+                    borderRadius: '0px',
+                  }}>
                     <div
-                      className="h-full rounded-full transition-all duration-700 ease-out"
+                      className="h-full transition-all duration-700 ease-out"
                       style={{
                         width: `${Math.min(100, spentRatio * 100)}%`,
-                        background: spentRatio > 0.9 ? '#ef4444' : spentRatio > 0.7 ? '#f59e0b' : '#4ade80',
+                        backgroundColor: spentRatio > 0.9
+                          ? 'var(--accent-error)'
+                          : spentRatio > 0.7
+                          ? 'var(--accent-warning)'
+                          : 'var(--accent-success)',
                       }}
                     />
                   </div>
-                  <span className="text-base font-digital tabular-nums flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital), monospace' }}>
-                    ${dailyRemaining !== null ? dailyRemaining.toFixed(0) : '—'}<span className="opacity-50">/{dailyLimit.toFixed(0)}</span>
+                  <span className="text-sm font-digital tabular-nums flex-shrink-0 transition-opacity" style={{
+                    color: spentRatio > 0.9 ? 'var(--accent-error)' : spentRatio > 0.7 ? 'var(--accent-warning)' : 'var(--accent-success)',
+                    fontFamily: 'var(--font-digital), monospace',
+                  }}>
+                    ${dailyRemaining !== null ? dailyRemaining.toFixed(0) : '—'}<span style={{ opacity: 0.6 }}>/{dailyLimit.toFixed(0)}</span>
                   </span>
                 </div>
               )}

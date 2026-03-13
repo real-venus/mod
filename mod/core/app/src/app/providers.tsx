@@ -22,8 +22,25 @@ import {
 } from '@/context/LayoutContext'
 import { ThemeProvider, useTheme } from '@/context/ThemeContext'
 import { SplitScreenControls } from '@/components/SplitScreenControls'
-import { getAllNavItems, getNavHref } from '@/config/navigation'
+import { getAllNavItems, getNavHref, NavItem } from '@/config/navigation'
 import { MetaMaskProvider } from '@/wallet/MetaMaskProvider'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 function ThemedToast() {
   const { effectiveTheme } = useTheme()
@@ -69,6 +86,82 @@ function ThemeToggle() {
   )
 }
 
+// Sortable tab item component
+function SortableNavItem({ item, isActive, onRemove }: { item: NavItem; isActive: boolean; onRemove: () => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.href })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  const finalHref = getNavHref(item)
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative group px-3 mb-2"
+    >
+      <Link
+        href={finalHref}
+        className="flex items-center justify-between px-4 py-3.5 transition-all border-4 cursor-move"
+        {...attributes}
+        {...listeners}
+        onMouseEnter={e => {
+          if (!isActive) {
+            e.currentTarget.style.backgroundColor = `${item.color}15`
+            e.currentTarget.style.borderColor = `${item.color}60`
+          }
+        }}
+        onMouseLeave={e => {
+          if (!isActive) {
+            e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'
+            e.currentTarget.style.borderColor = 'var(--border-strong)'
+          }
+        }}
+        style={{
+          borderColor: isActive ? item.color : 'var(--border-strong)',
+          backgroundColor: isActive ? `${item.color}20` : 'var(--bg-secondary)',
+          boxShadow: isActive ? `0 0 20px ${item.color}30` : 'none',
+        }}
+      >
+        <span
+          className="text-xl font-digital uppercase tracking-[0.15em] font-bold"
+          style={{ color: isActive ? item.color : 'var(--text-primary)' }}
+        >
+          {item.label}
+        </span>
+
+        {/* Remove button */}
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onRemove()
+          }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 border-2"
+          style={{
+            borderColor: 'var(--border-strong)',
+            backgroundColor: 'var(--bg-primary)',
+          }}
+          title="Remove from sidebar"
+        >
+          <XMarkIcon className="w-4 h-4" style={{ color: 'var(--text-primary)' }} />
+        </button>
+      </Link>
+    </div>
+  )
+}
+
 function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenuOpen: (v: boolean) => void }) {
   const { handleSearch, searchFilters } = useSearchContext()
   const router = useRouter()
@@ -79,8 +172,65 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
   const [inputValue, setInputValue] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [createDropdownOpen, setCreateDropdownOpen] = useState(false)
+  const [orderedTabs, setOrderedTabs] = useState<NavItem[]>([])
 
   const navItems = getAllNavItems()
+
+  // Load tab order from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('tabOrder')
+    if (saved) {
+      try {
+        const savedOrder: string[] = JSON.parse(saved)
+        // Reconstruct the ordered array from saved hrefs
+        const ordered = savedOrder
+          .map(href => navItems.find(item => item.href === href))
+          .filter(Boolean) as NavItem[]
+
+        // Add any new tabs that weren't in the saved order
+        const existingHrefs = new Set(savedOrder)
+        const newTabs = navItems.filter(item => !existingHrefs.has(item.href))
+
+        setOrderedTabs([...ordered, ...newTabs])
+      } catch (e) {
+        setOrderedTabs(navItems)
+      }
+    } else {
+      setOrderedTabs(navItems)
+    }
+  }, [])
+
+  // Save tab order to localStorage whenever it changes
+  useEffect(() => {
+    if (orderedTabs.length > 0) {
+      const order = orderedTabs.map(item => item.href)
+      localStorage.setItem('tabOrder', JSON.stringify(order))
+    }
+  }, [orderedTabs])
+
+  const removeTab = (href: string) => {
+    setOrderedTabs(prev => prev.filter(item => item.href !== href))
+  }
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      setOrderedTabs((items) => {
+        const oldIndex = items.findIndex(item => item.href === active.id)
+        const newIndex = items.findIndex(item => item.href === over.id)
+        return arrayMove(items, oldIndex, newIndex)
+      })
+    }
+  }
 
   // No longer close sidebar on route change — sidebar persists
 
@@ -248,49 +398,55 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
       <AnimatePresence>
         {menuOpen && (
           <motion.div
-            initial={{ x: -220 }}
+            initial={{ x: -340 }}
             animate={{ x: 0 }}
-            exit={{ x: -220 }}
+            exit={{ x: -340 }}
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
             className="fixed left-0 top-0 bottom-0 z-[59] flex flex-col overflow-y-auto custom-scrollbar"
             style={{
-              width: '220px',
+              width: '340px',
               background: 'var(--bg-sidebar)',
               backdropFilter: 'blur(16px)',
               fontFamily: 'IBM Plex Mono, monospace',
-              borderRight: '1px solid var(--border-color)',
+              borderRight: '4px solid var(--border-strong)',
             }}
           >
             {/* Spacer for top header */}
             <div className="h-[48px] shrink-0" />
 
-            {/* Nav items */}
-            <div className="flex-1 py-1">
-              {navItems.map(item => {
-                const finalHref = getNavHref(item)
-                const isActive = pathname?.startsWith(item.href)
-                return (
-                  <Link
-                    key={item.href}
-                    href={finalHref}
-                    className="flex items-center px-4 py-2.5 transition-all"
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
-                    onMouseLeave={e => { if (!pathname?.startsWith(item.href)) e.currentTarget.style.background = 'transparent' }}
-                    style={{
-                      borderLeft: isActive ? `3px solid ${item.color}` : '3px solid transparent',
-                      background: isActive ? `${item.color}08` : undefined,
-                    }}
-                  >
-                    <span
-                      className="text-lg font-digital uppercase tracking-[0.1em]"
-                      style={{ color: isActive ? item.color : 'var(--text-secondary)' }}
-                    >
-                      {item.label}
-                    </span>
-                  </Link>
-                )
-              })}
-            </div>
+            {/* Nav items with drag and drop */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={orderedTabs.map(item => item.href)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="flex-1 py-3">
+                  {orderedTabs.length === 0 ? (
+                    <div className="text-center py-8 px-4">
+                      <p className="text-sm font-digital uppercase" style={{ color: 'var(--text-secondary)' }}>
+                        No tabs
+                      </p>
+                    </div>
+                  ) : (
+                    orderedTabs.map(item => {
+                      const isActive = pathname?.startsWith(item.href)
+                      return (
+                        <SortableNavItem
+                          key={item.href}
+                          item={item}
+                          isActive={isActive}
+                          onRemove={() => removeTab(item.href)}
+                        />
+                      )
+                    })
+                  )}
+                </div>
+              </SortableContext>
+            </DndContext>
           </motion.div>
         )}
       </AnimatePresence>
@@ -326,7 +482,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     : 'border-b-2 border-green-500/30'
 
   return (
-    <div className="flex h-screen transition-all duration-200" style={{ paddingTop: '48px', marginLeft: menuOpen ? '220px' : '0px', backgroundColor: 'var(--bg-primary)' }}>
+    <div className="flex h-screen transition-all duration-200" style={{ paddingTop: '48px', marginLeft: menuOpen ? '340px' : '0px', backgroundColor: 'var(--bg-primary)' }}>
       {/* Global header with tabs */}
       <GlobalSearchBar menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
 

@@ -692,14 +692,6 @@ class Bridge:
             return  f"No tokens to claim for address {address}"
         self.claims[address] = {"address": address, 'recipient': recipient, 'amount':  amount}
         self.set_claims(self.claims)
-        self._ensure_balance(address)
-        return self.claims[address]
-    
-    def claims_array(self):
-        """Get claims as array format for batch processing."""
-        return list(self.claims.values())
-        
-    def _ensure_balance(self, address:str):
 
         claim = self.claims[address]
         recipient = claim['recipient']
@@ -715,7 +707,12 @@ class Bridge:
         while abs(amount - expected_amount) > 0.01:  # wait until balance is updated (with some tolerance for async processing)
             amount = self.balance(recipient)
             m.print(f'Waiting for balance to update... Current: {amount}, Expected: {expected_amount}', color='yellow')
-        return amount
+
+        return claim
+    
+    def claims_array(self):
+        """Get claims as array format for batch processing."""
+        return list(self.claims.values())
 
 
     def test(self):

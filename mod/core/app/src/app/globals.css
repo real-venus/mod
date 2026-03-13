@@ -39,6 +39,7 @@
   :root.dark {
     color-scheme: dark;
 
+    /* DEFAULT DARK THEME - Classic Black & White */
     --bg-primary: #000000;
     --bg-secondary: rgba(13, 13, 13, 0.95);
     --bg-surface: #111111;
@@ -57,14 +58,73 @@
     --card-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
     --card-shadow-hover: 0 20px 50px rgba(0, 0, 0, 0.5);
     --scrollbar-track: rgba(0, 0, 0, 0.3);
-    --scrollbar-thumb: rgba(16, 185, 129, 0.6);
-    --scrollbar-thumb-hover: rgba(16, 185, 129, 0.8);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.3);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.5);
+
+    /* Accent colors - set dynamically by theme */
+    --accent-primary: #ffffff;
+    --accent-secondary: #cccccc;
+    --accent-success: #00ff00;
+    --accent-warning: #ffff00;
+    --accent-error: #ff0000;
+
+    /* Effect toggles - 0 or 1 */
+    --effect-glow: 0;
+    --effect-scanlines: 0;
+    --effect-text-shadow: 0;
   }
 
   body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
     font-family: var(--font-digital), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    position: relative;
+  }
+
+  /* CONDITIONAL CRT SCANLINES - only when theme enables */
+  html.has-scanlines body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.15) 0px,
+      rgba(0, 0, 0, 0.15) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+    animation: scanline-move 8s linear infinite;
+  }
+
+  /* CONDITIONAL CRT FLICKER - only when theme enables */
+  html.has-scanlines body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9998;
+    background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+    animation: flicker 0.15s infinite;
+    opacity: 0.5;
+  }
+
+  @keyframes scanline-move {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(100%); }
+  }
+
+  @keyframes flicker {
+    0% { opacity: 0.5; }
+    50% { opacity: 0.52; }
+    100% { opacity: 0.5; }
   }
 
   code, pre, .mono {
