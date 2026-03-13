@@ -76,6 +76,7 @@ export default function BridgePage() {
   const [claimAmount, setClaimAmount] = useState('')
   const [tokenBalance, setTokenBalance] = useState<string>('0')
   const [claims, setClaims] = useState<BridgeClaim[]>([])
+  const [allClaims, setAllClaims] = useState<any[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [hasClaimed, setHasClaimed] = useState(false)
   const [unclaimedAmount, setUnclaimedAmount] = useState<string>('')
@@ -89,6 +90,22 @@ export default function BridgePage() {
   const [checkingClaim, setCheckingClaim] = useState(false)
   const [loadingUnclaimed, setLoadingUnclaimed] = useState(false)
   const [loadingBalanceSheet, setLoadingBalanceSheet] = useState(false)
+  const [loadingAllClaims, setLoadingAllClaims] = useState(false)
+
+  // Search state
+  const [searchAddress, setSearchAddress] = useState('')
+  const [searchResult, setSearchResult] = useState<{
+    address: string
+    total: number
+    claimed: number
+    unclaimed: number
+    claimData?: ClaimData
+  } | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [searchRecipient, setSearchRecipient] = useState('')
+
+  // History search state
+  const [historySearchQuery, setHistorySearchQuery] = useState('')
 
   // Active tab
   const [activeTab, setActiveTab] = useState<'claim' | 'history' | 'balances'>('claim')
@@ -502,6 +519,37 @@ export default function BridgePage() {
     }
   }, [client, fetchBalanceSheet])
 
+  // Fetch all claims from bridge/claims
+  const fetchAllClaims = useCallback(async () => {
+    if (!client) return
+
+    try {
+      setLoadingAllClaims(true)
+      const result = await client.call('bridge/claims_array')
+
+      if (Array.isArray(result)) {
+        setAllClaims(result)
+      } else if (result?.claims && Array.isArray(result.claims)) {
+        setAllClaims(result.claims)
+      } else {
+        setAllClaims([])
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch all claims:', error)
+      toast.error(error?.message || 'Failed to load claims')
+      setAllClaims([])
+    } finally {
+      setLoadingAllClaims(false)
+    }
+  }, [client])
+
+  // Load all claims on mount and when switching to history tab
+  useEffect(() => {
+    if (client?.token && activeTab === 'history') {
+      fetchAllClaims()
+    }
+  }, [client, activeTab, fetchAllClaims])
+
   // Fetch contract owner and check if current user is owner
   const fetchOwner = useCallback(async () => {
     if (!client) return
@@ -580,6 +628,79 @@ export default function BridgePage() {
     }
   }
 
+  // Search for address claimability
+  const handleSearch = async (address?: string) => {
+    if (!client) {
+      toast.error('Client not initialized')
+      return
+    }
+
+    const searchAddr = address || searchAddress.trim() || user?.key
+    if (!searchAddr) {
+      toast.error('Please enter an address to search')
+      return
+    }
+
+    setSearching(true)
+    try {
+      const [totalBalancesResult, claimedBalancesResult] = await Promise.all([
+        client.call('bridge/get_total_balances'),
+        client.call('bridge/get_claims')
+      ])
+
+      const totalBalances = totalBalancesResult || {}
+      const claimedBalances = claimedBalancesResult || {}
+
+      const total = Number(totalBalances[searchAddr] || 0)
+      const claimed = Number(claimedBalances[searchAddr]?.amount || 0)
+      const unclaimed = total - claimed
+
+      setSearchResult({
+        address: searchAddr,
+        total,
+        claimed,
+        unclaimed,
+        claimData: claimedBalances[searchAddr]
+      })
+
+      if (unclaimed > 0) {
+        setSr25519Address(searchAddr)
+        setClaimAmount(unclaimed.toString())
+        toast.success(`Found ${unclaimed.toLocaleString()} BT available to claim`)
+      } else if (claimed > 0) {
+        toast.info('This address has already claimed all tokens')
+      } else {
+        toast.info('No allocation found for this address')
+      }
+    } catch (error: any) {
+      console.error('Search error:', error)
+      toast.error(error?.message || 'Failed to search address')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  // Claim from search result
+  const handleSearchClaim = async () => {
+    if (!searchResult || searchResult.unclaimed <= 0) {
+      toast.error('No unclaimed balance')
+      return
+    }
+
+    if (!searchRecipient.trim()) {
+      toast.error('Please enter recipient EVM address')
+      return
+    }
+
+    // Set the form values
+    setSr25519Address(searchResult.address)
+    setRecipientAddress(searchRecipient)
+    setClaimAmount(searchResult.unclaimed.toString())
+
+    // Execute claim
+    await handleClaim()
+  }
+
   // Get status color
   const getStatusColor = (status: BridgeClaim['status']) => {
     switch (status) {
@@ -617,14 +738,9 @@ export default function BridgePage() {
             <div className="w-10 h-10 flex items-center justify-center border border-cyan-500/40 rounded-lg bg-cyan-500/10">
               <ArrowsRightLeftIcon className="w-6 h-6 text-cyan-400" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                Bridge
-              </h1>
-              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                Claim EVM tokens from Sr25519 balances
-              </p>
-            </div>
+            <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+              Bridge <span className="text-xs font-normal ml-2" style={{ color: 'var(--text-tertiary)' }}>/ Claim EVM tokens from Sr25519 balances</span>
+            </h1>
           </div>
 
           {walletConnection.address && (
@@ -643,7 +759,7 @@ export default function BridgePage() {
           <>
             {/* Wallet Info - Compact Display */}
             <div
-              className="rounded-xl p-4"
+              className="rounded-xl p-4 shadow-lg shadow-cyan-500/5"
               style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}
             >
               <div className="flex items-center justify-between">
@@ -697,8 +813,8 @@ export default function BridgePage() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2.5 text-sm font-bold transition-colors relative ${
-                    activeTab === tab ? 'text-cyan-400' : ''
+                  className={`px-4 py-2.5 text-sm font-bold tracking-tight transition-all relative ${
+                    activeTab === tab ? 'text-cyan-400' : 'hover:text-cyan-400/70'
                   }`}
                   style={activeTab !== tab ? { color: 'var(--text-tertiary)' } : {}}
                 >
@@ -706,7 +822,7 @@ export default function BridgePage() {
                   {activeTab === tab && (
                     <motion.div
                       layoutId="bridgeTab"
-                      className="absolute bottom-0 left-2 right-2 h-[2px] bg-cyan-500"
+                      className="absolute bottom-0 left-2 right-2 h-[3px] bg-gradient-to-r from-cyan-500 to-cyan-400 shadow-lg shadow-cyan-500/50"
                       transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                     />
                   )}
@@ -724,106 +840,222 @@ export default function BridgePage() {
                   exit={{ opacity: 0, y: -10 }}
                   className="space-y-4"
                 >
-                  {/* Auth Token Display / Generate */}
-                  {walletConnection.type === 'sr25519' && (
-                    <div
-                      className="rounded-xl p-4 border"
-                      style={{
-                        backgroundColor: 'var(--bg-tertiary)',
-                        borderColor: 'var(--border-color)'
-                      }}
-                    >
-                      {!client?.token ? (
-                        <div className="text-center py-6">
-                          <div className="mb-4">
-                            <div className="text-sm font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Authentication Required
-                            </div>
-                            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                              Sign a message with Subwallet to generate your authentication token
-                            </p>
-                          </div>
-                          <button
-                            onClick={generateAuthToken}
-                            disabled={isProcessing}
-                            className="px-4 py-2 text-sm font-bold bg-cyan-500/15 border-2 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-lg"
-                          >
-                            {isProcessing ? (
-                              <span className="flex items-center justify-center gap-2">
-                                <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                                Generating Token...
-                              </span>
-                            ) : (
-                              'Generate Auth Token'
-                            )}
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <label className="text-xs mb-1.5 block font-bold" style={{ color: 'var(--text-tertiary)' }}>
-                              Authentication Token
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <code
-                                className="text-xs font-mono break-all bg-black/20 px-2 py-1 rounded flex-1"
-                                style={{ color: 'var(--text-secondary)' }}
-                              >
-                                {client.token}
-                              </code>
-                              <button
-                                onClick={() => copyToClipboard(client.token || '', 'Auth token')}
-                                className="flex-shrink-0 p-2 hover:bg-cyan-500/10 rounded transition-colors group"
-                                title="Copy auth token"
-                              >
-                                <ClipboardDocumentIcon className="w-4 h-4 text-cyan-400 hover:text-cyan-300" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
                   {/* SubWallet Connection Prompt for sr25519 users */}
-                  {walletConnection.type === 'sr25519' && !recipientAddress && (
+                  {walletConnection.type === 'sr25519' && !recipientAddress && !client?.token && (
                     <div
                       className="rounded-xl p-6 border-2"
                       style={{
-                        backgroundColor: 'rgba(139, 92, 246, 0.05)',
-                        borderColor: 'rgba(139, 92, 246, 0.3)'
+                        backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                        borderColor: 'rgba(6, 182, 212, 0.3)'
                       }}
                     >
                       <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-purple-500/10 border-2 border-purple-500/30">
-                          <span className="text-2xl">💼</span>
+                        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-cyan-500/10 border-2 border-cyan-500/30">
+                          <WalletIcon className="w-6 h-6 text-cyan-400" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-lg font-bold mb-2 text-purple-400">
-                            Connect EVM Wallet to Receive Tokens
+                          <h3 className="text-lg font-bold mb-2 text-cyan-400 tracking-tight">
+                            Connect EVM Wallet
                           </h3>
-                          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-                            You need to connect an EVM wallet (SubWallet or MetaMask) to receive your bridged tokens.
-                            Your sr25519 wallet will be used to verify ownership, and tokens will be sent to your EVM address.
+                          <p className="text-sm mb-4 font-mono" style={{ color: 'var(--text-secondary)' }}>
+                            Connect MetaMask or SubWallet to receive bridged tokens on EVM
                           </p>
                           <button
                             onClick={connectSubwallet}
-                            className="px-6 py-3 bg-purple-500/15 border-2 border-purple-500/30 text-purple-400 hover:bg-purple-500/25 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
+                            className="px-6 py-2.5 bg-cyan-500/15 border-2 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
                           >
-                            <span className="text-xl">💼</span>
-                            Connect EVM Wallet
+                            <WalletIcon className="w-4 h-4" />
+                            Connect Wallet
                           </button>
                         </div>
                       </div>
                     </div>
                   )}
 
+                  {/* Generate Auth Token Button for sr25519 users without token */}
+                  {walletConnection.type === 'sr25519' && !client?.token && (
+                    <div
+                      className="rounded-xl p-6 border-2"
+                      style={{
+                        backgroundColor: 'rgba(234, 179, 8, 0.05)',
+                        borderColor: 'rgba(234, 179, 8, 0.3)'
+                      }}
+                    >
+                      <div className="text-center">
+                        <h3 className="text-lg font-bold mb-2 text-yellow-400 tracking-tight">
+                          Authentication Required
+                        </h3>
+                        <p className="text-sm mb-4 font-mono" style={{ color: 'var(--text-secondary)' }}>
+                          Sign a message with SubWallet to authenticate
+                        </p>
+                        <button
+                          onClick={generateAuthToken}
+                          disabled={isProcessing}
+                          className="px-6 py-2.5 bg-yellow-500/15 border-2 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-lg font-bold text-sm"
+                        >
+                          {isProcessing ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                              Generating...
+                            </span>
+                          ) : (
+                            'Generate Auth Token'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Search for Claimable Address */}
+                  <div
+                    className="rounded-xl p-6"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}
+                  >
+                    <h3 className="text-lg font-bold mb-4 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                      Search Claimable Address
+                    </h3>
+
+                    <div className="space-y-4">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder={user?.key ? `Default: ${formatAddress(user.key)}` : "Enter sr25519 address"}
+                          value={searchAddress}
+                          onChange={e => setSearchAddress(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                          className="flex-1 text-sm px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all"
+                          style={{
+                            backgroundColor: 'var(--bg-input)',
+                            border: '2px solid var(--border-strong)',
+                            color: 'var(--text-primary)'
+                          }}
+                        />
+                        <button
+                          onClick={() => handleSearch()}
+                          disabled={searching}
+                          className="px-6 py-3 bg-cyan-500/15 border-2 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-lg font-bold text-sm"
+                        >
+                          {searching ? (
+                            <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                          ) : (
+                            'Search'
+                          )}
+                        </button>
+                      </div>
+
+                      {searchResult && (
+                        <div
+                          className="rounded-lg p-4 border-2"
+                          style={{
+                            backgroundColor: searchResult.unclaimed > 0 ? 'rgba(6, 182, 212, 0.05)' : 'var(--bg-tertiary)',
+                            borderColor: searchResult.unclaimed > 0 ? 'rgba(6, 182, 212, 0.3)' : 'var(--border-color)'
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              {searchResult.claimed > 0 ? (
+                                <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                              ) : searchResult.total > 0 ? (
+                                <ClockIcon className="w-5 h-5 text-cyan-400" />
+                              ) : (
+                                <XCircleIcon className="w-5 h-5 text-gray-400" />
+                              )}
+                              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                {searchResult.claimed > 0 ? 'Claimed' : searchResult.total > 0 ? 'Unclaimed' : 'No Allocation'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => copyToClipboard(searchResult.address, 'Address')}
+                            className="font-mono text-xs mb-3 flex items-center gap-2 group hover:text-cyan-400 transition-colors w-full"
+                            style={{ color: 'var(--text-tertiary)' }}
+                          >
+                            <span className="truncate">{searchResult.address}</span>
+                            <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                          </button>
+
+                          <div className="grid grid-cols-3 gap-4 mb-4">
+                            <div>
+                              <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Total</div>
+                              <div className="font-mono text-lg font-bold text-cyan-400">
+                                {searchResult.total.toLocaleString()}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Claimed</div>
+                              <div className="font-mono text-lg font-bold text-green-400">
+                                {searchResult.claimed.toLocaleString()}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Unclaimed</div>
+                              <div className="font-mono text-lg font-bold text-orange-400">
+                                {searchResult.unclaimed.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+
+                          {searchResult.unclaimed > 0 && (
+                            <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                              <div>
+                                <label className="text-xs mb-2 block font-bold" style={{ color: 'var(--text-secondary)' }}>
+                                  Recipient EVM Address
+                                </label>
+                                <input
+                                  type="text"
+                                  value={searchRecipient}
+                                  onChange={(e) => setSearchRecipient(e.target.value)}
+                                  placeholder="0x..."
+                                  className="w-full text-sm px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all"
+                                  style={{
+                                    backgroundColor: 'var(--bg-input)',
+                                    border: '2px solid var(--border-strong)',
+                                    color: 'var(--text-primary)'
+                                  }}
+                                />
+                              </div>
+                              <button
+                                onClick={handleSearchClaim}
+                                disabled={isProcessing || !searchRecipient.trim()}
+                                className="w-full px-4 py-3 bg-cyan-500/15 border-2 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-lg font-bold text-sm"
+                              >
+                                {isProcessing ? (
+                                  <span className="flex items-center justify-center gap-2">
+                                    <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                    Claiming...
+                                  </span>
+                                ) : (
+                                  'Claim'
+                                )}
+                              </button>
+                            </div>
+                          )}
+
+                          {searchResult.claimData?.recipient && (
+                            <div className="pt-3 mt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                              <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Recipient</div>
+                              <button
+                                onClick={() => copyToClipboard(searchResult.claimData!.recipient, 'Recipient')}
+                                className="font-mono text-xs flex items-center gap-2 group hover:text-cyan-400 transition-colors"
+                                style={{ color: 'var(--text-secondary)' }}
+                              >
+                                <span className="truncate">{searchResult.claimData.recipient}</span>
+                                <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Claim Form */}
                   <div
                     className="rounded-xl p-8"
                     style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}
                   >
-                    <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+                    <h3 className="text-xl font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>
                       Submit Claim
                     </h3>
 
@@ -1012,12 +1244,12 @@ export default function BridgePage() {
 
                   {/* Info Card */}
                   <div
-                    className="rounded-xl p-4 border border-cyan-500/20 bg-cyan-500/5"
+                    className="rounded-xl p-4 border-2 border-cyan-500/30 bg-cyan-500/5"
                   >
-                    <h4 className="text-sm font-bold mb-2 text-cyan-400">
-                      ℹ️ How it works
+                    <h4 className="text-sm font-bold mb-2 text-cyan-400 tracking-tight">
+                      How it works
                     </h4>
-                    <ul className="space-y-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    <ul className="space-y-1 text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
                       {walletConnection.type === 'sr25519' ? (
                         <>
                           <li>• Your Sr25519 address is automatically detected</li>
@@ -1048,162 +1280,152 @@ export default function BridgePage() {
                   exit={{ opacity: 0, y: -10 }}
                   className="space-y-4"
                 >
-                  {/* Recent Claims (Session) */}
-                  {claims.length > 0 && (
-                    <div
-                      className="rounded-xl p-6"
-                      style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}
-                    >
-                      <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
-                        Recent Claims (This Session)
-                      </h3>
-                      <div className="space-y-3">
-                        {claims.map((claim, idx) => (
-                          <div
-                            key={idx}
-                            className="p-4 rounded-lg border transition-all hover:border-cyan-500/30"
-                            style={{
-                              backgroundColor: 'var(--bg-tertiary)',
-                              borderColor: 'var(--border-color)'
-                            }}
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className={`flex items-center gap-1 text-xs font-bold ${getStatusColor(claim.status)}`}>
-                                    {getStatusIcon(claim.status)}
-                                    {claim.status.toUpperCase()}
-                                  </span>
-                                </div>
-                                <div className="text-xs space-y-1" style={{ color: 'var(--text-tertiary)' }}>
-                                  <div>
-                                    <span className="font-bold" style={{ color: 'var(--text-secondary)' }}>From:</span>{' '}
-                                    <span className="font-mono">{formatAddress(claim.sr25519Address)}</span>
-                                  </div>
-                                  <div>
-                                    <span className="font-bold" style={{ color: 'var(--text-secondary)' }}>To:</span>{' '}
-                                    <span className="font-mono">{formatAddress(claim.evmAddress)}</span>
-                                  </div>
-                                  {claim.txHash && (
-                                    <div>
-                                      <span className="font-bold" style={{ color: 'var(--text-secondary)' }}>Tx:</span>{' '}
-                                      <span className="font-mono">{formatAddress(claim.txHash)}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-lg font-bold font-mono text-cyan-400">
-                                  {claim.amount} BT
-                                </div>
-                                <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                                  {new Date(claim.timestamp).toLocaleString()}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* All Claimed History */}
+                  {/* All Claims from API */}
                   <div
                     className="rounded-xl p-6"
                     style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}
                   >
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-                        All Claimed History
+                      <h3 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                        All Claims
                       </h3>
                       <button
-                        onClick={fetchBalanceSheet}
-                        disabled={loadingBalanceSheet}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs border rounded-lg hover:border-cyan-500/30 hover:text-cyan-400 transition-all"
+                        onClick={fetchAllClaims}
+                        disabled={loadingAllClaims}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs border-2 rounded-lg hover:border-cyan-500/30 hover:text-cyan-400 transition-all"
                         style={{ borderColor: 'var(--border-strong)', color: 'var(--text-tertiary)' }}
                       >
-                        <ArrowPathIcon className={`w-3.5 h-3.5 ${loadingBalanceSheet ? 'animate-spin' : ''}`} />
+                        <ArrowPathIcon className={`w-3.5 h-3.5 ${loadingAllClaims ? 'animate-spin' : ''}`} />
                         Refresh
                       </button>
                     </div>
 
-                    {loadingBalanceSheet ? (
+                    {/* Search input for history */}
+                    <div className="mb-4">
+                      <input
+                        type="text"
+                        placeholder="Search by SR25519 or EVM address..."
+                        value={historySearchQuery}
+                        onChange={e => setHistorySearchQuery(e.target.value)}
+                        className="w-full text-sm px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 font-mono transition-all"
+                        style={{
+                          backgroundColor: 'var(--bg-input)',
+                          border: '2px solid var(--border-strong)',
+                          color: 'var(--text-primary)'
+                        }}
+                      />
+                    </div>
+
+                    {loadingAllClaims ? (
                       <div className="py-12 text-center">
-                        <ArrowPathIcon className="w-12 h-12 mx-auto mb-3 animate-spin" style={{ color: 'var(--text-tertiary)' }} />
-                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                          Loading claimed history...
+                        <ArrowPathIcon className="w-12 h-12 mx-auto mb-3 animate-spin text-cyan-400" />
+                        <p className="text-sm font-mono" style={{ color: 'var(--text-secondary)' }}>
+                          Loading claims...
                         </p>
                       </div>
-                    ) : Object.keys(claimedHistory).length === 0 ? (
+                    ) : allClaims.length === 0 ? (
                       <div className="py-12 text-center">
                         <ClockIcon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }} />
-                        <p className="text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                        <p className="text-sm mb-1 font-bold" style={{ color: 'var(--text-secondary)' }}>
                           No claims yet
                         </p>
-                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                          Claim history will appear here
+                        <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                          Claims will appear here once submitted
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        {Object.entries(claimedHistory)
-                          .sort(([, a], [, b]) => Number(b.amount) - Number(a.amount))
-                          .map(([address, claimData]) => (
-                            <div
-                              key={address}
-                              className="flex items-center justify-between p-4 rounded-lg border hover:border-green-500/30 transition-all"
-                              style={{
-                                backgroundColor: 'var(--bg-tertiary)',
-                                borderColor: 'var(--border-color)'
-                              }}
-                            >
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <CheckCircleIcon className="w-5 h-5 text-green-400 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>From:</span>
-                                    <button
-                                      onClick={() => copyToClipboard(address, 'Sr25519 Address')}
-                                      className="font-mono text-sm flex items-center gap-1 hover:text-cyan-400 transition-colors group"
-                                      style={{ color: 'var(--text-primary)' }}
-                                      title="Click to copy full address"
-                                    >
-                                      {formatAddress(address)}
-                                      <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    </button>
-                                  </div>
-                                  {claimData.recipient && (
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>To:</span>
+                      <div className="space-y-3">
+                        {allClaims
+                          .filter(claim => {
+                            if (!historySearchQuery.trim()) return true
+                            const query = historySearchQuery.toLowerCase().trim()
+                            const sr25519Match = (claim.address || claim.from)?.toLowerCase().includes(query)
+                            const recipientMatch = claim.recipient?.toLowerCase().includes(query)
+                            return sr25519Match || recipientMatch
+                          })
+                          .map((claim, idx) => (
+                          <div
+                            key={idx}
+                            className="p-4 rounded-lg border-2 transition-all hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/10"
+                            style={{
+                              backgroundColor: 'var(--bg-tertiary)',
+                              borderColor: 'var(--border-color)'
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <CheckCircleIcon className="w-5 h-5 text-green-400 flex-shrink-0" />
+                                  <span className="text-xs font-bold text-green-400 tracking-tight">
+                                    CLAIMED
+                                  </span>
+                                </div>
+                                <div className="space-y-2 text-xs font-mono">
+                                  {(claim.address || claim.from) && (
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-cyan-400 font-bold min-w-[80px] flex-shrink-0">SR25519:</span>
                                       <button
-                                        onClick={() => copyToClipboard(claimData.recipient, 'Recipient Address')}
-                                        className="font-mono text-xs flex items-center gap-1 hover:text-cyan-400 transition-colors group"
+                                        onClick={() => copyToClipboard(claim.address || claim.from, 'Sr25519 Address')}
+                                        className="flex items-center gap-1 hover:text-cyan-400 transition-colors group flex-1 text-left break-all"
+                                        style={{ color: 'var(--text-primary)' }}
+                                        title="Click to copy full address"
+                                      >
+                                        {claim.address || claim.from}
+                                        <ClipboardDocumentIcon className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </button>
+                                    </div>
+                                  )}
+                                  {claim.recipient && (
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-cyan-400 font-bold min-w-[80px] flex-shrink-0">EVM:</span>
+                                      <button
+                                        onClick={() => copyToClipboard(claim.recipient, 'EVM Recipient Address')}
+                                        className="flex items-center gap-1 hover:text-cyan-400 transition-colors group flex-1 text-left break-all"
                                         style={{ color: 'var(--text-secondary)' }}
                                         title="Click to copy full address"
                                       >
-                                        {formatAddress(claimData.recipient)}
-                                        <ClipboardDocumentIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        {claim.recipient}
+                                        <ClipboardDocumentIcon className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                                       </button>
+                                    </div>
+                                  )}
+                                  {claim.tx_hash && (
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-cyan-400 font-bold min-w-[80px] flex-shrink-0">Tx Hash:</span>
+                                      <button
+                                        onClick={() => copyToClipboard(claim.tx_hash, 'Transaction Hash')}
+                                        className="flex items-center gap-1 hover:text-cyan-400 transition-colors group flex-1 text-left break-all"
+                                        style={{ color: 'var(--text-tertiary)' }}
+                                        title="Click to copy full hash"
+                                      >
+                                        {formatAddress(claim.tx_hash)}
+                                        <ClipboardDocumentIcon className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </button>
+                                    </div>
+                                  )}
+                                  {claim.timestamp && (
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-cyan-400 font-bold min-w-[80px] flex-shrink-0">Time:</span>
+                                      <span style={{ color: 'var(--text-tertiary)' }}>
+                                        {new Date(claim.timestamp * 1000).toLocaleString()}
+                                      </span>
                                     </div>
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <div className="font-mono text-lg font-bold text-green-400">
-                                  {Number(claimData.amount).toLocaleString()} BT
+                              <div className="text-right flex-shrink-0">
+                                <div className="text-2xl font-bold font-mono text-cyan-400 mb-1">
+                                  {typeof claim.amount === 'number'
+                                    ? claim.amount.toLocaleString()
+                                    : claim.amount || '0'}
                                 </div>
-                                {isOwner && (
-                                  <button
-                                    onClick={() => deleteClaim(address)}
-                                    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                    title="Delete claim"
-                                  >
-                                    <TrashIcon className="w-5 h-5" />
-                                  </button>
-                                )}
+                                <div className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>
+                                  BT
+                                </div>
                               </div>
                             </div>
-                          ))}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

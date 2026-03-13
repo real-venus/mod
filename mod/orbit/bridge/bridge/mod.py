@@ -693,8 +693,11 @@ class Bridge:
         self.claims[address] = {"address": address, 'recipient': recipient, 'amount':  amount}
         self.set_claims(self.claims)
         self._ensure_balance(address)
-        return f"Claim processed for address {address}, recipient {recipient}, amount {amount}"
         return self.claims[address]
+    
+    def claims_array(self):
+        """Get claims as array format for batch processing."""
+        return list(self.claims.values())
         
     def _ensure_balance(self, address:str):
 
