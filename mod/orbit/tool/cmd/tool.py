@@ -1,37 +1,54 @@
-
-import mod as c
 import subprocess
-import shlex
-import os
-from typing import List, Dict, Union, Optional, Any
+from typing import Dict, Any, List, Union
 
-class Cmd:
+class Tool:
     """
-    Command-line execution tool for running shell commands with various options.
-    
-    This tool provides a clean interface for executing shell commands with options
-    for capturing output, handling errors, and processing results.
+    Command line tool that executes shell commands and returns the output.
     """
     
-    def __init__(self, cwd: str = None, shell: bool = False, env: Dict[str, str] = None):
-        """
-        Initialize the Cmd tool.
-        
-        Args:
-            cwd: Current working directory for command execution
-            shell: Whether to use shell execution (can be a security risk)
-            env: Environment variables to set for command execution
-        """
-        self.cwd = cwd
-        self.shell = shell
-        self.env = env
-        
     def forward(
         self,
         cmd: Union[str, List[str]], **kwargs) -> Dict[str, Any]:
         """
         Execute a shell command and return the results.
+        
+        Args:
+            cmd: Command to execute (string or list of arguments)
+            **kwargs: Additional arguments passed to subprocess.run
+            
+        Returns:
+            Dictionary with:
+            - success: Whether the command executed successfully
+            - stdout: Standard output from the command
+            - stderr: Standard error from the command
+            - returncode: Exit code of the command
         """
-        # Use instance defaults if not specified
-        result = os.system(cmd, **kwargs)
-        return result
+        try:
+            # Determine if we need shell=True
+            shell = isinstance(cmd, str)
+            
+            # Run the command and capture output
+            result = subprocess.run(
+                cmd,
+                shell=shell,
+                capture_output=True,
+                text=True,
+                **kwargs
+            )
+            
+            return {
+                "success": result.returncode == 0,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "returncode": result.returncode,
+                "output": result.stdout if result.returncode == 0 else result.stderr
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "stdout": "",
+                "stderr": str(e),
+                "returncode": -1,
+                "output": str(e)
+            }
