@@ -48,10 +48,14 @@ export const ui = {
     panel: '#0d0d0d',
     panelAlt: '#000000',
     panelAlt2: '#06060a',
-    border: 'rgba(255, 255, 255, 0.06)',
-    borderDim: 'rgba(255, 255, 255, 0.03)',
+    border: 'rgba(96, 165, 250, 0.3)',
+    borderDim: 'rgba(96, 165, 250, 0.15)',
     text: '#e7e7e7',
-    textDim: 'rgba(255, 255, 255, 0.35)',
+    textDim: 'rgba(255, 255, 255, 0.5)',
+    textHighlight: '#60a5fa',
+    accent: '#60a5fa',
+    accentDim: 'rgba(96, 165, 250, 0.6)',
+    bgAccent: 'rgba(96, 165, 250, 0.1)',
     green: '#22c55e',
     yellow: '#facc15',
     glow: 'rgba(96, 165, 250, 0.15)',
@@ -60,13 +64,17 @@ export const ui = {
     panel: '#ffffff',
     panelAlt: '#f9fafb',
     panelAlt2: '#f3f4f6',
-    border: 'rgba(0, 0, 0, 0.1)',
-    borderDim: 'rgba(0, 0, 0, 0.05)',
+    border: 'rgba(59, 130, 246, 0.3)',
+    borderDim: 'rgba(59, 130, 246, 0.15)',
     text: '#1f2937',
-    textDim: 'rgba(0, 0, 0, 0.5)',
+    textDim: 'rgba(0, 0, 0, 0.6)',
+    textHighlight: '#2563eb',
+    accent: '#3b82f6',
+    accentDim: 'rgba(59, 130, 246, 0.7)',
+    bgAccent: 'rgba(59, 130, 246, 0.1)',
     green: '#22c55e',
     yellow: '#facc15',
-    glow: 'rgba(96, 165, 250, 0.15)',
+    glow: 'rgba(59, 130, 246, 0.15)',
   },
 };
 
@@ -155,11 +163,11 @@ export const highlightSearchTerm = (text: string, term: string) => {
 
 
 export function FileTreeItem({
-  node, level, onSelect, expandedFolders, toggleFolder, selectedPath, onCopy, searchTerm, isLight,
+  node, level, onSelect, expandedFolders, toggleFolder, selectedPath, onCopy, searchTerm, isLight, theme,
 }: {
   node: FileNode; level: number; onSelect: (n: FileNode) => void;
   expandedFolders: Set<string>; toggleFolder: (p: string) => void; selectedPath?: string;
-  onCopy: (n: FileNode) => void; searchTerm?: string; isLight: boolean;
+  onCopy: (n: FileNode) => void; searchTerm?: string; isLight: boolean; theme: typeof ui.dark;
 }) {
   const isExpanded = expandedFolders.has(node.path);
   const isSelected = selectedPath === node.path;
@@ -184,18 +192,19 @@ export function FileTreeItem({
         ${matchesSearch && searchTerm ? 'ring-1 ring-yellow-400/40 bg-yellow-400/5' : ''}`}
         style={{
           paddingLeft: `${level * 12 + 12}px`,
-          backgroundColor: isSelected ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
-          border: isSelected ? '1px solid rgba(6, 182, 212, 0.3)' : '1px solid transparent',
-          boxShadow: isSelected ? '0 0 15px rgba(6, 182, 212, 0.2)' : 'none'
+          backgroundColor: isSelected ? (isLight ? 'rgba(59, 130, 246, 0.1)' : 'rgba(96, 165, 250, 0.1)') : 'transparent',
+          border: isSelected ? `1px solid ${isLight ? 'rgba(59, 130, 246, 0.3)' : 'rgba(96, 165, 250, 0.3)'}` : '1px solid transparent',
+          boxShadow: isSelected ? (isLight ? '0 0 15px rgba(59, 130, 246, 0.2)' : '0 0 15px rgba(96, 165, 250, 0.2)') : 'none'
         }}
         onClick={handleClick}
         title={node.path}
       >
         {node.type === 'folder' ? (
-          isExpanded ? <ChevronDownIcon className="mr-1.5 h-3.5 w-3.5 text-cyan-400" /> : <ChevronRightIcon className="mr-1.5 h-3.5 w-3.5 text-cyan-400" />
+          isExpanded ? <ChevronDownIcon className="mr-1.5 h-3.5 w-3.5" style={{ color: theme.accent }} /> : <ChevronRightIcon className="mr-1.5 h-3.5 w-3.5" style={{ color: theme.accent }} />
         ) : null}
-        <FileIcon className={`mr-2.5 h-4 w-4 flex-shrink-0 ${node.type === 'folder' ? 'text-purple-400' : 'text-cyan-400'}`} style={{
-          filter: node.type === 'folder' ? 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.5))' : 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.5))'
+        <FileIcon className="mr-2.5 h-4 w-4 flex-shrink-0" style={{
+          color: theme.accent,
+          filter: `drop-shadow(0 0 4px ${theme.glow})`
         }} />
         <span className="flex-1 truncate font-mono font-medium">
           {searchTerm ? highlightSearchTerm(node.name, searchTerm) : node.name}
@@ -208,11 +217,15 @@ export function FileTreeItem({
               onMouseEnter={() => setShowCid(true)}
               onMouseLeave={() => setShowCid(false)}
             >
-              <HashtagIcon className="h-3.5 w-3.5 text-blue-400/60 hover:text-blue-400 transition-colors" />
+              <HashtagIcon className="h-3.5 w-3.5 transition-colors" style={{ color: theme.accentDim }} />
               {showCid && node.cid && (
                 <div
-                  className={`absolute right-0 top-6 z-50 border px-3 py-2 text-[10px] font-mono whitespace-nowrap shadow-xl ${isLight ? 'text-blue-700 bg-white' : 'text-blue-300 bg-gray-900'}`}
-                  style={{ borderColor: 'rgba(96, 165, 250, 0.4)' }}
+                  className="absolute right-0 top-6 z-50 border px-3 py-2 text-[10px] font-mono whitespace-nowrap shadow-xl"
+                  style={{
+                    borderColor: theme.border,
+                    backgroundColor: theme.panel,
+                    color: theme.textHighlight
+                  }}
                 >
                   {node.cid.length > 46 ? `${node.cid.slice(0, 46)}...` : node.cid}
                 </div>
@@ -250,6 +263,7 @@ export function FileTreeItem({
               onCopy={onCopy}
               searchTerm={searchTerm}
               isLight={isLight}
+              theme={theme}
             />
           ))}
         </div>
@@ -447,32 +461,36 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
 
   return (
     <div className="overflow-hidden font-mono p-4 relative" style={{ fontFamily: 'JetBrains Mono, monospace', backgroundColor: theme.panelAlt }}>
-      {/* Cyberpunk ambient glow background */}
+      {/* Ambient glow background */}
       <div className="absolute inset-0 pointer-events-none opacity-20">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/30 blur-[120px] rounded-full" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-500/30 blur-[120px] rounded-full" />
+        <div className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full" style={{ backgroundColor: theme.bgAccent }} />
+        <div className="absolute bottom-0 left-0 w-96 h-96 blur-[120px] rounded-full" style={{ backgroundColor: theme.bgAccent }} />
       </div>
 
       {/* Single line header with search and stats */}
       <div className="px-6 py-3 shadow-2xl flex items-center gap-4 relative" style={{
         backgroundColor: theme.panel,
-        border: `2px solid rgba(6, 182, 212, 0.3)`,
-        boxShadow: '0 0 30px rgba(6, 182, 212, 0.15)'
+        border: `2px solid ${theme.border}`,
+        boxShadow: `0 0 30px ${theme.glow}`
       }}>
         {/* Corner accents */}
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-purple-400" />
+        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: theme.accent }} />
+        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2" style={{ borderColor: theme.accent }} />
 
         <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="px-2.5 py-1 bg-gradient-to-r from-cyan-500/20 to-purple-500/20" style={{
-            border: '1px solid rgba(6, 182, 212, 0.4)',
-            boxShadow: '0 0 10px rgba(6, 182, 212, 0.3)'
+          <div className="px-2.5 py-1" style={{
+            background: `linear-gradient(to right, ${theme.bgAccent}, ${theme.bgAccent})`,
+            border: `1px solid ${theme.border}`,
+            boxShadow: `0 0 10px ${theme.glow}`
           }}>
-            <span className="text-[10px] font-bold text-cyan-400" style={{ textShadow: '0 0 8px rgba(6, 182, 212, 0.8)' }}>CNT</span>
+            <span className="text-[10px] font-bold" style={{
+              color: theme.accent,
+              textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
+            }}>CNT</span>
           </div>
           <h3 className="text-[13px] font-bold tracking-wide whitespace-nowrap uppercase" style={{
             color: theme.text,
-            textShadow: isLight ? 'none' : '0 0 10px rgba(6, 182, 212, 0.3)'
+            textShadow: isLight ? 'none' : `0 0 10px ${theme.glow}`
           }}>
             ► FILE EXPLORER
           </h3>
@@ -480,7 +498,10 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
 
         {/* Search bar - flex-1 to take remaining space */}
         <div className="relative flex-1 max-w-md">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-cyan-400" style={{ filter: 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.6))' }} />
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{
+            color: theme.accent,
+            filter: `drop-shadow(0 0 4px ${theme.glow})`
+          }} />
           <input
             type="text"
             placeholder="Search files and content..."
@@ -488,9 +509,9 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
             onChange={(e) => setSearchTerm(e.target.value)}
             className={`w-full border pl-9 pr-3 py-2 text-[11px] outline-none transition-all ${isLight ? 'bg-gray-50 focus:bg-white' : 'bg-white/[0.03] focus:bg-white/[0.06]'}`}
             style={{
-              borderColor: 'rgba(6, 182, 212, 0.3)',
+              borderColor: theme.border,
               color: theme.text,
-              boxShadow: '0 0 15px rgba(6, 182, 212, 0.1)'
+              boxShadow: `0 0 15px ${theme.glow}`
             }}
           />
         </div>
@@ -501,8 +522,8 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
           onChange={(e) => setSelectedVersion(Number(e.target.value))}
           className={`px-3 py-2 text-[11px] font-medium border outline-none transition-all flex-shrink-0 font-mono ${isLight ? 'bg-gray-50 text-gray-900' : 'bg-white/[0.03] text-white'}`}
           style={{
-            borderColor: 'rgba(6, 182, 212, 0.3)',
-            boxShadow: '0 0 15px rgba(6, 182, 212, 0.1)'
+            borderColor: theme.border,
+            boxShadow: `0 0 15px ${theme.glow}`
           }}
         >
           {versions.map((v, idx) => (
@@ -514,17 +535,23 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
 
         {/* Stats */}
         <div className="flex items-center gap-2 text-[10px] font-medium flex-shrink-0 font-mono">
-          <span className="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 whitespace-nowrap" style={{
-            border: '1px solid rgba(6, 182, 212, 0.3)',
-            textShadow: '0 0 8px rgba(6, 182, 212, 0.5)'
+          <span className="px-2.5 py-1 whitespace-nowrap" style={{
+            backgroundColor: theme.bgAccent,
+            color: theme.accent,
+            border: `1px solid ${theme.border}`,
+            textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
           }}>{stats.fileCount} files</span>
-          <span className="px-2.5 py-1 bg-purple-500/10 text-purple-400 whitespace-nowrap" style={{
-            border: '1px solid rgba(168, 85, 247, 0.3)',
-            textShadow: '0 0 8px rgba(168, 85, 247, 0.5)'
+          <span className="px-2.5 py-1 whitespace-nowrap" style={{
+            backgroundColor: theme.bgAccent,
+            color: theme.accent,
+            border: `1px solid ${theme.border}`,
+            textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
           }}>{stats.totalLines} lines</span>
-          <span className="px-2.5 py-1 bg-purple-500/10 text-purple-400 whitespace-nowrap" style={{
-            border: '1px solid rgba(168, 85, 247, 0.3)',
-            textShadow: '0 0 8px rgba(168, 85, 247, 0.5)'
+          <span className="px-2.5 py-1 whitespace-nowrap" style={{
+            backgroundColor: theme.bgAccent,
+            color: theme.accent,
+            border: `1px solid ${theme.border}`,
+            textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
           }}>{stats.totalSize}</span>
           {searchTerm && searchResults.length > 0 && (
             <span className="px-2.5 py-1 bg-yellow-500/10 text-yellow-400 whitespace-nowrap" style={{
@@ -540,16 +567,19 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
       <div className="flex gap-4 mt-4 relative">
         <div className="micro-scroll-y w-72 max-h-[600px] overflow-y-auto p-4 shadow-xl relative" style={{
           backgroundColor: theme.panelAlt2,
-          border: `2px solid rgba(6, 182, 212, 0.3)`,
-          boxShadow: '0 0 30px rgba(6, 182, 212, 0.15)'
+          border: `2px solid ${theme.border}`,
+          boxShadow: `0 0 30px ${theme.glow}`
         }}>
           {/* Corner accents */}
-          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
-          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-purple-400" />
+          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: theme.accent }} />
+          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2" style={{ borderColor: theme.accent }} />
 
           <div className="mb-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-bold tracking-wide uppercase text-cyan-400" style={{ textShadow: '0 0 8px rgba(6, 182, 212, 0.5)' }}>► Files</h3>
+              <h3 className="text-[11px] font-bold tracking-wide uppercase" style={{
+                color: theme.accent,
+                textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
+              }}>► Files</h3>
               <div className="flex gap-2">
                 <button
                   onClick={() => {
@@ -558,14 +588,16 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                     collect(fileTree);
                     setExpandedFolders(all);
                   }}
-                  className={`text-xs transition-all p-1.5 rounded-md text-blue-400/70 hover:text-blue-400 ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+                  className={`text-xs transition-all p-1.5 rounded-md ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+                  style={{ color: theme.accentDim }}
                   title="Expand all"
                 >
                   <ChevronDownIcon className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={() => setExpandedFolders(new Set())}
-                  className={`text-xs transition-all p-1.5 rounded-md text-blue-400/70 hover:text-blue-400 ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+                  className={`text-xs transition-all p-1.5 rounded-md ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+                  style={{ color: theme.accentDim }}
                   title="Collapse all"
                 >
                   <ChevronRightIcon className="h-3.5 w-3.5" />
@@ -586,6 +618,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                 onCopy={copyFileContent}
                 searchTerm={searchTerm}
                 isLight={isLight}
+                theme={theme}
               />
             ))}
           </div>
@@ -593,12 +626,12 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
 
         <div className="micro-scroll-y max-h-[600px] flex-1 overflow-y-auto shadow-xl p-4 relative" style={{
           backgroundColor: theme.panel,
-          border: `2px solid rgba(6, 182, 212, 0.3)`,
-          boxShadow: '0 0 30px rgba(6, 182, 212, 0.15)'
+          border: `2px solid ${theme.border}`,
+          boxShadow: `0 0 30px ${theme.glow}`
         }}>
           {/* Corner accents */}
-          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
-          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-purple-400" />
+          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: theme.accent }} />
+          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2" style={{ borderColor: theme.accent }} />
 
           {filteredSections.map((section) => {
             const isCollapsed = collapsedFiles.has(section.path);
@@ -631,7 +664,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                 >
                   <div className="micro-row flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                     {isCollapsed ? <ChevronRightIcon className="h-4 w-4 flex-shrink-0" style={{ color: theme.textDim }} /> : <ChevronDownIcon className="h-4 w-4 flex-shrink-0" style={{ color: theme.textDim }} />}
-                    <FileIcon className="h-5 w-5 text-blue-400 flex-shrink-0" />
+                    <FileIcon className="h-5 w-5 flex-shrink-0" style={{ color: theme.accent }} />
                     <span className={`font-mono text-[13px] font-medium ${isLight ? 'text-gray-900' : 'text-white'} truncate flex-shrink`}>
                       {searchTerm && section.path.toLowerCase().includes(searchTerm.toLowerCase())
                         ? highlightSearchTerm(section.path, searchTerm)
@@ -643,8 +676,12 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                         {section.language}
                       </span>
                       {/* CID Display - Inline with filename */}
-                      <span className={`text-[10px] font-mono select-all px-2.5 py-1 rounded-md ${isLight ? 'text-blue-700 bg-blue-50' : 'text-blue-300/80 bg-blue-500/10'}`}
-                        style={{ border: `1px solid ${isLight ? 'rgba(59, 130, 246, 0.2)' : 'rgba(96, 165, 250, 0.2)'}` }}
+                      <span className="text-[10px] font-mono select-all px-2.5 py-1 rounded-md"
+                        style={{
+                          color: theme.textHighlight,
+                          backgroundColor: theme.bgAccent,
+                          border: `1px solid ${theme.borderDim}`
+                        }}
                         onClick={(e) => e.stopPropagation()}
                         title={section.cid}>
                         {section.cid.length > 20 ? `${section.cid.slice(0, 10)}...${section.cid.slice(-8)}` : section.cid}
@@ -675,12 +712,12 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
 
       <div className="flex items-center justify-between px-6 py-4 mt-4 shadow-xl relative" style={{
         backgroundColor: theme.panel,
-        border: `2px solid rgba(6, 182, 212, 0.3)`,
-        boxShadow: '0 0 30px rgba(6, 182, 212, 0.15)'
+        border: `2px solid ${theme.border}`,
+        boxShadow: `0 0 30px ${theme.glow}`
       }}>
         {/* Corner accents */}
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-purple-400" />
+        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: theme.accent }} />
+        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2" style={{ borderColor: theme.accent }} />
 
         <div className="text-[11px] font-medium font-mono">
           {searchTerm && searchResults.length > 0 && (
@@ -697,32 +734,64 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
             const all = filteredSections.map((s) => `// ${s.path}\n${s.content}`).join('\n\n');
             navigator.clipboard.writeText(all);
           }}
-          className="flex items-center gap-2.5 text-[11px] font-medium font-mono text-cyan-400 hover:text-cyan-300 transition-all px-4 py-2.5 relative group"
+          className="flex items-center gap-2.5 text-[11px] font-medium font-mono transition-all px-4 py-2.5 relative group"
           style={{
-            border: '2px solid rgba(6, 182, 212, 0.3)',
-            boxShadow: '0 0 20px rgba(6, 182, 212, 0.2)',
-            textShadow: '0 0 8px rgba(6, 182, 212, 0.5)'
+            color: theme.accent,
+            border: `2px solid ${theme.border}`,
+            boxShadow: `0 0 20px ${theme.glow}`,
+            textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
           }}
         >
-          <div className="absolute inset-0 bg-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ backgroundColor: theme.bgAccent }} />
           <DocumentIcon className="h-4 w-4 relative" />
           <span className="relative uppercase tracking-wider">Copy All Code</span>
         </button>
       </div>
 
       <style jsx>{`
-        .micro-scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-        .micro-scroll:hover { scrollbar-color: rgba(96, 165, 250, 0.3) transparent; }
-        .micro-scroll::-webkit-scrollbar { height: 8px; background: transparent; }
-        .micro-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 9999px; }
-        .micro-scroll:hover::-webkit-scrollbar-thumb { background: rgba(96, 165, 250, 0.25); }
-        .micro-scroll::-webkit-scrollbar-track { background: transparent; }
-        .micro-scroll-y { scrollbar-width: thin; scrollbar-color: rgba(96, 165, 250, 0.2) transparent; }
-        .micro-scroll-y::-webkit-scrollbar { width: 10px; background: transparent; }
-        .micro-scroll-y::-webkit-scrollbar-thumb { background: rgba(96, 165, 250, 0.2); border-radius: 9999px; }
-        .micro-scroll-y::-webkit-scrollbar-track { background: transparent; }
-        .micro-edge-x { -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent); mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent); }
-        .micro-row { min-height: 32px; }
+        .micro-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: transparent transparent;
+        }
+        .micro-scroll:hover {
+          scrollbar-color: ${theme.borderDim} transparent;
+        }
+        .micro-scroll::-webkit-scrollbar {
+          height: 8px;
+          background: transparent;
+        }
+        .micro-scroll::-webkit-scrollbar-thumb {
+          background: transparent;
+          border-radius: 9999px;
+        }
+        .micro-scroll:hover::-webkit-scrollbar-thumb {
+          background: ${theme.borderDim};
+        }
+        .micro-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .micro-scroll-y {
+          scrollbar-width: thin;
+          scrollbar-color: ${theme.borderDim} transparent;
+        }
+        .micro-scroll-y::-webkit-scrollbar {
+          width: 10px;
+          background: transparent;
+        }
+        .micro-scroll-y::-webkit-scrollbar-thumb {
+          background: ${theme.borderDim};
+          border-radius: 9999px;
+        }
+        .micro-scroll-y::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .micro-edge-x {
+          -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+          mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+        }
+        .micro-row {
+          min-height: 32px;
+        }
       `}</style>
     </div>
   );

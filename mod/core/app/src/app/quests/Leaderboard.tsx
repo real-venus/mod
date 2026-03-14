@@ -13,10 +13,10 @@ type LeaderboardView = 'responders' | 'questers';
 
 function getRankDisplay(rank: number) {
   switch (rank) {
-    case 1: return { color: 'text-amber-500 dark:text-amber-400', prefix: '>>>', border: 'border-amber-400 dark:border-amber-500/40', bg: 'bg-amber-50 dark:bg-amber-500/[0.06]' };
-    case 2: return { color: 'text-gray-600 dark:text-white/70', prefix: ' >>', border: 'border-gray-300 dark:border-white/15', bg: 'bg-gray-50 dark:bg-white/[0.03]' };
-    case 3: return { color: 'text-amber-700 dark:text-amber-600', prefix: '  >', border: 'border-amber-300 dark:border-amber-600/25', bg: 'bg-amber-50/50 dark:bg-amber-600/[0.06]' };
-    default: return { color: 'text-gray-500 dark:text-white/40', prefix: '   ', border: 'border-gray-200 dark:border-white/[0.06]', bg: 'bg-transparent' };
+    case 1: return { color: 'text-amber-500 dark:text-amber-400', prefix: '>>>', border: 'border-amber-400 dark:border-amber-500/40', bgStyle: 'var(--bg-surface)' };
+    case 2: return { color: 'text-gray-600 dark:text-white/70', prefix: ' >>', border: 'border-gray-300 dark:border-white/15', bgStyle: 'var(--bg-surface)' };
+    case 3: return { color: 'text-amber-700 dark:text-amber-600', prefix: '  >', border: 'border-amber-300 dark:border-amber-600/25', bgStyle: 'var(--bg-surface)' };
+    default: return { color: 'text-gray-500 dark:text-white/40', prefix: '   ', border: 'border-gray-200 dark:border-white/[0.06]', bgStyle: 'transparent' };
   }
 }
 
@@ -31,8 +31,8 @@ export default function Leaderboard({ responders, questers, loading }: Leaderboa
     return (
       <div className="flex items-center justify-center py-20 font-mono">
         <div className="flex items-center gap-3">
-          <span className="text-blue-500 dark:text-blue-400 animate-pulse">_</span>
-          <span className="text-[14px] text-gray-400 dark:text-white/35 font-bold">LOADING LEADERBOARD...</span>
+          <span className="animate-pulse" style={{ color: 'rgb(59 130 246)' }}>_</span>
+          <span className="text-[14px] font-bold" style={{ color: 'var(--text-secondary)' }}>LOADING LEADERBOARD...</span>
         </div>
       </div>
     );
@@ -41,24 +41,26 @@ export default function Leaderboard({ responders, questers, loading }: Leaderboa
   return (
     <div className="space-y-3 font-mono">
       {/* Toggle */}
-      <div className="flex items-center gap-0 border-b-2 border-gray-200 dark:border-white/[0.08]">
+      <div className="flex items-center gap-0 border-b-4" style={{ borderColor: 'var(--border-color)' }}>
         <button
           onClick={() => setView('responders')}
-          className={`px-5 py-3 text-[14px] font-extrabold tracking-wider uppercase border-b-2 -mb-px transition-all ${
-            view === 'responders'
-              ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-500/[0.06]'
-              : 'text-gray-400 dark:text-white/35 border-transparent hover:text-gray-600 dark:hover:text-white/60 hover:border-gray-300 dark:hover:border-white/15'
-          }`}
+          className="px-5 py-3 text-[14px] font-extrabold tracking-wider uppercase border-b-4 -mb-1 transition-all"
+          style={{
+            color: view === 'responders' ? 'rgb(16 185 129)' : 'var(--text-secondary)',
+            borderColor: view === 'responders' ? 'rgb(16 185 129)' : 'transparent',
+            backgroundColor: view === 'responders' ? 'var(--bg-surface)' : 'transparent',
+          }}
         >
           TOP RESPONDERS
         </button>
         <button
           onClick={() => setView('questers')}
-          className={`px-5 py-3 text-[14px] font-extrabold tracking-wider uppercase border-b-2 -mb-px transition-all ${
-            view === 'questers'
-              ? 'text-cyan-600 dark:text-cyan-400 border-cyan-500 dark:border-cyan-400 bg-cyan-50 dark:bg-cyan-500/[0.06]'
-              : 'text-gray-400 dark:text-white/35 border-transparent hover:text-gray-600 dark:hover:text-white/60 hover:border-gray-300 dark:hover:border-white/15'
-          }`}
+          className="px-5 py-3 text-[14px] font-extrabold tracking-wider uppercase border-b-4 -mb-1 transition-all"
+          style={{
+            color: view === 'questers' ? 'rgb(34 211 238)' : 'var(--text-secondary)',
+            borderColor: view === 'questers' ? 'rgb(34 211 238)' : 'transparent',
+            backgroundColor: view === 'questers' ? 'var(--bg-surface)' : 'transparent',
+          }}
         >
           TOP QUESTERS
         </button>
@@ -76,9 +78,9 @@ export default function Leaderboard({ responders, questers, loading }: Leaderboa
 function ResponderBoard({ entries }: { entries: LeaderboardEntry[] }) {
   if (entries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] font-mono">
-        <span className="text-[14px] text-gray-400 dark:text-white/25 font-bold">NO COMPLETED QUESTS YET</span>
-        <span className="text-[13px] text-gray-300 dark:text-white/15 mt-1.5 font-medium">Be the first to earn rewards.</span>
+      <div className="flex flex-col items-center justify-center py-20 font-mono" style={{ backgroundColor: 'var(--bg-primary)', border: '4px solid var(--border-color)' }}>
+        <span className="text-[14px] font-bold" style={{ color: 'var(--text-secondary)' }}>NO COMPLETED QUESTS YET</span>
+        <span className="text-[13px] mt-1.5 font-medium" style={{ color: 'var(--text-tertiary)' }}>Be the first to earn rewards.</span>
       </div>
     );
   }
@@ -86,16 +88,16 @@ function ResponderBoard({ entries }: { entries: LeaderboardEntry[] }) {
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] px-6 py-5">
+      <div className="px-6 py-5" style={{ backgroundColor: 'var(--bg-primary)', border: '4px solid var(--border-color)' }}>
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-emerald-500 dark:text-emerald-400 text-[13px] font-extrabold">[RSP]</span>
-          <span className="text-[13px] font-extrabold text-gray-500 dark:text-white/50 uppercase tracking-[0.2em]">Top Responders</span>
+          <span className="text-[13px] font-extrabold" style={{ color: 'rgb(16 185 129)' }}>[RSP]</span>
+          <span className="text-[13px] font-extrabold uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>Top Responders</span>
         </div>
-        <p className="text-[13px] text-gray-400 dark:text-white/25 font-medium">Ranked by total rewards earned from approved quest responses.</p>
+        <p className="text-[13px] font-medium" style={{ color: 'var(--text-tertiary)' }}>Ranked by total rewards earned from approved quest responses.</p>
       </div>
 
       {/* Table header */}
-      <div className="px-5 py-2.5 flex items-center text-[11px] text-gray-400 dark:text-white/25 uppercase tracking-[0.2em] border-b-2 border-gray-200 dark:border-white/[0.08] font-extrabold">
+      <div className="px-5 py-2.5 flex items-center text-[11px] uppercase tracking-[0.2em] border-b-4 font-extrabold" style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-color)' }}>
         <span className="w-14">RANK</span>
         <span className="flex-1">ADDRESS</span>
         <span className="w-24 text-right">QUESTS</span>
@@ -110,7 +112,8 @@ function ResponderBoard({ entries }: { entries: LeaderboardEntry[] }) {
           return (
             <div
               key={entry.responder}
-              className={`${style.bg} border-2 ${style.border} px-5 py-3.5 flex items-center hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors`}
+              className={`border-4 ${style.border} px-5 py-3.5 flex items-center transition-colors`}
+              style={{ backgroundColor: style.bgStyle }}
             >
               <div className="w-14 shrink-0">
                 <span className={`text-[15px] font-extrabold ${style.color}`}>
@@ -123,13 +126,13 @@ function ResponderBoard({ entries }: { entries: LeaderboardEntry[] }) {
                 </span>
               </div>
               <div className="w-24 text-right">
-                <span className="text-[14px] text-gray-400 dark:text-white/35 font-bold">{entry.quests_completed}</span>
+                <span className="text-[14px] font-bold" style={{ color: 'var(--text-secondary)' }}>{entry.quests_completed}</span>
               </div>
               <div className="w-32 text-right">
                 <span className={`text-[16px] font-extrabold ${style.color}`}>
                   {entry.total_earned.toLocaleString()}
                 </span>
-                <span className="text-[11px] text-gray-400 dark:text-white/25 ml-1 font-bold">USDC</span>
+                <span className="text-[11px] ml-1 font-bold" style={{ color: 'var(--text-tertiary)' }}>USDC</span>
               </div>
             </div>
           );
@@ -142,9 +145,9 @@ function ResponderBoard({ entries }: { entries: LeaderboardEntry[] }) {
 function QuesterBoard({ entries }: { entries: QuestCreatorEntry[] }) {
   if (entries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] font-mono">
-        <span className="text-[14px] text-gray-400 dark:text-white/25 font-bold">NO QUESTS CREATED YET</span>
-        <span className="text-[13px] text-gray-300 dark:text-white/15 mt-1.5 font-medium">Be the first to post a quest.</span>
+      <div className="flex flex-col items-center justify-center py-20 font-mono" style={{ backgroundColor: 'var(--bg-primary)', border: '4px solid var(--border-color)' }}>
+        <span className="text-[14px] font-bold" style={{ color: 'var(--text-secondary)' }}>NO QUESTS CREATED YET</span>
+        <span className="text-[13px] mt-1.5 font-medium" style={{ color: 'var(--text-tertiary)' }}>Be the first to post a quest.</span>
       </div>
     );
   }
@@ -152,16 +155,16 @@ function QuesterBoard({ entries }: { entries: QuestCreatorEntry[] }) {
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] px-6 py-5">
+      <div className="px-6 py-5" style={{ backgroundColor: 'var(--bg-primary)', border: '4px solid var(--border-color)' }}>
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-cyan-500 dark:text-cyan-400 text-[13px] font-extrabold">[QST]</span>
-          <span className="text-[13px] font-extrabold text-gray-500 dark:text-white/50 uppercase tracking-[0.2em]">Top Questers</span>
+          <span className="text-[13px] font-extrabold" style={{ color: 'rgb(34 211 238)' }}>[QST]</span>
+          <span className="text-[13px] font-extrabold uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>Top Questers</span>
         </div>
-        <p className="text-[13px] text-gray-400 dark:text-white/25 font-medium">Ranked by total rewards posted across all quests created.</p>
+        <p className="text-[13px] font-medium" style={{ color: 'var(--text-tertiary)' }}>Ranked by total rewards posted across all quests created.</p>
       </div>
 
       {/* Table header */}
-      <div className="px-5 py-2.5 flex items-center text-[11px] text-gray-400 dark:text-white/25 uppercase tracking-[0.2em] border-b-2 border-gray-200 dark:border-white/[0.08] font-extrabold">
+      <div className="px-5 py-2.5 flex items-center text-[11px] uppercase tracking-[0.2em] border-b-4 font-extrabold" style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-color)' }}>
         <span className="w-14">RANK</span>
         <span className="flex-1">ADDRESS</span>
         <span className="w-20 text-right">CREATED</span>
@@ -177,7 +180,8 @@ function QuesterBoard({ entries }: { entries: QuestCreatorEntry[] }) {
           return (
             <div
               key={entry.creator}
-              className={`${style.bg} border-2 ${style.border} px-5 py-3.5 flex items-center hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors`}
+              className={`border-4 ${style.border} px-5 py-3.5 flex items-center transition-colors`}
+              style={{ backgroundColor: style.bgStyle }}
             >
               <div className="w-14 shrink-0">
                 <span className={`text-[15px] font-extrabold ${style.color}`}>
@@ -190,16 +194,16 @@ function QuesterBoard({ entries }: { entries: QuestCreatorEntry[] }) {
                 </span>
               </div>
               <div className="w-20 text-right">
-                <span className="text-[14px] text-gray-400 dark:text-white/35 font-bold">{entry.quests_created}</span>
+                <span className="text-[14px] font-bold" style={{ color: 'var(--text-secondary)' }}>{entry.quests_created}</span>
               </div>
               <div className="w-20 text-right">
-                <span className="text-[14px] text-gray-400 dark:text-white/35 font-bold">{entry.quests_completed}</span>
+                <span className="text-[14px] font-bold" style={{ color: 'var(--text-secondary)' }}>{entry.quests_completed}</span>
               </div>
               <div className="w-32 text-right">
                 <span className={`text-[16px] font-extrabold ${style.color}`}>
                   {entry.total_reward_posted.toLocaleString()}
                 </span>
-                <span className="text-[11px] text-gray-400 dark:text-white/25 ml-1 font-bold">USDC</span>
+                <span className="text-[11px] ml-1 font-bold" style={{ color: 'var(--text-tertiary)' }}>USDC</span>
               </div>
             </div>
           );

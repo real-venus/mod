@@ -438,7 +438,7 @@ class  Api:
             mods = [item for item in mods if isinstance(item, dict) and 'name' in item]
 
         if search != None:
-            mods = [item for item in mods if search in item['name']]
+            mods = [item for item in mods if search.lower() in item['name'].lower()]
         if page != None and page_size != None:
             start = page * page_size
             end = start + page_size

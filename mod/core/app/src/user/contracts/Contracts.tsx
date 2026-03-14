@@ -324,7 +324,7 @@ export default function ContractsInterface() {
           CONTRACTS
           <Sparkles className="w-10 h-10 text-pink-500" />
         </h1>
-        <p className="text-sm text-gray-400 font-mono uppercase tracking-wider">Blockchain Interaction Hub</p>
+        <p className="text-sm text-gray-400 font-mono tracking-wider">Blockchain Interaction Hub</p>
       </motion.div>
 
       {/* Network Info Card */}
@@ -349,7 +349,7 @@ export default function ContractsInterface() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/30 to-emerald-500/30 flex items-center justify-center border-2 border-green-500/50">
                 <span className="text-2xl">🌐</span>
               </div>
-              <h3 className="text-xl font-black text-green-400 uppercase tracking-wide">Network</h3>
+              <h3 className="text-xl font-black text-green-400 tracking-wide">Network</h3>
             </div>
             <div className="text-green-400 transition-transform duration-300" style={{ transform: showNetworkInfo ? 'rotate(180deg)' : 'rotate(0deg)' }}>
               <ChevronDown className="w-6 h-6" />
@@ -365,11 +365,11 @@ export default function ContractsInterface() {
                 className="px-4 pb-4 space-y-3"
               >
                 <div className="flex items-center gap-3 bg-black/40 rounded-xl p-3 border border-green-500/30">
-                  <span className="text-green-400/70 font-bold text-xs uppercase min-w-[80px]">Network:</span>
+                  <span className="text-green-400/70 font-bold text-xs min-w-[80px]">Network:</span>
                   <span className="font-mono text-sm text-green-400 font-black">{network.toUpperCase()}</span>
                 </div>
                 <div className="flex items-center gap-3 bg-black/40 rounded-xl p-3 border border-green-500/30">
-                  <span className="text-green-400/70 font-bold text-xs uppercase min-w-[80px]">Connected:</span>
+                  <span className="text-green-400/70 font-bold text-xs min-w-[80px]">Connected:</span>
                   <span className="font-mono text-sm text-white/90 truncate flex-1">{user?.key || 'Not connected'}</span>
                   {user?.key && <CopyButton text={user.key} size="sm" />}
                 </div>
@@ -408,7 +408,7 @@ export default function ContractsInterface() {
                 >
                   <span className="text-2xl">{selectedContractData.emoji}</span>
                 </div>
-                <h3 className="text-xl font-black uppercase tracking-wide" style={{ color: selectedContractData.color }}>
+                <h3 className="text-xl font-black tracking-wide" style={{ color: selectedContractData.color }}>
                   {selectedContractData.name}
                 </h3>
               </div>
@@ -429,17 +429,17 @@ export default function ContractsInterface() {
                   className="px-4 pb-4 space-y-3"
                 >
                   <div className="flex items-center gap-3 bg-black/40 rounded-xl p-3 border" style={{ borderColor: `${selectedContractData.color}30` }}>
-                    <span className="font-bold text-xs uppercase min-w-[80px]" style={{ color: `${selectedContractData.color}90` }}>Address:</span>
+                    <span className="font-bold text-xs min-w-[80px]" style={{ color: `${selectedContractData.color}90` }}>Address:</span>
                     <span className="font-mono text-sm text-white/90 truncate flex-1">{selectedContractData.address}</span>
                     <CopyButton text={selectedContractData.address || ''} size="sm" />
                   </div>
                   <div className="flex items-center gap-3 bg-black/40 rounded-xl p-3 border" style={{ borderColor: `${selectedContractData.color}30` }}>
-                    <span className="font-bold text-xs uppercase min-w-[80px]" style={{ color: `${selectedContractData.color}90` }}>ABI CID:</span>
+                    <span className="font-bold text-xs min-w-[80px]" style={{ color: `${selectedContractData.color}90` }}>ABI CID:</span>
                     <span className="font-mono text-sm text-white/90 truncate flex-1">{selectedContractData.abiCid}</span>
                     <CopyButton text={selectedContractData.abiCid || ''} size="sm" />
                   </div>
                   <div className="flex items-center gap-3 bg-black/40 rounded-xl p-3 border" style={{ borderColor: `${selectedContractData.color}30` }}>
-                    <span className="font-bold text-xs uppercase min-w-[80px]" style={{ color: `${selectedContractData.color}90` }}>Status:</span>
+                    <span className="font-bold text-xs min-w-[80px]" style={{ color: `${selectedContractData.color}90` }}>Status:</span>
                     <span className="font-mono text-sm font-bold">
                       {selectedContractData.abi ? '✅ Loaded' : '⏳ Loading...'}
                     </span>
@@ -466,7 +466,7 @@ export default function ContractsInterface() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center border-2 border-purple-500/50">
               <span className="text-2xl">📝</span>
             </div>
-            <h3 className="text-2xl font-black text-purple-400 uppercase tracking-wide">Your Mods</h3>
+            <h3 className="text-2xl font-black text-purple-400 tracking-wide">Your Mods</h3>
             <button
               onClick={fetchUserMods}
               disabled={loadingMods}
@@ -497,7 +497,7 @@ export default function ContractsInterface() {
                       setSelectedModId(mod.modId)
                       setEditingModData(mod.data)
                     }}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-500/30 to-pink-500/30 hover:from-purple-500/40 hover:to-pink-500/40 rounded-xl border-2 border-purple-400/50 font-bold uppercase text-sm text-purple-300 transition-all flex items-center gap-2 hover:scale-105"
+                    className="px-4 py-2 bg-gradient-to-r from-purple-500/30 to-pink-500/30 hover:from-purple-500/40 hover:to-pink-500/40 rounded-xl border-2 border-purple-400/50 font-bold text-sm text-purple-300 transition-all flex items-center gap-2 hover:scale-105"
                   >
                     <Edit3 className="w-4 h-4" />
                     Edit
@@ -505,11 +505,11 @@ export default function ContractsInterface() {
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 bg-purple-950/30 rounded-lg p-2">
-                    <span className="text-purple-400/70 font-bold uppercase text-xs">ID:</span>
+                    <span className="text-purple-400/70 font-bold text-xs">ID:</span>
                     <span className="text-purple-300 font-mono">{mod.modId}</span>
                   </div>
                   <div className="flex items-center gap-2 bg-purple-950/30 rounded-lg p-2">
-                    <span className="text-purple-400/70 font-bold uppercase text-xs">Data:</span>
+                    <span className="text-purple-400/70 font-bold text-xs">Data:</span>
                     <span className="text-purple-300 font-mono truncate flex-1">{mod.data}</span>
                     <CopyButton text={mod.data} size="sm" />
                   </div>
@@ -535,11 +535,11 @@ export default function ContractsInterface() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/30 to-red-500/30 flex items-center justify-center border-2 border-orange-500/50">
               <Edit3 className="w-5 h-5 text-orange-400" />
             </div>
-            <h3 className="text-2xl font-black text-orange-400 uppercase tracking-wide">Edit Mod #{selectedModId}</h3>
+            <h3 className="text-2xl font-black text-orange-400 tracking-wide">Edit Mod #{selectedModId}</h3>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-bold mb-3 text-orange-300 uppercase tracking-wide">Mod Data</label>
+              <label className="block text-sm font-bold mb-3 text-orange-300 tracking-wide">Mod Data</label>
               <textarea
                 value={editingModData}
                 onChange={(e) => setEditingModData(e.target.value)}
@@ -589,7 +589,7 @@ export default function ContractsInterface() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Contract Selector */}
         <div className="relative" ref={contractDropdownRef}>
-          <label className="block text-sm font-bold mb-2 text-cyan-400 uppercase tracking-wide">Select Contract</label>
+          <label className="block text-sm font-bold mb-2 text-cyan-400 tracking-wide">Select Contract</label>
           <input
             type="text"
             placeholder="🔍 Search contracts..."
@@ -654,7 +654,7 @@ export default function ContractsInterface() {
         {/* Function Selector */}
         {selectedContract && selectedContractData?.abi && (
           <div>
-            <label className="block text-sm font-bold mb-2 text-purple-400 uppercase tracking-wide">Select Function</label>
+            <label className="block text-sm font-bold mb-2 text-purple-400 tracking-wide">Select Function</label>
             <select
               value={selectedFunction}
               onChange={(e) => {
@@ -699,12 +699,12 @@ export default function ContractsInterface() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center border-2 border-pink-500/50">
                 <span className="text-2xl">🎯</span>
               </div>
-              <h3 className="text-2xl font-black text-pink-400 uppercase tracking-wide">Parameters</h3>
+              <h3 className="text-2xl font-black text-pink-400 tracking-wide">Parameters</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {selectedFunctionData.inputs.map((input: any, index: number) => (
                 <div key={input.name}>
-                  <label className="block text-sm font-bold mb-2 text-pink-300 uppercase tracking-wide">
+                  <label className="block text-sm font-bold mb-2 text-pink-300 tracking-wide">
                     {input.name} <span className="text-gray-500 text-xs">({input.type})</span>
                     {input.type === 'address' && index === 0 && user?.key && (
                       <span className="text-xs text-emerald-400 ml-2 normal-case">✓ Auto-filled</span>
@@ -734,7 +734,7 @@ export default function ContractsInterface() {
           whileTap={{ scale: 0.98 }}
           onClick={handleExecute}
           disabled={loading}
-          className="w-full font-black py-4 rounded-xl border-2 disabled:opacity-50 transition-all flex items-center justify-center gap-3 text-xl uppercase tracking-wide"
+          className="w-full font-black py-4 rounded-xl border-2 disabled:opacity-50 transition-all flex items-center justify-center gap-3 text-xl tracking-wide"
           style={{
             background: `linear-gradient(135deg, ${getFunctionColor(selectedFunctionData.stateMutability)}40 0%, ${getFunctionColor(selectedFunctionData.stateMutability)}20 100%)`,
             borderColor: `${getFunctionColor(selectedFunctionData.stateMutability)}80`,
@@ -770,7 +770,7 @@ export default function ContractsInterface() {
             <div className="w-10 h-10 rounded-xl bg-red-500/30 flex items-center justify-center border-2 border-red-500/50">
               <span className="text-2xl">❌</span>
             </div>
-            <h3 className="text-xl font-black text-red-400 uppercase tracking-wide">Error</h3>
+            <h3 className="text-xl font-black text-red-400 tracking-wide">Error</h3>
           </div>
           <p className="text-red-300 font-mono text-sm bg-black/40 p-4 rounded-xl border border-red-500/30">{error}</p>
         </motion.div>
@@ -791,7 +791,7 @@ export default function ContractsInterface() {
               <div className="w-10 h-10 rounded-xl bg-emerald-500/30 flex items-center justify-center border-2 border-emerald-500/50">
                 <span className="text-2xl">✅</span>
               </div>
-              <h3 className="text-xl font-black text-emerald-400 uppercase tracking-wide">Result</h3>
+              <h3 className="text-xl font-black text-emerald-400 tracking-wide">Result</h3>
             </div>
             <CopyButton text={JSON.stringify(result, null, 2)} size="md" />
           </div>

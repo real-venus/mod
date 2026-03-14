@@ -107,10 +107,11 @@ export default function ModExplorePage() {
       if (selectedOwners.length === 1) {
         params.key = selectedOwners[0]
       }
+      console.log('Fetching modules with params:', params)
 
       const raw = (await client.call('mods', params)) as ModuleType[]
       const pageMods = Array.isArray(raw) ? raw : []
-
+      console.log('Fetched modules:', pageMods)
       // If we got fewer mods than requested, we're on the last page
       if (pageMods.length < itemsPerPage && currentPage === 0) {
         setTotalMods(pageMods.length)

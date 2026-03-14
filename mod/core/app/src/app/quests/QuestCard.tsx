@@ -12,9 +12,9 @@ export default function QuestCard({ quest, userKey }: { quest: Quest; userKey?: 
   return (
     <Link
       href={`/quests/${quest.id}`}
-      className="group block rounded-3xl transition-all duration-300 font-mono relative overflow-hidden"
+      className="group block transition-all duration-300 font-mono relative overflow-hidden border-4"
       style={{
-        border: `1px solid ${colorWithOpacity(cardColor, 0.25)}`,
+        borderColor: colorWithOpacity(cardColor, 0.25),
         backgroundColor: 'var(--bg-secondary)',
         boxShadow: `0 4px 24px ${colorWithOpacity(cardColor, 0.08)}`,
       }}
@@ -31,7 +31,7 @@ export default function QuestCard({ quest, userKey }: { quest: Quest; userKey?: 
     >
       {/* Subtle gradient overlay */}
       <div
-        className="absolute inset-0 rounded-3xl opacity-[0.03] pointer-events-none"
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
         style={{
           background: `linear-gradient(135deg, ${cardColor} 0%, transparent 100%)`,
         }}
@@ -73,7 +73,7 @@ export default function QuestCard({ quest, userKey }: { quest: Quest; userKey?: 
               return (
                 <span
                   key={i}
-                  className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide shrink-0 rounded-full"
+                  className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide shrink-0"
                   style={{
                     color: tagColor,
                     backgroundColor: colorWithOpacity(tagColor, 0.1),

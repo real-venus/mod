@@ -193,7 +193,7 @@ export default function QuestPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-black relative overflow-hidden font-mono">
+      <div className="min-h-screen relative overflow-hidden font-mono" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div
           className="fixed inset-0 pointer-events-none z-10 opacity-0 dark:opacity-[0.03]"
           style={{
@@ -203,8 +203,8 @@ export default function QuestPage() {
         <div className="relative max-w-3xl mx-auto px-6 pt-20 pb-8 z-20">
           <div className="flex items-center justify-center py-20">
             <div className="flex items-center gap-3">
-              <span className="text-blue-500 dark:text-blue-400 animate-pulse">_</span>
-              <span className="text-[13px] text-gray-400 dark:text-white/35 font-extrabold">LOADING QUEST...</span>
+              <span className="animate-pulse" style={{ color: 'rgb(59 130 246)' }}>_</span>
+              <span className="text-[13px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>LOADING QUEST...</span>
             </div>
           </div>
         </div>
@@ -214,7 +214,7 @@ export default function QuestPage() {
 
   if (error || !quest) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-black relative overflow-hidden font-mono">
+      <div className="min-h-screen relative overflow-hidden font-mono" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div
           className="fixed inset-0 pointer-events-none z-10 opacity-0 dark:opacity-[0.03]"
           style={{
@@ -224,13 +224,14 @@ export default function QuestPage() {
         <div className="relative max-w-3xl mx-auto px-6 pt-20 pb-8 z-20">
           <button
             onClick={() => router.push('/quests')}
-            className="flex items-center gap-2 text-[12px] font-extrabold text-gray-400 dark:text-white/30 hover:text-blue-500 dark:hover:text-blue-400 transition-colors mb-8 uppercase tracking-wider"
+            className="flex items-center gap-2 text-[12px] font-extrabold transition-colors mb-8 uppercase tracking-wider"
+            style={{ color: 'var(--text-secondary)' }}
           >
             &lt;-- BACK TO QUESTS
           </button>
-          <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08]">
-            <span className="text-red-400 dark:text-red-400/40 text-[13px] mb-2 font-extrabold">[ERR]</span>
-            <p className="text-[13px] text-gray-400 dark:text-white/30 font-bold">{error || 'Quest not found'}</p>
+          <div className="flex flex-col items-center justify-center py-20" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
+            <span className="text-[13px] mb-2 font-extrabold" style={{ color: 'rgb(239 68 68)' }}>[ERR]</span>
+            <p className="text-[13px] font-bold" style={{ color: 'var(--text-secondary)' }}>{error || 'Quest not found'}</p>
           </div>
         </div>
       </div>
@@ -244,7 +245,7 @@ export default function QuestPage() {
   const questColor = text2color(quest.id + quest.title);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black relative overflow-hidden font-mono">
+    <div className="min-h-screen relative overflow-hidden font-mono" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Scanline overlay - dark mode only */}
       <div
         className="fixed inset-0 pointer-events-none z-10 opacity-0 dark:opacity-[0.03]"
@@ -258,17 +259,22 @@ export default function QuestPage() {
         {/* Back button */}
         <button
           onClick={() => router.push('/quests')}
-          className="flex items-center gap-2 px-4 py-2.5 text-[12px] font-extrabold text-gray-500 dark:text-white/50 hover:text-blue-500 dark:hover:text-blue-400 border-2 border-gray-200 dark:border-white/[0.1] hover:border-blue-400 dark:hover:border-blue-500/40 bg-white dark:bg-white/[0.02] hover:bg-blue-50 dark:hover:bg-blue-500/[0.06] transition-all mb-2 uppercase tracking-wider"
+          className="flex items-center gap-2 px-4 py-2.5 text-[12px] font-extrabold transition-all mb-2 uppercase tracking-wider"
+          style={{
+            color: 'var(--text-secondary)',
+            border: '4px solid var(--border-color)',
+            backgroundColor: 'var(--bg-surface)',
+          }}
         >
           &larr; BACK TO QUESTS
         </button>
 
         {/* Quest header */}
         <div
-          className="mb-px relative overflow-hidden rounded-xl"
+          className="mb-px relative overflow-hidden"
           style={{
             backgroundColor: 'var(--bg-secondary)',
-            border: `2px solid ${colorWithOpacity(questColor, 0.4)}`,
+            border: `4px solid ${colorWithOpacity(questColor, 0.4)}`,
             boxShadow: `0 0 25px ${colorWithOpacity(questColor, 0.1)}`,
           }}
         >
@@ -280,12 +286,16 @@ export default function QuestPage() {
             </div>
             <div className="flex items-center gap-2">
               {(quest as any).edited_at && (
-                <span className="text-[10px] text-gray-400 dark:text-white/20 uppercase font-bold">[edited]</span>
+                <span className="text-[10px] uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>[edited]</span>
               )}
               {canEditQuest && !editingQuest && (
                 <button
                   onClick={startEditingQuest}
-                  className="px-3 py-1 border border-cyan-400 dark:border-cyan-500/30 text-cyan-500 dark:text-cyan-400/70 hover:text-cyan-600 dark:hover:text-cyan-400 text-[10px] font-extrabold uppercase tracking-wider transition-colors hover:bg-cyan-50 dark:hover:bg-cyan-500/[0.06]"
+                  className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider transition-colors"
+                  style={{
+                    border: '4px solid rgb(34 211 238 / 0.3)',
+                    color: 'rgb(34 211 238)',
+                  }}
                 >
                   EDIT QUEST
                 </button>
@@ -296,37 +306,57 @@ export default function QuestPage() {
           {editingQuest ? (
             <div className="px-5 py-5 space-y-4">
               <div>
-                <label className="text-[10px] font-extrabold text-gray-400 dark:text-white/30 uppercase tracking-[0.2em] mb-1.5 block">Title</label>
+                <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Title</label>
                 <input
                   value={questEditForm.title}
                   onChange={e => setQuestEditForm(f => ({ ...f, title: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-black/40 border border-cyan-300 dark:border-cyan-500/20 text-[14px] text-gray-800 dark:text-white/80 placeholder-gray-400 dark:placeholder-white/15 focus:outline-none focus:border-cyan-400 dark:focus:border-cyan-500/50 transition-colors font-mono"
+                  className="w-full px-4 py-2.5 text-[14px] focus:outline-none transition-colors font-mono"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    border: '4px solid rgb(34 211 238 / 0.3)',
+                    color: 'var(--text-primary)',
+                  }}
                 />
               </div>
               <div>
-                <label className="text-[10px] font-extrabold text-gray-400 dark:text-white/30 uppercase tracking-[0.2em] mb-1.5 block">Description</label>
+                <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Description</label>
                 <textarea
                   value={questEditForm.description}
                   onChange={e => setQuestEditForm(f => ({ ...f, description: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-black/40 border border-cyan-300 dark:border-cyan-500/20 text-[14px] text-gray-800 dark:text-white/80 placeholder-gray-400 dark:placeholder-white/15 focus:outline-none focus:border-cyan-400 dark:focus:border-cyan-500/50 transition-colors resize-none h-32 font-mono"
+                  className="w-full px-4 py-2.5 text-[14px] focus:outline-none transition-colors resize-none h-32 font-mono"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    border: '4px solid rgb(34 211 238 / 0.3)',
+                    color: 'var(--text-primary)',
+                  }}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-extrabold text-gray-400 dark:text-white/30 uppercase tracking-[0.2em] mb-1.5 block">Reward (USDC)</label>
+                  <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Reward (USDC)</label>
                   <input
                     type="number"
                     value={questEditForm.reward}
                     onChange={e => setQuestEditForm(f => ({ ...f, reward: Number(e.target.value) }))}
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-black/40 border border-cyan-300 dark:border-cyan-500/20 text-[14px] text-gray-800 dark:text-white/80 placeholder-gray-400 dark:placeholder-white/15 focus:outline-none focus:border-cyan-400 dark:focus:border-cyan-500/50 transition-colors font-mono"
+                    className="w-full px-4 py-2.5 text-[14px] focus:outline-none transition-colors font-mono"
+                    style={{
+                      backgroundColor: 'var(--bg-input)',
+                      border: '4px solid rgb(34 211 238 / 0.3)',
+                      color: 'var(--text-primary)',
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-extrabold text-gray-400 dark:text-white/30 uppercase tracking-[0.2em] mb-1.5 block">Tags (comma sep)</label>
+                  <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Tags (comma sep)</label>
                   <input
                     value={questEditForm.tags}
                     onChange={e => setQuestEditForm(f => ({ ...f, tags: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-black/40 border border-cyan-300 dark:border-cyan-500/20 text-[14px] text-gray-800 dark:text-white/80 placeholder-gray-400 dark:placeholder-white/15 focus:outline-none focus:border-cyan-400 dark:focus:border-cyan-500/50 transition-colors font-mono"
+                    className="w-full px-4 py-2.5 text-[14px] focus:outline-none transition-colors font-mono"
+                    style={{
+                      backgroundColor: 'var(--bg-input)',
+                      border: '4px solid rgb(34 211 238 / 0.3)',
+                      color: 'var(--text-primary)',
+                    }}
                     placeholder="tag1, tag2"
                   />
                 </div>
@@ -335,13 +365,21 @@ export default function QuestPage() {
                 <button
                   onClick={handleEditQuest}
                   disabled={questEditSubmitting || !questEditForm.title.trim()}
-                  className="px-5 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:text-gray-400 dark:disabled:text-white/20 text-white dark:text-black text-[11px] font-extrabold uppercase tracking-wider transition-colors"
+                  className="px-5 py-2 text-white text-[11px] font-extrabold uppercase tracking-wider transition-colors"
+                  style={{
+                    backgroundColor: 'rgb(34 211 238)',
+                    opacity: (questEditSubmitting || !questEditForm.title.trim()) ? 0.5 : 1,
+                  }}
                 >
                   {questEditSubmitting ? 'SAVING...' : 'SAVE CHANGES'}
                 </button>
                 <button
                   onClick={() => setEditingQuest(false)}
-                  className="px-5 py-2 border-2 border-gray-300 dark:border-white/[0.12] text-gray-500 dark:text-white/40 hover:text-gray-700 dark:hover:text-white/60 text-[11px] font-extrabold uppercase tracking-wider transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                  className="px-5 py-2 text-[11px] font-extrabold uppercase tracking-wider transition-colors"
+                  style={{
+                    border: '4px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                  }}
                 >
                   CANCEL
                 </button>
@@ -350,10 +388,10 @@ export default function QuestPage() {
           ) : (
             <div className="px-5 py-5">
               <div className="flex items-center gap-2.5 mb-3">
-                <span className={`px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider border-2 ${getStatusStyle(quest.status)}`}>
+                <span className={`px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider border-4 ${getStatusStyle(quest.status)}`}>
                   {quest.status.replace('_', ' ')}
                 </span>
-                <span className="text-[11px] text-gray-400 dark:text-white/25 font-bold">
+                <span className="text-[11px] font-bold" style={{ color: 'var(--text-tertiary)' }}>
                   {formatTime(quest.created_at)}
                 </span>
               </div>
@@ -363,31 +401,31 @@ export default function QuestPage() {
         </div>
 
         {/* Meta row */}
-        <div className="grid grid-cols-3 gap-px bg-gray-200 dark:bg-white/[0.04] mb-px">
-          <div className="bg-white dark:bg-[#0a0a0e] px-5 py-4">
-            <div className="text-[10px] text-gray-400 dark:text-white/25 uppercase tracking-[0.2em] mb-1 font-extrabold">REWARD</div>
-            <div className="text-2xl font-extrabold text-green-500 dark:text-green-400">{quest.reward.toLocaleString()}</div>
-            <div className="text-[10px] text-green-500/50 dark:text-green-400/50 uppercase tracking-wider font-bold">USDC</div>
+        <div className="grid grid-cols-3 gap-px mb-px" style={{ backgroundColor: 'var(--border-color)' }}>
+          <div className="px-5 py-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="text-[10px] uppercase tracking-[0.2em] mb-1 font-extrabold" style={{ color: 'var(--text-tertiary)' }}>REWARD</div>
+            <div className="text-2xl font-extrabold" style={{ color: 'rgb(16 185 129)' }}>{quest.reward.toLocaleString()}</div>
+            <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: 'rgb(16 185 129 / 0.5)' }}>USDC</div>
           </div>
-          <div className="bg-white dark:bg-[#0a0a0e] px-5 py-4">
-            <div className="text-[10px] text-gray-400 dark:text-white/25 uppercase tracking-[0.2em] mb-1 font-extrabold">RESPONSES</div>
-            <div className="text-2xl font-extrabold text-blue-500 dark:text-blue-400">{responses.length}</div>
-            <div className="text-[10px] text-blue-500/50 dark:text-blue-400/50 uppercase tracking-wider font-bold">TOTAL</div>
+          <div className="px-5 py-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="text-[10px] uppercase tracking-[0.2em] mb-1 font-extrabold" style={{ color: 'var(--text-tertiary)' }}>RESPONSES</div>
+            <div className="text-2xl font-extrabold" style={{ color: 'rgb(59 130 246)' }}>{responses.length}</div>
+            <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: 'rgb(59 130 246 / 0.5)' }}>TOTAL</div>
           </div>
-          <div className="bg-white dark:bg-[#0a0a0e] px-5 py-4">
-            <div className="text-[10px] text-gray-400 dark:text-white/25 uppercase tracking-[0.2em] mb-1 font-extrabold">CREATOR</div>
-            <div className="text-[13px] text-gray-500 dark:text-white/50 truncate mt-1 font-bold">{quest.creator.length > 20 ? `${quest.creator.slice(0, 8)}...${quest.creator.slice(-6)}` : quest.creator}</div>
+          <div className="px-5 py-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="text-[10px] uppercase tracking-[0.2em] mb-1 font-extrabold" style={{ color: 'var(--text-tertiary)' }}>CREATOR</div>
+            <div className="text-[13px] truncate mt-1 font-bold" style={{ color: 'var(--text-secondary)' }}>{quest.creator.length > 20 ? `${quest.creator.slice(0, 8)}...${quest.creator.slice(-6)}` : quest.creator}</div>
           </div>
         </div>
 
         {/* Description */}
         {!editingQuest && (
-          <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] mb-px">
-            <div className="px-5 py-2.5 border-b border-gray-200 dark:border-white/[0.06]">
-              <span className="text-[11px] font-extrabold text-gray-400 dark:text-white/30 uppercase tracking-[0.2em]">Description</span>
+          <div className="mb-px" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
+            <div className="px-5 py-2.5 border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>Description</span>
             </div>
             <div className="px-5 py-4">
-              <p className="text-[14px] text-gray-600 dark:text-white/55 leading-relaxed whitespace-pre-wrap font-medium">{quest.description}</p>
+              <p className="text-[14px] leading-relaxed whitespace-pre-wrap font-medium" style={{ color: 'var(--text-primary)' }}>{quest.description}</p>
             </div>
           </div>
         )}
@@ -400,10 +438,10 @@ export default function QuestPage() {
               return (
                 <span
                   key={i}
-                  className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider rounded-md"
+                  className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider"
                   style={{
                     color: tagColor,
-                    border: `2px solid ${colorWithOpacity(tagColor, 0.3)}`,
+                    border: `4px solid ${colorWithOpacity(tagColor, 0.3)}`,
                     backgroundColor: colorWithOpacity(tagColor, 0.08),
                   }}
                 >
@@ -416,27 +454,36 @@ export default function QuestPage() {
 
         {/* Submit Response */}
         {quest.status === 'open' && !user?.key && (
-          <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] px-5 py-3 mb-px">
-            <p className="text-[13px] text-gray-500 dark:text-white/35 font-bold">Sign in to respond to this quest.</p>
+          <div className="px-5 py-3 mb-px" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
+            <p className="text-[13px] font-bold" style={{ color: 'var(--text-secondary)' }}>Sign in to respond to this quest.</p>
           </div>
         )}
         {canRespond && (
-          <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] mb-2">
-            <div className="px-5 py-2.5 border-b border-gray-200 dark:border-white/[0.06] flex items-center gap-2">
-              <span className="text-green-500 dark:text-green-400 text-[11px] font-extrabold">&gt;_</span>
-              <span className="text-[11px] font-extrabold text-gray-400 dark:text-white/35 uppercase tracking-[0.15em]">Submit a Response</span>
+          <div className="mb-2" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
+            <div className="px-5 py-2.5 border-b flex items-center gap-2" style={{ borderColor: 'var(--border-color)' }}>
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.15em]" style={{ color: 'rgb(16 185 129)' }}>&gt;_</span>
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.15em]" style={{ color: 'var(--text-secondary)' }}>Submit a Response</span>
             </div>
             <div className="p-5 space-y-3">
               <textarea
                 value={responseContent}
                 onChange={e => setResponseContent(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/[0.1] text-[14px] text-gray-800 dark:text-white/80 placeholder-gray-400 dark:placeholder-white/15 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500/50 transition-colors resize-none h-32 font-mono"
+                className="w-full px-4 py-3 text-[14px] focus:outline-none transition-colors resize-none h-32 font-mono"
+                style={{
+                  backgroundColor: 'var(--bg-input)',
+                  border: '4px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
                 placeholder="Describe your solution or deliverable..."
               />
               <button
                 onClick={handleSubmitResponse}
                 disabled={submitting || !responseContent.trim()}
-                className="px-5 py-2 bg-blue-500 hover:bg-blue-400 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:text-gray-400 dark:disabled:text-white/20 text-white dark:text-black text-[12px] font-extrabold uppercase tracking-wider transition-colors"
+                className="px-5 py-2 text-white text-[12px] font-extrabold uppercase tracking-wider transition-colors"
+                style={{
+                  backgroundColor: 'rgb(59 130 246)',
+                  opacity: (submitting || !responseContent.trim()) ? 0.5 : 1,
+                }}
               >
                 {submitting ? 'SUBMITTING...' : 'SUBMIT RESPONSE >'}
               </button>
@@ -444,11 +491,11 @@ export default function QuestPage() {
           </div>
         )}
         {userResponse && quest.status === 'open' && (
-          <div className="bg-white dark:bg-[#0a0a0e] border-2 border-blue-300 dark:border-blue-500/30 mb-2">
+          <div className="mb-2" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid rgb(59 130 246 / 0.3)' }}>
             <div className="px-5 py-3 flex items-center gap-2">
-              <span className="text-blue-500 dark:text-blue-400 text-[11px] font-extrabold">[RSP]</span>
-              <span className="text-[11px] font-extrabold text-gray-500 dark:text-white/40 uppercase tracking-[0.15em]">You already responded to this quest</span>
-              <span className={`ml-auto px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider border-2 ${getStatusStyle(userResponse.status)}`}>
+              <span className="text-[11px] font-extrabold" style={{ color: 'rgb(59 130 246)' }}>[RSP]</span>
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.15em]" style={{ color: 'var(--text-secondary)' }}>You already responded to this quest</span>
+              <span className={`ml-auto px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider border-4 ${getStatusStyle(userResponse.status)}`}>
                 {userResponse.status}
               </span>
             </div>
@@ -459,8 +506,8 @@ export default function QuestPage() {
         {responses.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-gray-400 dark:text-white/20 text-[11px] font-bold">[{responses.length}]</span>
-              <span className="text-[11px] font-extrabold text-gray-400 dark:text-white/30 uppercase tracking-[0.2em]">
+              <span className="text-[11px] font-bold" style={{ color: 'var(--text-tertiary)' }}>[{responses.length}]</span>
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>
                 Responses
               </span>
             </div>
@@ -474,14 +521,14 @@ export default function QuestPage() {
                 return (
                 <div
                   key={response.id}
-                  className="relative overflow-hidden rounded-xl transition-all duration-200"
+                  className="relative overflow-hidden transition-all duration-200"
                   style={{
                     backgroundColor: 'var(--bg-secondary)',
-                    border: `2px solid ${colorWithOpacity(rColor, 0.35)}`,
+                    border: `4px solid ${colorWithOpacity(rColor, 0.35)}`,
                     boxShadow: `0 0 15px ${colorWithOpacity(rColor, 0.08)}`,
                   }}
                 >
-                  <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl" style={{ backgroundColor: rColor }} />
+                  <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: rColor }} />
                   <div
                     className="px-5 py-3 pl-6 flex items-center justify-between"
                     style={{ borderBottom: `1px solid ${colorWithOpacity(rColor, 0.15)}`, backgroundColor: colorWithOpacity(rColor, 0.03) }}
@@ -498,7 +545,7 @@ export default function QuestPage() {
                       <span className="text-[11px] font-bold" style={{ color: 'var(--text-tertiary)' }}>
                         {formatTime(response.created_at)}
                       </span>
-                      <span className={`px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider border-2 rounded-md ${getStatusStyle(response.status)}`}>
+                      <span className={`px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider border-4 ${getStatusStyle(response.status)}`}>
                         {response.status}
                       </span>
                     </div>
@@ -509,10 +556,10 @@ export default function QuestPage() {
                         <textarea
                           value={editContent}
                           onChange={e => setEditContent(e.target.value)}
-                          className="w-full px-4 py-3 text-[14px] placeholder-gray-400 dark:placeholder-white/15 focus:outline-none transition-colors resize-none h-32 font-mono rounded-lg"
+                          className="w-full px-4 py-3 text-[14px] focus:outline-none transition-colors resize-none h-32 font-mono"
                           style={{
                             backgroundColor: 'var(--bg-input)',
-                            border: `2px solid ${colorWithOpacity(rColor, 0.3)}`,
+                            border: `4px solid ${colorWithOpacity(rColor, 0.3)}`,
                             color: 'var(--text-primary)',
                           }}
                           placeholder="Update your response..."
@@ -521,15 +568,15 @@ export default function QuestPage() {
                           <button
                             onClick={() => handleEditResponse(response.id)}
                             disabled={editSubmitting || !editContent.trim()}
-                            className="px-5 py-2 text-white text-[11px] font-extrabold uppercase tracking-wider transition-colors rounded-lg disabled:opacity-40"
+                            className="px-5 py-2 text-white text-[11px] font-extrabold uppercase tracking-wider transition-colors disabled:opacity-40"
                             style={{ backgroundColor: rColor }}
                           >
                             {editSubmitting ? 'SAVING...' : 'SAVE EDIT'}
                           </button>
                           <button
                             onClick={() => { setEditingResponseId(null); setEditContent(''); }}
-                            className="px-5 py-2 text-[11px] font-extrabold uppercase tracking-wider transition-colors rounded-lg"
-                            style={{ border: `2px solid ${colorWithOpacity(rColor, 0.3)}`, color: 'var(--text-secondary)' }}
+                            className="px-5 py-2 text-[11px] font-extrabold uppercase tracking-wider transition-colors"
+                            style={{ border: `4px solid ${colorWithOpacity(rColor, 0.3)}`, color: 'var(--text-secondary)' }}
                           >
                             CANCEL
                           </button>
@@ -539,17 +586,17 @@ export default function QuestPage() {
                       <>
                         <p className="text-[14px] leading-relaxed font-medium" style={{ color: 'var(--text-primary)' }}>{response.content}</p>
                         {response.status === 'approved' && (response as any).payment_hash && (
-                          <div className="mt-3 px-3 py-2 rounded-lg" style={{ border: `2px solid ${colorWithOpacity('#10b981', 0.3)}`, backgroundColor: colorWithOpacity('#10b981', 0.05) }}>
-                            <span className="text-[9px] text-emerald-600 dark:text-emerald-400/60 uppercase tracking-wider font-bold">TX HASH</span>
-                            <div className="text-[11px] text-emerald-600 dark:text-emerald-400/80 mt-0.5 break-all font-mono">{(response as any).payment_hash}</div>
+                          <div className="mt-3 px-3 py-2" style={{ border: `4px solid rgb(16 185 129 / 0.3)`, backgroundColor: 'rgb(16 185 129 / 0.05)' }}>
+                            <span className="text-[9px] uppercase tracking-wider font-bold" style={{ color: 'rgb(16 185 129)' }}>TX HASH</span>
+                            <div className="text-[11px] mt-0.5 break-all font-mono" style={{ color: 'rgb(16 185 129 / 0.8)' }}>{(response as any).payment_hash}</div>
                           </div>
                         )}
                         <div className="flex gap-2 mt-3">
                           {user?.key === response.responder && response.status === 'pending' && (
                             <button
                               onClick={() => { setEditingResponseId(response.id); setEditContent(response.content); }}
-                              className="px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-wider transition-all rounded-lg"
-                              style={{ border: `2px solid ${colorWithOpacity(rColor, 0.4)}`, color: rColor }}
+                              className="px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-wider transition-all"
+                              style={{ border: `4px solid ${colorWithOpacity(rColor, 0.4)}`, color: rColor }}
                             >
                               EDIT
                             </button>
@@ -557,7 +604,8 @@ export default function QuestPage() {
                           {isCreator && response.status === 'pending' && (
                             <button
                               onClick={() => handleApproveResponse(response.id)}
-                              className="px-4 py-1.5 bg-green-500 hover:bg-green-400 text-white dark:text-black text-[11px] font-extrabold uppercase tracking-wider transition-colors rounded-lg"
+                              className="px-4 py-1.5 text-white text-[11px] font-extrabold uppercase tracking-wider transition-colors"
+                              style={{ backgroundColor: 'rgb(16 185 129)' }}
                             >
                               APPROVE & PAY
                             </button>
@@ -574,9 +622,9 @@ export default function QuestPage() {
         )}
 
         {responses.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08]">
-            <span className="text-gray-300 dark:text-white/15 text-[13px] mb-1 font-bold">---</span>
-            <p className="text-[13px] text-gray-400 dark:text-white/30 font-bold">No responses yet.</p>
+          <div className="flex flex-col items-center justify-center py-16" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
+            <span className="text-[13px] mb-1 font-bold" style={{ color: 'var(--text-tertiary)' }}>---</span>
+            <p className="text-[13px] font-bold" style={{ color: 'var(--text-secondary)' }}>No responses yet.</p>
           </div>
         )}
       </div>

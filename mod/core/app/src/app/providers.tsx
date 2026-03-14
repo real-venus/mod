@@ -140,7 +140,7 @@ function SortableNavItem({ item, isActive, onRemove }: { item: NavItem; isActive
   )
 }
 
-function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenuOpen: (v: boolean) => void }) {
+function GlobalSearchBar({ menuOpen, setMenuOpen, sidebarWidth, setIsResizing }: { menuOpen: boolean; setMenuOpen: (v: boolean) => void; sidebarWidth: number; setIsResizing: (v: boolean) => void }) {
   const { handleSearch, searchFilters } = useSearchContext()
   const router = useRouter()
   const pathname = usePathname()
@@ -375,13 +375,13 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
       <AnimatePresence>
         {menuOpen && (
           <motion.div
-            initial={{ x: -340 }}
+            initial={{ x: -sidebarWidth }}
             animate={{ x: 0 }}
-            exit={{ x: -340 }}
+            exit={{ x: -sidebarWidth }}
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
             className="fixed left-0 top-0 bottom-0 z-[59] flex flex-col overflow-y-auto custom-scrollbar"
             style={{
-              width: '340px',
+              width: `${sidebarWidth}px`,
               background: 'var(--bg-sidebar)',
               backdropFilter: 'blur(16px)',
               fontFamily: 'IBM Plex Mono, monospace',
@@ -429,6 +429,15 @@ function GlobalSearchBar({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenu
             <div className="mt-auto px-3 py-3 border-t-4" style={{ borderColor: 'var(--border-strong)' }}>
               <ThemeSelectorCompact expandUpwards={true} />
             </div>
+
+            {/* Resize handle */}
+            <div
+              onMouseDown={() => setIsResizing(true)}
+              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors group"
+              style={{ zIndex: 100 }}
+            >
+              <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-blue-500/50" />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -457,10 +466,48 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     return false
   })
 
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    // Initialize sidebar width from localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebarWidth')
+      return saved ? parseInt(saved, 10) : 340
+    }
+    return 340
+  })
+
+  const [isResizing, setIsResizing] = useState(false)
+
   // Persist sidebar state to localStorage
   useEffect(() => {
     localStorage.setItem('sidebarOpen', String(menuOpen))
   }, [menuOpen])
+
+  // Persist sidebar width to localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarWidth', String(sidebarWidth))
+  }, [sidebarWidth])
+
+  // Handle resizing
+  useEffect(() => {
+    if (!isResizing) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.max(200, Math.min(600, e.clientX))
+      setSidebarWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
 
   useEffect(() => {
     if (isSplitScreen && leftPanelUrl === pathname) {
@@ -476,9 +523,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     : 'border-b-2 border-green-500/30'
 
   return (
-    <div className="flex h-screen transition-all duration-200" style={{ paddingTop: '48px', marginLeft: menuOpen ? '340px' : '0px', backgroundColor: 'var(--bg-primary)' }}>
+    <div className="flex h-screen transition-all duration-200" style={{ paddingTop: '48px', marginLeft: menuOpen ? `${sidebarWidth}px` : '0px', backgroundColor: 'var(--bg-primary)' }}>
       {/* Global header with tabs */}
-      <GlobalSearchBar menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
+      <GlobalSearchBar menuOpen={menuOpen} setMenuOpen={setMenuOpen} sidebarWidth={sidebarWidth} setIsResizing={setIsResizing} />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col">

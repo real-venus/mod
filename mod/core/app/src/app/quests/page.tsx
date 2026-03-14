@@ -369,53 +369,43 @@ export default function QuestsPage() {
   const showFilters = activeTab === 'quests' || activeTab === 'responses';
 
   const renderEmpty = (message: string) => (
-    <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.1] font-mono">
-      <span className="text-emerald-500 dark:text-emerald-400/50 text-[15px] mb-2 font-extrabold">[EMPTY]</span>
-      <p className="text-[15px] text-gray-500 dark:text-white/40 font-bold">{message}</p>
+    <div className="flex flex-col items-center justify-center py-20 font-mono border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)' }}>
+      <span className="text-[15px] mb-2 font-extrabold" style={{ color: 'rgb(16 185 129 / 0.5)' }}>[EMPTY]</span>
+      <p className="text-[15px] font-bold" style={{ color: 'var(--text-secondary)' }}>{message}</p>
     </div>
   );
 
   const renderLoading = () => (
     <div className="flex items-center justify-center py-20 font-mono">
       <div className="flex items-center gap-3">
-        <span className="text-emerald-500 dark:text-emerald-400 animate-pulse text-lg">_</span>
-        <span className="text-[15px] text-gray-500 dark:text-white/45 font-extrabold">LOADING...</span>
+        <span className="animate-pulse text-lg" style={{ color: 'rgb(16 185 129)' }}>_</span>
+        <span className="text-[15px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>LOADING...</span>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black relative overflow-hidden font-mono">
-      {/* Scanline overlay - dark mode only */}
-      <div
-        className="fixed inset-0 pointer-events-none z-10 opacity-0 dark:opacity-[0.03]"
-        style={{
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
-        }}
-      />
-
-      {/* Subtle corner vignette - dark mode only */}
-      <div className="fixed inset-0 pointer-events-none hidden dark:block" style={{ background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)' }} />
-
-      <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-8 z-20">
+    <div className="min-h-screen relative overflow-hidden font-mono" style={{ backgroundColor: 'var(--bg-surface)' }}>
+      <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-8">
 
         {/* Header + Tabs + Create */}
         <div className="mb-6">
-          <div className="flex items-end gap-5 border-b border-gray-200 dark:border-white/[0.08] pb-0">
+          <div className="flex items-end gap-5 pb-0" style={{ borderBottom: '1px solid var(--border-color)' }}>
             <div className="flex items-center gap-2.5 shrink-0 pb-3">
-              <span className="text-emerald-500 dark:text-emerald-400/60 text-[16px] font-extrabold select-none">&gt;_</span>
-              <h1 className="text-[24px] font-extrabold text-gray-900 dark:text-white tracking-tight uppercase leading-none" style={{ textShadow: '0 0 20px rgba(16, 185, 129, 0.2)' }}>QUESTS</h1>
+              <span className="text-[16px] font-extrabold select-none" style={{ color: 'rgb(16 185 129 / 0.6)' }}>&gt;_</span>
+              <h1 className="text-[24px] font-extrabold tracking-tight uppercase leading-none" style={{ color: 'var(--text-primary)', textShadow: '0 0 20px rgba(16, 185, 129, 0.2)' }}>QUESTS</h1>
             </div>
             <div className="flex items-center gap-0 overflow-x-auto scrollbar-none flex-1">
               {TABS.filter(t => t.key !== 'create').map(tab => (
                 <button
                   key={tab.key}
                   onClick={() => { setActiveTab(tab.key as QuestTab); setStatusFilter('all'); setValueFilter('all'); setSearchQuery(''); }}
-                  className={`relative px-4 py-3.5 text-[14px] font-extrabold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase border-b-2 -mb-px ${
-                    activeTab === tab.key
-                      ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-500/[0.06]'
-                      : 'text-gray-400 dark:text-white/35 border-transparent hover:text-gray-600 dark:hover:text-white/60 hover:border-gray-300 dark:hover:border-white/15'
-                  }`}
+                  className="relative px-4 py-3.5 text-[14px] font-extrabold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase -mb-px"
+                  style={{
+                    color: activeTab === tab.key ? 'rgb(16 185 129)' : 'var(--text-secondary)',
+                    borderBottom: activeTab === tab.key ? '2px solid rgb(16 185 129)' : '2px solid transparent',
+                    backgroundColor: activeTab === tab.key ? 'rgb(16 185 129 / 0.06)' : 'transparent'
+                  }}
                 >
                   {tab.label}
                 </button>
@@ -423,11 +413,13 @@ export default function QuestsPage() {
             </div>
             <button
               onClick={() => { setActiveTab('create'); setStatusFilter('all'); setValueFilter('all'); setSearchQuery(''); }}
-              className={`shrink-0 px-6 py-2.5 mb-1.5 text-[14px] font-extrabold uppercase tracking-widest transition-all border-2 ${
-                activeTab === 'create'
-                  ? 'bg-green-500 dark:bg-green-400 text-white dark:text-black border-green-500 dark:border-green-400 shadow-[0_0_20px_rgba(74,222,128,0.3)]'
-                  : 'bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400 border-green-300 dark:border-green-500/50 hover:bg-green-100 dark:hover:bg-green-500/25 hover:border-green-400 dark:hover:border-green-400 hover:shadow-[0_0_15px_rgba(74,222,128,0.2)]'
-              }`}
+              className="shrink-0 px-6 py-2.5 mb-1.5 text-[14px] font-extrabold uppercase tracking-widest transition-all border-4"
+              style={{
+                backgroundColor: activeTab === 'create' ? 'rgb(16 185 129)' : 'rgb(16 185 129 / 0.15)',
+                color: activeTab === 'create' ? '#000' : 'rgb(16 185 129)',
+                borderColor: activeTab === 'create' ? 'rgb(16 185 129)' : 'rgb(16 185 129 / 0.5)',
+                boxShadow: activeTab === 'create' ? '0 0 20px rgba(16,185,129,0.3)' : 'none'
+              }}
             >
               + CREATE QUEST
             </button>
@@ -438,18 +430,24 @@ export default function QuestsPage() {
         {showFilters && (
           <div className="mb-5 flex flex-row gap-2">
             <div className="relative flex-1 min-w-0">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30 text-[15px] font-extrabold">&gt;</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>&gt;</span>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="search quests..."
-                className="w-full pl-9 pr-4 py-3.5 bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] text-[15px] text-gray-700 dark:text-white/80 placeholder-gray-400 dark:placeholder-white/25 focus:outline-none focus:border-emerald-400 dark:focus:border-emerald-500/40 font-mono font-bold transition-colors"
+                className="w-full pl-9 pr-4 py-3.5 border-4 text-[15px] font-mono font-bold transition-colors focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--bg-input)',
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30 hover:text-gray-600 dark:hover:text-white/60 transition-colors text-[13px] font-extrabold"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors text-[13px] font-extrabold"
+                  style={{ color: 'var(--text-secondary)' }}
                 >
                   [x]
                 </button>
@@ -458,7 +456,12 @@ export default function QuestsPage() {
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="px-4 py-3.5 bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] text-[14px] text-gray-500 dark:text-white/55 focus:outline-none transition-colors appearance-none cursor-pointer shrink-0 font-mono uppercase font-extrabold hover:border-gray-300 dark:hover:border-white/[0.15]"
+              className="px-4 py-3.5 border-4 text-[14px] focus:outline-none transition-colors appearance-none cursor-pointer shrink-0 font-mono uppercase font-extrabold"
+              style={{
+                backgroundColor: 'var(--bg-input)',
+                borderColor: 'var(--border-color)',
+                color: 'var(--text-secondary)'
+              }}
             >
               <option value="all">ALL STATUS</option>
               {activeTab === 'responses' ? (
@@ -480,7 +483,12 @@ export default function QuestsPage() {
               <select
                 value={valueFilter}
                 onChange={e => setValueFilter(e.target.value)}
-                className="px-4 py-3.5 bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] text-[14px] text-gray-500 dark:text-white/55 focus:outline-none transition-colors appearance-none cursor-pointer shrink-0 font-mono uppercase font-extrabold hover:border-gray-300 dark:hover:border-white/[0.15]"
+                className="px-4 py-3.5 border-4 text-[14px] focus:outline-none transition-colors appearance-none cursor-pointer shrink-0 font-mono uppercase font-extrabold"
+                style={{
+                  backgroundColor: 'var(--bg-input)',
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--text-secondary)'
+                }}
               >
                 <option value="all">ALL VALUE</option>
                 <option value="0-100">0 - 100</option>
@@ -492,7 +500,12 @@ export default function QuestsPage() {
             {(searchQuery || statusFilter !== 'all' || valueFilter !== 'all') && (
               <button
                 onClick={() => { setSearchQuery(''); setStatusFilter('all'); setValueFilter('all'); }}
-                className="px-4 py-3.5 text-[13px] font-extrabold text-red-500 dark:text-red-400/60 hover:text-red-600 dark:hover:text-red-400 bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] hover:border-red-300 dark:hover:border-red-400/30 transition-colors whitespace-nowrap shrink-0 uppercase tracking-wider"
+                className="px-4 py-3.5 text-[13px] font-extrabold transition-colors whitespace-nowrap shrink-0 uppercase tracking-wider border-4"
+                style={{
+                  color: 'rgb(239 68 68 / 0.7)',
+                  backgroundColor: 'var(--bg-input)',
+                  borderColor: 'var(--border-color)'
+                }}
               >
                 CLEAR
               </button>
@@ -509,11 +522,13 @@ export default function QuestsPage() {
                 <button
                   key={sub}
                   onClick={() => setQuestSubFilter(sub)}
-                  className={`px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider transition-all border-2 ${
-                    questSubFilter === sub
-                      ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-400 dark:border-emerald-500/40'
-                      : 'bg-transparent text-gray-400 dark:text-white/30 border-gray-200 dark:border-white/[0.08] hover:text-gray-600 dark:hover:text-white/50 hover:border-gray-300 dark:hover:border-white/[0.15]'
-                  } ${sub === 'mine' ? 'border-r-0' : ''}`}
+                  className="px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider transition-all border-4"
+                  style={{
+                    backgroundColor: questSubFilter === sub ? 'rgb(16 185 129 / 0.15)' : 'transparent',
+                    color: questSubFilter === sub ? 'rgb(16 185 129)' : 'var(--text-secondary)',
+                    borderColor: questSubFilter === sub ? 'rgb(16 185 129 / 0.4)' : 'var(--border-color)',
+                    borderRight: sub === 'mine' ? 'none' : undefined
+                  }}
                 >
                   {sub === 'mine' ? 'MY QUESTS' : 'ALL QUESTS'}
                 </button>
@@ -539,11 +554,13 @@ export default function QuestsPage() {
                 <button
                   key={sub}
                   onClick={() => setResponseSubFilter(sub)}
-                  className={`px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider transition-all border-2 ${
-                    responseSubFilter === sub
-                      ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-400 dark:border-emerald-500/40'
-                      : 'bg-transparent text-gray-400 dark:text-white/30 border-gray-200 dark:border-white/[0.08] hover:text-gray-600 dark:hover:text-white/50 hover:border-gray-300 dark:hover:border-white/[0.15]'
-                  } ${sub === 'mine' ? 'border-r-0' : ''}`}
+                  className="px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider transition-all border-4"
+                  style={{
+                    backgroundColor: responseSubFilter === sub ? 'rgb(16 185 129 / 0.15)' : 'transparent',
+                    color: responseSubFilter === sub ? 'rgb(16 185 129)' : 'var(--text-secondary)',
+                    borderColor: responseSubFilter === sub ? 'rgb(16 185 129 / 0.4)' : 'var(--border-color)',
+                    borderRight: sub === 'mine' ? 'none' : undefined
+                  }}
                 >
                   {sub === 'mine' ? 'MY RESPONSES' : "OTHERS' RESPONSES"}
                 </button>
@@ -578,77 +595,77 @@ export default function QuestsPage() {
         {activeTab === 'docs' && (
           <div className="space-y-3">
             {/* Intro */}
-            <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] p-6">
+            <div className="p-6 border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)' }}>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-emerald-500 dark:text-emerald-400 text-[13px] font-extrabold">[REF]</span>
-                <span className="text-[12px] font-extrabold text-gray-400 dark:text-white/35 uppercase tracking-[0.2em]">API Reference</span>
+                <span className="text-[13px] font-extrabold" style={{ color: 'rgb(16 185 129)' }}>[REF]</span>
+                <span className="text-[12px] font-extrabold uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>API Reference</span>
               </div>
-              <p className="text-[14px] text-gray-500 dark:text-white/40 leading-relaxed font-medium">
-                Interact with quests programmatically via the mod API. All endpoints are called via <code className="px-2 py-0.5 bg-gray-100 dark:bg-white/[0.04] text-emerald-600 dark:text-emerald-400 text-[13px] border-2 border-gray-200 dark:border-white/[0.08] font-bold">client.call(method, params)</code>. Authenticated endpoints require a valid <code className="px-2 py-0.5 bg-gray-100 dark:bg-white/[0.04] text-emerald-600 dark:text-emerald-400 text-[13px] border-2 border-gray-200 dark:border-white/[0.08] font-bold">token</code>.
+              <p className="text-[14px] leading-relaxed font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Interact with quests programmatically via the mod API. All endpoints are called via <code className="px-2 py-0.5 text-[13px] font-bold border-4" style={{ backgroundColor: 'var(--bg-input)', color: 'rgb(16 185 129)', borderColor: 'var(--border-color)' }}>client.call(method, params)</code>. Authenticated endpoints require a valid <code className="px-2 py-0.5 text-[13px] font-bold border-4" style={{ backgroundColor: 'var(--bg-input)', color: 'rgb(16 185 129)', borderColor: 'var(--border-color)' }}>token</code>.
               </p>
             </div>
 
             {/* Respond to a Quest */}
-            <div className="bg-white dark:bg-[#0a0a0e] border-2 border-emerald-300 dark:border-emerald-500/25">
-              <div className="px-6 py-3.5 border-b border-emerald-200 dark:border-emerald-500/15 flex items-center gap-2">
-                <span className="text-emerald-500 dark:text-emerald-400 text-[12px] font-bold">&gt;</span>
-                <span className="text-[14px] font-extrabold text-emerald-600 dark:text-emerald-400">RESPOND TO QUEST</span>
-                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border-2 border-amber-300 dark:border-amber-400/25 uppercase tracking-wider">AUTH</span>
+            <div className="border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'rgb(16 185 129 / 0.3)' }}>
+              <div className="px-6 py-3.5 flex items-center gap-2" style={{ borderBottom: '1px solid rgb(16 185 129 / 0.15)' }}>
+                <span className="text-[12px] font-bold" style={{ color: 'rgb(16 185 129)' }}>&gt;</span>
+                <span className="text-[14px] font-extrabold" style={{ color: 'rgb(16 185 129)' }}>RESPOND TO QUEST</span>
+                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider border-4" style={{ color: 'rgb(217 119 6)', backgroundColor: 'rgb(217 119 6 / 0.1)', borderColor: 'rgb(217 119 6 / 0.25)' }}>AUTH</span>
               </div>
               <div className="p-6 space-y-3">
-                <p className="text-[14px] text-gray-500 dark:text-white/35 leading-relaxed font-medium">Submit your solution or deliverable to an open quest. The quest creator will review and can approve your response to release the token reward.</p>
-                <div className="bg-gray-50 dark:bg-black/50 border-2 border-gray-200 dark:border-white/[0.06] p-5 text-[14px]">
-                  <div className="text-gray-400 dark:text-white/25 mb-2 font-bold">// Submit a response to a quest</div>
-                  <div className="text-gray-700 dark:text-white/70 font-bold">
-                    <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/respond&apos;</span>, {'{'}<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">quest_id:</span> <span className="text-amber-600 dark:text-amber-400">&apos;quest_abc123&apos;</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">content:</span>  <span className="text-amber-600 dark:text-amber-400">&apos;Here is my solution...&apos;</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">token:</span>   <span className="text-amber-600 dark:text-amber-400">yourAuthToken</span>,<br/>
+                <p className="text-[14px] leading-relaxed font-medium" style={{ color: 'var(--text-secondary)' }}>Submit your solution or deliverable to an open quest. The quest creator will review and can approve your response to release the token reward.</p>
+                <div className="p-5 text-[14px] border-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                  <div className="mb-2 font-bold" style={{ color: 'var(--text-secondary)' }}>// Submit a response to a quest</div>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/respond&apos;</span>, {'{'}<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>quest_id:</span> <span style={{ color: 'rgb(217 119 6)' }}>&apos;quest_abc123&apos;</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>content:</span>  <span style={{ color: 'rgb(217 119 6)' }}>&apos;Here is my solution...&apos;</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>token:</span>   <span style={{ color: 'rgb(217 119 6)' }}>yourAuthToken</span>,<br/>
                     {'}'})
                   </div>
                 </div>
-                <div className="text-[12px] text-gray-400 dark:text-white/25 mt-2 font-bold">
-                  <span className="text-gray-500 dark:text-white/35">PARAMS:</span> quest_id <span className="text-gray-300 dark:text-white/20">string</span> | content <span className="text-gray-300 dark:text-white/20">string</span> | token <span className="text-gray-300 dark:text-white/20">string</span>
+                <div className="text-[12px] mt-2 font-bold" style={{ color: 'var(--text-secondary)' }}>
+                  <span>PARAMS:</span> quest_id <span style={{ opacity: 0.6 }}>string</span> | content <span style={{ opacity: 0.6 }}>string</span> | token <span style={{ opacity: 0.6 }}>string</span>
                 </div>
               </div>
             </div>
 
             {/* Browse Quests */}
-            <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08]">
-              <div className="px-6 py-3.5 border-b border-gray-200 dark:border-white/[0.06] flex items-center gap-2">
-                <span className="text-[14px] font-extrabold text-gray-600 dark:text-white/55">LIST ALL QUESTS</span>
-                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-400/10 border-2 border-green-300 dark:border-green-400/25 uppercase tracking-wider">PUBLIC</span>
+            <div className="border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)' }}>
+              <div className="px-6 py-3.5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                <span className="text-[14px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>LIST ALL QUESTS</span>
+                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider border-4" style={{ color: 'rgb(16 185 129)', backgroundColor: 'rgb(16 185 129 / 0.1)', borderColor: 'rgb(16 185 129 / 0.25)' }}>PUBLIC</span>
               </div>
               <div className="p-6 space-y-3">
-                <p className="text-[14px] text-gray-500 dark:text-white/35 font-medium">Browse all available quests. No authentication required.</p>
-                <div className="bg-gray-50 dark:bg-black/50 border-2 border-gray-200 dark:border-white/[0.06] p-5 text-[14px]">
-                  <div className="text-gray-400 dark:text-white/25 mb-2 font-bold">// Fetch all open quests</div>
-                  <div className="text-gray-700 dark:text-white/70 font-bold">
-                    <span className="text-cyan-600 dark:text-cyan-400">const</span> quests = <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/quests&apos;</span>, {'{'} {'}'})
+                <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>Browse all available quests. No authentication required.</p>
+                <div className="p-5 text-[14px] border-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                  <div className="mb-2 font-bold" style={{ color: 'var(--text-secondary)' }}>// Fetch all open quests</div>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: 'rgb(34 211 238)' }}>const</span> quests = <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/quests&apos;</span>, {'{'} {'}'})
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Get Quest Details */}
-            <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08]">
-              <div className="px-6 py-3.5 border-b border-gray-200 dark:border-white/[0.06] flex items-center gap-2">
-                <span className="text-[14px] font-extrabold text-gray-600 dark:text-white/55">GET QUEST DETAILS</span>
-                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-400/10 border-2 border-green-300 dark:border-green-400/25 uppercase tracking-wider">PUBLIC</span>
+            <div className="border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)' }}>
+              <div className="px-6 py-3.5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                <span className="text-[14px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>GET QUEST DETAILS</span>
+                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider border-4" style={{ color: 'rgb(16 185 129)', backgroundColor: 'rgb(16 185 129 / 0.1)', borderColor: 'rgb(16 185 129 / 0.25)' }}>PUBLIC</span>
               </div>
               <div className="p-6 space-y-3">
-                <p className="text-[14px] text-gray-500 dark:text-white/35 font-medium">Fetch full details and responses for a specific quest.</p>
-                <div className="bg-gray-50 dark:bg-black/50 border-2 border-gray-200 dark:border-white/[0.06] p-5 text-[14px]">
-                  <div className="text-gray-400 dark:text-white/25 mb-2 font-bold">// Get quest by ID</div>
-                  <div className="text-gray-700 dark:text-white/70 font-bold">
-                    <span className="text-cyan-600 dark:text-cyan-400">const</span> quest = <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/get_quest&apos;</span>, {'{'}<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">quest_id:</span> <span className="text-amber-600 dark:text-amber-400">&apos;quest_abc123&apos;</span><br/>
+                <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>Fetch full details and responses for a specific quest.</p>
+                <div className="p-5 text-[14px] border-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                  <div className="mb-2 font-bold" style={{ color: 'var(--text-secondary)' }}>// Get quest by ID</div>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: 'rgb(34 211 238)' }}>const</span> quest = <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/get_quest&apos;</span>, {'{'}<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>quest_id:</span> <span style={{ color: 'rgb(217 119 6)' }}>&apos;quest_abc123&apos;</span><br/>
                     {'}'})
                   </div>
-                  <div className="text-gray-700 dark:text-white/70 font-bold mt-3">
-                    <div className="text-gray-400 dark:text-white/25 mb-2">// Get responses for that quest</div>
-                    <span className="text-cyan-600 dark:text-cyan-400">const</span> responses = <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/get_responses&apos;</span>, {'{'}<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">quest_id:</span> <span className="text-amber-600 dark:text-amber-400">&apos;quest_abc123&apos;</span><br/>
+                  <div className="font-bold mt-3" style={{ color: 'var(--text-primary)' }}>
+                    <div className="mb-2" style={{ color: 'var(--text-secondary)' }}>// Get responses for that quest</div>
+                    <span style={{ color: 'rgb(34 211 238)' }}>const</span> responses = <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/get_responses&apos;</span>, {'{'}<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>quest_id:</span> <span style={{ color: 'rgb(217 119 6)' }}>&apos;quest_abc123&apos;</span><br/>
                     {'}'})
                   </div>
                 </div>
@@ -656,82 +673,82 @@ export default function QuestsPage() {
             </div>
 
             {/* Edit Quest */}
-            <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08]">
-              <div className="px-6 py-3.5 border-b border-gray-200 dark:border-white/[0.06] flex items-center gap-2">
-                <span className="text-[14px] font-extrabold text-gray-600 dark:text-white/55">EDIT A QUEST</span>
-                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border-2 border-amber-300 dark:border-amber-400/25 uppercase tracking-wider">AUTH</span>
+            <div className="border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)' }}>
+              <div className="px-6 py-3.5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                <span className="text-[14px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>EDIT A QUEST</span>
+                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider border-4" style={{ color: 'rgb(217 119 6)', backgroundColor: 'rgb(217 119 6 / 0.1)', borderColor: 'rgb(217 119 6 / 0.25)' }}>AUTH</span>
               </div>
               <div className="p-6 space-y-3">
-                <p className="text-[14px] text-gray-500 dark:text-white/35 font-medium">Edit your own quest while it is still open. Only the creator can edit.</p>
-                <div className="bg-gray-50 dark:bg-black/50 border-2 border-gray-200 dark:border-white/[0.06] p-5 text-[14px]">
-                  <div className="text-gray-400 dark:text-white/25 mb-2 font-bold">// Edit quest fields</div>
-                  <div className="text-gray-700 dark:text-white/70 font-bold">
-                    <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/edit_quest&apos;</span>, {'{'}<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">quest_id:</span>    <span className="text-amber-600 dark:text-amber-400">&apos;quest_abc123&apos;</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">title:</span>       <span className="text-amber-600 dark:text-amber-400">&apos;Updated title&apos;</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">description:</span> <span className="text-amber-600 dark:text-amber-400">&apos;Updated description...&apos;</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">reward:</span>      <span className="text-green-600 dark:text-green-400">750</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">tags:</span>        [<span className="text-amber-600 dark:text-amber-400">&apos;updated&apos;</span>],<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">token:</span>       <span className="text-amber-600 dark:text-amber-400">yourAuthToken</span>,<br/>
+                <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>Edit your own quest while it is still open. Only the creator can edit.</p>
+                <div className="p-5 text-[14px] border-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                  <div className="mb-2 font-bold" style={{ color: 'var(--text-secondary)' }}>// Edit quest fields</div>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/edit_quest&apos;</span>, {'{'}<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>quest_id:</span>    <span style={{ color: 'rgb(217 119 6)' }}>&apos;quest_abc123&apos;</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>title:</span>       <span style={{ color: 'rgb(217 119 6)' }}>&apos;Updated title&apos;</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>description:</span> <span style={{ color: 'rgb(217 119 6)' }}>&apos;Updated description...&apos;</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>reward:</span>      <span style={{ color: 'rgb(16 185 129)' }}>750</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>tags:</span>        [<span style={{ color: 'rgb(217 119 6)' }}>&apos;updated&apos;</span>],<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>token:</span>       <span style={{ color: 'rgb(217 119 6)' }}>yourAuthToken</span>,<br/>
                     {'}'})
                   </div>
                 </div>
-                <div className="text-[12px] text-gray-400 dark:text-white/25 mt-2 font-bold">
-                  <span className="text-gray-500 dark:text-white/35">PARAMS:</span> quest_id <span className="text-gray-300 dark:text-white/20">string</span> | title? <span className="text-gray-300 dark:text-white/20">string</span> | description? <span className="text-gray-300 dark:text-white/20">string</span> | reward? <span className="text-gray-300 dark:text-white/20">number</span> | tags? <span className="text-gray-300 dark:text-white/20">string[]</span> | token <span className="text-gray-300 dark:text-white/20">string</span>
+                <div className="text-[12px] mt-2 font-bold" style={{ color: 'var(--text-secondary)' }}>
+                  <span>PARAMS:</span> quest_id <span style={{ opacity: 0.6 }}>string</span> | title? <span style={{ opacity: 0.6 }}>string</span> | description? <span style={{ opacity: 0.6 }}>string</span> | reward? <span style={{ opacity: 0.6 }}>number</span> | tags? <span style={{ opacity: 0.6 }}>string[]</span> | token <span style={{ opacity: 0.6 }}>string</span>
                 </div>
               </div>
             </div>
 
             {/* Create Quest */}
-            <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08]">
-              <div className="px-6 py-3.5 border-b border-gray-200 dark:border-white/[0.06] flex items-center gap-2">
-                <span className="text-[14px] font-extrabold text-gray-600 dark:text-white/55">CREATE A QUEST</span>
-                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border-2 border-amber-300 dark:border-amber-400/25 uppercase tracking-wider">AUTH</span>
+            <div className="border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)' }}>
+              <div className="px-6 py-3.5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                <span className="text-[14px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>CREATE A QUEST</span>
+                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider border-4" style={{ color: 'rgb(217 119 6)', backgroundColor: 'rgb(217 119 6 / 0.1)', borderColor: 'rgb(217 119 6 / 0.25)' }}>AUTH</span>
               </div>
               <div className="p-6 space-y-3">
-                <p className="text-[14px] text-gray-500 dark:text-white/35 font-medium">Post a new quest with a token reward. Your token balance must cover the reward amount.</p>
-                <div className="bg-gray-50 dark:bg-black/50 border-2 border-gray-200 dark:border-white/[0.06] p-5 text-[14px]">
-                  <div className="text-gray-400 dark:text-white/25 mb-2 font-bold">// Create a new quest</div>
-                  <div className="text-gray-700 dark:text-white/70 font-bold">
-                    <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/create_quest&apos;</span>, {'{'}<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">title:</span>       <span className="text-amber-600 dark:text-amber-400">&apos;Build a landing page&apos;</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">description:</span> <span className="text-amber-600 dark:text-amber-400">&apos;Need a responsive landing page...&apos;</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">reward:</span>      <span className="text-green-600 dark:text-green-400">500</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">tags:</span>        [<span className="text-amber-600 dark:text-amber-400">&apos;frontend&apos;</span>, <span className="text-amber-600 dark:text-amber-400">&apos;design&apos;</span>],<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">token:</span>       <span className="text-amber-600 dark:text-amber-400">yourAuthToken</span>,<br/>
+                <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>Post a new quest with a token reward. Your token balance must cover the reward amount.</p>
+                <div className="p-5 text-[14px] border-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                  <div className="mb-2 font-bold" style={{ color: 'var(--text-secondary)' }}>// Create a new quest</div>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/create_quest&apos;</span>, {'{'}<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>title:</span>       <span style={{ color: 'rgb(217 119 6)' }}>&apos;Build a landing page&apos;</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>description:</span> <span style={{ color: 'rgb(217 119 6)' }}>&apos;Need a responsive landing page...&apos;</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>reward:</span>      <span style={{ color: 'rgb(16 185 129)' }}>500</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>tags:</span>        [<span style={{ color: 'rgb(217 119 6)' }}>&apos;frontend&apos;</span>, <span style={{ color: 'rgb(217 119 6)' }}>&apos;design&apos;</span>],<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>token:</span>       <span style={{ color: 'rgb(217 119 6)' }}>yourAuthToken</span>,<br/>
                     {'}'})
                   </div>
                 </div>
-                <div className="text-[12px] text-gray-400 dark:text-white/25 mt-2 font-bold">
-                  <span className="text-gray-500 dark:text-white/35">PARAMS:</span> title <span className="text-gray-300 dark:text-white/20">string</span> | description <span className="text-gray-300 dark:text-white/20">string</span> | reward <span className="text-gray-300 dark:text-white/20">number</span> | tags <span className="text-gray-300 dark:text-white/20">string[]</span> | token <span className="text-gray-300 dark:text-white/20">string</span>
+                <div className="text-[12px] mt-2 font-bold" style={{ color: 'var(--text-secondary)' }}>
+                  <span>PARAMS:</span> title <span style={{ opacity: 0.6 }}>string</span> | description <span style={{ opacity: 0.6 }}>string</span> | reward <span style={{ opacity: 0.6 }}>number</span> | tags <span style={{ opacity: 0.6 }}>string[]</span> | token <span style={{ opacity: 0.6 }}>string</span>
                 </div>
               </div>
             </div>
 
             {/* My Quests & My Responses */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div className="bg-white dark:bg-[#0a0a0e] p-6">
+              <div className="p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[14px] font-extrabold text-gray-600 dark:text-white/55">MY QUESTS</span>
-                  <span className="px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border-2 border-amber-300 dark:border-amber-400/25 uppercase tracking-wider">AUTH</span>
+                  <span className="text-[14px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>MY QUESTS</span>
+                  <span className="px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider border-4" style={{ color: 'rgb(217 119 6)', backgroundColor: 'rgb(217 119 6 / 0.1)', borderColor: 'rgb(217 119 6 / 0.25)' }}>AUTH</span>
                 </div>
-                <div className="bg-gray-50 dark:bg-black/50 border-2 border-gray-200 dark:border-white/[0.06] p-5 text-[14px]">
-                  <div className="text-gray-700 dark:text-white/70 font-bold">
-                    <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/my_quests&apos;</span>, {'{'}<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">token:</span> <span className="text-amber-600 dark:text-amber-400">yourAuthToken</span><br/>
+                <div className="p-5 text-[14px] border-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/my_quests&apos;</span>, {'{'}<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>token:</span> <span style={{ color: 'rgb(217 119 6)' }}>yourAuthToken</span><br/>
                     {'}'})
                   </div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-[#0a0a0e] p-6">
+              <div className="p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[14px] font-extrabold text-gray-600 dark:text-white/55">MY RESPONSES</span>
-                  <span className="px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border-2 border-amber-300 dark:border-amber-400/25 uppercase tracking-wider">AUTH</span>
+                  <span className="text-[14px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>MY RESPONSES</span>
+                  <span className="px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider border-4" style={{ color: 'rgb(217 119 6)', backgroundColor: 'rgb(217 119 6 / 0.1)', borderColor: 'rgb(217 119 6 / 0.25)' }}>AUTH</span>
                 </div>
-                <div className="bg-gray-50 dark:bg-black/50 border-2 border-gray-200 dark:border-white/[0.06] p-5 text-[14px]">
-                  <div className="text-gray-700 dark:text-white/70 font-bold">
-                    <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/my_responses&apos;</span>, {'{'}<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">token:</span> <span className="text-amber-600 dark:text-amber-400">yourAuthToken</span><br/>
+                <div className="p-5 text-[14px] border-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/my_responses&apos;</span>, {'{'}<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>token:</span> <span style={{ color: 'rgb(217 119 6)' }}>yourAuthToken</span><br/>
                     {'}'})
                   </div>
                 </div>
@@ -739,48 +756,48 @@ export default function QuestsPage() {
             </div>
 
             {/* Approve Response */}
-            <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08]">
-              <div className="px-6 py-3.5 border-b border-gray-200 dark:border-white/[0.06] flex items-center gap-2">
-                <span className="text-[14px] font-extrabold text-gray-600 dark:text-white/55">APPROVE A RESPONSE</span>
-                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border-2 border-amber-300 dark:border-amber-400/25 uppercase tracking-wider">AUTH</span>
+            <div className="border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)' }}>
+              <div className="px-6 py-3.5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                <span className="text-[14px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>APPROVE A RESPONSE</span>
+                <span className="ml-auto px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider border-4" style={{ color: 'rgb(217 119 6)', backgroundColor: 'rgb(217 119 6 / 0.1)', borderColor: 'rgb(217 119 6 / 0.25)' }}>AUTH</span>
               </div>
               <div className="p-6 space-y-3">
-                <p className="text-[14px] text-gray-500 dark:text-white/35 font-medium">As the quest creator, approve a response to release the token reward to the responder.</p>
-                <div className="bg-gray-50 dark:bg-black/50 border-2 border-gray-200 dark:border-white/[0.06] p-5 text-[14px]">
-                  <div className="text-gray-400 dark:text-white/25 mb-2 font-bold">// Approve and pay reward</div>
-                  <div className="text-gray-700 dark:text-white/70 font-bold">
-                    <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/approve&apos;</span>, {'{'}<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">quest_id:</span>    <span className="text-amber-600 dark:text-amber-400">&apos;quest_abc123&apos;</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">response_id:</span> <span className="text-amber-600 dark:text-amber-400">&apos;resp_xyz789&apos;</span>,<br/>
-                    <span className="ml-4 text-gray-400 dark:text-white/35">token:</span>       <span className="text-amber-600 dark:text-amber-400">yourAuthToken</span>,<br/>
+                <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>As the quest creator, approve a response to release the token reward to the responder.</p>
+                <div className="p-5 text-[14px] border-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                  <div className="mb-2 font-bold" style={{ color: 'var(--text-secondary)' }}>// Approve and pay reward</div>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/approve&apos;</span>, {'{'}<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>quest_id:</span>    <span style={{ color: 'rgb(217 119 6)' }}>&apos;quest_abc123&apos;</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>response_id:</span> <span style={{ color: 'rgb(217 119 6)' }}>&apos;resp_xyz789&apos;</span>,<br/>
+                    <span className="ml-4" style={{ color: 'var(--text-secondary)' }}>token:</span>       <span style={{ color: 'rgb(217 119 6)' }}>yourAuthToken</span>,<br/>
                     {'}'})
                   </div>
                 </div>
-                <div className="text-[12px] text-gray-400 dark:text-white/25 mt-2 font-bold">
-                  <span className="text-gray-500 dark:text-white/35">PARAMS:</span> quest_id <span className="text-gray-300 dark:text-white/20">string</span> | response_id <span className="text-gray-300 dark:text-white/20">string</span> | token <span className="text-gray-300 dark:text-white/20">string</span>
+                <div className="text-[12px] mt-2 font-bold" style={{ color: 'var(--text-secondary)' }}>
+                  <span>PARAMS:</span> quest_id <span style={{ opacity: 0.6 }}>string</span> | response_id <span style={{ opacity: 0.6 }}>string</span> | token <span style={{ opacity: 0.6 }}>string</span>
                 </div>
               </div>
             </div>
 
             {/* Stats */}
-            <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08]">
-              <div className="px-6 py-3.5 border-b border-gray-200 dark:border-white/[0.06]">
-                <span className="text-[14px] font-extrabold text-gray-600 dark:text-white/55">GET STATS</span>
+            <div className="border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)' }}>
+              <div className="px-6 py-3.5" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                <span className="text-[14px] font-extrabold" style={{ color: 'var(--text-secondary)' }}>GET STATS</span>
               </div>
               <div className="p-6">
-                <div className="bg-gray-50 dark:bg-black/50 border-2 border-gray-200 dark:border-white/[0.06] p-5 text-[14px]">
-                  <div className="text-gray-700 dark:text-white/70 font-bold">
-                    <span className="text-cyan-600 dark:text-cyan-400">const</span> stats = <span className="text-cyan-600 dark:text-cyan-400">await</span> client.<span className="text-green-600 dark:text-green-400">call</span>(<span className="text-amber-600 dark:text-amber-400">&apos;quests/stats&apos;</span>, {'{'} {'}'})
+                <div className="p-5 text-[14px] border-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                  <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: 'rgb(34 211 238)' }}>const</span> stats = <span style={{ color: 'rgb(34 211 238)' }}>await</span> client.<span style={{ color: 'rgb(16 185 129)' }}>call</span>(<span style={{ color: 'rgb(217 119 6)' }}>&apos;quests/stats&apos;</span>, {'{'} {'}'})
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Workflow */}
-            <div className="bg-white dark:bg-[#0a0a0e] border-2 border-gray-200 dark:border-white/[0.08] p-6">
+            <div className="p-6 border-4" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)' }}>
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-green-500 dark:text-green-400 text-[13px] font-extrabold">[WRK]</span>
-                <span className="text-[12px] font-extrabold text-gray-400 dark:text-white/35 uppercase tracking-[0.2em]">Typical Workflow</span>
+                <span className="text-[13px] font-extrabold" style={{ color: 'rgb(16 185 129)' }}>[WRK]</span>
+                <span className="text-[12px] font-extrabold uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>Typical Workflow</span>
               </div>
               <div className="space-y-2">
                 {[
@@ -789,10 +806,10 @@ export default function QuestsPage() {
                   { step: '03', label: 'Wait for review', desc: "Creator reviews your submission" },
                   { step: '04', label: 'Get paid', desc: "Creator approves — tokens transfer to you" },
                 ].map(item => (
-                  <div key={item.step} className="flex items-center gap-3 px-4 py-3 border-2 border-gray-200 dark:border-white/[0.06] hover:border-gray-300 dark:hover:border-white/[0.1] transition-colors">
-                    <span className="text-emerald-500 dark:text-emerald-400 text-[14px] font-extrabold shrink-0">{item.step}</span>
-                    <span className="text-[14px] text-gray-600 dark:text-white/55 font-bold">{item.label}</span>
-                    <span className="text-[13px] text-gray-400 dark:text-white/20 ml-auto hidden md:block font-medium">// {item.desc}</span>
+                  <div key={item.step} className="flex items-center gap-3 px-4 py-3 border-4 transition-colors" style={{ borderColor: 'var(--border-color)' }}>
+                    <span className="text-[14px] font-extrabold shrink-0" style={{ color: 'rgb(16 185 129)' }}>{item.step}</span>
+                    <span className="text-[14px] font-bold" style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
+                    <span className="text-[13px] ml-auto hidden md:block font-medium" style={{ color: 'var(--text-secondary)', opacity: 0.5 }}>// {item.desc}</span>
                   </div>
                 ))}
               </div>

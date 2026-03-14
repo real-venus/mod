@@ -34,6 +34,7 @@ class Dev:
         - MAKE SURE TO FINISH WHAT YOU WERE ASKED TO BEFORE FINISHING
         MAKE SURE YOU UNDERSTAND THE CONTEXT BEFORE YOU CHANGE YOU ENVIORNMENT WITH THE TOOLS AT YOUR DISPOSAL
         - MAKE SURE YOU AVOID REDUNDANT STEPS AND MINIMIZE THE STEPS
+        - DO NOT REPEAT USING THE SAME TOOLS LOL
     """
 
     anchors = {
@@ -87,6 +88,7 @@ class Dev:
 
     def forward(self, 
                 query: str = 'make me a readme ', 
+                *extra_query,
                 mod='base',
                 model: Optional[str] = 'anthropic/claude-opus-4.5',
                 path=None,
@@ -102,6 +104,7 @@ class Dev:
         """
         use this to run the agent with a specific text and parameters
         """
+        query = query + ' ' + ' '.join(extra_query)
         # setup the memory and tools
         path = path or  m.dp(mod)
         self.init_memory(query=query, tools=self.tool2schema(tools), path=path, steps=steps, **kwargs)

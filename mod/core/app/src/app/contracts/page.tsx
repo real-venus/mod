@@ -434,7 +434,7 @@ export default function ContractsPage() {
           )}
 
           <div className="flex items-center gap-1">
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${
+            <span className={`text-[10px] font-bold tracking-wider ${
               exec.status === 'success' ? 'text-emerald-500' : 'text-red-500'
             }`}>
               {statusText}
@@ -464,7 +464,7 @@ export default function ContractsPage() {
         {!isExpanded && (
           <div className="px-3 py-2" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)' }}>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-500">INPUT:</span>
+              <span className="text-xs font-bold tracking-wider text-purple-500">INPUT:</span>
               <span className="text-xs font-mono truncate" style={{ color: 'var(--text-tertiary)' }}>
                 {JSON.stringify(exec.params)}
               </span>
@@ -477,7 +477,7 @@ export default function ContractsPage() {
           <div className="px-3 pb-3 pt-2 space-y-2">
             {/* Input */}
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-purple-500 mb-1">INPUT:</div>
+              <div className="text-[10px] font-bold tracking-wider text-purple-500 mb-1">INPUT:</div>
               <pre className="text-xs font-mono p-2" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)', border: '2px solid var(--border-color)' }}>
                 {JSON.stringify(exec.params, null, 2)}
               </pre>
@@ -485,7 +485,7 @@ export default function ContractsPage() {
 
             {/* Result */}
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-purple-500 mb-1">RESULT:</div>
+              <div className="text-[10px] font-bold tracking-wider text-purple-500 mb-1">RESULT:</div>
               <pre className={`text-xs font-mono p-2 ${
                 exec.status === 'success' ? 'text-emerald-400' : 'text-red-400'
               }`} style={{ backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}>
@@ -504,7 +504,7 @@ export default function ContractsPage() {
         {/* User message */}
         <div className="flex justify-end">
           <div className="max-w-[80%] px-4 py-2" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-color)' }}>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-500 mb-1">{exec.fn}</div>
+            <div className="text-[10px] font-bold tracking-wider text-cyan-500 mb-1">{exec.fn}</div>
             <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
               {JSON.stringify(exec.params, null, 2)}
             </div>
@@ -521,7 +521,7 @@ export default function ContractsPage() {
             border: exec.status === 'success' ? '4px solid rgba(16,185,129,0.4)' : '4px solid rgba(239,68,68,0.4)'
           }}>
             <div className="flex items-center gap-2 mb-1">
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${
+              <span className={`text-[10px] font-bold tracking-wider ${
                 exec.status === 'success' ? 'text-emerald-500' : 'text-red-500'
               }`}>
                 {exec.status === 'success' ? 'SUCCESS' : 'ERROR'}
@@ -547,7 +547,7 @@ export default function ContractsPage() {
         {/* Page header with search and add - all in one line */}
         <div className="flex items-center gap-4 mb-6">
           <div className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" style={{ boxShadow: '0 0 8px rgba(0,255,255,0.6)' }} />
-          <h1 className="text-2xl font-bold uppercase tracking-[0.15em] font-mono shrink-0" style={{ color: 'var(--text-primary)' }}>Contracts</h1>
+          <h1 className="text-2xl font-bold lowercase tracking-[0.15em] font-mono shrink-0" style={{ color: 'var(--text-primary)' }}>Contracts</h1>
           <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, var(--border-color), transparent)' }} />
           <span className="text-[12px] font-mono shrink-0" style={{ color: 'var(--text-tertiary)' }}>[{contracts.length}]</span>
 
@@ -573,7 +573,7 @@ export default function ContractsPage() {
           {/* Add button - larger */}
           <button
             onClick={() => setShowAddContract(!showAddContract)}
-            className="px-6 py-3 text-[15px] font-bold font-mono uppercase tracking-wider transition-all text-cyan-400 hover:scale-[1.02] shrink-0"
+            className="px-6 py-3 text-[15px] font-bold font-mono tracking-wider transition-all text-cyan-400 hover:scale-[1.02] shrink-0"
             style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}
           >
             + ADD
@@ -593,7 +593,7 @@ export default function ContractsPage() {
               <div className="p-4 border-4" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-1.5 h-1.5 bg-cyan-400" style={{ boxShadow: '0 0 6px rgba(0,255,255,0.8)' }} />
-                  <h3 className="text-[13px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-primary)' }}>Add Custom Contract</h3>
+                  <h3 className="text-[13px] font-bold tracking-wider font-mono" style={{ color: 'var(--text-primary)' }}>Add Custom Contract</h3>
                 </div>
 
                 <div className="space-y-3">
@@ -663,7 +663,7 @@ export default function ContractsPage() {
                     <button
                       onClick={handleAddContract}
                       disabled={addingContract}
-                      className="flex-1 py-2.5 text-[12px] font-bold font-mono uppercase tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 text-emerald-400 hover:bg-emerald-500/20"
+                      className="flex-1 py-2.5 text-[12px] font-bold font-mono tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 text-emerald-400 hover:bg-emerald-500/20"
                       style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)' }}
                     >
                       {addingContract ? (
@@ -683,7 +683,7 @@ export default function ContractsPage() {
                         setNewContractAbiCid('')
                         setNewContractAbiJson('')
                       }}
-                      className="px-4 py-2.5 text-[12px] font-bold font-mono uppercase tracking-wider transition-all hover:bg-white/5"
+                      className="px-4 py-2.5 text-[12px] font-bold font-mono tracking-wider transition-all hover:bg-white/5"
                       style={{ color: 'var(--text-tertiary)', border: '4px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}
                     >
                       Cancel
@@ -776,7 +776,7 @@ export default function ContractsPage() {
               {/* Back button */}
               <button
                 onClick={() => setSelectedContract('')}
-                className="px-3 py-2 text-[12px] font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-2 hover:scale-[1.02] shrink-0"
+                className="px-3 py-2 text-[12px] font-bold font-mono tracking-wider transition-all flex items-center gap-2 hover:scale-[1.02] shrink-0"
                 style={{
                   border: '4px solid var(--border-strong)',
                   backgroundColor: 'var(--bg-surface)',
@@ -796,14 +796,26 @@ export default function ContractsPage() {
               </div>
 
               {/* Contract address */}
-              <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}>
+              <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 cursor-pointer hover:bg-opacity-80 transition-colors"
+                   style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}
+                   onClick={() => {
+                     navigator.clipboard.writeText(contractInfo.address)
+                     toast.success('Address copied!')
+                   }}
+                   title="Click to copy address">
                 <span className="text-[13px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(contractInfo.address)}</span>
                 <CopyButton text={contractInfo.address} size="sm" />
               </div>
 
               {/* ABI CID */}
               {contractInfo.abiCid && (
-                <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}>
+                <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 cursor-pointer hover:bg-opacity-80 transition-colors"
+                     style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}
+                     onClick={() => {
+                       navigator.clipboard.writeText(contractInfo.abiCid!)
+                       toast.success('ABI CID copied!')
+                     }}
+                     title="Click to copy ABI CID">
                   <span className="text-[11px] font-mono uppercase" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
                   <span className="text-[12px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(contractInfo.abiCid, 10, 8)}</span>
                   <CopyButton text={contractInfo.abiCid} size="sm" />
@@ -816,7 +828,7 @@ export default function ContractsPage() {
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={() => setShowRead(!showRead)}
-                  className={`px-4 py-2 text-[12px] font-bold uppercase tracking-wider font-mono transition-all ${
+                  className={`px-4 py-2 text-[12px] font-bold tracking-wider font-mono transition-all ${
                     showRead
                       ? 'bg-emerald-500/15 text-emerald-500'
                       : ''
@@ -827,7 +839,7 @@ export default function ContractsPage() {
                 </button>
                 <button
                   onClick={() => setShowWrite(!showWrite)}
-                  className={`px-4 py-2 text-[12px] font-bold uppercase tracking-wider font-mono transition-all ${
+                  className={`px-4 py-2 text-[12px] font-bold tracking-wider font-mono transition-all ${
                     showWrite
                       ? 'bg-amber-500/15 text-amber-500'
                       : ''
@@ -953,7 +965,7 @@ export default function ContractsPage() {
                     )
                   })}
                   {filteredFunctions.length === 0 && (
-                    <div className="text-center text-[13px] font-mono py-12 uppercase font-bold" style={{ color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}>
+                    <div className="text-center text-[13px] font-mono py-12 font-bold" style={{ color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)' }}>
                       {visibleFunctions.length === 0 ? '-- NO FUNCTIONS --' : '-- NO MATCHES --'}
                     </div>
                   )}
@@ -974,12 +986,12 @@ export default function ContractsPage() {
 
                     {/* Function header */}
                     <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 text-[11px] font-bold uppercase font-mono ${
+                      <span className={`px-3 py-1 text-[11px] font-bold font-mono ${
                         isRead
                           ? 'bg-emerald-500/12 text-emerald-500'
                           : 'bg-amber-500/12 text-amber-500'
                       }`} style={{ border: isRead ? '2px solid rgba(16,185,129,0.3)' : '2px solid rgba(245,158,11,0.3)' }}>{selectedFnEntry.kind}</span>
-                      <span className="text-lg font-bold font-mono uppercase" style={{ color: 'var(--text-primary)' }}>{selectedFnEntry.name}</span>
+                      <span className="text-lg font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{selectedFnEntry.name}</span>
                       {selectedFnEntry.stateMutability === 'payable' && (
                         <span className="text-[10px] font-mono px-2 py-0.5 bg-amber-500/10 text-amber-500/60" style={{ border: '2px solid rgba(245,158,11,0.2)' }}>PAYABLE</span>
                       )}
@@ -1016,7 +1028,7 @@ export default function ContractsPage() {
                     {/* ETH value for write */}
                     {selectedFnEntry.kind === 'write' && (
                       <div>
-                        <label className="text-[12px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
+                        <label className="text-[12px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
                           ETH value <span style={{ color: 'var(--text-tertiary)' }}>:: optional</span>
                         </label>
                         <input
@@ -1034,7 +1046,7 @@ export default function ContractsPage() {
                     <button
                       onClick={isRead ? handleRead : handleWrite}
                       disabled={reading || sending}
-                      className={`w-full py-3.5 text-[14px] font-bold font-mono uppercase tracking-wider transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2.5 ${
+                      className={`w-full py-3.5 text-[14px] font-bold font-mono tracking-wider transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2.5 ${
                         isRead
                           ? 'bg-emerald-500/12 text-emerald-500 hover:bg-emerald-500/20'
                           : 'bg-amber-500/12 text-amber-500 hover:bg-amber-500/20'
@@ -1063,7 +1075,7 @@ export default function ContractsPage() {
                       <div className="p-4 relative overflow-hidden" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid rgba(16,185,129,0.4)' }}>
                         <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500/30" />
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-bold uppercase tracking-wider font-mono text-emerald-500/60">Output</span>
+                          <span className="text-[11px] font-bold tracking-wider font-mono text-emerald-500/60">Output</span>
                           <CopyButton text={readResult} size="sm" />
                         </div>
                         <pre className="text-[16px] font-mono font-bold whitespace-pre-wrap break-all leading-relaxed" style={{ color: 'var(--text-primary)' }}>{readResult}</pre>
@@ -1082,14 +1094,14 @@ export default function ContractsPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                     </div>
-                    <span className="text-[14px] font-mono uppercase font-bold">Select a function to interact</span>
+                    <span className="text-[14px] font-mono font-bold">Select a function to interact</span>
                   </div>
                 )}
               </div>
             </div>
 
             {!showRead && !showWrite && (
-              <p className="text-[14px] mt-6 text-center font-mono uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Enable Read or Write to see functions</p>
+              <p className="text-[14px] mt-6 text-center font-mono font-bold" style={{ color: 'var(--text-tertiary)' }}>Enable Read or Write to see functions</p>
             )}
           </div>
           )

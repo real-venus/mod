@@ -28,9 +28,9 @@ export default function ResponseCard({ response, onEdit }: ResponseCardProps) {
 
   return (
     <div
-      className="font-mono rounded-xl mb-3 relative overflow-hidden transition-all duration-200"
+      className="font-mono mb-3 relative overflow-hidden transition-all duration-200"
       style={{
-        border: `2px solid ${colorWithOpacity(cardColor, 0.4)}`,
+        border: `4px solid ${colorWithOpacity(cardColor, 0.4)}`,
         backgroundColor: 'var(--bg-secondary)',
         boxShadow: `0 0 20px ${colorWithOpacity(cardColor, 0.1)}, inset 0 0 20px ${colorWithOpacity(cardColor, 0.05)}`,
       }}
@@ -45,20 +45,20 @@ export default function ResponseCard({ response, onEdit }: ResponseCardProps) {
     >
       {/* Left accent bar */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl"
+        className="absolute left-0 top-0 bottom-0 w-1.5"
         style={{ backgroundColor: cardColor }}
       />
 
       {/* Header */}
       <div
-        className="px-5 py-4 pl-7 border-b flex items-center justify-between gap-3 rounded-t-xl"
+        className="px-5 py-4 pl-7 border-b flex items-center justify-between gap-3"
         style={{
           borderColor: colorWithOpacity(cardColor, 0.15),
           backgroundColor: colorWithOpacity(cardColor, 0.04),
         }}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <span className={`shrink-0 px-3 py-1.5 text-[13px] font-extrabold uppercase tracking-wider border-2 rounded-lg ${getStatusStyle(response.status)}`}>
+          <span className={`shrink-0 px-3 py-1.5 text-[13px] font-extrabold uppercase tracking-wider border-4 ${getStatusStyle(response.status)}`}>
             {response.status}
           </span>
           <span
@@ -85,27 +85,28 @@ export default function ResponseCard({ response, onEdit }: ResponseCardProps) {
             <textarea
               value={editContent}
               onChange={e => setEditContent(e.target.value)}
-              className="w-full px-4 py-3 text-[15px] placeholder-gray-400 dark:placeholder-white/20 focus:outline-none transition-colors resize-none h-32 font-mono font-bold rounded-lg"
+              className="w-full px-4 py-3 text-[15px] focus:outline-none transition-colors resize-none h-32 font-mono font-bold"
               style={{
                 backgroundColor: 'var(--bg-input)',
-                border: `2px solid ${colorWithOpacity(cardColor, 0.3)}`,
+                border: `4px solid ${colorWithOpacity(cardColor, 0.3)}`,
                 color: 'var(--text-primary)',
               }}
+              placeholder="Edit your response..."
             />
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
                 disabled={saving || !editContent.trim()}
-                className="px-5 py-2.5 text-white text-[13px] font-extrabold uppercase tracking-wider transition-colors rounded-lg disabled:opacity-30"
+                className="px-5 py-2.5 text-white text-[13px] font-extrabold uppercase tracking-wider transition-colors disabled:opacity-30"
                 style={{ backgroundColor: cardColor }}
               >
                 {saving ? 'SAVING...' : 'SAVE'}
               </button>
               <button
                 onClick={() => { setEditing(false); setEditContent(response.content || ''); }}
-                className="px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider transition-colors rounded-lg"
+                className="px-5 py-2.5 text-[13px] font-extrabold uppercase tracking-wider transition-colors"
                 style={{
-                  border: `2px solid ${colorWithOpacity(cardColor, 0.3)}`,
+                  border: `4px solid ${colorWithOpacity(cardColor, 0.3)}`,
                   color: 'var(--text-secondary)',
                 }}
               >
@@ -123,22 +124,22 @@ export default function ResponseCard({ response, onEdit }: ResponseCardProps) {
             </p>
             {response.status === 'approved' && (response as any).payment_hash && (
               <div
-                className="mt-3 px-4 py-2.5 rounded-lg"
+                className="mt-3 px-4 py-2.5"
                 style={{
-                  border: `2px solid ${colorWithOpacity('#10b981', 0.3)}`,
-                  backgroundColor: colorWithOpacity('#10b981', 0.05),
+                  border: `4px solid rgb(16 185 129 / 0.3)`,
+                  backgroundColor: 'rgb(16 185 129 / 0.05)',
                 }}
               >
-                <span className="text-[11px] text-emerald-600 dark:text-emerald-400/70 uppercase tracking-wider font-extrabold">TX HASH</span>
-                <div className="text-[13px] text-emerald-600 dark:text-emerald-400/90 mt-0.5 break-all font-mono font-bold">{(response as any).payment_hash}</div>
+                <span className="text-[11px] uppercase tracking-wider font-extrabold" style={{ color: 'rgb(16 185 129)' }}>TX HASH</span>
+                <div className="text-[13px] mt-0.5 break-all font-mono font-bold" style={{ color: 'rgb(16 185 129 / 0.9)' }}>{(response as any).payment_hash}</div>
               </div>
             )}
             {onEdit && response.status === 'pending' && (
               <button
                 onClick={() => setEditing(true)}
-                className="mt-3 px-5 py-2 text-[13px] font-extrabold uppercase tracking-wider transition-all rounded-lg"
+                className="mt-3 px-5 py-2 text-[13px] font-extrabold uppercase tracking-wider transition-all"
                 style={{
-                  border: `2px solid ${colorWithOpacity(cardColor, 0.4)}`,
+                  border: `4px solid ${colorWithOpacity(cardColor, 0.4)}`,
                   color: cardColor,
                 }}
               >
