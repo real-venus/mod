@@ -5,6 +5,7 @@
 // API Client Types
 export interface Client {
   call: <T = any>(method: string, params: Record<string, any>, ...args: any[]) => Promise<T>
+  callStream?: (fn: string, params: Record<string, any>) => Promise<AsyncIterable<string>>
   token?: string
 }
 

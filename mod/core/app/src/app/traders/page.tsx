@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export default function TradersPage() {
   return (
-    <div className="h-full pt-20">
+    <div className="h-full">
       <TradersInterface />
     </div>
   )

@@ -1,12 +1,6 @@
 {
   "navigation": [
     {
-      "href": "/mod/explore",
-      "label": "MODS",
-      "color": "#10b981",
-      "type": "direct"
-    },
-    {
       "href": "/quests",
       "label": "QUESTS",
       "color": "#0bf58c",

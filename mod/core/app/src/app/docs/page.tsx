@@ -4,7 +4,6 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CubeIcon,
-  ChatBubbleLeftRightIcon,
   GlobeAltIcon,
   WrenchScrewdriverIcon,
   BoltIcon,
@@ -15,7 +14,6 @@ import {
   CpuChipIcon,
   CurrencyDollarIcon,
   RocketLaunchIcon,
-  MagnifyingGlassIcon,
   DocumentTextIcon,
   CodeBracketIcon,
   ServerStackIcon,
@@ -793,14 +791,14 @@ function CodeBlock({ lang, value }: { lang: string; value: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="relative group rounded-lg overflow-hidden border bg-gray-50 dark:bg-black/60" style={{ borderColor: 'var(--border-color)' }}>
-      <div className="flex items-center justify-between px-4 py-1.5 border-b" style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
-        <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>{lang}</span>
-        <button onClick={copy} className="text-[10px] font-mono transition-colors" style={{ color: 'var(--text-secondary)' }}>
-          {copied ? 'COPIED' : 'COPY'}
+    <div className="relative group overflow-hidden rounded-lg" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}>
+      <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+        <span className="text-[10px] font-mono uppercase tracking-widest opacity-50" style={{ color: 'var(--accent-primary, #10b981)' }}>{lang}</span>
+        <button onClick={copy} className="text-[10px] font-mono opacity-40 hover:opacity-100 transition-all hover:text-emerald-400">
+          {copied ? 'copied!' : 'copy'}
         </button>
       </div>
-      <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono whitespace-pre" style={{ color: 'var(--text-primary)' }}>
+      <pre className="px-4 py-3 overflow-x-auto text-[13px] leading-relaxed font-mono whitespace-pre" style={{ color: 'var(--text-primary)' }}>
         {value}
       </pre>
     </div>
@@ -809,12 +807,12 @@ function CodeBlock({ lang, value }: { lang: string; value: string }) {
 
 function TableBlock({ headers, rows }: { headers: string[]; rows: string[][] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border-color)' }}>
-      <table className="w-full text-xs font-mono">
+    <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid var(--border-color)' }}>
+      <table className="w-full">
         <thead>
-          <tr style={{ backgroundColor: 'var(--bg-input)' }}>
+          <tr style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)' }}>
             {headers.map((h, i) => (
-              <th key={i} className="text-left px-4 py-2 font-bold uppercase tracking-wider border-b" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>
+              <th key={i} className="text-left px-4 py-2.5 font-semibold uppercase text-[11px] tracking-wider" style={{ color: 'var(--text-secondary)', fontFamily: 'Inter, sans-serif' }}>
                 {h}
               </th>
             ))}
@@ -822,9 +820,12 @@ function TableBlock({ headers, rows }: { headers: string[]; rows: string[][] }) 
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-b transition-colors" style={{ borderColor: 'var(--border-color)' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            <tr key={i} className="transition-colors" style={{ borderBottom: '1px solid var(--border-color)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-bg)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
               {row.map((cell, j) => (
-                <td key={j} className="px-4 py-2.5" style={{ color: 'var(--text-primary)' }}>
+                <td key={j} className="px-4 py-2.5 text-[13px]" style={{ color: j === 0 ? 'var(--text-primary)' : 'var(--text-secondary)', fontFamily: j === 0 ? "'JetBrains Mono', monospace" : 'Inter, sans-serif' }}>
                   {cell}
                 </td>
               ))}
@@ -839,17 +840,17 @@ function TableBlock({ headers, rows }: { headers: string[]; rows: string[][] }) 
 function BlockRenderer({ block }: { block: ContentBlock }) {
   switch (block.kind) {
     case 'text':
-      return <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>{block.value}</p>;
+      return <p className="text-[14px] leading-[1.7]" style={{ color: 'var(--text-secondary)', fontFamily: 'Inter, sans-serif' }}>{block.value}</p>;
     case 'code':
       return <CodeBlock lang={block.lang} value={block.value} />;
     case 'table':
       return <TableBlock headers={block.headers} rows={block.rows} />;
     case 'list':
       return (
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {block.items.map((item, i) => (
-            <li key={i} className="flex gap-2 text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-              <span className="text-emerald-500 dark:text-emerald-400 mt-0.5 shrink-0">&#x25B8;</span>
+            <li key={i} className="flex gap-3 text-[14px] leading-[1.7]" style={{ color: 'var(--text-secondary)', fontFamily: 'Inter, sans-serif' }}>
+              <span className="shrink-0 mt-[2px]" style={{ color: 'var(--accent-primary, #10b981)' }}>&#x2022;</span>
               <span>{item}</span>
             </li>
           ))}
@@ -866,36 +867,24 @@ function Section({ section, isExpanded, onToggle, index }: {
   onToggle: () => void;
   index: number;
 }) {
-  const Icon = section.icon;
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
-      className="rounded-xl border-2 overflow-hidden backdrop-blur-xl"
-      style={{
-        borderColor: isExpanded ? `${section.color}70` : `${section.color}30`,
-        backgroundColor: isExpanded ? `${section.color}08` : 'rgba(255,255,255,0.02)',
-        boxShadow: isExpanded ? `0 0 30px ${section.color}20` : 'none',
-      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: index * 0.03 }}
+      className="border-b transition-all"
+      style={{ borderColor: 'var(--border-color)', borderLeft: isExpanded ? `3px solid ${section.color}` : '3px solid transparent' }}
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-4 p-5 text-left transition-all"
-        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
-        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+        className="w-full flex items-center gap-4 py-4 px-2 text-left transition-all group"
       >
-        <div
-          className="flex items-center justify-center w-10 h-10 rounded-lg border shrink-0"
-          style={{ borderColor: `${section.color}50`, backgroundColor: `${section.color}15` }}
-        >
-          <Icon className="w-5 h-5" style={{ color: section.color }} />
-        </div>
-        <h2 className="flex-1 text-lg font-black uppercase tracking-wider" style={{ color: section.color }}>
+        <span className="text-[11px] font-mono shrink-0 w-6 text-right" style={{ color: isExpanded ? section.color : 'var(--text-tertiary)' }}>{String(index + 1).padStart(2, '0')}</span>
+        <h2 className="flex-1 text-xl uppercase tracking-[0.15em] group-hover:opacity-100 transition-all font-semibold" style={{ color: isExpanded ? 'var(--text-primary)' : 'var(--text-secondary)', fontFamily: 'Inter, sans-serif', textShadow: isExpanded ? `0 0 30px ${section.color}40` : 'none' }}>
           {section.title}
         </h2>
         <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronDownIcon className="w-5 h-5 text-gray-500" />
+          <ChevronDownIcon className="w-4 h-4" style={{ color: isExpanded ? section.color : 'var(--text-tertiary)' }} />
         </motion.div>
       </button>
 
@@ -905,15 +894,15 @@ function Section({ section, isExpanded, onToggle, index }: {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
           >
-            <div className="px-5 pb-5 pl-[4.5rem] space-y-4">
+            <div className="pb-5 pl-12 pr-2 space-y-4">
               {section.blocks.map((block, idx) => (
                 <motion.div
                   key={idx}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: idx * 0.03 }}
                 >
                   <BlockRenderer block={block} />
                 </motion.div>
@@ -963,69 +952,51 @@ export default function DocsPage() {
   });
 
   return (
-    <div className="min-h-screen p-4 sm:p-8 pt-20 sm:pt-24" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen p-4 sm:p-8" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+      <div className="max-w-3xl mx-auto">
         {/* header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-black uppercase tracking-wider mb-2 bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
-            Documentation
-          </h1>
-          <p className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Everything you need to know about MOD Protocol — framework, app, architecture, and tokenomics
+        <div className="mb-4">
+          <p className="text-sm font-mono opacity-40 mb-1">$ mod docs</p>
+          <p className="text-3xl font-semibold tracking-tight" style={{ fontFamily: 'Inter, sans-serif', color: 'var(--text-secondary)' }}>
+            framework, app, architecture, tokenomics
           </p>
         </div>
 
         {/* search */}
-        <div className="relative mb-6">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+        <div className="relative mb-4">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-mono opacity-30">/</span>
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search docs..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm font-mono focus:outline-none focus:border-purple-500/50 transition-colors"
+            placeholder="search docs..."
+            className="w-full pl-9 pr-4 py-3 text-sm focus:outline-none transition-all rounded-lg"
             style={{
-              border: '1px solid var(--border-input)',
+              border: '1px solid var(--border-color)',
               backgroundColor: 'var(--bg-input)',
               color: 'var(--text-primary)',
+              fontFamily: 'Inter, sans-serif',
             }}
           />
         </div>
 
         {/* tabs */}
-        <div className="flex flex-wrap gap-1 mb-8 p-1 rounded-xl border" style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)' }}>
+        <div className="flex flex-wrap gap-1 mb-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
           {TABS.map(tab => {
             const isActive = activeTab === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => handleTabChange(tab.key)}
-                className={`
-                  flex items-center gap-2 px-4 py-2.5 rounded-lg font-mono text-xs uppercase tracking-wider transition-all
-                  ${isActive
-                    ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/40 shadow-lg shadow-purple-500/10'
-                    : 'border border-transparent'
-                  }
-                `}
+                className="px-4 py-2.5 text-base uppercase tracking-[0.12em] transition-all border-b-2 font-medium"
                 style={{
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  backgroundColor: isActive ? undefined : 'transparent'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                  borderColor: isActive ? 'var(--text-primary)' : 'transparent',
+                  marginBottom: '-1px',
+                  fontFamily: 'Inter, sans-serif',
                 }}
               >
-                <span className={`text-[10px] ${isActive ? 'text-purple-400' : ''}`} style={{ color: isActive ? undefined : 'var(--text-tertiary)' }}>
-                  {tab.prefix}
-                </span>
-                <span>{tab.label}</span>
+                {tab.label}
               </button>
             );
           })}
@@ -1033,13 +1004,13 @@ export default function DocsPage() {
 
         {/* section count */}
         {search.trim() && (
-          <p className="text-xs font-mono mb-4" style={{ color: 'var(--text-tertiary)' }}>
-            {filteredSections.length} section{filteredSections.length !== 1 ? 's' : ''} matching &quot;{search}&quot;
+          <p className="text-xs mb-3 opacity-40" style={{ fontFamily: 'Inter, sans-serif' }}>
+            {filteredSections.length} result{filteredSections.length !== 1 ? 's' : ''} for &quot;{search}&quot;
           </p>
         )}
 
         {/* sections */}
-        <div className="space-y-4">
+        <div>
           {filteredSections.map((section, index) => (
             <Section
               key={section.id}
@@ -1050,16 +1021,16 @@ export default function DocsPage() {
             />
           ))}
           {filteredSections.length === 0 && (
-            <div className="text-center py-16 font-mono text-sm" style={{ color: 'var(--text-tertiary)' }}>
-              No sections match your search.
+            <div className="text-center py-16 text-sm opacity-30" style={{ fontFamily: 'Inter, sans-serif' }}>
+              no results found
             </div>
           )}
         </div>
 
         {/* footer */}
-        <div className="mt-16 pt-8 border-t text-center" style={{ borderColor: 'var(--border-color)' }}>
-          <p className="font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            MOD Protocol — &quot;Simplicity is the ultimate sophistication.&quot;
+        <div className="mt-8 pt-4 border-t text-center" style={{ borderColor: 'var(--border-color)' }}>
+          <p className="text-xs font-mono uppercase tracking-[0.3em] opacity-20">
+            mod protocol
           </p>
         </div>
       </div>

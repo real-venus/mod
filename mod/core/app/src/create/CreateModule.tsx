@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { userContext } from '@/context/UserContext'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircleIcon, ExclamationCircleIcon, MagnifyingGlassIcon, ArrowPathIcon, XMarkIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ExclamationCircleIcon, MagnifyingGlassIcon, ArrowPathIcon, XMarkIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -20,12 +20,10 @@ interface GitHubRepo {
   topics: string[]
 }
 
-type CreateMode = 'search' | 'manual'
-
 export default function CreateModule() {
   const router = useRouter()
   const { user, client } = userContext()
-  const [mode, setMode] = useState<CreateMode>('search')
+  const [input, setInput] = useState('')
   const [url, setUrl] = useState('')
   const [name, setName] = useState('')
   const [registerToKey, setRegisterToKey] = useState('')
@@ -33,13 +31,13 @@ export default function CreateModule() {
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<GitHubRepo[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const searchTimeout = useRef<NodeJS.Timeout | null>(null)
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null)
   const [waitForCompletion, setWaitForCompletion] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
   useEffect(() => {
     if (user?.key && !registerToKey) {
@@ -56,28 +54,50 @@ export default function CreateModule() {
 
   useEffect(() => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
-    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+
+    const trimmedInput = input.trim()
+
+    // Reset if empty — but don't clear url/name if a repo is selected
+    if (!trimmedInput || trimmedInput.length < 2) {
       setSearchResults([])
       setSearchError(null)
+      if (!selectedRepo) {
+        setUrl('')
+      }
       return
     }
 
-    // Check if the query is a GitHub URL
-    const githubUrlMatch = searchQuery.trim().match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+\/[^\/]+)/i)
+    // Check if the query is a GitHub URL — check this FIRST before isGitUrl
+    const githubUrlMatch = trimmedInput.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+\/[^\/]+)/i)
     if (githubUrlMatch) {
       const fullName = githubUrlMatch[1].replace(/\.git$/, '')
-      // Fetch the specific repo
+      setSearchResults([])
       fetchSpecificRepo(fullName)
       return
     }
 
+    // Check if it's a direct URL or identifier format (user/repo, Qm..., bafy...)
+    if (isCid(trimmedInput)) {
+      setUrl(trimmedInput)
+      setSearchResults([])
+      return
+    }
+
+    // Check user/repo format — but only if it clearly looks like one (has exactly one slash)
+    if (/^[\w-]+\/[\w.-]+(\.git)?$/.test(trimmedInput)) {
+      fetchSpecificRepo(trimmedInput.replace(/\.git$/, ''))
+      setSearchResults([])
+      return
+    }
+
+    // Otherwise treat as search query
     searchTimeout.current = setTimeout(() => {
-      searchGitHub(searchQuery.trim())
+      searchGitHub(trimmedInput)
     }, 400)
     return () => {
       if (searchTimeout.current) clearTimeout(searchTimeout.current)
     }
-  }, [searchQuery])
+  }, [input, selectedRepo])
 
   const fetchSpecificRepo = async (fullName: string) => {
     setIsSearching(true)
@@ -142,7 +162,7 @@ export default function CreateModule() {
     setUrl(repo.url + '.git')
     setName(repo.name)
     setSelectedRepo(repo)
-    setSearchQuery('')
+    setInput('')
     setSearchResults([])
   }
 
@@ -150,6 +170,7 @@ export default function CreateModule() {
     setUrl('')
     setName('')
     setSelectedRepo(null)
+    setInput('')
   }
 
   const isGitUrl = (input: string) => {
@@ -240,420 +261,283 @@ export default function CreateModule() {
 
   const valid = isValidInput()
   const inputType = getInputType()
+  const showSearchResults = searchResults.length > 0 && !selectedRepo && !url
 
   return (
     <div className="flex flex-col gap-6" style={{ fontFamily: 'var(--font-digital), monospace' }}>
 
-      {/* Mode Selector */}
-      <div className="flex gap-3 p-2 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
+      {/* Unified Input */}
+      <div className="space-y-4">
+        <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+          ▸ MODULE URL
+        </label>
+
+        {!selectedRepo && (
+          <div className="relative">
+            <MagnifyingGlassIcon className="w-6 h-6 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
+            {isSearching && (
+              <ArrowPathIcon className="w-6 h-6 absolute right-4 top-1/2 -translate-y-1/2 text-green-500/60 animate-spin" />
+            )}
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="SEARCH REPOS, PASTE URL, OR ENTER USER/REPO..."
+              className="w-full pl-14 pr-14 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
+              style={{
+                background: 'var(--bg-secondary)',
+                borderColor: url ? (valid ? 'rgba(34,197,94,0.6)' : '#ef4444') : 'var(--border-strong)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-digital)',
+              }}
+            />
+            {url && !selectedRepo && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
+                <span className={`text-sm font-bold px-3 py-1 border-4 uppercase tracking-wider ${
+                  valid ? 'text-green-500 border-green-500/30' : 'text-red-500 border-red-500/30'
+                }`} style={{ fontFamily: 'var(--font-digital)' }}>
+                  {inputType}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Help Section - Collapsible */}
         <button
-          onClick={() => setMode('search')}
-          className="flex-1 py-4 px-6 text-base font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3 border-4"
-          style={{
-            background: mode === 'search' ? 'var(--text-primary)' : 'var(--bg-primary)',
-            borderColor: mode === 'search' ? 'var(--text-primary)' : 'var(--border-color)',
-            color: mode === 'search' ? 'var(--bg-primary)' : 'var(--text-primary)',
-            fontFamily: 'var(--font-digital)',
-          }}
+          onClick={() => setShowHelp(!showHelp)}
+          className="w-full flex items-center justify-between p-4 border-4 transition-all hover:bg-[var(--bg-tertiary)]"
+          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
         >
-          <MagnifyingGlassIcon className="w-6 h-6" />
-          SEARCH
+          <div className="flex items-center gap-3">
+            <div className="text-blue-500 text-xl font-bold">?</div>
+            <span className="font-bold text-sm uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+              {showHelp ? 'HIDE HELP' : 'NEED HELP?'}
+            </span>
+          </div>
+          {showHelp ? (
+            <ChevronUpIcon className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+          ) : (
+            <ChevronDownIcon className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+          )}
         </button>
-        <button
-          onClick={() => setMode('manual')}
-          className="flex-1 py-4 px-6 text-base font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3 border-4"
-          style={{
-            background: mode === 'manual' ? 'var(--text-primary)' : 'var(--bg-primary)',
-            borderColor: mode === 'manual' ? 'var(--text-primary)' : 'var(--border-color)',
-            color: mode === 'manual' ? 'var(--bg-primary)' : 'var(--text-primary)',
-            fontFamily: 'var(--font-digital)',
-          }}
-        >
-          <PencilSquareIcon className="w-6 h-6" />
-          MANUAL
-        </button>
+
+        <AnimatePresence>
+          {showHelp && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="p-5 border-4 space-y-3" style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-strong)' }}>
+                <span className="font-bold block text-sm uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>▸ SUPPORTED FORMATS:</span>
+                <div className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
+                  <div className="font-bold uppercase"><span className="text-green-500">▸</span> GITHUB: <code className="text-xs px-2 py-1 border-4 ml-2" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>user/repo</code></div>
+                  <div className="font-bold uppercase"><span className="text-green-500">▸</span> FULL URL: <code className="text-xs px-2 py-1 border-4 ml-2" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>github.com/user/repo.git</code></div>
+                  <div className="font-bold uppercase"><span className="text-green-500">▸</span> IPFS: <code className="text-xs px-2 py-1 border-4 ml-2" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>Qm...</code> or <code className="text-xs px-2 py-1 border-4 ml-1" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>bafy...</code></div>
+                  <div className="font-bold uppercase pt-2"><span className="text-blue-500">▸</span> OR SEARCH BY KEYWORDS: <span className="text-blue-400">react hooks, solidity, python api</span></div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {searchError && (
+          <p className="text-red-500/70 text-xs font-medium pl-2">{searchError}</p>
+        )}
       </div>
 
-      <AnimatePresence mode="wait">
-        {mode === 'search' ? (
-          <motion.div
-            key="search-mode"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.2 }}
-            className="flex flex-col gap-6"
-          >
-            {/* Platform Indicator */}
-            <div className="flex items-center justify-between px-2 py-4 border-4" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
-              <div className="flex items-center gap-3">
-                <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
-                  <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-                </svg>
-                <span className="text-base font-bold text-green-500 uppercase" style={{ fontFamily: 'var(--font-digital)' }}>GitHub</span>
-                <span className="text-sm px-3 py-1 bg-green-500/15 text-green-600 dark:text-green-400 uppercase tracking-wider font-bold border-4 border-green-500/30" style={{ fontFamily: 'var(--font-digital)' }}>ACTIVE</span>
-              </div>
-              <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>IPFS, NPM COMING SOON</span>
-            </div>
-
-            {/* GitHub Search Interface */}
-            <div className="space-y-6">
-              <div className="relative">
-                <MagnifyingGlassIcon className="w-6 h-6 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
-                {isSearching && (
-                  <ArrowPathIcon className="w-6 h-6 absolute right-4 top-1/2 -translate-y-1/2 text-green-500/60 animate-spin" />
-                )}
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="SEARCH REPOSITORIES OR PASTE GITHUB URL..."
-                  className="w-full pl-14 pr-14 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    borderColor: 'var(--border-strong)',
-                    color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-digital)',
-                  }}
-                />
-              </div>
-
-              {searchError && (
-                <p className="text-red-500/70 text-xs font-medium">{searchError}</p>
-              )}
-
-              {/* Quick suggestions */}
-              {!searchQuery.trim() && searchResults.length === 0 && !selectedRepo && (
-                <div className="space-y-4">
-                  <p className="text-sm uppercase tracking-wider font-bold" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ POPULAR SEARCHES</p>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {['machine learning', 'solidity', 'react', 'rust cli', 'python api'].map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => setSearchQuery(s)}
-                        className="text-sm px-4 py-2 border-4 transition-all font-bold uppercase"
-                        style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', fontFamily: 'var(--font-digital)' }}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Results */}
-              {searchResults.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {searchResults.map((repo) => (
-                    <button
-                      key={repo.full_name}
-                      onClick={() => selectRepo(repo)}
-                      className="text-left p-4 border-4 transition-all group"
-                      style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className="text-base font-bold group-hover:text-green-500 transition-colors truncate uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
-                          {repo.full_name}
-                        </span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <StarSolid className="w-4 h-4 text-amber-500/60" />
-                          <span className="text-sm font-bold text-amber-500/70" style={{ fontFamily: 'var(--font-digital)' }}>{formatStars(repo.stars)}</span>
-                        </div>
-                      </div>
-                      {repo.description && (
-                        <p className="text-sm line-clamp-2 leading-relaxed mb-3" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{repo.description}</p>
-                      )}
-                      <div className="flex items-center gap-4">
-                        {repo.language && (
-                          <div className="flex items-center gap-2">
-                            <span className="w-3 h-3" style={{ backgroundColor: langColors[repo.language] || '#555' }} />
-                            <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{repo.language}</span>
-                          </div>
-                        )}
-                        <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', opacity: 0.7, fontFamily: 'var(--font-digital)' }}>{timeAgo(repo.updated_at)}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && !searchError && (
-                <div className="text-center py-12 border-4" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
-                  <div className="w-16 h-16 mx-auto mb-4 border-4 flex items-center justify-center" style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-strong)' }}>
-                    <MagnifyingGlassIcon className="w-8 h-8" style={{ color: 'var(--text-primary)' }} />
-                  </div>
-                  <p className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ NO REPOSITORIES FOUND</p>
-                </div>
-              )}
-            </div>
-
-            {/* Selected repo */}
-            {selectedRepo && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
+      {/* Quick suggestions - only show when nothing entered yet */}
+      {!input.trim() && !selectedRepo && !url && (
+        <div className="space-y-4">
+          <p className="text-sm uppercase tracking-wider font-bold" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ POPULAR SEARCHES</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            {['machine learning', 'solidity', 'react', 'rust cli', 'python api'].map((s) => (
+              <button
+                key={s}
+                onClick={() => setInput(s)}
+                className="text-sm px-4 py-2 border-4 transition-all font-bold uppercase hover:bg-[var(--bg-tertiary)]"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', fontFamily: 'var(--font-digital)' }}
               >
-                <div className="p-5 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-green-500 font-bold text-lg uppercase" style={{ fontFamily: 'var(--font-digital)' }}>{selectedRepo.full_name}</span>
-                        <span className="text-xs px-3 py-1 text-green-600 border-4 border-green-500/30 uppercase tracking-wider font-bold" style={{ fontFamily: 'var(--font-digital)' }}>GIT</span>
-                      </div>
-                      {selectedRepo.description && (
-                        <p className="text-sm leading-relaxed mb-3 line-clamp-2" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{selectedRepo.description}</p>
-                      )}
-                      <div className="flex items-center gap-4">
-                        {selectedRepo.language && (
-                          <div className="flex items-center gap-2">
-                            <span className="w-3 h-3" style={{ backgroundColor: langColors[selectedRepo.language] || '#737373' }} />
-                            <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{selectedRepo.language}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1">
-                          <StarSolid className="w-4 h-4 text-amber-500/60" />
-                          <span className="text-sm font-bold text-amber-500/70" style={{ fontFamily: 'var(--font-digital)' }}>{formatStars(selectedRepo.stars)}</span>
-                        </div>
-                        <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{timeAgo(selectedRepo.updated_at)}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={clearSelection}
-                      className="p-2 border-4 transition-all hover:bg-red-500/10"
-                      style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-strong)' }}
-                    >
-                      <XMarkIcon className="w-5 h-5" />
-                    </button>
-                  </div>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Search Results */}
+      {showSearchResults && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {searchResults.map((repo) => (
+            <button
+              key={repo.full_name}
+              onClick={() => selectRepo(repo)}
+              className="text-left p-4 border-4 transition-all group hover:border-green-500/50"
+              style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <span className="text-base font-bold group-hover:text-green-500 transition-colors truncate uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+                  {repo.full_name}
+                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <StarSolid className="w-4 h-4 text-amber-500/60" />
+                  <span className="text-sm font-bold text-amber-500/70" style={{ fontFamily: 'var(--font-digital)' }}>{formatStars(repo.stars)}</span>
                 </div>
-
-                <div className="space-y-6">
-                  {/* Module Name Input */}
-                  <div className="space-y-3">
-                    <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
-                      ▸ MODULE NAME
-                    </label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="MODULE-NAME"
-                      className="w-full px-4 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
-                      style={{
-                        background: 'var(--bg-secondary)',
-                        borderColor: 'var(--border-strong)',
-                        color: 'var(--text-primary)',
-                        fontFamily: 'var(--font-digital)',
-                      }}
-                    />
-                    <p className="text-sm font-bold uppercase" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>
-                      AUTO-DETECTED FROM REPOSITORY
-                    </p>
-                  </div>
-
-                  {/* Wait toggle */}
-                  <div className="flex items-center justify-between p-5 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-base font-bold uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>WAIT FOR COMPLETION</span>
-                        <span className="text-sm px-3 py-1 border-4 font-bold uppercase" style={{
-                          background: waitForCompletion ? 'rgba(59,130,246,0.15)' : 'rgba(34,197,94,0.15)',
-                          color: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
-                          borderColor: waitForCompletion ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)',
-                          fontFamily: 'var(--font-digital)',
-                        }}>
-                          {waitForCompletion ? 'SYNC' : 'ASYNC'}
-                        </span>
-                      </div>
-                      <p className="text-sm mt-2 font-bold uppercase" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>
-                        {waitForCompletion ? 'WAIT FOR MODULE TO BUILD' : 'REGISTER IN BACKGROUND'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setWaitForCompletion(!waitForCompletion)}
-                      className="relative w-16 h-10 border-4 transition-all"
-                      style={{
-                        background: waitForCompletion ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)',
-                        borderColor: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
-                      }}
-                    >
-                      <div
-                        className="absolute top-1 w-6 h-6 border-4 transition-all"
-                        style={{
-                          background: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
-                          borderColor: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
-                          left: waitForCompletion ? 'calc(100% - 32px)' : '4px',
-                        }}
-                      />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!valid || isSubmitting || !user || !registerToKey.trim()}
-                    className="w-full py-4 font-bold text-base uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed border-4"
-                    style={{
-                      background: 'var(--bg-primary)',
-                      borderColor: 'var(--border-strong)',
-                      color: 'var(--text-primary)',
-                      fontFamily: 'var(--font-digital)',
-                    }}
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center justify-center gap-3">
-                        <ArrowPathIcon className="w-6 h-6 animate-spin" />
-                        {waitForCompletion ? '▸ BUILDING...' : '▸ REGISTERING...'}
-                      </span>
-                    ) : (
-                      '▸ REGISTER MODULE'
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </motion.div>
-        ) : (
-          <motion.div
-            key="manual-mode"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-6"
-          >
-            <div className="space-y-6">
-              <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
-                ▸ MODULE URL
-              </label>
-
-              <div className="relative">
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="USER/REPO  OR  GITHUB.COM/USER/REPO.GIT  OR  QM..."
-                  className="w-full px-4 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    borderColor: url ? (valid ? 'rgba(34,197,94,0.6)' : '#ef4444') : 'var(--border-strong)',
-                    color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-digital)',
-                  }}
-                />
-                {url && (
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
-                    <span className={`text-sm font-bold px-3 py-1 border-4 uppercase tracking-wider ${
-                      valid ? 'text-green-500 border-green-500/30' : 'text-red-500 border-red-500/30'
-                    }`} style={{ fontFamily: 'var(--font-digital)' }}>
-                      {inputType}
-                    </span>
-                    <button onClick={() => setUrl('')} className="transition-colors hover:text-red-400 border-4 p-1" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-strong)' }}>
-                      <XMarkIcon className="w-5 h-5" />
-                    </button>
+              </div>
+              {repo.description && (
+                <p className="text-sm line-clamp-2 leading-relaxed mb-3" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{repo.description}</p>
+              )}
+              <div className="flex items-center gap-4">
+                {repo.language && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3" style={{ backgroundColor: langColors[repo.language] || '#555' }} />
+                    <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{repo.language}</span>
                   </div>
                 )}
+                <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', opacity: 0.7, fontFamily: 'var(--font-digital)' }}>{timeAgo(repo.updated_at)}</span>
               </div>
+            </button>
+          ))}
+        </div>
+      )}
 
-              {/* Module Name Input */}
-              {url && valid && (
-                <div className="space-y-3">
-                  <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
-                    ▸ MODULE NAME
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="MODULE-NAME"
-                    className="w-full px-4 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
-                    style={{
-                      background: 'var(--bg-secondary)',
-                      borderColor: 'var(--border-strong)',
-                      color: 'var(--text-primary)',
-                      fontFamily: 'var(--font-digital)',
-                    }}
-                  />
-                  <p className="text-sm font-bold uppercase" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>
-                    AUTO-DETECTED FROM URL
-                  </p>
-                </div>
-              )}
+      {input.trim().length >= 2 && !isSearching && !showSearchResults && !url && !searchError && (
+        <div className="text-center py-12 border-4" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
+          <div className="w-16 h-16 mx-auto mb-4 border-4 flex items-center justify-center" style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-strong)' }}>
+            <MagnifyingGlassIcon className="w-8 h-8" style={{ color: 'var(--text-primary)' }} />
+          </div>
+          <p className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ NO REPOSITORIES FOUND</p>
+        </div>
+      )}
 
-              <div className="p-5 flex items-start gap-4 border-4" style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-strong)' }}>
-                <div className="text-blue-500 text-2xl font-bold">ℹ</div>
-                <div className="flex-1 text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                  <span className="font-bold block mb-3 text-base uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>▸ SUPPORTED FORMATS:</span>
-                  <div className="space-y-2">
-                    <div className="font-bold uppercase" style={{ fontFamily: 'var(--font-digital)' }}><span className="text-green-500">▸</span> GITHUB: <code className="text-sm px-2 py-1 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>user/repo</code></div>
-                    <div className="font-bold uppercase" style={{ fontFamily: 'var(--font-digital)' }}><span className="text-green-500">▸</span> FULL URL: <code className="text-sm px-2 py-1 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>github.com/user/repo.git</code></div>
-                    <div className="font-bold uppercase" style={{ fontFamily: 'var(--font-digital)' }}><span className="text-green-500">▸</span> IPFS: <code className="text-sm px-2 py-1 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>Qm...</code> or <code className="text-sm px-2 py-1 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>bafy...</code></div>
+      {/* Selected repo or valid URL - show configuration */}
+      {(selectedRepo || (url && valid)) && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          {selectedRepo && (
+            <div className="p-5 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-green-500 font-bold text-lg uppercase" style={{ fontFamily: 'var(--font-digital)' }}>{selectedRepo.full_name}</span>
+                    <span className="text-xs px-3 py-1 text-green-600 border-4 border-green-500/30 uppercase tracking-wider font-bold" style={{ fontFamily: 'var(--font-digital)' }}>GIT</span>
                   </div>
-                </div>
-              </div>
-
-              {/* Wait toggle */}
-              <div className="flex items-center justify-between p-5 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <span className="text-base font-bold uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>WAIT FOR COMPLETION</span>
-                    <span className="text-sm px-3 py-1 border-4 font-bold uppercase" style={{
-                      background: waitForCompletion ? 'rgba(59,130,246,0.15)' : 'rgba(34,197,94,0.15)',
-                      color: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
-                      borderColor: waitForCompletion ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)',
-                      fontFamily: 'var(--font-digital)',
-                    }}>
-                      {waitForCompletion ? 'SYNC' : 'ASYNC'}
-                    </span>
+                  {selectedRepo.description && (
+                    <p className="text-sm leading-relaxed mb-3 line-clamp-2" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{selectedRepo.description}</p>
+                  )}
+                  <div className="flex items-center gap-4">
+                    {selectedRepo.language && (
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3" style={{ backgroundColor: langColors[selectedRepo.language] || '#737373' }} />
+                        <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{selectedRepo.language}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <StarSolid className="w-4 h-4 text-amber-500/60" />
+                      <span className="text-sm font-bold text-amber-500/70" style={{ fontFamily: 'var(--font-digital)' }}>{formatStars(selectedRepo.stars)}</span>
+                    </div>
+                    <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{timeAgo(selectedRepo.updated_at)}</span>
                   </div>
-                  <p className="text-sm mt-2 font-bold uppercase" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>
-                    {waitForCompletion ? 'WAIT FOR MODULE TO BUILD' : 'REGISTER IN BACKGROUND'}
-                  </p>
                 </div>
                 <button
-                  onClick={() => setWaitForCompletion(!waitForCompletion)}
-                  className="relative w-16 h-10 border-4 transition-all"
-                  style={{
-                    background: waitForCompletion ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)',
-                    borderColor: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
-                  }}
+                  onClick={clearSelection}
+                  className="p-2 border-4 transition-all hover:bg-red-500/10"
+                  style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-strong)' }}
                 >
-                  <div
-                    className="absolute top-1 w-6 h-6 border-4 transition-all"
-                    style={{
-                      background: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
-                      borderColor: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
-                      left: waitForCompletion ? 'calc(100% - 32px)' : '4px',
-                    }}
-                  />
+                  <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
-
-              {/* Register button */}
-              <button
-                onClick={handleSubmit}
-                disabled={!valid || isSubmitting || !user || !registerToKey.trim()}
-                className="w-full py-4 font-bold text-base uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed border-4"
-                style={{
-                  background: 'var(--bg-primary)',
-                  borderColor: 'var(--border-strong)',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-digital)',
-                }}
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-3">
-                    <ArrowPathIcon className="w-6 h-6 animate-spin" />
-                    {waitForCompletion ? '▸ BUILDING...' : '▸ REGISTERING...'}
-                  </span>
-                ) : (
-                  '▸ REGISTER MODULE'
-                )}
-              </button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+
+          {/* Module Name Input */}
+          <div className="space-y-3">
+            <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+              ▸ MODULE NAME
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="MODULE-NAME"
+              className="w-full px-4 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
+              style={{
+                background: 'var(--bg-secondary)',
+                borderColor: 'var(--border-strong)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-digital)',
+              }}
+            />
+            <p className="text-sm font-bold uppercase" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>
+              AUTO-DETECTED FROM {selectedRepo ? 'REPOSITORY' : 'URL'}
+            </p>
+          </div>
+
+          {/* Wait toggle */}
+          <div className="flex items-center justify-between p-5 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <span className="text-base font-bold uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>WAIT FOR COMPLETION</span>
+                <span className="text-sm px-3 py-1 border-4 font-bold uppercase" style={{
+                  background: waitForCompletion ? 'rgba(59,130,246,0.15)' : 'rgba(34,197,94,0.15)',
+                  color: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
+                  borderColor: waitForCompletion ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)',
+                  fontFamily: 'var(--font-digital)',
+                }}>
+                  {waitForCompletion ? 'SYNC' : 'ASYNC'}
+                </span>
+              </div>
+              <p className="text-sm mt-2 font-bold uppercase" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>
+                {waitForCompletion ? 'WAIT FOR MODULE TO BUILD' : 'REGISTER IN BACKGROUND'}
+              </p>
+            </div>
+            <button
+              onClick={() => setWaitForCompletion(!waitForCompletion)}
+              className="relative w-16 h-10 border-4 transition-all"
+              style={{
+                background: waitForCompletion ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)',
+                borderColor: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
+              }}
+            >
+              <div
+                className="absolute top-1 w-6 h-6 border-4 transition-all"
+                style={{
+                  background: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
+                  borderColor: waitForCompletion ? 'rgb(59,130,246)' : 'rgb(34,197,94)',
+                  left: waitForCompletion ? 'calc(100% - 32px)' : '4px',
+                }}
+              />
+            </button>
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={!valid || isSubmitting || !user || !registerToKey.trim()}
+            className="w-full py-4 font-bold text-base uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed border-4"
+            style={{
+              background: 'var(--bg-primary)',
+              borderColor: 'var(--border-strong)',
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-digital)',
+            }}
+          >
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-3">
+                <ArrowPathIcon className="w-6 h-6 animate-spin" />
+                {waitForCompletion ? '▸ BUILDING...' : '▸ REGISTERING...'}
+              </span>
+            ) : (
+              '▸ REGISTER MODULE'
+            )}
+          </button>
+        </motion.div>
+      )}
 
       {/* Result / Error - Show at bottom */}
       <AnimatePresence>

@@ -131,8 +131,14 @@ export default function WalletInfoTabs() {
 
   return (
     <div className="space-y-2">
-      {/* Token Display - Above Tabs */}
-      <div className="p-3 rounded-lg border transition-all" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
+      {/* Token Display - Above Tabs - 8-bit style */}
+      <div className="p-3 border-4 transition-all" style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        borderColor: `${userColor}`,
+        imageRendering: 'pixelated',
+        clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+        boxShadow: `0 0 8px ${userColor}40`
+      }}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <KeyIcon className="w-4 h-4" style={{ color: userColor }} />
@@ -146,8 +152,12 @@ export default function WalletInfoTabs() {
             <button
               onClick={handleRefreshToken}
               disabled={isRefreshing}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-              style={{ borderColor: userColor, color: userColor }}
+              className="flex items-center gap-1 px-2 py-1 text-xs border-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+              style={{
+                borderColor: userColor,
+                color: userColor,
+                clipPath: 'polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px))',
+              }}
             >
               <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               <span className="font-bold">Refresh</span>
@@ -155,12 +165,16 @@ export default function WalletInfoTabs() {
           </div>
         </div>
         <div
-          className="flex items-center gap-2 p-2 rounded-md bg-black/50 border border-white/5 cursor-pointer hover:bg-black/70 transition-all group"
+          className="flex items-center gap-2 p-2 bg-black/50 border-2 cursor-pointer hover:bg-black/70 transition-all group"
           onClick={() => {
             const token = localStorage.getItem('wallet_token') || ''
             if (token) navigator.clipboard.writeText(token)
           }}
           title="Click to copy token"
+          style={{
+            borderColor: `${userColor}40`,
+            clipPath: 'polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px))',
+          }}
         >
           <code className="font-mono text-sm break-all flex-1" style={{ color: userColor }}>
             {localStorage.getItem('wallet_token') || 'No token'}
@@ -173,7 +187,10 @@ export default function WalletInfoTabs() {
           >
             <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: userColor }} />
             {isTokenQrHovered && (
-              <div className="absolute bottom-full right-0 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: userColor }}>
+              <div className="absolute bottom-full right-0 mb-2 p-2 bg-black/95 border-4 z-50 shadow-2xl" style={{
+                borderColor: userColor,
+                clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+              }}>
                 <QRCode value={localStorage.getItem('wallet_token') || ''} size={120} color={userColor} />
               </div>
             )}
@@ -181,13 +198,15 @@ export default function WalletInfoTabs() {
         </div>
       </div>
 
-      {/* Compact Tab Navigation */}
-      <div className="flex gap-1 p-1 rounded-lg bg-black/40 border border-white/10">
+      {/* Compact Tab Navigation - 8-bit style */}
+      <div className="flex gap-1 p-1 bg-black/40 border-4 border-white/10" style={{
+        clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+      }}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-bold uppercase tracking-wide transition-all ${
               activeTab === tab.id
                 ? 'text-white shadow-lg'
                 : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
@@ -195,7 +214,8 @@ export default function WalletInfoTabs() {
             style={{
               backgroundColor: activeTab === tab.id ? `${userColor}30` : undefined,
               borderColor: activeTab === tab.id ? userColor : undefined,
-              border: activeTab === tab.id ? `1px solid ${userColor}` : '1px solid transparent'
+              border: activeTab === tab.id ? `2px solid ${userColor}` : '2px solid transparent',
+              clipPath: 'polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px))',
             }}
           >
             <tab.icon className="w-3.5 h-3.5" style={{ color: activeTab === tab.id ? userColor : undefined }} />
@@ -204,11 +224,16 @@ export default function WalletInfoTabs() {
         ))}
       </div>
 
-      {/* Tab Content */}
+      {/* Tab Content - 8-bit style */}
       {activeTab === 'overview' && (
         <div className="space-y-2">
-          {/* Address - Compact */}
-          <div className="p-2 rounded-lg border transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
+          {/* Address - Compact - 8-bit */}
+          <div className="p-2 border-4 transition-all hover:bg-white/5" style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            borderColor: `${userColor}`,
+            clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+            boxShadow: `0 0 4px ${userColor}40`
+          }}>
             <div className="flex items-center gap-1.5 mb-1">
               <WalletIcon className="w-3.5 h-3.5" style={{ color: userColor }} />
               <span className="text-xs text-gray-400 font-bold uppercase">Address</span>
@@ -218,14 +243,17 @@ export default function WalletInfoTabs() {
                 {user.key}
               </code>
               <CopyButton text={user.key || ''} size="sm" />
-              <div 
+              <div
                 className="relative"
                 onMouseEnter={() => setIsAddressQrHovered(true)}
                 onMouseLeave={() => setIsAddressQrHovered(false)}
               >
                 <QrCodeIcon className="h-4 w-4 cursor-pointer" style={{ color: userColor }} />
                 {isAddressQrHovered && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 rounded-lg border-2 z-50 shadow-2xl" style={{ borderColor: userColor }}>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/95 border-4 z-50 shadow-2xl" style={{
+                    borderColor: userColor,
+                    clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+                  }}>
                     <QRCode value={user.key || ''} size={100} color={userColor} />
                   </div>
                 )}
@@ -233,8 +261,13 @@ export default function WalletInfoTabs() {
             </div>
           </div>
 
-          {/* Balance - Compact */}
-          <div className="p-2 rounded-lg border transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
+          {/* Balance - Compact - 8-bit */}
+          <div className="p-2 border-4 transition-all hover:bg-white/5" style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            borderColor: `${userColor}`,
+            clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+            boxShadow: `0 0 4px ${userColor}40`
+          }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <BanknotesIcon className="w-3.5 h-3.5" style={{ color: userColor }} />
@@ -245,8 +278,13 @@ export default function WalletInfoTabs() {
                 </span>
                 <button
                   onClick={handleTopUp}
-                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs border transition-all hover:scale-105"
-                  style={{ borderColor: userColor, color: userColor, backgroundColor: `${userColor}15` }}
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs border-2 transition-all hover:scale-105"
+                  style={{
+                    borderColor: userColor,
+                    color: userColor,
+                    backgroundColor: `${userColor}15`,
+                    clipPath: 'polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px))',
+                  }}
                 >
                   <CreditCardIcon className="w-3 h-3" />
                   <span className="font-bold">+</span>
@@ -266,8 +304,13 @@ export default function WalletInfoTabs() {
             )}
           </div>
 
-          {/* Key Type - Compact */}
-          <div className="p-2 rounded-lg border transition-all hover:bg-white/5" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
+          {/* Key Type - Compact - 8-bit */}
+          <div className="p-2 border-4 transition-all hover:bg-white/5" style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            borderColor: `${userColor}`,
+            clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+            boxShadow: `0 0 4px ${userColor}40`
+          }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <KeyIcon className="w-3.5 h-3.5" style={{ color: userColor }} />
@@ -288,20 +331,28 @@ export default function WalletInfoTabs() {
             <button
               onClick={fetchUserTransactions}
               disabled={isLoadingTxs}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all hover:scale-105"
-              style={{ borderColor: userColor, color: userColor }}
+              className="flex items-center gap-1 px-2 py-1 text-xs border-2 transition-all hover:scale-105"
+              style={{
+                borderColor: userColor,
+                color: userColor,
+                clipPath: 'polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px))',
+              }}
             >
               <ArrowPathIcon className={`w-3 h-3 ${isLoadingTxs ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
           </div>
-          
+
           {isLoadingTxs ? (
             <div className="flex items-center justify-center py-8">
               <ArrowPathIcon className="w-6 h-6 animate-spin" style={{ color: userColor }} />
             </div>
           ) : transactions.length === 0 ? (
-            <div className="p-4 rounded-lg border text-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}40` }}>
+            <div className="p-4 border-4 text-center" style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              borderColor: `${userColor}`,
+              clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+            }}>
               <DocumentTextIcon className="w-8 h-8 mx-auto mb-2 text-gray-500" />
               <p className="text-xs text-gray-400">No transactions found</p>
             </div>
@@ -310,8 +361,13 @@ export default function WalletInfoTabs() {
               {transactions.map((tx, index) => (
                 <div
                   key={tx.hash || index}
-                  className="p-2 rounded-lg border transition-all hover:bg-white/5 cursor-pointer"
-                  style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', borderColor: `${userColor}30` }}
+                  className="p-2 border-4 transition-all hover:bg-white/5 cursor-pointer"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    borderColor: `${userColor}`,
+                    clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+                    boxShadow: `0 0 4px ${userColor}40`
+                  }}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-1.5">
@@ -320,13 +376,15 @@ export default function WalletInfoTabs() {
                         {tx.type || 'call'}
                       </span>
                     </div>
-                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+                    <span className={`text-xs font-bold px-1.5 py-0.5 border-2 ${
                       tx.status === 'confirmed' || tx.status === 'success'
-                        ? 'bg-green-500/20 text-green-400'
+                        ? 'bg-green-500/20 text-green-400 border-green-500'
                         : tx.status === 'pending'
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}>
+                        ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500'
+                        : 'bg-red-500/20 text-red-400 border-red-500'
+                    }`} style={{
+                      clipPath: 'polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px))',
+                    }}>
                       {tx.status}
                     </span>
                   </div>
@@ -347,11 +405,15 @@ export default function WalletInfoTabs() {
               ))}
             </div>
           )}
-          
+
           <button
             onClick={() => router.push(`/user/${user.key}?tab=txs`)}
-            className="w-full p-2 rounded-lg border text-xs font-bold uppercase transition-all hover:bg-white/5"
-            style={{ borderColor: `${userColor}40`, color: userColor }}
+            className="w-full p-2 border-4 text-xs font-bold uppercase transition-all hover:bg-white/5"
+            style={{
+              borderColor: `${userColor}`,
+              color: userColor,
+              clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
+            }}
           >
             View All Transactions
           </button>

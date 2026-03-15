@@ -1,24 +1,46 @@
 "use client"
 
-import { motion } from 'framer-motion'
+const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
 
-export function GlowCard({ children, color, delay = 0, className = '' }: {
-  children: React.ReactNode; color: string; delay?: number; className?: string
+export function TerminalCard({ children, className = '', label = '' }: {
+  children: React.ReactNode; className?: string; label?: string
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay, duration: 0.4, ease: 'easeOut' }}
-      className={`relative group ${className}`}
-    >
+    <div className={`relative ${className}`}>
+      {label && (
+        <div className="flex items-center gap-2 mb-1 px-1">
+          <span style={{ color: 'var(--accent-primary, #10b981)', opacity: 0.5, fontFamily: TERM_FONT, fontSize: '11px' }}>{'///'}</span>
+          <span style={{
+            fontFamily: TERM_FONT,
+            fontSize: '13px',
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            color: 'var(--accent-primary, #10b981)',
+            opacity: 0.6,
+          }}>{label}</span>
+          <div className="flex-1 h-px" style={{ background: 'var(--border-color)' }} />
+        </div>
+      )}
       <div
-        className="absolute -inset-[1px] rounded-xl opacity-40 group-hover:opacity-60 blur-sm transition-opacity duration-500"
-        style={{ background: `linear-gradient(135deg, ${color}40, transparent 60%)` }}
-      />
-      <div className="relative rounded-xl p-6 backdrop-blur-xl h-full" style={{ backgroundColor: 'var(--bg-secondary)', border: '2px solid var(--border-strong)' }}>
+        style={{
+          fontFamily: TERM_FONT,
+          fontSize: '14px',
+          padding: '16px 20px',
+          border: '2px solid var(--border-color)',
+          background: 'var(--bg-secondary)',
+          boxShadow: '3px 3px 0px 0px rgba(255,255,255,0.06)',
+          imageRendering: 'pixelated' as any,
+        }}
+      >
         {children}
       </div>
-    </motion.div>
+    </div>
   )
+}
+
+// Keep backwards compat export
+export function GlowCard({ children, color: _color, delay: _delay = 0, className = '' }: {
+  children: React.ReactNode; color: string; delay?: number; className?: string
+}) {
+  return <TerminalCard className={className}>{children}</TerminalCard>
 }

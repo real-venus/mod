@@ -200,7 +200,7 @@ export default function QuestPage() {
             backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
           }}
         />
-        <div className="relative max-w-3xl mx-auto px-6 pt-20 pb-8 z-20">
+        <div className="relative max-w-3xl mx-auto px-6 pt-6 pb-8 z-20">
           <div className="flex items-center justify-center py-20">
             <div className="flex items-center gap-3">
               <span className="animate-pulse" style={{ color: 'rgb(59 130 246)' }}>_</span>
@@ -221,7 +221,7 @@ export default function QuestPage() {
             backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px)',
           }}
         />
-        <div className="relative max-w-3xl mx-auto px-6 pt-20 pb-8 z-20">
+        <div className="relative max-w-3xl mx-auto px-6 pt-6 pb-8 z-20">
           <button
             onClick={() => router.push('/quests')}
             className="flex items-center gap-2 text-[12px] font-extrabold transition-colors mb-8 uppercase tracking-wider"
@@ -254,7 +254,7 @@ export default function QuestPage() {
         }}
       />
 
-      <div className="relative max-w-3xl mx-auto px-6 pt-20 pb-8 z-20">
+      <div className="relative max-w-3xl mx-auto px-6 pt-6 pb-8 z-20">
 
         {/* Back button */}
         <button

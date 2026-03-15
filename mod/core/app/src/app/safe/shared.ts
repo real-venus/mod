@@ -10,12 +10,7 @@ import TokenGateABI from '@/contracts/tokengate/TokenGate.sol/TokenGate.json'
 import BlocTimeABI from '@/contracts/bloctime/BlocTime.sol/BlocTime.json'
 import TokenABI from '@/contracts/token/Token.sol/Token.json'
 
-export const ACCENT = '#f59e0b'
-
-export const inputClass = 'w-full rounded-lg px-3 py-2 text-sm font-mono focus:border-amber-500/50 focus:outline-none transition-colors'
-export const inputStyle = { backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-strong)', color: 'var(--text-primary)' } as const
-export const selectClass = 'w-full rounded-lg px-3 py-2 text-sm focus:border-amber-500/50 focus:outline-none transition-colors appearance-none cursor-pointer'
-export const btnClass = 'px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed'
+export const ACCENT = '#10b981'
 
 export const CONTRACT_ABIS: Record<string, any[]> = {
   Treasury: TreasuryABI.abi,
@@ -71,4 +66,13 @@ export function getContracts(): { name: string; address: string }[] {
     .sort(([a], [b]) => a.localeCompare(b))
   const ordered = treasury ? [treasury, ...rest] : rest
   return ordered.map(([name, val]) => ({ name, address: val.address }))
+}
+
+export function getSafeDeployment(): { singleton: string; factory: string } {
+  const chainConfig = (modConfig.chain as any)?.testnet
+  const safe = chainConfig?.contracts?.Safe
+  return {
+    singleton: safe?.singleton || '',
+    factory: safe?.factory || '',
+  }
 }

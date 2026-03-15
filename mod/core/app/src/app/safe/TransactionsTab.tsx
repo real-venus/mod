@@ -1,12 +1,8 @@
 "use client"
 
 import { ethers } from 'ethers'
-import {
-  CheckCircleIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline'
-import { GlowCard } from './GlowCard'
-import { ACCENT, btnClass, getContracts } from './shared'
+import { TerminalCard } from './GlowCard'
+import { getContracts } from './shared'
 import { shorten } from '@/utils'
 import {
   removeStalePendingTxs,
@@ -15,6 +11,8 @@ import {
   type ExecutedTransaction,
 } from '@/network/safe'
 import { toast } from 'react-toastify'
+
+const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
 
 export function TransactionsTab({
   safeInfo, walletAddress, isOwner,
@@ -38,17 +36,29 @@ export function TransactionsTab({
 
   if (!safeInfo) {
     return (
-      <GlowCard color={ACCENT}>
-        <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>Load a Safe first</p>
-      </GlowCard>
+      <div className="py-12 text-center" style={{ fontFamily: TERM_FONT, fontSize: '14px', color: 'var(--text-tertiary)' }}>
+        load a safe first
+      </div>
     )
   }
 
+  const makeBtnStyle = (color: string): React.CSSProperties => ({
+    fontFamily: TERM_FONT,
+    fontSize: '12px',
+    padding: '4px 12px',
+    border: `2px solid ${color}`,
+    color: color,
+    background: 'transparent',
+    boxShadow: `2px 2px 0px 0px ${color}`,
+    cursor: 'pointer',
+  })
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500/70">Pending Transactions</h2>
-        <div className="flex gap-2">
+    <div className="space-y-6">
+      {/* Pending header */}
+      <div className="flex items-center justify-between">
+        <span style={{ fontFamily: TERM_FONT, fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--accent-primary, #10b981)', opacity: 0.6 }}>PENDING</span>
+        <div className="flex gap-3">
           {pendingTxs.some((tx) => tx.nonce < safeInfo.nonce) && (
             <button
               onClick={() => {
@@ -56,29 +66,35 @@ export function TransactionsTab({
                 toast.success(`Removed ${removed} stale transaction(s)`)
                 onRefresh()
               }}
-              className={`${btnClass} bg-red-500/10 text-red-400/70 border border-red-500/20 hover:bg-red-500/20 text-xs`}
+              style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--accent-error, #ef4444)', opacity: 0.6, cursor: 'pointer', border: 'none', background: 'none' }}
             >
-              Clear Stale
+              clear-stale
             </button>
           )}
           <button
             onClick={onRefresh}
             disabled={txLoading}
-            className={`${btnClass} text-xs`}
-            style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border-strong)' }}
+            style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', cursor: txLoading ? 'not-allowed' : 'pointer', border: 'none', background: 'none', opacity: txLoading ? 0.4 : 1 }}
           >
-            {txLoading ? <ArrowPathIcon className="w-3 h-3 animate-spin" /> : 'Refresh'}
+            {txLoading ? '...' : 'refresh'}
           </button>
         </div>
       </div>
 
       {pendingTxs.length === 0 && !txLoading && (
-        <GlowCard color={ACCENT}>
-          <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>No pending transactions</p>
-        </GlowCard>
+        <div className="py-6 text-center" style={{
+          fontFamily: TERM_FONT,
+          fontSize: '13px',
+          color: 'var(--text-tertiary)',
+          border: '2px solid var(--border-color)',
+          background: 'var(--bg-secondary)',
+          boxShadow: '3px 3px 0px 0px rgba(255,255,255,0.06)',
+        }}>
+          no pending transactions
+        </div>
       )}
 
-      {pendingTxs.map((tx, i) => {
+      {pendingTxs.map((tx) => {
         const confirmCount = tx.confirmations?.length || 0
         const needed = tx.confirmationsRequired
         const isStale = tx.nonce < safeInfo.nonce
@@ -89,63 +105,55 @@ export function TransactionsTab({
         const isActionLoading = actionLoading === tx.safeTxHash
 
         return (
-          <GlowCard key={tx.safeTxHash} color={canExecute ? '#10b981' : ACCENT} delay={i * 0.05}>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70">Nonce {tx.nonce}</span>
-                    {isStale ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30">
-                        expired (nonce used)
-                      </span>
-                    ) : (
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        canExecute
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                      }`}>
-                        {confirmCount}/{needed} {canExecute ? 'ready' : 'pending'}
-                      </span>
-                    )}
-                  </div>
-                  <TxDetails tx={tx} contracts={contracts} />
+          <TerminalCard key={tx.safeTxHash}>
+            <div className="space-y-3">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3" style={{ fontFamily: TERM_FONT, fontSize: '14px' }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>nonce:{tx.nonce}</span>
+                  {isStale ? (
+                    <span style={{ color: 'var(--accent-error, #ef4444)', opacity: 0.7 }}>[expired]</span>
+                  ) : canExecute ? (
+                    <span style={{ color: 'var(--accent-primary, #10b981)', textShadow: '0 0 6px var(--accent-primary, #10b981)' }}>[ready {confirmCount}/{needed}]</span>
+                  ) : (
+                    <span style={{ color: 'var(--accent-warning, #eab308)', opacity: 0.7 }}>[pending {confirmCount}/{needed}]</span>
+                  )}
                 </div>
-
-                <div className="flex gap-2 shrink-0">
-                  {isOwner && !alreadyConfirmed && !canExecute && (
+                <div className="flex gap-2">
+                  {isOwner && !alreadyConfirmed && !canExecute && !isStale && (
                     <button
                       onClick={() => onConfirm(tx)}
                       disabled={isActionLoading}
-                      className={`${btnClass} bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 text-xs`}
+                      style={{ ...makeBtnStyle('var(--accent-warning, #eab308)'), opacity: isActionLoading ? 0.4 : 1 }}
                     >
-                      {isActionLoading ? <ArrowPathIcon className="w-3 h-3 animate-spin" /> : 'Confirm'}
+                      {isActionLoading ? '...' : 'confirm'}
                     </button>
                   )}
                   {alreadyConfirmed && !canExecute && (
-                    <span className="flex items-center gap-1 text-xs text-emerald-400/60">
-                      <CheckCircleIcon className="w-4 h-4" /> Signed
-                    </span>
+                    <span style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--accent-primary, #10b981)', opacity: 0.6 }}>signed</span>
                   )}
                   {canExecute && (
                     <button
                       onClick={() => onExecute(tx)}
                       disabled={isActionLoading}
-                      className={`${btnClass} bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-xs`}
+                      style={{ ...makeBtnStyle('var(--accent-primary, #10b981)'), opacity: isActionLoading ? 0.4 : 1 }}
                     >
-                      {isActionLoading ? <ArrowPathIcon className="w-3 h-3 animate-spin" /> : 'Execute'}
+                      {isActionLoading ? '...' : 'execute'}
                     </button>
                   )}
                 </div>
               </div>
 
+              {/* Details */}
+              <TxDetails tx={tx} contracts={contracts} />
+
+              {/* Confirmations */}
               {tx.confirmations && tx.confirmations.length > 0 && (
-                <div className="pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
-                  <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Confirmations</div>
-                  <div className="flex flex-wrap gap-2">
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '8px', marginTop: '8px' }}>
+                  <div style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '6px' }}>sigs:</div>
+                  <div className="flex flex-wrap gap-3">
                     {tx.confirmations.map((c, ci) => (
-                      <span key={ci} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)' }}>
-                        <CheckCircleIcon className="w-3 h-3 text-emerald-400/60" />
+                      <span key={ci} style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-secondary)' }}>
                         {shorten(c.owner, 4, 4)}
                       </span>
                     ))}
@@ -153,117 +161,96 @@ export function TransactionsTab({
                 </div>
               )}
             </div>
-          </GlowCard>
+          </TerminalCard>
         )
       })}
 
       {/* Executed History */}
-      <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border-color)' }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Executed History</h2>
-          {historyLoading && <ArrowPathIcon className="w-3 h-3 animate-spin" style={{ color: 'var(--text-tertiary)' }} />}
+      <div className="mt-8 pt-6" style={{ borderTop: '2px solid var(--border-color)' }}>
+        <div className="flex items-center justify-between mb-4">
+          <span style={{ fontFamily: TERM_FONT, fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-tertiary)', opacity: 0.6 }}>HISTORY</span>
+          {historyLoading && <span style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)' }}>loading...</span>}
         </div>
-      {historyLoading && executedTxs.length === 0 && (
-        <GlowCard color={ACCENT}>
-          <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>Loading history...</p>
-        </GlowCard>
-      )}
-      {!historyLoading && executedTxs.length === 0 && (
-        <GlowCard color={ACCENT}>
-          <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>No executed transactions found</p>
-        </GlowCard>
-      )}
-      {executedTxs.length > 0 && (
-        <>
-          {executedTxs.map((tx, i) => (
-            <GlowCard key={tx.txHash} color={tx.success ? '#6b7280' : '#ef4444'} delay={i * 0.03}>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        tx.success
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                      }`}>
-                        {tx.success ? 'success' : 'failed'}
-                      </span>
-                      <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>#{tx.blockNumber}</span>
-                    </div>
-                    <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
-                      <span style={{ color: 'var(--text-tertiary)' }}>To:</span>{' '}
-                      <span className="font-mono">{shorten(tx.to)}</span>
-                      {contracts.find((c) => c.address.toLowerCase() === tx.to.toLowerCase()) && (
-                        <span className="ml-2 text-amber-500/60">
-                          ({contracts.find((c) => c.address.toLowerCase() === tx.to.toLowerCase())!.name})
-                        </span>
-                      )}
-                    </div>
-                    {tx.data && tx.data !== '0x' && (
-                      <div className="text-xs font-mono truncate max-w-md" style={{ color: 'var(--text-tertiary)' }}>
-                        {tx.data.slice(0, 66)}...
-                      </div>
-                    )}
-                    {tx.value !== '0' && (
-                      <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                        Value: <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{ethers.formatEther(tx.value)} ETH</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                      {tx.timestamp > 0 && (
-                        <span>{new Date(tx.timestamp * 1000).toLocaleString()}</span>
-                      )}
-                      <span className="font-mono">by {shorten(tx.executor, 4, 4)}</span>
-                    </div>
+
+        {historyLoading && executedTxs.length === 0 && (
+          <div className="py-6 text-center" style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}>scanning blocks...</div>
+        )}
+        {!historyLoading && executedTxs.length === 0 && (
+          <div className="py-6 text-center" style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)', opacity: 0.5 }}>no executed transactions</div>
+        )}
+
+        <div className="space-y-3">
+          {executedTxs.map((tx) => (
+            <TerminalCard key={tx.txHash}>
+              <div className="space-y-2" style={{ fontSize: '14px' }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span style={{ fontFamily: TERM_FONT, color: tx.success ? 'var(--accent-primary, #10b981)' : 'var(--accent-error, #ef4444)', textShadow: tx.success ? '0 0 6px var(--accent-primary, #10b981)' : 'none' }}>
+                      {tx.success ? 'ok' : 'fail'}
+                    </span>
+                    <span style={{ fontFamily: TERM_FONT, color: 'var(--text-tertiary)' }}>#{tx.blockNumber}</span>
                   </div>
                   <a
                     href={`https://sepolia.basescan.org/tx/${tx.txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[10px] text-amber-500/50 hover:text-amber-400 font-mono shrink-0"
+                    style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}
                   >
                     {shorten(tx.txHash, 6, 4)}
                   </a>
                 </div>
+                <div style={{ fontFamily: TERM_FONT, color: 'var(--text-secondary)' }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>to:</span> {shorten(tx.to)}
+                  {contracts.find((c) => c.address.toLowerCase() === tx.to.toLowerCase()) && (
+                    <span style={{ color: 'var(--text-tertiary)', marginLeft: '6px' }}>
+                      ({contracts.find((c) => c.address.toLowerCase() === tx.to.toLowerCase())!.name})
+                    </span>
+                  )}
+                </div>
+                {tx.data && tx.data !== '0x' && (
+                  <div className="truncate max-w-md" style={{ fontFamily: TERM_FONT, color: 'var(--text-tertiary)', opacity: 0.5 }}>{tx.data.slice(0, 66)}...</div>
+                )}
+                {tx.value !== '0' && (
+                  <div style={{ fontFamily: TERM_FONT, color: 'var(--text-secondary)' }}>
+                    value: <span style={{ color: 'var(--accent-primary, #10b981)' }}>{ethers.formatEther(tx.value)} ETH</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-4" style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', opacity: 0.5 }}>
+                  {tx.timestamp > 0 && <span>{new Date(tx.timestamp * 1000).toLocaleString()}</span>}
+                  <span>by {shorten(tx.executor, 4, 4)}</span>
+                </div>
               </div>
-            </GlowCard>
+            </TerminalCard>
           ))}
-        </>
-      )}
+        </div>
       </div>
     </div>
   )
 }
 
-// Shared tx detail display
 function TxDetails({ tx, contracts }: {
   tx: { to: string; data: string; value: string; submissionDate: string }
   contracts: { name: string; address: string }[]
 }) {
   return (
-    <>
-      <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
-        <span style={{ color: 'var(--text-tertiary)' }}>To:</span>{' '}
-        <span className="font-mono">{shorten(tx.to)}</span>
+    <div className="space-y-1" style={{ fontSize: '14px' }}>
+      <div style={{ fontFamily: TERM_FONT, color: 'var(--text-secondary)' }}>
+        <span style={{ color: 'var(--text-tertiary)' }}>to:</span> <span>{shorten(tx.to)}</span>
         {contracts.find((c) => c.address.toLowerCase() === tx.to.toLowerCase()) && (
-          <span className="ml-2 text-amber-500/60">
+          <span style={{ color: 'var(--text-tertiary)', marginLeft: '6px' }}>
             ({contracts.find((c) => c.address.toLowerCase() === tx.to.toLowerCase())!.name})
           </span>
         )}
       </div>
       {tx.data && tx.data !== '0x' && (
-        <div className="text-xs font-mono truncate max-w-md" style={{ color: 'var(--text-tertiary)' }}>
-          {tx.data.slice(0, 66)}...
-        </div>
+        <div className="truncate max-w-md" style={{ fontFamily: TERM_FONT, color: 'var(--text-tertiary)', opacity: 0.5 }}>{tx.data.slice(0, 66)}...</div>
       )}
       {tx.value !== '0' && (
-        <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-          Value: <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{ethers.formatEther(tx.value)} ETH</span>
+        <div style={{ fontFamily: TERM_FONT, color: 'var(--text-secondary)' }}>
+          value: <span style={{ color: 'var(--accent-primary, #10b981)' }}>{ethers.formatEther(tx.value)} ETH</span>
         </div>
       )}
-      <div className="text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-        {new Date(tx.submissionDate).toLocaleString()}
-      </div>
-    </>
+      <div style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', opacity: 0.5 }}>{new Date(tx.submissionDate).toLocaleString()}</div>
+    </div>
   )
 }

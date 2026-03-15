@@ -1,18 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import {
-  ShieldCheckIcon,
-  UserGroupIcon,
-  DocumentTextIcon,
-  PaperAirplaneIcon,
-  ArrowPathIcon,
-  HashtagIcon,
-  PlusIcon,
-} from '@heroicons/react/24/outline'
 import { ethers } from 'ethers'
 import modConfig from '@/config.json'
-import { motion } from 'framer-motion'
 import { userContext } from '@/context'
 import {
   getSafeInfo,
@@ -26,17 +16,25 @@ import {
 } from '@/network/safe'
 import { toast } from 'react-toastify'
 
-import { GlowCard } from './GlowCard'
 import { OverviewTab } from './OverviewTab'
 import { TransactionsTab } from './TransactionsTab'
 import { ProposeTab } from './ProposeTab'
 import { OwnersTab } from './OwnersTab'
 import { CreateTab } from './CreateTab'
-import { ACCENT, inputClass, inputStyle, btnClass } from './shared'
 
 export const dynamic = 'force-dynamic'
 
 type Tab = 'overview' | 'transactions' | 'propose' | 'owners' | 'create'
+
+const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
+
+const TABS: { key: Tab; label: string; icon: string }[] = [
+  { key: 'overview', label: 'OVERVIEW', icon: '\u25C9' },
+  { key: 'transactions', label: 'TRANSACTIONS', icon: '\u25A4' },
+  { key: 'propose', label: 'PROPOSE', icon: '\u25B6' },
+  { key: 'owners', label: 'OWNERS', icon: '\u2630' },
+  { key: 'create', label: 'CREATE', icon: '+' },
+]
 
 export default function SafePage() {
   const { user } = userContext()
@@ -57,7 +55,6 @@ export default function SafePage() {
   const [executedTxs, setExecutedTxs] = useState<ExecutedTransaction[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
 
-  // ── Load Safe info ──
   const loadSafe = useCallback(async () => {
     if (!safeAddress || !ethers.isAddress(safeAddress)) {
       toast.error('Enter a valid Safe address')
@@ -84,7 +81,6 @@ export default function SafePage() {
     if (safeAddress && walletAddress) loadSafe()
   }, [walletAddress]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Fetch pending transactions ──
   const fetchPendingTxs = useCallback(async () => {
     if (!safeInfo) return
     setTxLoading(true)
@@ -102,7 +98,6 @@ export default function SafePage() {
     }
   }, [safeInfo])
 
-  // ── Fetch executed transaction history ──
   const fetchHistory = useCallback(async () => {
     if (!safeInfo) return
     setHistoryLoading(true)
@@ -126,7 +121,6 @@ export default function SafePage() {
     }
   }, [activeTab, safeInfo, fetchPendingTxs, fetchHistory])
 
-  // ── Confirm a pending transaction ──
   async function handleConfirm(tx: PendingTransaction) {
     if (!walletAddress) { toast.error('Connect wallet first'); return }
     setActionLoading(tx.safeTxHash)
@@ -146,7 +140,6 @@ export default function SafePage() {
     }
   }
 
-  // ── Execute a pending transaction ──
   async function handleExecute(tx: PendingTransaction) {
     if (!walletAddress) { toast.error('Connect wallet first'); return }
     setActionLoading(tx.safeTxHash)
@@ -172,88 +165,133 @@ export default function SafePage() {
     setTimeout(() => loadSafe(), 100)
   }
 
-  const tabs: { key: Tab; label: string; icon: any }[] = [
-    { key: 'overview', label: 'OVERVIEW', icon: ShieldCheckIcon },
-    { key: 'transactions', label: 'TRANSACTIONS', icon: DocumentTextIcon },
-    { key: 'propose', label: 'PROPOSE', icon: PaperAirplaneIcon },
-    { key: 'owners', label: 'OWNERS', icon: UserGroupIcon },
-    { key: 'create', label: 'CREATE', icon: PlusIcon },
-  ]
-
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="min-h-screen" style={{ fontFamily: TERM_FONT, backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+      <div className="max-w-5xl mx-auto px-4 py-8">
+
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Manage multisig accounts and propose transactions</p>
-        </motion.div>
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <span style={{ color: 'var(--accent-primary, #10b981)', fontSize: '20px', fontFamily: TERM_FONT }}>$</span>
+            <span style={{
+              fontFamily: TERM_FONT,
+              fontSize: '22px',
+              letterSpacing: '0.08em',
+              color: 'var(--accent-primary, #10b981)',
+              textShadow: '0 0 12px var(--accent-primary, #10b981)',
+            }}>
+              safe
+            </span>
+            <span style={{ color: 'var(--text-tertiary)', fontSize: '14px', fontFamily: TERM_FONT }}>
+              --multisig
+            </span>
+          </div>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '14px', fontFamily: TERM_FONT }}>
+            Manage multisig accounts and propose transactions
+          </p>
+          <div className="mt-3" style={{ height: '2px', background: 'var(--accent-primary, #10b981)', opacity: 0.3 }} />
+        </div>
 
         {/* Safe address input */}
-        <GlowCard color={ACCENT} delay={0.1} className="mb-6">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1 block">Safe Address</label>
-              <input type="text" value={safeAddress} onChange={(e) => setSafeAddress(e.target.value)} placeholder="0x..." className={inputClass} style={inputStyle} />
-            </div>
-            <div className="flex items-end">
-              <button onClick={loadSafe} disabled={loading} className={`${btnClass} bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30`}>
-                {loading ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : 'Load'}
-              </button>
-            </div>
+        <div
+          className="mb-8"
+          style={{
+            border: '2px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            padding: '16px 20px',
+            boxShadow: '3px 3px 0px 0px rgba(255,255,255,0.06)',
+          }}
+        >
+          <label style={{
+            display: 'block',
+            fontFamily: TERM_FONT,
+            fontSize: '13px',
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            color: 'var(--accent-primary, #10b981)',
+            opacity: 0.7,
+            marginBottom: '8px',
+          }}>SAFE ADDRESS</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={safeAddress}
+              onChange={(e) => setSafeAddress(e.target.value)}
+              placeholder="0x..."
+              className="flex-1 bg-transparent outline-none"
+              style={{
+                fontFamily: TERM_FONT,
+                fontSize: '15px',
+                color: 'var(--text-primary)',
+                border: 'none',
+                padding: '4px 0',
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && loadSafe()}
+            />
+            <button
+              onClick={loadSafe}
+              disabled={loading}
+              className="transition-all"
+              style={{
+                fontFamily: TERM_FONT,
+                fontSize: '14px',
+                padding: '6px 16px',
+                border: '2px solid var(--accent-primary, #10b981)',
+                color: 'var(--accent-primary, #10b981)',
+                background: 'transparent',
+                boxShadow: '2px 2px 0px 0px var(--accent-primary, #10b981)',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.4 : 1,
+              }}
+            >
+              {loading ? '...' : 'Load'}
+            </button>
           </div>
+
+          {/* Status line */}
           {safeInfo && (
-            <div className="mt-4 flex flex-wrap gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <UserGroupIcon className="w-4 h-4 text-amber-500/60" />
-                <span style={{ color: 'var(--text-secondary)' }}>Owners:</span>
-                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeInfo.owners.length}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <ShieldCheckIcon className="w-4 h-4 text-amber-500/60" />
-                <span style={{ color: 'var(--text-secondary)' }}>Threshold:</span>
-                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeInfo.threshold}/{safeInfo.owners.length}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <HashtagIcon className="w-4 h-4 text-amber-500/60" />
-                <span style={{ color: 'var(--text-secondary)' }}>Nonce:</span>
-                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeInfo.nonce}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span style={{ color: 'var(--text-secondary)' }}>ETH:</span>
-                <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{parseFloat(ethBalance).toFixed(4)}</span>
-              </div>
-              {isOwner && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  You are a signer
-                </span>
-              )}
+            <div
+              className="mt-4 flex flex-wrap gap-x-6 gap-y-2 pt-3"
+              style={{
+                borderTop: '1px solid var(--border-color)',
+                fontFamily: TERM_FONT,
+                fontSize: '13px',
+                color: 'var(--text-tertiary)',
+              }}
+            >
+              <span>owners: <span style={{ color: 'var(--accent-primary, #10b981)' }}>{safeInfo.owners.length}</span></span>
+              <span>threshold: <span style={{ color: 'var(--accent-primary, #10b981)' }}>{safeInfo.threshold}/{safeInfo.owners.length}</span></span>
+              <span>nonce: <span style={{ color: 'var(--accent-primary, #10b981)' }}>{safeInfo.nonce}</span></span>
+              <span>eth: <span style={{ color: 'var(--accent-primary, #10b981)' }}>{parseFloat(ethBalance).toFixed(4)}</span></span>
+              {isOwner && <span style={{ color: 'var(--accent-primary, #10b981)' }}>[signer]</span>}
             </div>
           )}
-        </GlowCard>
+        </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 mb-6 overflow-x-auto" style={{ borderBottom: '2px solid var(--border-color)' }}>
-          {tabs.map((tab) => {
+        <div className="flex gap-2 mb-8" style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '8px' }}>
+          {TABS.map((tab) => {
             const active = activeTab === tab.key
-            const Icon = tab.icon
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`relative px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 whitespace-nowrap ${
-                  active ? 'text-amber-400' : ''
-                }`}
-                style={!active ? { color: 'var(--text-tertiary)' } : {}}
+                className="transition-all"
+                style={{
+                  fontFamily: TERM_FONT,
+                  fontSize: '13px',
+                  letterSpacing: '0.1em',
+                  padding: '8px 16px',
+                  border: active ? '2px solid var(--accent-primary, #10b981)' : '2px solid transparent',
+                  background: active ? 'rgba(16, 185, 129, 0.08)' : 'transparent',
+                  color: active ? 'var(--accent-primary, #10b981)' : 'var(--text-tertiary)',
+                  boxShadow: active ? '2px 2px 0px 0px var(--accent-primary, #10b981)' : 'none',
+                  cursor: 'pointer',
+                  textShadow: active ? '0 0 8px var(--accent-primary, #10b981)' : 'none',
+                }}
               >
-                <Icon className="w-4 h-4" />
+                <span style={{ marginRight: '6px' }}>{tab.icon}</span>
                 {tab.label}
-                {active && (
-                  <motion.div
-                    layoutId="safe-tab-underline"
-                    className="absolute bottom-0 left-0 right-0 h-[2px]"
-                    style={{ background: ACCENT, boxShadow: `0 0 8px ${ACCENT}80` }}
-                  />
-                )}
               </button>
             )
           })}

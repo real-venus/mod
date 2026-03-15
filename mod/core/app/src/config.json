@@ -143,6 +143,12 @@
                     "address": "0x65f0414D968749Ff44eCC7B56A1a6AdE687E74c9",
                     "contract": "Bridge",
                     "abi": "Qmf6BuQ8atcLozv9zTnPupM8Vc3ZFJvzaNeN8cKDdk8MCF"
+                },
+                "Safe": {
+                    "address": "",
+                    "singleton": "0x8161c74310A21bEa2425bFEF81De45c5C2a88818",
+                    "factory": "0xd8552214cF910a69566d6ac2EEF7e3375D354Fea",
+                    "contract": "Safe"
                 }
             }
         },

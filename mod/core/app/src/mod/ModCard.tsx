@@ -1,6 +1,6 @@
 "use client";
 import { text2color, shorten, time2str, timeAgo, colorWithOpacity } from '@/utils'
-import { KeyIcon, CubeIcon, QrCodeIcon } from '@heroicons/react/24/outline'
+import { KeyIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import { ModuleType } from '@/types'
 import Link from 'next/link'
 import { CopyButton } from '@/ui/CopyButton'
@@ -18,6 +18,8 @@ interface ModCardProps {
   selectedHistoricalIndex?: number
   onHistoricalVersionChange?: (index: number) => void
 }
+
+const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
 
 export default function ModCard({
   mod,
@@ -46,26 +48,20 @@ export default function ModCard({
 
   const isExpanded = !card_enabled && !compact
 
-  // Find current index in all versions
   const currentVersionIndex = allVersions.findIndex(v => v.key === mod.key)
   const hasMultipleOwners = allVersions.length > 1
   const hasHistoricalVersions = historicalVersions.length > 0
 
   const handleOwnerSelect = (ownerKey: string) => {
-    if (onVersionSelect) {
-      onVersionSelect(ownerKey)
-    }
+    if (onVersionSelect) onVersionSelect(ownerKey)
     setOwnerDropdownOpen(false)
   }
 
   const handleHistoricalSelect = (index: number) => {
-    if (onHistoricalVersionChange) {
-      onHistoricalVersionChange(index)
-    }
+    if (onHistoricalVersionChange) onHistoricalVersionChange(index)
     setVersionDropdownOpen(false)
   }
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (ownerDropdownRef.current && !ownerDropdownRef.current.contains(event.target as Node)) {
@@ -75,31 +71,21 @@ export default function ModCard({
         setVersionDropdownOpen(false)
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   // Compact single-line layout for expanded page header
   if (compact) {
     return (
       <div
-        className="relative overflow-visible group flex items-center gap-6"
-        style={{ fontFamily: 'var(--font-digital), monospace' }}
+        className="relative overflow-visible group flex items-center gap-4"
+        style={{ fontFamily: TERM_FONT }}
       >
-        {/* Name + fn count */}
         <div className="flex items-center gap-3">
           <code
-            className="tracking-tight text-4xl flex-shrink-0 uppercase"
-            style={{
-              color: '#06b6d4',
-              textShadow: `0 0 20px rgba(6, 182, 212, 0.9)`,
-              letterSpacing: '0.1em',
-              fontFamily: 'var(--font-digital), monospace',
-              imageRendering: 'pixelated',
-            }}
+            className="tracking-wider text-2xl"
+            style={{ color: 'var(--text-primary)', fontFamily: TERM_FONT, textShadow: `0 0 12px ${colorWithOpacity(modColor, 0.4)}` }}
           >
             {mod.name}
           </code>
@@ -107,56 +93,24 @@ export default function ModCard({
         </div>
 
         {fnCount > 0 && (
-          <div
-            className="flex items-center gap-1.5 flex-shrink-0 px-4 py-2 text-[14px] font-bold"
-            style={{
-              background: 'rgba(34, 197, 94, 0.15)',
-              border: '3px solid rgba(34, 197, 94, 0.4)',
-              textShadow: '0 0 10px rgba(34, 197, 94, 0.7)',
-              boxShadow: '0 0 15px rgba(34, 197, 94, 0.3)',
-              fontFamily: 'var(--font-digital), monospace',
-              imageRendering: 'pixelated',
-            }}
-          >
-            <Zap size={14} className="text-green-400" />
-            <span className="text-green-400">{fnCount}</span>
-          </div>
+          <span className="text-sm" style={{ color: 'var(--text-tertiary)', fontFamily: TERM_FONT }}>
+            [{fnCount} fn]
+          </span>
         )}
 
         {mod.public === false && (
-          <Lock size={16} className="flex-shrink-0 text-red-400" style={{ filter: 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.6))' }} />
+          <Lock size={14} className="flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
         )}
 
-        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Metadata pills inline */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div
-            className="flex items-center gap-2 px-4 py-2 text-[13px] font-bold"
-            style={{
-              background: 'rgba(6, 182, 212, 0.1)',
-              border: '3px solid rgba(6, 182, 212, 0.3)',
-              boxShadow: '0 0 20px rgba(6, 182, 212, 0.2)',
-              fontFamily: 'var(--font-digital), monospace',
-              imageRendering: 'pixelated',
-            }}
-          >
-            <Clock size={14} className="text-cyan-400" />
-            <span className="text-cyan-400" title={updatedTimeStr} style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.6)' }}>{agoStr || updatedTimeStr}</span>
-          </div>
+        <div className="flex items-center gap-3 flex-shrink-0" style={{ fontSize: '13px', fontFamily: TERM_FONT }}>
+          <span style={{ color: 'var(--text-tertiary)' }} title={updatedTimeStr}>{agoStr || updatedTimeStr}</span>
 
-          {/* Owner key with dropdown */}
           <div className="relative" ref={ownerDropdownRef}>
-            <div
-              className="flex items-center gap-2 px-4 py-2 text-[13px] font-bold cursor-pointer"
-              style={{
-                background: 'rgba(168, 85, 247, 0.1)',
-                border: '3px solid rgba(168, 85, 247, 0.3)',
-                boxShadow: '0 0 20px rgba(168, 85, 247, 0.2)',
-                fontFamily: 'var(--font-digital), monospace',
-                imageRendering: 'pixelated',
-              }}
+            <span
+              className="cursor-pointer"
+              style={{ color: 'var(--text-secondary)' }}
               title={mod.key}
               onClick={(e) => {
                 e.preventDefault()
@@ -165,80 +119,51 @@ export default function ModCard({
               }}
             >
               {hasMultipleOwners && (
-                <div className="flex items-center gap-0.5 mr-1">
-                  <Users size={13} className="text-purple-400" />
-                  <span className="text-[11px] font-extrabold text-purple-400">
-                    {currentVersionIndex + 1}/{allVersions.length}
-                  </span>
-                </div>
+                <span style={{ color: 'var(--text-tertiary)', marginRight: '4px' }}>
+                  [{currentVersionIndex + 1}/{allVersions.length}]
+                </span>
               )}
-              <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
-                <KeyIcon className="w-5 h-5 transition-all duration-200 hover:scale-110 text-purple-400" style={{ strokeWidth: 2.5, filter: 'drop-shadow(0 0 6px rgba(168, 85, 247, 0.6))' }} />
+              <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()} className="inline">
+                <KeyIcon className="w-3.5 h-3.5 inline hover:scale-110 transition-transform" style={{ strokeWidth: 2.5, color: 'var(--text-secondary)' }} />
               </Link>
-              <code className="font-mono font-bold text-purple-400" style={{ textShadow: '0 0 10px rgba(168, 85, 247, 0.6)' }}>
-                {shorten(mod.key, 4, 4)}
-              </code>
+              {' '}{shorten(mod.key, 4, 4)}
               <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
-              {hasMultipleOwners && (
-                <ChevronDown size={13} className="text-purple-400" />
-              )}
-            </div>
+              {hasMultipleOwners && <ChevronDown size={10} className="inline ml-1" style={{ color: 'var(--text-tertiary)' }} />}
+            </span>
 
-            {/* Owner Dropdown Menu */}
             {hasMultipleOwners && ownerDropdownOpen && (
               <div
-                className="absolute top-full mt-2 right-0 z-50 overflow-hidden min-w-[200px] max-h-[300px] overflow-y-auto"
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: '2px solid rgba(168, 85, 247, 0.4)',
-                  boxShadow: '0 4px 20px rgba(168, 85, 247, 0.3), 0 0 30px rgba(168, 85, 247, 0.2)',
-                }}
+                className="absolute top-full mt-2 right-0 z-50 min-w-[200px] max-h-[300px] overflow-y-auto"
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
               >
                 {allVersions.map((version, idx) => (
                   <div
                     key={version.key}
-                    className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-all"
+                    className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors"
                     style={{
                       backgroundColor: idx === currentVersionIndex ? colorWithOpacity(modColor, 0.1) : 'transparent',
                       borderBottom: idx < allVersions.length - 1 ? '1px solid var(--border-color)' : 'none',
+                      fontFamily: TERM_FONT, fontSize: '12px',
                     }}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleOwnerSelect(version.key)
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = colorWithOpacity(modColor, 0.15)
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = idx === currentVersionIndex ? colorWithOpacity(modColor, 0.1) : 'transparent'
-                    }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOwnerSelect(version.key) }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colorWithOpacity(modColor, 0.15) }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = idx === currentVersionIndex ? colorWithOpacity(modColor, 0.1) : 'transparent' }}
                   >
-                    <KeyIcon className="w-3 h-3" style={{ color: 'var(--text-secondary)', strokeWidth: 2.5 }} />
-                    <code className="font-mono text-[10px] font-bold flex-1" style={{ color: 'var(--text-secondary)' }}>
+                    <code style={{ color: 'var(--text-secondary)', fontFamily: TERM_FONT }}>
                       {shorten(version.key, 6, 6)}
                     </code>
-                    {idx === currentVersionIndex && (
-                      <span className="text-[9px] font-bold" style={{ color: modColor }}>✓</span>
-                    )}
+                    {idx === currentVersionIndex && <span style={{ color: modColor }}>*</span>}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* CID with historical version dropdown */}
           {mod.cid && (
             <div className="relative" ref={versionDropdownRef}>
-              <div
-                className="flex items-center gap-2 px-4 py-2 text-[13px] font-bold cursor-pointer"
-                style={{
-                  background: 'rgba(6, 182, 212, 0.1)',
-                  border: '3px solid rgba(6, 182, 212, 0.3)',
-                  boxShadow: '0 0 20px rgba(6, 182, 212, 0.2)',
-                  fontFamily: 'var(--font-digital), monospace',
-                  imageRendering: 'pixelated',
-                }}
+              <span
+                className="cursor-pointer"
+                style={{ color: 'var(--text-tertiary)' }}
                 title={mod.cid}
                 onClick={(e) => {
                   e.preventDefault()
@@ -247,65 +172,38 @@ export default function ModCard({
                 }}
               >
                 {hasHistoricalVersions && (
-                  <div className="flex items-center gap-0.5 mr-1">
-                    <GitBranch size={13} className="text-cyan-400" />
-                    <span className="text-[11px] font-extrabold text-cyan-400">
-                      v{historicalVersions.length - selectedHistoricalIndex}
-                    </span>
-                  </div>
+                  <span style={{ marginRight: '4px' }}>v{historicalVersions.length - selectedHistoricalIndex}</span>
                 )}
-                <Box size={14} className="text-cyan-400" style={{ filter: 'drop-shadow(0 0 6px rgba(6, 182, 212, 0.6))' }} />
-                <code className="font-mono font-bold text-cyan-400" style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.6)' }}>
-                  {shorten(mod.cid || '', 4, 4)}
-                </code>
+                {shorten(mod.cid || '', 4, 4)}
                 <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
-                {hasHistoricalVersions && (
-                  <ChevronDown size={13} className="text-cyan-400" />
-                )}
-              </div>
+                {hasHistoricalVersions && <ChevronDown size={10} className="inline ml-1" />}
+              </span>
 
-              {/* Version Dropdown Menu */}
               {hasHistoricalVersions && versionDropdownOpen && (
                 <div
-                  className="absolute top-full mt-2 right-0 z-50 overflow-hidden min-w-[200px] max-h-[300px] overflow-y-auto"
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    border: '2px solid rgba(6, 182, 212, 0.4)',
-                    boxShadow: '0 4px 20px rgba(6, 182, 212, 0.3), 0 0 30px rgba(6, 182, 212, 0.2)',
-                  }}
+                  className="absolute top-full mt-2 right-0 z-50 min-w-[200px] max-h-[300px] overflow-y-auto"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
                 >
                   {historicalVersions.map((version, idx) => {
                     const versionNum = historicalVersions.length - idx
                     return (
                       <div
                         key={idx}
-                        className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-all"
+                        className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors"
                         style={{
                           backgroundColor: idx === selectedHistoricalIndex ? colorWithOpacity(modColor, 0.1) : 'transparent',
                           borderBottom: idx < historicalVersions.length - 1 ? '1px solid var(--border-color)' : 'none',
+                          fontFamily: TERM_FONT, fontSize: '12px',
                         }}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleHistoricalSelect(idx)
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = colorWithOpacity(modColor, 0.15)
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = idx === selectedHistoricalIndex ? colorWithOpacity(modColor, 0.1) : 'transparent'
-                        }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleHistoricalSelect(idx) }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colorWithOpacity(modColor, 0.15) }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = idx === selectedHistoricalIndex ? colorWithOpacity(modColor, 0.1) : 'transparent' }}
                       >
-                        <GitBranch size={9} style={{ color: 'var(--text-tertiary)' }} />
-                        <span className="text-[10px] font-bold" style={{ color: 'var(--text-secondary)' }}>
-                          v{versionNum}
-                        </span>
-                        <code className="font-mono text-[9px] flex-1 truncate" style={{ color: 'var(--text-tertiary)' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>v{versionNum}</span>
+                        <code className="flex-1 truncate" style={{ color: 'var(--text-tertiary)', fontFamily: TERM_FONT }}>
                           {shorten(version.data || version.cid || '', 6, 6)}
                         </code>
-                        {idx === selectedHistoricalIndex && (
-                          <span className="text-[9px] font-bold" style={{ color: modColor }}>✓</span>
-                        )}
+                        {idx === selectedHistoricalIndex && <span style={{ color: modColor }}>*</span>}
                       </div>
                     )
                   })}
@@ -315,20 +213,7 @@ export default function ModCard({
           )}
 
           {mod.url && (
-            <div
-              className="flex items-center gap-2 px-4 py-2 text-[13px] font-bold"
-              style={{
-                background: 'rgba(34, 197, 94, 0.15)',
-                border: '3px solid rgba(34, 197, 94, 0.4)',
-                boxShadow: '0 0 20px rgba(34, 197, 94, 0.3)',
-                fontFamily: 'var(--font-digital), monospace',
-                imageRendering: 'pixelated',
-              }}
-              onClick={(e) => e.preventDefault()}
-            >
-              <Globe size={14} className="text-green-400" style={{ filter: 'drop-shadow(0 0 6px rgba(34, 197, 94, 0.7))' }} />
-              <span className="text-green-400 uppercase" style={{ textShadow: '0 0 10px rgba(34, 197, 94, 0.7)' }}>live</span>
-            </div>
+            <span style={{ color: 'var(--accent-success, #22c55e)' }}>LIVE</span>
           )}
         </div>
       </div>
@@ -337,186 +222,148 @@ export default function ModCard({
 
   const cardContent = (
     <div
-      className={`relative font-mono overflow-visible group h-full ${card_enabled ? 'cursor-pointer border-[5px]' : ''}`}
+      className={`relative overflow-visible group h-full ${card_enabled ? 'cursor-pointer' : ''}`}
       style={{
-        fontFamily: 'var(--font-digital), monospace',
-        borderColor: card_enabled ? modColor : undefined,
-        imageRendering: 'pixelated',
-        borderRadius: '0',
+        fontFamily: TERM_FONT,
         ...(card_enabled ? {
-          background: `linear-gradient(135deg, ${colorWithOpacity(modColor, 0.2)} 0%, ${colorWithOpacity(modColor, 0.08)} 100%)`,
-          boxShadow: isHovered ? `0 0 0 4px ${colorWithOpacity(modColor, 0.4)}, 0 10px 0 ${colorWithOpacity(modColor, 0.3)}` : `0 0 0 2px ${colorWithOpacity(modColor, 0.2)}, 0 6px 0 ${colorWithOpacity(modColor, 0.2)}`,
-          transition: 'all 0.15s cubic-bezier(0.22, 1, 0.36, 1)',
-          transform: isHovered ? 'translateY(-5px)' : 'translateY(0)',
+          background: 'var(--bg-secondary)',
+          border: `2px solid ${isHovered ? modColor : 'var(--border-color)'}`,
+          borderRadius: '6px',
+          boxShadow: isHovered
+            ? `5px 5px 0px 0px ${modColor}, 0 0 30px ${colorWithOpacity(modColor, 0.35)}, inset 0 0 30px ${colorWithOpacity(modColor, 0.05)}`
+            : `3px 3px 0px 0px rgba(255,255,255,0.08), 0 0 0 0 transparent`,
+          transition: 'all 0.2s ease',
+          imageRendering: 'pixelated' as any,
         } : {}),
       }}
       onMouseEnter={() => card_enabled && setIsHovered(true)}
       onMouseLeave={() => card_enabled && setIsHovered(false)}
     >
-
+      {/* Top accent line - 8bit chunky */}
+      {card_enabled && (
+        <div style={{
+          height: '4px',
+          background: isHovered
+            ? `linear-gradient(90deg, ${modColor}, ${colorWithOpacity(modColor, 0.6)})`
+            : 'var(--border-color)',
+          transition: 'background 0.2s ease',
+          imageRendering: 'pixelated' as any,
+          borderRadius: '6px 6px 0 0',
+        }} />
+      )}
 
       <div className={`relative ${card_enabled ? 'p-6' : ''}`}>
-        {/* Header: icon + name + fn count */}
-        <div className={`flex items-start ${isExpanded ? 'gap-5 mb-6' : 'gap-4 mb-6'}`}>
-          <div
-            className={`flex items-center justify-center flex-shrink-0 ${isExpanded ? 'w-20 h-20' : 'w-16 h-16'}`}
-            style={{
-              backgroundColor: colorWithOpacity(modColor, 0.2),
-              border: `3px solid ${modColor}`,
-              boxShadow: `0 0 0 2px ${colorWithOpacity(modColor, 0.3)}, inset 0 0 0 2px ${colorWithOpacity(modColor, 0.1)}`,
-              imageRendering: 'pixelated',
-            }}
-          >
-            <CubeIcon
+        {/* Terminal-style header - 8bit */}
+        <div className={`${isExpanded ? 'mb-5' : 'mb-5'}`}>
+          <div className="flex items-center gap-3">
+            <span style={{ color: modColor, fontSize: '24px', fontWeight: 800, fontFamily: TERM_FONT, textShadow: `0 0 10px ${colorWithOpacity(modColor, 0.6)}, 0 0 20px ${colorWithOpacity(modColor, 0.3)}` }}>$</span>
+            <code
+              className={`tracking-wider truncate ${isExpanded ? 'text-3xl' : 'text-2xl'}`}
               style={{
-                width: isExpanded ? '36px' : '32px',
-                height: isExpanded ? '36px' : '32px',
-                color: modColor,
-                strokeWidth: 3,
-                filter: `drop-shadow(2px 2px 0px ${colorWithOpacity(modColor, 0.5)})`,
+                color: 'var(--text-primary)',
+                fontFamily: TERM_FONT,
+                fontWeight: 700,
+                textShadow: isHovered
+                  ? `0 0 16px ${colorWithOpacity(modColor, 0.7)}, 0 0 32px ${colorWithOpacity(modColor, 0.4)}`
+                  : `0 0 8px ${colorWithOpacity(modColor, 0.4)}`,
+                transition: 'text-shadow 0.15s ease',
+                letterSpacing: '0.06em',
               }}
-            />
-          </div>
-
-          <div className="flex-1 min-w-0 pt-0.5">
-            <div className="flex items-center gap-2.5">
-              <code
-                className={`font-black tracking-tight truncate block uppercase ${isExpanded ? 'text-[28px]' : 'text-[22px]'}`}
-                style={{
-                  color: modColor,
-                  textShadow: `3px 3px 0px ${colorWithOpacity(modColor, 0.4)}`,
-                  transition: 'all 0.3s ease',
-                  letterSpacing: '0.1em',
-                  fontFamily: 'var(--font-digital), monospace',
-                  imageRendering: 'pixelated',
-                }}
-              >
-                {mod.name}
-              </code>
-              <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
-              {fnCount > 0 && (
-                <div
-                  className={`flex items-center gap-1.5 flex-shrink-0 ${isExpanded ? 'px-3 py-1.5 text-[14px]' : 'px-2.5 py-1 text-[12px]'}`}
-                  style={{
-                    background: 'rgba(234, 179, 8, 0.15)',
-                    border: '2px solid rgba(234, 179, 8, 0.4)',
-                    fontFamily: 'var(--font-digital), monospace',
-                  }}
-                >
-                  <Zap size={isExpanded ? 14 : 12} style={{ color: '#eab308' }} />
-                  <span className="font-bold text-yellow-500">{fnCount}</span>
-                </div>
-              )}
-              {mod.public === false && (
-                <Lock size={isExpanded ? 16 : 14} className="flex-shrink-0" style={{ color: '#ef4444', filter: 'drop-shadow(2px 2px 0px rgba(239, 68, 68, 0.4))' }} />
-              )}
-            </div>
-            {mod.desc && (
-              <p className={`font-bold leading-relaxed mt-2 uppercase ${isExpanded ? 'text-[16px]' : 'text-[14px] line-clamp-1'}`} style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital), monospace', letterSpacing: '0.05em' }}>
-                {mod.desc}
-              </p>
-            )}
-          </div>
-
-          {/* QR on hover */}
-          <div className="flex items-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
-            <div
-              className="relative"
-              onMouseEnter={() => setIsNameQrHovered(true)}
-              onMouseLeave={() => setIsNameQrHovered(false)}
             >
-              <div className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors" style={{ color: 'var(--text-secondary)' }}>
-                <QrCodeIcon className="h-3.5 w-3.5 cursor-pointer transition-colors" />
-              </div>
-              {isNameQrHovered && (
-                <div
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 border z-[9999] rounded-xl"
-                  style={{
-                    borderColor: colorWithOpacity(modColor, 0.4),
-                    background: 'var(--bg-sidebar)',
-                    boxShadow: `0 10px 30px rgba(0,0,0,0.3)`,
-                  }}
-                >
-                  <QRCode value={websiteUrl} size={120} color={modColor} />
+              {mod.name}
+            </code>
+            <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
+            {fnCount > 0 && (
+              <span
+                className="flex-shrink-0"
+                style={{ color: 'var(--text-tertiary)', fontSize: '17px', fontFamily: TERM_FONT }}
+              >
+                [{fnCount}]
+              </span>
+            )}
+            {mod.public === false && (
+              <Lock size={16} className="flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+            )}
+
+            {/* QR on hover */}
+            <div className="flex items-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-auto">
+              <div
+                className="relative"
+                onMouseEnter={() => setIsNameQrHovered(true)}
+                onMouseLeave={() => setIsNameQrHovered(false)}
+              >
+                <div className="w-7 h-7 flex items-center justify-center" style={{ color: 'var(--text-tertiary)' }}>
+                  <QrCodeIcon className="h-4 w-4 cursor-pointer" />
                 </div>
-              )}
+                {isNameQrHovered && (
+                  <div
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 z-[9999]"
+                    style={{
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-sidebar)',
+                    }}
+                  >
+                    <QRCode value={websiteUrl} size={120} color={modColor} />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          {mod.desc && (
+            <p
+              className={`mt-3 ${isExpanded ? 'text-lg' : 'text-base line-clamp-2'}`}
+              style={{
+                color: 'var(--text-tertiary)',
+                fontFamily: TERM_FONT,
+                lineHeight: '1.6',
+              }}
+            >
+              # {mod.desc}
+            </p>
+          )}
         </div>
 
-        {/* Metadata pills */}
-        <div className={`flex items-center overflow-x-auto ${isExpanded ? 'gap-3' : 'gap-2'}`}>
-          {/* Timestamp */}
-          <div
-            className={`flex items-center gap-2 flex-shrink-0 whitespace-nowrap uppercase ${isExpanded ? 'px-4 py-2 text-[12px]' : 'px-3 py-1.5 text-[11px]'}`}
-            style={{
-              background: colorWithOpacity(modColor, 0.1),
-              border: `2px solid ${colorWithOpacity(modColor, 0.3)}`,
-              fontFamily: 'var(--font-digital), monospace',
-              imageRendering: 'pixelated',
-            }}
-          >
-            <Clock size={isExpanded ? 13 : 11} style={{ color: modColor }} />
-            <span className="font-bold" style={{ color: 'var(--text-secondary)' }} title={updatedTimeStr}>{agoStr || updatedTimeStr}</span>
-          </div>
+        {/* Terminal-style metadata - 8bit */}
+        <div className="flex items-center flex-wrap gap-x-6 gap-y-2" style={{ fontSize: '16px', fontFamily: TERM_FONT, color: 'var(--text-tertiary)' }}>
+          <span title={updatedTimeStr}>{agoStr || updatedTimeStr}</span>
 
-          {/* Owner key */}
-          <div
-            className={`flex items-center gap-2 cursor-default flex-shrink-0 whitespace-nowrap uppercase ${isExpanded ? 'px-4 py-2 text-[12px]' : 'px-3 py-1.5 text-[11px]'}`}
-            style={{
-              background: colorWithOpacity(keyColor, 0.1),
-              border: `2px solid ${colorWithOpacity(keyColor, 0.3)}`,
-              fontFamily: 'var(--font-digital), monospace',
-              imageRendering: 'pixelated',
-            }}
+          <span
+            className="cursor-default"
             title={mod.key}
             onClick={(e) => e.preventDefault()}
           >
             <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
-              <KeyIcon className={`transition-all duration-200 hover:scale-110 ${isExpanded ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} style={{ color: 'var(--text-secondary)', strokeWidth: 2.5 }} />
+              <KeyIcon
+                className={`inline hover:scale-110 transition-transform ${isExpanded ? 'w-4 h-4' : 'w-3.5 h-3.5'}`}
+                style={{ color: 'var(--text-tertiary)', strokeWidth: 2.5 }}
+              />
             </Link>
-            <code className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
-              {shorten(mod.key, 4, 4)}
-            </code>
+            {' '}<code style={{ fontFamily: TERM_FONT }}>{shorten(mod.key, 4, 4)}</code>
             <CopyButton text={mod.key} size="sm" showValueOnHover={true} />
-          </div>
+          </span>
 
-          {/* IPFS CID */}
           {mod.cid && (
-            <div
-              className={`flex items-center gap-2 cursor-default flex-shrink-0 whitespace-nowrap uppercase ${isExpanded ? 'px-4 py-2 text-[12px]' : 'px-3 py-1.5 text-[11px]'}`}
-              style={{
-                background: colorWithOpacity(cidColor, 0.1),
-                border: `2px solid ${colorWithOpacity(cidColor, 0.3)}`,
-                fontFamily: 'var(--font-digital), monospace',
-                imageRendering: 'pixelated',
-              }}
+            <span
+              className="cursor-default"
               title={mod.cid}
               onClick={(e) => e.preventDefault()}
             >
-              <Box size={isExpanded ? 13 : 11} style={{ color: cidColor }} />
-              <code className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>
-                {shorten(mod.cid || '', 4, 4)}
-              </code>
+              <code style={{ fontFamily: TERM_FONT }}>{shorten(mod.cid || '', 4, 4)}</code>
               <CopyButton text={mod.cid || ''} size="sm" showValueOnHover={true} />
-            </div>
+            </span>
           )}
 
-          {/* Network badge */}
           {mod.url && (
-            <div
-              className={`flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap uppercase ${isExpanded ? 'px-3 py-2 text-[12px]' : 'px-2.5 py-1.5 text-[11px]'}`}
-              style={{
-                background: 'rgba(34, 197, 94, 0.15)',
-                border: '2px solid rgba(34, 197, 94, 0.4)',
-                fontFamily: 'var(--font-digital), monospace',
-                imageRendering: 'pixelated',
-              }}
-              onClick={(e) => e.preventDefault()}
-            >
-              <Globe size={isExpanded ? 13 : 11} className="text-green-500" />
-              <span className="font-bold text-green-500">LIVE</span>
-            </div>
+            <span style={{
+              color: 'var(--accent-success, #22c55e)',
+              fontWeight: 800,
+              fontSize: '17px',
+              textShadow: '0 0 10px var(--accent-success, #22c55e), 0 0 20px rgba(34, 197, 94, 0.3)',
+              letterSpacing: '0.15em',
+            }}>
+              LIVE
+            </span>
           )}
         </div>
       </div>

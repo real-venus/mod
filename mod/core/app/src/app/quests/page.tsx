@@ -386,14 +386,14 @@ export default function QuestsPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden font-mono" style={{ backgroundColor: 'var(--bg-surface)' }}>
-      <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-8">
+      <div className="relative max-w-5xl mx-auto px-6 pt-6 pb-8">
 
         {/* Header + Tabs + Create */}
         <div className="mb-6">
           <div className="flex items-end gap-5 pb-0" style={{ borderBottom: '1px solid var(--border-color)' }}>
             <div className="flex items-center gap-2.5 shrink-0 pb-3">
               <span className="text-[16px] font-extrabold select-none" style={{ color: 'rgb(16 185 129 / 0.6)' }}>&gt;_</span>
-              <h1 className="text-[24px] font-extrabold tracking-tight uppercase leading-none" style={{ color: 'var(--text-primary)', textShadow: '0 0 20px rgba(16, 185, 129, 0.2)' }}>QUESTS</h1>
+              <h1 className="text-[48px] font-extrabold tracking-tight uppercase leading-none" style={{ color: 'var(--text-primary)', textShadow: '0 0 20px rgba(16, 185, 129, 0.2)' }}>QUESTS</h1>
             </div>
             <div className="flex items-center gap-0 overflow-x-auto scrollbar-none flex-1">
               {TABS.filter(t => t.key !== 'create').map(tab => (

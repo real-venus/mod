@@ -60,7 +60,7 @@ export default function BridgePage() {
   const metamask = useMetaMask()
 
   // User context
-  const { user, client } = userContext()
+  const { user, client, switchWallet, connectClient } = userContext()
 
   // Wallet state
   const [walletConnection, setWalletConnection] = useState<WalletConnection>({
@@ -110,6 +110,12 @@ export default function BridgePage() {
 
   // Active tab - only claim now (history removed but keeping type for future use)
   const [activeTab, setActiveTab] = useState<'claim' | 'history'>('claim')
+
+  // Wallet selector state
+  const [walletHistory, setWalletHistory] = useState<{ address: string; mode: string; type: string; lastUsed: number }[]>([])
+  const [showWalletDropdown, setShowWalletDropdown] = useState(false)
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null)
+  const [switchingWallet, setSwitchingWallet] = useState(false)
 
   // Auto-connect from user context and fetch unclaimed balance
   useEffect(() => {
@@ -636,6 +642,49 @@ export default function BridgePage() {
     }
   }
 
+  // Load wallet history from localStorage
+  useEffect(() => {
+    try {
+      const history = JSON.parse(localStorage.getItem('wallet_history') || '[]')
+      setWalletHistory(history)
+    } catch { setWalletHistory([]) }
+
+    // Auto-search when wallet changes
+    if (user?.key) {
+      setSearchAddress(user.key)
+    }
+  }, [user])
+
+  // Track generated token from current client
+  useEffect(() => {
+    if (client?.token) {
+      setGeneratedToken(client.token)
+    }
+  }, [client])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!showWalletDropdown) return
+    const handler = () => setShowWalletDropdown(false)
+    const timer = setTimeout(() => document.addEventListener('click', handler), 0)
+    return () => { clearTimeout(timer); document.removeEventListener('click', handler) }
+  }, [showWalletDropdown])
+
+  // Handle wallet selection from dropdown
+  const handleWalletSelect = async (wallet: { address: string; mode: string; type: string }) => {
+    setShowWalletDropdown(false)
+    setSwitchingWallet(true)
+    try {
+      await switchWallet(wallet.address, wallet.mode, wallet.type)
+      toast.success(`Switched to ${wallet.address.slice(0, 8)}...`)
+    } catch (error: any) {
+      console.error('Wallet switch error:', error)
+      toast.error(error?.message || 'Failed to switch wallet')
+    } finally {
+      setSwitchingWallet(false)
+    }
+  }
+
   // Generate authentication token for sr25519
   const generateAuthToken = async () => {
     if (!user?.key || user.crypto_type !== 'sr25519') {
@@ -741,7 +790,7 @@ export default function BridgePage() {
         background: `repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 2px), var(--bg-primary)`,
       }}
     >
-      <div className="relative z-10 p-4 md:p-8 max-w-5xl mx-auto space-y-8">
+      <div className="relative z-10 p-4 md:p-6 max-w-5xl mx-auto space-y-6">
 
         {/* Header */}
         <div className="flex items-center justify-between border-4 p-4" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
@@ -749,8 +798,8 @@ export default function BridgePage() {
             <div className="w-12 h-12 flex items-center justify-center border-4" style={{ borderColor: 'var(--text-primary)', backgroundColor: 'var(--bg-primary)' }}>
               <ArrowsRightLeftIcon className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
             </div>
-            <h1 className="text-3xl font-bold tracking-wider uppercase" style={{ fontFamily: 'var(--font-digital)', color: 'var(--text-primary)' }}>
-              BRIDGE <span className="text-base ml-3" style={{ color: 'var(--text-secondary)' }}>SR25519 → EVM TOKEN TRANSFER</span>
+            <h1 className="text-5xl font-bold tracking-wider uppercase" style={{ fontFamily: 'var(--font-digital)', color: 'var(--text-primary)' }}>
+              BRIDGE <span className="text-xl ml-3" style={{ color: 'var(--text-secondary)' }}>SR25519 → EVM TOKEN TRANSFER</span>
             </h1>
           </div>
 
@@ -848,36 +897,73 @@ export default function BridgePage() {
                     <div className="space-y-4">
                       {/* From and To in one row */}
                       <div className="grid grid-cols-2 gap-4">
-                        {/* From Address */}
-                        <div>
+                        {/* From Address - Wallet Selector */}
+                        <div className="relative">
                           <label className="text-base mb-2 block font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
-                            FROM (SR25519)
+                            FROM {user?.crypto_type ? `(${user.crypto_type.toUpperCase()})` : ''}
                           </label>
-                          <input
-                            type="text"
-                            placeholder="ENTER SR25519 ADDRESS"
-                            value={searchAddress}
-                            onChange={e => {
-                              const value = e.target.value
-
-                              // If user is signed in with sr25519, prevent changing the address
-                              if (user?.crypto_type === 'sr25519' && user.key && value !== user.key) {
-                                toast.error('Cannot change address - you are signed in with SR25519')
-                                return
-                              }
-
-                              setSearchAddress(value)
-                              handleSearch(value)
-                            }}
-                            disabled={user?.crypto_type === 'sr25519'}
-                            className="w-full text-sm px-4 py-3 border-4 focus:outline-none font-mono uppercase transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          <button
+                            onClick={() => setShowWalletDropdown(!showWalletDropdown)}
+                            disabled={switchingWallet}
+                            className="w-full text-sm px-4 py-3 border-4 focus:outline-none font-mono transition-all text-left flex items-center justify-between"
                             style={{
-                              borderColor: 'var(--border-strong)',
+                              borderColor: showWalletDropdown ? 'var(--accent-primary)' : 'var(--border-strong)',
                               backgroundColor: 'var(--bg-input)',
                               color: 'var(--text-primary)',
                               fontFamily: 'var(--font-digital)'
                             }}
-                          />
+                          >
+                            <span className="truncate">
+                              {switchingWallet ? 'SWITCHING...' : (user?.key || 'SELECT WALLET')}
+                            </span>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '10px' }}>
+                              {showWalletDropdown ? '▲' : '▼'}
+                            </span>
+                          </button>
+
+                          {/* Wallet Dropdown */}
+                          {showWalletDropdown && (
+                            <div
+                              className="absolute top-full left-0 right-0 z-50 mt-1 border-4 max-h-60 overflow-y-auto"
+                              style={{
+                                borderColor: 'var(--accent-primary)',
+                                backgroundColor: 'var(--bg-secondary)',
+                              }}
+                            >
+                              {walletHistory.length === 0 ? (
+                                <div className="px-4 py-3 text-xs uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
+                                  NO WALLETS IN HISTORY
+                                </div>
+                              ) : (
+                                walletHistory.map((w, i) => {
+                                  const isCurrent = w.address.toLowerCase() === user?.key?.toLowerCase()
+                                  return (
+                                    <button
+                                      key={i}
+                                      onClick={() => handleWalletSelect(w)}
+                                      className="w-full text-left px-4 py-3 transition-all flex items-center justify-between gap-2"
+                                      style={{
+                                        backgroundColor: isCurrent ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+                                        borderBottom: i < walletHistory.length - 1 ? '1px solid var(--border-strong)' : 'none',
+                                        fontFamily: 'var(--font-digital)',
+                                      }}
+                                      onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.backgroundColor = 'var(--hover-bg)' }}
+                                      onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.backgroundColor = 'transparent' }}
+                                    >
+                                      <div className="min-w-0">
+                                        <div className="text-xs font-mono truncate" style={{ color: isCurrent ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
+                                          {isCurrent && '▸ '}{w.address}
+                                        </div>
+                                        <div className="text-xs mt-0.5 uppercase" style={{ color: 'var(--text-secondary)' }}>
+                                          {w.mode} / {w.type}
+                                        </div>
+                                      </div>
+                                    </button>
+                                  )
+                                })
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {/* To Address */}
@@ -900,6 +986,41 @@ export default function BridgePage() {
                           />
                         </div>
                       </div>
+
+                      {/* Generated Token Display */}
+                      {generatedToken && (
+                        <div className="border-4 p-4" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-tertiary)' }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
+                              AUTH TOKEN
+                            </span>
+                            <button
+                              onClick={() => copyToClipboard(generatedToken, 'Token')}
+                              className="flex items-center gap-1 px-2 py-1 border-2 text-xs uppercase tracking-wider hover:opacity-80 transition-opacity"
+                              style={{
+                                borderColor: 'var(--border-strong)',
+                                color: 'var(--accent-primary)',
+                                fontFamily: 'var(--font-digital)',
+                              }}
+                            >
+                              <ClipboardDocumentIcon className="w-3 h-3" />
+                              COPY
+                            </button>
+                          </div>
+                          <div
+                            className="text-xs font-mono p-2 border-2 overflow-x-auto"
+                            style={{
+                              borderColor: 'var(--border-strong)',
+                              backgroundColor: 'var(--bg-primary)',
+                              color: 'var(--accent-primary)',
+                              wordBreak: 'break-all',
+                              maxHeight: '60px',
+                            }}
+                          >
+                            {generatedToken}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Status Display */}
                       {searching && (

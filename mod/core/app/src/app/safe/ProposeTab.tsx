@@ -2,14 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
-import {
-  PaperAirplaneIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline'
 import { CopyButton } from '@/ui/CopyButton'
-import { GlowCard } from './GlowCard'
+import { TerminalCard } from './GlowCard'
 import {
-  ACCENT, inputClass, inputStyle, selectClass, btnClass,
   CONTRACT_ABIS, getWriteFunctions, getReadFunctions, getContracts,
 } from './shared'
 import { shorten } from '@/utils'
@@ -20,6 +15,46 @@ import {
   type SafeTxParams,
 } from '@/network/safe'
 import { toast } from 'react-toastify'
+
+const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
+
+const inputStyle: React.CSSProperties = {
+  fontFamily: TERM_FONT,
+  fontSize: '14px',
+  color: 'var(--text-primary)',
+  background: 'var(--bg-input)',
+  border: '2px solid var(--border-color)',
+  padding: '8px 12px',
+  width: '100%',
+  outline: 'none',
+  boxShadow: '2px 2px 0px 0px rgba(255,255,255,0.04)',
+}
+
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  backgroundColor: 'transparent',
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontFamily: TERM_FONT,
+  fontSize: '12px',
+  letterSpacing: '0.1em',
+  color: 'var(--text-tertiary)',
+  marginBottom: '6px',
+}
+
+const btnStyle: React.CSSProperties = {
+  fontFamily: TERM_FONT,
+  fontSize: '14px',
+  padding: '10px 16px',
+  width: '100%',
+  border: '2px solid var(--accent-primary, #10b981)',
+  color: 'var(--accent-primary, #10b981)',
+  background: 'transparent',
+  boxShadow: '3px 3px 0px 0px var(--accent-primary, #10b981)',
+  cursor: 'pointer',
+}
 
 export function ProposeTab({
   safeInfo, walletAddress, isOwner,
@@ -159,22 +194,20 @@ export function ProposeTab({
 
   if (!safeInfo) {
     return (
-      <GlowCard color={ACCENT}>
-        <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>Load a Safe first</p>
-      </GlowCard>
+      <div className="py-12 text-center" style={{ fontFamily: TERM_FONT, fontSize: '14px', color: 'var(--text-tertiary)' }}>
+        load a safe first
+      </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <GlowCard color={ACCENT} delay={0.1}>
-        <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500/70 mb-4">Contract Interaction</h2>
-
+    <div className="space-y-6">
+      <TerminalCard label="CONTRACT INTERACTION">
         {/* Contract selector */}
         <div className="mb-4">
-          <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>Contract</label>
-          <select value={selectedContract} onChange={(e) => setSelectedContract(e.target.value)} className={selectClass} style={inputStyle}>
-            <option value="">Select a contract...</option>
+          <label style={labelStyle}>contract</label>
+          <select value={selectedContract} onChange={(e) => setSelectedContract(e.target.value)} style={selectStyle}>
+            <option value="">select...</option>
             {contracts.map((c) => (
               <option key={c.name} value={c.name}>{c.name} ({shorten(c.address, 6, 4)})</option>
             ))}
@@ -183,21 +216,33 @@ export function ProposeTab({
 
         {/* Write / Read toggle */}
         {selectedContract && (
-          <div className="flex gap-1 mb-4 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-input)' }}>
+          <div className="flex gap-2 mb-4">
             <button
               onClick={() => setProposeMode('write')}
-              className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${
-                proposeMode === 'write' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : ''
-              }`}
-              style={proposeMode !== 'write' ? { color: 'var(--text-tertiary)' } : undefined}
-            >Write</button>
+              style={{
+                fontFamily: TERM_FONT,
+                fontSize: '13px',
+                padding: '6px 14px',
+                border: proposeMode === 'write' ? '2px solid var(--accent-primary, #10b981)' : '2px solid var(--border-color)',
+                color: proposeMode === 'write' ? 'var(--accent-primary, #10b981)' : 'var(--text-tertiary)',
+                background: proposeMode === 'write' ? 'rgba(16, 185, 129, 0.08)' : 'transparent',
+                boxShadow: proposeMode === 'write' ? '2px 2px 0px 0px var(--accent-primary, #10b981)' : 'none',
+                cursor: 'pointer',
+              }}
+            >write</button>
             <button
               onClick={() => setProposeMode('read')}
-              className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${
-                proposeMode === 'read' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : ''
-              }`}
-              style={proposeMode !== 'read' ? { color: 'var(--text-tertiary)' } : undefined}
-            >Read</button>
+              style={{
+                fontFamily: TERM_FONT,
+                fontSize: '13px',
+                padding: '6px 14px',
+                border: proposeMode === 'read' ? '2px solid #06b6d4' : '2px solid var(--border-color)',
+                color: proposeMode === 'read' ? '#06b6d4' : 'var(--text-tertiary)',
+                background: proposeMode === 'read' ? 'rgba(6, 182, 212, 0.08)' : 'transparent',
+                boxShadow: proposeMode === 'read' ? '2px 2px 0px 0px #06b6d4' : 'none',
+                cursor: 'pointer',
+              }}
+            >read</button>
           </div>
         )}
 
@@ -206,9 +251,9 @@ export function ProposeTab({
           <>
             {selectedContract && writeFunctions.length > 0 && (
               <div className="mb-4">
-                <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>Function</label>
-                <select value={selectedFunction} onChange={(e) => setSelectedFunction(e.target.value)} className={selectClass} style={inputStyle}>
-                  <option value="">Select a function...</option>
+                <label style={labelStyle}>function</label>
+                <select value={selectedFunction} onChange={(e) => setSelectedFunction(e.target.value)} style={selectStyle}>
+                  <option value="">select...</option>
                   {writeFunctions.map((fn) => (
                     <option key={fn.name} value={fn.name}>
                       {fn.name}({fn.inputs.map((inp: any) => `${inp.type} ${inp.name}`).join(', ')})
@@ -218,26 +263,26 @@ export function ProposeTab({
               </div>
             )}
             {selectedContract && writeFunctions.length === 0 && (
-              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No write functions found for this contract ABI</p>
+              <p style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}>no write functions</p>
             )}
-            <FnArgsInput inputs={selectedFn?.inputs} args={fnArgs} setArgs={setFnArgs} color="amber" />
+            <FnArgsInput inputs={selectedFn?.inputs} args={fnArgs} setArgs={setFnArgs} />
             {selectedFn && (
               <div className="mb-4">
-                <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>ETH Value (optional)</label>
-                <input type="text" value={ethValue} onChange={(e) => setEthValue(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+                <label style={labelStyle}>eth value</label>
+                <input type="text" value={ethValue} onChange={(e) => setEthValue(e.target.value)} placeholder="0" style={inputStyle} />
               </div>
             )}
             {selectedFn && (
               <button
                 onClick={handlePropose}
                 disabled={proposing || !isOwner}
-                className={`${btnClass} w-full bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 flex items-center justify-center gap-2`}
+                style={{ ...btnStyle, opacity: (proposing || !isOwner) ? 0.4 : 1 }}
               >
-                {proposing ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <><PaperAirplaneIcon className="w-4 h-4" /> Propose Transaction</>}
+                {proposing ? 'signing...' : '> propose transaction'}
               </button>
             )}
             {selectedFn && !isOwner && (
-              <p className="text-xs text-amber-500/40 mt-2 text-center">You must be a Safe signer to propose</p>
+              <p className="mt-2 text-center" style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)' }}>must be a signer to propose</p>
             )}
           </>
         )}
@@ -247,88 +292,97 @@ export function ProposeTab({
           <>
             {selectedContract && readFunctions.length > 0 && (
               <div className="mb-4">
-                <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>Function</label>
-                <select value={selectedReadFunction} onChange={(e) => setSelectedReadFunction(e.target.value)} className={selectClass} style={inputStyle}>
-                  <option value="">Select a function...</option>
+                <label style={labelStyle}>function</label>
+                <select value={selectedReadFunction} onChange={(e) => setSelectedReadFunction(e.target.value)} style={selectStyle}>
+                  <option value="">select...</option>
                   {readFunctions.map((fn) => (
                     <option key={fn.name} value={fn.name}>
                       {fn.name}({fn.inputs.map((inp: any) => `${inp.type} ${inp.name}`).join(', ')})
-                      {fn.outputs.length > 0 && ` → ${fn.outputs.map((o: any) => o.type).join(', ')}`}
+                      {fn.outputs.length > 0 && ` \u2192 ${fn.outputs.map((o: any) => o.type).join(', ')}`}
                     </option>
                   ))}
                 </select>
               </div>
             )}
             {selectedContract && readFunctions.length === 0 && (
-              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No read functions found for this contract ABI</p>
+              <p style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}>no read functions</p>
             )}
-            <FnArgsInput inputs={selectedReadFn?.inputs} args={readArgs} setArgs={setReadArgs} color="emerald" />
+            <FnArgsInput inputs={selectedReadFn?.inputs} args={readArgs} setArgs={setReadArgs} />
             {selectedReadFn && (
               <button
                 onClick={handleRead}
                 disabled={reading}
-                className={`${btnClass} w-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 flex items-center justify-center gap-2`}
+                style={{
+                  ...btnStyle,
+                  borderColor: '#06b6d4',
+                  color: '#06b6d4',
+                  boxShadow: '3px 3px 0px 0px #06b6d4',
+                  opacity: reading ? 0.4 : 1,
+                }}
               >
-                {reading ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : 'Call'}
+                {reading ? 'reading...' : '> call'}
               </button>
             )}
             {readResult !== null && (
-              <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500/60">Result</span>
+              <div className="mt-4" style={{ padding: '12px 16px', border: '2px solid rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'rgba(6,182,212,0.5)' }}>result</span>
                   <CopyButton text={readResult} size="sm" />
                 </div>
-                <pre className="text-sm font-mono text-emerald-300/80 whitespace-pre-wrap break-all">{readResult}</pre>
+                <pre style={{ fontFamily: TERM_FONT, fontSize: '14px', color: '#06b6d4', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{readResult}</pre>
               </div>
             )}
           </>
         )}
-      </GlowCard>
+      </TerminalCard>
 
-      {/* Contract info */}
+      {/* Target contract info */}
       {selectedContractInfo && (
-        <GlowCard color={ACCENT} delay={0.2}>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">Target Contract</div>
-          <div className="flex items-center gap-2 text-sm">
-            <span style={{ color: 'var(--text-secondary)' }}>{selectedContractInfo.name}</span>
-            <span className="font-mono" style={{ color: 'var(--text-tertiary)' }}>{shorten(selectedContractInfo.address)}</span>
-            <CopyButton text={selectedContractInfo.address} size="sm" />
-          </div>
-        </GlowCard>
+        <div className="flex items-center gap-3 px-2" style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}>
+          <span>target:</span>
+          <span style={{ color: 'var(--text-secondary)' }}>{selectedContractInfo.name}</span>
+          <span style={{ opacity: 0.5 }}>{shorten(selectedContractInfo.address)}</span>
+          <CopyButton text={selectedContractInfo.address} size="sm" />
+        </div>
       )}
 
       {/* Send ETH */}
-      <GlowCard color="#6366f1" delay={0.25}>
-        <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-400/70 mb-4">Send ETH</h2>
-        <div className="space-y-3">
+      <TerminalCard label="SEND ETH">
+        <div className="space-y-4">
           <div>
-            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>Recipient Address</label>
-            <input type="text" value={sendEthTo} onChange={(e) => setSendEthTo(e.target.value)} placeholder="0x..." className={inputClass} style={inputStyle} />
+            <label style={labelStyle}>recipient</label>
+            <input type="text" value={sendEthTo} onChange={(e) => setSendEthTo(e.target.value)} placeholder="0x..." style={inputStyle} />
           </div>
           <div>
-            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>Amount (ETH)</label>
-            <input type="text" value={sendEthAmount} onChange={(e) => setSendEthAmount(e.target.value)} placeholder="0.01" className={inputClass} style={inputStyle} />
+            <label style={labelStyle}>amount (eth)</label>
+            <input type="text" value={sendEthAmount} onChange={(e) => setSendEthAmount(e.target.value)} placeholder="0.01" style={inputStyle} />
           </div>
           <button
             onClick={handleSendEth}
             disabled={sendingEth || !isOwner}
-            className={`${btnClass} w-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 flex items-center justify-center gap-2`}
+            style={{
+              ...btnStyle,
+              borderColor: '#6366f1',
+              color: '#6366f1',
+              boxShadow: '3px 3px 0px 0px #6366f1',
+              opacity: (sendingEth || !isOwner) ? 0.4 : 1,
+            }}
           >
-            {sendingEth ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <><PaperAirplaneIcon className="w-4 h-4" /> Propose ETH Transfer</>}
+            {sendingEth ? 'signing...' : '> propose eth transfer'}
           </button>
-          {!isOwner && <p className="text-xs text-indigo-500/40 mt-1 text-center">You must be a Safe signer to propose</p>}
+          {!isOwner && <p className="text-center" style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)' }}>must be a signer to propose</p>}
         </div>
-      </GlowCard>
+      </TerminalCard>
 
       {/* Last TX Params */}
       {lastTxParams && (
-        <GlowCard color="#22d3ee" delay={0.1}>
+        <TerminalCard label="LAST TX">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-cyan-400/70">Last TX Params</h2>
-            <button onClick={() => setLastTxParams(null)} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>dismiss</button>
+            <span style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'rgba(6,182,212,0.5)' }}>params</span>
+            <button onClick={() => setLastTxParams(null)} style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', cursor: 'pointer', border: 'none', background: 'none' }}>dismiss</button>
           </div>
-          <div className="space-y-1.5 text-xs font-mono">
-            {[
+          <div className="space-y-2" style={{ fontSize: '13px' }}>
+            {([
               ['chainId', lastTxParams.chainId],
               ['safe', lastTxParams.safe],
               ['to', lastTxParams.to],
@@ -338,42 +392,53 @@ export function ProposeTab({
               ['sender', lastTxParams.sender],
               ['safeTxHash', lastTxParams.safeTxHash],
               ['data', lastTxParams.data === '0x' ? '0x (empty)' : `${lastTxParams.data.slice(0, 66)}...`],
-            ].map(([label, val]) => (
-              <div key={label} className="flex gap-2">
-                <span className="text-cyan-400/50 shrink-0 w-20">{label}</span>
-                <span className="break-all" style={{ color: 'var(--text-primary)' }}>{val}</span>
+            ] as [string, string][]).map(([label, val]) => (
+              <div key={label} className="flex gap-3">
+                <span style={{ fontFamily: TERM_FONT, color: 'rgba(6,182,212,0.5)', flexShrink: 0, width: '90px' }}>{label}</span>
+                <span className="break-all" style={{ fontFamily: TERM_FONT, color: 'var(--text-secondary)' }}>{val}</span>
                 {(label === 'safe' || label === 'to' || label === 'safeTxHash') && (
                   <CopyButton text={val.split(' ')[0]} size="sm" />
                 )}
               </div>
             ))}
           </div>
-        </GlowCard>
+        </TerminalCard>
       )}
     </div>
   )
 }
 
-function FnArgsInput({ inputs, args, setArgs, color }: {
-  inputs?: any[]; args: string[]; setArgs: (a: string[]) => void; color: string
+function FnArgsInput({ inputs, args, setArgs }: {
+  inputs?: any[]; args: string[]; setArgs: (a: string[]) => void
 }) {
   if (!inputs || inputs.length === 0) return null
+  const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
+  const argInputStyle: React.CSSProperties = {
+    fontFamily: TERM_FONT,
+    fontSize: '14px',
+    color: 'var(--text-primary)',
+    background: 'var(--bg-input)',
+    border: '2px solid var(--border-color)',
+    padding: '8px 12px',
+    width: '100%',
+    outline: 'none',
+    boxShadow: '2px 2px 0px 0px rgba(255,255,255,0.04)',
+  }
   return (
     <div className="mb-4 space-y-3">
-      <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Arguments</label>
+      <label style={{ display: 'block', fontFamily: TERM_FONT, fontSize: '12px', letterSpacing: '0.1em', color: 'var(--text-tertiary)' }}>args</label>
       {inputs.map((inp: any, i: number) => (
         <div key={i}>
-          <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>
-            {inp.name || `arg${i}`} <span className={`text-${color}-500/40`}>({inp.type})</span>
+          <label style={{ display: 'block', fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
+            {inp.name || `arg${i}`} <span style={{ opacity: 0.5 }}>({inp.type})</span>
           </label>
           {inp.type === 'bool' ? (
             <select
               value={args[i] || ''}
               onChange={(e) => { const next = [...args]; next[i] = e.target.value; setArgs(next) }}
-              className={selectClass}
-              style={inputStyle}
+              style={{ ...argInputStyle, backgroundColor: 'transparent' }}
             >
-              <option value="">Select...</option>
+              <option value="">select...</option>
               <option value="true">true</option>
               <option value="false">false</option>
             </select>
@@ -383,8 +448,7 @@ function FnArgsInput({ inputs, args, setArgs, color }: {
               value={args[i] || ''}
               onChange={(e) => { const next = [...args]; next[i] = e.target.value; setArgs(next) }}
               placeholder={inp.type}
-              className={inputClass}
-              style={inputStyle}
+              style={argInputStyle}
             />
           )}
         </div>

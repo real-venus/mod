@@ -82,7 +82,6 @@ export function NetworkSelector() {
     syncFromStorage()
   }, [])
 
-  // Listen for network changes from other components (e.g. WalletHeader)
   useEffect(() => {
     const handler = () => syncFromStorage()
     window.addEventListener('network-changed', handler)
@@ -105,6 +104,7 @@ export function NetworkSelector() {
     localStorage.setItem('selected_chain', chain.id)
     localStorage.setItem('selected_network', networkId)
     window.dispatchEvent(new CustomEvent('network-changed'))
+    setShowDropdown(false)
   }
 
   const handleEnvToggle = (env: NetworkEnvironment) => {
@@ -115,52 +115,61 @@ export function NetworkSelector() {
     window.dispatchEvent(new CustomEvent('network-changed'))
   }
 
+  const envColor = networkEnv === 'mainnet' ? '#22c55e' : '#f59e0b'
+
   return (
-    <div className="relative w-full" ref={dropdownRef}>
-      {/* Compact selector button */}
+    <div className="relative" ref={dropdownRef}>
+      {/* Compact pill button */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="w-full flex items-center justify-between gap-2 px-2 py-2 border-2 transition-all"
+        className="flex items-center gap-2 px-3 hover:bg-[var(--hover-bg)]"
         style={{
-          fontFamily: 'var(--font-digital), monospace',
-          borderColor: 'var(--border-strong)',
-          backgroundColor: 'var(--bg-secondary)',
+          height: '36px',
+          fontFamily: 'var(--font-pixel), monospace',
+          border: '2px solid var(--border-color)',
+          borderRadius: '0px',
+          backgroundColor: 'var(--bg-input)',
         }}
       >
-        <div className="flex items-center gap-2">
-          {/* Chain icon */}
-          <div
-            className="w-6 h-6 flex items-center justify-center text-sm font-bold border-2"
-            style={{
-              color: 'var(--text-primary)',
-              borderColor: 'var(--border-strong)',
-              backgroundColor: 'var(--bg-primary)'
-            }}
+        {/* Chain icon with color dot */}
+        <div className="relative flex items-center justify-center">
+          <span
+            className="text-sm font-bold"
+            style={{ color: selectedChain.color }}
           >
             {selectedChain.icon}
-          </div>
-
-          {/* Chain + env label */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-digital uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)' }}>
-              {selectedChain.name}
-            </span>
-            <span
-              className="text-[10px] font-digital uppercase tracking-wider px-1.5 py-0.5 border font-bold"
-              style={{
-                backgroundColor: 'var(--bg-primary)',
-                color: 'var(--text-secondary)',
-                borderColor: 'var(--border-strong)',
-              }}
-            >
-              {networkEnv === 'testnet' ? 'TESTNET' : 'MAINNET'}
-            </span>
-          </div>
+          </span>
         </div>
 
+        {/* Chain name */}
+        <span
+          className="font-bold uppercase tracking-wider"
+          style={{
+            fontFamily: 'var(--font-pixel), monospace',
+            fontSize: '8px',
+            color: 'var(--text-primary)',
+          }}
+        >
+          {selectedChain.name}
+        </span>
+
+        {/* Env badge */}
+        <span
+          className="font-bold uppercase px-1.5 py-0.5"
+          style={{
+            fontFamily: 'var(--font-pixel), monospace',
+            fontSize: '7px',
+            backgroundColor: `${envColor}18`,
+            color: envColor,
+            border: `2px solid ${envColor}40`,
+          }}
+        >
+          {networkEnv === 'testnet' ? 'TEST' : 'MAIN'}
+        </span>
+
         <ChevronDownIcon
-          className={`w-4 h-4 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
-          style={{ color: 'var(--text-primary)' }}
+          className={`w-3 h-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
+          style={{ color: 'var(--text-tertiary)' }}
         />
       </button>
 
@@ -168,87 +177,103 @@ export function NetworkSelector() {
       <AnimatePresence>
         {showDropdown && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-80 border-4 overflow-hidden z-50"
+            className="absolute right-0 top-full mt-2 overflow-hidden z-50"
             style={{
+              width: '320px',
               background: 'var(--bg-secondary)',
-              borderColor: 'var(--border-strong)',
+              border: '2px solid var(--border-color)',
+              borderRadius: '0px',
+              boxShadow: '4px 4px 0px rgba(0,0,0,0.3)',
             }}
           >
             {/* Testnet / Mainnet Toggle */}
-            <div className="p-3 border-b-4" style={{ borderColor: 'var(--border-strong)' }}>
-              <div className="flex gap-2">
-                {(['testnet', 'mainnet'] as NetworkEnvironment[]).map((env) => (
-                  <button
-                    key={env}
-                    onClick={() => handleEnvToggle(env)}
-                    className="flex-1 py-3 text-base font-digital uppercase tracking-widest transition-all border-4 font-bold"
-                    style={{
-                      fontFamily: 'var(--font-digital), monospace',
-                      backgroundColor: networkEnv === env ? 'var(--text-primary)' : 'var(--bg-primary)',
-                      color: networkEnv === env ? 'var(--bg-primary)' : 'var(--text-primary)',
-                      borderColor: 'var(--border-strong)'
-                    }}
-                  >
-                    {env}
-                  </button>
-                ))}
+            <div className="p-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <div
+                className="flex p-1 gap-1"
+                style={{ backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}
+              >
+                {(['testnet', 'mainnet'] as NetworkEnvironment[]).map((env) => {
+                  const isActive = networkEnv === env
+                  return (
+                    <button
+                      key={env}
+                      onClick={() => handleEnvToggle(env)}
+                      className="flex-1 py-2 font-bold uppercase tracking-widest"
+                      style={{
+                        fontFamily: 'var(--font-pixel), monospace',
+                        fontSize: '8px',
+                        backgroundColor: isActive ? 'var(--bg-secondary)' : 'transparent',
+                        color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                        boxShadow: isActive ? '2px 2px 0px rgba(0,0,0,0.2)' : 'none',
+                      }}
+                    >
+                      {env}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
             {/* Chain Grid */}
             <div className="p-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {CHAINS.map((chain) => {
                   const isSelected = selectedChain.id === chain.id
                   return (
                     <button
                       key={chain.id}
                       onClick={() => handleChainSelect(chain)}
-                      className="relative flex flex-col items-center gap-2 py-4 px-3 border-4 transition-all"
+                      className="relative flex items-center gap-3 py-3 px-3"
                       style={{
-                        fontFamily: 'var(--font-digital), monospace',
-                        borderColor: 'var(--border-strong)',
-                        backgroundColor: isSelected ? 'var(--text-primary)' : 'var(--bg-primary)',
+                        fontFamily: 'var(--font-pixel), monospace',
+                        border: isSelected ? `2px solid ${chain.color}60` : '2px solid transparent',
+                        backgroundColor: isSelected ? `${chain.color}12` : 'transparent',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'
                       }}
                     >
-                      {isSelected && (
-                        <div
-                          className="absolute top-2 right-2 w-3 h-3 border-2"
-                          style={{
-                            backgroundColor: 'var(--bg-primary)',
-                            borderColor: 'var(--bg-primary)',
-                          }}
-                        />
-                      )}
-
+                      {/* Chain icon */}
                       <div
-                        className="w-10 h-10 flex items-center justify-center text-xl border-4 font-bold"
+                        className="w-9 h-9 flex items-center justify-center text-lg"
                         style={{
-                          borderColor: 'var(--border-strong)',
-                          backgroundColor: isSelected ? 'var(--bg-primary)' : 'var(--bg-secondary)',
-                          color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          backgroundColor: `${chain.color}18`,
+                          color: chain.color,
+                          border: `2px solid ${chain.color}30`,
                         }}
                       >
                         {chain.icon}
                       </div>
 
-                      <span
-                        className="text-base font-digital uppercase tracking-wider font-bold"
-                        style={{ color: isSelected ? 'var(--bg-primary)' : 'var(--text-primary)' }}
-                      >
-                        {chain.name}
-                      </span>
+                      <div className="text-left">
+                        <span
+                          className="block font-bold uppercase tracking-wider"
+                          style={{ fontSize: '8px', fontFamily: 'var(--font-pixel)', color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                        >
+                          {chain.name}
+                        </span>
+                        <span
+                          className="block uppercase tracking-wide mt-0.5"
+                          style={{ fontSize: '7px', fontFamily: 'var(--font-pixel)', color: 'var(--text-tertiary)' }}
+                        >
+                          {networkEnv === 'testnet' ? chain.testnetName : chain.mainnetName}
+                        </span>
+                      </div>
 
-                      <span
-                        className="text-xs font-digital uppercase tracking-wider"
-                        style={{ color: isSelected ? 'var(--bg-primary)' : 'var(--text-tertiary)' }}
-                      >
-                        {networkEnv === 'testnet' ? chain.testnetName : chain.mainnetName}
-                      </span>
+                      {/* Selected indicator */}
+                      {isSelected && (
+                        <div
+                          className="absolute top-2 right-2 w-2 h-2"
+                          style={{ backgroundColor: chain.color }}
+                        />
+                      )}
                     </button>
                   )
                 })}

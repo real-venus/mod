@@ -1,159 +1,237 @@
-# 🌉 Sr25519 → ERC20 Bridge
+```
+ _____ _______ ______
+|     |       |      \
+| | | |   -   |   -  |
+|_|_|_|_______|______/
 
-**Trustlessly bridge Substrate tokens to Base with cryptographic proof of ownership**
-
-[![Local Dev](https://img.shields.io/badge/API%20Keys-None%20Required-brightgreen)](./NO_API_KEYS.md)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-
----
-
-## ⚡ 2-Minute Quick Start
-
-```bash
-# Install
-npm install && pip install -r requirements.txt
-
-# Test
-npx hardhat test
-
-# Run locally (Terminal 1)
-npx hardhat node
-
-# Deploy (Terminal 2)
-npx hardhat run scripts/deploy.js --network localhost
-
-# Start API
-python mod.py
+MODULAR OPERATING DAEMON
+========================
+v0.1.0 | MIT License
 ```
 
-**No API keys. No testnet ETH. Just works.** → [Full Local Guide](./LOCAL_DEVELOPMENT.md)
+```
++-----------------------------------------------------------+
+|  > SYSTEM BOOT                                            |
+|  > LOADING MODULES ................................ [OK]   |
+|  > INITIALIZING CRYPTO ENGINE .................... [OK]   |
+|  > CONNECTING TO CHAIN ........................... [OK]   |
+|  > MOD FRAMEWORK ONLINE                                   |
++-----------------------------------------------------------+
+```
 
----
+## WHAT IS THIS
 
-## 🎯 What Is This?
+MOD is a **modular development framework** that combines Python
+module orchestration, EVM smart contracts, and AI-powered interfaces
+into one system.
 
-A bridge that lets users **claim ERC20 tokens on Base** by proving they own an **sr25519 address** on a Substrate chain.
+Write code. Register it on-chain. Get paid when people use it.
 
 ```
-┌──────────────┐    Sign Message    ┌──────────────┐    Verify & Queue    ┌──────────────┐
-│   Subwallet  │ ────────────────→  │   Backend    │ ──────────────────→  │   Bridge     │
-│   (sr25519)  │                    │   (FastAPI)  │                      │   Contract   │
-└──────────────┘                    └──────────────┘                      └──────────────┘
-                                                                                  │
-                                                                                  ▼
-                                                                          ┌──────────────┐
-                                                                          │   MetaMask   │
-                                                                          │   (ERC20)    │
-                                                                          └──────────────┘
++-----------+     +-----------+     +-----------+
+| DEVELOPER |---->| MOD PROTO |---->|   USERS   |
+| writes fn |     | registers |     | call fn   |
+| sets price|     | to chain  |     | pay token |
++-----------+     +-----------+     +-----------+
+      ^                                   |
+      +------------ revenue --------------+
 ```
 
 ---
 
-## ✨ Features
-
-| Feature | Description |
-|---------|-------------|
-| 🔐 **Cryptographic Proof** | sr25519 signatures verify ownership |
-| 🚫 **No Double Claims** | On-chain enforcement, one claim per address |
-| 📸 **Snapshot Support** | Rust tool captures Substrate chain state |
-| ⚡ **Batch Processing** | Efficient multi-claim transactions |
-| 🎨 **React Frontend** | Subwallet + MetaMask integration |
-| 🐳 **Docker Ready** | One-command deployment |
-
----
-
-## 📁 Project Structure
+## QUICK START
 
 ```
-├── contracts/           # Solidity: BridgeToken.sol, Sr25519Bridge.sol
-├── frontend/            # React: Sr25519Bridge.tsx
-├── bridge/              # Rust: Substrate snapshot tool
-├── scripts/             # Hardhat deployment
-├── test/                # Contract tests
-├── mod.py               # FastAPI backend
-└── docs/
-    ├── QUICKSTART.md    # Testnet/Mainnet deployment
-    ├── BRIDGE.md        # Full API reference
-    └── IMPLEMENTATION.md # Architecture deep-dive
+ > TERMINAL 1
+ ============
+ $ pip install -e ./
+ $ m mods                  # list modules
+ $ m serve api             # start server on :8000
+
+ > TERMINAL 2
+ ============
+ $ cd mod/core/chain
+ $ npx hardhat node        # local blockchain
+ $ npx hardhat run scripts/deploy.js --network localhost
+
+ > TERMINAL 3
+ ============
+ $ cd mod/core/app
+ $ npm install && npm run dev   # frontend on :3000
 ```
 
 ---
 
-## 🔧 API Endpoints
+## PROJECT MAP
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/claim` | POST | Submit claim with sr25519 signature |
-| `/balance/{address}` | GET | Check claimable balance |
-| `/process` | POST | Process pending claims (operator) |
-| `/stats` | GET | Bridge statistics |
-
----
-
-## 🚀 Deployment
-
-### Local (No Config)
-```bash
-npx hardhat node
-npx hardhat run scripts/deploy.js --network localhost
 ```
-
-### Testnet
-```bash
-# Add PRIVATE_KEY to .env
-npm run deploy:testnet
-```
-
-### Mainnet
-```bash
-npm run deploy:mainnet
-```
-
----
-
-## 🐳 Docker
-
-```bash
-docker-compose up --build
+~/mod/
+.
+|-- mod.json                    # root config
+|-- setup.py                    # python package
+|
+|-- mod/
+|   |-- core/
+|   |   |-- mod.py              # main framework     [67KB]
+|   |   |-- utils.py            # utilities           [75KB]
+|   |   |-- chain/              # solidity contracts
+|   |   |-- app/                # next.js frontend
+|   |   |-- api/                # fastapi backend
+|   |   |-- server/             # process management
+|   |   |-- store/              # key-value store
+|   |   |-- key/                # crypto keys
+|   |   |-- cli/                # command line
+|   |   |-- router/             # api routing
+|   |   `-- tester/             # test utils
+|   |
+|   `-- orbit/                  # 140+ modules
+|       |-- agent/              # ai agents
+|       |-- claude/             # claude integration
+|       |-- web/                # web scraping
+|       |-- ipfs/               # ipfs storage
+|       |-- safe/               # gnosis safe
+|       |-- bridge/             # cross-chain
+|       |-- cache/              # caching
+|       `-- ...                 # 130+ more
+|
+`-- scripts/                    # deploy & automation
 ```
 
 ---
 
-## 📚 Documentation
+## CLI COMMANDS
 
-- **[NO_API_KEYS.md](./NO_API_KEYS.md)** — Zero-config development
-- **[LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md)** — Complete local setup
-- **[QUICKSTART.md](./QUICKSTART.md)** — Deploy to networks
-- **[BRIDGE.md](./BRIDGE.md)** — Full API & architecture
-- **[IMPLEMENTATION.md](./IMPLEMENTATION.md)** — Technical details
-
----
-
-## 🛡️ Security Model
-
-| Trustless | Trust Required |
-|-----------|----------------|
-| ✅ Cryptographic ownership proof | ⚠️ Operator processes claims |
-| ✅ On-chain double-claim prevention | ⚠️ Snapshot accuracy |
-| ✅ Deterministic verification | ⚠️ Operator token balance |
-
-**Recommendation:** Use multisig as operator for production.
+```
++------------------+------------------------------------+
+| COMMAND          | DESCRIPTION                        |
++------------------+------------------------------------+
+| m mods           | list all available modules         |
+| m info <mod>     | get module information              |
+| m code <mod>     | view module source                 |
+| m dp <mod>       | get module directory path           |
+| m serve <mod>    | start module server                |
+| m servers        | list running servers               |
+| m kill <mod>     | stop module server                 |
+| m test <mod>     | run module tests                   |
+| m push "msg"     | git commit and push                |
++------------------+------------------------------------+
+```
 
 ---
 
-## 🤝 Contributing
+## PYTHON API
 
-PRs welcome! Please read the existing docs before contributing.
+```python
+import mod as m
+
+# load and run modules
+api = m.mod('api')()
+result = m.fn('api/some_function')(param='value')
+
+# server
+m.serve('api', port=8000)
+
+# crypto
+key = m.get_key('my_key')
+sig = m.sign({'data': 'value'}, key='my_key')
+
+# storage
+m.put('key', {'data': 'value'}, encrypt=True)
+data = m.get('key')
+```
 
 ---
 
-## 📄 License
+## SMART CONTRACTS (BLOCTIME PROTOCOL)
 
-MIT
+```
++-------------------+------------------------------------------+
+| CONTRACT          | PURPOSE                                  |
++-------------------+------------------------------------------+
+| Treasury          | multi-token revenue distribution         |
+| Market            | marketplace w/ instant withdrawals       |
+| Registry          | module registration & management         |
+| BlocTime          | staking w/ multiplier rewards            |
+| TokenGate         | token whitelist + oracle integration     |
+| Perms             | role-based access control                |
+| Oracles           | price feeds (chainlink, pyth, manual)    |
++-------------------+------------------------------------------+
+
+CHAIN: Base Sepolia (84532) | Solidity 0.8.20 | OpenZeppelin
+```
 
 ---
 
-<div align="center">
-  <b>Built for the Substrate ↔ EVM ecosystem</b><br>
-  <sub>Cryptographic bridges, simplified.</sub>
-</div>
+## DEPLOYMENT
+
+```
+ > LOCAL DEV
+   $ npx hardhat node
+   $ npx hardhat run scripts/deploy.js --network localhost
+
+ > TESTNET (BASE SEPOLIA)
+   $ npx hardhat run scripts/deploy.js --network baseSepolia
+
+ > MAINNET
+   $ npx hardhat run scripts/deploy.js --network base
+
+ > DOCKER (FULL STACK)
+   $ docker-compose up -d
+```
+
+---
+
+## DOCS INDEX
+
+```
++-------------------------------+----------------------------+
+| FILE                          | CONTENTS                   |
++-------------------------------+----------------------------+
+| README.md                     | this file                  |
+| MOD_ARCHITECTURE.md           | architecture deep dive     |
+| mod/core/chain/README.md      | smart contracts            |
+| mod/core/app/README.md        | frontend application       |
+| mod/core/api/README.md        | api server                 |
+| mod/core/store/README.md      | key-value storage          |
+| mod/core/app/docs/            | whitepaper + onepager      |
++-------------------------------+----------------------------+
+```
+
+---
+
+## SECURITY
+
+```
+[x] OpenZeppelin contract libraries
+[x] ReentrancyGuard on all state changes
+[x] Signature-based authentication
+[x] AES encryption for sensitive data
+[x] Role-based access control
+[x] Client-side key generation
+[x] HTTPS enforced in production
+```
+
+---
+
+## CONTRIBUTING
+
+```
+1. fork the repo
+2. create feature branch
+3. make changes
+4. run tests
+5. submit PR
+```
+
+---
+
+```
++-----------------------------------------------------------+
+|                                                           |
+|   "simplicity is the ultimate sophistication"             |
+|                                        - da vinci         |
+|                                                           |
+|   built by the mod team                     MIT LICENSE   |
+|                                                           |
++-----------------------------------------------------------+
+```

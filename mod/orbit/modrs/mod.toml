@@ -1,0 +1,29 @@
+# ModRS Configuration Example
+
+[mod]
+name = "modrs"
+version = "0.1.0"
+
+[mod.paths]
+# Paths are relative to home directory
+orbit = "~/.mod/orbit"
+storage = "~/.mod/storage"
+
+[mod.ports]
+range = [8000, 9000]
+
+[mod.crypto]
+default_algorithm = "secp256k1"
+
+[mod.storage]
+backend = "sqlite"  # or "rocksdb" with feature flag
+encrypt_by_default = false
+
+[mod.server]
+default_host = "0.0.0.0"
+cors_enabled = true
+
+[mod.ai]
+provider = "openrouter"
+api_key_env = "OPENROUTER_API_KEY"
+model = "anthropic/claude-3.5-sonnet"

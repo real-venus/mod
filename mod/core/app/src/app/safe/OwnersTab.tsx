@@ -2,16 +2,8 @@
 
 import { useState } from 'react'
 import { ethers } from 'ethers'
-import {
-  ShieldCheckIcon,
-  ExclamationTriangleIcon,
-  PlusIcon,
-  MinusIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline'
 import { CopyButton } from '@/ui/CopyButton'
-import { GlowCard } from './GlowCard'
-import { ACCENT, inputClass, inputStyle, selectClass, btnClass } from './shared'
+import { TerminalCard } from './GlowCard'
 import { shorten } from '@/utils'
 import {
   proposeSafeTransaction,
@@ -21,6 +13,29 @@ import {
   type SafeInfo,
 } from '@/network/safe'
 import { toast } from 'react-toastify'
+
+const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
+
+const inputStyle: React.CSSProperties = {
+  fontFamily: TERM_FONT,
+  fontSize: '14px',
+  color: 'var(--text-primary)',
+  background: 'var(--bg-input)',
+  border: '2px solid var(--border-color)',
+  padding: '8px 12px',
+  width: '100%',
+  outline: 'none',
+  boxShadow: '2px 2px 0px 0px rgba(255,255,255,0.04)',
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontFamily: TERM_FONT,
+  fontSize: '12px',
+  letterSpacing: '0.1em',
+  color: 'var(--text-tertiary)',
+  marginBottom: '6px',
+}
 
 export function OwnersTab({
   safeInfo, walletAddress, isOwner, onReloadSafe,
@@ -88,76 +103,83 @@ export function OwnersTab({
 
   if (!safeInfo) {
     return (
-      <GlowCard color={ACCENT}>
-        <p className="text-center py-4" style={{ color: 'var(--text-tertiary)' }}>Load a Safe first</p>
-      </GlowCard>
+      <div className="py-12 text-center" style={{ fontFamily: TERM_FONT, fontSize: '14px', color: 'var(--text-tertiary)' }}>
+        load a safe first
+      </div>
     )
   }
 
+  const makeBtnStyle = (color: string, disabled: boolean): React.CSSProperties => ({
+    fontFamily: TERM_FONT,
+    fontSize: '14px',
+    padding: '10px 16px',
+    width: '100%',
+    border: `2px solid ${color}`,
+    color: color,
+    background: 'transparent',
+    boxShadow: `3px 3px 0px 0px ${color}`,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.4 : 1,
+  })
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Current owners */}
-      <GlowCard color={ACCENT} delay={0.1}>
-        <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500/70 mb-4">
-          Current Owners ({safeInfo.owners.length})
-        </h2>
-        <div className="space-y-2">
+      <TerminalCard label={`SIGNERS (${safeInfo.owners.length})`}>
+        <div className="space-y-2 mb-4">
           {safeInfo.owners.map((owner, i) => {
             const isMe = owner.toLowerCase() === walletAddress.toLowerCase()
             return (
-              <div
-                key={i}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
-                  isMe ? 'bg-emerald-500/10 border border-emerald-500/20' : ''
-                }`}
-                style={!isMe ? { backgroundColor: 'var(--bg-input)' } : undefined}
-              >
-                {isMe && <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />}
-                <span className="font-mono text-sm flex-1 break-all" style={{ color: 'var(--text-primary)' }}>{owner}</span>
+              <div key={i} className="flex items-center gap-3 group" style={{ fontSize: '14px' }}>
+                <span style={{ fontFamily: TERM_FONT, color: 'var(--text-tertiary)', width: '20px' }}>{i}</span>
+                <span
+                  className="flex-1 break-all"
+                  style={{
+                    fontFamily: TERM_FONT,
+                    color: isMe ? 'var(--accent-primary, #10b981)' : 'var(--text-primary)',
+                    textShadow: isMe ? '0 0 8px var(--accent-primary, #10b981)' : 'none',
+                  }}
+                >
+                  {owner}
+                </span>
                 <CopyButton text={owner} size="sm" />
               </div>
             )
           })}
         </div>
-        <div className="mt-3 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-          Threshold: {safeInfo.threshold}/{safeInfo.owners.length}
+        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '8px', fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}>
+          threshold: {safeInfo.threshold}/{safeInfo.owners.length}
         </div>
-      </GlowCard>
+      </TerminalCard>
 
       {/* Add Owner */}
-      <GlowCard color="#10b981" delay={0.15}>
-        <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-500/70 mb-3 flex items-center gap-2">
-          <PlusIcon className="w-4 h-4" /> Add Owner
-        </h3>
-        <div className="space-y-3">
+      <TerminalCard label="ADD OWNER">
+        <div className="space-y-4">
           <div>
-            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>New Owner Address</label>
-            <input type="text" value={newOwnerAddr} onChange={(e) => setNewOwnerAddr(e.target.value)} placeholder="0x..." className={inputClass} style={inputStyle} />
+            <label style={labelStyle}>new owner address</label>
+            <input type="text" value={newOwnerAddr} onChange={(e) => setNewOwnerAddr(e.target.value)} placeholder="0x..." style={inputStyle} />
           </div>
           <div>
-            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>New Threshold (default: current)</label>
-            <input type="number" value={newThreshold} onChange={(e) => setNewThreshold(e.target.value)} placeholder={String(safeInfo.threshold)} className={inputClass} style={inputStyle} />
+            <label style={labelStyle}>new threshold (default: {safeInfo.threshold})</label>
+            <input type="number" value={newThreshold} onChange={(e) => setNewThreshold(e.target.value)} placeholder={String(safeInfo.threshold)} style={inputStyle} />
           </div>
           <button
             onClick={handleAddOwner}
             disabled={ownerLoading !== null || !isOwner}
-            className={`${btnClass} w-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30`}
+            style={makeBtnStyle('var(--accent-primary, #10b981)', ownerLoading !== null || !isOwner)}
           >
-            {ownerLoading === 'Add Owner' ? <ArrowPathIcon className="w-4 h-4 animate-spin mx-auto" /> : 'Propose Add Owner'}
+            {ownerLoading === 'Add Owner' ? 'signing...' : '> propose add owner'}
           </button>
         </div>
-      </GlowCard>
+      </TerminalCard>
 
       {/* Remove Owner */}
-      <GlowCard color="#ef4444" delay={0.2}>
-        <h3 className="text-sm font-bold uppercase tracking-wider text-red-500/70 mb-3 flex items-center gap-2">
-          <MinusIcon className="w-4 h-4" /> Remove Owner
-        </h3>
-        <div className="space-y-3">
+      <TerminalCard label="REMOVE OWNER">
+        <div className="space-y-4">
           <div>
-            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>Owner to Remove</label>
-            <select value={removeOwnerAddr} onChange={(e) => setRemoveOwnerAddr(e.target.value)} className={selectClass} style={inputStyle}>
-              <option value="">Select owner...</option>
+            <label style={labelStyle}>owner to remove</label>
+            <select value={removeOwnerAddr} onChange={(e) => setRemoveOwnerAddr(e.target.value)} style={{ ...inputStyle, backgroundColor: 'transparent' }}>
+              <option value="">select owner...</option>
               {safeInfo.owners.map((o, i) => (
                 <option key={i} value={o}>
                   {shorten(o)} {o.toLowerCase() === walletAddress.toLowerCase() ? '(you)' : ''}
@@ -166,43 +188,39 @@ export function OwnersTab({
             </select>
           </div>
           <div>
-            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>New Threshold (default: {Math.max(safeInfo.threshold - 1, 1)})</label>
-            <input type="number" value={removeThreshold} onChange={(e) => setRemoveThreshold(e.target.value)} placeholder={String(Math.max(safeInfo.threshold - 1, 1))} className={inputClass} style={inputStyle} />
+            <label style={labelStyle}>new threshold (default: {Math.max(safeInfo.threshold - 1, 1)})</label>
+            <input type="number" value={removeThreshold} onChange={(e) => setRemoveThreshold(e.target.value)} placeholder={String(Math.max(safeInfo.threshold - 1, 1))} style={inputStyle} />
           </div>
           <button
             onClick={handleRemoveOwner}
             disabled={ownerLoading !== null || !isOwner}
-            className={`${btnClass} w-full bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30`}
+            style={makeBtnStyle('var(--accent-error, #ef4444)', ownerLoading !== null || !isOwner)}
           >
-            {ownerLoading === 'Remove Owner' ? <ArrowPathIcon className="w-4 h-4 animate-spin mx-auto" /> : 'Propose Remove Owner'}
+            {ownerLoading === 'Remove Owner' ? 'signing...' : '> propose remove owner'}
           </button>
         </div>
-      </GlowCard>
+      </TerminalCard>
 
       {/* Change Threshold */}
-      <GlowCard color="#3b82f6" delay={0.25}>
-        <h3 className="text-sm font-bold uppercase tracking-wider text-blue-500/70 mb-3 flex items-center gap-2">
-          <ShieldCheckIcon className="w-4 h-4" /> Change Threshold
-        </h3>
-        <div className="space-y-3">
+      <TerminalCard label="CHANGE THRESHOLD">
+        <div className="space-y-4">
           <div>
-            <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--text-tertiary)' }}>New Threshold (current: {safeInfo.threshold})</label>
-            <input type="number" value={changeThresholdVal} onChange={(e) => setChangeThresholdVal(e.target.value)} placeholder={String(safeInfo.threshold)} min={1} max={safeInfo.owners.length} className={inputClass} style={inputStyle} />
+            <label style={labelStyle}>new threshold (current: {safeInfo.threshold})</label>
+            <input type="number" value={changeThresholdVal} onChange={(e) => setChangeThresholdVal(e.target.value)} placeholder={String(safeInfo.threshold)} min={1} max={safeInfo.owners.length} style={inputStyle} />
           </div>
           <button
             onClick={handleChangeThreshold}
             disabled={ownerLoading !== null || !isOwner}
-            className={`${btnClass} w-full bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30`}
+            style={makeBtnStyle('#6366f1', ownerLoading !== null || !isOwner)}
           >
-            {ownerLoading === 'Change Threshold' ? <ArrowPathIcon className="w-4 h-4 animate-spin mx-auto" /> : 'Propose Change Threshold'}
+            {ownerLoading === 'Change Threshold' ? 'signing...' : '> propose change threshold'}
           </button>
         </div>
-      </GlowCard>
+      </TerminalCard>
 
       {!isOwner && (
-        <div className="flex items-center gap-2 justify-center text-sm text-amber-500/50">
-          <ExclamationTriangleIcon className="w-4 h-4" />
-          You must be a Safe signer to propose owner changes
+        <div className="text-center" style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}>
+          must be a signer to propose owner changes
         </div>
       )}
     </div>

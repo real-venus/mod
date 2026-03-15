@@ -1,209 +1,255 @@
-# MOD Protocol - One Pager
-
-## What is MOD?
-
-MOD Protocol is like **GitHub meets AWS Lambda meets Crypto** - a decentralized marketplace where developers can publish code modules and get paid every time someone uses them.
-
-## The Problem (In Plain English)
-
-**Today's Internet Sucks Because:**
-- Your data lives on someone else's computer (Google, Amazon, etc.)
-- You can't verify what code is actually running
-- Developers can't easily monetize their work
-- Apps break when companies shut down services
-
-## The Solution (Super Simple)
-
-**MOD Protocol lets you:**
-
-1. **Publish Code** → Upload your function to IPFS (permanent storage)
-2. **Set a Price** → Charge per execution (like $0.01 per API call)
-3. **Get Paid** → Earn automatically when people use your code
-4. **Verify Everything** → All code and transactions are cryptographically signed
-
-## How It Works (5 Steps)
-
 ```
-1. Developer uploads "image_resizer" module
-2. User calls: resize_image(photo.jpg, width=800)
-3. MOD executes the code
-4. User pays $0.01 in tokens
-5. Developer gets $0.007, protocol gets $0.003
++-----------------------------------------------------------+
+|                                                           |
+|   M O D   P R O T O C O L                                |
+|                                                           |
+|   ONE PAGER                                               |
+|   >> github meets aws lambda meets crypto                 |
+|                                                           |
++-----------------------------------------------------------+
 ```
 
-## Real-World Examples
+---
 
-### 🤖 AI Models
-"I trained a GPT model. Now anyone can use it for $0.05/query and I earn passive income."
+## WHAT IS MOD
 
-### 📊 Data APIs
-"I built a crypto price aggregator. Traders pay $0.001 per price check."
+A decentralized marketplace where developers publish code
+modules and get paid every time someone uses them.
 
-### 🔧 Utility Functions
-"I made an image optimizer. Websites pay $0.002 per image processed."
+---
 
-## Why It's Better
+## THE PROBLEM
 
-| Traditional Cloud | MOD Protocol |
-|------------------|-------------|
-| AWS charges you | You charge users |
-| Code can disappear | Stored forever on IPFS |
-| Trust Amazon | Verify cryptographically |
-| Complex billing | Automatic micropayments |
-| Vendor lock-in | Use any module |
+```
+today's internet sucks because:
 
-## Key Features
-
-✅ **Decentralized Storage** - Your code lives on IPFS, not one company's servers
-
-✅ **Crypto Payments** - Built-in micropayments with Polkadot/Ethereum/Solana
-
-✅ **Verifiable Execution** - Every transaction is cryptographically signed
-
-✅ **Version Control** - Immutable history of all code changes
-
-✅ **Composability** - Chain modules together like LEGO blocks
-
-## For Developers
-
-**Monetize Your Code in 3 Lines:**
-
-```python
-api = Api(key="your_key")
-api.reg(mod="my_awesome_function")
-# Done! Now earn money when people use it
+  [x] your data lives on someone else's computer
+  [x] you can't verify what code is actually running
+  [x] developers can't easily monetize their work
+  [x] apps break when companies shut down services
 ```
 
-## For Users
+## THE FIX
 
-**Use Any Module in 2 Lines:**
+```
+mod protocol lets you:
 
-```python
-api = Api()
-result = api.call(fn="image_resizer/resize", params={"width": 800})
+  1. PUBLISH CODE  --> upload function to ipfs (permanent)
+  2. SET A PRICE   --> charge per execution ($0.01/call)
+  3. GET PAID      --> earn automatically on usage
+  4. VERIFY ALL    --> everything is cryptographically signed
 ```
 
-## The Token
+---
 
-**MOD Token Powers Everything:**
-- Pay for function executions
-- Earn from your modules
-- Vote on protocol upgrades
-- Stake for higher revenue share
+## HOW IT WORKS
 
-**Revenue Split:**
-- 70% → Module creator
-- 20% → Protocol treasury
-- 10% → Infrastructure providers
-
-## Security
-
-🔒 **Every Transaction is Signed** - No one can fake who called what
-
-🔒 **Code is Immutable** - Once published, it can't be secretly changed
-
-🔒 **Open Source** - Anyone can audit the protocol
-
-🔒 **Multi-Wallet Support** - Use Metamask, Phantom, Subwallet, or local keys
-
-## Use Cases
-
-### For Indie Developers
-"Build once, earn forever. No marketing, no servers, just code."
-
-### For Businesses
-"Pay only for what you use. No monthly subscriptions, no vendor lock-in."
-
-### For AI Researchers
-"Monetize your models without building a whole company around them."
-
-### For Data Scientists
-"Turn your Jupyter notebook into a revenue stream."
-
-## Roadmap
-
-**Now:** Core protocol live, basic UI, multi-chain support
-
-**Next 3 Months:** Mobile apps, advanced caching, developer SDK
-
-**Next 6 Months:** Governance launch, module marketplace, mainnet
-
-**Next 12 Months:** Enterprise features, global scale, institutional adoption
-
-## The Vision
-
-**Imagine a world where:**
-- Every developer can monetize their code
-- Every user pays only for what they use
-- No company can shut down your app
-- All software is verifiable and composable
-
-**That's MOD Protocol.**
-
-## Get Started
-
-### Developers
-```bash
-pip install mod-protocol
-mod init
-mod deploy my_module
+```
+  step 1: dev uploads "image_resizer" module
+  step 2: user calls resize_image(photo.jpg, w=800)
+  step 3: mod executes the code
+  step 4: user pays $0.01 in tokens
+  step 5: dev gets $0.007, protocol gets $0.003
 ```
 
-### Users
-```bash
-Visit: https://app.mod.protocol
-Connect wallet → Browse modules → Start using
+---
+
+## REAL WORLD EXAMPLES
+
+```
++--------------------+--------------------------------------+
+| USE CASE           | DESCRIPTION                          |
++--------------------+--------------------------------------+
+| ai models          | train a model, charge $0.05/query    |
+|                    | earn passive income                  |
++--------------------+--------------------------------------+
+| data apis          | price aggregator, $0.001/check       |
+|                    | traders pay per request              |
++--------------------+--------------------------------------+
+| utility functions  | image optimizer, $0.002/image        |
+|                    | websites pay per process             |
++--------------------+--------------------------------------+
 ```
 
-## Join the Community
+---
 
-🌐 **Website:** mod.protocol
+## MOD vs TRADITIONAL CLOUD
 
-💬 **Discord:** discord.gg/mod
+```
++--------------------+--------------------+
+| TRADITIONAL        | MOD PROTOCOL       |
++--------------------+--------------------+
+| aws charges you    | you charge users   |
+| code can disappear | stored on ipfs     |
+| trust amazon       | verify on-chain    |
+| complex billing    | auto micropayments |
+| vendor lock-in     | use any module     |
++--------------------+--------------------+
+```
 
-🐦 **Twitter:** @modprotocol
+---
 
-💻 **GitHub:** github.com/mod-ai/mod
+## KEY FEATURES
 
-📧 **Email:** hello@mod.protocol
+```
+[x] decentralized storage -- ipfs, not one company
+[x] crypto payments       -- polkadot / ethereum / solana
+[x] verifiable execution  -- every tx is signed
+[x] version control       -- immutable code history
+[x] composability         -- chain modules like lego
+```
+
+---
+
+## FOR DEVELOPERS
+
+```
+monetize your code in 3 lines:
+
+  api = Api(key="your_key")
+  api.reg(mod="my_awesome_function")
+  # done. now earn money when people use it.
+```
+
+## FOR USERS
+
+```
+use any module in 2 lines:
+
+  api = Api()
+  result = api.call(fn="image_resizer/resize", params={"width": 800})
+```
+
+---
+
+## THE TOKEN
+
+```
+MOD TOKEN POWERS EVERYTHING:
+  - pay for function executions
+  - earn from your modules
+  - vote on protocol upgrades
+  - stake for higher revenue share
+
+REVENUE SPLIT:
+  |-- 70% --> module creator
+  |-- 20% --> protocol treasury
+  '-- 10% --> infrastructure providers
+```
+
+---
+
+## SECURITY
+
+```
+[x] every transaction is signed -- no faking calls
+[x] code is immutable           -- no secret changes
+[x] open source                 -- anyone can audit
+[x] multi-wallet support        -- metamask, phantom,
+                                   subwallet, local keys
+```
+
+---
+
+## USE CASES
+
+```
+  INDIE DEVS:
+    "build once, earn forever. no marketing,
+     no servers, just code."
+
+  BUSINESSES:
+    "pay only for what you use. no monthly
+     subscriptions, no vendor lock-in."
+
+  AI RESEARCHERS:
+    "monetize your models without building
+     a whole company around them."
+
+  DATA SCIENTISTS:
+    "turn your jupyter notebook into a
+     revenue stream."
+```
+
+---
+
+## ROADMAP
+
+```
+  NOW:         core protocol, basic ui, multi-chain
+  3 MONTHS:    mobile apps, caching, developer sdk
+  6 MONTHS:    governance, marketplace, mainnet
+  12 MONTHS:   enterprise, global scale, institutions
+```
+
+---
+
+## GET STARTED
+
+```
+ > developers
+   $ pip install mod-protocol
+   $ mod init
+   $ mod deploy my_module
+
+ > users
+   visit app.mod.protocol
+   connect wallet --> browse modules --> start using
+```
+
+---
+
+## TLDR
+
+```
++-----------------------------------------------------------+
+|                                                           |
+|   MOD PROTOCOL = DECENTRALIZED FUNCTION MARKETPLACE       |
+|                                                           |
+|   devs publish code --> get paid per use                  |
+|   users call functions --> pay only for execution         |
+|   everything is verifiable, permanent, composable         |
+|   no middlemen. no subscriptions. no bs.                  |
+|                                                           |
+|   built by developers, for developers.                    |
+|                                                           |
++-----------------------------------------------------------+
+```
+
+---
 
 ## FAQ
 
-**Q: Is this like AWS Lambda?**
-A: Yes, but decentralized and you get paid instead of paying.
+```
+Q: is this like aws lambda?
+A: yes, but decentralized and you get paid instead of paying.
 
-**Q: Do I need to know blockchain?**
-A: Nope! Just write normal Python/JavaScript code.
+Q: do i need to know blockchain?
+A: nope. just write normal python/javascript code.
 
-**Q: How much can I earn?**
-A: Depends on usage. Popular modules earn $100-$10,000/month.
+Q: how much can i earn?
+A: depends on usage. popular modules earn $100-$10k/mo.
 
-**Q: What if my code has a bug?**
-A: You can publish new versions. Users choose which version to use.
+Q: what if my code has a bug?
+A: publish new versions. users choose which version to use.
 
-**Q: Is it expensive to use?**
-A: Most calls cost $0.001-$0.01. Way cheaper than traditional APIs.
+Q: is it expensive to use?
+A: most calls cost $0.001-$0.01. cheaper than trad apis.
 
-**Q: What chains are supported?**
-A: Polkadot, Ethereum, Solana, and more coming.
-
----
-
-## TL;DR
-
-**MOD Protocol = Decentralized Function Marketplace**
-
-- Developers publish code → Get paid per use
-- Users call functions → Pay only for execution
-- Everything is verifiable, permanent, and composable
-- No middlemen, no subscriptions, no bullshit
-
-**Built by developers, for developers.**
-
-*"Simplicity is the ultimate sophistication." - Leonardo da Vinci*
+Q: what chains are supported?
+A: polkadot, ethereum, solana, and more coming.
+```
 
 ---
 
-**Ready to build the future?**
-
-👉 **Start now:** https://app.mod.protocol
+```
++-----------------------------------------------------------+
+|                                                           |
+|   "simplicity is the ultimate sophistication"             |
+|                                        - da vinci         |
+|                                                           |
+|   ready to build the future?                              |
+|   > start now                                             |
+|                                                           |
++-----------------------------------------------------------+
+```

@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
 
 @layer base {
   * {
@@ -138,6 +138,43 @@
     -webkit-font-smoothing: none;
     -moz-osx-font-smoothing: grayscale;
     image-rendering: pixelated;
+  }
+
+  /* 8-bit Terminal Theme */
+  .terminal-8bit {
+    background-color: #0a0e14;
+    color: #39ff14;
+    font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+    text-shadow: 0 0 8px rgba(57, 255, 20, 0.5);
+  }
+
+  /* 8-bit Button Style */
+  .btn-8bit {
+    font-family: 'Press Start 2P', monospace;
+    text-transform: uppercase;
+    background: #39ff14;
+    color: #0a0e14;
+    border: 2px solid #00ff00;
+    box-shadow: 4px 4px 0px 0px #39ff14;
+    transition: all 0.1s ease;
+  }
+
+  .btn-8bit:hover {
+    background: #00ff00;
+    box-shadow: 4px 4px 0px 0px #00ff00;
+  }
+
+  .btn-8bit:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px 0px #39ff14;
+  }
+
+  /* Glowing cursor effect */
+  .cursor-glow::after {
+    content: '█';
+    animation: cursor-blink 1s step-end infinite;
+    color: #39ff14;
+    text-shadow: 0 0 10px #39ff14, 0 0 20px #39ff14;
   }
 
   /* Digital font for all elements */
@@ -284,28 +321,12 @@
   100% { filter: hue-rotate(360deg); }
 }
 
-/* APPLY NIGHTFORM TO CARDS AND COMPONENTS */
+/* Card transitions */
 .mod-card,
 .user-card,
 .treasury-card,
 .wallet-card {
-  @apply filter-nightform;
   transition: all 0.3s ease-in-out;
-}
-
-.mod-card:hover,
-.user-card:hover,
-.treasury-card:hover,
-.wallet-card:hover {
-  @apply filter-dope;
-  transform: scale(1.05) translateY(-5px);
-}
-
-/* ULTRA DOPE FOR SPECIAL ELEMENTS */
-.header-glow,
-.sidebar-glow,
-.cta-button {
-  @apply filter-ultra-dope;
 }
 
 /* NEON GLOW TEXT */
@@ -366,6 +387,15 @@
 @keyframes scan {
   0% { transform: translateY(0); }
   100% { transform: translateY(100%); }
+}
+
+/* Hide scrollbar utility */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* CUSTOM SCROLLBAR STYLES */

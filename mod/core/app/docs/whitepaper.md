@@ -1,121 +1,157 @@
-# MOD Protocol Whitepaper
-
-## Abstract
-
-MOD Protocol is a decentralized module registry and execution system that enables secure, verifiable function calls across distributed modules using IPFS storage and cryptographic authentication. This whitepaper outlines the technical architecture, economic model, and governance mechanisms of the protocol.
-
-## 1. Introduction
-
-### 1.1 Problem Statement
-
-Modern web applications face critical challenges:
-- **Centralization**: Single points of failure and control
-- **Trust**: Difficulty verifying code execution
-- **Composability**: Limited ability to combine services
-- **Monetization**: Complex payment infrastructure
-
-### 1.2 Solution
-
-MOD Protocol provides:
-- **Decentralized Storage**: IPFS-based content addressing
-- **Cryptographic Verification**: Every transaction is signed and verifiable
-- **Modular Architecture**: Composable functions across modules
-- **Built-in Economics**: Token-gated execution with transparent costs
-
-## 2. Architecture
-
-### 2.1 Core Components
-
-#### Storage Layer (IPFS)
-- Content-addressed storage for modules and data
-- Immutable version history
-- Distributed availability
-
-#### Authentication Layer
-- SR25519/ECDSA signature schemes
-- Token-based authorization
-- Address-based identity
-
-#### Execution Layer
-- Async task processing
-- Local and remote execution
-- Result caching and verification
-
-#### Registry Layer
-- Module discovery and versioning
-- Owner-based access control
-- Schema validation
-
-### 2.2 Data Flow
-
 ```
-User → Token Generation → API Call → Task Creation → 
-IPFS Storage → Execution → Result Storage → User
++-----------------------------------------------------------+
+|                                                           |
+|   M O D   P R O T O C O L                                |
+|                                                           |
+|   TECHNICAL WHITEPAPER                                    |
+|   STATUS: DRAFT                                           |
+|   REVISION: 1.0                                           |
+|                                                           |
++-----------------------------------------------------------+
 ```
 
-## 3. Token Economics
+---
 
-### 3.1 Token Structure
+## 0. ABSTRACT
+
+MOD Protocol is a decentralized module registry and execution
+system. It enables secure, verifiable function calls across
+distributed modules using IPFS storage and cryptographic
+authentication.
+
+This document outlines the technical architecture, economic
+model, and governance mechanisms.
+
+---
+
+## 1. PROBLEM
 
 ```
-key::to::cost::time::data::signature
+CURRENT STATE OF WEB INFRASTRUCTURE:
+
+  [x] centralized    --> single points of failure
+  [x] unverifiable   --> can't confirm what code runs
+  [x] non-composable --> services don't interop
+  [x] costly         --> complex payment infrastructure
 ```
 
-**Components:**
-- `key`: Sender's SS58 address
-- `to`: Recipient module/user
-- `cost`: Execution cost in tokens
-- `time`: Unix timestamp
-- `data`: JSON payload
-- `signature`: Cryptographic proof
+## 2. SOLUTION
 
-### 3.2 Cost Model
+```
+MOD PROTOCOL PROVIDES:
 
-- **Base Cost**: Minimum fee per function call
-- **Compute Cost**: Based on execution time
-- **Storage Cost**: IPFS pinning fees
-- **Network Cost**: Cross-module communication
+  [+] decentralized storage   --> ipfs content addressing
+  [+] crypto verification     --> every tx signed & verified
+  [+] modular architecture    --> composable cross-module calls
+  [+] built-in economics      --> token-gated execution
+```
 
-### 3.3 Revenue Distribution
+---
 
-- **Module Owner**: 70% of execution fees
-- **Protocol Treasury**: 20% for development
-- **Validators**: 10% for infrastructure
+## 3. ARCHITECTURE
 
-## 4. Module System
+```
++------------------+
+| STORAGE LAYER    |  ipfs content-addressed storage
+| (ipfs)           |  immutable version history
++--------+---------+  distributed availability
+         |
++--------v---------+
+| AUTH LAYER        |  sr25519 / ecdsa signatures
+| (crypto)          |  token-based authorization
++--------+---------+  address-based identity
+         |
++--------v---------+
+| EXECUTION LAYER  |  async task processing
+| (runtime)        |  local & remote execution
++--------+---------+  result caching & verification
+         |
++--------v---------+
+| REGISTRY LAYER   |  module discovery & versioning
+| (on-chain)       |  owner-based access control
++------------------+  schema validation
+```
 
-### 4.1 Module Registration
+### DATA FLOW
+
+```
+user --> token gen --> api call --> task create -->
+ipfs store --> execute --> result store --> user
+```
+
+---
+
+## 4. TOKEN ECONOMICS
+
+### 4.1 TOKEN STRUCTURE
+
+```
+FORMAT: key::to::cost::time::data::signature
+
+  key       sender's ss58 address
+  to        recipient module/user
+  cost      execution cost in tokens
+  time      unix timestamp
+  data      json payload
+  signature cryptographic proof
+```
+
+### 4.2 COST MODEL
+
+```
++------------------+-----------------------------------+
+| COST TYPE        | DESCRIPTION                       |
++------------------+-----------------------------------+
+| base cost        | minimum fee per function call     |
+| compute cost     | based on execution time           |
+| storage cost     | ipfs pinning fees                 |
+| network cost     | cross-module communication        |
++------------------+-----------------------------------+
+```
+
+### 4.3 REVENUE SPLIT
+
+```
+  EXECUTION FEE
+  |
+  |-- 70% --> module owner
+  |-- 20% --> protocol treasury
+  '-- 10% --> validators / infra
+```
+
+---
+
+## 5. MODULE SYSTEM
+
+### 5.1 REGISTRATION
 
 ```python
 info = api.reg(
     mod="mymodule",
     key=owner_key,
-    comment="Initial release"
+    comment="initial release"
 )
 ```
 
-**Registration Process:**
-1. Hash all module files to IPFS
-2. Generate function schema
-3. Create signed info object
-4. Update registry
-
-### 4.2 Version Control
-
-Each version links to its predecessor:
-
 ```
-v3 (current) → v2 → v1 → genesis
+PROCESS:
+  1. hash all module files to ipfs
+  2. generate function schema
+  3. create signed info object
+  4. update on-chain registry
 ```
 
-**Benefits:**
-- Immutable history
-- Rollback capability
-- Audit trail
+### 5.2 VERSION CONTROL
 
-### 4.3 Function Exposure
+```
+v3 (current) --> v2 --> v1 --> genesis
 
-Modules declare callable functions:
+  - immutable history
+  - rollback capability
+  - full audit trail
+```
+
+### 5.3 FUNCTION SCHEMA
 
 ```json
 {
@@ -129,164 +165,206 @@ Modules declare callable functions:
 }
 ```
 
-## 5. Security Model
+---
 
-### 5.1 Cryptographic Verification
+## 6. SECURITY MODEL
 
-**Signature Generation:**
+### 6.1 CRYPTOGRAPHIC VERIFICATION
+
 ```python
+# sign
 signature = key.sign(data, mode="str")
-```
 
-**Verification:**
-```python
+# verify
 valid = verify(data, signature, address, mode="str")
 ```
 
-### 5.2 Access Control
+### 6.2 ACCESS CONTROL
 
-- **Owner-based**: Only module owner can update
-- **Function-level**: Whitelist exposed functions
-- **Token-gated**: Require payment for execution
+```
++--------------------+-----------------------------+
+| LEVEL              | MECHANISM                   |
++--------------------+-----------------------------+
+| owner-based        | only owner can update       |
+| function-level     | whitelist exposed functions  |
+| token-gated        | require payment for exec    |
++--------------------+-----------------------------+
+```
 
-### 5.3 Attack Mitigation
+### 6.3 ATTACK MITIGATION
 
-- **Replay Protection**: Timestamp validation
-- **Signature Verification**: Every transaction verified
-- **Rate Limiting**: Per-user execution limits
-- **Sandboxing**: Isolated execution environments
+```
+[x] replay protection   --> timestamp validation
+[x] sig verification    --> every tx verified
+[x] rate limiting       --> per-user exec limits
+[x] sandboxing          --> isolated environments
+```
 
-## 6. Use Cases
+---
 
-### 6.1 AI Model Marketplace
+## 7. USE CASES
+
+### 7.1 AI MODEL MARKETPLACE
 
 ```python
-# Deploy model
-api.reg(mod="gpt_model", comment="GPT-4 clone")
+# deploy model
+api.reg(mod="gpt_model", comment="gpt clone")
 
-# Inference call
+# inference call
 result = api.call(
     fn="gpt_model/forward",
-    params={"prompt": "Hello world"},
+    params={"prompt": "hello world"},
     cost=0.01
 )
 ```
 
-### 6.2 Decentralized Oracle
+### 7.2 DECENTRALIZED ORACLE
 
 ```python
-# Price aggregation
 price = api.call(
     fn="oracle/get_price",
     params={"asset": "BTC/USD"}
 )
 ```
 
-### 6.3 Data Processing Pipeline
+### 7.3 DATA PIPELINE
 
 ```python
-# Chain multiple modules
 raw = api.call(fn="scraper/fetch", params={"url": url})
-processed = api.call(fn="nlp/analyze", params={"text": raw})
-stored = api.call(fn="store/save", params={"data": processed})
+out = api.call(fn="nlp/analyze", params={"text": raw})
+cid = api.call(fn="store/save", params={"data": out})
 ```
-
-## 7. Governance
-
-### 7.1 Protocol Upgrades
-
-- **Proposal**: Community submits improvement proposals
-- **Voting**: Token-weighted governance
-- **Implementation**: Phased rollout with testing
-
-### 7.2 Dispute Resolution
-
-- **Challenge Period**: 7 days for module updates
-- **Arbitration**: Community vote on disputes
-- **Slashing**: Malicious actors lose collateral
-
-### 7.3 Treasury Management
-
-- **Funding**: Protocol fees accumulate
-- **Allocation**: Community votes on spending
-- **Transparency**: All transactions on-chain
-
-## 8. Technical Specifications
-
-### 8.1 Supported Chains
-
-- **Polkadot**: Substrate-based parachains
-- **Ethereum**: EVM-compatible chains
-- **Solana**: High-performance execution
-
-### 8.2 Wallet Integration
-
-- **Subwallet**: Polkadot ecosystem
-- **Metamask**: Ethereum ecosystem
-- **Phantom**: Solana ecosystem
-- **Local**: Browser-based keys
-
-### 8.3 Performance Metrics
-
-- **Latency**: <100ms for cached calls
-- **Throughput**: 1000+ calls/second
-- **Storage**: Unlimited via IPFS
-- **Availability**: 99.9% uptime
-
-## 9. Roadmap
-
-### Q1 2024: Foundation
-- ✅ Core API implementation
-- ✅ IPFS integration
-- ✅ Multi-wallet support
-- ✅ Basic UI
-
-### Q2 2024: Enhancement
-- 🔄 Advanced caching
-- 🔄 Cross-chain bridges
-- 🔄 Enhanced security
-- 🔄 Mobile apps
-
-### Q3 2024: Ecosystem
-- 📋 Developer SDK
-- 📋 Module marketplace
-- 📋 Governance launch
-- 📋 Mainnet deployment
-
-### Q4 2024: Scale
-- 📋 Enterprise features
-- 📋 Advanced analytics
-- 📋 Global CDN
-- 📋 Institutional partnerships
-
-## 10. Conclusion
-
-MOD Protocol represents a paradigm shift in how we build and monetize decentralized applications. By combining IPFS storage, cryptographic verification, and token economics, we create a trustless, composable, and economically sustainable ecosystem for the next generation of web applications.
-
-### Key Innovations
-
-1. **Content-Addressed Modules**: Immutable, verifiable code
-2. **Cryptographic Authentication**: Every transaction signed and verified
-3. **Built-in Economics**: Transparent costs and revenue sharing
-4. **Composability**: Mix and match modules freely
-5. **Multi-Chain Support**: Works across blockchain ecosystems
-
-### Vision
-
-We envision a future where:
-- Developers monetize code directly
-- Users pay only for what they use
-- Applications are truly decentralized
-- Innovation is permissionless
-- Trust is cryptographic, not institutional
 
 ---
 
-**Join the Revolution**
+## 8. GOVERNANCE
 
-- Website: https://mod.protocol
-- GitHub: https://github.com/mod-ai/mod
-- Discord: https://discord.gg/mod
-- Twitter: @modprotocol
+```
+PROTOCOL UPGRADES:
+  1. community submits proposals
+  2. token-weighted voting
+  3. phased rollout w/ testing
 
-*"Simplicity is the ultimate sophistication." - Leonardo da Vinci*
+DISPUTE RESOLUTION:
+  - 7 day challenge period for module updates
+  - community arbitration votes
+  - malicious actors lose collateral (slashing)
+
+TREASURY:
+  - protocol fees accumulate
+  - community votes on allocation
+  - all transactions on-chain (transparent)
+```
+
+---
+
+## 9. TECHNICAL SPECS
+
+### SUPPORTED CHAINS
+
+```
++------------------+---------------------+
+| CHAIN            | ECOSYSTEM           |
++------------------+---------------------+
+| polkadot         | substrate parachains|
+| ethereum         | evm-compatible      |
+| solana           | high-perf execution |
++------------------+---------------------+
+```
+
+### WALLET SUPPORT
+
+```
++------------------+---------------------+
+| WALLET           | CHAIN               |
++------------------+---------------------+
+| subwallet        | polkadot            |
+| metamask         | ethereum / evm      |
+| phantom          | solana              |
+| local keys       | browser-based       |
++------------------+---------------------+
+```
+
+### PERFORMANCE
+
+```
+latency:      <100ms (cached calls)
+throughput:   1000+ calls/sec
+storage:      unlimited (ipfs)
+availability: 99.9% uptime target
+```
+
+---
+
+## 10. ROADMAP
+
+```
+PHASE 1 - FOUNDATION
+  [x] core api implementation
+  [x] ipfs integration
+  [x] multi-wallet support
+  [x] basic ui
+
+PHASE 2 - ENHANCEMENT
+  [ ] advanced caching
+  [ ] cross-chain bridges
+  [ ] enhanced security
+  [ ] mobile apps
+
+PHASE 3 - ECOSYSTEM
+  [ ] developer sdk
+  [ ] module marketplace
+  [ ] governance launch
+  [ ] mainnet deployment
+
+PHASE 4 - SCALE
+  [ ] enterprise features
+  [ ] advanced analytics
+  [ ] global cdn
+  [ ] institutional partnerships
+```
+
+---
+
+## 11. CONCLUSION
+
+MOD Protocol combines ipfs storage, cryptographic verification,
+and token economics to create a trustless, composable, and
+economically sustainable ecosystem.
+
+```
+KEY INNOVATIONS:
+  1. content-addressed modules   (immutable, verifiable)
+  2. cryptographic auth          (every tx signed)
+  3. built-in economics          (transparent costs)
+  4. composability               (mix and match freely)
+  5. multi-chain support         (works across ecosystems)
+```
+
+### VISION
+
+```
++-----------------------------------------------------------+
+|                                                           |
+|  a future where:                                          |
+|    - developers monetize code directly                    |
+|    - users pay only for what they use                     |
+|    - applications are truly decentralized                 |
+|    - innovation is permissionless                         |
+|    - trust is cryptographic, not institutional            |
+|                                                           |
++-----------------------------------------------------------+
+```
+
+---
+
+```
++-----------------------------------------------------------+
+|                                                           |
+|   END OF WHITEPAPER                                       |
+|                                                           |
+|   "simplicity is the ultimate sophistication"             |
+|                                        - da vinci         |
+|                                                           |
++-----------------------------------------------------------+
+```

@@ -1,121 +1,55 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import { userContext } from '@/context'
 import { cryptoWaitReady } from '@polkadot/util-crypto'
-import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
+import { web3Accounts, web3Enable } from '@polkadot/extension-dapp'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Key } from '@/key'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 
 type AuthMode = 'local' | 'subwallet' | 'metamask' | 'phantom'
 
-const MetamaskLogo = ({ size = "w-8 h-8" }: { size?: string }) => (
-  <svg className={size} viewBox="0 0 318.6 318.6" fill="none" xmlns="http://www.w3.org/2000/svg">
+const MetamaskLogo = ({ size = 24 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 318.6 318.6" fill="none">
     <path d="M274.1 35.5l-99.5 73.9 18.4-43.6z" fill="#E17726" stroke="#E17726" strokeWidth="1.5"/>
     <path d="M44.4 35.5l98.7 74.6-17.5-44.3zm193.9 171.3l-26.5 40.6 56.7 15.6 16.3-55.3zm-204.4.9L50.1 263l56.7-15.6-26.5-40.6z" fill="#E27625" stroke="#E27625" strokeWidth="1.5"/>
-    <path d="M103.6 138.2l-15.8 23.9 56.3 2.5-2-60.5zm111.3 0l-39-34.8-1.3 61.2 56.2-2.5zM106.8 247.4l33.8-16.5-29.2-22.8zm71.1-16.5l33.9 16.5-4.7-39.3z" fill="#E27625" stroke="#E27625" strokeWidth="1.5"/>
-    <path d="M211.8 247.4l-33.9-16.5 2.7 22.1-.3 9.3zm-105 0l31.5 14.9-.2-9.3 2.5-22.1z" fill="#D5BFB2" stroke="#D5BFB2" strokeWidth="1.5"/>
-    <path d="M138.8 193.5l-28.2-8.3 19.9-9.1zm40.9 0l8.3-17.4 20 9.1z" fill="#233447" stroke="#233447" strokeWidth="1.5"/>
-    <path d="M106.8 247.4l4.8-40.6-31.3.9zM207 206.8l4.8 40.6 26.5-39.7zm23.8-44.7l-56.2 2.5 5.2 28.9 8.3-17.4 20 9.1zm-120.2 23.1l20-9.1 8.2 17.4 5.3-28.9-56.3-2.5z" fill="#CC6228" stroke="#CC6228" strokeWidth="1.5"/>
-    <path d="M87.8 162.1l23.6 46-.8-22.9zm120.3 23.1l-1 22.9 23.7-46zm-64-20.6l-5.3 28.9 6.6 34.1 1.5-44.9zm30.5 0l-2.7 18 1.2 45 6.7-34.1z" fill="#E27525" stroke="#E27525" strokeWidth="1.5"/>
-    <path d="M179.8 193.5l-6.7 34.1 4.8 3.3 29.2-22.8 1-22.9zm-69.2-8.3l.8 22.9 29.2 22.8 4.8-3.3-6.6-34.1z" fill="#F5841F" stroke="#F5841F" strokeWidth="1.5"/>
-    <path d="M180.3 262.3l.3-9.3-2.5-2.2h-37.7l-2.3 2.2.2 9.3-31.5-14.9 11 9 22.3 15.5h38.3l22.4-15.5 11-9z" fill="#C0AC9D" stroke="#C0AC9D" strokeWidth="1.5"/>
-    <path d="M177.9 230.9l-4.8-3.3h-27.7l-4.8 3.3-2.5 22.1 2.3-2.2h37.7l2.5 2.2z" fill="#161616" stroke="#161616" strokeWidth="1.5"/>
-    <path d="M278.3 114.2l8.5-40.8-12.7-37.9-96.2 71.4 37 31.3 52.3 15.3 11.6-13.5-5-3.6 8-7.3-6.2-4.8 8-6.1zM31.8 73.4l8.5 40.8-5.4 4 8 6.1-6.1 4.8 8 7.3-5 3.6 11.5 13.5 52.3-15.3 37-31.3-96.2-71.4z" fill="#763E1A" stroke="#763E1A" strokeWidth="1.5"/>
+    <path d="M103.6 138.2l-15.8 23.9 56.3 2.5-2-60.5zm111.3 0l-39-34.8-1.3 61.2 56.2-2.5z" fill="#E27625" stroke="#E27625" strokeWidth="1.5"/>
     <path d="M267.2 153.5l-52.3-15.3 15.8 23.9-23.7 46 31.2-.4h46.5zm-163.6-15.3l-52.3 15.3-17.4 54.2h46.4l31.1.4-23.6-46zm71 26.4l3.3-57.7 15.2-41.1h-67.5l15 41.1 3.5 57.7 1.2 18.2.1 44.8h27.7l.2-44.8z" fill="#F5841F" stroke="#F5841F" strokeWidth="1.5"/>
   </svg>
 )
 
-const PhantomLogo = ({ size = "w-8 h-8" }: { size?: string }) => (
-  <svg className={size} viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+const PhantomLogo = ({ size = 24 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
     <rect width="128" height="128" rx="24" fill="url(#phantom-gradient)"/>
     <path d="M96 64c0 17.673-14.327 32-32 32s-32-14.327-32-32V32h64v32z" fill="white"/>
-    <circle cx="52" cy="58" r="6" fill="#AB9FF2"/>
-    <circle cx="76" cy="58" r="6" fill="#AB9FF2"/>
-    <defs>
-      <linearGradient id="phantom-gradient" x1="0" y1="0" x2="128" y2="128">
-        <stop stopColor="#AB9FF2"/>
-        <stop offset="1" stopColor="#7C66DC"/>
-      </linearGradient>
-    </defs>
+    <circle cx="52" cy="58" r="6" fill="#AB9FF2"/><circle cx="76" cy="58" r="6" fill="#AB9FF2"/>
+    <defs><linearGradient id="phantom-gradient" x1="0" y1="0" x2="128" y2="128"><stop stopColor="#AB9FF2"/><stop offset="1" stopColor="#7C66DC"/></linearGradient></defs>
   </svg>
 )
 
-const SubwalletLogo = ({ size = "w-8 h-8" }: { size?: string }) => (
-  <svg className={size} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+const SubwalletLogo = ({ size = 24 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 200 200" fill="none">
     <circle cx="100" cy="100" r="100" fill="url(#subwallet-gradient)"/>
     <path d="M100 40L60 80L100 120L140 80L100 40Z" fill="white"/>
     <path d="M100 120L60 160L100 200L140 160L100 120Z" fill="white" opacity="0.6"/>
-    <defs>
-      <linearGradient id="subwallet-gradient" x1="0" y1="0" x2="200" y2="200">
-        <stop stopColor="#00E5CC"/>
-        <stop offset="1" stopColor="#00B8D4"/>
-      </linearGradient>
-    </defs>
+    <defs><linearGradient id="subwallet-gradient" x1="0" y1="0" x2="200" y2="200"><stop stopColor="#00E5CC"/><stop offset="1" stopColor="#00B8D4"/></linearGradient></defs>
   </svg>
 )
 
-const LocalKeyLogo = ({ size = "w-8 h-8" }: { size?: string }) => (
-  <svg className={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="7" cy="7" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
-    <path d="M7 11V22M11 15H7M11 19H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    <path d="M16 8L22 8M19 5L19 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+const LocalKeyLogo = ({ size = 24 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <circle cx="7" cy="7" r="4" fill="none"/><path d="M7 11V22M11 15H7M11 19H7"/>
+    <path d="M16 8L22 8M19 5L19 11"/>
   </svg>
 )
 
-function KeyPreview({ address, publicKey, label }: { address: string; publicKey?: string; label: string }) {
-  const [copied, setCopied] = useState(false)
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="overflow-hidden"
-      style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)' }}
-    >
-      <div className="flex items-center justify-between px-5 py-3" style={{ backgroundColor: 'var(--bg-surface)', borderBottom: '4px solid var(--border-strong)' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 bg-[#42be65]" style={{ border: '1px solid #42be65' }} />
-          <span className="text-base font-digital uppercase tracking-[0.15em] font-bold" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-        </div>
-        <button
-          onClick={() => copyToClipboard(address)}
-          className="text-sm font-digital hover:text-[#78a9ff] transition-colors uppercase tracking-wider font-bold"
-          style={{ color: 'var(--text-tertiary)' }}
-        >
-          {copied ? 'COPIED!' : 'COPY'}
-        </button>
-      </div>
-      <div className="px-5 py-4 space-y-3">
-        <div>
-          <span className="text-sm uppercase tracking-[0.2em] font-digital font-bold" style={{ color: 'var(--text-tertiary)' }}>ADDRESS</span>
-          <p className="text-base font-mono break-all leading-relaxed mt-1" style={{ color: 'var(--text-primary)' }}>
-            {address.slice(0, 20)}<span style={{ color: 'var(--text-tertiary)' }}>...</span>{address.slice(-12)}
-          </p>
-        </div>
-        {publicKey && (
-          <div>
-            <span className="text-sm uppercase tracking-[0.2em] font-digital font-bold" style={{ color: 'var(--text-tertiary)' }}>PUBLIC KEY</span>
-            <p className="text-sm font-mono break-all leading-relaxed mt-1" style={{ color: 'var(--text-secondary)' }}>
-              {publicKey.slice(0, 20)}<span style={{ color: 'var(--text-tertiary)' }}>...</span>{publicKey.slice(-12)}
-            </p>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  )
+interface WalletAuthButtonProps {
+  showAuthSidebar: boolean
+  setShowAuthSidebar: (v: boolean) => void
 }
 
-export function WalletAuthButton() {
-  const { user, signIn, signOut, authLoading } = userContext()
-  const [showAuthModal, setShowAuthModal] = useState(false)
+export function WalletAuthButton({ showAuthSidebar, setShowAuthSidebar }: WalletAuthButtonProps) {
+  const { user, signIn, authLoading } = userContext()
   const [authMode, setAuthMode] = useState<AuthMode>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('last_auth_mode') as AuthMode | null
@@ -128,7 +62,6 @@ export function WalletAuthButton() {
   const [error, setError] = useState('')
   const [accounts, setAccounts] = useState<any[]>([])
   const [selectedAccount, setSelectedAccount] = useState<string>('')
-  const [isExpanded, setIsExpanded] = useState(false)
   const [metamaskAccounts, setMetamaskAccounts] = useState<string[]>([])
   const [selectedMetamaskAccount, setSelectedMetamaskAccount] = useState<string>('')
 
@@ -143,17 +76,15 @@ export function WalletAuthButton() {
     checkWallets()
   }, [])
 
-  // Persist auth mode selection
   useEffect(() => {
     localStorage.setItem('last_auth_mode', authMode)
   }, [authMode])
 
-  // Auto-connect MetaMask if it's the default mode on modal open
   useEffect(() => {
-    if (isExpanded && authMode === 'metamask' && metamaskAccounts.length === 0) {
+    if (showAuthSidebar && authMode === 'metamask' && metamaskAccounts.length === 0) {
       handleMetamaskConnect()
     }
-  }, [isExpanded])
+  }, [showAuthSidebar])
 
   const derivedKey = useMemo(() => {
     if (authMode !== 'local' || !password || password.length < 1) return null
@@ -166,157 +97,97 @@ export function WalletAuthButton() {
   }, [password, authMode])
 
   const handleLocalSignIn = async () => {
-    if (!password) {
-      setError('Password is required')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-
+    if (!password) { setError('Password is required'); return }
+    setLoading(true); setError('')
     try {
       localStorage.setItem('wallet_mode', 'local')
       localStorage.setItem('wallet_password', password)
       const key = new Key(password)
       localStorage.setItem('wallet_address', key.address)
       await signIn()
-      setShowAuthModal(false)
+      setShowAuthSidebar(false)
       setPassword('')
-      setIsExpanded(false)
     } catch (err: any) {
       setError(err.message || 'Failed to sign in')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const handleSubwalletSignIn = async () => {
-    if (!selectedAccount) {
-      setError('Please select an account')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-
+    if (!selectedAccount) { setError('Please select an account'); return }
+    setLoading(true); setError('')
     try {
       await cryptoWaitReady()
-
       const account = accounts.find(acc => acc.address === selectedAccount)
       if (!account) throw new Error('Account not found')
-
       const extensions = await web3Enable('MOD')
       if (extensions.length === 0) throw new Error('No extension found')
-
       localStorage.setItem('wallet_mode', 'subwallet')
       localStorage.setItem('wallet_address', selectedAccount)
       localStorage.setItem('wallet_type', account.type || 'sr25519')
       await signIn()
-      setShowAuthModal(false)
-      setIsExpanded(false)
+      setShowAuthSidebar(false)
     } catch (err: any) {
       setError(err.message || 'Failed to connect wallet')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const handleMetamaskConnect = async () => {
-    setLoading(true)
-    setError('')
-
+    setLoading(true); setError('')
     try {
-      if (typeof window.ethereum === 'undefined') {
-        throw new Error('MetaMask is not installed')
-      }
-
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-      if (!accounts || accounts.length === 0) {
-        throw new Error('No MetaMask accounts found')
-      }
-      setMetamaskAccounts(accounts)
-      if (accounts.length === 1) {
-        setSelectedMetamaskAccount(accounts[0])
-      }
+      if (typeof window.ethereum === 'undefined') throw new Error('MetaMask is not installed')
+      const accts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      if (!accts || accts.length === 0) throw new Error('No MetaMask accounts found')
+      setMetamaskAccounts(accts)
+      if (accts.length === 1) setSelectedMetamaskAccount(accts[0])
     } catch (err: any) {
       setError(err.message || 'Failed to connect MetaMask')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const handleMetamaskSignIn = async () => {
-    if (!selectedMetamaskAccount) {
-      setError('Please select a MetaMask account')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-
+    if (!selectedMetamaskAccount) { setError('Please select a MetaMask account'); return }
+    setLoading(true); setError('')
     try {
       localStorage.setItem('wallet_mode', 'metamask')
       localStorage.setItem('wallet_address', selectedMetamaskAccount)
       localStorage.setItem('wallet_type', 'ethereum')
       await signIn()
-      setShowAuthModal(false)
-      setIsExpanded(false)
+      setShowAuthSidebar(false)
     } catch (err: any) {
       setError(err.message || 'Failed to sign in with MetaMask')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const handlePhantomSignIn = async () => {
-    setLoading(true)
-    setError('')
-
+    setLoading(true); setError('')
     try {
-      if (typeof window.solana === 'undefined' || !window.solana.isPhantom) {
-        throw new Error('Phantom wallet is not installed')
-      }
-
+      if (typeof window.solana === 'undefined' || !window.solana.isPhantom) throw new Error('Phantom wallet is not installed')
       const response = await window.solana.connect()
-      if (!response.publicKey) {
-        throw new Error('Failed to connect to Phantom')
-      }
-
+      if (!response.publicKey) throw new Error('Failed to connect to Phantom')
       localStorage.setItem('wallet_mode', 'phantom')
       localStorage.setItem('wallet_address', response.publicKey.toString())
       localStorage.setItem('wallet_type', 'solana')
       await signIn()
-      setShowAuthModal(false)
-      setIsExpanded(false)
+      setShowAuthSidebar(false)
     } catch (err: any) {
       setError(err.message || 'Failed to connect Phantom')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (authMode === 'local') {
-      handleLocalSignIn()
-    } else if (authMode === 'subwallet') {
-      handleSubwalletSignIn()
-    } else if (authMode === 'metamask') {
-      if (metamaskAccounts.length === 0) {
-        handleMetamaskConnect()
-      } else {
-        handleMetamaskSignIn()
-      }
-    } else if (authMode === 'phantom') {
-      handlePhantomSignIn()
-    }
+    if (authMode === 'local') handleLocalSignIn()
+    else if (authMode === 'subwallet') handleSubwalletSignIn()
+    else if (authMode === 'metamask') {
+      if (metamaskAccounts.length === 0) handleMetamaskConnect()
+      else handleMetamaskSignIn()
+    } else if (authMode === 'phantom') handlePhantomSignIn()
   }
 
-  const handleModalClose = () => {
-    setShowAuthModal(false)
+  const handleClose = () => {
+    setShowAuthSidebar(false)
     setPassword('')
     setError('')
-    setIsExpanded(false)
     setMetamaskAccounts([])
     setSelectedMetamaskAccount('')
     setSelectedAccount('')
@@ -324,18 +195,16 @@ export function WalletAuthButton() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center px-5 font-digital uppercase" style={{ backgroundColor: 'var(--bg-secondary)', border: '4px solid var(--border-strong)', color: 'var(--text-primary)', height: '44px' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-4 border-t-[#78a9ff] animate-spin" style={{ borderColor: 'var(--border-input)', borderTopColor: '#78a9ff' }} />
-          <span className="text-xl font-bold tracking-wide" style={{ color: 'var(--text-secondary)' }}>LOADING...</span>
+      <div className="flex items-center justify-center px-4 font-digital uppercase" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', height: '36px' }}>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 border-2 border-t-[#78a9ff] animate-spin rounded-full" style={{ borderColor: 'var(--border-input)', borderTopColor: '#78a9ff' }} />
+          <span className="text-xs font-bold tracking-wide" style={{ color: 'var(--text-tertiary)' }}>LOADING</span>
         </div>
       </div>
     )
   }
 
-  if (user) {
-    return null
-  }
+  if (user) return null
 
   const walletColors: Record<AuthMode, string> = {
     local: '#78a9ff',
@@ -344,11 +213,11 @@ export function WalletAuthButton() {
     phantom: '#ab9ff2',
   }
 
-  const wallets: { mode: AuthMode; label: string; Logo: React.FC<{ size?: string }>; tag: string; disabled: boolean; onClick: () => void }[] = [
-    { mode: 'local', label: 'Local Key', Logo: LocalKeyLogo, tag: 'KEY', disabled: false, onClick: () => { setAuthMode('local'); setError(''); } },
-    { mode: 'subwallet', label: 'SubWallet', Logo: SubwalletLogo, tag: 'SUB', disabled: accounts.length === 0, onClick: () => { setAuthMode('subwallet'); setError(''); } },
-    { mode: 'metamask', label: 'MetaMask', Logo: MetamaskLogo, tag: 'ETH', disabled: false, onClick: () => { setAuthMode('metamask'); setError(''); if (metamaskAccounts.length === 0) handleMetamaskConnect(); } },
-    { mode: 'phantom', label: 'Phantom', Logo: PhantomLogo, tag: 'SOL', disabled: false, onClick: () => { setAuthMode('phantom'); setError(''); } },
+  const wallets: { mode: AuthMode; Logo: React.FC<{ size?: number }>; disabled: boolean; onClick: () => void }[] = [
+    { mode: 'metamask', Logo: MetamaskLogo, disabled: false, onClick: () => { setAuthMode('metamask'); setError(''); if (metamaskAccounts.length === 0) handleMetamaskConnect(); } },
+    { mode: 'phantom', Logo: PhantomLogo, disabled: false, onClick: () => { setAuthMode('phantom'); setError(''); } },
+    { mode: 'subwallet', Logo: SubwalletLogo, disabled: accounts.length === 0, onClick: () => { setAuthMode('subwallet'); setError(''); } },
+    { mode: 'local', Logo: LocalKeyLogo, disabled: false, onClick: () => { setAuthMode('local'); setError(''); } },
   ]
 
   const activeColor = walletColors[authMode]
@@ -357,256 +226,202 @@ export function WalletAuthButton() {
     <div className="relative font-mono">
       {/* Trigger Button */}
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center px-4 transition-all duration-200 border-4 gap-2 uppercase"
+        onClick={() => setShowAuthSidebar(!showAuthSidebar)}
+        className="flex items-center px-4 transition-all duration-200 gap-2 uppercase"
         style={{
-          height: '44px',
-          backgroundColor: isExpanded ? 'var(--text-primary)' : 'var(--bg-secondary)',
-          borderColor: isExpanded ? 'var(--text-primary)' : 'var(--border-strong)',
-          color: isExpanded ? 'var(--bg-primary)' : 'var(--text-primary)',
+          height: '36px',
+          backgroundColor: showAuthSidebar ? 'var(--text-primary)' : 'var(--bg-input)',
+          border: `1px solid ${showAuthSidebar ? 'var(--text-primary)' : 'var(--border-color)'}`,
+          borderRadius: '8px',
+          color: showAuthSidebar ? 'var(--bg-primary)' : 'var(--text-primary)',
           fontFamily: 'var(--font-digital), monospace',
         }}
       >
-        <svg className="w-5 h-5" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v3H6V3a2 2 0 0 1 2-2zm3 5V3a3 3 0 0 0-6 0v3H2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6H11zm-1 1v6H4V7h8z"/></svg>
-        <span className="text-xl font-digital tracking-wide font-bold">SIGN IN</span>
-        <svg className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="currentColor"><path d="M6 8.5L1 3.5h10L6 8.5z"/></svg>
+        <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v3H6V3a2 2 0 0 1 2-2zm3 5V3a3 3 0 0 0-6 0v3H2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6H11zm-1 1v6H4V7h8z"/></svg>
+        <span className="text-xs font-digital tracking-wide font-bold">SIGN IN</span>
       </button>
 
-      {/* Full-Page Auth Overlay - portaled to body */}
-      {typeof document !== 'undefined' && createPortal(
+      {/* Sidebar Auth Panel */}
       <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed inset-0 flex items-center justify-center font-mono"
-            style={{ zIndex: 99999, backgroundColor: 'var(--bg-primary)' }}
-          >
-            {/* Radial glow behind content */}
-            <div className="absolute inset-0 pointer-events-none" style={{
-              background: `radial-gradient(ellipse 800px 500px at 50% 40%, ${activeColor}0a 0%, transparent 70%)`,
-              transition: 'background 0.8s ease',
-            }} />
-
-            {/* Secondary glow - top accent */}
-            <div className="absolute inset-0 pointer-events-none" style={{
-              background: `radial-gradient(ellipse 400px 100px at 50% 0%, ${activeColor}08 0%, transparent 100%)`,
-              transition: 'background 0.8s ease',
-            }} />
-
-            {/* Close button - top right */}
-            <button
-              onClick={handleModalClose}
-              className="absolute top-6 right-6 z-10 w-10 h-10 flex items-center justify-center transition-colors"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 16 16" fill="currentColor"><path d="M12.3 4.3L8.7 8l3.6 3.7-.7.7L8 8.7l-3.7 3.6-.7-.7L7.3 8 3.7 4.3l.7-.7L8 7.3l3.7-3.6.6.6z"/></svg>
-            </button>
-
-            {/* Main content - centered */}
+        {showAuthSidebar && (
+          <>
+            {/* Backdrop */}
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.05 }}
-              className="relative w-full max-w-[480px] mx-auto px-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80]"
+              onClick={handleClose}
+            />
+
+            {/* Side Panel */}
+            <motion.div
+              initial={{ x: 400, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 400, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="fixed top-0 right-0 h-screen shadow-2xl z-[90] overflow-y-auto custom-scrollbar font-mono"
+              style={{
+                width: '420px',
+                borderLeft: `1px solid ${activeColor}30`,
+                boxShadow: `-40px 0 80px rgba(0, 0, 0, 0.5), 0 0 120px ${activeColor}15`,
+                backgroundColor: 'var(--bg-secondary)',
+              }}
             >
-              {/* Provider Selection */}
-              <div className="mb-6">
-                <span className="block text-xl font-digital uppercase tracking-[0.2em] mb-4 font-bold" style={{ color: 'var(--text-primary)' }}>SELECT PROVIDER</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                  {wallets.map(({ mode, label, Logo, tag, disabled, onClick }) => {
-                    const isSelected = authMode === mode
-                    const color = walletColors[mode]
-                    return (
-                      <button
-                        key={mode}
-                        onClick={onClick}
-                        disabled={disabled}
-                        className={`group relative flex flex-col items-center justify-center transition-all duration-200 py-6 ${
-                          disabled ? 'opacity-20 cursor-not-allowed' : 'cursor-pointer'
-                        }`}
-                        style={{
-                          backgroundColor: isSelected ? `${color}10` : 'var(--bg-secondary)',
-                          border: isSelected ? `4px solid ${color}` : '4px solid var(--border-strong)',
-                          boxShadow: isSelected ? `0 0 20px ${color}30` : 'none',
-                        }}
-                      >
-                        {isSelected && (
-                          <motion.div
-                            className="absolute top-0 left-0 right-0 h-1"
-                            style={{ backgroundColor: color }}
-                            layoutId="provider-indicator"
-                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                          />
-                        )}
-                        <div className={`w-12 h-12 flex items-center justify-center mb-3 transition-all duration-200 ${
-                          isSelected ? '' : 'opacity-40 group-hover:opacity-70'
-                        }`} style={{
-                          backgroundColor: isSelected ? `${color}20` : 'var(--bg-input)',
-                          border: `2px solid ${isSelected ? color : 'var(--border-color)'}`,
-                        }}>
-                          <Logo size="w-7 h-7" />
-                        </div>
-                        <span className="text-base font-digital uppercase tracking-[0.1em] font-bold transition-colors duration-200"
-                          style={isSelected ? { color } : { color: 'var(--text-tertiary)' }}>{tag}</span>
-                        <span className="text-xs font-digital mt-1 uppercase tracking-wider transition-colors duration-200"
-                          style={{ color: 'var(--text-tertiary)' }}>{label}</span>
-                      </button>
-                    )
-                  })}
+              {/* Header */}
+              <div className="sticky top-0 z-10 backdrop-blur-md" style={{ backgroundColor: 'var(--bg-sidebar)' }}>
+                <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+                  <span className="text-xl font-digital uppercase tracking-[0.15em] font-bold" style={{ color: 'var(--text-primary)' }}>
+                    CONNECT
+                  </span>
+                  <button
+                    onClick={handleClose}
+                    className="flex items-center justify-center w-10 h-10 border-4 hover:bg-white/10 transition-all"
+                    style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-strong)' }}
+                  >
+                    <XMarkIcon className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+                  </button>
                 </div>
+
+                {/* Provider Selection - Icon row */}
+                <div className="px-5 pb-4">
+                  <div className="flex gap-2">
+                    {wallets.map(({ mode, Logo, disabled, onClick }) => {
+                      const isSelected = authMode === mode
+                      const color = walletColors[mode]
+                      return (
+                        <button
+                          key={mode}
+                          onClick={onClick}
+                          disabled={disabled}
+                          className={`relative flex-1 flex items-center justify-center py-3 transition-all duration-200 ${disabled ? 'opacity-20 cursor-not-allowed' : 'cursor-pointer hover:opacity-80'}`}
+                          style={{
+                            backgroundColor: isSelected ? `${color}15` : 'var(--bg-input)',
+                            border: isSelected ? `4px solid ${color}` : '4px solid var(--border-strong)',
+                          }}
+                        >
+                          {isSelected && (
+                            <motion.div
+                              className="absolute top-0 left-0 right-0 h-0.5"
+                              style={{ backgroundColor: color }}
+                              layoutId="auth-indicator"
+                              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                            />
+                          )}
+                          <div className={`transition-opacity ${isSelected ? 'opacity-100' : 'opacity-40'}`}>
+                            <Logo size={28} />
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="mx-5" style={{ borderBottom: '1px solid var(--border-color)' }} />
               </div>
 
-              {/* Form Area */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <AnimatePresence mode="wait">
-                  {authMode === 'local' ? (
-                    <motion.div
-                      key="local"
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                      transition={{ duration: 0.15 }}
-                      className="space-y-4"
-                    >
-                      <div>
-                        <label className="block text-base font-digital uppercase tracking-[0.25em] mb-3 font-bold" style={{ color: 'var(--text-tertiary)' }}>
-                          PASSPHRASE
-                        </label>
-                        <div className="relative group">
-                          <div className="absolute left-5 top-1/2 -translate-y-1/2 group-focus-within:text-[#78a9ff] transition-colors" style={{ color: 'var(--text-tertiary)' }}>
-                            <svg className="w-5 h-5" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v3H6V3a2 2 0 0 1 2-2zm3 5V3a3 3 0 0 0-6 0v3H2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6H11zm-1 1v6H4V7h8z"/></svg>
-                          </div>
-                          <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full h-14 pl-14 pr-5 text-lg font-digital focus:outline-none focus:border-[#78a9ff] transition-all duration-200 font-bold uppercase tracking-wide"
-                            style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)', color: 'var(--text-primary)', boxShadow: password ? `0 0 0 2px ${activeColor}40` : 'none' }}
-                            placeholder="ENTER PASSPHRASE"
-                            autoFocus
-                          />
-                        </div>
-                        <p className="text-sm mt-3 flex items-center gap-2 font-digital uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-                          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 1a6 6 0 100 12A6 6 0 008 2zm-.5 3h1v5h-1V5zm0 6h1v1h-1v-1z"/></svg>
-                          DETERMINISTIC KEY DERIVED FROM PASSPHRASE
-                        </p>
-                      </div>
-
-                      {/* Key Preview */}
-                      <AnimatePresence>
-                        {derivedKey && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <KeyPreview
-                              address={derivedKey.address}
-                              publicKey={derivedKey.publicKey}
-                              label="Derived Key"
-                            />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  ) : authMode === 'subwallet' ? (
-                    <motion.div
-                      key="subwallet"
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                      transition={{ duration: 0.15 }}
-                      className="space-y-4"
-                    >
-                      <label className="block text-base font-digital uppercase tracking-[0.25em] mb-3 font-bold" style={{ color: 'var(--text-tertiary)' }}>
-                        ACCOUNT
-                      </label>
-                      {accounts.length === 0 ? (
-                        <div className="flex items-center gap-4 p-5" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)' }}>
-                          <svg className="w-5 h-5 text-[#f1c21b] shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L0 15h16L8 1zm0 3.2L13.4 14H2.6L8 4.2zM7.25 7v3.5h1.5V7h-1.5zm0 4.5v1.5h1.5v-1.5h-1.5z"/></svg>
-                          <span className="text-base text-[#f1c21b] font-digital uppercase tracking-wide font-bold">NO WALLET EXTENSION</span>
-                        </div>
-                      ) : (
-                        <div className="overflow-hidden" style={{ border: '4px solid var(--border-strong)' }}>
-                          {accounts.map((account) => {
-                            const selected = selectedAccount === account.address
-                            return (
-                              <button
-                                key={account.address}
-                                type="button"
-                                onClick={() => setSelectedAccount(account.address)}
-                                className="w-full text-left px-5 py-4 text-base font-digital transition-all last:border-b-0"
-                                style={{
-                                  backgroundColor: selected ? 'rgba(0,229,204,0.1)' : 'var(--bg-secondary)',
-                                  borderBottom: '2px solid var(--border-color)',
-                                }}
-                              >
-                                <div className="flex items-center gap-4">
-                                  <div className={`w-4 h-4 border-4 shrink-0 transition-all ${
-                                    selected ? 'border-[#00e5cc] bg-[#00e5cc]' : ''
-                                  }`} style={!selected ? { borderColor: 'var(--border-strong)' } : {}} />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-bold text-base truncate transition-colors uppercase tracking-wide" style={{ color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{account.meta.name}</div>
-                                    <div className="text-sm truncate mt-1 font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                                      {account.address.slice(0, 14)}...{account.address.slice(-10)}
-                                    </div>
-                                  </div>
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-
-                    </motion.div>
-                  ) : authMode === 'metamask' ? (
-                    <motion.div
-                      key="metamask"
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                      transition={{ duration: 0.15 }}
-                      className="space-y-4"
-                    >
-                      {metamaskAccounts.length === 0 ? (
-                        <div className="flex items-center gap-5 p-5" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)' }}>
-                          <MetamaskLogo size="w-10 h-10" />
-                          <div>
-                            <p className="text-base text-[#f6851b] font-bold font-digital uppercase tracking-wide">METAMASK</p>
-                            <p className="text-sm mt-1 font-digital uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>CLICK SIGN IN TO CONNECT</p>
-                          </div>
-                        </div>
-                      ) : (
+              {/* Form Content */}
+              <div className="px-5 py-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <AnimatePresence mode="wait">
+                    {authMode === 'local' ? (
+                      <motion.div
+                        key="local"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                        transition={{ duration: 0.15 }}
+                        className="space-y-4"
+                      >
                         <div>
-                          <label className="block text-base font-digital uppercase tracking-[0.25em] mb-3 font-bold" style={{ color: 'var(--text-tertiary)' }}>
-                            ACCOUNT
+                          <label className="block text-sm font-digital uppercase tracking-[0.25em] mb-2 font-bold" style={{ color: 'var(--text-tertiary)' }}>
+                            PASSPHRASE
                           </label>
+                          <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-[#78a9ff] transition-colors" style={{ color: 'var(--text-tertiary)' }}>
+                              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v3H6V3a2 2 0 0 1 2-2zm3 5V3a3 3 0 0 0-6 0v3H2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6H11zm-1 1v6H4V7h8z"/></svg>
+                            </div>
+                            <input
+                              type="password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              className="w-full h-12 pl-11 pr-4 text-base font-digital focus:outline-none transition-all duration-200 font-bold uppercase tracking-wide"
+                              style={{
+                                backgroundColor: 'var(--bg-input)',
+                                border: `4px solid ${password ? '#78a9ff' : 'var(--border-strong)'}`,
+                                color: 'var(--text-primary)',
+                              }}
+                              placeholder="ENTER PASSPHRASE"
+                              autoFocus
+                            />
+                          </div>
+                          <p className="text-xs mt-2 flex items-center gap-1.5 font-digital uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                            <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 1a6 6 0 100 12A6 6 0 008 2zm-.5 3h1v5h-1V5zm0 6h1v1h-1v-1z"/></svg>
+                            KEY DERIVED FROM PASSPHRASE
+                          </p>
+                        </div>
+
+                        {/* Key Preview */}
+                        <AnimatePresence>
+                          {derivedKey && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <div className="p-3 border-4" style={{ backgroundColor: 'var(--bg-input)', borderColor: '#78a9ff' }}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-1.5 h-1.5 bg-[#42be65]" />
+                                  <span className="text-xs font-digital uppercase tracking-wider font-bold" style={{ color: 'var(--text-tertiary)' }}>DERIVED KEY</span>
+                                </div>
+                                <p className="text-sm font-mono break-all" style={{ color: 'var(--text-primary)' }}>
+                                  {derivedKey.address.slice(0, 20)}<span style={{ color: 'var(--text-tertiary)' }}>...</span>{derivedKey.address.slice(-12)}
+                                </p>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    ) : authMode === 'subwallet' ? (
+                      <motion.div
+                        key="subwallet"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                        transition={{ duration: 0.15 }}
+                        className="space-y-3"
+                      >
+                        <label className="block text-sm font-digital uppercase tracking-[0.25em] mb-2 font-bold" style={{ color: 'var(--text-tertiary)' }}>
+                          ACCOUNT
+                        </label>
+                        {accounts.length === 0 ? (
+                          <div className="flex items-center gap-3 p-4" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)' }}>
+                            <svg className="w-4 h-4 text-[#f1c21b] shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L0 15h16L8 1zm0 3.2L13.4 14H2.6L8 4.2zM7.25 7v3.5h1.5V7h-1.5zm0 4.5v1.5h1.5v-1.5h-1.5z"/></svg>
+                            <span className="text-sm text-[#f1c21b] font-digital uppercase font-bold">NO EXTENSION FOUND</span>
+                          </div>
+                        ) : (
                           <div className="overflow-hidden" style={{ border: '4px solid var(--border-strong)' }}>
-                            {metamaskAccounts.map((address, index) => {
-                              const selected = selectedMetamaskAccount === address
+                            {accounts.map((account) => {
+                              const selected = selectedAccount === account.address
                               return (
                                 <button
-                                  key={address}
+                                  key={account.address}
                                   type="button"
-                                  onClick={() => setSelectedMetamaskAccount(address)}
-                                  className="w-full text-left px-5 py-4 text-base font-digital transition-all last:border-b-0"
+                                  onClick={() => setSelectedAccount(account.address)}
+                                  className="w-full text-left px-4 py-3 text-sm font-digital transition-all last:border-b-0"
                                   style={{
-                                    backgroundColor: selected ? 'rgba(246,133,27,0.1)' : 'var(--bg-secondary)',
+                                    backgroundColor: selected ? 'rgba(0,229,204,0.1)' : 'var(--bg-secondary)',
                                     borderBottom: '2px solid var(--border-color)',
                                   }}
                                 >
-                                  <div className="flex items-center gap-4">
-                                    <div className={`w-4 h-4 border-4 shrink-0 transition-all ${
-                                      selected ? 'border-[#f6851b] bg-[#f6851b]' : ''
-                                    }`} style={!selected ? { borderColor: 'var(--border-strong)' } : {}} />
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-3 h-3 border-4 shrink-0 transition-all ${selected ? 'border-[#00e5cc] bg-[#00e5cc]' : ''}`} style={!selected ? { borderColor: 'var(--border-strong)' } : {}} />
                                     <div className="flex-1 min-w-0">
-                                      <div className="font-bold text-base transition-colors uppercase tracking-wide" style={{ color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>ACCOUNT {index + 1}</div>
-                                      <div className="text-sm truncate mt-1 font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                                        {address.slice(0, 14)}...{address.slice(-10)}
+                                      <div className="font-bold text-sm truncate uppercase" style={{ color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{account.meta.name}</div>
+                                      <div className="text-xs truncate mt-0.5 font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                                        {account.address.slice(0, 14)}...{account.address.slice(-10)}
                                       </div>
                                     </div>
                                   </div>
@@ -614,51 +429,100 @@ export function WalletAuthButton() {
                               )
                             })}
                           </div>
-
+                        )}
+                      </motion.div>
+                    ) : authMode === 'metamask' ? (
+                      <motion.div
+                        key="metamask"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                        transition={{ duration: 0.15 }}
+                        className="space-y-3"
+                      >
+                        {metamaskAccounts.length === 0 ? (
+                          <div className="flex items-center gap-4 p-4" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)' }}>
+                            <MetamaskLogo size={32} />
+                            <div>
+                              <p className="text-sm text-[#f6851b] font-bold font-digital uppercase">METAMASK</p>
+                              <p className="text-xs mt-0.5 font-digital uppercase" style={{ color: 'var(--text-tertiary)' }}>CLICK SIGN IN TO CONNECT</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block text-sm font-digital uppercase tracking-[0.25em] mb-2 font-bold" style={{ color: 'var(--text-tertiary)' }}>
+                              ACCOUNT
+                            </label>
+                            <div className="overflow-hidden" style={{ border: '4px solid var(--border-strong)' }}>
+                              {metamaskAccounts.map((addr, index) => {
+                                const selected = selectedMetamaskAccount === addr
+                                return (
+                                  <button
+                                    key={addr}
+                                    type="button"
+                                    onClick={() => setSelectedMetamaskAccount(addr)}
+                                    className="w-full text-left px-4 py-3 text-sm font-digital transition-all last:border-b-0"
+                                    style={{
+                                      backgroundColor: selected ? 'rgba(246,133,27,0.1)' : 'var(--bg-secondary)',
+                                      borderBottom: '2px solid var(--border-color)',
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-3 h-3 border-4 shrink-0 transition-all ${selected ? 'border-[#f6851b] bg-[#f6851b]' : ''}`} style={!selected ? { borderColor: 'var(--border-strong)' } : {}} />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-bold text-sm uppercase" style={{ color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>ACCOUNT {index + 1}</div>
+                                        <div className="text-xs truncate mt-0.5 font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                                          {addr.slice(0, 14)}...{addr.slice(-10)}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="phantom"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <div className="flex items-center gap-4 p-4" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)' }}>
+                          <PhantomLogo size={32} />
+                          <div>
+                            <p className="text-sm text-[#ab9ff2] font-bold font-digital uppercase">PHANTOM</p>
+                            <p className="text-xs mt-0.5 font-digital uppercase" style={{ color: 'var(--text-tertiary)' }}>CLICK SIGN IN TO CONNECT</p>
+                          </div>
                         </div>
-                      )}
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="phantom"
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                      transition={{ duration: 0.15 }}
-                    >
-                      <div className="flex items-center gap-5 p-5" style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-strong)' }}>
-                        <PhantomLogo size="w-10 h-10" />
-                        <div>
-                          <p className="text-base text-[#ab9ff2] font-bold font-digital uppercase tracking-wide">PHANTOM</p>
-                          <p className="text-sm mt-1 font-digital uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>CLICK SIGN IN TO CONNECT</p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                {/* Error */}
-                <AnimatePresence>
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="flex items-center gap-4 p-5 bg-[#da1e28]/10"
-                      style={{ border: '4px solid #da1e28' }}
-                    >
-                      <svg className="w-6 h-6 text-[#fa4d56] shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 3.5h1.5v5h-1.5v-5zm0 6h1.5v1.5h-1.5v-1.5z"/></svg>
-                      <span className="text-base text-[#fa4d56] font-digital uppercase tracking-wide font-bold">{error}</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                  {/* Error */}
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="flex items-center gap-3 p-3 bg-[#da1e28]/10"
+                        style={{ border: '4px solid #da1e28' }}
+                      >
+                        <svg className="w-4 h-4 text-[#fa4d56] shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.75 3.5h1.5v5h-1.5v-5zm0 6h1.5v1.5h-1.5v-1.5z"/></svg>
+                        <span className="text-sm text-[#fa4d56] font-digital uppercase font-bold">{error}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                {/* Actions */}
-                <div className="flex gap-4 pt-3">
+                  {/* Sign In Button */}
                   <button
                     type="submit"
                     disabled={loading || (authMode === 'subwallet' && accounts.length === 0)}
-                    className="flex-1 h-14 text-lg font-bold uppercase tracking-widest transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed relative overflow-hidden group font-digital"
+                    className="w-full h-12 text-base font-bold uppercase tracking-widest transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed relative overflow-hidden group font-digital"
                     style={{
                       backgroundColor: activeColor,
                       opacity: loading || (authMode === 'subwallet' && accounts.length === 0) ? 0.3 : 1,
@@ -668,56 +532,33 @@ export function WalletAuthButton() {
                   >
                     <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-200" />
                     {loading ? (
-                      <span className="relative flex items-center justify-center gap-3">
-                        <div className="w-5 h-5 border-4 border-current/20 border-t-current animate-spin" />
-                        <span>CONNECTING...</span>
+                      <span className="relative flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-4 border-current/20 border-t-current animate-spin" />
+                        CONNECTING...
                       </span>
                     ) : authMode === 'metamask' && metamaskAccounts.length === 0 ? (
-                      <span className="relative flex items-center justify-center gap-3">
-                        <svg className="w-5 h-5" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 3L8 0.5 2.5 3v5c0 3.5 2.3 6.5 5.5 7.5 3.2-1 5.5-4 5.5-7.5V3zM8 2l4 1.8v4.7c0 2.7-1.8 5-4 5.9-2.2-.9-4-3.2-4-5.9V3.8L8 2z"/></svg>
-                        CONNECT WALLET
-                      </span>
+                      <span className="relative">CONNECT WALLET</span>
                     ) : (
-                      <span className="relative flex items-center justify-center gap-3">
-                        <svg className="w-5 h-5" viewBox="0 0 16 16" fill="currentColor"><path d="M13 5l-1.5-1.5L7 8 4.5 5.5 3 7l4 4z"/></svg>
-                        SIGN IN
-                      </span>
+                      <span className="relative">SIGN IN</span>
                     )}
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleModalClose}
-                    className="h-14 px-10 text-lg font-bold uppercase tracking-widest transition-all duration-200 font-digital"
-                    style={{ color: 'var(--text-secondary)', border: '4px solid var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}
-                  >
-                    CANCEL
-                  </button>
-                </div>
-              </form>
+                </form>
 
-              {/* Footer */}
-              <div className="mt-8 pt-4" style={{ borderTop: '2px solid var(--border-color)' }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 animate-pulse" style={{ backgroundColor: activeColor, border: '1px solid ' + activeColor }} />
-                    <span className="text-sm font-digital tracking-[0.2em] uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>MOD AUTH V1.0</span>
-                  </div>
-                  <div className="flex items-center gap-5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-[#42be65]" style={{ border: '1px solid #42be65' }} />
-                      <span className="text-sm font-digital tracking-[0.2em] uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>ENCRYPTED</span>
-                    </div>
-                    <span className="text-sm font-digital" style={{ color: 'var(--border-color)' }}>|</span>
-                    <span className="text-sm font-digital tracking-[0.2em] uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>SECURE</span>
+                {/* Footer */}
+                <div className="mt-6 pt-3 flex items-center gap-2" style={{ borderTop: '1px solid var(--border-color)' }}>
+                  <div className="w-1.5 h-1.5 animate-pulse" style={{ backgroundColor: activeColor }} />
+                  <span className="text-xs font-digital tracking-wider uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>MOD AUTH</span>
+                  <div className="flex-1" />
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 bg-[#42be65]" />
+                    <span className="text-xs font-digital tracking-wider uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>ENCRYPTED</span>
                   </div>
                 </div>
               </div>
             </motion.div>
-          </motion.div>
+          </>
         )}
-      </AnimatePresence>,
-      document.body
-      )}
+      </AnimatePresence>
     </div>
   )
 }

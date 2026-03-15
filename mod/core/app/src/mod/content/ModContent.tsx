@@ -43,41 +43,6 @@ export type FileNode = {
   cid?: string;
 };
 
-export const ui = {
-  dark: {
-    panel: '#0d0d0d',
-    panelAlt: '#000000',
-    panelAlt2: '#06060a',
-    border: 'rgba(96, 165, 250, 0.3)',
-    borderDim: 'rgba(96, 165, 250, 0.15)',
-    text: '#e7e7e7',
-    textDim: 'rgba(255, 255, 255, 0.5)',
-    textHighlight: '#60a5fa',
-    accent: '#60a5fa',
-    accentDim: 'rgba(96, 165, 250, 0.6)',
-    bgAccent: 'rgba(96, 165, 250, 0.1)',
-    green: '#22c55e',
-    yellow: '#facc15',
-    glow: 'rgba(96, 165, 250, 0.15)',
-  },
-  light: {
-    panel: '#ffffff',
-    panelAlt: '#f9fafb',
-    panelAlt2: '#f3f4f6',
-    border: 'rgba(59, 130, 246, 0.3)',
-    borderDim: 'rgba(59, 130, 246, 0.15)',
-    text: '#1f2937',
-    textDim: 'rgba(0, 0, 0, 0.6)',
-    textHighlight: '#2563eb',
-    accent: '#3b82f6',
-    accentDim: 'rgba(59, 130, 246, 0.7)',
-    bgAccent: 'rgba(59, 130, 246, 0.1)',
-    green: '#22c55e',
-    yellow: '#facc15',
-    glow: 'rgba(59, 130, 246, 0.15)',
-  },
-};
-
 export const getFileIcon = (filename: string) => {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
   const iconMap: Record<string, any> = {
@@ -98,19 +63,13 @@ export const getLanguageFromPath = (path: string): string => {
   return langMap[ext] || 'text';
 };
 
-export const languageColors: Record<string, string> = {
-  typescript: 'text-blue-400', javascript: 'text-yellow-400', python: 'text-green-400',
-  json: 'text-orange-400', css: 'text-pink-400', html: 'text-red-400',
-  markdown: 'text-gray-400', text: 'text-gray-300',
-};
-
 export const formatFileSize = (bytes: number): string =>
   bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
 
 export const buildFileTree = (files: Record<string, string>): FileNode[] => {
   const root: FileNode = { name: '', path: '', type: 'folder', children: [] };
 
-  Object.entries(files).forEach(([path, content]) => {
+  Object.entries(files).forEach(([path, cid]) => {
     const parts = path.split('/').filter(Boolean);
     let current = root;
     parts.forEach((part, idx) => {
@@ -123,11 +82,11 @@ export const buildFileTree = (files: Record<string, string>): FileNode[] => {
           path: currentPath,
           type: isFile ? 'file' : 'folder',
           children: isFile ? undefined : [],
-          content: isFile ? content : undefined,
+          content: undefined,
           language: isFile ? getLanguageFromPath(part) : undefined,
-          cid: isFile ? content : undefined,
-          lineCount: isFile ? content.split('\n').length : undefined,
-          size: isFile ? formatFileSize(content.length) : undefined,
+          cid: isFile ? cid : undefined,
+          lineCount: undefined,
+          size: undefined,
         };
         current.children!.push(child);
       }
@@ -163,11 +122,12 @@ export const highlightSearchTerm = (text: string, term: string) => {
 
 
 export function FileTreeItem({
-  node, level, onSelect, expandedFolders, toggleFolder, selectedPath, onCopy, searchTerm, isLight, theme,
+  node, level, onSelect, expandedFolders, toggleFolder, selectedPath, onCopy, searchTerm, fileContents,
 }: {
   node: FileNode; level: number; onSelect: (n: FileNode) => void;
   expandedFolders: Set<string>; toggleFolder: (p: string) => void; selectedPath?: string;
-  onCopy: (n: FileNode) => void; searchTerm?: string; isLight: boolean; theme: typeof ui.dark;
+  onCopy: (n: FileNode) => void; searchTerm?: string;
+  fileContents?: Record<string, string>;
 }) {
   const isExpanded = expandedFolders.has(node.path);
   const isSelected = selectedPath === node.path;
@@ -185,46 +145,44 @@ export function FileTreeItem({
   return (
     <div>
       <div
-        className={`group micro-row flex cursor-pointer items-center px-3 py-2.5 text-[11px] transition-all duration-200 mx-1
-        ${isSelected
-          ? `${isLight ? 'text-gray-900' : 'text-white'}`
-          : `${isLight ? 'text-gray-600 hover:bg-black/5' : 'text-gray-400 hover:bg-white/5'}`}
-        ${matchesSearch && searchTerm ? 'ring-1 ring-yellow-400/40 bg-yellow-400/5' : ''}`}
+        className="group flex cursor-pointer items-center px-2 py-2 text-[11px] transition-all duration-150 mx-0.5"
         style={{
-          paddingLeft: `${level * 12 + 12}px`,
-          backgroundColor: isSelected ? (isLight ? 'rgba(59, 130, 246, 0.1)' : 'rgba(96, 165, 250, 0.1)') : 'transparent',
-          border: isSelected ? `1px solid ${isLight ? 'rgba(59, 130, 246, 0.3)' : 'rgba(96, 165, 250, 0.3)'}` : '1px solid transparent',
-          boxShadow: isSelected ? (isLight ? '0 0 15px rgba(59, 130, 246, 0.2)' : '0 0 15px rgba(96, 165, 250, 0.2)') : 'none'
+          paddingLeft: `${level * 12 + 8}px`,
+          backgroundColor: isSelected ? 'var(--bg-input)' : 'transparent',
+          border: isSelected ? '1px solid var(--border-color)' : '1px solid transparent',
+          color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
         }}
         onClick={handleClick}
         title={node.path}
       >
         {node.type === 'folder' ? (
-          isExpanded ? <ChevronDownIcon className="mr-1.5 h-3.5 w-3.5" style={{ color: theme.accent }} /> : <ChevronRightIcon className="mr-1.5 h-3.5 w-3.5" style={{ color: theme.accent }} />
+          isExpanded
+            ? <ChevronDownIcon className="mr-1.5 h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
+            : <ChevronRightIcon className="mr-1.5 h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
         ) : null}
-        <FileIcon className="mr-2.5 h-4 w-4 flex-shrink-0" style={{
-          color: theme.accent,
-          filter: `drop-shadow(0 0 4px ${theme.glow})`
-        }} />
+        <FileIcon className="mr-2 h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
         <span className="flex-1 truncate font-mono font-medium">
           {searchTerm ? highlightSearchTerm(node.name, searchTerm) : node.name}
         </span>
         {node.type === 'file' ? (
           <>
-            <span className="ml-2 text-[10px] opacity-50 font-mono">{node.size}</span>
+            <span className="ml-2 text-[9px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+              {fileContents?.[node.path] ? formatFileSize(fileContents[node.path].length) : (node.size || '...')}
+            </span>
             <div
               className="relative ml-1.5"
               onMouseEnter={() => setShowCid(true)}
               onMouseLeave={() => setShowCid(false)}
             >
-              <HashtagIcon className="h-3.5 w-3.5 transition-colors" style={{ color: theme.accentDim }} />
+              <HashtagIcon className="h-3 w-3 transition-colors" style={{ color: 'var(--text-tertiary)' }} />
               {showCid && node.cid && (
                 <div
-                  className="absolute right-0 top-6 z-50 border px-3 py-2 text-[10px] font-mono whitespace-nowrap shadow-xl"
+                  className="absolute right-0 top-5 z-50 px-2.5 py-1.5 text-[9px] font-mono whitespace-nowrap"
                   style={{
-                    borderColor: theme.border,
-                    backgroundColor: theme.panel,
-                    color: theme.textHighlight
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-surface)',
+                    color: 'var(--text-primary)',
+                    boxShadow: 'var(--card-shadow)',
                   }}
                 >
                   {node.cid.length > 46 ? `${node.cid.slice(0, 46)}...` : node.cid}
@@ -233,19 +191,19 @@ export function FileTreeItem({
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); onCopy(node); }}
-              className={`ml-1.5 opacity-0 transition-all group-hover:opacity-100 p-1.5 rounded-md ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+              className="ml-1.5 opacity-0 transition-all group-hover:opacity-100 p-1"
               title="Copy file content"
             >
-              <ClipboardDocumentIcon className={`h-3.5 w-3.5 ${isLight ? 'text-black/40 hover:text-black' : 'text-gray-400 hover:text-white'}`} />
+              <ClipboardDocumentIcon className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
             </button>
           </>
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); onCopy(node); }}
-            className={`ml-1.5 opacity-0 transition-all group-hover:opacity-100 p-1.5 rounded-md ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+            className="ml-1.5 opacity-0 transition-all group-hover:opacity-100 p-1"
             title="Copy folder contents"
           >
-            <ClipboardDocumentIcon className={`h-3.5 w-3.5 ${isLight ? 'text-black/40 hover:text-black' : 'text-gray-400 hover:text-white'}`} />
+            <ClipboardDocumentIcon className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
           </button>
         )}
       </div>
@@ -262,8 +220,7 @@ export function FileTreeItem({
               selectedPath={selectedPath}
               onCopy={onCopy}
               searchTerm={searchTerm}
-              isLight={isLight}
-              theme={theme}
+              fileContents={fileContents}
             />
           ))}
         </div>
@@ -278,7 +235,6 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   const { client } = userContext();
   const { effectiveTheme } = useTheme();
   const isLight = effectiveTheme === 'light';
-  const theme = isLight ? ui.light : ui.dark;
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
   const [selectedVersion, setSelectedVersion] = useState<number>(0);
@@ -315,7 +271,6 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
        }
       }
 
-    // Start with all folders collapsed by default
     setExpandedFolders(new Set());
     if (tree.length > 0 && tree[0].type === 'file') setSelectedFile(tree[0].path);
   }, [files, selectedFile]);
@@ -338,7 +293,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   useEffect(() => {
     if (!searchTerm) { setSearchResults([]); return; }
     const results: { path: string; lineNumbers: number[] }[] = [];
-    Object.entries(files).forEach(([path, content]) => {
+    Object.entries(fileContents).forEach(([path, content]) => {
       if (typeof content !== 'string') return;
       const lines = content.split('\n');
       const matchLines: number[] = [];
@@ -348,31 +303,33 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     });
     setSearchResults(results);
     setCollapsedFiles(new Set());
-  }, [searchTerm, files]);
+  }, [searchTerm, fileContents]);
 
   const fileSections = useMemo(() =>
     Object.entries(files)
-      .map(([path, content]) => {
-        if (typeof content !== 'string') return null;
+      .map(([path, cid]) => {
+        if (typeof cid !== 'string') return null;
+        const fetched = fileContents[path];
         return {
           path,
           name: path.split('/').pop() || path,
-          content,
+          content: fetched || '',
           language: getLanguageFromPath(path),
-          cid: content,
-          lineCount: content.split('\n').length,
-          size: formatFileSize(content.length),
+          cid,
+          lineCount: fetched ? fetched.split('\n').length : 0,
+          size: fetched ? formatFileSize(fetched.length) : '...',
+          loaded: !!fetched,
         };
       })
       .filter((s): s is NonNullable<typeof s> => s !== null),
-    [files]
+    [files, fileContents]
   );
 
   const filteredSections = useMemo(() => {
     if (!searchTerm) return fileSections;
     const q = searchTerm.toLowerCase();
-    return fileSections.filter((s) => s && (s.path.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)));
-  }, [fileSections, searchTerm]);
+    return fileSections.filter((s) => s && (s.path.toLowerCase().includes(q) || (fileContents[s.path] || '').toLowerCase().includes(q)));
+  }, [fileSections, searchTerm, fileContents]);
 
   const filteredTree = useMemo(() => {
     if (!searchTerm) return fileTree;
@@ -397,14 +354,15 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   const toggleFolder = (path: string) => setExpandedFolders((prev) => { const n = new Set(prev); n.has(path) ? n.delete(path) : n.add(path); return n; });
 
   const copyFileContent = (node: FileNode) => {
-    if (node.type === 'file' && node.content) {
-      navigator.clipboard.writeText(node.content);
+    if (node.type === 'file') {
+      const content = fileContents[node.path];
+      if (content) navigator.clipboard.writeText(content);
       return;
     }
     if (node.type === 'folder') {
       const buffer: string[] = [];
       const walk = (n: FileNode) => {
-        if (n.type === 'file' && n.content) buffer.push(`// ${n.path}\n${n.content}`);
+        if (n.type === 'file' && fileContents[n.path]) buffer.push(`// ${n.path}\n${fileContents[n.path]}`);
         n.children?.forEach(walk);
       };
       walk(node);
@@ -416,7 +374,7 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     const lines = content.split('\n');
     const matches = searchResults.find((r) => r.path === path)?.lineNumbers || [];
     return (
-      <div className="select-none pr-3 font-mono text-[14px]" style={{ color: theme.textDim }}>
+      <div className="select-none pr-3 font-mono text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
         {lines.map((_, i) => {
           const ln = startLine + i;
           const isMatch = matches.includes(ln);
@@ -434,8 +392,8 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     const lines = content.split('\n');
     const matches = searchResults.find((r) => r.path === path)?.lineNumbers || [];
     return (
-      <pre className="micro-scroll micro-edge-x flex-1 overflow-x-auto">
-        <code className={`font-mono text-[14px] leading-relaxed ${isLight ? 'text-gray-900' : 'text-gray-300'}`}>
+      <pre className="mod-scroll flex-1 overflow-x-auto">
+        <code className="font-mono text-[12px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
           {lines.map((line, i) => {
             const ln = i + 1;
             const isMatch = matches.includes(ln);
@@ -450,9 +408,6 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     );
   };
 
-  const topFile = fileSections[0];
-
-  // Mock versions for now - can be replaced with actual version data from mod
   const versions = [
     { version: '1.0.0', timestamp: Date.now(), label: 'latest' },
     { version: '0.9.0', timestamp: Date.now() - 86400000, label: '' },
@@ -460,58 +415,25 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   ];
 
   return (
-    <div className="overflow-hidden font-mono p-4 relative" style={{ fontFamily: 'JetBrains Mono, monospace', backgroundColor: theme.panelAlt }}>
-      {/* Ambient glow background */}
-      <div className="absolute inset-0 pointer-events-none opacity-20">
-        <div className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full" style={{ backgroundColor: theme.bgAccent }} />
-        <div className="absolute bottom-0 left-0 w-96 h-96 blur-[120px] rounded-full" style={{ backgroundColor: theme.bgAccent }} />
-      </div>
-
-      {/* Single line header with search and stats */}
-      <div className="px-6 py-3 shadow-2xl flex items-center gap-4 relative" style={{
-        backgroundColor: theme.panel,
-        border: `2px solid ${theme.border}`,
-        boxShadow: `0 0 30px ${theme.glow}`
+    <div className="overflow-hidden font-mono" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+      {/* Header bar */}
+      <div className="px-4 py-2.5 flex items-center gap-4" style={{
+        backgroundColor: 'var(--bg-surface)',
+        border: '1px solid var(--border-color)',
       }}>
-        {/* Corner accents */}
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: theme.accent }} />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2" style={{ borderColor: theme.accent }} />
-
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="px-2.5 py-1" style={{
-            background: `linear-gradient(to right, ${theme.bgAccent}, ${theme.bgAccent})`,
-            border: `1px solid ${theme.border}`,
-            boxShadow: `0 0 10px ${theme.glow}`
-          }}>
-            <span className="text-[10px] font-bold" style={{
-              color: theme.accent,
-              textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
-            }}>CNT</span>
-          </div>
-          <h3 className="text-[13px] font-bold tracking-wide whitespace-nowrap uppercase" style={{
-            color: theme.text,
-            textShadow: isLight ? 'none' : `0 0 10px ${theme.glow}`
-          }}>
-            ► FILE EXPLORER
-          </h3>
-        </div>
-
-        {/* Search bar - flex-1 to take remaining space */}
-        <div className="relative flex-1 max-w-md">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{
-            color: theme.accent,
-            filter: `drop-shadow(0 0 4px ${theme.glow})`
-          }} />
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
           <input
             type="text"
-            placeholder="Search files and content..."
+            placeholder="Search files..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={`w-full border pl-9 pr-3 py-2 text-[11px] outline-none transition-all ${isLight ? 'bg-gray-50 focus:bg-white' : 'bg-white/[0.03] focus:bg-white/[0.06]'}`}
+            className="w-full pl-9 pr-3 py-2 text-[11px] font-mono outline-none transition-all"
             style={{
-              borderColor: theme.border,
-              color: theme.text,
-              boxShadow: `0 0 15px ${theme.glow}`
+              backgroundColor: 'var(--bg-input)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-primary)',
             }}
           />
         </div>
@@ -520,10 +442,11 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         <select
           value={selectedVersion}
           onChange={(e) => setSelectedVersion(Number(e.target.value))}
-          className={`px-3 py-2 text-[11px] font-medium border outline-none transition-all flex-shrink-0 font-mono ${isLight ? 'bg-gray-50 text-gray-900' : 'bg-white/[0.03] text-white'}`}
+          className="px-2.5 py-2 text-[11px] font-mono outline-none transition-all flex-shrink-0"
           style={{
-            borderColor: theme.border,
-            boxShadow: `0 0 15px ${theme.glow}`
+            backgroundColor: 'var(--bg-input)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-primary)',
           }}
         >
           {versions.map((v, idx) => (
@@ -534,53 +457,37 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         </select>
 
         {/* Stats */}
-        <div className="flex items-center gap-2 text-[10px] font-medium flex-shrink-0 font-mono">
-          <span className="px-2.5 py-1 whitespace-nowrap" style={{
-            backgroundColor: theme.bgAccent,
-            color: theme.accent,
-            border: `1px solid ${theme.border}`,
-            textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
-          }}>{stats.fileCount} files</span>
-          <span className="px-2.5 py-1 whitespace-nowrap" style={{
-            backgroundColor: theme.bgAccent,
-            color: theme.accent,
-            border: `1px solid ${theme.border}`,
-            textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
-          }}>{stats.totalLines} lines</span>
-          <span className="px-2.5 py-1 whitespace-nowrap" style={{
-            backgroundColor: theme.bgAccent,
-            color: theme.accent,
-            border: `1px solid ${theme.border}`,
-            textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
-          }}>{stats.totalSize}</span>
+        <div className="flex items-center gap-2 text-[10px] font-mono flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+          <span>{stats.fileCount} files</span>
+          <span>·</span>
+          <span>{stats.totalLines} lines</span>
+          <span>·</span>
+          <span>{stats.totalSize}</span>
           {searchTerm && searchResults.length > 0 && (
-            <span className="px-2.5 py-1 bg-yellow-500/10 text-yellow-400 whitespace-nowrap" style={{
-              border: '1px solid rgba(234, 179, 8, 0.3)',
-              textShadow: '0 0 8px rgba(234, 179, 8, 0.5)'
-            }}>
-              {searchResults.reduce((s, r) => s + r.lineNumbers.length, 0)} matches
-            </span>
+            <>
+              <span>·</span>
+              <span className="text-yellow-400">
+                {searchResults.reduce((s, r) => s + r.lineNumbers.length, 0)} matches
+              </span>
+            </>
           )}
         </div>
       </div>
 
-      <div className="flex gap-4 mt-4 relative">
-        <div className="micro-scroll-y w-72 max-h-[600px] overflow-y-auto p-4 shadow-xl relative" style={{
-          backgroundColor: theme.panelAlt2,
-          border: `2px solid ${theme.border}`,
-          boxShadow: `0 0 30px ${theme.glow}`
+      <div className="flex gap-0 mt-0">
+        {/* File tree sidebar */}
+        <div className="mod-scroll-y w-64 max-h-[600px] overflow-y-auto py-3" style={{
+          backgroundColor: 'var(--bg-surface)',
+          borderRight: '1px solid var(--border-color)',
+          borderBottom: '1px solid var(--border-color)',
+          borderLeft: '1px solid var(--border-color)',
         }}>
-          {/* Corner accents */}
-          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: theme.accent }} />
-          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2" style={{ borderColor: theme.accent }} />
-
-          <div className="mb-4">
+          <div className="mb-2 px-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-bold tracking-wide uppercase" style={{
-                color: theme.accent,
-                textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
-              }}>► Files</h3>
-              <div className="flex gap-2">
+              <h3 className="text-[10px] font-bold tracking-wider uppercase font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                Files
+              </h3>
+              <div className="flex gap-1">
                 <button
                   onClick={() => {
                     const all = new Set<string>();
@@ -588,24 +495,22 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                     collect(fileTree);
                     setExpandedFolders(all);
                   }}
-                  className={`text-xs transition-all p-1.5 rounded-md ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
-                  style={{ color: theme.accentDim }}
+                  className="p-1 transition-all"
                   title="Expand all"
                 >
-                  <ChevronDownIcon className="h-3.5 w-3.5" />
+                  <ChevronDownIcon className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
                 </button>
                 <button
                   onClick={() => setExpandedFolders(new Set())}
-                  className={`text-xs transition-all p-1.5 rounded-md ${isLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
-                  style={{ color: theme.accentDim }}
+                  className="p-1 transition-all"
                   title="Collapse all"
                 >
-                  <ChevronRightIcon className="h-3.5 w-3.5" />
+                  <ChevronRightIcon className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
                 </button>
               </div>
             </div>
           </div>
-          <div className="space-y-0.5">
+          <div className="space-y-0">
             {filteredTree.map((node) => (
               <FileTreeItem
                 key={node.path}
@@ -617,22 +522,17 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
                 selectedPath={selectedFile || undefined}
                 onCopy={copyFileContent}
                 searchTerm={searchTerm}
-                isLight={isLight}
-                theme={theme}
+                fileContents={fileContents}
               />
             ))}
           </div>
         </div>
 
-        <div className="micro-scroll-y max-h-[600px] flex-1 overflow-y-auto shadow-xl p-4 relative" style={{
-          backgroundColor: theme.panel,
-          border: `2px solid ${theme.border}`,
-          boxShadow: `0 0 30px ${theme.glow}`
+        {/* Code panel */}
+        <div className="mod-scroll-y max-h-[600px] flex-1 overflow-y-auto" style={{
+          border: '1px solid var(--border-color)',
+          borderLeft: 'none',
         }}>
-          {/* Corner accents */}
-          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: theme.accent }} />
-          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2" style={{ borderColor: theme.accent }} />
-
           {filteredSections.map((section) => {
             const isCollapsed = collapsedFiles.has(section.path);
             const isSelected = selectedFile === section.path;
@@ -640,68 +540,76 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
             const matches = searchResults.find((r) => r.path === section.path)?.lineNumbers.length || 0;
             if (selectedFile && !isSelected) return null;
             if (!client) return null;
-            const content = fileContents[section.path] || section.content;
+            const content = fileContents[section.path] || '';
+            const isLoading = !fileContents[section.path];
 
             return (
               <div
                 key={section.path}
                 ref={(el) => { codeRefs.current[section.path] = el; }}
-                className={`overflow-hidden mb-4 border transition-all duration-200 relative`}
+                className="overflow-hidden transition-all duration-150"
                 style={{
-                  borderColor: isSelected ? 'rgba(6, 182, 212, 0.5)' : matches ? 'rgba(234, 179, 8, 0.5)' : theme.border,
-                  backgroundColor: theme.panelAlt2,
-                  boxShadow: isSelected
-                    ? '0 0 30px rgba(6, 182, 212, 0.3)'
-                    : matches
-                    ? '0 0 20px rgba(234, 179, 8, 0.2)'
-                    : 'none',
-                  borderWidth: '2px'
+                  borderBottom: '1px solid var(--border-color)',
                 }}
               >
                 <div
-                  className={`flex cursor-pointer items-center justify-between px-5 py-3.5 transition-all duration-200 rounded-t-xl ${isLight ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
+                  className="flex cursor-pointer items-center justify-between px-4 py-2.5 transition-all duration-150"
+                  style={{ backgroundColor: 'var(--bg-surface)' }}
                   onClick={() => toggleFile(section.path)}
                 >
-                  <div className="micro-row flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
-                    {isCollapsed ? <ChevronRightIcon className="h-4 w-4 flex-shrink-0" style={{ color: theme.textDim }} /> : <ChevronDownIcon className="h-4 w-4 flex-shrink-0" style={{ color: theme.textDim }} />}
-                    <FileIcon className="h-5 w-5 flex-shrink-0" style={{ color: theme.accent }} />
-                    <span className={`font-mono text-[13px] font-medium ${isLight ? 'text-gray-900' : 'text-white'} truncate flex-shrink`}>
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0 overflow-hidden">
+                    {isCollapsed
+                      ? <ChevronRightIcon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                      : <ChevronDownIcon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                    }
+                    <FileIcon className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                    <span className="font-mono text-[12px] font-medium truncate flex-shrink" style={{ color: 'var(--text-primary)' }}>
                       {searchTerm && section.path.toLowerCase().includes(searchTerm.toLowerCase())
                         ? highlightSearchTerm(section.path, searchTerm)
                         : section.path}
                     </span>
                     <div className="flex items-center gap-2 flex-shrink-0 whitespace-nowrap">
-                      <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full border ${languageColors[section.language]} ${isLight ? 'bg-gray-200' : 'bg-black/40'}`}
-                        style={{ borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)' }}>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5" style={{
+                        color: 'var(--text-tertiary)',
+                        backgroundColor: 'var(--bg-input)',
+                        border: '1px solid var(--border-color)',
+                      }}>
                         {section.language}
                       </span>
-                      {/* CID Display - Inline with filename */}
-                      <span className="text-[10px] font-mono select-all px-2.5 py-1 rounded-md"
+                      <span className="text-[9px] font-mono select-all px-1.5 py-0.5"
                         style={{
-                          color: theme.textHighlight,
-                          backgroundColor: theme.bgAccent,
-                          border: `1px solid ${theme.borderDim}`
+                          color: 'var(--text-tertiary)',
+                          backgroundColor: 'var(--bg-input)',
+                          border: '1px solid var(--border-color)',
                         }}
                         onClick={(e) => e.stopPropagation()}
                         title={section.cid}>
                         {section.cid.length > 20 ? `${section.cid.slice(0, 10)}...${section.cid.slice(-8)}` : section.cid}
                       </span>
-                      {!!matches && <span className="text-[10px] text-yellow-400 font-medium px-2.5 py-1 rounded-full bg-yellow-400/10 border border-yellow-500/20">{matches} matches</span>}
+                      {!!matches && <span className="text-[9px] text-yellow-400 font-mono px-1.5 py-0.5 bg-yellow-400/10">{matches} matches</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 text-[10px] font-bold uppercase flex-shrink-0 ml-4 whitespace-nowrap" style={{ color: theme.textDim }}>
+                  <div className="flex items-center gap-3 text-[10px] font-mono flex-shrink-0 ml-4 whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>
                     <span>{section.size}</span>
-                    <span>{section.lineCount} lines</span>
+                    <span>{section.lineCount} ln</span>
                     <CopyButton content={content} />
                   </div>
                 </div>
 
                 {!isCollapsed && (
-                  <div className="flex rounded-b-xl overflow-hidden" style={{ backgroundColor: theme.panelAlt2 }}>
-                    {renderLineNumbers(content, 1, section.path)}
-                    <div className="micro-scroll micro-edge-x flex-1 overflow-x-auto p-5">
-                      {renderCode(content, section.language, section.path)}
-                    </div>
+                  <div className="flex overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
+                    {isLoading ? (
+                      <div className="flex-1 flex items-center justify-center py-12 text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                        Loading...
+                      </div>
+                    ) : (
+                      <>
+                        {renderLineNumbers(content, 1, section.path)}
+                        <div className="mod-scroll flex-1 overflow-x-auto p-4">
+                          {renderCode(content, section.language, section.path)}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -710,87 +618,69 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-6 py-4 mt-4 shadow-xl relative" style={{
-        backgroundColor: theme.panel,
-        border: `2px solid ${theme.border}`,
-        boxShadow: `0 0 30px ${theme.glow}`
+      {/* Footer */}
+      <div className="flex items-center justify-between px-4 py-2.5" style={{
+        backgroundColor: 'var(--bg-surface)',
+        border: '1px solid var(--border-color)',
+        borderTop: 'none',
       }}>
-        {/* Corner accents */}
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: theme.accent }} />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2" style={{ borderColor: theme.accent }} />
-
-        <div className="text-[11px] font-medium font-mono">
+        <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
           {searchTerm && searchResults.length > 0 && (
-            <span className="px-3 py-1.5 bg-yellow-500/10 text-yellow-400" style={{
-              border: '1px solid rgba(234, 179, 8, 0.3)',
-              textShadow: '0 0 8px rgba(234, 179, 8, 0.5)'
-            }}>
-              Found "{searchTerm}" in {searchResults.length} files
-            </span>
+            <span>Found "{searchTerm}" in {searchResults.length} files</span>
           )}
         </div>
         <button
           onClick={() => {
-            const all = filteredSections.map((s) => `// ${s.path}\n${s.content}`).join('\n\n');
+            const all = filteredSections.filter(s => fileContents[s.path]).map((s) => `// ${s.path}\n${fileContents[s.path]}`).join('\n\n');
             navigator.clipboard.writeText(all);
           }}
-          className="flex items-center gap-2.5 text-[11px] font-medium font-mono transition-all px-4 py-2.5 relative group"
+          className="flex items-center gap-2 text-[10px] font-mono transition-all px-3 py-1.5"
           style={{
-            color: theme.accent,
-            border: `2px solid ${theme.border}`,
-            boxShadow: `0 0 20px ${theme.glow}`,
-            textShadow: isLight ? 'none' : `0 0 8px ${theme.glow}`
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--border-color)',
           }}
         >
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ backgroundColor: theme.bgAccent }} />
-          <DocumentIcon className="h-4 w-4 relative" />
-          <span className="relative uppercase tracking-wider">Copy All Code</span>
+          <DocumentIcon className="h-3.5 w-3.5" />
+          <span className="uppercase tracking-wider">Copy All</span>
         </button>
       </div>
 
       <style jsx>{`
-        .micro-scroll {
+        .mod-scroll {
           scrollbar-width: thin;
           scrollbar-color: transparent transparent;
         }
-        .micro-scroll:hover {
-          scrollbar-color: ${theme.borderDim} transparent;
+        .mod-scroll:hover {
+          scrollbar-color: var(--scrollbar-thumb) transparent;
         }
-        .micro-scroll::-webkit-scrollbar {
-          height: 8px;
+        .mod-scroll::-webkit-scrollbar {
+          height: 6px;
           background: transparent;
         }
-        .micro-scroll::-webkit-scrollbar-thumb {
+        .mod-scroll::-webkit-scrollbar-thumb {
           background: transparent;
-          border-radius: 9999px;
+          border-radius: 3px;
         }
-        .micro-scroll:hover::-webkit-scrollbar-thumb {
-          background: ${theme.borderDim};
+        .mod-scroll:hover::-webkit-scrollbar-thumb {
+          background: var(--scrollbar-thumb);
         }
-        .micro-scroll::-webkit-scrollbar-track {
+        .mod-scroll::-webkit-scrollbar-track {
           background: transparent;
         }
-        .micro-scroll-y {
+        .mod-scroll-y {
           scrollbar-width: thin;
-          scrollbar-color: ${theme.borderDim} transparent;
+          scrollbar-color: var(--scrollbar-thumb) transparent;
         }
-        .micro-scroll-y::-webkit-scrollbar {
-          width: 10px;
+        .mod-scroll-y::-webkit-scrollbar {
+          width: 6px;
           background: transparent;
         }
-        .micro-scroll-y::-webkit-scrollbar-thumb {
-          background: ${theme.borderDim};
-          border-radius: 9999px;
+        .mod-scroll-y::-webkit-scrollbar-thumb {
+          background: var(--scrollbar-thumb);
+          border-radius: 3px;
         }
-        .micro-scroll-y::-webkit-scrollbar-track {
+        .mod-scroll-y::-webkit-scrollbar-track {
           background: transparent;
-        }
-        .micro-edge-x {
-          -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
-          mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
-        }
-        .micro-row {
-          min-height: 32px;
         }
       `}</style>
     </div>

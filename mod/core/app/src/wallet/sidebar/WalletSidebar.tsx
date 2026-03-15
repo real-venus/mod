@@ -8,7 +8,6 @@ import { CreditTab } from './CreditTab'
 import { TransactionsTab } from './TransactionsTab'
 import { AccountsTab } from './AccountsTab'
 import { PortfolioTab } from './PortfolioTab'
-import { NetworkSelector } from '@/network/NetworkSelector'
 
 function TabButton({ active, onClick, icon, label, colorActive, colorInactive }: {
   active: boolean
@@ -21,7 +20,7 @@ function TabButton({ active, onClick, icon, label, colorActive, colorInactive }:
   return (
     <button
       onClick={onClick}
-      className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 border-[3px] rounded-xl transition-all duration-300 text-sm font-digital uppercase shadow-lg hover:scale-105 ${
+      className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 transition-all duration-300 text-base font-digital uppercase shadow-lg hover:scale-105 ${
         active
           ? `bg-gradient-to-br ${colorActive}`
           : `bg-gradient-to-br ${colorInactive}`
@@ -30,8 +29,11 @@ function TabButton({ active, onClick, icon, label, colorActive, colorInactive }:
         fontFamily: 'var(--font-digital), monospace',
         width: '72px',
         height: '72px',
+        border: '4px solid',
         borderColor: active ? undefined : 'var(--border-strong)',
         color: active ? undefined : 'var(--text-primary)',
+        imageRendering: 'pixelated',
+        clipPath: 'polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px))',
       }}
     >
       {icon}

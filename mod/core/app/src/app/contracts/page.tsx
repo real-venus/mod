@@ -101,14 +101,14 @@ function FnArgsInput({ inputs, args, setArgs }: {
     <div className="space-y-3">
       {inputs.map((inp: any, i: number) => (
         <div key={i}>
-          <label className="text-[12px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
+          <label className="text-[12px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
             {inp.name || `arg${i}`} <span style={{ color: 'var(--text-tertiary)' }}>:: {inp.type}</span>
           </label>
           {inp.type === 'bool' ? (
             <select
               value={args[i] || ''}
               onChange={(e) => { const next = [...args]; next[i] = e.target.value; setArgs(next) }}
-              className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all appearance-none cursor-pointer uppercase"
+              className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all appearance-none cursor-pointer"
               style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
             >
               <option value="">Select...</option>
@@ -121,7 +121,7 @@ function FnArgsInput({ inputs, args, setArgs }: {
               value={args[i] || ''}
               onChange={(e) => { const next = [...args]; next[i] = e.target.value; setArgs(next) }}
               placeholder={inp.type}
-              className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all uppercase"
+              className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all"
               style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
             />
           )}
@@ -543,11 +543,11 @@ export default function ContractsPage() {
 
   return (
     <div className="min-h-full flex flex-col">
-      <div className="max-w-7xl mx-auto px-8 py-10 w-full flex-1 flex flex-col">
+      <div className="max-w-7xl mx-auto px-8 py-6 w-full flex-1 flex flex-col">
         {/* Page header with search and add - all in one line */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-4">
           <div className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" style={{ boxShadow: '0 0 8px rgba(0,255,255,0.6)' }} />
-          <h1 className="text-2xl font-bold lowercase tracking-[0.15em] font-mono shrink-0" style={{ color: 'var(--text-primary)' }}>Contracts</h1>
+          <h1 className="text-4xl font-bold lowercase tracking-[0.15em] font-mono shrink-0" style={{ color: 'var(--text-primary)' }}>Contracts</h1>
           <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, var(--border-color), transparent)' }} />
           <span className="text-[12px] font-mono shrink-0" style={{ color: 'var(--text-tertiary)' }}>[{contracts.length}]</span>
 
@@ -565,7 +565,7 @@ export default function ContractsPage() {
                 }
               }}
               placeholder="SEARCH CONTRACTS..."
-              className="w-full pl-14 pr-6 py-4 text-[15px] font-mono focus:outline-none transition-all uppercase"
+              className="w-full pl-14 pr-6 py-4 text-[15px] font-mono focus:outline-none transition-all"
               style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
             />
           </div>
@@ -599,7 +599,7 @@ export default function ContractsPage() {
                 <div className="space-y-3">
                   {/* Contract Name */}
                   <div>
-                    <label className="text-[11px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
                       Contract Name
                     </label>
                     <input
@@ -607,14 +607,14 @@ export default function ContractsPage() {
                       value={newContractName}
                       onChange={(e) => setNewContractName(e.target.value)}
                       placeholder="MYCONTRACT"
-                      className="w-full px-3 py-2 text-[13px] font-mono focus:outline-none transition-all uppercase"
+                      className="w-full px-3 py-2 text-[13px] font-mono focus:outline-none transition-all"
                       style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
                     />
                   </div>
 
                   {/* Contract Address */}
                   <div>
-                    <label className="text-[11px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
                       Contract Address
                     </label>
                     <input
@@ -629,7 +629,7 @@ export default function ContractsPage() {
 
                   {/* ABI CID (optional) */}
                   <div>
-                    <label className="text-[11px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
                       ABI CID <span style={{ color: 'var(--text-tertiary)' }}>(optional - not yet supported)</span>
                     </label>
                     <input
@@ -645,7 +645,7 @@ export default function ContractsPage() {
 
                   {/* ABI JSON */}
                   <div>
-                    <label className="text-[11px] font-mono mb-1 block font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
+                    <label className="text-[11px] font-mono mb-1 block font-semibold" style={{ color: 'var(--text-secondary)' }}>
                       ABI JSON <span style={{ color: 'var(--text-tertiary)' }}>(paste ABI array)</span>
                     </label>
                     <textarea
@@ -723,7 +723,7 @@ export default function ContractsPage() {
                         <div className="w-1.5 h-1.5 transition-all" style={{
                           backgroundColor: 'var(--text-tertiary)',
                         }} />
-                        <div className="text-[13px] font-bold font-mono uppercase" style={{ color: 'var(--text-primary)' }}>{c.name}</div>
+                        <div className="text-[13px] font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{c.name}</div>
                         {isCustom && (
                           <span className="text-[8px] px-1 py-0.5 font-mono font-bold bg-cyan-500/10 text-cyan-400" style={{ border: '2px solid rgba(0,255,255,0.3)' }}>CUSTOM</span>
                         )}
@@ -792,7 +792,7 @@ export default function ContractsPage() {
               {/* Contract name */}
               <div className="flex items-center gap-3 shrink-0">
                 <div className="w-2 h-2" style={{ backgroundColor: activeColor, boxShadow: `0 0 8px ${activeColor}` }} />
-                <h2 className="text-xl font-bold font-mono uppercase" style={{ color: activeColor }}>{contractInfo.name}</h2>
+                <h2 className="text-xl font-bold font-mono" style={{ color: activeColor }}>{contractInfo.name}</h2>
               </div>
 
               {/* Contract address */}
@@ -816,7 +816,7 @@ export default function ContractsPage() {
                        toast.success('ABI CID copied!')
                      }}
                      title="Click to copy ABI CID">
-                  <span className="text-[11px] font-mono uppercase" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
+                  <span className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>ABI:</span>
                   <span className="text-[12px] font-mono" style={{ color: 'var(--text-secondary)' }}>{shorten(contractInfo.abiCid, 10, 8)}</span>
                   <CopyButton text={contractInfo.abiCid} size="sm" />
                 </div>
@@ -864,7 +864,7 @@ export default function ContractsPage() {
                     value={fnSearch}
                     onChange={(e) => setFnSearch(e.target.value)}
                     placeholder="SEARCH FUNCTIONS..."
-                    className="w-full pl-11 pr-20 py-3 text-[13px] font-mono focus:outline-none transition-all uppercase"
+                    className="w-full pl-11 pr-20 py-3 text-[13px] font-mono focus:outline-none transition-all"
                     style={{ backgroundColor: 'var(--bg-input)', border: '4px solid var(--border-color)', color: 'var(--text-primary)' }}
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -923,7 +923,7 @@ export default function ContractsPage() {
                           }`} style={{ border: isRead ? '2px solid rgba(16,185,129,0.3)' : '2px solid rgba(245,158,11,0.3)' }}>
                             {isRead ? 'R' : 'W'}
                           </span>
-                          <span className="text-[14px] font-bold font-mono truncate uppercase" style={{
+                          <span className="text-[14px] font-bold font-mono truncate" style={{
                             color: isActive
                               ? isRead ? 'rgb(16,185,129)' : 'rgb(245,158,11)'
                               : 'var(--text-primary)',

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { userContext } from '@/context'
 import { ModuleType } from '@/types'
-import { text2color, colorWithOpacity } from '@/utils'
 import { CopyButton } from '@/ui/CopyButton'
 import { Zap, Search } from 'lucide-react'
 
@@ -21,7 +20,6 @@ export default function ModApi({ mod }: ModApiProps) {
   const [fnSearch, setFnSearch] = useState('')
   const fnSearchRef = useRef<HTMLInputElement>(null)
 
-  const modColor = text2color(mod.name || mod.key)
   const schema = mod.schema || {}
   const functions = Object.keys(schema)
 
@@ -67,11 +65,9 @@ export default function ModApi({ mod }: ModApiProps) {
     }
   }
 
-  // Get param entries for a function
   const getFnParams = (fnName: string) => {
     const fnSchema = (schema as Record<string, any>)[fnName]
     if (!fnSchema?.input) return []
-    // if it is a array just get the names and types, else if it is a dict get the entries excluding self, cls and kwargs
     if (Array.isArray(fnSchema.input)) {
       return fnSchema.input.map((param: any) => [param.name, { type: param.type, value: param.value }])
     }
@@ -93,7 +89,6 @@ export default function ModApi({ mod }: ModApiProps) {
   const selectedFnOutput = selectedFunction ? getFnOutput(selectedFunction) : null
   const selectedHasKwargs = selectedFunction ? hasKwargs(selectedFunction) : false
 
-  // Custom params for kwargs
   const [customParams, setCustomParams] = useState<Record<string, string>>({})
   const [newParamKey, setNewParamKey] = useState('')
   const [newParamValue, setNewParamValue] = useState('')
@@ -115,7 +110,6 @@ export default function ModApi({ mod }: ModApiProps) {
     handleParamChange(key, '')
   }
 
-  // Reset custom params when switching functions
   useEffect(() => {
     setCustomParams({})
     setNewParamKey('')
@@ -123,54 +117,44 @@ export default function ModApi({ mod }: ModApiProps) {
   }, [selectedFunction])
 
   return (
-    <div
-      className="font-mono relative"
-      style={{ fontFamily: 'JetBrains Mono, monospace' }}
-    >
-      {/* Cyberpunk ambient glow background */}
-      <div className="absolute inset-0 pointer-events-none opacity-30">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-cyan-500/20 blur-[120px] rounded-full" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/20 blur-[120px] rounded-full" />
-      </div>
-
-      {/* Two-column layout */}
-      <div className="flex gap-6 relative">
+    <div className="font-mono" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+      <div className="flex gap-4">
         {/* Left: function list */}
-        <div className="w-[340px] shrink-0">
-          {/* Function search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400" />
+        <div className="w-[300px] shrink-0 flex flex-col">
+          {/* Search */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
             <input
               ref={fnSearchRef}
               type="text"
               value={fnSearch}
               onChange={(e) => setFnSearch(e.target.value)}
               placeholder="Search functions..."
-              className="w-full pl-11 pr-20 py-3 text-[13px] font-mono font-bold focus:outline-none transition-all"
+              className="w-full pl-9 pr-16 py-2.5 text-[12px] font-mono focus:outline-none transition-all"
               style={{
                 backgroundColor: 'var(--bg-input)',
-                border: '2px solid rgba(6, 182, 212, 0.3)',
+                border: '1px solid var(--border-color)',
                 color: 'var(--text-primary)',
-                boxShadow: '0 0 20px rgba(6, 182, 212, 0.1), inset 0 1px 1px rgba(6, 182, 212, 0.05)'
               }}
             />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
               {fnSearch && (
                 <button
                   onClick={() => { setFnSearch(''); fnSearchRef.current?.focus() }}
-                  className="text-[10px] font-bold font-mono px-2 py-0.5 transition-colors text-cyan-400 hover:text-cyan-300"
+                  className="text-[10px] font-mono px-1.5 py-0.5 transition-colors"
+                  style={{ color: 'var(--text-tertiary)' }}
                 >
                   CLR
                 </button>
               )}
-              <span className="text-[10px] font-mono text-cyan-400/70">
+              <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
                 {filteredFunctions.length}/{functions.length}
               </span>
             </div>
           </div>
 
-          {/* Scrollable function cards */}
-          <div className="max-h-[600px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+          {/* Function cards */}
+          <div className="max-h-[600px] overflow-y-auto space-y-1 mod-scroll">
             {filteredFunctions.map(fn => {
               const isActive = selectedFunction === fn
               const fnParams = getFnParams(fn)
@@ -179,97 +163,51 @@ export default function ModApi({ mod }: ModApiProps) {
                 <button
                   key={fn}
                   onClick={() => handleSelectFunction(fn)}
-                  className="w-full text-left px-4 py-3 transition-all duration-200 group relative overflow-hidden"
+                  className="w-full text-left px-3 py-2.5 transition-all duration-150 group"
                   style={{
-                    border: isActive
-                      ? `2px solid rgba(6, 182, 212, 0.6)`
-                      : '2px solid rgba(6, 182, 212, 0.2)',
-                    backgroundColor: isActive
-                      ? 'rgba(6, 182, 212, 0.1)'
-                      : 'var(--bg-surface)',
-                    boxShadow: isActive
-                      ? '0 0 20px rgba(6, 182, 212, 0.3), inset 0 0 20px rgba(6, 182, 212, 0.05)'
-                      : 'none',
+                    border: isActive ? '1px solid var(--border-strong)' : '1px solid transparent',
+                    backgroundColor: isActive ? 'var(--bg-input)' : 'transparent',
                   }}
                 >
-                  {/* Cyberpunk corner accent */}
-                  <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 opacity-50" />
-                  <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-400 opacity-50" />
-
-                  {/* Left accent bar */}
-                  <div className="absolute left-0 top-2 bottom-2 w-1 transition-all" style={{
-                    background: isActive
-                      ? 'linear-gradient(180deg, rgba(6, 182, 212, 1), rgba(168, 85, 247, 1))'
-                      : 'transparent',
-                    boxShadow: isActive ? '0 0 10px rgba(6, 182, 212, 0.6)' : 'none',
-                  }} />
-
-                  {/* Function name row */}
-                  <div className="flex items-center gap-2.5 mb-1">
+                  <div className="flex items-center gap-2 mb-0.5">
                     <span
-                      className="shrink-0 px-2 py-0.5 text-[10px] font-bold font-mono uppercase"
+                      className="shrink-0 px-1.5 py-0.5 text-[9px] font-bold font-mono uppercase"
                       style={{
-                        backgroundColor: 'rgba(6, 182, 212, 0.15)',
-                        color: '#06b6d4',
-                        border: `1px solid rgba(6, 182, 212, 0.4)`,
-                        textShadow: '0 0 8px rgba(6, 182, 212, 0.8)',
+                        backgroundColor: 'var(--bg-input)',
+                        color: 'var(--text-secondary)',
+                        border: '1px solid var(--border-color)',
                       }}
-                    >
-                      fn
-                    </span>
+                    >fn</span>
                     <span
-                      className="text-[14px] font-bold font-mono truncate"
-                      style={{
-                        color: isActive ? '#06b6d4' : 'var(--text-primary)',
-                        textShadow: isActive ? '0 0 10px rgba(6, 182, 212, 0.5)' : 'none',
-                      }}
+                      className="text-[13px] font-semibold font-mono truncate"
+                      style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)' }}
                     >{fn}</span>
                   </div>
 
-                  {/* Schema: params & output */}
                   <div className="ml-7 space-y-0.5">
                     {fnParams.length > 0 && (
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                         {fnParams.map(([key, value]: [string, any]) => (
-                          <span key={key} className="text-[11px] font-mono">
-                            <span className="text-purple-400">{key}</span>
+                          <span key={key} className="text-[10px] font-mono">
+                            <span style={{ color: 'var(--text-secondary)' }}>{key}</span>
                             <span style={{ color: 'var(--text-tertiary)' }}> : </span>
-                            <span className="text-cyan-400/70">{value.type || 'any'}</span>
+                            <span style={{ color: 'var(--text-tertiary)' }}>{value.type || 'any'}</span>
                           </span>
                         ))}
                       </div>
                     )}
                     {fnOutput && (
-                      <div className="text-[11px] font-mono text-cyan-400/60">
-                        <span className="text-purple-400">{'\u2192'} </span>
-                        <span>{typeof fnOutput === 'object' ? fnOutput.type || 'any' : fnOutput}</span>
+                      <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                        → {typeof fnOutput === 'object' ? fnOutput.type || 'any' : fnOutput}
                       </div>
-                    )}
-                    {fnParams.length === 0 && !fnOutput && (
-                      <span className="text-[11px] font-mono text-cyan-400/60">{'() -> void'}</span>
                     )}
                   </div>
                 </button>
               )
             })}
             {filteredFunctions.length === 0 && (
-              <div
-                className="text-center text-[13px] font-mono py-12 relative overflow-hidden"
-                style={{
-                  color: '#06b6d4',
-                  backgroundColor: 'var(--bg-input)',
-                  border: '2px solid rgba(6, 182, 212, 0.3)',
-                  boxShadow: '0 0 20px rgba(6, 182, 212, 0.1)',
-                }}
-              >
-                <div className="absolute inset-0 opacity-20">
-                  <div className="absolute inset-0" style={{
-                    background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(6, 182, 212, 0.1) 2px, rgba(6, 182, 212, 0.1) 4px)'
-                  }} />
-                </div>
-                <span className="relative font-bold uppercase tracking-wider" style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.5)' }}>
-                  {functions.length === 0 ? '// NO FUNCTIONS //' : '// NO MATCHES //'}
-                </span>
+              <div className="text-center text-[12px] font-mono py-12" style={{ color: 'var(--text-tertiary)' }}>
+                {functions.length === 0 ? 'No functions' : 'No matches'}
               </div>
             )}
           </div>
@@ -278,68 +216,50 @@ export default function ModApi({ mod }: ModApiProps) {
         {/* Right: interaction panel */}
         <div className="flex-1 min-w-0">
           {selectedFunction ? (
-            <div className="p-5 space-y-4 relative overflow-hidden" style={{
-              border: `2px solid rgba(6, 182, 212, 0.4)`,
-              backgroundColor: 'var(--bg-surface)',
-              boxShadow: '0 0 30px rgba(6, 182, 212, 0.15), inset 0 0 30px rgba(6, 182, 212, 0.03)',
-            }}>
-              {/* Cyberpunk corner accents */}
-              <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-400" />
-              <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-purple-400" />
-              <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-purple-400" />
-              <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyan-400" />
-
-              {/* Top scan line */}
-              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
-
+            <div
+              className="p-5 space-y-4"
+              style={{
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-surface)',
+              }}
+            >
               {/* Function header */}
-              <div className="flex items-center gap-3 relative">
+              <div className="flex items-center gap-2.5">
                 <span
-                  className="px-3 py-1 text-[11px] font-bold uppercase font-mono"
+                  className="px-2 py-0.5 text-[10px] font-bold uppercase font-mono"
                   style={{
-                    backgroundColor: 'rgba(6, 182, 212, 0.15)',
-                    color: '#06b6d4',
-                    border: `1px solid rgba(6, 182, 212, 0.4)`,
-                    textShadow: '0 0 8px rgba(6, 182, 212, 0.8)',
+                    backgroundColor: 'var(--bg-input)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border-color)',
                   }}
                 >FN</span>
-                <span
-                  className="text-lg font-bold font-mono"
-                  style={{
-                    color: '#06b6d4',
-                    textShadow: '0 0 15px rgba(6, 182, 212, 0.6)',
-                  }}
-                >{selectedFunction}</span>
+                <span className="text-base font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
+                  {selectedFunction}
+                </span>
               </div>
 
-              {/* Full signature */}
-              <div className="px-4 py-3 relative" style={{
+              {/* Signature */}
+              <div className="px-4 py-2.5" style={{
                 backgroundColor: 'var(--bg-input)',
-                border: '2px solid rgba(6, 182, 212, 0.2)',
-                boxShadow: 'inset 0 0 20px rgba(6, 182, 212, 0.05)',
+                border: '1px solid var(--border-color)',
               }}>
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute inset-0" style={{
-                    background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(6, 182, 212, 0.1) 2px, rgba(6, 182, 212, 0.1) 4px)'
-                  }} />
-                </div>
-                <code className="text-[13px] font-mono leading-relaxed relative">
-                  <span className="text-cyan-400/40">fn </span>
-                  <span className="text-cyan-400">{selectedFunction}</span>
-                  <span className="text-purple-400">(</span>
+                <code className="text-[12px] font-mono leading-relaxed">
+                  <span style={{ color: 'var(--text-tertiary)' }}>fn </span>
+                  <span style={{ color: 'var(--text-primary)' }}>{selectedFunction}</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>(</span>
                   {selectedFnParams.map(([key, value]: [string, any], i: number) => (
                     <span key={key}>
-                      {i > 0 && <span className="text-purple-400">, </span>}
-                      <span className="text-purple-300">{key}</span>
-                      <span className="text-purple-400"> : </span>
-                      <span className="text-cyan-400/70">{value.type || 'any'}</span>
+                      {i > 0 && <span style={{ color: 'var(--text-tertiary)' }}>, </span>}
+                      <span style={{ color: 'var(--text-secondary)' }}>{key}</span>
+                      <span style={{ color: 'var(--text-tertiary)' }}> : </span>
+                      <span style={{ color: 'var(--text-tertiary)' }}>{value.type || 'any'}</span>
                     </span>
                   ))}
-                  <span className="text-purple-400">)</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>)</span>
                   {selectedFnOutput && (
                     <span>
-                      <span className="text-purple-400"> {'->'} </span>
-                      <span className="text-cyan-400/70">{typeof selectedFnOutput === 'object' ? selectedFnOutput.type || 'any' : selectedFnOutput}</span>
+                      <span style={{ color: 'var(--text-tertiary)' }}> → </span>
+                      <span style={{ color: 'var(--text-tertiary)' }}>{typeof selectedFnOutput === 'object' ? selectedFnOutput.type || 'any' : selectedFnOutput}</span>
                     </span>
                   )}
                 </code>
@@ -350,19 +270,18 @@ export default function ModApi({ mod }: ModApiProps) {
                 <div className="space-y-3">
                   {selectedFnParams.map(([key, value]: [string, any]) => (
                     <div key={key}>
-                      <label className="text-[12px] font-mono mb-1 block font-semibold text-cyan-400">
-                        {key} <span className="text-purple-400/70">:: {value.type || 'any'}</span>
+                      <label className="text-[11px] font-mono mb-1.5 block font-medium" style={{ color: 'var(--text-secondary)' }}>
+                        {key} <span style={{ color: 'var(--text-tertiary)' }}>:: {value.type || 'any'}</span>
                       </label>
                       {value.type === 'bool' ? (
                         <select
                           value={params[key] || ''}
                           onChange={(e) => handleParamChange(key, e.target.value)}
-                          className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all appearance-none cursor-pointer"
+                          className="w-full px-3 py-2.5 text-[13px] font-mono focus:outline-none transition-all appearance-none cursor-pointer"
                           style={{
                             backgroundColor: 'var(--bg-input)',
-                            border: '2px solid rgba(6, 182, 212, 0.3)',
+                            border: '1px solid var(--border-color)',
                             color: 'var(--text-primary)',
-                            boxShadow: '0 0 15px rgba(6, 182, 212, 0.1)'
                           }}
                         >
                           <option value="">Select...</option>
@@ -375,12 +294,11 @@ export default function ModApi({ mod }: ModApiProps) {
                           value={params[key] ?? ''}
                           onChange={(e) => handleParamChange(key, e.target.value)}
                           placeholder={value.value !== '_empty' ? String(value.value) : value.type || '_empty'}
-                          className="w-full px-4 py-3 text-[14px] font-mono focus:outline-none transition-all"
+                          className="w-full px-3 py-2.5 text-[13px] font-mono focus:outline-none transition-all"
                           style={{
                             backgroundColor: 'var(--bg-input)',
-                            border: '2px solid rgba(6, 182, 212, 0.3)',
+                            border: '1px solid var(--border-color)',
                             color: 'var(--text-primary)',
-                            boxShadow: '0 0 15px rgba(6, 182, 212, 0.1)'
                           }}
                         />
                       )}
@@ -390,14 +308,13 @@ export default function ModApi({ mod }: ModApiProps) {
                   {/* Custom kwargs params */}
                   {Object.entries(customParams).map(([key, value]) => (
                     <div key={key}>
-                      <label className="text-[12px] font-mono mb-1 flex justify-between items-center font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      <label className="text-[11px] font-mono mb-1.5 flex justify-between items-center font-medium" style={{ color: 'var(--text-secondary)' }}>
                         <span>{key} <span style={{ color: 'var(--text-tertiary)' }}>:: custom</span></span>
                         <button
                           onClick={() => handleRemoveCustomParam(key)}
-                          className="text-red-500/40 hover:text-red-400 text-[10px] transition-colors"
-                        >
-                          x
-                        </button>
+                          className="text-[10px] transition-colors"
+                          style={{ color: 'var(--text-tertiary)' }}
+                        >×</button>
                       </label>
                       <input
                         type="text"
@@ -408,8 +325,12 @@ export default function ModApi({ mod }: ModApiProps) {
                           handleParamChange(key, e.target.value)
                         }}
                         placeholder="..."
-                        className="w-full rounded-xl px-4 py-3 text-[14px] font-mono focus:outline-none transition-all"
-                        style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                        className="w-full px-3 py-2.5 text-[13px] font-mono focus:outline-none transition-all"
+                        style={{
+                          backgroundColor: 'var(--bg-input)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-primary)',
+                        }}
                       />
                     </div>
                   ))}
@@ -423,28 +344,26 @@ export default function ModApi({ mod }: ModApiProps) {
                           value={newParamKey}
                           onChange={(e) => setNewParamKey(e.target.value)}
                           placeholder="key"
-                          className="flex-1 rounded-xl px-4 py-2.5 text-[13px] font-mono focus:outline-none transition-all"
-                          style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                          className="flex-1 px-3 py-2 text-[12px] font-mono focus:outline-none transition-all"
+                          style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                         />
                         <input
                           type="text"
                           value={newParamValue}
                           onChange={(e) => setNewParamValue(e.target.value)}
                           placeholder="value"
-                          className="flex-1 rounded-xl px-4 py-2.5 text-[13px] font-mono focus:outline-none transition-all"
-                          style={{ backgroundColor: 'var(--bg-input)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)' }}
+                          className="flex-1 px-3 py-2 text-[12px] font-mono focus:outline-none transition-all"
+                          style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                         />
                         <button
                           onClick={handleAddCustomParam}
-                          className="px-4 py-2.5 rounded-xl text-[12px] font-bold font-mono transition-all"
+                          className="px-3 py-2 text-[12px] font-bold font-mono transition-all"
                           style={{
-                            backgroundColor: colorWithOpacity(modColor, 0.1),
-                            border: `1.5px solid ${colorWithOpacity(modColor, 0.2)}`,
-                            color: modColor,
+                            backgroundColor: 'var(--bg-input)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--text-secondary)',
                           }}
-                        >
-                          +
-                        </button>
+                        >+</button>
                       </div>
                     </div>
                   )}
@@ -455,45 +374,34 @@ export default function ModApi({ mod }: ModApiProps) {
               <button
                 onClick={handleExecute}
                 disabled={loading || !selectedFunction}
-                className="w-full py-3.5 text-[14px] font-bold font-mono uppercase tracking-wider transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2.5 relative overflow-hidden group"
+                className="w-full py-3 text-[12px] font-bold font-mono uppercase tracking-wider transition-all duration-150 disabled:opacity-30 flex items-center justify-center gap-2"
                 style={{
-                  background: loading
-                    ? 'transparent'
-                    : 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(168, 85, 247, 0.15))',
-                  borderWidth: '2px',
-                  borderStyle: 'solid',
-                  borderColor: loading ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.5)',
-                  color: loading ? 'rgba(6, 182, 212, 0.4)' : '#06b6d4',
-                  boxShadow: loading
-                    ? 'none'
-                    : '0 0 30px rgba(6, 182, 212, 0.3), 0 0 60px rgba(168, 85, 247, 0.2)',
-                  textShadow: loading ? 'none' : '0 0 10px rgba(6, 182, 212, 0.8)',
+                  backgroundColor: loading ? 'transparent' : 'var(--bg-input)',
+                  border: '1px solid var(--border-strong)',
+                  color: 'var(--text-primary)',
                 }}
               >
-                {/* Hover glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-
                 {loading ? (
                   <>
-                    <span className="animate-pulse relative">_</span>
-                    <span className="relative">EXECUTING...</span>
+                    <span className="animate-pulse">_</span>
+                    <span>Executing...</span>
                   </>
                 ) : (
                   <>
-                    <Zap className="w-4 h-4 relative" />
-                    <span className="relative">EXECUTE {selectedFunction.toUpperCase()}</span>
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Execute {selectedFunction}</span>
                   </>
                 )}
               </button>
 
               {/* Error */}
               {error && (
-                <div className="rounded-xl overflow-hidden border border-red-500/20 bg-red-500/[0.04]">
-                  <div className="flex items-center justify-between px-5 py-3 border-b border-red-500/10">
-                    <span className="text-red-400/80 text-[13px] font-extrabold uppercase tracking-wider">error</span>
+                <div style={{ border: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <span className="text-red-400 text-[11px] font-bold uppercase tracking-wider font-mono">error</span>
                     <CopyButton text={error} />
                   </div>
-                  <pre className="text-red-400/70 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-words max-h-96 overflow-y-auto p-5">
+                  <pre className="text-red-400/80 text-[12px] font-mono overflow-x-auto whitespace-pre-wrap break-words max-h-96 overflow-y-auto p-4">
                     {error}
                   </pre>
                 </div>
@@ -501,27 +409,13 @@ export default function ModApi({ mod }: ModApiProps) {
 
               {/* Result */}
               {result !== null && (
-                <div className="overflow-hidden relative" style={{
-                  border: `2px solid rgba(6, 182, 212, 0.4)`,
-                  boxShadow: '0 0 20px rgba(6, 182, 212, 0.2)'
-                }}>
-                  {/* Corner accents */}
-                  <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
-                  <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-purple-400" />
-
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
-                  <div className="flex items-center justify-between px-5 py-3 relative" style={{
-                    borderBottom: `2px solid rgba(6, 182, 212, 0.2)`,
-                    backgroundColor: 'rgba(6, 182, 212, 0.05)'
+                <div style={{ border: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center justify-between px-4 py-2.5" style={{
+                    borderBottom: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-input)',
                   }}>
-                    <span
-                      className="text-[11px] font-bold uppercase tracking-wider font-mono"
-                      style={{
-                        color: '#06b6d4',
-                        textShadow: '0 0 10px rgba(6, 182, 212, 0.6)'
-                      }}
-                    >
-                      ► OUTPUT
+                    <span className="text-[11px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-secondary)' }}>
+                      Output
                     </span>
                     <CopyButton text={JSON.stringify(result, null, 2)} />
                   </div>
@@ -539,17 +433,12 @@ export default function ModApi({ mod }: ModApiProps) {
 
                     if (imageSource) {
                       return (
-                        <div className="p-5 space-y-3">
-                          <div className="overflow-hidden rounded-lg" style={{ backgroundColor: '#06060a' }}>
-                            <img
-                              src={imageSource as string}
-                              alt="Result"
-                              className="w-full h-auto"
-                              style={{ maxHeight: 'none' }}
-                            />
+                        <div className="p-4 space-y-3">
+                          <div className="overflow-hidden" style={{ backgroundColor: 'var(--bg-input)' }}>
+                            <img src={imageSource as string} alt="Result" className="w-full h-auto" style={{ maxHeight: 'none' }} />
                           </div>
                           {hasImageField && (
-                            <pre className="text-[13px] font-medium overflow-x-auto p-5 rounded-lg" style={{ backgroundColor: '#06060a', color: colorWithOpacity(modColor, 0.6) }}>
+                            <pre className="text-[12px] font-mono overflow-x-auto p-4" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)' }}>
                               <code>{JSON.stringify(result, null, 2)}</code>
                             </pre>
                           )}
@@ -558,7 +447,7 @@ export default function ModApi({ mod }: ModApiProps) {
                     }
 
                     return (
-                      <pre className="text-[16px] font-mono font-bold whitespace-pre-wrap break-all leading-relaxed p-5" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)' }}>
+                      <pre className="text-[13px] font-mono whitespace-pre-wrap break-all leading-relaxed p-4" style={{ color: 'var(--text-primary)' }}>
                         <code>{JSON.stringify(result, null, 2)}</code>
                       </pre>
                     )
@@ -567,30 +456,38 @@ export default function ModApi({ mod }: ModApiProps) {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-80 relative overflow-hidden" style={{
-              border: '2px dashed rgba(6, 182, 212, 0.3)',
-              backgroundColor: 'var(--bg-input)',
-            }}>
-              {/* Scanline effect */}
-              <div className="absolute inset-0 opacity-20">
-                <div className="absolute inset-0" style={{
-                  background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(6, 182, 212, 0.1) 2px, rgba(6, 182, 212, 0.1) 4px)'
-                }} />
-              </div>
-
-              <div className="w-12 h-12 mb-4 flex items-center justify-center relative" style={{
-                border: `2px solid rgba(6, 182, 212, 0.4)`,
-                boxShadow: '0 0 20px rgba(6, 182, 212, 0.2)'
-              }}>
-                <Zap className="w-6 h-6 text-cyan-400" style={{ filter: 'drop-shadow(0 0 8px rgba(6, 182, 212, 0.6))' }} />
-              </div>
-              <span className="text-[14px] font-mono font-bold uppercase tracking-wider text-cyan-400/70 relative" style={{ textShadow: '0 0 10px rgba(6, 182, 212, 0.3)' }}>
-                ► SELECT FUNCTION TO EXECUTE
+            <div
+              className="flex flex-col items-center justify-center h-80"
+              style={{
+                border: '1px dashed var(--border-color)',
+                backgroundColor: 'var(--bg-input)',
+              }}
+            >
+              <Zap className="w-5 h-5 mb-3" style={{ color: 'var(--text-tertiary)' }} />
+              <span className="text-[12px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                Select a function to execute
               </span>
             </div>
           )}
         </div>
       </div>
+
+      <style jsx>{`
+        .mod-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: var(--scrollbar-thumb) transparent;
+        }
+        .mod-scroll::-webkit-scrollbar {
+          width: 6px;
+        }
+        .mod-scroll::-webkit-scrollbar-thumb {
+          background: var(--scrollbar-thumb);
+          border-radius: 3px;
+        }
+        .mod-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+      `}</style>
     </div>
   )
 }

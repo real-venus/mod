@@ -157,10 +157,10 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
       return (
         <div className="relative group">
           <pre
-            className="text-sm overflow-x-auto leading-relaxed font-mono p-3 rounded-lg border"
+            className="text-[11px] overflow-x-auto leading-relaxed font-mono p-3"
             style={{
-              backgroundColor: 'rgba(0,0,0,0.3)',
-              borderColor: 'rgba(100,100,100,0.2)'
+              backgroundColor: 'rgba(0,0,0,0.4)',
+              border: '2px solid rgba(168,85,247,0.15)',
             }}
             dangerouslySetInnerHTML={{ __html: highlightedJson }}
           />
@@ -183,118 +183,143 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
     return strValue.length > 60 ? strValue.slice(0, 60) + '...' : strValue
   }
 
+  const statusIcon = hasCompleted
+    ? (tx.status === 'error' || tx.status === 'failed') ? '✗' : '✓'
+    : isInProgress ? '▶' : '●'
+
   return (
     <div
-      className={`group border-2 rounded-lg backdrop-blur-sm transition-all ${isCurrentMode ? '' : 'cursor-pointer'} relative overflow-hidden border-purple-500/60 hover:border-purple-500/80`}
-      style={{ fontFamily: 'var(--font-digital), monospace', backgroundColor: 'var(--bg-surface)' }}
+      className={`group transition-all ${isCurrentMode ? '' : 'cursor-pointer'} relative overflow-hidden`}
+      style={{
+        fontFamily: 'var(--font-digital), monospace',
+        backgroundColor: 'var(--bg-surface)',
+        border: `3px solid ${isInProgress ? 'rgba(59,130,246,0.6)' : hasCompleted ? 'rgba(16,185,129,0.4)' : 'rgba(168,85,247,0.4)'}`,
+        boxShadow: isInProgress
+          ? '0 0 12px rgba(59,130,246,0.15), inset 0 0 20px rgba(59,130,246,0.03)'
+          : hasCompleted
+            ? '0 0 8px rgba(16,185,129,0.1)'
+            : '0 0 8px rgba(168,85,247,0.1)',
+        imageRendering: 'pixelated' as any,
+      }}
     >
-      {/* Progress bar for running/pending transactions */}
+      {/* 8-bit pixel progress bar for running transactions */}
       {isInProgress && (
         <>
-          <div className="absolute top-0 left-0 right-0 h-1 bg-purple-900/30 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[3px] overflow-hidden" style={{ backgroundColor: 'rgba(59,130,246,0.15)' }}>
             <div
-              className="h-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
+              className="h-full"
               style={{
-                width: '40%',
-                animation: 'slideProgress 2s ease-in-out infinite'
+                width: '30%',
+                background: 'repeating-linear-gradient(90deg, #3b82f6 0px, #3b82f6 4px, transparent 4px, transparent 8px)',
+                animation: 'pixelSlide 1.5s steps(20) infinite',
               }}
             />
           </div>
           <style>
             {`
-              @keyframes slideProgress {
+              @keyframes pixelSlide {
                 0% { transform: translateX(-100%); }
-                100% { transform: translateX(350%); }
+                100% { transform: translateX(400%); }
               }
             `}
           </style>
         </>
       )}
 
-      {/* Header - Terminal Style */}
-      <div className={`flex items-center gap-2 ${compact ? 'px-2 py-2' : 'px-4 py-3'}`} style={{ borderBottom: '1px solid var(--border-color)' }}>
-        {/* Status indicator with animation for in-progress */}
+      {/* Header */}
+      <div className={`flex items-center gap-2 ${compact ? 'px-2 py-1.5' : 'px-3 py-2'}`} style={{ borderBottom: '2px solid var(--border-color)' }}>
+        {/* Pixel status indicator */}
         <div className="flex items-center gap-1.5">
-          <div className={`w-2 h-2 rounded-full ${status.dot} ${isInProgress ? 'animate-pulse' : ''}`} />
-          <span className={`${compact ? 'text-sm' : 'text-sm'} font-digital uppercase tracking-wider ${status.text}`}>
-            {compact ? status.displayStatus.slice(0, 3) : status.displayStatus}
+          <span className={`text-sm font-bold ${status.text}`} style={{ textShadow: isInProgress ? '0 0 6px currentColor' : 'none' }}>
+            {statusIcon}
+          </span>
+          <span className={`text-[11px] font-bold uppercase tracking-[0.15em] ${status.text}`}>
+            {compact ? status.displayStatus.slice(0, 3).toUpperCase() : status.displayStatus.toUpperCase()}
           </span>
         </div>
 
-        {/* Function name */}
-        <div className={`${compact ? 'text-sm' : 'text-base'} font-digital truncate text-cyan-500 flex-1 min-w-0`}>
+        {/* Function name - pixel style */}
+        <div className={`${compact ? 'text-sm' : 'text-sm'} font-bold truncate flex-1 min-w-0`} style={{ color: fnColor, textShadow: `0 0 8px ${fnColor}40` }}>
           {tx.fn}
         </div>
 
-        {/* Hash/ID with icon */}
+        {/* Hash/ID */}
         {(tx.hash || tx.cid) && (
           <div className="flex items-center gap-1">
-            <div className={`text-purple-500 ${compact ? 'text-sm' : 'text-base'}`}>📄</div>
+            <span className="text-purple-400 text-[10px]">▪</span>
             <CopyButton text={tx.hash || tx.cid || ''} size="sm" showValueOnHover={true} />
           </div>
         )}
 
-        {/* Tabs - inline on header when expanded */}
+        {/* Tabs when expanded */}
         {isExpanded && (hasParams || hasResults || tx.module) && (
-          <div className="flex gap-0 border border-purple-500/40 p-0.5 rounded-lg" style={{ backgroundColor: 'var(--bg-input)' }}>
+          <div className="flex gap-0" style={{ border: '2px solid rgba(168,85,247,0.3)', backgroundColor: 'var(--bg-input)' }}>
             {hasResults && (
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveTab('results'); }}
-                className={`px-2 py-1 text-xs font-digital uppercase rounded transition-all ${
+                className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${
                   activeTab === 'results'
-                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
-                    : 'hover:text-purple-400'
+                    ? 'text-cyan-400'
+                    : ''
                 }`}
-                style={{ color: activeTab === 'results' ? undefined : 'var(--text-tertiary)' }}
+                style={{
+                  color: activeTab === 'results' ? undefined : 'var(--text-tertiary)',
+                  backgroundColor: activeTab === 'results' ? 'rgba(168,85,247,0.2)' : 'transparent',
+                  borderRight: '1px solid rgba(168,85,247,0.2)',
+                }}
               >
-                Result
+                RESULT
               </button>
             )}
             {hasParams && (
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveTab('params'); }}
-                className={`px-2 py-1 text-xs font-digital uppercase rounded transition-all ${
+                className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${
                   activeTab === 'params'
-                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
-                    : 'hover:text-purple-400'
+                    ? 'text-cyan-400'
+                    : ''
                 }`}
-                style={{ color: activeTab === 'params' ? undefined : 'var(--text-tertiary)' }}
+                style={{
+                  color: activeTab === 'params' ? undefined : 'var(--text-tertiary)',
+                  backgroundColor: activeTab === 'params' ? 'rgba(168,85,247,0.2)' : 'transparent',
+                  borderRight: '1px solid rgba(168,85,247,0.2)',
+                }}
               >
-                Params
+                PARAMS
               </button>
             )}
             {tx.module && (
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveTab('code'); }}
-                className={`px-2 py-1 text-xs font-digital uppercase rounded transition-all ${
+                className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${
                   activeTab === 'code'
-                    ? 'bg-purple-500/20 text-cyan-500 border border-purple-500'
-                    : 'hover:text-purple-400'
+                    ? 'text-cyan-400'
+                    : ''
                 }`}
-                style={{ color: activeTab === 'code' ? undefined : 'var(--text-tertiary)' }}
+                style={{
+                  color: activeTab === 'code' ? undefined : 'var(--text-tertiary)',
+                  backgroundColor: activeTab === 'code' ? 'rgba(168,85,247,0.2)' : 'transparent',
+                }}
               >
-                Code
+                CODE
               </button>
             )}
           </div>
         )}
 
         {/* Right side info */}
-        <div className={`flex items-center gap-2 ${compact ? 'text-xs' : 'text-sm'}`}>
+        <div className={`flex items-center gap-2 ${compact ? 'text-xs' : 'text-xs'}`}>
           {!compact && (
             <>
-              {/* User Key */}
               {tx.key && (
                 <div className="flex items-center gap-1">
-                  <div className="text-purple-500 text-sm">👤</div>
+                  <span className="text-purple-400 text-[10px]">◆</span>
                   <CopyButton text={tx.key} size="sm" showValueOnHover={true} />
                 </div>
               )}
-
-              {/* Owner */}
               {tx.owner && (
                 <div className="flex items-center gap-1">
-                  <div className="text-purple-500 text-sm">👑</div>
+                  <span className="text-amber-400 text-[10px]">★</span>
                   <CopyButton text={tx.owner} size="sm" showValueOnHover={true} />
                 </div>
               )}
@@ -302,53 +327,49 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
           )}
 
           {/* Cost */}
-          <div className="flex items-center gap-0.5">
-            <span className="text-purple-500 text-xs">$</span>
-            <span className="text-cyan-500 font-bold">{cost}</span>
+          <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(168,85,247,0.2)' }}>
+            <span className="text-amber-400 text-[10px] font-bold">$</span>
+            <span className="text-amber-300 font-bold text-[11px]">{cost}</span>
           </div>
 
-          {/* Duration - Enhanced with live timer */}
+          {/* Duration */}
           {isInProgress ? (
-            <div className="flex items-center gap-1 px-2 py-1 rounded bg-blue-500/10 border border-blue-500/30">
-              <span className="text-blue-500 text-xs">⏱</span>
-              <span className="text-blue-400 font-bold tabular-nums">{elapsedTime}s</span>
-              <span className="text-blue-400 text-xs animate-pulse">●</span>
+            <div className="flex items-center gap-1 px-1.5 py-0.5" style={{ backgroundColor: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)' }}>
+              <span className="text-blue-400 font-bold text-[11px] tabular-nums">{elapsedTime}s</span>
+              <span className="text-blue-400 text-[8px] animate-pulse">■</span>
             </div>
           ) : tx.delta !== undefined && (
-            <div className="flex items-center gap-0.5">
-              <span className="text-purple-500 text-xs">⏱</span>
-              <span className="text-cyan-500 font-bold">{tx.delta.toFixed(1)}s</span>
+            <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(168,85,247,0.2)' }}>
+              <span className="text-cyan-400 font-bold text-[11px]">{tx.delta.toFixed(1)}s</span>
             </div>
           )}
 
           {/* Timestamp */}
           {!compact && (
-            <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-tertiary)' }}>{time}</span>
+            <span className="text-[10px] font-bold tabular-nums tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{time}</span>
           )}
         </div>
       </div>
 
-      {/* Input preview when collapsed - Enhanced to show first positional param */}
+      {/* Input preview when collapsed */}
       {!isExpanded && hasParams && (
-        <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)' }}>
+        <div className="px-3 py-1.5" style={{ borderBottom: '2px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
           <div className="flex items-start gap-2">
-            <span className="text-sm font-digital uppercase tracking-wider text-purple-500 flex-shrink-0">Input:</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-400 flex-shrink-0 mt-0.5">IN»</span>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
+              <div className="text-[11px] font-mono" style={{ color: 'var(--text-secondary)' }}>
                 {typeof tx.params === 'object' && tx.params !== null ? (
                   <div className="space-y-0.5">
-                    {/* Show first positional param prominently */}
                     {Object.entries(tx.params).slice(0, 1).map(([key, value]) => (
-                      <div key={key} className="font-semibold">
+                      <div key={key} className="font-bold">
                         <span className="text-cyan-400">{key}</span>
                         <span className="text-purple-500">:</span>{' '}
                         <span className="text-green-400">{renderPreview(value)}</span>
                       </div>
                     ))}
-                    {/* Show count of remaining params */}
                     {Object.keys(tx.params).length > 1 && (
-                      <div className="text-purple-400 text-[10px] mt-1">
-                        +{Object.keys(tx.params).length - 1} more param{Object.keys(tx.params).length > 2 ? 's' : ''}
+                      <div className="text-purple-500/60 text-[9px] font-bold">
+                        +{Object.keys(tx.params).length - 1} more
                       </div>
                     )}
                   </div>
@@ -361,29 +382,28 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
         </div>
       )}
 
-      {/* Waiting state indicator when collapsed */}
+      {/* Waiting state for in-progress */}
       {!isExpanded && isInProgress && (
-        <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: 'var(--bg-input)', borderBottom: '1px solid var(--border-color)' }}>
+        <div className="px-3 py-1.5 flex items-center gap-2" style={{ backgroundColor: 'rgba(59,130,246,0.05)', borderBottom: '2px solid var(--border-color)' }}>
           <div className="flex items-center gap-2 flex-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-xs font-medium text-blue-400">Waiting for result...</span>
-            <span className="text-xs text-blue-500 tabular-nums font-mono">{elapsedTime}s</span>
+            <span className="text-blue-400 text-[10px] font-bold animate-pulse">▸▸▸</span>
+            <span className="text-[10px] font-bold text-blue-400 tracking-wider">PROCESSING</span>
+            <span className="text-[10px] text-blue-500 tabular-nums font-bold">{elapsedTime}s</span>
           </div>
         </div>
       )}
 
       {/* Expanded Content */}
       {isExpanded && (hasParams || hasResults || tx.module) && (
-        <div className="px-4 pb-4 pt-3">
-          {/* Content */}
-          <div className="border border-purple-500/40 rounded-lg p-4 max-h-96 overflow-auto scrollbar-thin scrollbar-thumb-purple-900/50" style={{ backgroundColor: 'var(--bg-input)' }}>
+        <div className="px-3 pb-3 pt-2">
+          <div className="p-3 max-h-96 overflow-auto" style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '2px solid rgba(168,85,247,0.25)' }}>
             {activeTab === 'results' && hasResults && renderValue(tx.result)}
             {activeTab === 'params' && hasParams && renderValue(tx.params)}
             {activeTab === 'code' && (
               loadingCode ? (
                 <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-500/30 border-t-purple-500" />
-                  <span>Loading code...</span>
+                  <span className="animate-pulse font-bold">▓▓▒▒░░</span>
+                  <span className="text-[11px] font-bold tracking-wider">LOADING...</span>
                 </div>
               ) : moduleCode ? (
                 <div className="relative group">
@@ -395,8 +415,8 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
                   </div>
                 </div>
               ) : (
-                <span className="text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                  No code available
+                <span className="text-[11px] font-bold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  NO CODE AVAILABLE
                 </span>
               )
             )}

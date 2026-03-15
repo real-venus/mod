@@ -29,8 +29,8 @@ interface CustomThemeColors {
   accentError: string
 }
 
-export function ThemeSelectorCompact({ expandUpwards = false }: { expandUpwards?: boolean }) {
-  const [isOpen, setIsOpen] = useState(false)
+export function ThemeSelectorCompact({ expandUpwards = false, alwaysOpen = false, onClose }: { expandUpwards?: boolean; alwaysOpen?: boolean; onClose?: () => void }) {
+  const [isOpen, setIsOpen] = useState(alwaysOpen)
   const [currentTheme, setCurrentTheme] = useState<string>('classic')
   const [showCustomEditor, setShowCustomEditor] = useState(false)
   const [customThemes, setCustomThemes] = useState<Record<string, Theme>>({})
@@ -86,6 +86,7 @@ export function ThemeSelectorCompact({ expandUpwards = false }: { expandUpwards?
     const allThemes = getAllThemes()
     applyTheme(allThemes[themeId] || getTheme(themeId))
     toast.success(`Theme: ${allThemes[themeId]?.name || themeId}`)
+    if (onClose) onClose()
   }
 
   const loadThemeForEditing = (themeId: string) => {
@@ -239,18 +240,18 @@ export function ThemeSelectorCompact({ expandUpwards = false }: { expandUpwards?
     <div className="relative">
       {/* Dropdown Panel - positioned above or below button */}
       <AnimatePresence>
-        {isOpen && (
+        {(isOpen || alwaysOpen) && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-x-4 border-t-4"
+            className="overflow-hidden border-2"
             style={{
               backgroundColor: 'var(--bg-surface)',
               borderColor: 'var(--border-strong)',
               boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
-              ...(expandUpwards && {
+              ...(expandUpwards && !alwaysOpen && {
                 position: 'absolute',
                 bottom: '100%',
                 left: 0,
@@ -442,22 +443,24 @@ export function ThemeSelectorCompact({ expandUpwards = false }: { expandUpwards?
         )}
       </AnimatePresence>
 
-      {/* Theme Selector Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-3 px-4 py-4 border-4 transition-all hover:opacity-90 shadow-lg"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderColor: 'var(--border-strong)',
-          fontFamily: 'var(--font-digital)',
-        }}
-      >
-        <SwatchIcon className="w-7 h-7" style={{ color: 'var(--text-primary)' }} />
-        <span className="flex-1 text-left text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
-          {theme?.name || 'Classic'}
-        </span>
-        <ChevronDownIcon className={`w-6 h-6 transition-transform ${isOpen ? (expandUpwards ? '' : 'rotate-180') : (expandUpwards ? 'rotate-180' : '')}`} style={{ color: 'var(--text-primary)' }} />
-      </button>
+      {/* Theme Selector Button - hidden in alwaysOpen mode */}
+      {!alwaysOpen && (
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-full flex items-center gap-3 px-4 py-4 border-4 transition-all hover:opacity-90 shadow-lg"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-strong)',
+            fontFamily: 'var(--font-digital)',
+          }}
+        >
+          <SwatchIcon className="w-7 h-7" style={{ color: 'var(--text-primary)' }} />
+          <span className="flex-1 text-left text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
+            {theme?.name || 'Classic'}
+          </span>
+          <ChevronDownIcon className={`w-6 h-6 transition-transform ${isOpen ? (expandUpwards ? '' : 'rotate-180') : (expandUpwards ? 'rotate-180' : '')}`} style={{ color: 'var(--text-primary)' }} />
+        </button>
+      )}
     </div>
   )
 }

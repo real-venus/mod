@@ -1,16 +1,13 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import {
-  ShieldCheckIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline'
 import { CopyButton } from '@/ui/CopyButton'
-import { GlowCard } from './GlowCard'
-import { ACCENT } from './shared'
+import { TerminalCard } from './GlowCard'
 import type { SafeInfo } from '@/network/safe'
 import { ethers } from 'ethers'
 import modConfig from '@/config.json'
+
+const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
 
 const ERC20_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
@@ -61,12 +58,7 @@ export function OverviewTab({
             contract.symbol(),
           ])
           const balance = parseFloat(ethers.formatUnits(raw, decimals))
-          results.push({
-            symbol,
-            name: token.name,
-            balance,
-            address: token.address,
-          })
+          results.push({ symbol, name: token.name, balance, address: token.address })
         } catch (err) {
           console.error(`Failed to fetch ${token.name} balance:`, err)
         }
@@ -81,131 +73,125 @@ export function OverviewTab({
 
   useEffect(() => {
     if (safeInfo?.address) fetchTokenBalances()
-  }, [safeInfo?.address])
+  }, [safeInfo?.address]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!safeInfo && !loading) {
     return (
-      <GlowCard color={ACCENT}>
-        <div className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
-          <ShieldCheckIcon className="w-12 h-12 mx-auto mb-3 text-amber-500/30" />
-          <p>Enter a Safe address and click Load to get started</p>
-        </div>
-      </GlowCard>
+      <div className="py-12 text-center" style={{ fontFamily: TERM_FONT, fontSize: '14px', color: 'var(--text-tertiary)' }}>
+        <span style={{ opacity: 0.4 }}>{'>'}</span> enter a safe address and press load
+      </div>
     )
   }
 
   if (!safeInfo) return null
 
   return (
-    <div className="space-y-4">
-      <GlowCard color={ACCENT} delay={0.1}>
-        <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500/70 mb-4">Owners</h2>
+    <div className="space-y-6">
+      {/* Owners */}
+      <TerminalCard label="SIGNERS">
         <div className="space-y-2">
           {safeInfo.owners.map((owner, i) => {
             const isMe = owner.toLowerCase() === walletAddress.toLowerCase()
             return (
-              <div
-                key={i}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
-                  isMe ? 'bg-emerald-500/10 border border-emerald-500/20' : ''
-                }`}
-                style={!isMe ? { backgroundColor: 'var(--bg-input)' } : {}}
-              >
-                {isMe && <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />}
-                <span className="font-mono text-sm flex-1 break-all" style={{ color: 'var(--text-primary)' }}>{owner}</span>
+              <div key={i} className="flex items-center gap-3 group" style={{ fontSize: '14px' }}>
+                <span style={{ fontFamily: TERM_FONT, color: 'var(--text-tertiary)', width: '20px' }}>{i}</span>
+                <span
+                  className="flex-1 break-all"
+                  style={{
+                    fontFamily: TERM_FONT,
+                    color: isMe ? 'var(--accent-primary, #10b981)' : 'var(--text-primary)',
+                    textShadow: isMe ? '0 0 8px var(--accent-primary, #10b981)' : 'none',
+                  }}
+                >
+                  {owner}
+                </span>
                 <CopyButton text={owner} size="sm" />
-                {isMe && (
-                  <span className="text-[10px] font-bold text-emerald-400 uppercase">you</span>
-                )}
+                {isMe && <span style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--accent-primary, #10b981)', opacity: 0.6 }}>you</span>}
               </div>
             )
           })}
         </div>
-      </GlowCard>
+      </TerminalCard>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <GlowCard color={ACCENT} delay={0.2}>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">Threshold</div>
-          <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{safeInfo.threshold} <span className="text-lg" style={{ color: 'var(--text-tertiary)' }}>/ {safeInfo.owners.length}</span></div>
-          <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>confirmations required</div>
-        </GlowCard>
-        <GlowCard color={ACCENT} delay={0.25}>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">Nonce</div>
-          <div className="text-2xl font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{safeInfo.nonce}</div>
-          <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>transactions executed</div>
-        </GlowCard>
-        <GlowCard color={ACCENT} delay={0.3}>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">ETH Balance</div>
-          <div className="text-2xl font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{parseFloat(ethBalance).toFixed(4)}</div>
-          <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>native balance</div>
-        </GlowCard>
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-4">
+        <TerminalCard label="THRESHOLD">
+          <div style={{ fontFamily: TERM_FONT, fontSize: '24px', color: 'var(--accent-primary, #10b981)', textShadow: '0 0 10px var(--accent-primary, #10b981)' }}>
+            {safeInfo.threshold}<span style={{ color: 'var(--text-tertiary)', fontSize: '18px' }}>/{safeInfo.owners.length}</span>
+          </div>
+          <div style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>confirmations</div>
+        </TerminalCard>
+        <TerminalCard label="NONCE">
+          <div style={{ fontFamily: TERM_FONT, fontSize: '24px', color: 'var(--accent-primary, #10b981)', textShadow: '0 0 10px var(--accent-primary, #10b981)' }}>
+            {safeInfo.nonce}
+          </div>
+          <div style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>executed</div>
+        </TerminalCard>
+        <TerminalCard label="BALANCE">
+          <div style={{ fontFamily: TERM_FONT, fontSize: '24px', color: 'var(--accent-primary, #10b981)', textShadow: '0 0 10px var(--accent-primary, #10b981)' }}>
+            {parseFloat(ethBalance).toFixed(4)}
+          </div>
+          <div style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>ETH</div>
+        </TerminalCard>
       </div>
 
-      {/* ERC20 Portfolio */}
-      <GlowCard color={ACCENT} delay={0.35}>
+      {/* Portfolio */}
+      <TerminalCard label="PORTFOLIO">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500/70">Portfolio</h2>
+          <span style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}>token balances</span>
           <button
             onClick={fetchTokenBalances}
             disabled={loadingBalances}
-            className="p-1.5 rounded-lg transition-all disabled:opacity-50"
-            style={{ backgroundColor: 'var(--hover-bg)' }}
-            title="Refresh balances"
+            className="transition-all"
+            style={{
+              fontFamily: TERM_FONT,
+              fontSize: '12px',
+              padding: '3px 10px',
+              color: 'var(--text-tertiary)',
+              border: '1px solid var(--border-color)',
+              background: 'transparent',
+              cursor: loadingBalances ? 'not-allowed' : 'pointer',
+            }}
           >
-            <ArrowPathIcon className={`w-4 h-4 text-amber-500/60 ${loadingBalances ? 'animate-spin' : ''}`} />
+            {loadingBalances ? '...' : 'refresh'}
           </button>
         </div>
 
         {loadingBalances && tokenBalances.length === 0 ? (
-          <div className="flex items-center justify-center py-6 gap-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            <ArrowPathIcon className="w-4 h-4 animate-spin" />
-            <span>Loading balances...</span>
-          </div>
-        ) : tokenBalances.length === 0 ? (
-          <div className="text-center py-4 text-xs" style={{ color: 'var(--text-tertiary)' }}>No token balances found</div>
+          <div className="py-6 text-center" style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}>scanning tokens...</div>
         ) : (
-          <div className="space-y-2">
-            {/* ETH row */}
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-secondary)' }}>ETH</span>
-              </div>
-              <span className="font-mono text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
-                {parseFloat(ethBalance).toFixed(4)}
-              </span>
+          <div className="space-y-1">
+            {/* ETH */}
+            <div className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--border-color)', fontSize: '14px' }}>
+              <span style={{ fontFamily: TERM_FONT, color: 'var(--text-secondary)' }}>ETH</span>
+              <span style={{ fontFamily: TERM_FONT, color: 'var(--accent-primary, #10b981)' }}>{parseFloat(ethBalance).toFixed(4)}</span>
             </div>
-
-            {/* ERC20 token rows */}
             {tokenBalances.map((token) => (
-              <div
-                key={token.address}
-                className="flex items-center justify-between px-3 py-2.5 rounded-lg"
-                style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}
-              >
+              <div key={token.address} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--border-color)', fontSize: '14px' }}>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-secondary)' }}>
-                    {token.name === 'Market' ? 'MARKET' : token.symbol}
-                  </span>
+                  <span style={{ fontFamily: TERM_FONT, color: 'var(--text-secondary)' }}>{token.name === 'Market' ? 'MARKET' : token.symbol}</span>
                   <CopyButton text={token.address} size="sm" />
                 </div>
-                <span className="font-mono text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
-                  {token.name === 'NativeToken'
-                    ? token.balance.toFixed(4)
-                    : `$${token.balance.toFixed(2)}`}
+                <span style={{ fontFamily: TERM_FONT, color: 'var(--accent-primary, #10b981)' }}>
+                  {token.name === 'NativeToken' ? token.balance.toFixed(4) : `$${token.balance.toFixed(2)}`}
                 </span>
               </div>
             ))}
+            {tokenBalances.length === 0 && !loadingBalances && (
+              <div className="py-4 text-center" style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)', opacity: 0.5 }}>no tokens</div>
+            )}
           </div>
         )}
-      </GlowCard>
+      </TerminalCard>
 
-      <GlowCard color={ACCENT} delay={0.4}>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">Safe Address</div>
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm break-all" style={{ color: 'var(--text-primary)' }}>{safeInfo.address}</span>
+      {/* Address */}
+      <TerminalCard label="CONTRACT">
+        <div className="flex items-center gap-3" style={{ fontSize: '14px' }}>
+          <span style={{ fontFamily: TERM_FONT, color: 'var(--text-tertiary)' }}>address:</span>
+          <span className="break-all" style={{ fontFamily: TERM_FONT, color: 'var(--text-primary)' }}>{safeInfo.address}</span>
           <CopyButton text={safeInfo.address} size="sm" />
         </div>
-      </GlowCard>
+      </TerminalCard>
     </div>
   )
 }

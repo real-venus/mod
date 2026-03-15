@@ -118,36 +118,113 @@ export class Client {
   private createStreamGenerator(response: Response): AsyncGenerator<string, void, unknown> {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
-    
+    let buffer = '';
+
     return (async function* () {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.content) {
-                yield parsed.content;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          // Decode the chunk and add to buffer
+          buffer += decoder.decode(value, { stream: true });
+
+          // Split on newlines to process complete lines
+          const lines = buffer.split('\n');
+
+          // Keep the last incomplete line in buffer
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
+
+            // Handle SSE format: "data: {content}"
+            if (trimmedLine.startsWith('data: ')) {
+              const data = trimmedLine.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                // Support multiple content field formats
+                const content = parsed.content || parsed.text || parsed.delta?.content || parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  yield content;
+                }
+              } catch (e) {
+                // If not JSON, treat as raw content
+                if (data) {
+                  yield data;
+                }
               }
-            } catch (e) {
-              // If not JSON, treat as raw content
-              yield data;
+            } else if (trimmedLine.startsWith('{')) {
+              // Handle raw JSON lines (non-SSE format)
+              try {
+                const parsed = JSON.parse(trimmedLine);
+                const content = parsed.content || parsed.text || parsed.delta?.content || parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  yield content;
+                }
+              } catch (e) {
+                // Skip malformed JSON
+                console.warn('Malformed JSON in stream:', trimmedLine);
+              }
             }
           }
         }
+
+        // Process any remaining buffer content
+        if (buffer.trim()) {
+          try {
+            const parsed = JSON.parse(buffer.trim());
+            const content = parsed.content || parsed.text || parsed.delta?.content;
+            if (content) {
+              yield content;
+            }
+          } catch (e) {
+            // Yield raw buffer if not JSON
+            if (buffer.trim()) {
+              yield buffer.trim();
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
       }
     })();
   }
 
   private async handleStream(response: Response): Promise<AsyncGenerator<string, void, unknown>> {
+    return this.createStreamGenerator(response);
+  }
+
+  /**
+   * Call a function with streaming support
+   * Returns an AsyncGenerator for streaming responses
+   */
+  public async callStream(fn: string, params: Record<string, any> = {}): Promise<AsyncGenerator<string, void, unknown>> {
+    const url = `${this.url}/call`;
+    const body = JSON.stringify({
+      fn,
+      params: { ...params, stream: true },
+      token: this.token || '',
+      wait: true
+    });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+        token: this.token || ''
+      },
+      body
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+    }
+
     return this.createStreamGenerator(response);
   }
 }

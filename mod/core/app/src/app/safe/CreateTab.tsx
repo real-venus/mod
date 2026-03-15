@@ -1,16 +1,25 @@
 "use client"
 
 import { useState } from 'react'
-import {
-  PlusIcon,
-  TrashIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline'
 import { ethers } from 'ethers'
 import { toast } from 'react-toastify'
-import { GlowCard } from './GlowCard'
-import { ACCENT, inputClass, inputStyle, btnClass } from './shared'
+import { TerminalCard } from './GlowCard'
+import { getSafeDeployment } from './shared'
 import { createSafe } from '@/network/safe'
+
+const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
+
+const inputStyle: React.CSSProperties = {
+  fontFamily: TERM_FONT,
+  fontSize: '14px',
+  color: 'var(--text-primary)',
+  background: 'var(--bg-input)',
+  border: '2px solid var(--border-color)',
+  padding: '8px 12px',
+  width: '100%',
+  outline: 'none',
+  boxShadow: '2px 2px 0px 0px rgba(255,255,255,0.04)',
+}
 
 export function CreateTab({
   walletAddress,
@@ -19,15 +28,14 @@ export function CreateTab({
   walletAddress: string
   onSafeCreated: (address: string) => void
 }) {
-  const [factoryAddress, setFactoryAddress] = useState('')
-  const [singletonAddress, setSingletonAddress] = useState('')
+  const deployment = getSafeDeployment()
+  const [factoryAddress, setFactoryAddress] = useState(deployment.factory)
+  const [singletonAddress, setSingletonAddress] = useState(deployment.singleton)
   const [owners, setOwners] = useState<string[]>([walletAddress || ''])
   const [threshold, setThreshold] = useState(1)
   const [creating, setCreating] = useState(false)
 
-  const addOwner = () => {
-    setOwners([...owners, ''])
-  }
+  const addOwner = () => setOwners([...owners, ''])
 
   const removeOwner = (idx: number) => {
     if (owners.length <= 1) return
@@ -86,103 +94,148 @@ export function CreateTab({
   }
 
   return (
-    <div className="space-y-4">
-      <GlowCard color={ACCENT} delay={0.1}>
-        <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500/70 mb-4">Deploy Contracts</h2>
-        <div className="space-y-3">
+    <div className="space-y-6">
+      {/* Deploy contracts */}
+      <TerminalCard label="DEPLOY CONTRACTS">
+        <div className="space-y-4">
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>SafeProxyFactory Address</label>
+            <label style={{
+              display: 'block',
+              fontFamily: TERM_FONT,
+              fontSize: '12px',
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              color: 'var(--text-tertiary)',
+              marginBottom: '6px',
+            }}>SafeProxyFactory Address</label>
             <input
               type="text"
               value={factoryAddress}
               onChange={(e) => setFactoryAddress(e.target.value)}
               placeholder="0x..."
-              className={inputClass}
               style={inputStyle}
             />
           </div>
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-tertiary)' }}>Safe Singleton Address</label>
+            <label style={{
+              display: 'block',
+              fontFamily: TERM_FONT,
+              fontSize: '12px',
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              color: 'var(--text-tertiary)',
+              marginBottom: '6px',
+            }}>Safe Singleton Address</label>
             <input
               type="text"
               value={singletonAddress}
               onChange={(e) => setSingletonAddress(e.target.value)}
               placeholder="0x..."
-              className={inputClass}
               style={inputStyle}
             />
           </div>
+          {deployment.factory && (
+            <div style={{ fontFamily: TERM_FONT, fontSize: '12px', color: 'var(--text-tertiary)', opacity: 0.5 }}>
+              pre-filled from testnet deployment
+            </div>
+          )}
         </div>
-      </GlowCard>
+      </TerminalCard>
 
-      <GlowCard color={ACCENT} delay={0.15}>
+      {/* Owners */}
+      <TerminalCard label="OWNERS">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500/70">Owners</h2>
+          <span style={{ fontFamily: TERM_FONT, fontSize: '13px', color: 'var(--text-tertiary)' }}>
+            {owners.length} signer{owners.length !== 1 ? 's' : ''}
+          </span>
           <button
             onClick={addOwner}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-all"
+            className="transition-all"
+            style={{
+              fontFamily: TERM_FONT,
+              fontSize: '13px',
+              padding: '4px 12px',
+              border: '2px solid var(--accent-primary, #10b981)',
+              color: 'var(--accent-primary, #10b981)',
+              background: 'transparent',
+              boxShadow: '2px 2px 0px 0px var(--accent-primary, #10b981)',
+              cursor: 'pointer',
+            }}
           >
-            <PlusIcon className="w-3.5 h-3.5" />
-            Add
+            + ADD
           </button>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {owners.map((owner, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              <span className="text-[11px] font-bold w-5 text-center shrink-0" style={{ color: 'var(--text-tertiary)' }}>{idx + 1}</span>
+            <div key={idx} className="flex items-center gap-3">
+              <span style={{ fontFamily: TERM_FONT, fontSize: '14px', color: 'var(--text-tertiary)', width: '24px', textAlign: 'right' }}>{idx + 1}</span>
               <input
                 type="text"
                 value={owner}
                 onChange={(e) => updateOwner(idx, e.target.value)}
                 placeholder="0x..."
-                className={`${inputClass} flex-1`}
-                style={inputStyle}
+                style={{ ...inputStyle, flex: 1 }}
               />
               {owners.length > 1 && (
                 <button
                   onClick={() => removeOwner(idx)}
-                  className="p-1.5 text-red-500/60 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all shrink-0"
+                  className="transition-colors"
+                  style={{
+                    fontFamily: TERM_FONT,
+                    fontSize: '14px',
+                    color: 'var(--accent-error, #ef4444)',
+                    opacity: 0.5,
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    border: '1px solid transparent',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '1' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5' }}
                 >
-                  <TrashIcon className="w-4 h-4" />
+                  x
                 </button>
               )}
             </div>
           ))}
         </div>
-      </GlowCard>
+      </TerminalCard>
 
-      <GlowCard color={ACCENT} delay={0.2}>
-        <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500/70 mb-3">Threshold</h2>
-        <div className="flex items-center gap-3">
+      {/* Threshold */}
+      <TerminalCard label="THRESHOLD">
+        <div className="flex items-center gap-4">
           <input
             type="number"
             min={1}
             max={owners.length}
             value={threshold}
             onChange={(e) => setThreshold(Math.max(1, Math.min(owners.length, parseInt(e.target.value) || 1)))}
-            className={`${inputClass} w-20 text-center`}
-            style={inputStyle}
+            style={{ ...inputStyle, width: '80px', textAlign: 'center' }}
           />
-          <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>of {owners.length} owner{owners.length !== 1 ? 's' : ''} required to confirm</span>
+          <span style={{ fontFamily: TERM_FONT, fontSize: '14px', color: 'var(--text-tertiary)' }}>
+            of {owners.length} owner{owners.length !== 1 ? 's' : ''} required to confirm
+          </span>
         </div>
-      </GlowCard>
+      </TerminalCard>
 
       <button
         onClick={handleCreate}
         disabled={creating}
-        className={`${btnClass} w-full py-3 bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 flex items-center justify-center gap-2`}
+        className="w-full transition-all"
+        style={{
+          fontFamily: TERM_FONT,
+          fontSize: '16px',
+          letterSpacing: '0.08em',
+          padding: '14px 20px',
+          border: '2px solid var(--accent-primary, #10b981)',
+          color: 'var(--accent-primary, #10b981)',
+          background: 'rgba(16, 185, 129, 0.06)',
+          boxShadow: '4px 4px 0px 0px var(--accent-primary, #10b981)',
+          cursor: creating ? 'not-allowed' : 'pointer',
+          opacity: creating ? 0.4 : 1,
+          textShadow: '0 0 8px var(--accent-primary, #10b981)',
+        }}
       >
-        {creating ? (
-          <>
-            <ArrowPathIcon className="w-4 h-4 animate-spin" />
-            Deploying Safe...
-          </>
-        ) : (
-          <>
-            <PlusIcon className="w-4 h-4" />
-            Create Safe
-          </>
-        )}
+        {creating ? 'DEPLOYING...' : '+ Create Safe'}
       </button>
     </div>
   )
