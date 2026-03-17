@@ -235,6 +235,9 @@ class Key:
             key_json = self.decrypt(data=key_json, password=password)
         if isinstance(key_json, str):
             key_json = json.loads(key_json)
+        # unwrap {'data': {...}, 'encrypted': False, ...} format
+        if isinstance(key_json, dict) and 'data' in key_json and isinstance(key_json['data'], dict):
+            key_json = key_json['data']
         return self.from_json(key_json, crypto_type=crypto_type)
 
     def detect_address_type(self, address):
