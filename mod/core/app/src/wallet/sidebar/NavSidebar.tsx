@@ -7,20 +7,20 @@ import { Plus, Palette } from 'lucide-react'
 import { getAllNavItems, getNavHref } from '@/config/navigation'
 import { ThemeSelectorCompact } from '@/themes/ThemeSelectorCompact'
 import {
-  Box, Swords, Landmark, FileCode2, ArrowLeftRight,
+  Swords, Landmark, FileCode2, ArrowLeftRight,
   BookOpen, MessageSquare, Shield, Waypoints
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
-  'QUESTS': <Swords size={18} strokeWidth={1.8} />,
-  'TREASURY': <Landmark size={18} strokeWidth={1.8} />,
-  'CONTRACTS': <FileCode2 size={18} strokeWidth={1.8} />,
-  'TRANSACTIONS': <ArrowLeftRight size={18} strokeWidth={1.8} />,
-  'DOCS': <BookOpen size={18} strokeWidth={1.8} />,
-  'CHAT': <MessageSquare size={18} strokeWidth={1.8} />,
-  'SAFE': <Shield size={18} strokeWidth={1.8} />,
-  'BRIDGE': <Waypoints size={18} strokeWidth={1.8} />,
+  'QUESTS': <Swords size={36} strokeWidth={1.8} />,
+  'TREASURY': <Landmark size={36} strokeWidth={1.8} />,
+  'CONTRACTS': <FileCode2 size={36} strokeWidth={1.8} />,
+  'TRANSACTIONS': <ArrowLeftRight size={36} strokeWidth={1.8} />,
+  'DOCS': <BookOpen size={36} strokeWidth={1.8} />,
+  'CHAT': <MessageSquare size={36} strokeWidth={1.8} />,
+  'SAFE': <Shield size={36} strokeWidth={1.8} />,
+  'BRIDGE': <Waypoints size={36} strokeWidth={1.8} />,
 }
 
 export const SIDEBAR_WIDTH = 56
@@ -46,7 +46,7 @@ export function NavSidebar() {
   }
 
   const getIcon = (label: string) => {
-    return NAV_ICONS[label] || <span style={{ fontSize: '8px', fontFamily: PIXEL_FONT }}>{label.slice(0, 3)}</span>
+    return NAV_ICONS[label] || <span style={{ fontSize: '16px', fontFamily: PIXEL_FONT }}>{label.slice(0, 3)}</span>
   }
 
   const currentWidth = SIDEBAR_WIDTH
@@ -87,15 +87,19 @@ export function NavSidebar() {
           onClick={() => router.push('/mod/explore')}
           title="Mods"
         >
-          <Box
-            size={28}
-            strokeWidth={1.5}
-            className="transition-all duration-200 group-hover:scale-110"
+          <span
+            className="transition-all duration-200 group-hover:scale-110 font-bold"
             style={{
+              fontFamily: PIXEL_FONT,
+              fontSize: '10px',
               color: 'var(--accent-primary)',
               filter: 'drop-shadow(0 0 8px var(--accent-primary))',
+              letterSpacing: '0.02em',
+              lineHeight: '1.2',
             }}
-          />
+          >
+            <span style={{ opacity: 0.5 }}>~/</span>mod
+          </span>
         </div>
 
         {/* Nav items */}
@@ -160,7 +164,7 @@ export function NavSidebar() {
               justifyContent: 'center',
               padding: '0',
               fontFamily: PIXEL_FONT,
-              fontSize: '9px',
+              fontSize: '18px',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'var(--hover-bg)'
@@ -171,7 +175,7 @@ export function NavSidebar() {
               clearHover()
             }}
           >
-            <Plus size={18} className="transition-all duration-150" style={{
+            <Plus size={36} className="transition-all duration-150" style={{
               filter: hoveredItem === '__new' ? 'drop-shadow(0 0 4px var(--accent-primary))' : 'none',
             }} />
           </button>
@@ -205,7 +209,7 @@ export function NavSidebar() {
               clearHover()
             }}
           >
-            <Palette size={18} className="transition-all duration-150" style={{
+            <Palette size={36} className="transition-all duration-150" style={{
               filter: hoveredItem === '__theme' || themeOpen ? 'drop-shadow(0 0 4px var(--accent-primary))' : 'none',
             }} />
           </button>
@@ -259,7 +263,7 @@ export function NavSidebar() {
           >
             <span
               style={{
-                fontSize: '9px',
+                fontSize: '18px',
                 fontFamily: PIXEL_FONT,
                 color: tooltipInfo.color,
                 letterSpacing: '0.08em',

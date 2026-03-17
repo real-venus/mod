@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { CubeIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { WalletHeader } from '@/wallet/WalletHeader'
-import { NetworkSelector } from '@/network/NetworkSelector'
 import { useSearchContext } from '@/context/SearchContext'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -69,7 +68,7 @@ export function TopBar() {
       className="fixed top-0 right-0 z-[60] flex items-center"
       style={{
         left: 'var(--sidebar-width, 220px)',
-        height: '56px',
+        height: '60px',
         background: 'var(--bg-header)',
         borderBottom: '2px solid var(--border-color)',
         imageRendering: 'pixelated',
@@ -81,18 +80,16 @@ export function TopBar() {
           {searchOpen ? (
             <motion.div
               key="search-open"
-              initial={{ width: 140, opacity: 0.8 }}
+              initial={{ width: 200, opacity: 0.8 }}
               animate={{ width: '100%', opacity: 1 }}
-              exit={{ width: 140, opacity: 0 }}
+              exit={{ width: 200, opacity: 0 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
               className="relative flex items-center"
-              style={{ maxWidth: '520px' }}
+              style={{ maxWidth: '700px' }}
             >
-              <CubeIcon
-                className="absolute left-2.5 pointer-events-none w-8 h-8"
-                style={{
-                  color: searchFocused ? 'var(--accent-primary)' : 'var(--text-tertiary)',
-                }}
+              <MagnifyingGlassIcon
+                className="absolute left-3 pointer-events-none w-5 h-5"
+                style={{ color: 'var(--accent-primary)' }}
               />
               <input
                 ref={inputRef}
@@ -102,28 +99,36 @@ export function TopBar() {
                 onKeyDown={handleKeyDown}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                placeholder="Search modules..."
+                placeholder="search modules..."
                 autoFocus
                 className="w-full focus:outline-none"
                 style={{
-                  height: '36px',
-                  padding: '0 32px 0 36px',
-                  fontSize: '20px',
+                  height: '42px',
+                  padding: '0 48px 0 36px',
+                  fontSize: '16px',
                   fontFamily: 'var(--font-pixel), monospace',
-                  letterSpacing: '0.05em',
+                  letterSpacing: '0.04em',
                   backgroundColor: 'var(--bg-input)',
-                  border: `2px solid ${searchFocused ? 'var(--text-tertiary)' : 'var(--border-color)'}`,
-                  borderRadius: '0px',
+                  border: `2px solid ${searchFocused ? 'var(--accent-primary)' : 'var(--border-strong)'}`,
                   color: 'var(--text-primary)',
-                  caretColor: 'var(--text-primary)',
+                  caretColor: 'var(--accent-primary)',
+                  transition: 'border-color 0.15s ease',
                 }}
               />
               <button
                 onClick={closeSearch}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10"
-                style={{ fontFamily: 'var(--font-pixel)', fontSize: '16px', color: 'var(--text-tertiary)' }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 transition-colors"
+                style={{
+                  fontFamily: 'var(--font-pixel)',
+                  fontSize: '11px',
+                  color: 'var(--text-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--hover-bg)',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
               >
-                ✕
+                ESC
               </button>
             </motion.div>
           ) : (
@@ -133,28 +138,26 @@ export function TopBar() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => { setSearchOpen(true); setTimeout(() => inputRef.current?.focus(), 50) }}
-              className="flex items-center gap-2.5 px-3 hover:bg-[var(--hover-bg)]"
+              className="flex items-center gap-2.5 px-3 transition-all"
               style={{
-                height: '36px',
-                color: 'var(--text-tertiary)',
-                fontSize: '20px',
+                height: '42px',
                 fontFamily: 'var(--font-pixel), monospace',
-                border: '2px solid var(--border-color)',
-                borderRadius: '0px',
+                border: '2px solid var(--border-strong)',
                 backgroundColor: 'var(--bg-input)',
               }}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-strong)'}
             >
-              <CubeIcon className="w-8 h-8" style={{ color: 'var(--text-tertiary)' }} />
-              <span style={{ fontSize: '16px', fontFamily: 'var(--font-pixel)' }}>SEARCH</span>
+              <MagnifyingGlassIcon className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+              <span style={{ fontSize: '14px', color: 'var(--text-tertiary)' }}>search...</span>
               <kbd
-                className="ml-1 px-1.5 py-0.5"
+                className="ml-auto px-1.5 py-0.5"
                 style={{
-                  fontSize: '14px',
+                  fontSize: '10px',
                   fontFamily: 'var(--font-pixel), monospace',
-                  backgroundColor: 'var(--bg-primary)',
-                  border: '2px solid var(--border-color)',
+                  backgroundColor: 'var(--hover-bg)',
+                  border: '1px solid var(--border-color)',
                   color: 'var(--text-tertiary)',
-                  lineHeight: '1.2',
                 }}
               >
                 ⌘K
@@ -165,14 +168,8 @@ export function TopBar() {
       </div>
 
       {/* Right section */}
-      <div className="flex items-center gap-2 pr-3">
-        {/* Network Selector */}
-        <NetworkSelector />
-
-        {/* Divider */}
-        <div className="w-0.5 h-6 mx-1" style={{ backgroundColor: 'var(--border-color)' }} />
-
-        {/* Wallet */}
+      <div className="flex items-center pr-4">
+        {/* Wallet (includes network selector) */}
         <WalletHeader />
       </div>
     </div>

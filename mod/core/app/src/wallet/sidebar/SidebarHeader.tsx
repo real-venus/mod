@@ -5,6 +5,7 @@ import { ethers } from 'ethers'
 import { ArrowPathIcon, ArrowRightStartOnRectangleIcon, XMarkIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-toastify'
+import { NetworkSelector } from '@/network/NetworkSelector'
 import DebitABI from '@/contracts/market/debit/Debit.sol/Debit.json'
 import modConfig from '@/config.json'
 import { Auth } from '@/client/auth'
@@ -388,6 +389,11 @@ export function SidebarHeader({
             >
               <XMarkIcon className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
             </button>
+          </div>
+
+          {/* Network selector */}
+          <div className="mt-2">
+            <NetworkSelector />
           </div>
 
           {/* Token details and customization panel */}

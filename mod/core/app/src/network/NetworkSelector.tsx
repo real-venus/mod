@@ -60,7 +60,7 @@ const CHAINS: ChainConfig[] = [
   },
 ]
 
-export function NetworkSelector() {
+export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
   const [selectedChain, setSelectedChain] = useState<ChainConfig>(CHAINS[0])
   const [networkEnv, setNetworkEnv] = useState<NetworkEnvironment>('testnet')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -117,61 +117,74 @@ export function NetworkSelector() {
 
   const envColor = networkEnv === 'mainnet' ? '#22c55e' : '#f59e0b'
 
-  return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Compact pill button */}
-      <button
-        onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center gap-2 px-3 hover:bg-[var(--hover-bg)]"
+  const triggerContent = (
+    <>
+      {/* Chain icon */}
+      <span
+        className="text-lg font-bold"
+        style={{ color: selectedChain.color }}
+      >
+        {selectedChain.icon}
+      </span>
+
+      {/* Chain name */}
+      <span
+        className="font-bold uppercase tracking-wider"
         style={{
-          height: '36px',
           fontFamily: 'var(--font-pixel), monospace',
-          border: '2px solid var(--border-color)',
-          borderRadius: '0px',
-          backgroundColor: 'var(--bg-input)',
+          fontSize: '16px',
+          color: 'var(--text-primary)',
         }}
       >
-        {/* Chain icon with color dot */}
-        <div className="relative flex items-center justify-center">
-          <span
-            className="text-sm font-bold"
-            style={{ color: selectedChain.color }}
-          >
-            {selectedChain.icon}
-          </span>
+        {selectedChain.name}
+      </span>
+
+      {/* Env badge */}
+      <span
+        className="font-bold uppercase px-2 py-0.5"
+        style={{
+          fontFamily: 'var(--font-pixel), monospace',
+          fontSize: '12px',
+          backgroundColor: `${envColor}18`,
+          color: envColor,
+          border: `2px solid ${envColor}40`,
+        }}
+      >
+        {networkEnv === 'testnet' ? 'TEST' : 'MAIN'}
+      </span>
+
+      <ChevronDownIcon
+        className={`w-4 h-4 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
+        style={{ color: 'var(--text-tertiary)' }}
+      />
+    </>
+  )
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      {inline ? (
+        <div
+          onClick={() => setShowDropdown(!showDropdown)}
+          className="flex items-center gap-2 cursor-pointer"
+          style={{ fontFamily: 'var(--font-pixel), monospace' }}
+        >
+          {triggerContent}
         </div>
-
-        {/* Chain name */}
-        <span
-          className="font-bold uppercase tracking-wider"
+      ) : (
+        <button
+          onClick={() => setShowDropdown(!showDropdown)}
+          className="flex items-center gap-3 px-4 hover:bg-[var(--hover-bg)] w-full transition-all"
           style={{
+            height: '44px',
             fontFamily: 'var(--font-pixel), monospace',
-            fontSize: '8px',
-            color: 'var(--text-primary)',
+            border: '2px solid var(--border-color)',
+            borderRadius: '0px',
+            backgroundColor: 'var(--bg-input)',
           }}
         >
-          {selectedChain.name}
-        </span>
-
-        {/* Env badge */}
-        <span
-          className="font-bold uppercase px-1.5 py-0.5"
-          style={{
-            fontFamily: 'var(--font-pixel), monospace',
-            fontSize: '7px',
-            backgroundColor: `${envColor}18`,
-            color: envColor,
-            border: `2px solid ${envColor}40`,
-          }}
-        >
-          {networkEnv === 'testnet' ? 'TEST' : 'MAIN'}
-        </span>
-
-        <ChevronDownIcon
-          className={`w-3 h-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
-          style={{ color: 'var(--text-tertiary)' }}
-        />
-      </button>
+          {triggerContent}
+        </button>
+      )}
 
       {/* Dropdown */}
       <AnimatePresence>
@@ -181,7 +194,7 @@ export function NetworkSelector() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 overflow-hidden z-50"
+            className="absolute left-0 top-full mt-2 overflow-hidden z-[200]"
             style={{
               width: '320px',
               background: 'var(--bg-secondary)',

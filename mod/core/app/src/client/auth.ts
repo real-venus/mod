@@ -4,6 +4,7 @@ import {Key} from '@/key';
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { stringToU8a, u8aToHex } from '@polkadot/util'
 import { MetamaskAdapter } from '@/wallet/adapters/MetamaskAdapter'
+import { PhantomAdapter } from '@/wallet/adapters/PhantomAdapter'
 
 export interface AuthData {
   data: string;
@@ -56,6 +57,25 @@ export class Auth {
   }
 
 
+
+  /**
+   * Infer the crypto type from a wallet address string.
+   * Mirrors server-side detect_address_type logic.
+   */
+  public inferCryptoType(address: string): 'sr25519' | 'ecdsa' | 'solana' {
+    if (!address) return 'ecdsa';
+    const a = address.trim();
+    // Ethereum: 0x + 40 hex chars
+    if (a.length === 42 && /^0x[0-9a-fA-F]{40}$/.test(a)) return 'ecdsa';
+    // Substrate SS58: 47-48 base58 chars with common prefix
+    const ss58Prefixes = '159DFHJKLMNPQRSTUVWXYZabcdefghij';
+    if ((a.length === 47 || a.length === 48) && /^[1-9A-HJ-NP-Za-km-z]{47,48}$/.test(a) && ss58Prefixes.includes(a[0])) {
+      return 'sr25519';
+    }
+    // Solana: base58-encoded 32-byte key (32-44 chars)
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a)) return 'solana';
+    return 'ecdsa';
+  }
 
   public base64urlEncode(data: string | Record<string, unknown> | Uint8Array): string {
     let bytes: Uint8Array;
@@ -129,12 +149,18 @@ export class Auth {
     return await metamaskAdapter.sign(signMessage);
   }
 
-  public async signLocal(signMessage: string): Promise<string> {
+  public async signWithPhantom(signMessage: string): Promise<string> {
+    const phantomAdapter = new PhantomAdapter();
+    await phantomAdapter.connect();
+    return await phantomAdapter.sign(signMessage);
+  }
+
+  public async signLocal(signMessage: string, cryptoType?: 'sr25519' | 'ecdsa' | 'solana'): Promise<string> {
     const password = typeof window !== 'undefined' ? localStorage.getItem('wallet_password') : null;
     if (!password) {
       throw new Error('No wallet_password found in localStorage. Please sign in again.');
     }
-    const localKey = new Key(password);
+    const localKey = new Key(password, cryptoType || 'ecdsa');
     return localKey.sign(signMessage);
   }
       
@@ -160,9 +186,21 @@ export class Auth {
     } else if (wallet_mode === 'injector' || wallet_mode === 'subwallet') {
       // Use polkadot extension injector for sr25519
       authData.signature = await this.signWithInjector(signatureData, walletAddress);
+    } else if (wallet_mode === 'phantom') {
+      authData.signature = await this.signWithPhantom(signatureData);
+    } else if (wallet_mode === 'solana') {
+      authData.signature = await this.signLocal(signatureData, 'solana');
     } else if (wallet_mode === 'local') {
-      // Always sign with client key (local key) for local mode
-      authData.signature = await this.signLocal(signatureData);
+      // Infer crypto type from wallet address to ensure signature matches
+      const cryptoType = this.inferCryptoType(walletAddress);
+      const password = typeof window !== 'undefined' ? localStorage.getItem('wallet_password') : null;
+      if (!password) {
+        throw new Error('No wallet_password found in localStorage. Please sign in again.');
+      }
+      // Use matching key type so address and signature are consistent
+      const localKey = new Key(password, cryptoType);
+      authData.key = localKey.address;
+      authData.signature = await this.signLocal(signatureData, cryptoType);
     }
     return this.base64urlEncode(JSON.stringify(authData));
   }

@@ -37,7 +37,7 @@ class Token:
         key_address = self.key_address(key)
         token_data = self.token_data(data=data, cost=cost, to=to, key=key_address)
         signature = key.sign(token_data, mode='str')
-        assert m.verify(token_data, signature=signature, address=to), "Signature verification failed"
+        assert m.verify(token_data, signature=signature, address=key_address), "Signature verification failed"
         return self.tdiv.join([token_data, signature])
 
 

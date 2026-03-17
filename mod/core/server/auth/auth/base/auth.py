@@ -29,12 +29,23 @@ class Auth:
 
     def infer_crypto_type(self, key):
         """
-        Infer the crypto type from the key
+        Infer the crypto type from an address/key string.
+        Supports: ecdsa (0x), sr25519 (SS58), solana (base58 32-byte), ed25519 (fallback)
         """
-        if key.startswith('0x'):
+        from mod.core.key.key.utils import is_ethereum_address, is_substrate_ss58_address
+        if is_ethereum_address(key):
             return 'ecdsa'
-        else:
+        if is_substrate_ss58_address(key):
             return 'sr25519'
+        try:
+            import base58
+            from scalecodec.utils.ss58 import is_valid_ss58_address
+            decoded = base58.b58decode(key)
+            if len(decoded) == 32 and not is_valid_ss58_address(key):
+                return 'solana'
+        except Exception:
+            pass
+        return 'ed25519'
 
     def set_key(self, key, crypto_type=None):
         """

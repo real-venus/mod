@@ -170,7 +170,7 @@ export function ChatHeader({
               }}
             >
               <span className="w-2 h-2 animate-pulse" style={{ backgroundColor: 'var(--accent-primary)' }}></span>
-              <span className="text-base font-bold tracking-wider font-digital uppercase">
+              <span className="text-xl font-bold tracking-wider font-digital uppercase">
                 {selectedModules[0].name}/{selectedFunction}
               </span>
             </div>

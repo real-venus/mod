@@ -1,16 +1,17 @@
 import { Sr25519 } from './keys/sr25519'
 import { Ecdsa } from './keys/ecdsa'
+import { Solana } from './keys/solana'
 
 // Define the structure of a key object
 export interface WalletType {
   address: string
-  crypto_type: 'sr25519' | 'ecdsa'
+  crypto_type: 'sr25519' | 'ecdsa' | 'solana'
   public_key: string
   private_key: string
 }
 
 // Define allowed signature types
-type signature_t = 'sr25519' | 'ecdsa'
+type signature_t = 'sr25519' | 'ecdsa' | 'solana'
 
 export class Key {
   private private_key: string // Stores the private key of the key
@@ -48,6 +49,8 @@ export class Key {
       return Sr25519.fromPassword(password)
     } else if (crypto_type === 'ecdsa') {
       return Ecdsa.fromPassword(password)
+    } else if (crypto_type === 'solana') {
+      return Solana.fromPassword(password)
     } else {
       throw new Error('Unsupported crypto type')
     }
@@ -63,6 +66,8 @@ export class Key {
       return Sr25519.sign(message, this.private_key, this.public_key)
     } else if (this.crypto_type === 'ecdsa') {
       return Ecdsa.sign(message, this.private_key)
+    } else if (this.crypto_type === 'solana') {
+      return Solana.sign(message, this.private_key)
     } else {
       throw new Error('Unsupported crypto type')
     }
@@ -88,6 +93,8 @@ export class Key {
       return Sr25519.verify(message, signature, public_key)
     } else if (this.crypto_type === 'ecdsa') {
       return Ecdsa.verify(message, signature, public_key)
+    } else if (this.crypto_type === 'solana') {
+      return Solana.verify(message, signature, public_key)
     } else {
       throw new Error('Unsupported crypto type')
     }
