@@ -1099,7 +1099,7 @@ export default function BridgePage() {
                       {(() => {
                         // Use searchResult if available, otherwise fallback to balanceSheet entry
                         const sr = searchResult
-                        const bsEntry = !sr && balanceSheet?.entries?.find(e => e.address === user?.key)
+                        const bsEntry = !sr ? balanceSheet?.entries?.find(e => e.address === user?.key) : undefined
                         const total = sr?.total ?? bsEntry?.total ?? 0
                         const claimed = sr?.claimed ?? bsEntry?.claimed ?? 0
                         const unclaimed = sr?.unclaimed ?? bsEntry?.unclaimed ?? 0
