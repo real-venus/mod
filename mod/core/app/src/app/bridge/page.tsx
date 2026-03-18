@@ -35,26 +35,6 @@ interface BridgeClaim {
   txHash?: string
 }
 
-interface ClaimData {
-  amount: number
-  recipient: string
-  from: string
-}
-
-interface BalanceEntry {
-  address: string
-  total: number
-  claimed: number
-  unclaimed: number
-}
-
-interface BalanceSheet {
-  totalBalance: number
-  totalClaimed: number
-  totalUnclaimed: number
-  entries: BalanceEntry[]
-}
-
 export default function BridgePage() {
   // MetaMask context
   const metamask = useMetaMask()
@@ -81,8 +61,6 @@ export default function BridgePage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [hasClaimed, setHasClaimed] = useState(false)
   const [unclaimedAmount, setUnclaimedAmount] = useState<string>('')
-  const [balanceSheet, setBalanceSheet] = useState<BalanceSheet | null>(null)
-  const [claimedHistory, setClaimedHistory] = useState<Record<string, ClaimData>>({})
   const [contractOwner, setContractOwner] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
 
@@ -90,7 +68,6 @@ export default function BridgePage() {
   const [loadingBalance, setLoadingBalance] = useState(false)
   const [checkingClaim, setCheckingClaim] = useState(false)
   const [loadingUnclaimed, setLoadingUnclaimed] = useState(false)
-  const [loadingBalanceSheet, setLoadingBalanceSheet] = useState(false)
   const [loadingAllClaims, setLoadingAllClaims] = useState(false)
 
   // Search state
@@ -100,7 +77,7 @@ export default function BridgePage() {
     total: number
     claimed: number
     unclaimed: number
-    claimData?: ClaimData
+    claimData?: { amount: number; recipient: string; from: string }
   } | null>(null)
   const [searching, setSearching] = useState(false)
   const [searchRecipient, setSearchRecipient] = useState('')
@@ -496,68 +473,6 @@ export default function BridgePage() {
       .catch(() => toast.error('Failed to copy'))
   }
 
-  // Fetch balance sheet
-  const fetchBalanceSheet = useCallback(async () => {
-    if (!client) return
-
-    try {
-      setLoadingBalanceSheet(true)
-
-      // Fetch total balances and claimed balances
-      const [totalBalancesResult, claimedBalancesResult] = await Promise.all([
-        client.call('bridge/get_total_balances'),
-        client.call('bridge/get_claims')
-      ])
-
-      const totalBalances = totalBalancesResult || {}
-      const claimedBalances = claimedBalancesResult || {}
-
-      setClaimedHistory(claimedBalances)
-
-      // Calculate balance sheet
-      const addresses = new Set([
-        ...Object.keys(totalBalances),
-        ...Object.keys(claimedBalances)
-      ])
-
-      const entries: BalanceEntry[] = Array.from(addresses).map(address => {
-        const total = Number(totalBalances[address] || 0)
-        const claimed = Number(claimedBalances[address] || 0)
-        const unclaimed = total - claimed
-
-        return {
-          address,
-          total,
-          claimed,
-          unclaimed
-        }
-      }).sort((a, b) => b.total - a.total)
-
-      const totalBalance = entries.reduce((sum, e) => sum + e.total, 0)
-      const totalClaimed = entries.reduce((sum, e) => sum + e.claimed, 0)
-      const totalUnclaimed = entries.reduce((sum, e) => sum + e.unclaimed, 0)
-
-      setBalanceSheet({
-        totalBalance,
-        totalClaimed,
-        totalUnclaimed,
-        entries
-      })
-
-    } catch (error: any) {
-      console.error('Failed to fetch balance sheet:', error)
-      toast.error(error?.message || 'Failed to load balance sheet')
-    } finally {
-      setLoadingBalanceSheet(false)
-    }
-  }, [client])
-
-  // Load balance sheet on mount
-  useEffect(() => {
-    if (client?.token) {
-      fetchBalanceSheet()
-    }
-  }, [client, fetchBalanceSheet])
 
   // Fetch all claims from bridge/claims
   const fetchAllClaims = useCallback(async () => {
@@ -631,8 +546,8 @@ export default function BridgePage() {
 
       if (result?.success) {
         toast.success('Claim deleted successfully')
-        // Refresh the balance sheet
-        fetchBalanceSheet()
+        // Refresh search result
+        if (searchAddress) handleSearch(searchAddress)
       } else {
         toast.error(result?.msg || 'Failed to delete claim')
       }
@@ -1097,12 +1012,9 @@ export default function BridgePage() {
 
                       {/* Balance Overview */}
                       {(() => {
-                        // Use searchResult if available, otherwise fallback to balanceSheet entry
-                        const sr = searchResult
-                        const bsEntry = !sr ? balanceSheet?.entries?.find(e => e.address === user?.key) : undefined
-                        const total = sr?.total ?? bsEntry?.total ?? 0
-                        const claimed = sr?.claimed ?? bsEntry?.claimed ?? 0
-                        const unclaimed = sr?.unclaimed ?? bsEntry?.unclaimed ?? 0
+                        const total = searchResult?.total ?? 0
+                        const claimed = searchResult?.claimed ?? 0
+                        const unclaimed = searchResult?.unclaimed ?? 0
 
                         if (total > 0) return (
                           <div className="border-4 p-5" style={{ borderColor: 'var(--accent-primary)', backgroundColor: 'rgba(139, 92, 246, 0.05)' }}>
@@ -1136,7 +1048,7 @@ export default function BridgePage() {
                         )
 
                         // Show loading if we're still fetching
-                        if (searching || loadingBalanceSheet || loadingUnclaimed) return (
+                        if (searching || loadingUnclaimed) return (
                           <div className="border-4 p-5 flex items-center gap-2" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-tertiary)' }}>
                             <ArrowPathIcon className="w-5 h-5 animate-spin" style={{ color: 'var(--text-secondary)' }} />
                             <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>

@@ -14,9 +14,11 @@ Usage:
 import json
 import requests
 import os
-import random
 import time
 from datetime import datetime
+
+from .sol import SolanaSnapshot
+from .evm import EVMSnapshot
 
 # ─── RPC Endpoints (multiple per network to avoid rate limits) ────────────────
 RPC_LISTS = {
@@ -48,12 +50,6 @@ RPC_LISTS = {
 for _net in RPC_LISTS:
     RPC_LISTS[_net] = [u for u in RPC_LISTS[_net] if u]
 
-TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-ERC20_DECIMALS_SIG = "0x313ce567"
-ERC20_BALANCE_SIG = "0x70a08231"
-ERC20_SUPPLY_SIG = "0x18160ddd"
-
 SUPPORTED_NETWORKS = ("solana", "base", "ethereum")
 
 
@@ -74,6 +70,8 @@ class Snapshot:
     def __init__(self, address: str = None):
         self.address = address
         self._rpc_index = {net: 0 for net in RPC_LISTS}
+        self._sol = SolanaSnapshot()
+        self._evm = EVMSnapshot()
 
     def forward(self, target: str = None, out: str = None) -> list:
         """
@@ -94,16 +92,22 @@ class Snapshot:
         print(f"\n[{network.upper()}] Snapshotting token: {token}")
 
         if network == "solana":
-            return self._snapshot_solana(token, out)
+            return self._sol.snapshot(
+                token, self._rpc_call, out=out,
+                export_fn=self._export, print_table_fn=self._print_table, snap_dir_fn=self._snap_dir,
+            )
         else:
-            return self._snapshot_evm(token, network, out)
+            return self._evm.snapshot(
+                token, network, self._rpc_call, out=out,
+                export_fn=self._export, print_table_fn=self._print_table, snap_dir_fn=self._snap_dir,
+            )
+
+    # ─── Shared Infrastructure ────────────────────────────────────────────
 
     def _snap_dir(self, network: str, token: str) -> str:
         base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "snapshots", network, token)
         os.makedirs(base, exist_ok=True)
         return base
-
-    # ─── Solana ──────────────────────────────────────────────────────────
 
     def _next_rpc(self, network: str) -> str:
         urls = RPC_LISTS[network]
@@ -149,139 +153,6 @@ class Snapshot:
                 continue
         raise last_err or Exception(f"All RPCs exhausted for {network}")
 
-    def _solana_rpc(self, method, params):
-        return self._rpc_call("solana", method, params)
-
-    def _snapshot_solana(self, mint: str, out: str = None) -> list:
-        result = self._solana_rpc("getAccountInfo", [mint, {"encoding": "jsonParsed"}])
-        if not result or not result.get("value"):
-            raise Exception(f"Could not fetch mint info for {mint}")
-        decimals = result["value"]["data"]["parsed"]["info"].get("decimals", 9)
-        print(f"Token decimals: {decimals}")
-
-        print("Fetching all token accounts...")
-        accounts = self._solana_rpc("getProgramAccounts", [
-            TOKEN_PROGRAM_ID,
-            {
-                "encoding": "jsonParsed",
-                "filters": [
-                    {"dataSize": 165},
-                    {"memcmp": {"offset": 0, "bytes": mint}},
-                ],
-            },
-        ])
-        print(f"Found {len(accounts)} token accounts")
-
-        holders = []
-        total_supply = 0
-        for acct in accounts:
-            info = acct["account"]["data"]["parsed"]["info"]
-            owner = info["owner"]
-            raw_amount = int(info["tokenAmount"]["amount"])
-            if raw_amount == 0:
-                continue
-            total_supply += raw_amount
-            holders.append({
-                "owner": owner,
-                "account": acct["pubkey"],
-                "balance_raw": raw_amount,
-            })
-
-        divisor = 10 ** decimals
-        for h in holders:
-            h["balance"] = h["balance_raw"] / divisor
-            h["pct"] = (h["balance_raw"] / total_supply * 100) if total_supply > 0 else 0
-
-        holders.sort(key=lambda x: x["balance_raw"], reverse=True)
-        self._print_table(holders, mint, "solana", total_supply, decimals)
-        self._export(holders, out, mint, "solana", decimals, total_supply)
-        return holders
-
-    # ─── EVM (Base + Ethereum) ───────────────────────────────────────────
-
-    def _evm_rpc(self, network: str, method: str, params: list):
-        return self._rpc_call(network, method, params)
-
-    def _evm_call(self, network: str, to: str, data: str) -> str:
-        return self._evm_rpc(network, "eth_call", [{"to": to, "data": data}, "latest"])
-
-    def _snapshot_evm(self, token: str, network: str, out: str = None) -> list:
-        token = token.lower()
-
-        decimals = int(self._evm_call(network, token, ERC20_DECIMALS_SIG), 16)
-        print(f"Token decimals: {decimals}")
-
-        total_supply_raw = int(self._evm_call(network, token, ERC20_SUPPLY_SIG), 16)
-        print(f"Total supply: {total_supply_raw / (10 ** decimals):,.{min(decimals, 4)}f}")
-
-        latest_block = int(self._evm_rpc(network, "eth_blockNumber", []), 16)
-        print(f"Current block: {latest_block}")
-
-        # Scan Transfer events to collect all addresses that ever held the token
-        print("Scanning Transfer events...")
-        holder_addrs = set()
-        chunk_size = 10000
-        start_block = max(0, latest_block - 2_000_000)
-
-        block = start_block
-        while block <= latest_block:
-            to_block = min(block + chunk_size - 1, latest_block)
-            try:
-                logs = self._evm_rpc(network, "eth_getLogs", [{
-                    "address": token,
-                    "topics": [ERC20_TRANSFER_TOPIC],
-                    "fromBlock": hex(block),
-                    "toBlock": hex(to_block),
-                }])
-                for log in logs:
-                    if len(log["topics"]) >= 3:
-                        holder_addrs.add("0x" + log["topics"][1][-40:])
-                        holder_addrs.add("0x" + log["topics"][2][-40:])
-            except Exception as e:
-                err_msg = str(e).lower()
-                if any(k in err_msg for k in ("range", "limit", "too many", "exceed")):
-                    chunk_size = max(500, chunk_size // 2)
-                    continue
-                raise
-
-            progress = min(100, int((to_block - start_block) / max(1, latest_block - start_block) * 100))
-            if progress % 10 == 0 or to_block == latest_block:
-                print(f"  Block {to_block} ({progress}%) — {len(holder_addrs)} addresses")
-            block = to_block + 1
-
-        holder_addrs.discard("0x" + "0" * 40)
-        print(f"Unique addresses: {len(holder_addrs)}")
-
-        # Query current balances
-        print("Querying balances...")
-        holders = []
-        divisor = 10 ** decimals
-        checked = 0
-
-        for addr in holder_addrs:
-            call_data = ERC20_BALANCE_SIG + addr[2:].lower().zfill(64)
-            try:
-                balance_raw = int(self._evm_call(network, token, call_data), 16)
-            except Exception:
-                balance_raw = 0
-            checked += 1
-            if checked % 200 == 0:
-                print(f"  {checked}/{len(holder_addrs)} checked...")
-            if balance_raw == 0:
-                continue
-            holders.append({
-                "owner": addr,
-                "account": addr,
-                "balance_raw": balance_raw,
-                "balance": balance_raw / divisor,
-                "pct": (balance_raw / total_supply_raw * 100) if total_supply_raw > 0 else 0,
-            })
-
-        holders.sort(key=lambda x: x["balance_raw"], reverse=True)
-        self._print_table(holders, token, network, total_supply_raw, decimals)
-        self._export(holders, out, token, network, decimals, total_supply_raw)
-        return holders
-
     # ─── Output ──────────────────────────────────────────────────────────
 
     def _print_table(self, holders, token, network, total_supply, decimals):
@@ -300,8 +171,8 @@ class Snapshot:
         if len(holders) > 30:
             print(f"  ... and {len(holders) - 30} more holders")
 
-    def _export(self, holders, out, token, network, decimals, total_raw):
-        out_dir = out or self._snap_dir(network, token)
+    def _export(self, holders, out, token, network, decimals, total_raw, snap_dir_fn=None):
+        out_dir = out or (snap_dir_fn or self._snap_dir)(network, token)
 
         # snapshot.json — full holder list
         snapshot_path = os.path.join(out_dir, "snapshot.json")
