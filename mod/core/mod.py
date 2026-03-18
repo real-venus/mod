@@ -274,7 +274,7 @@ class Mod:
         return getattr(mod, fn)(*args, **kwargs)     
 
     def build(self, *args,   **kwargs):
-        return self.fn(f'pm/build')(*args, **kwargs)
+        return self.fn(f'pm.docker/build')(*args, **kwargs)
     
     def run_fn(self,fn:str, params:Optional[dict]=None, args=None, kwargs=None, mod='mod') -> Any:
         """
@@ -1591,12 +1591,12 @@ class Mod:
         return self.fn('vali/epoch')(*args, **kwargs)
 
     def up(self, mod = 'mod'):
-        return self.fn('pm/up')(mod)
+        return self.fn('pm.docker/up')(mod)
     def down(self, mod = 'mod'):
-        return self.fn('pm/down')(mod)
+        return self.fn('pm.docker/down')(mod)
 
     def enter(self, image = 'mod'):
-        return self.fn('pm/enter')(image)
+        return self.fn('pm.docker/enter')(image)
 
     def owner(self):
         return self.get_key().address
@@ -1700,7 +1700,7 @@ class Mod:
             return results
 
     def exec(self, mod:str = 'mod', *args, **kwargs):
-        return self.fn('pm/exec')(mod, *args, **kwargs)
+        return self.fn('pm.docker/exec')(mod, *args, **kwargs)
 
 
 

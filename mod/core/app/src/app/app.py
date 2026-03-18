@@ -14,8 +14,8 @@ class App:
             build = False,
             api_port=8000, 
              **kwargs):
-        m.serve('ipfs', pm='docker')
-        m.serve('api', pm='pm2')
+        m.serve('ipfs', pm='pm.docker')
+        m.serve('api', pm='pm.pm2')
         if build:
             m.build(mod)
         cwd = m.dirpath(mod) 
