@@ -58,6 +58,13 @@ export function WalletAuthButton({ showAuthSidebar, setShowAuthSidebar }: Wallet
     return 'metamask'
   })
   const [password, setPassword] = useState('')
+  const [cryptoType, setCryptoType] = useState<'ecdsa' | 'sr25519' | 'solana'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('wallet_type')
+      if (saved === 'sr25519' || saved === 'solana') return saved
+    }
+    return 'ecdsa'
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [accounts, setAccounts] = useState<any[]>([])
@@ -89,12 +96,12 @@ export function WalletAuthButton({ showAuthSidebar, setShowAuthSidebar }: Wallet
   const derivedKey = useMemo(() => {
     if (authMode !== 'local' || !password || password.length < 1) return null
     try {
-      const key = new Key(password)
+      const key = new Key(password, cryptoType)
       return { address: key.address, publicKey: key.public_key }
     } catch {
       return null
     }
-  }, [password, authMode])
+  }, [password, authMode, cryptoType])
 
   const handleLocalSignIn = async () => {
     if (!password) { setError('Password is required'); return }
@@ -102,7 +109,8 @@ export function WalletAuthButton({ showAuthSidebar, setShowAuthSidebar }: Wallet
     try {
       localStorage.setItem('wallet_mode', 'local')
       localStorage.setItem('wallet_password', password)
-      const key = new Key(password)
+      localStorage.setItem('wallet_type', cryptoType)
+      const key = new Key(password, cryptoType)
       localStorage.setItem('wallet_address', key.address)
       await signIn()
       setShowAuthSidebar(false)
@@ -334,6 +342,58 @@ export function WalletAuthButton({ showAuthSidebar, setShowAuthSidebar }: Wallet
                         transition={{ duration: 0.15 }}
                         className="space-y-4"
                       >
+                        {/* Crypto type selector */}
+                        <div>
+                          <label className="block text-sm font-digital uppercase tracking-[0.25em] mb-2 font-bold" style={{ color: 'var(--text-tertiary)' }}>
+                            KEY TYPE
+                          </label>
+                          <div className="flex gap-2">
+                            {([
+                              { type: 'ecdsa' as const, label: 'ECDSA', color: '#f59e0b', desc: 'Ethereum' },
+                              { type: 'sr25519' as const, label: 'SR25519', color: '#06b6d4', desc: 'Substrate' },
+                              { type: 'solana' as const, label: 'ED25519', color: '#9945ff', desc: 'Solana' },
+                            ]).map((ct) => {
+                              const isActive = cryptoType === ct.type
+                              return (
+                                <button
+                                  key={ct.type}
+                                  type="button"
+                                  onClick={() => setCryptoType(ct.type)}
+                                  className="flex-1 flex flex-col items-center gap-1 py-3 transition-all hover:opacity-80"
+                                  style={{
+                                    backgroundColor: isActive ? `${ct.color}15` : 'var(--bg-input)',
+                                    border: isActive ? `2px solid ${ct.color}` : '2px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                  }}
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      borderRadius: '50%',
+                                      backgroundColor: isActive ? ct.color : 'var(--text-tertiary)',
+                                      boxShadow: isActive ? `0 0 8px ${ct.color}80` : 'none',
+                                      display: 'inline-block',
+                                    }} />
+                                    <span
+                                      className="text-xs font-digital font-bold uppercase tracking-wider"
+                                      style={{ color: isActive ? ct.color : 'var(--text-secondary)' }}
+                                    >
+                                      {ct.label}
+                                    </span>
+                                  </div>
+                                  <span
+                                    className="text-[9px] font-digital uppercase tracking-wide"
+                                    style={{ color: 'var(--text-tertiary)', opacity: isActive ? 1 : 0.5 }}
+                                  >
+                                    {ct.desc}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
                         <div>
                           <label className="block text-sm font-digital uppercase tracking-[0.25em] mb-2 font-bold" style={{ color: 'var(--text-tertiary)' }}>
                             PASSPHRASE

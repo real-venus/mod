@@ -1,237 +1,188 @@
+<div align="center">
+
 ```
  _____ _______ ______
 |     |       |      \
 | | | |   -   |   -  |
 |_|_|_|_______|______/
-
-MODULAR OPERATING DAEMON
-========================
-v0.1.0 | MIT License
 ```
 
-```
-+-----------------------------------------------------------+
-|  > SYSTEM BOOT                                            |
-|  > LOADING MODULES ................................ [OK]   |
-|  > INITIALIZING CRYPTO ENGINE .................... [OK]   |
-|  > CONNECTING TO CHAIN ........................... [OK]   |
-|  > MOD FRAMEWORK ONLINE                                   |
-+-----------------------------------------------------------+
-```
+### Modular Operating Daemon
 
-## WHAT IS THIS
+**Write code. Register it on-chain. Get paid when people use it.**
 
-MOD is a **modular development framework** that combines Python
-module orchestration, EVM smart contracts, and AI-powered interfaces
-into one system.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-yellow.svg)](https://python.org)
+[![Solidity 0.8.20](https://img.shields.io/badge/solidity-0.8.20-363636.svg)](https://soliditylang.org)
+[![Next.js 14](https://img.shields.io/badge/next.js-14-black.svg)](https://nextjs.org)
+[![Base Sepolia](https://img.shields.io/badge/chain-Base%20Sepolia-0052FF.svg)](https://base.org)
 
-Write code. Register it on-chain. Get paid when people use it.
-
-```
-+-----------+     +-----------+     +-----------+
-| DEVELOPER |---->| MOD PROTO |---->|   USERS   |
-| writes fn |     | registers |     | call fn   |
-| sets price|     | to chain  |     | pay token |
-+-----------+     +-----------+     +-----------+
-      ^                                   |
-      +------------ revenue --------------+
-```
+</div>
 
 ---
 
-## QUICK START
+MOD is a modular development framework that combines Python module orchestration, EVM smart contracts, and AI-powered interfaces into one system. Developers write functions, register them on-chain, set a price, and earn revenue every time someone calls them.
 
 ```
- > TERMINAL 1
- ============
- $ pip install -e ./
- $ m mods                  # list modules
- $ m serve api             # start server on :8000
-
- > TERMINAL 2
- ============
- $ cd mod/core/chain
- $ npx hardhat node        # local blockchain
- $ npx hardhat run scripts/deploy.js --network localhost
-
- > TERMINAL 3
- ============
- $ cd mod/core/app
- $ npm install && npm run dev   # frontend on :3000
+ Developer ──> MOD Protocol ──> Users
+ writes fn     registers        call fn
+ sets price    to chain         pay token
+     ^                            |
+     └─────── revenue ────────────┘
 ```
 
----
+## Quick Start
 
-## PROJECT MAP
+```bash
+# 1. Install the framework
+pip install -e ./
 
-```
-~/mod/
-.
-|-- mod.json                    # root config
-|-- setup.py                    # python package
-|
-|-- mod/
-|   |-- core/
-|   |   |-- mod.py              # main framework     [67KB]
-|   |   |-- utils.py            # utilities           [75KB]
-|   |   |-- chain/              # solidity contracts
-|   |   |-- app/                # next.js frontend
-|   |   |-- api/                # fastapi backend
-|   |   |-- server/             # process management
-|   |   |-- store/              # key-value store
-|   |   |-- key/                # crypto keys
-|   |   |-- cli/                # command line
-|   |   |-- router/             # api routing
-|   |   `-- tester/             # test utils
-|   |
-|   `-- orbit/                  # 140+ modules
-|       |-- agent/              # ai agents
-|       |-- claude/             # claude integration
-|       |-- web/                # web scraping
-|       |-- ipfs/               # ipfs storage
-|       |-- safe/               # gnosis safe
-|       |-- bridge/             # cross-chain
-|       |-- cache/              # caching
-|       `-- ...                 # 130+ more
-|
-`-- scripts/                    # deploy & automation
+# 2. Explore modules
+m mods                    # list all 140+ modules
+m info <module>           # module details
+m serve api               # start API server on :8000
+
+# 3. Start the blockchain (separate terminal)
+cd mod/core/chain
+npx hardhat node
+npx hardhat run scripts/deploy.js --network localhost
+
+# 4. Launch the frontend (separate terminal)
+cd mod/core/app
+npm install && npm run dev    # frontend on :3000
 ```
 
----
-
-## CLI COMMANDS
+## Architecture
 
 ```
-+------------------+------------------------------------+
-| COMMAND          | DESCRIPTION                        |
-+------------------+------------------------------------+
-| m mods           | list all available modules         |
-| m info <mod>     | get module information              |
-| m code <mod>     | view module source                 |
-| m dp <mod>       | get module directory path           |
-| m serve <mod>    | start module server                |
-| m servers        | list running servers               |
-| m kill <mod>     | stop module server                 |
-| m test <mod>     | run module tests                   |
-| m push "msg"     | git commit and push                |
-+------------------+------------------------------------+
+mod/
+├── core/
+│   ├── mod.py             # Framework engine
+│   ├── utils.py           # Shared utilities
+│   ├── chain/             # Solidity smart contracts (BlocTime Protocol)
+│   ├── app/               # Next.js 14 frontend (TypeScript, Tailwind)
+│   ├── api/               # FastAPI backend (async, auto-generated endpoints)
+│   ├── server/            # Process management
+│   ├── store/             # Encrypted key-value storage
+│   ├── key/               # Crypto key management
+│   ├── cli/               # CLI interface
+│   └── router/            # API routing
+│
+└── orbit/                 # 140+ community modules
+    ├── agent/             # AI agents
+    ├── claude/            # Claude integration
+    ├── ipfs/              # IPFS storage
+    ├── safe/              # Gnosis Safe multisig
+    ├── bridge/            # Cross-chain bridges
+    ├── web/               # Web scraping
+    ├── cache/             # Caching layer
+    └── ...
 ```
 
----
+## CLI
 
-## PYTHON API
+| Command | Description |
+|---------|-------------|
+| `m mods` | List all available modules |
+| `m info <mod>` | Module details and metadata |
+| `m code <mod>` | View module source code |
+| `m dp <mod>` | Get module directory path |
+| `m serve <mod>` | Start a module server |
+| `m servers` | List running servers |
+| `m kill <mod>` | Stop a module server |
+| `m test <mod>` | Run module tests |
+| `m push "msg"` | Git commit and push |
+
+## Python API
 
 ```python
 import mod as m
 
-# load and run modules
+# Load and run any module
 api = m.mod('api')()
 result = m.fn('api/some_function')(param='value')
 
-# server
+# Server management
 m.serve('api', port=8000)
+m.kill('api')
 
-# crypto
+# Crypto — keys, signing, encryption
 key = m.get_key('my_key')
 sig = m.sign({'data': 'value'}, key='my_key')
 
-# storage
+# Encrypted storage
 m.put('key', {'data': 'value'}, encrypt=True)
 data = m.get('key')
+
+# AI
+response = m.ask('explain this code', model='claude')
 ```
+
+## BlocTime Protocol
+
+On-chain layer for module registration, payments, and governance. Deployed on **Base Sepolia** (chain ID `84532`).
+
+| Contract | Purpose |
+|----------|---------|
+| **Treasury** | Multi-token revenue distribution |
+| **Market** | Module marketplace with instant withdrawals |
+| **Registry** | On-chain module registration and management |
+| **BlocTime** | Staking with time-multiplier rewards |
+| **TokenGate** | Token whitelist + oracle integration |
+| **Perms** | Role-based access control |
+| **Oracles** | Price feeds (Chainlink, Pyth, manual) |
+
+Built with Solidity 0.8.20 and OpenZeppelin.
+
+### Deploy
+
+```bash
+# Local
+npx hardhat node
+npx hardhat run scripts/deploy.js --network localhost
+
+# Testnet
+npx hardhat run scripts/deploy.js --network baseSepolia
+
+# Mainnet
+npx hardhat run scripts/deploy.js --network base
+```
+
+## Security
+
+- OpenZeppelin contract libraries
+- ReentrancyGuard on all state-changing functions
+- Signature-based authentication
+- AES-256 encryption for sensitive storage
+- Role-based access control (on-chain + off-chain)
+- Client-side key generation
+- HTTPS enforced in production
+
+## Documentation
+
+| Resource | Description |
+|----------|-------------|
+| [Architecture](MOD_ARCHITECTURE.md) | System design deep dive |
+| [Smart Contracts](mod/core/chain/README.md) | BlocTime protocol docs |
+| [Frontend](mod/core/app/README.md) | Next.js application |
+| [API Server](mod/core/api/README.md) | FastAPI endpoints |
+| [Storage](mod/core/store/README.md) | Key-value store |
+| [Whitepaper](mod/core/app/docs/) | Protocol whitepaper |
+
+## Contributing
+
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feature/name`)
+3. Make your changes
+4. Run tests (`m test <module>`)
+5. Submit a PR
 
 ---
 
-## SMART CONTRACTS (BLOCTIME PROTOCOL)
+<div align="center">
 
-```
-+-------------------+------------------------------------------+
-| CONTRACT          | PURPOSE                                  |
-+-------------------+------------------------------------------+
-| Treasury          | multi-token revenue distribution         |
-| Market            | marketplace w/ instant withdrawals       |
-| Registry          | module registration & management         |
-| BlocTime          | staking w/ multiplier rewards            |
-| TokenGate         | token whitelist + oracle integration     |
-| Perms             | role-based access control                |
-| Oracles           | price feeds (chainlink, pyth, manual)    |
-+-------------------+------------------------------------------+
+*"Simplicity is the ultimate sophistication."* — Leonardo da Vinci
 
-CHAIN: Base Sepolia (84532) | Solidity 0.8.20 | OpenZeppelin
-```
+MIT License
 
----
-
-## DEPLOYMENT
-
-```
- > LOCAL DEV
-   $ npx hardhat node
-   $ npx hardhat run scripts/deploy.js --network localhost
-
- > TESTNET (BASE SEPOLIA)
-   $ npx hardhat run scripts/deploy.js --network baseSepolia
-
- > MAINNET
-   $ npx hardhat run scripts/deploy.js --network base
-
- > DOCKER (FULL STACK)
-   $ docker-compose up -d
-```
-
----
-
-## DOCS INDEX
-
-```
-+-------------------------------+----------------------------+
-| FILE                          | CONTENTS                   |
-+-------------------------------+----------------------------+
-| README.md                     | this file                  |
-| MOD_ARCHITECTURE.md           | architecture deep dive     |
-| mod/core/chain/README.md      | smart contracts            |
-| mod/core/app/README.md        | frontend application       |
-| mod/core/api/README.md        | api server                 |
-| mod/core/store/README.md      | key-value storage          |
-| mod/core/app/docs/            | whitepaper + onepager      |
-+-------------------------------+----------------------------+
-```
-
----
-
-## SECURITY
-
-```
-[x] OpenZeppelin contract libraries
-[x] ReentrancyGuard on all state changes
-[x] Signature-based authentication
-[x] AES encryption for sensitive data
-[x] Role-based access control
-[x] Client-side key generation
-[x] HTTPS enforced in production
-```
-
----
-
-## CONTRIBUTING
-
-```
-1. fork the repo
-2. create feature branch
-3. make changes
-4. run tests
-5. submit PR
-```
-
----
-
-```
-+-----------------------------------------------------------+
-|                                                           |
-|   "simplicity is the ultimate sophistication"             |
-|                                        - da vinci         |
-|                                                           |
-|   built by the mod team                     MIT LICENSE   |
-|                                                           |
-+-----------------------------------------------------------+
-```
+</div>

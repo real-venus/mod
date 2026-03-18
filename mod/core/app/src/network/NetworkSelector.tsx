@@ -117,11 +117,11 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
 
   const envColor = networkEnv === 'mainnet' ? '#22c55e' : '#f59e0b'
 
-  const triggerContent = (
+  const triggerContent = (compact: boolean) => (
     <>
       {/* Chain icon */}
       <span
-        className="text-lg font-bold"
+        className={compact ? "text-sm font-bold" : "text-lg font-bold"}
         style={{ color: selectedChain.color }}
       >
         {selectedChain.icon}
@@ -132,7 +132,7 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
         className="font-bold uppercase tracking-wider"
         style={{
           fontFamily: 'var(--font-pixel), monospace',
-          fontSize: '16px',
+          fontSize: compact ? '11px' : '16px',
           color: 'var(--text-primary)',
         }}
       >
@@ -141,20 +141,23 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
 
       {/* Env badge */}
       <span
-        className="font-bold uppercase px-2 py-0.5"
+        className="font-bold uppercase"
         style={{
           fontFamily: 'var(--font-pixel), monospace',
-          fontSize: '12px',
-          backgroundColor: `${envColor}18`,
+          fontSize: compact ? '8px' : '10px',
+          padding: compact ? '2px 6px' : '4px 10px',
+          backgroundColor: `${envColor}15`,
           color: envColor,
-          border: `2px solid ${envColor}40`,
+          border: `1px solid ${envColor}30`,
+          borderRadius: compact ? '4px' : '6px',
+          letterSpacing: '0.05em',
         }}
       >
         {networkEnv === 'testnet' ? 'TEST' : 'MAIN'}
       </span>
 
       <ChevronDownIcon
-        className={`w-4 h-4 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
+        className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`}
         style={{ color: 'var(--text-tertiary)' }}
       />
     </>
@@ -165,10 +168,10 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
       {inline ? (
         <div
           onClick={() => setShowDropdown(!showDropdown)}
-          className="flex items-center gap-2 cursor-pointer"
+          className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-all"
           style={{ fontFamily: 'var(--font-pixel), monospace' }}
         >
-          {triggerContent}
+          {triggerContent(true)}
         </div>
       ) : (
         <button
@@ -177,12 +180,13 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
           style={{
             height: '44px',
             fontFamily: 'var(--font-pixel), monospace',
-            border: '2px solid var(--border-color)',
-            borderRadius: '0px',
+            border: '1px solid var(--border-color)',
+            borderRadius: '10px',
             backgroundColor: 'var(--bg-input)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
           }}
         >
-          {triggerContent}
+          {triggerContent(false)}
         </button>
       )}
 
@@ -198,16 +202,16 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
             style={{
               width: '320px',
               background: 'var(--bg-secondary)',
-              border: '2px solid var(--border-color)',
-              borderRadius: '0px',
-              boxShadow: '4px 4px 0px rgba(0,0,0,0.3)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2)',
             }}
           >
             {/* Testnet / Mainnet Toggle */}
             <div className="p-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
               <div
                 className="flex p-1 gap-1"
-                style={{ backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}
+                style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
               >
                 {(['testnet', 'mainnet'] as NetworkEnvironment[]).map((env) => {
                   const isActive = networkEnv === env
@@ -215,13 +219,14 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
                     <button
                       key={env}
                       onClick={() => handleEnvToggle(env)}
-                      className="flex-1 py-2 font-bold uppercase tracking-widest"
+                      className="flex-1 py-2 font-bold uppercase tracking-widest transition-all"
                       style={{
                         fontFamily: 'var(--font-pixel), monospace',
                         fontSize: '8px',
                         backgroundColor: isActive ? 'var(--bg-secondary)' : 'transparent',
                         color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                        boxShadow: isActive ? '2px 2px 0px rgba(0,0,0,0.2)' : 'none',
+                        borderRadius: '6px',
+                        boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
                       }}
                     >
                       {env}
@@ -240,11 +245,12 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
                     <button
                       key={chain.id}
                       onClick={() => handleChainSelect(chain)}
-                      className="relative flex items-center gap-3 py-3 px-3"
+                      className="relative flex items-center gap-3 py-3 px-3 transition-all"
                       style={{
                         fontFamily: 'var(--font-pixel), monospace',
-                        border: isSelected ? `2px solid ${chain.color}60` : '2px solid transparent',
-                        backgroundColor: isSelected ? `${chain.color}12` : 'transparent',
+                        border: isSelected ? `1px solid ${chain.color}40` : '1px solid transparent',
+                        backgroundColor: isSelected ? `${chain.color}10` : 'transparent',
+                        borderRadius: '10px',
                       }}
                       onMouseEnter={(e) => {
                         if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
@@ -257,9 +263,10 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
                       <div
                         className="w-9 h-9 flex items-center justify-center text-lg"
                         style={{
-                          backgroundColor: `${chain.color}18`,
+                          backgroundColor: `${chain.color}15`,
                           color: chain.color,
-                          border: `2px solid ${chain.color}30`,
+                          border: `1px solid ${chain.color}25`,
+                          borderRadius: '8px',
                         }}
                       >
                         {chain.icon}
@@ -283,8 +290,8 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
                       {/* Selected indicator */}
                       {isSelected && (
                         <div
-                          className="absolute top-2 right-2 w-2 h-2"
-                          style={{ backgroundColor: chain.color }}
+                          className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: chain.color, boxShadow: `0 0 6px ${chain.color}80` }}
                         />
                       )}
                     </button>

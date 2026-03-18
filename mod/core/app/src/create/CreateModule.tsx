@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { userContext } from '@/context/UserContext'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircleIcon, ExclamationCircleIcon, MagnifyingGlassIcon, ArrowPathIcon, XMarkIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ExclamationCircleIcon, MagnifyingGlassIcon, ArrowPathIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+
+type SourceMode = 'github' | 'cid' | 'local'
 
 interface GitHubRepo {
   name: string
@@ -21,8 +22,8 @@ interface GitHubRepo {
 }
 
 export default function CreateModule() {
-  const router = useRouter()
   const { user, client } = userContext()
+  const [mode, setMode] = useState<SourceMode>('local')
   const [input, setInput] = useState('')
   const [url, setUrl] = useState('')
   const [name, setName] = useState('')
@@ -31,13 +32,18 @@ export default function CreateModule() {
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // GitHub mode state
   const [searchResults, setSearchResults] = useState<GitHubRepo[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const searchTimeout = useRef<NodeJS.Timeout | null>(null)
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null)
+
+  // Local mode state
+  const [localPath, setLocalPath] = useState('')
+  const [localDescription, setLocalDescription] = useState('')
+
   const [waitForCompletion, setWaitForCompletion] = useState(false)
-  const [showHelp, setShowHelp] = useState(false)
 
   useEffect(() => {
     if (user?.key && !registerToKey) {
@@ -46,28 +52,26 @@ export default function CreateModule() {
   }, [user?.key])
 
   useEffect(() => {
-    if (isGitUrl(url) && !name) {
+    if (mode === 'github' && isGitUrl(url) && !name) {
       const inferredName = inferModuleName(url)
       if (inferredName) setName(inferredName)
     }
-  }, [url, name])
+  }, [url, name, mode])
 
+  // GitHub search effect - only active in github mode
   useEffect(() => {
+    if (mode !== 'github') return
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
 
     const trimmedInput = input.trim()
 
-    // Reset if empty — but don't clear url/name if a repo is selected
     if (!trimmedInput || trimmedInput.length < 2) {
       setSearchResults([])
       setSearchError(null)
-      if (!selectedRepo) {
-        setUrl('')
-      }
+      if (!selectedRepo) setUrl('')
       return
     }
 
-    // Check if the query is a GitHub URL — check this FIRST before isGitUrl
     const githubUrlMatch = trimmedInput.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+\/[^\/]+)/i)
     if (githubUrlMatch) {
       const fullName = githubUrlMatch[1].replace(/\.git$/, '')
@@ -76,28 +80,37 @@ export default function CreateModule() {
       return
     }
 
-    // Check if it's a direct URL or identifier format (user/repo, Qm..., bafy...)
-    if (isCid(trimmedInput)) {
-      setUrl(trimmedInput)
-      setSearchResults([])
-      return
-    }
-
-    // Check user/repo format — but only if it clearly looks like one (has exactly one slash)
     if (/^[\w-]+\/[\w.-]+(\.git)?$/.test(trimmedInput)) {
       fetchSpecificRepo(trimmedInput.replace(/\.git$/, ''))
       setSearchResults([])
       return
     }
 
-    // Otherwise treat as search query
     searchTimeout.current = setTimeout(() => {
       searchGitHub(trimmedInput)
     }, 400)
     return () => {
       if (searchTimeout.current) clearTimeout(searchTimeout.current)
     }
-  }, [input, selectedRepo])
+  }, [input, selectedRepo, mode])
+
+  const resetState = () => {
+    setInput('')
+    setUrl('')
+    setName('')
+    setSearchResults([])
+    setSearchError(null)
+    setSelectedRepo(null)
+    setLocalPath('')
+    setLocalDescription('')
+    setResult(null)
+    setError(null)
+  }
+
+  const switchMode = (newMode: SourceMode) => {
+    resetState()
+    setMode(newMode)
+  }
 
   const fetchSpecificRepo = async (fullName: string) => {
     setIsSearching(true)
@@ -114,7 +127,6 @@ export default function CreateModule() {
         url: item.html_url, stars: item.stargazers_count, forks: item.forks_count,
         language: item.language, updated_at: item.updated_at, topics: item.topics || [],
       }
-      // Automatically select this repo
       selectRepo(repo)
     } catch (err: any) {
       setSearchError(err?.message || 'Repo not found')
@@ -179,7 +191,7 @@ export default function CreateModule() {
   }
 
   const isCid = (input: string) => {
-    return input.startsWith('Qm') || input.startsWith('bafy') || input.startsWith('ipfs://')
+    return input.startsWith('Qm') || input.startsWith('bafy') || input.startsWith('ipfs://') || input.startsWith('ar://')
   }
 
   const expandGitUrl = (input: string): string => {
@@ -209,32 +221,50 @@ export default function CreateModule() {
     } catch { return '' }
   }
 
-  const isValidInput = () => url.trim() && (isGitUrl(url) || isCid(url))
-
-  const getInputType = () => {
-    if (!url.trim()) return ''
-    if (isGitUrl(url)) return 'git'
-    if (isCid(url)) return 'ipfs'
-    return 'invalid'
+  const isValidForSubmit = () => {
+    if (!user?.key || !registerToKey.trim()) return false
+    if (mode === 'github') return !!(url.trim() && (isGitUrl(url) || selectedRepo))
+    if (mode === 'cid') return !!(url.trim() && isCid(url) && name.trim())
+    if (mode === 'local') return !!(name.trim())
+    return false
   }
 
   const handleSubmit = async () => {
-    if (!isValidInput() || !user?.key || !registerToKey.trim()) return
+    if (!isValidForSubmit()) return
     setIsSubmitting(true)
     setError(null)
     setResult(null)
     try {
       if (!client?.token) throw new Error('Authentication required. Please connect your wallet.')
-      const response = await client.call('api/reg', {
-        mod: expandGitUrl(url),
-        key: registerToKey.trim(),
-        public: false,
-        token: client.token,
-      }, waitForCompletion)
-      setResult(response)
-      setUrl('')
-      setName('')
-      setSelectedRepo(null)
+
+      if (mode === 'local') {
+        const response = await client.call('api/reg', {
+          mod: localPath.trim() || name.trim(),
+          name: name.trim(),
+          key: registerToKey.trim(),
+          local: true,
+          description: localDescription.trim() || undefined,
+          public: false,
+          token: client.token,
+        }, waitForCompletion)
+        setResult(response)
+        setLocalPath('')
+        setLocalDescription('')
+        setName('')
+      } else {
+        const modValue = mode === 'github' ? expandGitUrl(url) : url.trim()
+        const response = await client.call('api/reg', {
+          mod: modValue,
+          name: name.trim() || undefined,
+          key: registerToKey.trim(),
+          public: false,
+          token: client.token,
+        }, waitForCompletion)
+        setResult(response)
+        setUrl('')
+        setName('')
+        setSelectedRepo(null)
+      }
     } catch (err: any) {
       setError(err?.message || 'Failed to register module')
     } finally {
@@ -259,116 +289,202 @@ export default function CreateModule() {
     PHP: '#4F5D95', Shell: '#89e051', Lua: '#000080', Zig: '#ec915c',
   }
 
-  const valid = isValidInput()
-  const inputType = getInputType()
-  const showSearchResults = searchResults.length > 0 && !selectedRepo && !url
+  const valid = isValidForSubmit()
+  const showSearchResults = mode === 'github' && searchResults.length > 0 && !selectedRepo && !url
+
+  const modes: { key: SourceMode; label: string; desc: string }[] = [
+    { key: 'local', label: 'LOCAL', desc: 'REGISTER API MODULE' },
+    { key: 'github', label: 'GITHUB', desc: 'SEARCH & IMPORT REPOS' },
+    { key: 'cid', label: 'CID', desc: 'IPFS / FILECOIN / ARWEAVE' },
+  ]
 
   return (
     <div className="flex flex-col gap-6" style={{ fontFamily: 'var(--font-digital), monospace' }}>
 
-      {/* Unified Input */}
-      <div className="space-y-4">
+      {/* Mode Selector */}
+      <div className="space-y-3">
         <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
-          ▸ MODULE URL
+          ▸ SOURCE
         </label>
+        <div className="grid grid-cols-3 gap-0">
+          {modes.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => switchMode(m.key)}
+              className="py-4 px-3 text-center border-4 transition-all"
+              style={{
+                background: mode === m.key ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                borderColor: mode === m.key ? 'var(--text-primary)' : 'var(--border-strong)',
+                color: mode === m.key ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                fontFamily: 'var(--font-digital)',
+                marginLeft: m.key !== 'local' ? '-4px' : undefined,
+              }}
+            >
+              <div className="font-bold text-base uppercase tracking-wider">{m.label}</div>
+              <div className="text-xs mt-1 uppercase opacity-70">{m.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {!selectedRepo && (
-          <div className="relative">
-            <MagnifyingGlassIcon className="w-6 h-6 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
-            {isSearching && (
-              <ArrowPathIcon className="w-6 h-6 absolute right-4 top-1/2 -translate-y-1/2 text-green-500/60 animate-spin" />
-            )}
+      {/* LOCAL MODE */}
+      {mode === 'local' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
+        >
+          <div className="space-y-3">
+            <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+              ▸ MODULE NAME
+            </label>
             <input
               type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="SEARCH REPOS, PASTE URL, OR ENTER USER/REPO..."
-              className="w-full pl-14 pr-14 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="MY-MODULE"
+              className="w-full px-4 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
               style={{
                 background: 'var(--bg-secondary)',
-                borderColor: url ? (valid ? 'rgba(34,197,94,0.6)' : '#ef4444') : 'var(--border-strong)',
+                borderColor: name.trim() ? 'rgba(34,197,94,0.6)' : 'var(--border-strong)',
                 color: 'var(--text-primary)',
                 fontFamily: 'var(--font-digital)',
               }}
             />
-            {url && !selectedRepo && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
-                <span className={`text-sm font-bold px-3 py-1 border-4 uppercase tracking-wider ${
-                  valid ? 'text-green-500 border-green-500/30' : 'text-red-500 border-red-500/30'
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+              ▸ PATH <span className="text-xs opacity-50">(OPTIONAL)</span>
+            </label>
+            <input
+              type="text"
+              value={localPath}
+              onChange={(e) => setLocalPath(e.target.value)}
+              placeholder="MODULE/PATH OR LEAVE EMPTY"
+              className="w-full px-4 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
+              style={{
+                background: 'var(--bg-secondary)',
+                borderColor: 'var(--border-strong)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-digital)',
+              }}
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+              ▸ DESCRIPTION <span className="text-xs opacity-50">(OPTIONAL)</span>
+            </label>
+            <input
+              type="text"
+              value={localDescription}
+              onChange={(e) => setLocalDescription(e.target.value)}
+              placeholder="WHAT DOES THIS MODULE DO?"
+              className="w-full px-4 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
+              style={{
+                background: 'var(--bg-secondary)',
+                borderColor: 'var(--border-strong)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-digital)',
+              }}
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {/* GITHUB MODE */}
+      {mode === 'github' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
+        >
+          {!selectedRepo && (
+            <div className="relative">
+              <MagnifyingGlassIcon className="w-6 h-6 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
+              {isSearching && (
+                <ArrowPathIcon className="w-6 h-6 absolute right-4 top-1/2 -translate-y-1/2 text-green-500/60 animate-spin" />
+              )}
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="SEARCH REPOS OR PASTE USER/REPO..."
+                className="w-full pl-14 pr-14 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  borderColor: url ? 'rgba(34,197,94,0.6)' : 'var(--border-strong)',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-digital)',
+                }}
+              />
+            </div>
+          )}
+
+          {searchError && (
+            <p className="text-red-500/70 text-xs font-medium pl-2">{searchError}</p>
+          )}
+        </motion.div>
+      )}
+
+      {/* CID MODE */}
+      {mode === 'cid' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
+        >
+          <div className="space-y-3">
+            <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+              ▸ CONTENT ID
+            </label>
+            <input
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="Qm... OR bafy... OR ipfs:// OR ar://"
+              className="w-full px-4 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] border-4"
+              style={{
+                background: 'var(--bg-secondary)',
+                borderColor: url.trim() ? (isCid(url) ? 'rgba(34,197,94,0.6)' : '#ef4444') : 'var(--border-strong)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-digital)',
+              }}
+            />
+            {url.trim() && (
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold px-3 py-1 border-4 uppercase tracking-wider ${
+                  isCid(url) ? 'text-green-500 border-green-500/30' : 'text-red-500 border-red-500/30'
                 }`} style={{ fontFamily: 'var(--font-digital)' }}>
-                  {inputType}
+                  {isCid(url) ? (url.startsWith('ar://') ? 'ARWEAVE' : url.startsWith('Qm') ? 'IPFS V0' : url.startsWith('bafy') ? 'IPFS V1' : 'IPFS') : 'INVALID CID'}
                 </span>
               </div>
             )}
           </div>
-        )}
 
-        {/* Help Section - Collapsible */}
-        <button
-          onClick={() => setShowHelp(!showHelp)}
-          className="w-full flex items-center justify-between p-4 border-4 transition-all hover:bg-[var(--bg-tertiary)]"
-          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="text-blue-500 text-xl font-bold">?</div>
-            <span className="font-bold text-sm uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
-              {showHelp ? 'HIDE HELP' : 'NEED HELP?'}
-            </span>
+          <div className="space-y-3">
+            <label className="text-base uppercase tracking-wider font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+              ▸ MODULE NAME
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="MODULE-NAME"
+              className="w-full px-4 py-4 text-base font-bold focus:outline-none transition-all placeholder:text-[var(--text-tertiary)] uppercase border-4"
+              style={{
+                background: 'var(--bg-secondary)',
+                borderColor: 'var(--border-strong)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-digital)',
+              }}
+            />
           </div>
-          {showHelp ? (
-            <ChevronUpIcon className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
-          ) : (
-            <ChevronDownIcon className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
-          )}
-        </button>
-
-        <AnimatePresence>
-          {showHelp && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              <div className="p-5 border-4 space-y-3" style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-strong)' }}>
-                <span className="font-bold block text-sm uppercase" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>▸ SUPPORTED FORMATS:</span>
-                <div className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
-                  <div className="font-bold uppercase"><span className="text-green-500">▸</span> GITHUB: <code className="text-xs px-2 py-1 border-4 ml-2" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>user/repo</code></div>
-                  <div className="font-bold uppercase"><span className="text-green-500">▸</span> FULL URL: <code className="text-xs px-2 py-1 border-4 ml-2" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>github.com/user/repo.git</code></div>
-                  <div className="font-bold uppercase"><span className="text-green-500">▸</span> IPFS: <code className="text-xs px-2 py-1 border-4 ml-2" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>Qm...</code> or <code className="text-xs px-2 py-1 border-4 ml-1" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>bafy...</code></div>
-                  <div className="font-bold uppercase pt-2"><span className="text-blue-500">▸</span> OR SEARCH BY KEYWORDS: <span className="text-blue-400">react hooks, solidity, python api</span></div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {searchError && (
-          <p className="text-red-500/70 text-xs font-medium pl-2">{searchError}</p>
-        )}
-      </div>
-
-      {/* Quick suggestions - only show when nothing entered yet */}
-      {!input.trim() && !selectedRepo && !url && (
-        <div className="space-y-4">
-          <p className="text-sm uppercase tracking-wider font-bold" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ POPULAR SEARCHES</p>
-          <div className="flex items-center gap-3 flex-wrap">
-            {['machine learning', 'solidity', 'react', 'rust cli', 'python api'].map((s) => (
-              <button
-                key={s}
-                onClick={() => setInput(s)}
-                className="text-sm px-4 py-2 border-4 transition-all font-bold uppercase hover:bg-[var(--bg-tertiary)]"
-                style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', fontFamily: 'var(--font-digital)' }}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Search Results */}
+      {/* GitHub Search Results */}
       {showSearchResults && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {searchResults.map((repo) => (
@@ -404,7 +520,7 @@ export default function CreateModule() {
         </div>
       )}
 
-      {input.trim().length >= 2 && !isSearching && !showSearchResults && !url && !searchError && (
+      {mode === 'github' && input.trim().length >= 2 && !isSearching && !showSearchResults && !url && !searchError && (
         <div className="text-center py-12 border-4" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
           <div className="w-16 h-16 mx-auto mb-4 border-4 flex items-center justify-center" style={{ background: 'var(--bg-tertiary)', borderColor: 'var(--border-strong)' }}>
             <MagnifyingGlassIcon className="w-8 h-8" style={{ color: 'var(--text-primary)' }} />
@@ -413,48 +529,46 @@ export default function CreateModule() {
         </div>
       )}
 
-      {/* Selected repo or valid URL - show configuration */}
-      {(selectedRepo || (url && valid)) && (
+      {/* Selected GitHub repo card */}
+      {mode === 'github' && selectedRepo && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {selectedRepo && (
-            <div className="p-5 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-green-500 font-bold text-lg uppercase" style={{ fontFamily: 'var(--font-digital)' }}>{selectedRepo.full_name}</span>
-                    <span className="text-xs px-3 py-1 text-green-600 border-4 border-green-500/30 uppercase tracking-wider font-bold" style={{ fontFamily: 'var(--font-digital)' }}>GIT</span>
-                  </div>
-                  {selectedRepo.description && (
-                    <p className="text-sm leading-relaxed mb-3 line-clamp-2" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{selectedRepo.description}</p>
-                  )}
-                  <div className="flex items-center gap-4">
-                    {selectedRepo.language && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-3 h-3" style={{ backgroundColor: langColors[selectedRepo.language] || '#737373' }} />
-                        <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{selectedRepo.language}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1">
-                      <StarSolid className="w-4 h-4 text-amber-500/60" />
-                      <span className="text-sm font-bold text-amber-500/70" style={{ fontFamily: 'var(--font-digital)' }}>{formatStars(selectedRepo.stars)}</span>
-                    </div>
-                    <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{timeAgo(selectedRepo.updated_at)}</span>
-                  </div>
+          <div className="p-5 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-green-500 font-bold text-lg uppercase" style={{ fontFamily: 'var(--font-digital)' }}>{selectedRepo.full_name}</span>
+                  <span className="text-xs px-3 py-1 text-green-600 border-4 border-green-500/30 uppercase tracking-wider font-bold" style={{ fontFamily: 'var(--font-digital)' }}>GIT</span>
                 </div>
-                <button
-                  onClick={clearSelection}
-                  className="p-2 border-4 transition-all hover:bg-red-500/10"
-                  style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-strong)' }}
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
+                {selectedRepo.description && (
+                  <p className="text-sm leading-relaxed mb-3 line-clamp-2" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{selectedRepo.description}</p>
+                )}
+                <div className="flex items-center gap-4">
+                  {selectedRepo.language && (
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3" style={{ backgroundColor: langColors[selectedRepo.language] || '#737373' }} />
+                      <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{selectedRepo.language}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <StarSolid className="w-4 h-4 text-amber-500/60" />
+                    <span className="text-sm font-bold text-amber-500/70" style={{ fontFamily: 'var(--font-digital)' }}>{formatStars(selectedRepo.stars)}</span>
+                  </div>
+                  <span className="text-sm font-bold uppercase" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>{timeAgo(selectedRepo.updated_at)}</span>
+                </div>
               </div>
+              <button
+                onClick={clearSelection}
+                className="p-2 border-4 transition-all hover:bg-red-500/10"
+                style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-strong)' }}
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
             </div>
-          )}
+          </div>
 
           {/* Module Name Input */}
           <div className="space-y-3">
@@ -475,10 +589,19 @@ export default function CreateModule() {
               }}
             />
             <p className="text-sm font-bold uppercase" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>
-              AUTO-DETECTED FROM {selectedRepo ? 'REPOSITORY' : 'URL'}
+              AUTO-DETECTED FROM REPOSITORY
             </p>
           </div>
+        </motion.div>
+      )}
 
+      {/* Submit section - shared across all modes */}
+      {((mode === 'local' && name.trim()) || (mode === 'github' && selectedRepo) || (mode === 'cid' && url.trim() && isCid(url) && name.trim())) && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
           {/* Wait toggle */}
           <div className="flex items-center justify-between p-5 border-4" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
             <div className="flex-1">
@@ -518,7 +641,7 @@ export default function CreateModule() {
 
           <button
             onClick={handleSubmit}
-            disabled={!valid || isSubmitting || !user || !registerToKey.trim()}
+            disabled={!valid || isSubmitting || !user}
             className="w-full py-4 font-bold text-base uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed border-4"
             style={{
               background: 'var(--bg-primary)',
@@ -533,13 +656,13 @@ export default function CreateModule() {
                 {waitForCompletion ? '▸ BUILDING...' : '▸ REGISTERING...'}
               </span>
             ) : (
-              '▸ REGISTER MODULE'
+              `▸ REGISTER ${mode === 'local' ? 'LOCAL' : mode === 'cid' ? 'CID' : ''} MODULE`
             )}
           </button>
         </motion.div>
       )}
 
-      {/* Result / Error - Show at bottom */}
+      {/* Result / Error */}
       <AnimatePresence>
         {result && (
           <motion.div

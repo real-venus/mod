@@ -69,39 +69,16 @@ export function NavSidebar() {
   return (
     <>
       <div
-        className="fixed top-0 left-0 h-screen z-[60] flex flex-col transition-all duration-200"
+        className="fixed left-0 z-[60] flex flex-col transition-all duration-200"
         style={{
+          top: '60px',
+          bottom: 0,
           width: `${currentWidth}px`,
           background: 'var(--bg-header)',
           borderRight: '2px solid var(--border-strong)',
           fontFamily: PIXEL_FONT,
         }}
       >
-        {/* Brand area */}
-        <div
-          className="flex items-center justify-center shrink-0 cursor-pointer select-none group"
-          style={{
-            height: '55px',
-            borderBottom: '2px solid var(--border-strong)',
-          }}
-          onClick={() => router.push('/mod/explore')}
-          title="Mods"
-        >
-          <span
-            className="transition-all duration-200 group-hover:scale-110 font-bold"
-            style={{
-              fontFamily: PIXEL_FONT,
-              fontSize: '10px',
-              color: 'var(--accent-primary)',
-              filter: 'drop-shadow(0 0 8px var(--accent-primary))',
-              letterSpacing: '0.02em',
-              lineHeight: '1.2',
-            }}
-          >
-            <span style={{ opacity: 0.5 }}>~/</span>mod
-          </span>
-        </div>
-
         {/* Nav items */}
         <div className="flex-1 overflow-y-auto hide-scrollbar py-1" style={{ scrollbarWidth: 'none' }}>
           {navItems.map(item => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ethers } from 'ethers'
 import { ArrowPathIcon, ArrowRightStartOnRectangleIcon, XMarkIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -96,64 +96,58 @@ export function SidebarHeader({
     }
   }
 
-  const [addressHovered, setAddressHovered] = useState(false)
-  const [showAccountsDropdown, setShowAccountsDropdown] = useState(false)
+  const [showKeyTypeDropdown, setShowKeyTypeDropdown] = useState(false)
+  const keyTypeDropdownRef = useRef<HTMLDivElement>(null)
   const [showTokenCustomization, setShowTokenCustomization] = useState(false)
   const [tokenTab, setTokenTab] = useState<'token' | 'verify'>('token')
   const [showDecoded, setShowDecoded] = useState(false)
   const [verifyResult, setVerifyResult] = useState<{ valid: boolean; message: string } | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
   const [copiedToken, setCopiedToken] = useState(false)
-  const [copiedKey, setCopiedKey] = useState(false)
 
-  // Get wallet type from localStorage (reactive)
   const [walletType, setWalletType] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem('wallet_type') || 'ecdsa' : 'ecdsa'
   )
 
-  // Key type → wallet mode mapping
   const KEY_TYPE_CYCLE: { type: string; mode: string; label: string }[] = [
-    { type: 'ethereum', mode: 'metamask', label: 'ETHEREUM' },
-    { type: 'solana', mode: 'phantom', label: 'SOLANA' },
+    { type: 'ethereum', mode: 'metamask', label: 'ETH' },
+    { type: 'solana', mode: 'phantom', label: 'SOL' },
     { type: 'ecdsa', mode: 'local', label: 'ECDSA' },
-    { type: 'sr25519', mode: 'subwallet', label: 'SR25519' },
+    { type: 'sr25519', mode: 'subwallet', label: 'SR25' },
   ]
 
-  // Track wallet mode locally so it updates when cycling key type
   const [localWalletMode, setLocalWalletMode] = useState(walletMode)
   useEffect(() => { setLocalWalletMode(walletMode) }, [walletMode])
 
-  const cycleKeyType = () => {
-    const currentIdx = KEY_TYPE_CYCLE.findIndex(k => k.type === walletType)
-    const nextIdx = (currentIdx + 1) % KEY_TYPE_CYCLE.length
-    const next = KEY_TYPE_CYCLE[nextIdx]
-    localStorage.setItem('wallet_type', next.type)
-    localStorage.setItem('wallet_mode', next.mode)
-    setWalletType(next.type)
-    setLocalWalletMode(next.mode)
-    toast.success(`Switched to ${next.label} / ${next.mode.toUpperCase()}`)
+  const selectKeyType = (keyType: typeof KEY_TYPE_CYCLE[number]) => {
+    localStorage.setItem('wallet_type', keyType.type)
+    localStorage.setItem('wallet_mode', keyType.mode)
+    setWalletType(keyType.type)
+    setLocalWalletMode(keyType.mode)
+    setShowKeyTypeDropdown(false)
+    toast.success(`Switched to ${keyType.label}`)
   }
 
-  // Copy full address/key
-  const copyFullAddress = () => {
-    navigator.clipboard.writeText(address)
-    setCopiedKey(true)
-    setTimeout(() => setCopiedKey(false), 2000)
-    toast.success('Full address copied!')
-  }
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (keyTypeDropdownRef.current && !keyTypeDropdownRef.current.contains(e.target as Node)) {
+        setShowKeyTypeDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
-  // Get key type badge color
   const getKeyTypeColor = (type: string) => {
-    if (type === 'sr25519') return { bg: '#06b6d4', text: '#000', border: '#0891b2' }
-    if (type === 'ecdsa') return { bg: '#f59e0b', text: '#000', border: '#d97706' }
-    if (type === 'ethereum') return { bg: '#627eea', text: '#fff', border: '#4c64c8' }
-    if (type === 'solana') return { bg: '#ab9ff2', text: '#000', border: '#9b8fe2' }
-    return { bg: '#10b981', text: '#000', border: '#059669' }
+    if (type === 'sr25519') return '#06b6d4'
+    if (type === 'ecdsa') return '#f59e0b'
+    if (type === 'ethereum') return '#627eea'
+    if (type === 'solana') return '#9945ff'
+    return '#10b981'
   }
 
   const spentRatio = dailyLimit && dailyLimit > 0 ? (dailySpent ?? 0) / dailyLimit : 0
 
-  // Get token from localStorage
   const getStoredToken = () => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('wallet_token') || ''
@@ -173,12 +167,10 @@ export function SidebarHeader({
     }
   }
 
-  // Decode token (supports both JWT and Auth token formats)
   const decodeToken = () => {
     try {
       const token = getStoredToken()
       if (!token) return null
-      // Try JWT format first
       const parts = token.split('.')
       if (parts.length === 3) {
         try {
@@ -186,7 +178,6 @@ export function SidebarHeader({
           return { format: 'jwt', payload }
         } catch {}
       }
-      // Try Auth token format (base64url encoded JSON)
       try {
         const auth = new Auth()
         const authData = auth.token2data(token)
@@ -199,7 +190,6 @@ export function SidebarHeader({
     }
   }
 
-  // Verify token cryptographically
   const verifyToken = async () => {
     setIsVerifying(true)
     setVerifyResult(null)
@@ -211,18 +201,13 @@ export function SidebarHeader({
       }
       const auth = new Auth()
       const authData = auth.token2data(token)
-
-      // Check expiry
       const tokenTime = parseFloat(authData.time)
       const now = Date.now() / 1000
       const age = now - tokenTime
-
       if (age > 3600) {
         setVerifyResult({ valid: false, message: `Token expired (${Math.floor(age / 60)}m old)` })
         return
       }
-
-      // Verify signature
       const valid = auth.verify({ token })
       if (valid) {
         setVerifyResult({ valid: true, message: `Valid signature from ${authData.key.slice(0, 8)}...${authData.key.slice(-4)}` })
@@ -236,167 +221,233 @@ export function SidebarHeader({
     }
   }
 
-  // Wallet mode colors
-  const getWalletModeColor = (mode: string) => {
-    const m = mode.toLowerCase()
-    if (m.includes('metamask')) return { bg: '#f6851b', text: '#000', border: '#e2761b' }
-    if (m.includes('subwallet')) return { bg: '#004bff', text: '#fff', border: '#0040d9' }
-    if (m.includes('coinbase')) return { bg: '#0052ff', text: '#fff', border: '#0042cc' }
-    if (m.includes('walletconnect')) return { bg: '#3b99fc', text: '#fff', border: '#2b89ec' }
-    if (m.includes('phantom')) return { bg: '#ab9ff2', text: '#000', border: '#9b8fe2' }
-    if (m.includes('rainbow')) return { bg: '#ff6b6b', text: '#fff', border: '#ff5b5b' }
-    return { bg: '#10b981', text: '#000', border: '#059669' } // default green for web3
-  }
+  const keyColor = getKeyTypeColor(walletType)
+  const keyLabel = KEY_TYPE_CYCLE.find(k => k.type === walletType)?.label || walletType.toUpperCase()
 
   return (
     <>
       <div className="sticky top-0 z-10 backdrop-blur-md" style={{ backgroundColor: 'var(--bg-sidebar)' }}>
-        {/* Compact top bar: address + token merged into one line */}
-        <div className="px-4 pt-3 pb-2">
-          {/* Merged address + token row */}
+        <div className="px-3 pt-3 pb-2">
+          {/* Single unified bar */}
           <div
-            className="flex items-center gap-1.5 border-2 relative overflow-hidden"
+            className="flex items-center gap-0"
             style={{
-              minHeight: '44px',
+              height: '42px',
               fontFamily: 'var(--font-digital), monospace',
-              backgroundColor: isTokenExpired ? 'rgba(234, 179, 8, 0.06)' : 'var(--bg-input)',
-              borderColor: isTokenExpired ? '#eab30850' : 'var(--border-strong)',
-              boxShadow: isTokenExpired
-                ? '0 0 20px rgba(234, 179, 8, 0.08), inset 0 0 30px rgba(234, 179, 8, 0.03)'
-                : 'none',
+              backgroundColor: 'var(--bg-input)',
+              border: `1px solid ${isTokenExpired ? 'rgba(234, 179, 8, 0.25)' : 'var(--border-color)'}`,
+              borderRadius: '12px',
+              overflow: 'visible',
+              position: 'relative',
             }}
           >
-            {/* Animated glow line at bottom */}
-            <div
-              className="absolute bottom-0 left-0 h-px"
-              style={{
-                width: '100%',
-                background: isTokenExpired
-                  ? 'linear-gradient(90deg, transparent, #eab308, transparent)'
-                  : 'linear-gradient(90deg, transparent, #22c55e, transparent)',
-                animation: 'pulse 2s ease-in-out infinite',
-                opacity: 0.4,
-              }}
-            />
-
-            {/* Address - click to copy */}
-            <button
-              onClick={copyAddress}
-              className="flex items-center gap-2 px-3 h-full transition-all hover:opacity-80 flex-shrink-0"
-              title="Copy address"
-            >
-              <span
-                className="text-2xl font-digital tracking-wide font-bold"
-                style={{ color: copiedAddress ? 'var(--accent-success, #22c55e)' : 'var(--text-primary)' }}
+            {/* Key type pill */}
+            <div className="relative flex-shrink-0" ref={keyTypeDropdownRef}>
+              <button
+                onClick={() => setShowKeyTypeDropdown(!showKeyTypeDropdown)}
+                className="flex items-center gap-1.5 h-[42px] px-3 transition-all hover:opacity-80 active:scale-[0.98]"
+                style={{ color: keyColor }}
+                title="Select key type"
               >
-                {copiedAddress ? 'COPIED' : shortAddress}
-              </span>
-              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: copiedAddress ? 'var(--accent-success, #22c55e)' : 'var(--text-tertiary)' }}>
-                {copiedAddress ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <span style={{
+                  width: '6px', height: '6px', borderRadius: '50%',
+                  backgroundColor: keyColor,
+                  boxShadow: `0 0 8px ${keyColor}60`,
+                }} />
+                <span className="text-[11px] font-bold tracking-wider">{keyLabel}</span>
+                <svg className={`w-2.5 h-2.5 opacity-40 transition-transform ${showKeyTypeDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <AnimatePresence>
+                {showKeyTypeDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute left-0 top-full mt-1.5 z-[200] overflow-hidden"
+                    style={{
+                      minWidth: '160px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                    }}
+                  >
+                    <div className="py-1">
+                      {KEY_TYPE_CYCLE.map((kt) => {
+                        const c = getKeyTypeColor(kt.type)
+                        const isActive = kt.type === walletType
+                        return (
+                          <button
+                            key={kt.type}
+                            onClick={() => selectKeyType(kt)}
+                            className="flex items-center gap-2 w-full px-3 py-2 transition-all text-left"
+                            style={{
+                              backgroundColor: isActive ? `${c}12` : 'transparent',
+                              fontFamily: 'var(--font-digital), monospace',
+                            }}
+                            onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'var(--hover-bg)' }}
+                            onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = isActive ? `${c}12` : 'transparent' }}
+                          >
+                            <span style={{
+                              width: '6px', height: '6px', borderRadius: '50%',
+                              backgroundColor: c,
+                              boxShadow: isActive ? `0 0 6px ${c}80` : 'none',
+                            }} />
+                            <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: isActive ? c : 'var(--text-secondary)' }}>
+                              {kt.label}
+                            </span>
+                            <span className="flex-1" />
+                            {isActive && (
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke={c} strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </motion.div>
                 )}
-              </svg>
-            </button>
+              </AnimatePresence>
+            </div>
 
             {/* Separator */}
             <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)' }} />
 
-            {/* Token expiry / refresh */}
+            {/* Address */}
             <button
-              onClick={handleRefreshToken}
-              disabled={isRefreshing}
-              className="flex items-center gap-1.5 px-2 py-1 font-digital text-sm uppercase font-bold tracking-wide transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex-shrink-0"
-              style={{
-                color: isTokenExpired ? '#eab308' : '#22c55e',
-                textShadow: isTokenExpired ? '0 0 8px rgba(234, 179, 8, 0.5)' : '0 0 8px rgba(34, 197, 94, 0.5)',
-              }}
-              title="Refresh session token"
+              onClick={copyAddress}
+              className="flex items-center gap-1.5 px-2.5 h-full transition-all hover:opacity-70 flex-shrink-0"
+              title="Copy address"
             >
-              <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span className="tabular-nums">{copiedToken ? 'COPIED!' : (tokenExpiry || getTokenExpiry())}</span>
-            </button>
-
-            {/* Dot separator */}
-            <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-tertiary)', opacity: 0.4 }} />
-
-            {/* Token copy */}
-            <button
-              onClick={copyToken}
-              className="flex items-center gap-1 px-1 py-1 font-digital text-xs uppercase font-bold tracking-wider transition-all hover:opacity-80 flex-shrink-0"
-              style={{ color: copiedToken ? '#4ade80' : 'var(--text-tertiary)' }}
-              title="Copy token"
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                {copiedToken ? (
+              <span
+                className="text-sm font-bold tracking-wider"
+                style={{ color: copiedAddress ? '#4ade80' : 'var(--text-primary)', fontFamily: 'var(--font-digital), monospace' }}
+              >
+                {copiedAddress ? 'COPIED' : shortAddress}
+              </span>
+              <svg className="w-3 h-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                {copiedAddress ? (
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 ) : (
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 )}
               </svg>
-              <span>TOKEN</span>
-            </button>
-
-            {/* Dot separator */}
-            <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-tertiary)', opacity: 0.4 }} />
-
-            {/* Details toggle */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowTokenCustomization(!showTokenCustomization)
-              }}
-              className="flex items-center gap-1 px-1 py-1 font-digital text-xs uppercase font-bold tracking-wider transition-all hover:opacity-80 flex-shrink-0"
-              style={{ color: showTokenCustomization ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
-              title="View token details"
-            >
-              <svg className={`w-3 h-3 transition-transform ${showTokenCustomization ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-              <span>DETAILS</span>
             </button>
 
             {/* Spacer */}
+            <div className="flex-1 min-w-0" />
+
+            {/* Right actions */}
+            <div className="flex items-center gap-0.5 pr-1 flex-shrink-0">
+              {/* Token refresh + timer */}
+              <button
+                onClick={handleRefreshToken}
+                disabled={isRefreshing}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold tracking-wide transition-all hover:opacity-70 active:scale-95 disabled:opacity-40"
+                style={{
+                  color: isTokenExpired ? '#eab308' : '#4ade80',
+                  borderRadius: '6px',
+                  fontFamily: 'var(--font-digital), monospace',
+                }}
+                title="Refresh token"
+              >
+                <ArrowPathIcon className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="tabular-nums">{tokenExpiry || getTokenExpiry()}</span>
+              </button>
+
+              {/* Separator */}
+              <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)' }} />
+
+              {/* Token copy */}
+              <button
+                onClick={copyToken}
+                className="flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold tracking-wider transition-all hover:opacity-70"
+                style={{
+                  color: copiedToken ? '#4ade80' : 'var(--text-tertiary)',
+                  borderRadius: '6px',
+                  fontFamily: 'var(--font-digital), monospace',
+                }}
+                title="Copy token"
+              >
+                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  {copiedToken ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  )}
+                </svg>
+                <span>TKN</span>
+              </button>
+
+              {/* Details toggle */}
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowTokenCustomization(!showTokenCustomization) }}
+                className="flex items-center justify-center w-6 h-6 transition-all hover:opacity-70"
+                style={{
+                  color: showTokenCustomization ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                  borderRadius: '5px',
+                }}
+                title="Details"
+              >
+                <svg className={`w-3 h-3 transition-transform ${showTokenCustomization ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Sign out */}
+              <button
+                onClick={handleSignOut}
+                className="flex items-center justify-center w-6 h-6 transition-all hover:opacity-70"
+                style={{ color: 'var(--text-tertiary)', borderRadius: '5px' }}
+                title="Sign out"
+              >
+                <ArrowRightStartOnRectangleIcon className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Close */}
+              <button
+                onClick={onClose}
+                className="flex items-center justify-center w-6 h-6 transition-all hover:opacity-70"
+                style={{ color: 'var(--text-tertiary)', borderRadius: '5px' }}
+                title="Close"
+              >
+                <XMarkIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Second row: Network + daily limit — compressed into one line */}
+          <div className="flex items-center gap-2 mt-1.5 px-1">
+            <NetworkSelector inline />
+
             <div className="flex-1" />
 
             {/* Daily limit inline */}
             {dailyLimit !== null && !isEditing && (
               <button
                 onClick={() => { setIsEditing(true); setNewLimit(dailyLimit.toFixed(2)) }}
-                className="flex items-center gap-1 px-2 py-1 font-digital text-xs font-bold tracking-wide transition-all hover:opacity-80 flex-shrink-0"
+                className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold tracking-wide transition-all hover:opacity-70"
                 style={{
-                  color: spentRatio > 0.9 ? '#ef4444' : spentRatio > 0.7 ? '#eab308' : '#22c55e',
-                  textShadow: spentRatio > 0.9 ? '0 0 6px rgba(239, 68, 68, 0.4)' : spentRatio > 0.7 ? '0 0 6px rgba(234, 179, 8, 0.4)' : '0 0 6px rgba(34, 197, 94, 0.3)',
+                  color: spentRatio > 0.9 ? '#ef4444' : spentRatio > 0.7 ? '#eab308' : '#4ade80',
+                  backgroundColor: spentRatio > 0.9 ? 'rgba(239, 68, 68, 0.06)' : spentRatio > 0.7 ? 'rgba(234, 179, 8, 0.06)' : 'rgba(74, 222, 128, 0.06)',
+                  borderRadius: '6px',
                   fontFamily: 'var(--font-digital), monospace',
                 }}
                 title="Click to edit daily limit"
               >
                 <span className="tabular-nums">
-                  ${dailyRemaining !== null ? dailyRemaining.toFixed(0) : '—'}<span style={{ opacity: 0.5 }}>/{dailyLimit.toFixed(0)}</span>
+                  ${dailyRemaining !== null ? dailyRemaining.toFixed(0) : '—'}<span style={{ opacity: 0.35 }}>/{dailyLimit.toFixed(0)}</span>
                 </span>
               </button>
             )}
-
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              className="flex items-center justify-center hover:bg-white/10 transition-all flex-shrink-0 border-l-2 self-stretch px-3"
-              style={{
-                borderColor: 'var(--border-color)',
-              }}
-              title="Close"
-            >
-              <XMarkIcon className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-            </button>
           </div>
 
-          {/* Network selector */}
-          <div className="mt-2">
-            <NetworkSelector />
-          </div>
-
-          {/* Token details and customization panel */}
+          {/* Token details panel */}
           <AnimatePresence>
             {showTokenCustomization && (
               <motion.div
@@ -404,17 +455,16 @@ export function SidebarHeader({
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="mt-2 border-2 overflow-hidden z-50"
-                style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-strong)' }}
+                className="mt-1.5 overflow-hidden z-50"
+                style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}
               >
-                {/* Tab buttons */}
-                <div className="flex border-b-2" style={{ borderColor: 'var(--border-color)' }}>
+                <div className="flex border-b" style={{ borderColor: 'var(--border-color)' }}>
                   <button
                     onClick={() => setTokenTab('token')}
-                    className="flex-1 px-3 py-2 font-digital text-xs uppercase font-bold transition-all"
+                    className="flex-1 px-3 py-2 font-digital text-[10px] uppercase font-bold transition-all"
                     style={{
                       backgroundColor: tokenTab === 'token' ? 'var(--bg-secondary)' : 'transparent',
-                      borderRight: '2px solid var(--border-color)',
+                      borderRight: '1px solid var(--border-color)',
                       color: tokenTab === 'token' ? 'var(--text-primary)' : 'var(--text-tertiary)',
                     }}
                   >
@@ -422,7 +472,7 @@ export function SidebarHeader({
                   </button>
                   <button
                     onClick={() => { setTokenTab('verify'); setVerifyResult(null) }}
-                    className="flex-1 px-3 py-2 font-digital text-xs uppercase font-bold transition-all"
+                    className="flex-1 px-3 py-2 font-digital text-[10px] uppercase font-bold transition-all"
                     style={{
                       backgroundColor: tokenTab === 'verify' ? 'var(--bg-secondary)' : 'transparent',
                       color: tokenTab === 'verify' ? 'var(--text-primary)' : 'var(--text-tertiary)',
@@ -433,21 +483,20 @@ export function SidebarHeader({
                 </div>
 
                 <div className="p-3">
-                  {/* Token Tab - merged token + generate */}
                   {tokenTab === 'token' && (() => {
                     const decoded = decodeToken()
                     const currentToken = getStoredToken()
                     return (
                       <div>
-                        {/* Token display - click to copy */}
                         <div
-                          className="px-3 py-2 border-2 text-xs font-mono break-all cursor-pointer transition-all hover:border-opacity-100"
+                          className="px-3 py-2 text-xs font-mono break-all cursor-pointer transition-all hover:border-opacity-100"
                           style={{
                             fontFamily: 'IBM Plex Mono, monospace',
                             backgroundColor: 'var(--bg-input)',
-                            borderColor: copiedToken ? '#4ade80' : 'var(--border-color)',
+                            border: `1px solid ${copiedToken ? '#4ade80' : 'var(--border-color)'}`,
+                            borderRadius: '8px',
                             color: copiedToken ? '#4ade80' : 'var(--text-primary)',
-                            maxHeight: showDecoded ? 'none' : '120px',
+                            maxHeight: showDecoded ? 'none' : '100px',
                             overflowY: showDecoded ? 'visible' : 'auto',
                           }}
                           onClick={copyToken}
@@ -464,36 +513,35 @@ export function SidebarHeader({
                           )}
                         </div>
 
-                        {/* Controls row */}
                         <div className="flex items-center gap-2 mt-2">
-                          {/* JSON toggle */}
                           <button
                             onClick={() => setShowDecoded(!showDecoded)}
-                            className="flex items-center gap-1.5 px-2 py-1.5 border-2 font-digital text-xs uppercase font-bold transition-all hover:opacity-80"
+                            className="flex items-center gap-1.5 px-2 py-1 font-digital text-[10px] uppercase font-bold transition-all hover:opacity-80"
                             style={{
                               backgroundColor: showDecoded ? 'var(--bg-secondary)' : 'var(--bg-primary)',
-                              borderColor: showDecoded ? 'var(--text-primary)' : 'var(--border-color)',
+                              border: `1px solid ${showDecoded ? 'var(--text-primary)' : 'var(--border-color)'}`,
+                              borderRadius: '6px',
                               color: showDecoded ? 'var(--text-primary)' : 'var(--text-tertiary)',
                             }}
                           >
                             {showDecoded ? '{ }' : 'RAW'}
-                            <span style={{ fontSize: '9px', opacity: 0.7 }}>{showDecoded ? 'JSON' : 'BASE64'}</span>
+                            <span style={{ fontSize: '8px', opacity: 0.7 }}>{showDecoded ? 'JSON' : 'BASE64'}</span>
                           </button>
 
                           <div className="flex-1" />
 
-                          {/* Generate / Refresh */}
                           <button
                             onClick={handleRefreshToken}
                             disabled={isRefreshing}
-                            className="flex items-center gap-1.5 px-2 py-1.5 border-2 font-digital text-xs uppercase font-bold transition-all hover:opacity-80 disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-2 py-1 font-digital text-[10px] uppercase font-bold transition-all hover:opacity-80 disabled:opacity-50"
                             style={{
                               backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                              borderColor: '#22c55e',
-                              color: '#22c55e',
+                              border: '1px solid rgba(34, 197, 94, 0.3)',
+                              borderRadius: '6px',
+                              color: '#4ade80',
                             }}
                           >
-                            <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                            <ArrowPathIcon className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
                             GENERATE
                           </button>
                         </div>
@@ -501,51 +549,50 @@ export function SidebarHeader({
                     )
                   })()}
 
-                  {/* Verify Tab - actual cryptographic verification */}
                   {tokenTab === 'verify' && (() => {
                     const decoded = decodeToken()
                     return (
                       <div>
-                        {/* Verify button */}
                         <button
                           onClick={verifyToken}
                           disabled={isVerifying || !getStoredToken()}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border-2 font-digital text-sm uppercase font-bold tracking-wide transition-all hover:opacity-80 disabled:opacity-50 mb-3"
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2 font-digital text-xs uppercase font-bold tracking-wide transition-all hover:opacity-80 disabled:opacity-50 mb-3"
                           style={{
                             backgroundColor: verifyResult
-                              ? verifyResult.valid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)'
+                              ? verifyResult.valid ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)'
                               : 'var(--bg-secondary)',
-                            borderColor: verifyResult
-                              ? verifyResult.valid ? '#22c55e' : '#ef4444'
-                              : 'var(--border-strong)',
+                            border: `1px solid ${verifyResult
+                              ? verifyResult.valid ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                              : 'var(--border-color)'}`,
+                            borderRadius: '8px',
                             color: verifyResult
                               ? verifyResult.valid ? '#4ade80' : '#f87171'
                               : 'var(--text-primary)',
                           }}
                         >
                           {isVerifying ? (
-                            <><ArrowPathIcon className="w-4 h-4 animate-spin" /> VERIFYING...</>
+                            <><ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> VERIFYING...</>
                           ) : verifyResult ? (
-                            <>{verifyResult.valid ? <CheckIcon className="w-4 h-4" /> : <XMarkIcon className="w-4 h-4" />} {verifyResult.message}</>
+                            <>{verifyResult.valid ? <CheckIcon className="w-3.5 h-3.5" /> : <XMarkIcon className="w-3.5 h-3.5" />} {verifyResult.message}</>
                           ) : (
                             <>VERIFY SIGNATURE</>
                           )}
                         </button>
 
-                        {/* Decoded payload */}
                         {decoded && (
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             {Object.entries(decoded.payload).map(([key, value]) => (
                               <div key={key} className="flex items-start gap-2">
-                                <span className="text-xs font-digital uppercase font-bold flex-shrink-0 pt-0.5" style={{ color: 'var(--text-tertiary)', minWidth: '70px' }}>
+                                <span className="text-[10px] font-digital uppercase font-bold flex-shrink-0 pt-0.5" style={{ color: 'var(--text-tertiary)', minWidth: '60px' }}>
                                   {key}
                                 </span>
                                 <div
-                                  className="flex-1 px-2 py-1 border text-xs font-mono break-all cursor-pointer hover:opacity-80 transition-opacity"
+                                  className="flex-1 px-2 py-0.5 text-[11px] font-mono break-all cursor-pointer hover:opacity-80 transition-opacity"
                                   style={{
                                     fontFamily: 'IBM Plex Mono, monospace',
                                     backgroundColor: 'var(--bg-input)',
-                                    borderColor: 'var(--border-color)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '5px',
                                     color: key === 'key' || key === 'address' ? '#4ade80'
                                       : key === 'signature' ? '#f59e0b'
                                       : 'var(--text-primary)',
@@ -563,34 +610,20 @@ export function SidebarHeader({
                                 </div>
                               </div>
                             ))}
-                            <div className="text-xs font-digital uppercase pt-1" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }}>
+                            <div className="text-[9px] font-digital uppercase pt-1" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>
                               Format: {decoded.format === 'jwt' ? 'JWT' : 'Auth (base64url)'}
                             </div>
                           </div>
                         )}
 
                         {!decoded && getStoredToken() && (
-                          <div
-                            className="px-3 py-4 border-2 text-center text-sm font-digital"
-                            style={{
-                              backgroundColor: 'var(--bg-input)',
-                              borderColor: 'var(--border-color)',
-                              color: 'var(--text-tertiary)',
-                            }}
-                          >
+                          <div className="px-3 py-3 text-center text-xs font-digital" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-tertiary)' }}>
                             Could not decode token
                           </div>
                         )}
 
                         {!getStoredToken() && (
-                          <div
-                            className="px-3 py-4 border-2 text-center text-sm font-digital"
-                            style={{
-                              backgroundColor: 'var(--bg-input)',
-                              borderColor: 'var(--border-color)',
-                              color: 'var(--text-tertiary)',
-                            }}
-                          >
+                          <div className="px-3 py-3 text-center text-xs font-digital" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-tertiary)' }}>
                             No token available
                           </div>
                         )}
@@ -605,10 +638,10 @@ export function SidebarHeader({
 
         {/* Edit daily limit inline */}
         {isEditing && dailyLimit !== null && (
-          <div className="px-4 pb-3">
-            <div className="flex items-center gap-2 px-3 py-2" style={{ backgroundColor: 'var(--bg-input)', border: '2px solid var(--border-color)' }}>
-              <span className="text-sm font-digital uppercase tracking-wider flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>Limit</span>
-              <span className="text-amber-400 text-base font-bold">$</span>
+          <div className="px-3 pb-2">
+            <div className="flex items-center gap-2 px-3 py-1.5" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+              <span className="text-[10px] font-digital uppercase tracking-wider flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>Limit</span>
+              <span className="text-amber-400 text-sm font-bold">$</span>
               <input
                 type="number"
                 value={newLimit}
@@ -619,27 +652,18 @@ export function SidebarHeader({
                 autoFocus
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSaveLimit(); if (e.key === 'Escape') setIsEditing(false) }}
               />
-              <button
-                onClick={handleSaveLimit}
-                disabled={isSaving}
-                className="p-1 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-40"
-              >
-                {isSaving ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <CheckIcon className="w-4 h-4" />}
+              <button onClick={handleSaveLimit} disabled={isSaving} className="p-1 text-amber-400 hover:text-amber-300 transition-all disabled:opacity-40">
+                {isSaving ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
               </button>
-              <button
-                onClick={() => setIsEditing(false)}
-                className="p-1 transition-colors"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <XMarkIcon className="w-4 h-4" />
+              <button onClick={() => setIsEditing(false)} className="p-1 transition-colors" style={{ color: 'var(--text-secondary)' }}>
+                <XMarkIcon className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         )}
 
-        <div className="mx-4" style={{ borderBottom: '1px solid var(--border-color)' }} />
+        <div className="mx-3" style={{ borderBottom: '1px solid var(--border-color)' }} />
       </div>
-
     </>
   )
 }
