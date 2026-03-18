@@ -135,7 +135,7 @@ class Mod:
                 params: dict = None,  
                 cache=True, 
                 verbose=False,
-                update=True,
+                update=False,
                 add_fns = ['fns', 'schema', 'code'],
                 **kwargs) -> str:
         """
@@ -1091,7 +1091,7 @@ class Mod:
         Converts a path to an object path (for instance ./foo/bar.py to foo.bar)
         """
         path = os.path.abspath(path)
-        dir_prefixes  = [os.getcwd(), self.paths["lib"], self.homepath]
+        dir_prefixes  = [self.paths["lib"], os.getcwd()]
         for dir_prefix in dir_prefixes:
             if path.startswith(dir_prefix):
                 path =   path[len(dir_prefix) + 1:].replace('/', '.')
@@ -1537,7 +1537,7 @@ class Mod:
         return {'name': name, 'path': path, 'msg': 'Mod Created from cid', 'cid': cid}
 
 
-    def new(self, name='test_base', base='base',  orbit='inner', update=True):
+    def new(self, name='test_base', base='base',  orbit='inner'):
         """
         make a new mod
         """

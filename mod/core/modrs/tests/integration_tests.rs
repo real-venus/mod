@@ -31,7 +31,12 @@ fn temp_config() -> (TempDir, Config) {
     config.paths.home = base.clone();
     config.paths.lib = base.clone();
     config.paths.mod_dir = base.join("mod");
-    config.paths.orbit = base.join("orbit");
+    config.paths.orbit = modrs::config::OrbitPaths {
+        inner: base.join("orbit"),
+        outer: base.join("orbit").join("_outer"),
+        core: base.join("mod").join("core"),
+        local: base.clone(),
+    };
     config.paths.store = base.join("store");
     config.crypto.key_storage_path = base.join("keys");
     config.store.path = base.join("store");
@@ -1141,8 +1146,8 @@ async fn test_mod_with_config() {
     let m = Mod::with_config(config).await.unwrap();
 
     // Check time
-    let t = m.time();
-    assert!(t > 0);
+    let t = m.time("float");
+    assert!(t.as_f64().unwrap() > 0.0);
 }
 
 #[tokio::test]
@@ -1184,7 +1189,7 @@ async fn test_mod_mods_list() {
     m.create_mod("list_a", None).unwrap();
     m.create_mod("list_b", None).unwrap();
 
-    let mods = m.mods().await.unwrap();
+    let mods = m.mods(None).await.unwrap();
     assert!(mods.contains(&"list_a".to_string()));
     assert!(mods.contains(&"list_b".to_string()));
 }
@@ -1380,6 +1385,8 @@ fn test_module_info_serialization() {
         description: Some("A test module".to_string()),
         path: PathBuf::from("/tmp/test"),
         functions: vec!["hello".to_string(), "world".to_string()],
+        anchor_file: None,
+        files: vec![],
     };
     let json = serde_json::to_value(&info).unwrap();
     assert_eq!(json["name"], "test");

@@ -3,17 +3,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Palette } from 'lucide-react'
+import { Plus, Palette, Globe } from 'lucide-react'
 import { getAllNavItems, getNavHref } from '@/config/navigation'
 import { ThemeSelectorCompact } from '@/themes/ThemeSelectorCompact'
 import {
-  Swords, Landmark, FileCode2, ArrowLeftRight,
+  Blocks, Landmark, FileCode2, ArrowLeftRight,
   BookOpen, MessageSquare, Shield, Waypoints
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import { NetworkSelector } from '@/network/NetworkSelector'
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
-  'QUESTS': <Swords size={36} strokeWidth={1.8} />,
+  'MODS': <Blocks size={36} strokeWidth={1.8} />,
   'TREASURY': <Landmark size={36} strokeWidth={1.8} />,
   'CONTRACTS': <FileCode2 size={36} strokeWidth={1.8} />,
   'TRANSACTIONS': <ArrowLeftRight size={36} strokeWidth={1.8} />,
@@ -37,6 +38,9 @@ export function NavSidebar() {
   const [themeOpen, setThemeOpen] = useState(false)
   const themeBtnRef = useRef<HTMLButtonElement>(null)
   const [themeBtnRect, setThemeBtnRect] = useState<DOMRect | null>(null)
+  const [networkOpen, setNetworkOpen] = useState(false)
+  const networkBtnRef = useRef<HTMLButtonElement>(null)
+  const [networkBtnRect, setNetworkBtnRect] = useState<DOMRect | null>(null)
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -158,6 +162,40 @@ export function NavSidebar() {
           </button>
         </div>
 
+        {/* Network selector icon */}
+        <div className="shrink-0" style={{ borderTop: '2px solid var(--border-strong)' }}>
+          <button
+            ref={networkBtnRef}
+            onClick={() => {
+              if (networkBtnRef.current) {
+                setNetworkBtnRect(networkBtnRef.current.getBoundingClientRect())
+              }
+              setNetworkOpen(!networkOpen)
+            }}
+            className="w-full flex items-center justify-center transition-all duration-150"
+            style={{
+              height: '42px',
+              color: networkOpen ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontFamily: PIXEL_FONT,
+            }}
+            title="Network"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--text-primary)'
+              e.currentTarget.style.background = 'var(--hover-bg)'
+              handleHover('__network', 'NETWORK', 'var(--accent-primary)', e)
+            }}
+            onMouseLeave={(e) => {
+              if (!networkOpen) e.currentTarget.style.color = 'var(--text-secondary)'
+              e.currentTarget.style.background = 'transparent'
+              clearHover()
+            }}
+          >
+            <Globe size={36} className="transition-all duration-150" style={{
+              filter: hoveredItem === '__network' || networkOpen ? 'drop-shadow(0 0 4px var(--accent-primary))' : 'none',
+            }} />
+          </button>
+        </div>
+
         {/* Theme selector icon */}
         <div className="shrink-0" style={{ borderTop: '2px solid var(--border-strong)' }}>
           <button
@@ -192,6 +230,27 @@ export function NavSidebar() {
           </button>
         </div>
       </div>
+
+      {/* Network selector portal */}
+      {mounted && networkOpen && networkBtnRect && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={() => setNetworkOpen(false)}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              left: `${SIDEBAR_WIDTH}px`,
+              bottom: `${window.innerHeight - networkBtnRect.bottom}px`,
+              zIndex: 9999,
+            }}
+          >
+            <NetworkSelector onClose={() => setNetworkOpen(false)} sidebar />
+          </div>
+        </>,
+        document.body
+      )}
 
       {/* Theme dropdown portal */}
       {mounted && themeOpen && themeBtnRect && createPortal(

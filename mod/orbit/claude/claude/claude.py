@@ -51,23 +51,26 @@ class Mod:
         logger.setLevel(log_level)
         logger.info(f"Log level set to {level.upper()}")
 
-    def __init__(self, default_path: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, default_path: Optional[str] = None, api_key: Optional[str] = None, model: str = 'anthropic/claude-opus-4', **kwargs):
         """
         Initialize the Claude Code interface.
 
         Args:
             default_path: Default working directory for Claude Code operations
             api_key: Optional Anthropic API key (will check environment if not provided)
+            model: Default model for OpenRouter API calls (default: anthropic/claude-opus-4)
         """
         logger.info("Initializing Claude Code interface...")
         self.default_path = default_path or os.getcwd()
+        self.model = model
+        self._router = None
         logger.info(f"Default path: {self.default_path}")
 
         self.api_key = api_key or self._get_api_key()
         if self.api_key:
             logger.info("API key configured successfully")
         else:
-            logger.warning("No API key configured - operations will fail")
+            logger.warning("No API key configured - CLI operations will require an API key")
 
         self.claude_bin = self._find_or_install_claude()
         logger.info("Claude Code interface initialized successfully")
@@ -465,6 +468,46 @@ class Mod:
         except Exception as e:
             logger.error(f"Unexpected error executing Claude Code: {e}")
             raise
+
+    def router(self):
+        """Get or create the OpenRouter instance for API proxying."""
+        if self._router is None:
+            self._router = m.mod('model.openrouter')()
+        return self._router
+
+    def ask(self, message: str, model: str = None, stream: bool = False,
+            history: list = None, system_prompt: str = None,
+            temperature: float = 1.0, max_tokens: int = 10000000, **kwargs) -> str:
+        """
+        Send a message to Claude via OpenRouter API.
+        This is the primary method exposed when serving access to others.
+
+        Args:
+            message: The message to send to Claude
+            model: Model to use (default: self.model)
+            stream: Whether to stream the response
+            history: Conversation history
+            system_prompt: System prompt
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+
+        Returns:
+            Response text from Claude
+        """
+        return self.router().forward(
+            message,
+            model=model or self.model,
+            stream=stream,
+            history=history,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+
+    def models(self, search: str = 'claude') -> list:
+        """List available Claude models via OpenRouter."""
+        return self.router().models(search=search)
 
     def analyze_code(self,
                      path: str,

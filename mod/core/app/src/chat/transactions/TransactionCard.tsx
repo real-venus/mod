@@ -227,19 +227,19 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
       )}
 
       {/* Header */}
-      <div className={`flex items-center gap-2 ${compact ? 'px-2 py-1.5' : 'px-3 py-2'}`} style={{ borderBottom: '2px solid var(--border-color)' }}>
+      <div className={`flex items-center gap-2.5 ${compact ? 'px-3 py-2' : 'px-4 py-3'}`} style={{ borderBottom: '2px solid var(--border-color)' }}>
         {/* Pixel status indicator */}
-        <div className="flex items-center gap-1.5">
-          <span className={`text-sm font-bold ${status.text}`} style={{ textShadow: isInProgress ? '0 0 6px currentColor' : 'none' }}>
+        <div className="flex items-center gap-2">
+          <span className={`text-base font-bold ${status.text}`} style={{ textShadow: isInProgress ? '0 0 6px currentColor' : 'none' }}>
             {statusIcon}
           </span>
-          <span className={`text-[11px] font-bold uppercase tracking-[0.15em] ${status.text}`}>
+          <span className={`text-xs font-bold uppercase tracking-[0.15em] ${status.text}`}>
             {compact ? status.displayStatus.slice(0, 3).toUpperCase() : status.displayStatus.toUpperCase()}
           </span>
         </div>
 
         {/* Function name - pixel style */}
-        <div className={`${compact ? 'text-sm' : 'text-sm'} font-bold truncate flex-1 min-w-0`} style={{ color: fnColor, textShadow: `0 0 8px ${fnColor}40` }}>
+        <div className={`${compact ? 'text-sm' : 'text-base'} font-bold truncate flex-1 min-w-0`} style={{ color: fnColor, textShadow: `0 0 8px ${fnColor}40` }}>
           {tx.fn}
         </div>
 
@@ -308,18 +308,18 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
         )}
 
         {/* Right side info */}
-        <div className={`flex items-center gap-2 ${compact ? 'text-xs' : 'text-xs'}`}>
+        <div className={`flex items-center gap-2.5 ${compact ? 'text-xs' : 'text-sm'}`}>
           {!compact && (
             <>
               {tx.key && (
                 <div className="flex items-center gap-1">
-                  <span className="text-purple-400 text-[10px]">◆</span>
+                  <span className="text-purple-400 text-xs">◆</span>
                   <CopyButton text={tx.key} size="sm" showValueOnHover={true} />
                 </div>
               )}
               {tx.owner && (
                 <div className="flex items-center gap-1">
-                  <span className="text-amber-400 text-[10px]">★</span>
+                  <span className="text-amber-400 text-xs">★</span>
                   <CopyButton text={tx.owner} size="sm" showValueOnHover={true} />
                 </div>
               )}
@@ -327,37 +327,37 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
           )}
 
           {/* Cost */}
-          <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(168,85,247,0.2)' }}>
-            <span className="text-amber-400 text-[10px] font-bold">$</span>
-            <span className="text-amber-300 font-bold text-[11px]">{cost}</span>
+          <div className="flex items-center gap-1 px-2 py-1" style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(168,85,247,0.2)' }}>
+            <span className="text-amber-400 text-xs font-bold">$</span>
+            <span className="text-amber-300 font-bold text-sm">{cost}</span>
           </div>
 
           {/* Duration */}
           {isInProgress ? (
-            <div className="flex items-center gap-1 px-1.5 py-0.5" style={{ backgroundColor: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)' }}>
-              <span className="text-blue-400 font-bold text-[11px] tabular-nums">{elapsedTime}s</span>
-              <span className="text-blue-400 text-[8px] animate-pulse">■</span>
+            <div className="flex items-center gap-1 px-2 py-1" style={{ backgroundColor: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)' }}>
+              <span className="text-blue-400 font-bold text-sm tabular-nums">{elapsedTime}s</span>
+              <span className="text-blue-400 text-[10px] animate-pulse">■</span>
             </div>
           ) : tx.delta !== undefined && (
-            <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(168,85,247,0.2)' }}>
-              <span className="text-cyan-400 font-bold text-[11px]">{tx.delta.toFixed(1)}s</span>
+            <div className="flex items-center gap-1 px-2 py-1" style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(168,85,247,0.2)' }}>
+              <span className="text-cyan-400 font-bold text-sm">{tx.delta.toFixed(1)}s</span>
             </div>
           )}
 
           {/* Timestamp */}
           {!compact && (
-            <span className="text-[10px] font-bold tabular-nums tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{time}</span>
+            <span className="text-xs font-bold tabular-nums tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{time}</span>
           )}
         </div>
       </div>
 
       {/* Input preview when collapsed */}
       {!isExpanded && hasParams && (
-        <div className="px-3 py-1.5" style={{ borderBottom: '2px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <div className="px-4 py-2.5" style={{ borderBottom: '2px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
           <div className="flex items-start gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-400 flex-shrink-0 mt-0.5">IN»</span>
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-purple-400 flex-shrink-0 mt-0.5">IN»</span>
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-mono" style={{ color: 'var(--text-secondary)' }}>
+              <div className="text-sm font-mono" style={{ color: 'var(--text-secondary)' }}>
                 {typeof tx.params === 'object' && tx.params !== null ? (
                   <div className="space-y-0.5">
                     {Object.entries(tx.params).slice(0, 1).map(([key, value]) => (
@@ -368,7 +368,7 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
                       </div>
                     ))}
                     {Object.keys(tx.params).length > 1 && (
-                      <div className="text-purple-500/60 text-[9px] font-bold">
+                      <div className="text-purple-500/60 text-xs font-bold">
                         +{Object.keys(tx.params).length - 1} more
                       </div>
                     )}
@@ -384,11 +384,11 @@ export function TransactionCard({ tx, idx, isExpanded = false, compact = false, 
 
       {/* Waiting state for in-progress */}
       {!isExpanded && isInProgress && (
-        <div className="px-3 py-1.5 flex items-center gap-2" style={{ backgroundColor: 'rgba(59,130,246,0.05)', borderBottom: '2px solid var(--border-color)' }}>
+        <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: 'rgba(59,130,246,0.05)', borderBottom: '2px solid var(--border-color)' }}>
           <div className="flex items-center gap-2 flex-1">
-            <span className="text-blue-400 text-[10px] font-bold animate-pulse">▸▸▸</span>
-            <span className="text-[10px] font-bold text-blue-400 tracking-wider">PROCESSING</span>
-            <span className="text-[10px] text-blue-500 tabular-nums font-bold">{elapsedTime}s</span>
+            <span className="text-blue-400 text-xs font-bold animate-pulse">▸▸▸</span>
+            <span className="text-xs font-bold text-blue-400 tracking-wider">PROCESSING</span>
+            <span className="text-xs text-blue-500 tabular-nums font-bold">{elapsedTime}s</span>
           </div>
         </div>
       )}

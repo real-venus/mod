@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { userContext } from '@/context/UserContext';
-import { TransactionCard } from '@/chat/transactions/TransactionCard';
+import { timeAgo, text2color } from '@/utils';
+import { CopyButton } from '@/ui/CopyButton';
 
 export default function TransactionsPage() {
   const { client, user } = userContext();
@@ -29,28 +30,17 @@ export default function TransactionsPage() {
   }, [client]);
 
   const filtered = txs.filter(tx => {
-    // Filter by user
     if (showMyTxs && user?.key) {
-      if (tx.key !== user.key && tx.owner !== user.key && tx.client !== user.key) {
-        return false;
-      }
+      if (tx.key !== user.key && tx.owner !== user.key && tx.client !== user.key) return false;
     }
-
-    // Filter by status
     if (statusFilter !== 'all') {
       const hasCompleted = tx.result !== undefined && tx.result !== null;
       if (statusFilter === 'complete') {
-        if (!(hasCompleted || tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete')) {
-          return false;
-        }
+        if (!(hasCompleted || tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete')) return false;
       } else if (statusFilter === 'pending') {
-        if (hasCompleted || !(tx.status === 'pending' || tx.status === 'running')) {
-          return false;
-        }
+        if (hasCompleted || !(tx.status === 'pending' || tx.status === 'running')) return false;
       }
     }
-
-    // Filter by search query
     if (search.trim()) {
       const q = search.toLowerCase();
       return (
@@ -61,142 +51,221 @@ export default function TransactionsPage() {
         (tx.method && tx.method.toLowerCase().includes(q))
       );
     }
-
     return true;
   });
 
   const totalCost24h = filtered.reduce((acc, tx) => {
     const now = Date.now() / 1000;
-    const twentyFourHoursAgo = now - (24 * 60 * 60);
-    if (parseInt(tx.time) >= twentyFourHoursAgo && tx.cost) {
-      return acc + parseFloat(tx.cost);
-    }
+    if (parseInt(tx.time) >= now - 86400 && tx.cost) return acc + parseFloat(tx.cost);
     return acc;
   }, 0);
 
-  const count24h = filtered.filter(tx => {
-    const now = Date.now() / 1000;
-    const twentyFourHoursAgo = now - (24 * 60 * 60);
-    return parseInt(tx.time) >= twentyFourHoursAgo;
-  }).length;
+  const count24h = filtered.filter(tx => parseInt(tx.time) >= Date.now() / 1000 - 86400).length;
+
+  const renderValue = (value: any) => {
+    if (value === null || value === undefined) return <span className="text-gray-500 text-xs">null</span>;
+    if (typeof value === 'object') {
+      const json = JSON.stringify(value, null, 2);
+      return (
+        <pre className="text-xs font-mono leading-relaxed p-3 overflow-x-auto rounded-sm" style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: 'var(--text-secondary)' }}>
+          {json}
+        </pre>
+      );
+    }
+    return <span className="text-green-400 text-xs font-mono break-all">{String(value)}</span>;
+  };
+
+  const shortAddr = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
 
   return (
-    <div className="min-h-screen p-4" style={{ fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-primary)' }}>
-      <div className="max-w-7xl mx-auto space-y-3">
-        {/* Header - 8bit style */}
-        <div className="flex items-center justify-between mb-3">
+    <div className="min-h-screen p-4 md:p-6" style={{ fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-primary)' }}>
+      <div className="max-w-7xl mx-auto space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-cyan-400 text-lg font-bold" style={{ textShadow: '0 0 10px rgba(0,255,255,0.4)' }}>►</span>
-            <h1 className="text-4xl font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--text-primary)', textShadow: '2px 2px 0px rgba(168,85,247,0.3)' }}>
-              Transactions
-            </h1>
-            <div className="h-[2px] w-16" style={{ background: 'linear-gradient(to right, rgba(0,255,255,0.6), transparent)' }} />
-          </div>
-
-          {/* My Txs Toggle - pixel button */}
-          <button
-            onClick={() => setShowMyTxs(!showMyTxs)}
-            className="flex items-center gap-2 px-4 py-2 transition-all font-bold text-[11px] uppercase tracking-[0.15em]"
-            style={{
-              backgroundColor: showMyTxs ? 'rgba(168,85,247,0.15)' : 'var(--bg-surface)',
-              border: showMyTxs ? '3px solid rgba(168,85,247,0.5)' : '3px solid var(--border-color)',
-              color: showMyTxs ? 'rgb(192,132,252)' : 'var(--text-secondary)',
-              boxShadow: showMyTxs ? '0 0 10px rgba(168,85,247,0.15)' : 'none',
-            }}
-          >
-            <span className="text-[10px]">{showMyTxs ? '◆' : '◇'}</span>
-            <span>{showMyTxs ? 'MY TXS' : 'ALL TXS'}</span>
-          </button>
-        </div>
-
-        {/* Search & Filters - 8bit panel */}
-        <div className="p-3 space-y-3" style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '3px solid var(--border-strong)',
-          boxShadow: '4px 4px 0px rgba(0,0,0,0.3)',
-        }}>
-          {/* Search Bar */}
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400 text-[10px] font-bold">⌕</span>
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="SEARCH BY FUNCTION, HASH, OWNER..."
-              className="w-full pl-8 pr-4 py-2.5 text-[12px] font-bold tracking-wider transition-all focus:outline-none"
-              style={{
-                backgroundColor: 'var(--bg-input)',
-                border: '2px solid var(--border-color)',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
-
-          {/* Filter Buttons & Stats */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex gap-1">
+            <span className="text-green-400 text-base">{'>'}</span>
+            <h1 className="text-lg font-bold uppercase tracking-[0.15em]" style={{ color: 'var(--text-primary)' }}>TXS</h1>
+            <div className="flex gap-1 ml-3">
               {(['all', 'pending', 'complete'] as const).map(s => (
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
-                  className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.15em] transition-all"
+                  className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-all rounded-sm"
                   style={{
-                    backgroundColor: statusFilter === s ? 'rgba(168,85,247,0.15)' : 'transparent',
-                    border: statusFilter === s ? '2px solid rgba(168,85,247,0.5)' : '2px solid var(--border-color)',
-                    color: statusFilter === s ? 'rgb(192,132,252)' : 'var(--text-secondary)',
-                    boxShadow: statusFilter === s ? '0 0 8px rgba(168,85,247,0.1)' : 'none',
+                    backgroundColor: statusFilter === s ? 'rgba(16,185,129,0.15)' : 'transparent',
+                    border: statusFilter === s ? '1px solid rgba(16,185,129,0.4)' : '1px solid var(--border-color)',
+                    color: statusFilter === s ? 'rgb(52,211,153)' : 'var(--text-tertiary)',
                   }}
                 >
-                  {s === 'all' ? '■ ALL' : s === 'pending' ? '▸ PEND' : '✓ DONE'}
+                  {s === 'all' ? 'ALL' : s === 'pending' ? 'PND' : 'OK'}
                 </button>
               ))}
             </div>
-
-            {/* 24h Stats - pixel box */}
-            <div className="flex items-center gap-3 text-[11px]">
-              <div className="flex items-center gap-2 px-2 py-1" style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(168,85,247,0.2)' }}>
-                <span className="font-bold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>24H</span>
-                <span className="font-bold text-amber-400 tabular-nums" style={{ textShadow: '0 0 6px rgba(245,158,11,0.3)' }}>${totalCost24h.toFixed(2)}</span>
-                <span className="font-bold" style={{ color: 'var(--text-tertiary)' }}>({count24h})</span>
-              </div>
-              <div className="px-2 py-1 font-bold" style={{ color: 'var(--text-secondary)', backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(168,85,247,0.2)' }}>
-                {filtered.length} TX{filtered.length !== 1 ? 'S' : ''}
-              </div>
-            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+              24h <span className="text-amber-400">${totalCost24h.toFixed(2)}</span> ({count24h})
+            </span>
+            <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>{filtered.length}tx</span>
+            <button
+              onClick={() => setShowMyTxs(!showMyTxs)}
+              className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-all rounded-sm"
+              style={{
+                backgroundColor: showMyTxs ? 'rgba(168,85,247,0.15)' : 'transparent',
+                border: showMyTxs ? '1px solid rgba(168,85,247,0.4)' : '1px solid var(--border-color)',
+                color: showMyTxs ? 'rgb(192,132,252)' : 'var(--text-tertiary)',
+              }}
+            >
+              {showMyTxs ? 'MINE' : 'ALL'}
+            </button>
           </div>
         </div>
 
-        {/* Transaction List */}
+        {/* Search */}
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="search..."
+          className="w-full px-3 py-2 text-sm font-bold tracking-wider focus:outline-none rounded-sm"
+          style={{
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-primary)',
+          }}
+        />
+
+        {/* Transaction rows */}
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="flex flex-col items-center gap-3">
-              <div className="text-2xl font-bold text-purple-400 animate-pulse tracking-[0.3em]">▓▒░ ░▒▓</div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>Loading transactions...</p>
-            </div>
+          <div className="text-center py-12">
+            <div className="text-sm font-bold text-green-400 animate-pulse tracking-[0.3em]">loading...</div>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20" style={{
-            backgroundColor: 'var(--bg-surface)',
-            border: '3px dashed var(--border-color)',
-          }}>
-            <div className="text-lg font-bold mb-2" style={{ color: 'var(--text-tertiary)' }}>¯\_(ツ)_/¯</div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>No transactions found</p>
+          <div className="text-center py-12">
+            <div className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>no transactions</div>
           </div>
         ) : (
-          <div className="space-y-2">
-            {filtered.map((tx, idx) => (
-              <div
-                key={tx.cid || tx.hash || idx}
-                onClick={() => setExpandedTxIdx(expandedTxIdx === idx ? null : idx)}
-              >
-                <TransactionCard
-                  tx={tx}
-                  idx={idx}
-                  isExpanded={expandedTxIdx === idx}
-                  compact={false}
-                />
-              </div>
-            ))}
+          <div className="border rounded-sm" style={{ borderColor: 'var(--border-color)' }}>
+            {/* Table header */}
+            <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)' }}>
+              <span className="w-5">ST</span>
+              <span className="flex-1 min-w-0">FUNCTION</span>
+              <span className="w-24 hidden md:block">CLIENT</span>
+              <span className="w-24 hidden md:block">SERVER</span>
+              <span className="w-16 text-right">COST</span>
+              <span className="w-14 text-right">TIME</span>
+              <span className="w-20 text-right">AGO</span>
+            </div>
+
+            {filtered.map((tx, idx) => {
+              const hasCompleted = tx.result !== undefined && tx.result !== null;
+              const isInProgress = (tx.status === 'running' || tx.status === 'pending') && !hasCompleted;
+              const isOk = hasCompleted || tx.status === 'success' || tx.status === 'finished' || tx.status === 'complete';
+              const isErr = tx.status === 'error' || tx.status === 'failed';
+              const fnColor = text2color(tx.fn || tx.key);
+              const timestamp = parseInt(tx.time);
+              const time = isNaN(timestamp) ? tx.time : timeAgo(timestamp * 1000);
+              const cost = tx.cost?.toFixed(2) || '0.00';
+              const isExpanded = expandedTxIdx === idx;
+              const hasParams = tx.params !== null && tx.params !== undefined;
+              const hasResults = tx.result !== undefined;
+
+              return (
+                <div key={tx.cid || tx.hash || idx}>
+                  <div
+                    className="flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors hover:brightness-110"
+                    onClick={() => setExpandedTxIdx(isExpanded ? null : idx)}
+                    style={{
+                      backgroundColor: isExpanded ? 'rgba(16,185,129,0.05)' : idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
+                      borderBottom: '1px solid var(--border-color)',
+                      borderLeft: isInProgress ? '3px solid rgba(59,130,246,0.6)' : isErr ? '3px solid rgba(239,68,68,0.5)' : '3px solid rgba(16,185,129,0.3)',
+                    }}
+                  >
+                    {/* Status icon */}
+                    <span className={`w-5 text-sm font-bold ${isInProgress ? 'text-blue-400 animate-pulse' : isErr ? 'text-red-400' : 'text-emerald-500'}`}>
+                      {isInProgress ? '~' : isErr ? 'x' : '.'}
+                    </span>
+
+                    {/* Function name */}
+                    <span className="flex-1 text-sm font-bold truncate min-w-0" style={{ color: fnColor }}>
+                      {tx.fn}
+                    </span>
+
+                    {/* Client */}
+                    <span className="w-24 hidden md:block text-xs font-mono tabular-nums truncate" style={{ color: 'var(--text-tertiary)' }}>
+                      {tx.client ? shortAddr(tx.client) : <span className="opacity-30">-</span>}
+                    </span>
+
+                    {/* Server / Owner */}
+                    <span className="w-24 hidden md:block text-xs font-mono tabular-nums truncate" style={{ color: 'var(--text-tertiary)' }}>
+                      {tx.owner ? shortAddr(tx.owner) : tx.key ? shortAddr(tx.key) : <span className="opacity-30">-</span>}
+                    </span>
+
+                    {/* Cost */}
+                    <span className="w-16 text-right text-xs font-bold text-amber-400 tabular-nums">
+                      ${cost}
+                    </span>
+
+                    {/* Duration */}
+                    <span className="w-14 text-right text-xs font-bold tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                      {tx.delta !== undefined ? `${tx.delta.toFixed(1)}s` : '-'}
+                    </span>
+
+                    {/* Time ago */}
+                    <span className="w-20 text-right text-[11px] font-bold tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                      {time}
+                    </span>
+                  </div>
+
+                  {/* Expanded detail */}
+                  {isExpanded && (
+                    <div className="px-4 py-3 space-y-2" style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-color)' }}>
+                      {/* Meta row */}
+                      <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                        {tx.client && (
+                          <span className="flex items-center gap-1">
+                            <span className="text-blue-400">client</span>
+                            <CopyButton text={tx.client} size="sm" showValueOnHover={true} />
+                          </span>
+                        )}
+                        {tx.key && (
+                          <span className="flex items-center gap-1">
+                            <span className="text-purple-400">key</span>
+                            <CopyButton text={tx.key} size="sm" showValueOnHover={true} />
+                          </span>
+                        )}
+                        {tx.owner && (
+                          <span className="flex items-center gap-1">
+                            <span className="text-amber-400">server</span>
+                            <CopyButton text={tx.owner} size="sm" showValueOnHover={true} />
+                          </span>
+                        )}
+                        {(tx.hash || tx.cid) && (
+                          <span className="flex items-center gap-1">
+                            <span className="text-cyan-400">id</span>
+                            <CopyButton text={tx.hash || tx.cid || ''} size="sm" showValueOnHover={true} />
+                          </span>
+                        )}
+                      </div>
+                      {/* Params */}
+                      {hasParams && (
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-purple-400 mb-1">params</div>
+                          {renderValue(tx.params)}
+                        </div>
+                      )}
+                      {/* Result */}
+                      {hasResults && (
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-green-400 mb-1">result</div>
+                          {renderValue(tx.result)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

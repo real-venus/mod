@@ -13,6 +13,7 @@ path = "src/lib.rs"
 name = "mrs"
 path = "src/bin/main.rs"
 
+
 [dependencies]
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
@@ -29,6 +30,7 @@ serde_with = "3.4"
 glob = "0.3"
 walkdir = "2.4"
 notify = "6.1"
+shellexpand = "3.1"
 
 # Cryptography
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
@@ -102,7 +104,6 @@ regex = "1.10"
 tempfile = "3.8"
 mockito = "1.2"
 criterion = "0.5"
-mod_sdk = { path = "mods/mod_sdk" }
 
 [features]
 default = []

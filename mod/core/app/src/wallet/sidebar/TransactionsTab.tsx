@@ -31,11 +31,11 @@ export function TransactionsTab({
           className="mt-3 pt-3 border-t border-neutral-800 overflow-hidden"
         >
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2 px-1 mb-2">
+            <div className="flex items-center justify-between gap-2 px-1 mb-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-neutral-600 uppercase tracking-wider font-bold">24H</span>
-                <span className="text-sm font-mono font-bold text-amber-400 tabular-nums">${totalCost24h.toFixed(2)}</span>
-                <span className="text-xs text-neutral-700">({userTransactions.filter(tx => {
+                <span className="text-sm text-neutral-600 uppercase tracking-wider font-bold">24H</span>
+                <span className="text-base font-mono font-bold text-amber-400 tabular-nums">${totalCost24h.toFixed(2)}</span>
+                <span className="text-sm text-neutral-700">({userTransactions.filter(tx => {
                   const now = Date.now() / 1000
                   const twentyFourHoursAgo = now - (24 * 60 * 60)
                   return parseInt(tx.time) >= twentyFourHoursAgo
@@ -45,7 +45,7 @@ export function TransactionsTab({
               <select
                 value={txsStatusFilter}
                 onChange={(e) => setTxsStatusFilter(e.target.value as 'all' | 'pending' | 'complete')}
-                className="px-2.5 py-1 bg-neutral-900/80 border border-neutral-800/60 text-xs text-neutral-400 cursor-pointer focus:outline-none font-mono rounded-md"
+                className="px-3 py-1.5 bg-neutral-900/80 border border-neutral-800/60 text-sm text-neutral-400 cursor-pointer focus:outline-none font-mono rounded-md"
               >
                 <option value="all">All</option>
                 <option value="pending">Pending</option>
@@ -53,7 +53,7 @@ export function TransactionsTab({
               </select>
             </div>
 
-            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
               {isLoadingTxs ? (
                 <div className="flex items-center justify-center py-8">
                   <ArrowPathIcon className="w-5 h-5 animate-spin text-amber-500" />
@@ -95,7 +95,7 @@ export function TransactionsTab({
                           tx={tx}
                           idx={idx}
                           isExpanded={expandedTxIdx === idx}
-                          compact={true}
+                          compact={false}
                         />
                       </div>
                     ))

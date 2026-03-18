@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { userContext } from '@/context/UserContext'
-import { ArrowRightStartOnRectangleIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
+import { ClipboardDocumentIcon, ClipboardDocumentCheckIcon, ChevronDownIcon, ArrowRightStartOnRectangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { AnimatePresence, motion } from 'framer-motion'
 import { WalletAuthButton } from './WalletAuthButton'
 import { text2color } from '@/utils'
 
+import { Auth } from '@/client/auth'
 import { useTokenExpiry } from './hooks/useTokenExpiry'
 import { useBalances } from './hooks/useBalances'
 import { useTransactions } from './hooks/useTransactions'
@@ -15,7 +16,6 @@ import { useWalletAccounts } from './hooks/useWalletAccounts'
 import { useNetwork } from './hooks/useNetwork'
 import { useSidebarResize } from './hooks/useSidebarResize'
 import { WalletSidebar } from './sidebar/WalletSidebar'
-import { NetworkSelector } from '@/network/NetworkSelector'
 
 const WalletModeLogo = ({ mode, size = 16 }: { mode: string; size?: number }) => {
   const m = mode.toLowerCase()
@@ -57,9 +57,14 @@ export function WalletHeader() {
   const [copiedAddress, setCopiedAddress] = useState(false)
   const [activeTab, setActiveTab] = useState<string | null>('portfolio')
   const [showAccountsDropdown, setShowAccountsDropdown] = useState(false)
+  const [showTokenDropdown, setShowTokenDropdown] = useState(false)
+  const [copiedToken, setCopiedToken] = useState(false)
+  const [tokenView, setTokenView] = useState<'raw' | 'json' | 'create'>('raw')
+  const [createTokenData, setCreateTokenData] = useState('')
   const [showAuthSidebar, setShowAuthSidebar] = useState(false)
   const walletRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const tokenDropdownRef = useRef<HTMLDivElement>(null)
 
   const address = user?.key || ''
   const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''
@@ -92,6 +97,16 @@ export function WalletHeader() {
   const handleSignOut = () => {
     signOut()
     setIsOpen(false)
+    setShowTokenDropdown(false)
+  }
+
+  const copyToken = () => {
+    const token = localStorage.getItem('wallet_token')
+    if (token) {
+      navigator.clipboard.writeText(token)
+      setCopiedToken(true)
+      setTimeout(() => setCopiedToken(false), 2000)
+    }
   }
 
   const openTab = (tab: string) => {
@@ -115,16 +130,19 @@ export function WalletHeader() {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowAccountsDropdown(false)
       }
+      if (tokenDropdownRef.current && !tokenDropdownRef.current.contains(event.target as Node)) {
+        setShowTokenDropdown(false)
+      }
     }
 
-    if (isOpen || showAccountsDropdown) {
+    if (isOpen || showAccountsDropdown || showTokenDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, showAccountsDropdown])
+  }, [isOpen, showAccountsDropdown, showTokenDropdown])
 
   const getWalletModeColor = (mode: string) => {
     const m = mode.toLowerCase()
@@ -138,7 +156,6 @@ export function WalletHeader() {
   if (!user) {
     return (
       <div className="flex items-center gap-3">
-        <NetworkSelector />
         <WalletAuthButton
           showAuthSidebar={showAuthSidebar}
           setShowAuthSidebar={setShowAuthSidebar}
@@ -152,22 +169,22 @@ export function WalletHeader() {
       {/* Address + Account switcher */}
       <div ref={dropdownRef} className="relative flex items-center gap-0">
         <div
-          onClick={(e) => { e.stopPropagation(); copyAddress() }}
-          className="flex items-center gap-2 px-3 h-[42px] transition-all hover:bg-[var(--hover-bg)] cursor-pointer"
+          onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen) }}
+          className="flex items-center gap-2 px-3 h-[52px] transition-all hover:bg-[var(--hover-bg)] cursor-pointer"
           style={{
             fontFamily: 'var(--font-digital), monospace',
             backgroundColor: 'var(--bg-input)',
             border: '2px solid var(--border-strong)',
             borderRight: 'none',
           }}
-          title="Copy address"
+          title="Open wallet"
           role="button"
         >
           <div className="flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
             <WalletModeLogo mode={walletMode || 'local'} size={22} />
           </div>
-          <span className="tabular-nums font-bold uppercase" style={{ fontSize: '16px', fontFamily: 'var(--font-digital)', color: copiedAddress ? '#22c55e' : 'var(--text-tertiary)' }}>
-            {copiedAddress ? 'COPIED' : shortAddress}
+          <span className="tabular-nums font-bold uppercase" style={{ fontSize: '24px', fontFamily: 'var(--font-digital)', color: 'var(--text-tertiary)' }}>
+            {shortAddress}
           </span>
         </div>
 
@@ -178,7 +195,7 @@ export function WalletHeader() {
           }}
           className="flex items-center justify-center hover:bg-[var(--hover-bg)]"
           style={{
-            height: '42px',
+            height: '52px',
             width: '38px',
             fontFamily: 'var(--font-digital), monospace',
             backgroundColor: 'var(--bg-input)',
@@ -204,44 +221,44 @@ export function WalletHeader() {
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 border: '3px solid var(--border-strong)',
-                minWidth: '300px',
+                minWidth: '420px',
                 boxShadow: '4px 4px 0px rgba(0,0,0,0.4)',
               }}
             >
               {/* Header */}
-              <div className="px-3 py-2 flex items-center gap-2" style={{ borderBottom: '2px solid var(--border-strong)', backgroundColor: 'var(--bg-input)' }}>
-                <div className="w-1.5 h-1.5" style={{ backgroundColor: userColor }} />
-                <span className="text-[10px] font-digital uppercase font-bold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>WALLETS</span>
+              <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: '2px solid var(--border-strong)', backgroundColor: 'var(--bg-input)' }}>
+                <div className="w-2 h-2" style={{ backgroundColor: userColor }} />
+                <span className="text-sm font-digital uppercase font-bold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>WALLETS</span>
                 <div className="flex-1" />
-                <span className="text-[9px] font-digital uppercase tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                <span className="text-xs font-digital uppercase tabular-nums font-bold" style={{ color: 'var(--text-tertiary)' }}>
                   {accounts.walletHistory.length}
                 </span>
               </div>
 
-              <div className="p-2 max-h-60 overflow-y-auto">
+              <div className="p-3 max-h-80 overflow-y-auto">
                 {/* Current wallet */}
                 <div
-                  className="flex items-center gap-2.5 px-3 py-3 mb-1.5"
+                  className="flex items-center gap-3 px-4 py-4 mb-2"
                   style={{
                     backgroundColor: `${userColor}15`,
                     border: `3px solid ${userColor}`,
                     fontFamily: 'var(--font-digital), monospace',
                   }}
                 >
-                  <div className="flex-shrink-0"><WalletModeLogo mode={walletMode} size={16} /></div>
+                  <div className="flex-shrink-0"><WalletModeLogo mode={walletMode} size={22} /></div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-digital font-bold tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                    <span className="text-base font-digital font-bold tracking-wide" style={{ color: 'var(--text-primary)' }}>
                       {shortAddress}
                     </span>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <div className="w-1.5 h-1.5" style={{ backgroundColor: tokenExpiry.isTokenExpired ? '#eab308' : '#22c55e' }} />
-                      <span className="text-[9px] font-digital uppercase font-bold tabular-nums" style={{ color: tokenExpiry.isTokenExpired ? '#eab308' : '#22c55e' }}>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className="w-2 h-2" style={{ backgroundColor: tokenExpiry.isTokenExpired ? '#eab308' : '#22c55e' }} />
+                      <span className="text-xs font-digital uppercase font-bold tabular-nums" style={{ color: tokenExpiry.isTokenExpired ? '#eab308' : '#22c55e' }}>
                         {tokenExpiry.isTokenExpired ? 'EXPIRED' : tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()}
                       </span>
                     </div>
                   </div>
                   <span
-                    className="text-[9px] font-digital uppercase px-2 py-1 font-bold"
+                    className="text-xs font-digital uppercase px-3 py-1.5 font-bold"
                     style={{ color: userColor, backgroundColor: `${userColor}20`, border: `2px solid ${userColor}` }}
                   >
                     ACTIVE
@@ -260,19 +277,19 @@ export function WalletHeader() {
                         setShowAccountsDropdown(false)
                       }}
                       disabled={accounts.isSwitchingWallet}
-                      className="w-full flex items-center gap-2.5 px-3 py-3 transition-all hover:bg-[var(--hover-bg)]"
+                      className="w-full flex items-center gap-3 px-4 py-4 transition-all hover:bg-[var(--hover-bg)]"
                       style={{
                         fontFamily: 'var(--font-digital), monospace',
                         borderBottom: i < arr.length - 1 ? '2px solid var(--border-strong)' : 'none',
                       }}
                     >
-                      <div className="flex-shrink-0"><WalletModeLogo mode={wallet.mode} size={16} /></div>
+                      <div className="flex-shrink-0"><WalletModeLogo mode={wallet.mode} size={22} /></div>
                       <div className="flex-1 min-w-0 text-left">
-                        <span className="text-xs font-digital font-bold tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                        <span className="text-base font-digital font-bold tracking-wide" style={{ color: 'var(--text-secondary)' }}>
                           {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
                         </span>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <span className="text-[9px] font-digital uppercase font-bold tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-xs font-digital uppercase font-bold tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
                             {wallet.lastUsed ? (() => {
                               const ago = Math.floor(Date.now() / 1000 - wallet.lastUsed / 1000)
                               if (ago < 60) return `${ago}s ago`
@@ -296,79 +313,322 @@ export function WalletHeader() {
         </AnimatePresence>
       </div>
 
-      {/* Credit + Cost */}
+
+      {/* Copy address button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 hover:bg-[var(--hover-bg)] transition-all relative"
+        onClick={copyAddress}
+        className="flex items-center justify-center hover:bg-[var(--hover-bg)]"
         style={{
-          height: '42px',
-          fontFamily: 'var(--font-digital), monospace',
+          height: '52px',
+          width: '42px',
           backgroundColor: 'var(--bg-input)',
           border: '2px solid var(--border-strong)',
+          color: copiedAddress ? '#22c55e' : 'var(--text-tertiary)',
         }}
+        onMouseEnter={(e) => { if (!copiedAddress) { e.currentTarget.style.color = 'var(--accent-primary)'; e.currentTarget.style.borderColor = 'var(--accent-primary)' } }}
+        onMouseLeave={(e) => { if (!copiedAddress) { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' } }}
+        title="Copy address"
       >
-        <span className="tabular-nums font-bold" style={{ fontSize: '16px', fontFamily: 'var(--font-digital)', color: 'var(--text-primary)' }}>
-          ${balances.marketCredit.toFixed(2)}
-        </span>
-        <span className="tabular-nums" style={{ fontSize: '14px', fontFamily: 'var(--font-digital)', color: 'var(--text-tertiary)' }}>
-          -{transactions.totalCost24h.toFixed(2)}/D
-        </span>
-        {/* Status dot */}
-        <div
-          className="absolute top-1 right-1 w-2 h-2"
-          style={{
-            backgroundColor: tokenExpiry.isTokenExpired ? '#ef4444' : '#22c55e',
-          }}
-          title={tokenExpiry.isTokenExpired ? 'Token Expired' : 'Connected'}
-        />
+        {copiedAddress ? <ClipboardDocumentCheckIcon className="w-4 h-4" /> : <ClipboardDocumentIcon className="w-4 h-4" />}
       </button>
 
-      {/* Token expiry - click to refresh */}
-      {(tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()) && (() => {
-        const dotColor = tokenExpiry.isTokenExpired ? '#ef4444' : '#22c55e'
-        return (
-          <button
-            className="tabular-nums font-bold uppercase px-3 cursor-pointer select-none flex items-center justify-center gap-1.5"
-            style={{
-              height: '42px',
-              fontSize: '14px',
-              fontFamily: 'var(--font-digital)',
-              backgroundColor: 'var(--bg-input)',
-              color: tokenExpiry.isTokenExpired ? '#ef4444' : 'var(--text-tertiary)',
-              border: `2px solid ${tokenExpiry.isTokenExpired ? 'rgba(239,68,68,0.4)' : 'var(--border-strong)'}`,
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
-              e.currentTarget.style.borderColor = 'var(--accent-primary)'
-              e.currentTarget.style.color = 'var(--accent-primary)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-input)'
-              e.currentTarget.style.borderColor = tokenExpiry.isTokenExpired ? 'rgba(239,68,68,0.4)' : 'var(--border-strong)'
-              e.currentTarget.style.color = tokenExpiry.isTokenExpired ? '#ef4444' : 'var(--text-tertiary)'
-            }}
-            onClick={() => tokenExpiry.handleRefreshToken()}
-            title="Click to refresh token"
-          >
-            <span className="w-1.5 h-1.5 flex-shrink-0" style={{ backgroundColor: dotColor }} />
-            {tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()}
-          </button>
-        )
-      })()}
+      {/* Token expiry - click to expand details */}
+      <div ref={tokenDropdownRef} className="relative">
+        {(tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()) && (() => {
+          const dotColor = tokenExpiry.isTokenExpired ? '#ef4444' : '#22c55e'
+          return (
+            <button
+              className="tabular-nums font-bold uppercase px-3 cursor-pointer select-none flex items-center justify-center gap-1.5"
+              style={{
+                height: '52px',
+                fontSize: '21px',
+                fontFamily: 'var(--font-digital)',
+                backgroundColor: 'var(--bg-input)',
+                color: tokenExpiry.isTokenExpired ? '#ef4444' : 'var(--text-tertiary)',
+                border: `2px solid ${showTokenDropdown ? 'var(--accent-primary)' : tokenExpiry.isTokenExpired ? 'rgba(239,68,68,0.4)' : 'var(--border-strong)'}`,
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                e.currentTarget.style.borderColor = 'var(--accent-primary)'
+                e.currentTarget.style.color = 'var(--accent-primary)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-input)'
+                e.currentTarget.style.borderColor = showTokenDropdown ? 'var(--accent-primary)' : tokenExpiry.isTokenExpired ? 'rgba(239,68,68,0.4)' : 'var(--border-strong)'
+                e.currentTarget.style.color = tokenExpiry.isTokenExpired ? '#ef4444' : 'var(--text-tertiary)'
+              }}
+              onClick={() => setShowTokenDropdown(!showTokenDropdown)}
+              title="Token details"
+            >
+              <span className="w-1.5 h-1.5 flex-shrink-0" style={{ backgroundColor: dotColor }} />
+              {tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()}
+            </button>
+          )
+        })()}
 
-      {/* Signout button */}
+        {/* Token dropdown */}
+        <AnimatePresence>
+          {showTokenDropdown && (
+            <motion.div
+              initial={{ opacity: 0, y: -4, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+              transition={{ duration: 0.15 }}
+              className="absolute top-full right-0 mt-2 overflow-hidden z-[100]"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                border: '3px solid var(--border-strong)',
+                minWidth: '380px',
+                boxShadow: '4px 4px 0px rgba(0,0,0,0.4)',
+              }}
+            >
+              {/* Header */}
+              <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: '2px solid var(--border-strong)', backgroundColor: 'var(--bg-input)' }}>
+                <span className="w-2 h-2 flex-shrink-0" style={{ backgroundColor: tokenExpiry.isTokenExpired ? '#ef4444' : '#22c55e' }} />
+                <span className="text-sm font-digital uppercase font-bold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>SESSION TOKEN</span>
+                <div className="flex-1" />
+                <span className="text-xs font-digital uppercase tabular-nums font-bold" style={{ color: tokenExpiry.isTokenExpired ? '#ef4444' : '#22c55e' }}>
+                  {tokenExpiry.tokenExpiry || tokenExpiry.getTokenExpiry()}
+                </span>
+              </div>
+
+              {/* View tabs */}
+              <div className="flex" style={{ borderBottom: '2px solid var(--border-strong)' }}>
+                {(['raw', 'json', 'create'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setTokenView(tab)}
+                    className="flex-1 py-2 font-bold uppercase tracking-wider transition-all"
+                    style={{
+                      fontFamily: 'var(--font-digital), monospace',
+                      fontSize: '11px',
+                      color: tokenView === tab ? 'var(--accent-primary)' : 'var(--text-tertiary)',
+                      backgroundColor: tokenView === tab ? 'var(--bg-input)' : 'transparent',
+                      borderBottom: tokenView === tab ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                    }}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-3">
+                {/* Encoding badge */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className="px-2 py-1 font-bold uppercase"
+                    style={{
+                      fontFamily: 'var(--font-digital), monospace',
+                      fontSize: '9px',
+                      color: '#f59e0b',
+                      backgroundColor: 'rgba(245,158,11,0.1)',
+                      border: '1px solid rgba(245,158,11,0.3)',
+                    }}
+                  >
+                    BASE64URL
+                  </span>
+                  <span
+                    className="px-2 py-1 font-bold uppercase"
+                    style={{
+                      fontFamily: 'var(--font-digital), monospace',
+                      fontSize: '9px',
+                      color: '#8b5cf6',
+                      backgroundColor: 'rgba(139,92,246,0.1)',
+                      border: '1px solid rgba(139,92,246,0.3)',
+                    }}
+                  >
+                    JSON PAYLOAD
+                  </span>
+                  <span
+                    className="px-2 py-1 font-bold uppercase"
+                    style={{
+                      fontFamily: 'var(--font-digital), monospace',
+                      fontSize: '9px',
+                      color: '#06b6d4',
+                      backgroundColor: 'rgba(6,182,212,0.1)',
+                      border: '1px solid rgba(6,182,212,0.3)',
+                    }}
+                  >
+                    HMAC-SHA256
+                  </span>
+                </div>
+
+                {/* RAW view */}
+                {tokenView === 'raw' && (() => {
+                  const token = typeof window !== 'undefined' ? localStorage.getItem('wallet_token') : null
+                  return token ? (
+                    <div
+                      className="px-3 py-2.5 mb-3 break-all"
+                      style={{
+                        backgroundColor: 'var(--bg-input)',
+                        border: '2px solid var(--border-strong)',
+                        fontFamily: 'var(--font-digital), monospace',
+                        fontSize: '11px',
+                        color: 'var(--text-tertiary)',
+                        maxHeight: '100px',
+                        overflowY: 'auto',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {token}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-2.5 mb-3" style={{ fontFamily: 'var(--font-digital)', fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                      No token
+                    </div>
+                  )
+                })()}
+
+                {/* JSON view */}
+                {tokenView === 'json' && (() => {
+                  try {
+                    const token = typeof window !== 'undefined' ? localStorage.getItem('wallet_token') : null
+                    if (!token) return <div className="px-3 py-2.5 mb-3" style={{ fontFamily: 'var(--font-digital)', fontSize: '11px', color: 'var(--text-tertiary)' }}>No token</div>
+                    const auth = new Auth()
+                    const decoded = auth.token2data(token)
+                    return (
+                      <div
+                        className="px-3 py-2.5 mb-3 overflow-auto"
+                        style={{
+                          backgroundColor: 'var(--bg-input)',
+                          border: '2px solid var(--border-strong)',
+                          maxHeight: '200px',
+                        }}
+                      >
+                        {Object.entries(decoded).map(([key, value]) => (
+                          <div key={key} className="flex gap-2 py-1" style={{ borderBottom: '1px solid var(--border-strong)' }}>
+                            <span style={{ fontFamily: 'var(--font-digital)', fontSize: '10px', color: '#8b5cf6', fontWeight: 'bold', textTransform: 'uppercase', minWidth: '80px', flexShrink: 0 }}>
+                              {key}
+                            </span>
+                            <span
+                              className="break-all"
+                              style={{
+                                fontFamily: 'var(--font-digital), monospace',
+                                fontSize: '10px',
+                                color: key === 'time' ? '#f59e0b' : key === 'key' ? '#22c55e' : 'var(--text-tertiary)',
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              {typeof value === 'string' ? value || '""' : JSON.stringify(value)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  } catch {
+                    return <div className="px-3 py-2.5 mb-3" style={{ fontFamily: 'var(--font-digital)', fontSize: '11px', color: '#ef4444' }}>Failed to decode token</div>
+                  }
+                })()}
+
+                {/* CREATE view */}
+                {tokenView === 'create' && (
+                  <div className="mb-3">
+                    <label className="block mb-1.5" style={{ fontFamily: 'var(--font-digital)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 'bold' }}>
+                      Token Data (payload)
+                    </label>
+                    <textarea
+                      value={createTokenData}
+                      onChange={(e) => setCreateTokenData(e.target.value)}
+                      placeholder='e.g. {"role":"admin"} or any string'
+                      rows={3}
+                      className="w-full px-3 py-2 focus:outline-none resize-none"
+                      style={{
+                        backgroundColor: 'var(--bg-input)',
+                        border: '2px solid var(--border-strong)',
+                        fontFamily: 'var(--font-digital), monospace',
+                        fontSize: '11px',
+                        color: 'var(--text-primary)',
+                        caretColor: 'var(--accent-primary)',
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent-primary)' }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)' }}
+                    />
+                    <button
+                      onClick={async () => {
+                        try {
+                          const walletMode = localStorage.getItem('wallet_mode') || 'local'
+                          const walletAddress = localStorage.getItem('wallet_address') || address
+                          const auth = new Auth()
+                          const newToken = await auth.token(createTokenData || '', walletAddress, walletMode)
+                          localStorage.setItem('wallet_token', newToken)
+                          setTokenView('json')
+                          setCreateTokenData('')
+                        } catch (err: any) {
+                          console.error('Failed to create token:', err)
+                        }
+                      }}
+                      className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 transition-all hover:bg-[var(--hover-bg)]"
+                      style={{
+                        fontFamily: 'var(--font-digital), monospace',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        color: 'var(--accent-primary)',
+                        border: '2px solid var(--accent-primary)',
+                        backgroundColor: 'var(--bg-input)',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      SIGN &amp; SET TOKEN
+                    </button>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={copyToken}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 transition-all hover:bg-[var(--hover-bg)]"
+                    style={{
+                      fontFamily: 'var(--font-digital), monospace',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: copiedToken ? '#22c55e' : 'var(--text-tertiary)',
+                      border: `2px solid ${copiedToken ? '#22c55e' : 'var(--border-strong)'}`,
+                      backgroundColor: 'var(--bg-input)',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {copiedToken ? <ClipboardDocumentCheckIcon className="w-4 h-4" /> : <ClipboardDocumentIcon className="w-4 h-4" />}
+                    {copiedToken ? 'COPIED' : 'COPY TOKEN'}
+                  </button>
+
+                  <button
+                    onClick={() => { tokenExpiry.handleRefreshToken() }}
+                    disabled={tokenExpiry.isRefreshing}
+                    className="flex items-center justify-center gap-2 py-2.5 px-4 transition-all hover:bg-[var(--hover-bg)]"
+                    style={{
+                      fontFamily: 'var(--font-digital), monospace',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'var(--accent-primary)',
+                      border: '2px solid var(--accent-primary)',
+                      backgroundColor: 'var(--bg-input)',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    <ArrowPathIcon className={`w-4 h-4 ${tokenExpiry.isRefreshing ? 'animate-spin' : ''}`} />
+                    REFRESH
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Sign out button */}
       <button
         onClick={handleSignOut}
-        className="flex items-center justify-center hover:bg-red-500/10"
+        className="flex items-center justify-center hover:bg-[var(--hover-bg)]"
         style={{
-          height: '42px',
-          width: '38px',
+          height: '52px',
+          width: '42px',
           backgroundColor: 'var(--bg-input)',
           border: '2px solid var(--border-strong)',
           color: 'var(--text-tertiary)',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)' }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#ef4444' }}
         onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
         title="Sign out"
       >

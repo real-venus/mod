@@ -17,8 +17,8 @@ pub async fn clone(m: &Mod, url: &str, dest: Option<String>) -> Result<()> {
     Ok(())
 }
 
-pub async fn repos(m: &Mod) -> Result<()> {
-    let repos = m.repos().await?;
+pub async fn repos(m: &Mod, search: Option<String>) -> Result<()> {
+    let repos = m.repos(search.as_deref()).await?;
     for repo in repos {
         println!("{}", repo);
     }

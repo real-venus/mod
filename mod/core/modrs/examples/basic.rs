@@ -10,7 +10,7 @@ async fn main() -> Result<()> {
     let m = Mod::new().await?;
 
     // list all modules
-    let mods = m.mods().await?;
+    let mods = m.mods(None).await?;
     println!("modules: {:?}", mods);
 
     // call a module function

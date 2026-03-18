@@ -60,7 +60,7 @@ const CHAINS: ChainConfig[] = [
   },
 ]
 
-export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
+export function NetworkSelector({ inline = false, sidebar = false, onClose }: { inline?: boolean; sidebar?: boolean; onClose?: () => void } = {}) {
   const [selectedChain, setSelectedChain] = useState<ChainConfig>(CHAINS[0])
   const [networkEnv, setNetworkEnv] = useState<NetworkEnvironment>('testnet')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -105,6 +105,7 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
     localStorage.setItem('selected_network', networkId)
     window.dispatchEvent(new CustomEvent('network-changed'))
     setShowDropdown(false)
+    if (sidebar && onClose) onClose()
   }
 
   const handleEnvToggle = (env: NetworkEnvironment) => {
@@ -163,6 +164,118 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
     </>
   )
 
+  const dropdownContent = (
+    <>
+      {/* Testnet / Mainnet Toggle */}
+      <div className="p-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
+        <div
+          className="flex p-1 gap-1"
+          style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+        >
+          {(['testnet', 'mainnet'] as NetworkEnvironment[]).map((env) => {
+            const isActive = networkEnv === env
+            return (
+              <button
+                key={env}
+                onClick={() => handleEnvToggle(env)}
+                className="flex-1 py-2 font-bold uppercase tracking-widest transition-all"
+                style={{
+                  fontFamily: 'var(--font-pixel), monospace',
+                  fontSize: '8px',
+                  backgroundColor: isActive ? 'var(--bg-secondary)' : 'transparent',
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                  borderRadius: '6px',
+                  boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+                }}
+              >
+                {env}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Chain Grid */}
+      <div className="p-3">
+        <div className="grid grid-cols-2 gap-2">
+          {CHAINS.map((chain) => {
+            const isSelected = selectedChain.id === chain.id
+            return (
+              <button
+                key={chain.id}
+                onClick={() => handleChainSelect(chain)}
+                className="relative flex items-center gap-3 py-3 px-3 transition-all"
+                style={{
+                  fontFamily: 'var(--font-pixel), monospace',
+                  border: isSelected ? `1px solid ${chain.color}40` : '1px solid transparent',
+                  backgroundColor: isSelected ? `${chain.color}10` : 'transparent',
+                  borderRadius: '10px',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'
+                }}
+              >
+                <div
+                  className="w-9 h-9 flex items-center justify-center text-lg"
+                  style={{
+                    backgroundColor: `${chain.color}15`,
+                    color: chain.color,
+                    border: `1px solid ${chain.color}25`,
+                    borderRadius: '8px',
+                  }}
+                >
+                  {chain.icon}
+                </div>
+
+                <div className="text-left">
+                  <span
+                    className="block font-bold uppercase tracking-wider"
+                    style={{ fontSize: '8px', fontFamily: 'var(--font-pixel)', color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                  >
+                    {chain.name}
+                  </span>
+                  <span
+                    className="block uppercase tracking-wide mt-0.5"
+                    style={{ fontSize: '7px', fontFamily: 'var(--font-pixel)', color: 'var(--text-tertiary)' }}
+                  >
+                    {networkEnv === 'testnet' ? chain.testnetName : chain.mainnetName}
+                  </span>
+                </div>
+
+                {isSelected && (
+                  <div
+                    className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: chain.color, boxShadow: `0 0 6px ${chain.color}80` }}
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </>
+  )
+
+  // Sidebar mode: render dropdown content directly (no trigger button)
+  if (sidebar) {
+    return (
+      <div
+        style={{
+          width: '320px',
+          background: 'var(--bg-header)',
+          border: '2px solid var(--border-strong)',
+          borderLeft: 'none',
+          boxShadow: '4px 4px 0px rgba(0,0,0,0.4)',
+        }}
+      >
+        {dropdownContent}
+      </div>
+    )
+  }
+
   return (
     <div className="relative" ref={dropdownRef}>
       {inline ? (
@@ -190,7 +303,6 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
         </button>
       )}
 
-      {/* Dropdown */}
       <AnimatePresence>
         {showDropdown && (
           <motion.div
@@ -207,98 +319,7 @@ export function NetworkSelector({ inline = false }: { inline?: boolean } = {}) {
               boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2)',
             }}
           >
-            {/* Testnet / Mainnet Toggle */}
-            <div className="p-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <div
-                className="flex p-1 gap-1"
-                style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
-              >
-                {(['testnet', 'mainnet'] as NetworkEnvironment[]).map((env) => {
-                  const isActive = networkEnv === env
-                  return (
-                    <button
-                      key={env}
-                      onClick={() => handleEnvToggle(env)}
-                      className="flex-1 py-2 font-bold uppercase tracking-widest transition-all"
-                      style={{
-                        fontFamily: 'var(--font-pixel), monospace',
-                        fontSize: '8px',
-                        backgroundColor: isActive ? 'var(--bg-secondary)' : 'transparent',
-                        color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                        borderRadius: '6px',
-                        boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
-                      }}
-                    >
-                      {env}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Chain Grid */}
-            <div className="p-3">
-              <div className="grid grid-cols-2 gap-2">
-                {CHAINS.map((chain) => {
-                  const isSelected = selectedChain.id === chain.id
-                  return (
-                    <button
-                      key={chain.id}
-                      onClick={() => handleChainSelect(chain)}
-                      className="relative flex items-center gap-3 py-3 px-3 transition-all"
-                      style={{
-                        fontFamily: 'var(--font-pixel), monospace',
-                        border: isSelected ? `1px solid ${chain.color}40` : '1px solid transparent',
-                        backgroundColor: isSelected ? `${chain.color}10` : 'transparent',
-                        borderRadius: '10px',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'
-                      }}
-                    >
-                      {/* Chain icon */}
-                      <div
-                        className="w-9 h-9 flex items-center justify-center text-lg"
-                        style={{
-                          backgroundColor: `${chain.color}15`,
-                          color: chain.color,
-                          border: `1px solid ${chain.color}25`,
-                          borderRadius: '8px',
-                        }}
-                      >
-                        {chain.icon}
-                      </div>
-
-                      <div className="text-left">
-                        <span
-                          className="block font-bold uppercase tracking-wider"
-                          style={{ fontSize: '8px', fontFamily: 'var(--font-pixel)', color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}
-                        >
-                          {chain.name}
-                        </span>
-                        <span
-                          className="block uppercase tracking-wide mt-0.5"
-                          style={{ fontSize: '7px', fontFamily: 'var(--font-pixel)', color: 'var(--text-tertiary)' }}
-                        >
-                          {networkEnv === 'testnet' ? chain.testnetName : chain.mainnetName}
-                        </span>
-                      </div>
-
-                      {/* Selected indicator */}
-                      {isSelected && (
-                        <div
-                          className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: chain.color, boxShadow: `0 0 6px ${chain.color}80` }}
-                        />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+            {dropdownContent}
           </motion.div>
         )}
       </AnimatePresence>

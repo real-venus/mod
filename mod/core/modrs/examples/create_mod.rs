@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
     println!("created module at: {}", path.display());
 
     // list modules — should include "demo"
-    let mods = m.mods().await?;
+    let mods = m.mods(None).await?;
     println!("modules: {:?}", mods);
 
     // get info

@@ -1,8 +1,8 @@
 {
   "navigation": [
     {
-      "href": "/quests",
-      "label": "QUESTS",
+      "href": "/mod/explore",
+      "label": "MODS",
       "color": "#0bf58c",
       "type": "direct"
     },

@@ -1,4 +1,4 @@
-//! Utility commands — hash, sysinfo, test, ask
+//! Utility commands — hash, sysinfo, test, ask, time
 
 use crate::prelude::*;
 
@@ -20,6 +20,12 @@ pub fn test(module: Option<&str>) -> Result<()> {
 pub fn sysinfo() -> Result<()> {
     let info = crate::utils::system_info();
     println!("{}", serde_json::to_string_pretty(&info)?);
+    Ok(())
+}
+
+pub fn time(mode: &str) -> Result<()> {
+    let t = crate::utils::time(mode);
+    println!("{}", t);
     Ok(())
 }
 

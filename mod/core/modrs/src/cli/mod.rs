@@ -4,12 +4,12 @@
 //! a command path and dispatches to the right handler.
 //!
 //! Command groups:
-//!   module  — mods, info, code, fns, call, new, rm, dp
+//!   module  — mods, info, code, fns, call, new, rm, dp, tree, search, content, files, schema
 //!   key     — keys, address, sign, verify
 //!   store   — put, get, ipfs-add, ipfs-cat, ipfs-pin, ...
 //!   server  — serve, servers, kill, kill-all
 //!   git     — push, clone, repos
-//!   utils   — hash, sysinfo, test
+//!   utils   — hash, sysinfo, test, env, time, owner, update, ls, text, readme
 //!
 //! Flexible module interaction:
 //!   mrs <module/fn> [args...] [key=value ...]
@@ -47,7 +47,7 @@ pub enum Commands {
     },
     /// Get module information
     Info { module: String },
-    /// View module source code (mod.rs)
+    /// View module source code (anchor file)
     Code { module: String },
     /// Get module directory path
     Dp { module: String },
@@ -71,6 +71,27 @@ pub enum Commands {
         #[arg(short, long)]
         force: bool,
     },
+
+    // ── tree / search ──────────────────────────────────────────────────
+    /// Show module tree
+    Tree {
+        #[arg(short, long)]
+        search: Option<String>,
+    },
+    /// Search for modules
+    Search { query: String },
+    /// Show module content map (files + sizes)
+    Content { module: String },
+    /// Show function schemas for a module
+    Schema { module: String },
+    /// List module files
+    Files { module: String },
+    /// Show module size
+    Size { module: String },
+    /// Show module README
+    Readme { module: String },
+    /// Refresh module tree cache
+    Update,
 
     // ── key ─────────────────────────────────────────────────────────────
     /// List all keys
@@ -159,7 +180,20 @@ pub enum Commands {
         dest: Option<String>,
     },
     /// List repositories
-    Repos,
+    Repos {
+        #[arg(short, long)]
+        search: Option<String>,
+    },
+
+    // ── file ops ────────────────────────────────────────────────────────
+    /// List directory contents
+    Ls {
+        path: Option<String>,
+        #[arg(short, long)]
+        search: Option<String>,
+    },
+    /// Read a file
+    Text { path: String },
 
     // ── utils ───────────────────────────────────────────────────────────
     /// Hash data
@@ -175,6 +209,15 @@ pub enum Commands {
     },
     /// Get system information
     SysInfo,
+    /// Show environment variables
+    Env { key: Option<String> },
+    /// Get current time
+    Time {
+        #[arg(short, long, default_value = "float")]
+        mode: String,
+    },
+    /// Show owner (default key) address
+    Owner,
 
     // ── ai ──────────────────────────────────────────────────────────────
     #[cfg(feature = "ai")]
@@ -220,6 +263,16 @@ async fn dispatch(command: Commands, m: &Mod) -> Result<()> {
         Commands::New { name, description }  => module::new(m, &name, description.as_deref()),
         Commands::Rm { name, force }         => module::rm(m, &name, force),
 
+        // tree / search
+        Commands::Tree { search }            => module::tree(m, search),
+        Commands::Search { query }           => module::search(m, &query),
+        Commands::Content { module: name }   => module::content(m, &name).await,
+        Commands::Schema { module: name }    => module::schema(m, &name).await,
+        Commands::Files { module: name }     => module::files(m, &name).await,
+        Commands::Size { module: name }      => module::size(m, &name).await,
+        Commands::Readme { module: name }    => module::readme(m, &name).await,
+        Commands::Update                     => module::update(m),
+
         // key
         Commands::Keys                          => key::keys(m).await,
         Commands::Address { key: k }            => key::address(m, k.as_deref()).await,
@@ -249,12 +302,19 @@ async fn dispatch(command: Commands, m: &Mod) -> Result<()> {
         // git
         Commands::Push { message }       => git::push(m, &message).await,
         Commands::Clone { url, dest }    => git::clone(m, &url, dest).await,
-        Commands::Repos                  => git::repos(m).await,
+        Commands::Repos { search }       => git::repos(m, search).await,
+
+        // file ops
+        Commands::Ls { path, search }    => module::ls(path.as_deref(), search.as_deref()),
+        Commands::Text { path }          => module::text(&path),
 
         // utils
         Commands::Hash { data, mode }    => utils::hash(m, &data, &mode),
         Commands::Test { module: name }  => utils::test(name.as_deref()),
         Commands::SysInfo                => utils::sysinfo(),
+        Commands::Env { key }            => module::env(key.as_deref()),
+        Commands::Time { mode }          => utils::time(&mode),
+        Commands::Owner                  => module::owner(m).await,
 
         // ai
         #[cfg(feature = "ai")]
@@ -265,33 +325,20 @@ async fn dispatch(command: Commands, m: &Mod) -> Result<()> {
 // ── Flexible module interaction ─────────────────────────────────────────
 
 /// Handle free-form CLI: mrs module/fn arg1 arg2 key=value
-///
-/// Syntax:
-///   mrs module/fn               -> call fn with {}
-///   mrs module/fn arg1 arg2     -> call fn with {"args": ["arg1", "arg2"]}
-///   mrs module/fn key=value     -> call fn with {"key": "value"}
-///   mrs module/fn arg1 k=v      -> call fn with {"args": ["arg1"], "k": "v"}
-///   mrs module fn [args...]     -> same as module/fn
-///   mrs module                  -> call module/info
 async fn handle_module_call(m: &Mod, args: &[String]) -> Result<()> {
     let first = &args[0];
     let rest = &args[1..];
 
     let (mod_name, fn_name, call_args) = if first.contains('/') {
-        // mrs module/fn [args...]
         let parts: Vec<&str> = first.splitn(2, '/').collect();
         (parts[0].to_string(), parts[1].to_string(), rest)
     } else if !rest.is_empty() && !rest[0].contains('=') && !rest[0].starts_with('-') {
-        // mrs module fn [args...]
-        // Check if second arg could be a function name (no = sign, no - prefix)
         let maybe_fn = &rest[0];
-        // Verify the module exists and has this function
         if let Ok(module) = m.module(first).await {
             if let Ok(fns) = module.functions().await {
                 if fns.contains(&maybe_fn.to_string()) {
                     (first.to_string(), maybe_fn.to_string(), &rest[1..])
                 } else {
-                    // Not a known function, treat as module/info with args
                     (first.to_string(), "info".to_string(), rest)
                 }
             } else {
@@ -301,7 +348,6 @@ async fn handle_module_call(m: &Mod, args: &[String]) -> Result<()> {
             (first.to_string(), maybe_fn.to_string(), &rest[1..])
         }
     } else {
-        // mrs module -> default to info
         (first.to_string(), "info".to_string(), rest)
     };
 
@@ -314,9 +360,6 @@ async fn handle_module_call(m: &Mod, args: &[String]) -> Result<()> {
 }
 
 /// Parse CLI arguments into JSON params
-///
-/// Positional args go into "args" array, key=value pairs become object fields.
-/// Values are auto-typed: numbers, bools, null, JSON objects/arrays, or strings.
 fn parse_cli_args(args: &[String]) -> serde_json::Value {
     if args.is_empty() {
         return serde_json::json!({});
@@ -337,7 +380,6 @@ fn parse_cli_args(args: &[String]) -> serde_json::Value {
 
     if !positional.is_empty() {
         if positional.len() == 1 && map.is_empty() {
-            // Single positional arg with no kwargs → pass as-is if it's an object
             if let serde_json::Value::Object(_) = &positional[0] {
                 return positional.remove(0);
             }
@@ -350,31 +392,25 @@ fn parse_cli_args(args: &[String]) -> serde_json::Value {
 
 /// Auto-type a string value: int, float, bool, null, JSON object/array, or string
 fn parse_value(s: &str) -> serde_json::Value {
-    // Try null
     if s == "null" || s == "None" || s == "none" {
         return serde_json::Value::Null;
     }
-    // Try bool
     if s == "true" || s == "True" {
         return serde_json::Value::Bool(true);
     }
     if s == "false" || s == "False" {
         return serde_json::Value::Bool(false);
     }
-    // Try integer
     if let Ok(n) = s.parse::<i64>() {
         return serde_json::json!(n);
     }
-    // Try float
     if let Ok(n) = s.parse::<f64>() {
         return serde_json::json!(n);
     }
-    // Try JSON object/array
     if (s.starts_with('{') && s.ends_with('}')) || (s.starts_with('[') && s.ends_with(']')) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(s) {
             return v;
         }
     }
-    // String
     serde_json::Value::String(s.to_string())
 }
