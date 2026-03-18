@@ -36,9 +36,9 @@ pub struct ModuleRegistry {
 impl ModuleRegistry {
     pub async fn new(config: &Config) -> Result<Self> {
         let orbit_paths = vec![
+            config.paths.lib.join("mods"),
             config.paths.orbit.clone(),
             config.paths.mod_dir.join("core"),
-            config.paths.lib.join("mods"),
         ];
 
         for path in &orbit_paths {

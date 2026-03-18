@@ -10,7 +10,7 @@ name = "modrs"
 path = "src/lib.rs"
 
 [[bin]]
-name = "m"
+name = "mrs"
 path = "src/bin/main.rs"
 
 [dependencies]

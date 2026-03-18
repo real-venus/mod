@@ -30,6 +30,8 @@ class Bridge:
     }
     conns = {}
 
+
+
     # Transaction configuration
     GAS_PRICE_MULTIPLIER = 1.2  # 20% increase for replacements
     GAS_LIMIT_BUFFER = 1.3  # 30% buffer on estimated gas
@@ -59,6 +61,10 @@ class Bridge:
 
         # Module setup
         self.path = m.dp('bridge')
+        self.snapshot_dir = self.path + '/snapshot'
+        if not os.path.exists(self.snapshot_dir):
+            os.makedirs(self.snapshot_dir)
+        self.total_balances_path = os.path.join(self.snapshot_dir, 'total_balances.json')
         self.set_key(key)
 
         # Auth module for sr25519 signatures
@@ -338,25 +344,32 @@ class Bridge:
 
     # ==================== BALANCE MANAGEMENT ====================
 
-    @property
-    def total_balances_path(self):
-        """Path to total balances snapshot."""
-        return os.path.join(self.path, 'total_balances.json')
-
     def get_total_balances(self) -> Dict[str, int]:
         """Get total balances snapshot.
 
         Returns:
             Dictionary mapping addresses to balances
         """
-        path = self.total_balances_path
-        if not os.path.exists(path):
-            m.save_json({}, path)
-        return m.get_json(path, default={})
+        total_balances = {}
     
-    def save_total_balances(self):
-        """Save total balances snapshot."""
-        m.save_json(self.total_balances, self.total_balances_path)
+        expected_balances = 0
+        for filename in os.listdir(self.snapshot_dir):
+            if filename.endswith('.json') and filename != 'total_balances.json':
+                snapshot_path = os.path.join(self.snapshot_dir, filename)
+                snapshot_data = m.get_json(snapshot_path, {})
+                print('Snapshot data:', len(snapshot_data), filename)
+                for address, balance in snapshot_data.items():
+                    if address not in total_balances:
+                        expected_balances += 1
+                    total_balances[address] = total_balances.get(address, 0) + balance
+        assert expected_balances == len(total_balances), f"Expected {expected_balances} unique addresses but got {len(total_balances)}"
+        return total_balances
+    
+
+    def wallets(self):
+        return len(self.total_balances)
+    
+
 
     def get_claims(self) -> Dict[str, int]:
         """Get claims balances.
@@ -692,12 +705,10 @@ class Bridge:
             return  f"No tokens to claim for address {address}"
         self.claims[address] = {"address": address, 'recipient': recipient, 'amount':  amount}
         self.set_claims(self.claims)
-
         claim = self.claims[address]
         recipient = claim['recipient']
         balance = self.balance(recipient)
         expected_amount = self.total_balances.get(address, 0)
-
         if balance > expected_amount:
             self.burn(recipient, balance - expected_amount)
         else:

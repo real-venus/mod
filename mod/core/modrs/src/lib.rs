@@ -221,10 +221,17 @@ impl Mod {
     // SERVER OPERATIONS
     // ========================================================================
 
+    /// Start a module server in-process (foreground, blocks)
     pub async fn serve(&self, module_name: &str, port: u16) -> Result<()> {
         let module = self.module(module_name).await?;
         let mut manager = self.server_manager.write();
         manager.start(module_name, module, port).await
+    }
+
+    /// Start a module server as a detached background process
+    pub fn serve_bg(&self, module_name: &str, port: u16) -> Result<()> {
+        let mut manager = self.server_manager.write();
+        manager.start_bg(module_name, port)
     }
 
     pub async fn kill(&self, module_name: &str) -> Result<()> {

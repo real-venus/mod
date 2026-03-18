@@ -1396,6 +1396,7 @@ fn test_server_info_serialization() {
     let info = ServerInfo {
         name: "api".to_string(),
         port: 8080,
+        pid: None,
         url: "http://0.0.0.0:8080".to_string(),
     };
     let json = serde_json::to_value(&info).unwrap();

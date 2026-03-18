@@ -662,13 +662,27 @@ export default function BridgePage() {
     }
   }, [client])
 
-  // Close dropdown on outside click
+  // Auto-search for balance when client and user are both ready
   useEffect(() => {
-    if (!showWalletDropdown) return
-    const handler = () => setShowWalletDropdown(false)
+    if (client?.token && user?.key && !searchResult) {
+      handleSearch(user.key)
+    }
+  }, [client, user?.key])
+
+  // To-wallet dropdown state
+  const [showToDropdown, setShowToDropdown] = useState(false)
+  const [showCustomToInput, setShowCustomToInput] = useState(false)
+
+  // Get ECDSA wallets from history
+  const ecdsaWallets = walletHistory.filter(w => w.type === 'ecdsa' || w.address?.startsWith('0x') || w.address?.startsWith('0X'))
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    if (!showWalletDropdown && !showToDropdown) return
+    const handler = () => { setShowWalletDropdown(false); setShowToDropdown(false) }
     const timer = setTimeout(() => document.addEventListener('click', handler), 0)
     return () => { clearTimeout(timer); document.removeEventListener('click', handler) }
-  }, [showWalletDropdown])
+  }, [showWalletDropdown, showToDropdown])
 
   // Handle wallet selection from dropdown
   const handleWalletSelect = async (wallet: { address: string; mode: string; type: string }) => {
@@ -747,9 +761,11 @@ export default function BridgePage() {
       if (unclaimed > 0) {
         setSr25519Address(address)
         setClaimAmount(unclaimed.toString())
+        setUnclaimedAmount(unclaimed.toString())
       } else {
         setSr25519Address('')
         setClaimAmount('')
+        setUnclaimedAmount('')
       }
     } catch (error: any) {
       console.error('Search error:', error)
@@ -966,37 +982,182 @@ export default function BridgePage() {
                           )}
                         </div>
 
-                        {/* To Address */}
-                        <div>
+                        {/* To Address - ECDSA wallet selector */}
+                        <div className="relative">
                           <label className="text-base mb-2 block font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
                             TO (EVM)
                           </label>
-                          <input
-                            type="text"
-                            placeholder="0X..."
-                            value={recipientAddress}
-                            onChange={e => setRecipientAddress(e.target.value)}
-                            className="w-full text-sm px-4 py-3 border-4 focus:outline-none font-mono transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            style={{
-                              backgroundColor: 'var(--bg-input)',
-                              borderColor: 'var(--border-strong)',
-                              color: 'var(--text-primary)',
-                              fontFamily: 'var(--font-digital)'
-                            }}
-                          />
+                          {showCustomToInput ? (
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="0x..."
+                                value={recipientAddress}
+                                onChange={e => setRecipientAddress(e.target.value)}
+                                className="flex-1 text-sm px-4 py-3 border-4 focus:outline-none font-mono transition-all"
+                                style={{
+                                  backgroundColor: 'var(--bg-input)',
+                                  borderColor: recipientAddress ? 'var(--accent-primary)' : 'var(--border-strong)',
+                                  color: 'var(--text-primary)',
+                                  fontFamily: 'var(--font-digital)'
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => { setShowCustomToInput(false) }}
+                                className="px-3 py-3 border-4 text-xs font-bold uppercase tracking-wider"
+                                style={{
+                                  borderColor: 'var(--border-strong)',
+                                  backgroundColor: 'var(--bg-input)',
+                                  color: 'var(--text-secondary)',
+                                  fontFamily: 'var(--font-digital)'
+                                }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setShowToDropdown(!showToDropdown) }}
+                              className="w-full text-sm px-4 py-3 border-4 focus:outline-none font-mono transition-all text-left flex items-center justify-between"
+                              style={{
+                                borderColor: showToDropdown ? 'var(--accent-primary)' : (recipientAddress ? 'var(--accent-primary)' : 'var(--border-strong)'),
+                                backgroundColor: 'var(--bg-input)',
+                                color: recipientAddress ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                fontFamily: 'var(--font-digital)'
+                              }}
+                            >
+                              <span className="truncate">
+                                {recipientAddress || 'SELECT EVM WALLET'}
+                              </span>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '10px' }}>
+                                {showToDropdown ? '▲' : '▼'}
+                              </span>
+                            </button>
+                          )}
+
+                          {/* ECDSA Wallet Dropdown */}
+                          {showToDropdown && (
+                            <div
+                              className="absolute top-full left-0 right-0 z-50 mt-1 border-4 max-h-60 overflow-y-auto"
+                              style={{
+                                borderColor: 'var(--accent-primary)',
+                                backgroundColor: 'var(--bg-secondary)',
+                              }}
+                              onClick={e => e.stopPropagation()}
+                            >
+                              {ecdsaWallets.length > 0 && ecdsaWallets.map((w, i) => {
+                                const isSelected = w.address.toLowerCase() === recipientAddress?.toLowerCase()
+                                return (
+                                  <button
+                                    key={i}
+                                    onClick={() => { setRecipientAddress(w.address); setShowToDropdown(false) }}
+                                    className="w-full text-left px-4 py-3 transition-all flex items-center justify-between gap-2"
+                                    style={{
+                                      backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+                                      borderBottom: '1px solid var(--border-strong)',
+                                      fontFamily: 'var(--font-digital)',
+                                    }}
+                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--hover-bg)' }}
+                                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = isSelected ? 'rgba(139, 92, 246, 0.1)' : 'transparent' }}
+                                  >
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-mono truncate" style={{ color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
+                                        {isSelected && '▸ '}{w.address}
+                                      </div>
+                                      <div className="text-xs mt-0.5 uppercase" style={{ color: 'var(--text-secondary)' }}>
+                                        ECDSA / EVM
+                                      </div>
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                              {/* Paste custom address option */}
+                              <button
+                                onClick={() => { setShowToDropdown(false); setShowCustomToInput(true); setRecipientAddress('') }}
+                                className="w-full text-left px-4 py-3 transition-all"
+                                style={{
+                                  fontFamily: 'var(--font-digital)',
+                                  backgroundColor: 'transparent',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--accent-primary)' }}>
+                                  + PASTE ADDRESS
+                                </div>
+                                <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                                  ENTER A CUSTOM EVM ADDRESS
+                                </div>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Generated Token Display */}
+                      {/* Balance Overview */}
+                      {(() => {
+                        // Use searchResult if available, otherwise fallback to balanceSheet entry
+                        const sr = searchResult
+                        const bsEntry = !sr && balanceSheet?.entries?.find(e => e.address === user?.key)
+                        const total = sr?.total ?? bsEntry?.total ?? 0
+                        const claimed = sr?.claimed ?? bsEntry?.claimed ?? 0
+                        const unclaimed = sr?.unclaimed ?? bsEntry?.unclaimed ?? 0
+
+                        if (total > 0) return (
+                          <div className="border-4 p-5" style={{ borderColor: 'var(--accent-primary)', backgroundColor: 'rgba(139, 92, 246, 0.05)' }}>
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <span className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
+                                  TOTAL OWED
+                                </span>
+                                <span className="text-xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+                                  {total.toLocaleString()} BT
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
+                                  CLAIMED
+                                </span>
+                                <span className="text-xl font-bold" style={{ color: claimed > 0 ? '#10b981' : 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
+                                  {claimed.toLocaleString()} BT
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
+                                  CLAIMABLE
+                                </span>
+                                <span className="text-xl font-bold" style={{ color: unclaimed > 0 ? 'var(--accent-primary)' : 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
+                                  {unclaimed.toLocaleString()} BT
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+
+                        // Show loading if we're still fetching
+                        if (searching || loadingBalanceSheet || loadingUnclaimed) return (
+                          <div className="border-4 p-5 flex items-center gap-2" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-tertiary)' }}>
+                            <ArrowPathIcon className="w-5 h-5 animate-spin" style={{ color: 'var(--text-secondary)' }} />
+                            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
+                              LOADING BALANCE...
+                            </span>
+                          </div>
+                        )
+
+                        return null
+                      })()}
+
+                      {/* Auth Token - Copy Only */}
                       {generatedToken && (
                         <div className="border-4 p-4" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-tertiary)' }}>
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
                               AUTH TOKEN
                             </span>
                             <button
                               onClick={() => copyToClipboard(generatedToken, 'Token')}
-                              className="flex items-center gap-1 px-2 py-1 border-2 text-xs uppercase tracking-wider hover:opacity-80 transition-opacity"
+                              className="flex items-center gap-1 px-3 py-2 border-2 text-xs uppercase tracking-wider hover:opacity-80 transition-opacity"
                               style={{
                                 borderColor: 'var(--border-strong)',
                                 color: 'var(--accent-primary)',
@@ -1004,20 +1165,8 @@ export default function BridgePage() {
                               }}
                             >
                               <ClipboardDocumentIcon className="w-3 h-3" />
-                              COPY
+                              COPY TOKEN
                             </button>
-                          </div>
-                          <div
-                            className="text-xs font-mono p-2 border-2 overflow-x-auto"
-                            style={{
-                              borderColor: 'var(--border-strong)',
-                              backgroundColor: 'var(--bg-primary)',
-                              color: 'var(--accent-primary)',
-                              wordBreak: 'break-all',
-                              maxHeight: '60px',
-                            }}
-                          >
-                            {generatedToken}
                           </div>
                         </div>
                       )}

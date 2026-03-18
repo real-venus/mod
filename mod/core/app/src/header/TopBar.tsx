@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { WalletHeader } from '@/wallet/WalletHeader'
 import { useSearchContext } from '@/context/SearchContext'
 
+const COMMANDS = ['/mods', '/search', '/ask', '/run'] as const
+
 export function TopBar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -12,6 +14,8 @@ export function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [inputValue, setInputValue] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
+  const [commandIndex, setCommandIndex] = useState(0)
+  const activeCommand = COMMANDS[commandIndex]
 
   useEffect(() => {
     setInputValue(searchFilters.searchTerm || '')
@@ -50,6 +54,10 @@ export function TopBar() {
       handleSearch('')
       inputRef.current?.blur()
     }
+    if ((e.key === 'Backspace' || e.key === 'Delete') && inputValue === '') {
+      e.preventDefault()
+      setCommandIndex((prev) => (prev + 1) % COMMANDS.length)
+    }
   }
 
   return (
@@ -62,7 +70,7 @@ export function TopBar() {
       }}
     >
       {/* Search bar - always visible */}
-      <div className="flex items-center flex-1 px-3" style={{ marginLeft: 'var(--sidebar-width, 56px)' }}>
+      <div className="flex items-center flex-1 pl-3 pr-3">
         <div
           className="flex items-center flex-1 transition-all"
           style={{
@@ -94,7 +102,7 @@ export function TopBar() {
                 transition: 'all 0.15s ease',
               }}
             >
-              /search
+              {activeCommand}
             </span>
           </div>
 
@@ -138,39 +146,6 @@ export function TopBar() {
           )}
         </div>
 
-        {/* /mods bubble - client call */}
-        <div
-          className="flex-shrink-0 ml-2 cursor-pointer select-none"
-          onClick={() => {
-            if (pathname !== '/mod/explore') router.push('/mod/explore')
-          }}
-        >
-          <span
-            className="inline-flex items-center px-2 py-1 transition-all"
-            style={{
-              fontSize: '11px',
-              fontFamily: 'var(--font-pixel), monospace',
-              fontWeight: 700,
-              color: pathname === '/mod/explore' ? 'var(--accent-primary)' : 'var(--text-tertiary)',
-              backgroundColor: pathname === '/mod/explore' ? 'var(--accent-primary)10' : 'transparent',
-              border: `1px solid ${pathname === '/mod/explore' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
-              borderRadius: '4px',
-              letterSpacing: '0.02em',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--accent-primary)'
-              e.currentTarget.style.borderColor = 'var(--accent-primary)'
-            }}
-            onMouseLeave={(e) => {
-              if (pathname !== '/mod/explore') {
-                e.currentTarget.style.color = 'var(--text-tertiary)'
-                e.currentTarget.style.borderColor = 'var(--border-color)'
-              }
-            }}
-          >
-            /mods
-          </span>
-        </div>
       </div>
 
       {/* Right section */}
