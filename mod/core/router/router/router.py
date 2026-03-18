@@ -19,12 +19,11 @@ class Router:
         # 'sync_ious': 60,
     }
 
-    def __init__(self, store='ipfs', key=None, auth='auth', cache='router.cache', chain='chain',):
+    def __init__(self, store='ipfs', key=None, auth='auth', chain='chain',):
         self.store = store
         self.key = m.key(key )
         self.tasks_path = self.path('tasks')
         self.chain = m.mod(chain)()
-        self.cache = m.mod(cache)()
         self.auth = m.mod(auth)()
         self.threads['sync'] = m.thread(self.sync_loop)
 
