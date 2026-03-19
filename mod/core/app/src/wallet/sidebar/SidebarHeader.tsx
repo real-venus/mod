@@ -9,6 +9,39 @@ import DebitABI from '@/contracts/market/debit/Debit.sol/Debit.json'
 import modConfig from '@/config.json'
 import { Auth } from '@/client/auth'
 
+const WalletModeLogo = ({ mode, size = 16 }: { mode: string; size?: number }) => {
+  const m = mode.toLowerCase()
+  if (m.includes('metamask')) return (
+    <svg width={size} height={size} viewBox="0 0 318.6 318.6" fill="none">
+      <path d="M274.1 35.5l-99.5 73.9 18.4-43.6z" fill="#E17726" stroke="#E17726" strokeWidth="1.5"/>
+      <path d="M44.4 35.5l98.7 74.6-17.5-44.3zm193.9 171.3l-26.5 40.6 56.7 15.6 16.3-55.3zm-204.4.9L50.1 263l56.7-15.6-26.5-40.6z" fill="#E27625" stroke="#E27625" strokeWidth="1.5"/>
+      <path d="M103.6 138.2l-15.8 23.9 56.3 2.5-2-60.5zm111.3 0l-39-34.8-1.3 61.2 56.2-2.5z" fill="#E27625" stroke="#E27625" strokeWidth="1.5"/>
+      <path d="M267.2 153.5l-52.3-15.3 15.8 23.9-23.7 46 31.2-.4h46.5zm-163.6-15.3l-52.3 15.3-17.4 54.2h46.4l31.1.4-23.6-46zm71 26.4l3.3-57.7 15.2-41.1h-67.5l15 41.1 3.5 57.7 1.2 18.2.1 44.8h27.7l.2-44.8z" fill="#F5841F" stroke="#F5841F" strokeWidth="1.5"/>
+    </svg>
+  )
+  if (m.includes('phantom')) return (
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+      <rect width="128" height="128" rx="24" fill="url(#pg2)"/>
+      <path d="M96 64c0 17.673-14.327 32-32 32s-32-14.327-32-32V32h64v32z" fill="white"/>
+      <circle cx="52" cy="58" r="6" fill="#AB9FF2"/><circle cx="76" cy="58" r="6" fill="#AB9FF2"/>
+      <defs><linearGradient id="pg2" x1="0" y1="0" x2="128" y2="128"><stop stopColor="#AB9FF2"/><stop offset="1" stopColor="#7C66DC"/></linearGradient></defs>
+    </svg>
+  )
+  if (m.includes('subwallet')) return (
+    <svg width={size} height={size} viewBox="0 0 200 200" fill="none">
+      <circle cx="100" cy="100" r="100" fill="url(#sg2)"/>
+      <path d="M100 40L60 80L100 120L140 80L100 40Z" fill="white"/>
+      <path d="M100 120L60 160L100 200L140 160L100 120Z" fill="white" opacity="0.6"/>
+      <defs><linearGradient id="sg2" x1="0" y1="0" x2="200" y2="200"><stop stopColor="#00E5CC"/><stop offset="1" stopColor="#00B8D4"/></linearGradient></defs>
+    </svg>
+  )
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="7" cy="7" r="4" fill="none"/><path d="M7 11V22M11 15H7M11 19H7"/>
+    </svg>
+  )
+}
+
 function getDebitAddress(): string {
   const chainConfig = (modConfig.chain as any)?.testnet
   return chainConfig?.contracts?.Debit?.address || ''
@@ -252,11 +285,9 @@ export function SidebarHeader({
                 style={{ color: keyColor }}
                 title="Select key type"
               >
-                <span style={{
-                  width: '6px', height: '6px', borderRadius: '50%',
-                  backgroundColor: keyColor,
-                  boxShadow: `0 0 8px ${keyColor}60`,
-                }} />
+                <div className="flex-shrink-0 opacity-80" style={{ color: keyColor }}>
+                  <WalletModeLogo mode={KEY_TYPE_CYCLE.find(k => k.type === walletType)?.mode || localWalletMode} size={18} />
+                </div>
                 <span className="text-sm font-bold tracking-wider">{keyLabel}</span>
                 <svg className={`w-2.5 h-2.5 opacity-40 transition-transform ${showKeyTypeDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />

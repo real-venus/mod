@@ -6,6 +6,7 @@ import { ClipboardDocumentIcon, ClipboardDocumentCheckIcon, ChevronDownIcon, Arr
 import { AnimatePresence, motion } from 'framer-motion'
 import { WalletAuthButton } from './WalletAuthButton'
 import { text2color } from '@/utils'
+import { toast } from 'react-toastify'
 
 import { Auth } from '@/client/auth'
 import { useTokenExpiry } from './hooks/useTokenExpiry'
@@ -62,9 +63,11 @@ export function WalletHeader() {
   const [tokenView, setTokenView] = useState<'raw' | 'json' | 'create'>('raw')
   const [createTokenData, setCreateTokenData] = useState('')
   const [showAuthSidebar, setShowAuthSidebar] = useState(false)
+  const [showKeyTypeDropdown, setShowKeyTypeDropdown] = useState(false)
   const walletRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const tokenDropdownRef = useRef<HTMLDivElement>(null)
+  const keyTypeDropdownRef = useRef<HTMLDivElement>(null)
 
   const address = user?.key || ''
   const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''
@@ -133,16 +136,19 @@ export function WalletHeader() {
       if (tokenDropdownRef.current && !tokenDropdownRef.current.contains(event.target as Node)) {
         setShowTokenDropdown(false)
       }
+      if (keyTypeDropdownRef.current && !keyTypeDropdownRef.current.contains(event.target as Node)) {
+        setShowKeyTypeDropdown(false)
+      }
     }
 
-    if (isOpen || showAccountsDropdown || showTokenDropdown) {
+    if (isOpen || showAccountsDropdown || showTokenDropdown || showKeyTypeDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, showAccountsDropdown, showTokenDropdown])
+  }, [isOpen, showAccountsDropdown, showTokenDropdown, showKeyTypeDropdown])
 
   const getWalletModeColor = (mode: string) => {
     const m = mode.toLowerCase()
@@ -164,12 +170,17 @@ export function WalletHeader() {
     )
   }
 
-  const walletType = typeof window !== 'undefined' ? localStorage.getItem('wallet_type') || 'ecdsa' : 'ecdsa'
-  const KEY_TYPE_CYCLE: { type: string; label: string }[] = [
-    { type: 'ethereum', label: 'ETH' },
-    { type: 'solana', label: 'SOL' },
-    { type: 'ecdsa', label: 'ECDSA' },
-    { type: 'sr25519', label: 'SR25' },
+  const [walletTypeState, setWalletTypeState] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('wallet_type') || 'ecdsa' : 'ecdsa'
+  )
+  const [localWalletMode, setLocalWalletMode] = useState(walletMode)
+  useEffect(() => { setLocalWalletMode(walletMode) }, [walletMode])
+
+  const KEY_TYPE_CYCLE: { type: string; mode: string; label: string }[] = [
+    { type: 'ethereum', mode: 'metamask', label: 'ETH' },
+    { type: 'solana', mode: 'phantom', label: 'SOL' },
+    { type: 'ecdsa', mode: 'local', label: 'ECDSA' },
+    { type: 'sr25519', mode: 'subwallet', label: 'SR25' },
   ]
   const getKeyTypeColor = (type: string) => {
     if (type === 'sr25519') return '#06b6d4'
@@ -178,8 +189,17 @@ export function WalletHeader() {
     if (type === 'solana') return '#9945ff'
     return '#10b981'
   }
-  const keyColor = getKeyTypeColor(walletType)
-  const keyLabel = KEY_TYPE_CYCLE.find(k => k.type === walletType)?.label || walletType.toUpperCase()
+  const selectKeyType = (keyType: typeof KEY_TYPE_CYCLE[number]) => {
+    localStorage.setItem('wallet_type', keyType.type)
+    localStorage.setItem('wallet_mode', keyType.mode)
+    setWalletTypeState(keyType.type)
+    setLocalWalletMode(keyType.mode)
+    setShowKeyTypeDropdown(false)
+    toast.success(`Switched to ${keyType.label}`)
+  }
+  const keyColor = getKeyTypeColor(walletTypeState)
+  const keyLabel = KEY_TYPE_CYCLE.find(k => k.type === walletTypeState)?.label || walletTypeState.toUpperCase()
+  const keyMode = KEY_TYPE_CYCLE.find(k => k.type === walletTypeState)?.mode || localWalletMode
 
   return (
     <div ref={walletRef} className="flex items-center gap-0">
@@ -196,17 +216,74 @@ export function WalletHeader() {
           position: 'relative',
         }}
       >
-        {/* Key type indicator */}
-        <div
-          className="flex items-center gap-1.5 h-[52px] px-3 flex-shrink-0"
-          style={{ color: keyColor }}
-        >
-          <span style={{
-            width: '6px', height: '6px', borderRadius: '50%',
-            backgroundColor: keyColor,
-            boxShadow: `0 0 8px ${keyColor}60`,
-          }} />
-          <span className="text-sm font-bold tracking-wider">{keyLabel}</span>
+        {/* Key type + wallet logo - clickable dropdown */}
+        <div className="relative flex-shrink-0" ref={keyTypeDropdownRef}>
+          <button
+            onClick={() => setShowKeyTypeDropdown(!showKeyTypeDropdown)}
+            className="flex items-center gap-1.5 h-[52px] px-3 transition-all hover:opacity-80 active:scale-[0.98]"
+            style={{ color: keyColor }}
+            title="Select key type"
+          >
+            <div className="flex-shrink-0 opacity-80" style={{ color: keyColor }}>
+              <WalletModeLogo mode={keyMode} size={18} />
+            </div>
+            <span className="text-sm font-bold tracking-wider">{keyLabel}</span>
+            <svg className={`w-2.5 h-2.5 opacity-40 transition-transform ${showKeyTypeDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <AnimatePresence>
+            {showKeyTypeDropdown && (
+              <motion.div
+                initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                transition={{ duration: 0.12 }}
+                className="absolute left-0 top-full mt-1.5 z-[200] overflow-hidden"
+                style={{
+                  minWidth: '180px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                }}
+              >
+                <div className="py-1">
+                  {KEY_TYPE_CYCLE.map((kt) => {
+                    const c = getKeyTypeColor(kt.type)
+                    const isActive = kt.type === walletTypeState
+                    return (
+                      <button
+                        key={kt.type}
+                        onClick={() => selectKeyType(kt)}
+                        className="flex items-center gap-2.5 w-full px-3 py-2.5 transition-all text-left"
+                        style={{
+                          backgroundColor: isActive ? `${c}12` : 'transparent',
+                          fontFamily: 'var(--font-digital), monospace',
+                        }}
+                        onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'var(--hover-bg)' }}
+                        onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = isActive ? `${c}12` : 'transparent' }}
+                      >
+                        <div className="flex-shrink-0" style={{ color: c, opacity: isActive ? 1 : 0.5 }}>
+                          <WalletModeLogo mode={kt.mode} size={16} />
+                        </div>
+                        <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: isActive ? c : 'var(--text-secondary)' }}>
+                          {kt.label}
+                        </span>
+                        <span className="flex-1" />
+                        {isActive && (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke={c} strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Separator */}
