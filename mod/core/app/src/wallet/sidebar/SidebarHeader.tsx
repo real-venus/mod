@@ -303,7 +303,7 @@ export function SidebarHeader({
                     transition={{ duration: 0.12 }}
                     className="absolute left-0 top-full mt-1.5 z-[200] overflow-hidden"
                     style={{
-                      minWidth: '160px',
+                      minWidth: '180px',
                       background: 'var(--bg-secondary)',
                       border: '1px solid var(--border-color)',
                       borderRadius: '10px',
@@ -318,7 +318,7 @@ export function SidebarHeader({
                           <button
                             key={kt.type}
                             onClick={() => selectKeyType(kt)}
-                            className="flex items-center gap-2 w-full px-3 py-2 transition-all text-left"
+                            className="flex items-center gap-2.5 w-full px-3 py-2.5 transition-all text-left"
                             style={{
                               backgroundColor: isActive ? `${c}12` : 'transparent',
                               fontFamily: 'var(--font-digital), monospace',
@@ -326,11 +326,9 @@ export function SidebarHeader({
                             onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'var(--hover-bg)' }}
                             onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = isActive ? `${c}12` : 'transparent' }}
                           >
-                            <span style={{
-                              width: '6px', height: '6px', borderRadius: '50%',
-                              backgroundColor: c,
-                              boxShadow: isActive ? `0 0 6px ${c}80` : 'none',
-                            }} />
+                            <div className="flex-shrink-0" style={{ color: c, opacity: isActive ? 1 : 0.5 }}>
+                              <WalletModeLogo mode={kt.mode} size={16} />
+                            </div>
                             <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: isActive ? c : 'var(--text-secondary)' }}>
                               {kt.label}
                             </span>

@@ -70,8 +70,8 @@ export function WalletHeader() {
   const keyTypeDropdownRef = useRef<HTMLDivElement>(null)
 
   const address = user?.key || ''
-  const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''
   const walletMode = user?.wallet_mode || ''
+  const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''
   const userColor = user ? text2color(user.key || '') : '#10b981'
 
   // Hooks
@@ -88,6 +88,12 @@ export function WalletHeader() {
   const accounts = useWalletAccounts(user?.key, address, switchWallet)
   useNetwork(user?.key, client, balances.fetchMarketCredit)
   const sidebar = useSidebarResize()
+
+  const [walletTypeState, setWalletTypeState] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('wallet_type') || 'ecdsa' : 'ecdsa'
+  )
+  const [localWalletMode, setLocalWalletMode] = useState(walletMode)
+  useEffect(() => { setLocalWalletMode(walletMode) }, [walletMode])
 
   const copyAddress = () => {
     if (address) {
@@ -169,12 +175,6 @@ export function WalletHeader() {
       </div>
     )
   }
-
-  const [walletTypeState, setWalletTypeState] = useState(() =>
-    typeof window !== 'undefined' ? localStorage.getItem('wallet_type') || 'ecdsa' : 'ecdsa'
-  )
-  const [localWalletMode, setLocalWalletMode] = useState(walletMode)
-  useEffect(() => { setLocalWalletMode(walletMode) }, [walletMode])
 
   const KEY_TYPE_CYCLE: { type: string; mode: string; label: string }[] = [
     { type: 'ethereum', mode: 'metamask', label: 'ETH' },
