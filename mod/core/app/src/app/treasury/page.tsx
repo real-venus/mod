@@ -630,8 +630,8 @@ export default function TreasuryPage() {
   } as const
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      <div className="relative z-10 p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+    <div style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+      <div className="relative z-10 p-4 md:p-6 max-w-5xl mx-auto space-y-4">
 
         {/* ── Header ── */}
         <motion.div
@@ -639,12 +639,12 @@ export default function TreasuryPage() {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-violet-600/20 border border-purple-500/30">
-              <BuildingLibraryIcon className="w-6 h-6 text-purple-400" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-violet-600/20 border border-purple-500/30">
+              <BuildingLibraryIcon className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Treasury</h1>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Treasury</h1>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   {treasury.address.slice(0, 6)}...{treasury.address.slice(-4)}
@@ -680,7 +680,7 @@ export default function TreasuryPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+              className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                 activeTab === tab.key ? 'text-purple-400' : ''
               }`}
               style={activeTab !== tab.key ? { color: 'var(--text-tertiary)' } : {}}
@@ -710,30 +710,12 @@ export default function TreasuryPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="space-y-5"
+              className="space-y-3"
             >
               {/* ── Hero Stats ── */}
-              <Card className="p-6 overflow-hidden relative">
+              <Card className="p-5 overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-violet-500/5" />
                 <div className="relative z-10">
-                  <div className="flex items-start justify-between mb-6">
-                    <div>
-                      <span className="text-xs font-medium uppercase tracking-wider block mb-2" style={{ color: 'var(--text-tertiary)' }}>Total Treasury Value</span>
-                      <span className="text-4xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                        {loading ? (
-                          <span className="inline-block w-32 h-10 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--hover-bg)' }} />
-                        ) : fmt(totalBalance)}
-                      </span>
-                    </div>
-                    {parseFloat(marketUnclaimedFees) > 0 && (
-                      <div className="text-right p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                        <span className="text-[10px] block mb-1 uppercase font-medium tracking-wider text-emerald-400/70">Pending Fees</span>
-                        <span className="text-xl font-bold text-emerald-400">{fmt(parseFloat(marketUnclaimedFees))}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Pie chart + legend */}
                   {(() => {
                     const COLORS = ['#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#ec4899']
                     const pieData = tokenBalances
@@ -741,19 +723,21 @@ export default function TreasuryPage() {
                       .map(tb => ({ name: tb.symbol, value: tb.balance }))
                     const modBal = parseFloat(modTokenBalance)
                     if (modBal > 0) pieData.push({ name: modTokenSymbol, value: modBal })
+                    const hasPieData = pieData.length > 0 && !loading
 
                     return (
-                      <div className="flex items-center gap-8">
-                        <div className="w-36 h-36 flex-shrink-0">
-                          {pieData.length > 0 && !loading ? (
+                      <div className="flex items-center gap-6">
+                        {/* Pie chart - only show when there's data */}
+                        {hasPieData && (
+                          <div className="w-28 h-28 flex-shrink-0">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                 <Pie
                                   data={pieData}
                                   cx="50%"
                                   cy="50%"
-                                  innerRadius={38}
-                                  outerRadius={62}
+                                  innerRadius={32}
+                                  outerRadius={52}
                                   dataKey="value"
                                   strokeWidth={2}
                                   stroke="var(--bg-primary)"
@@ -775,27 +759,46 @@ export default function TreasuryPage() {
                                 />
                               </PieChart>
                             </ResponsiveContainer>
-                          ) : (
-                            <div className="w-full h-full rounded-full flex items-center justify-center border border-dashed" style={{ borderColor: 'var(--border-color)' }}>
-                              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>--</span>
+                          </div>
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          {/* Value + Pending Fees row */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <span className="text-[10px] font-medium uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>Total Treasury Value</span>
+                              <span className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                                {loading ? (
+                                  <span className="inline-block w-28 h-8 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--hover-bg)' }} />
+                                ) : fmt(totalBalance)}
+                              </span>
+                            </div>
+                            {parseFloat(marketUnclaimedFees) > 0 && (
+                              <div className="text-right px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                <span className="text-[9px] block mb-0.5 uppercase font-medium tracking-wider text-emerald-400/70">Pending Fees</span>
+                                <span className="text-lg font-bold text-emerald-400">{fmt(parseFloat(marketUnclaimedFees))}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Token legend */}
+                          {hasPieData && (
+                            <div className="space-y-0.5">
+                              {pieData.map((item, idx) => {
+                                const pct = totalBalance > 0 ? ((item.value / totalBalance) * 100).toFixed(1) : '0'
+                                return (
+                                  <div key={item.name} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-purple-500/5 transition-all duration-200">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                                      <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{item.name}</span>
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text-tertiary)' }}>{pct}%</span>
+                                    </div>
+                                    <span className="font-mono text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{fmt(item.value)}</span>
+                                  </div>
+                                )
+                              })}
                             </div>
                           )}
-                        </div>
-
-                        <div className="flex-1 space-y-1">
-                          {pieData.map((item, idx) => {
-                            const pct = totalBalance > 0 ? ((item.value / totalBalance) * 100).toFixed(1) : '0'
-                            return (
-                              <div key={item.name} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-purple-500/5 transition-all duration-200 group">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                                  <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{item.name}</span>
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text-tertiary)' }}>{pct}%</span>
-                                </div>
-                                <span className="font-mono text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{fmt(item.value)}</span>
-                              </div>
-                            )
-                          })}
                         </div>
                       </div>
                     )
@@ -804,19 +807,23 @@ export default function TreasuryPage() {
               </Card>
 
               {/* ── Contract Addresses ── */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: 'Treasury', addr: treasury.address, color: '#a855f7' },
                   { label: 'NAT Token', addr: (modConfig.chain as any)?.testnet?.contracts?.NativeToken?.address || '', color: '#3b82f6' },
                   { label: 'BlocTime', addr: (modConfig.chain as any)?.testnet?.contracts?.BlocTime?.address || '', color: '#06b6d4' },
                 ].map(({ label, addr, color }) => (
-                  <Card key={label} className="p-4 group hover:border-opacity-50 transition-all duration-200" style={{ borderColor: `${color}20` }}>
-                    <div className="text-[10px] mb-2 uppercase font-medium tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{label}</div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-                      <span className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
-                        {addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : 'N/A'}
-                      </span>
+                  <Card key={label} className="px-3 py-2.5 group hover:border-opacity-50 transition-all duration-200" style={{ borderColor: `${color}20` }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-[9px] mb-1 uppercase font-medium tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{label}</div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                          <span className="font-mono text-xs" style={{ color: 'var(--text-primary)' }}>
+                            {addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
                       {addr && <CopyButton text={addr} size="sm" />}
                     </div>
                   </Card>
@@ -825,10 +832,10 @@ export default function TreasuryPage() {
 
               {/* ── Safe Info ── */}
               {isSafeOwned && (
-                <Card className="p-5 overflow-hidden relative" style={{ borderColor: 'rgba(34, 197, 94, 0.15)' }}>
+                <Card className="p-4 overflow-hidden relative" style={{ borderColor: 'rgba(34, 197, 94, 0.15)' }}>
                   <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-green-500/5" />
                   <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <ShieldCheckIcon className="w-5 h-5 text-emerald-400" />
                         <span className="text-sm font-semibold text-emerald-400">Multisig Treasury</span>
@@ -867,13 +874,13 @@ export default function TreasuryPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="space-y-5"
+              className="space-y-3"
             >
               {/* Token Balances */}
-              <Card className="p-6 overflow-hidden relative">
+              <Card className="p-4 overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5" />
                 <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-4">
                     <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                       {governanceToken !== ethers.ZeroAddress ? 'Governance Tokens' : 'Tokens'}
                     </span>
@@ -888,10 +895,10 @@ export default function TreasuryPage() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {/* NAT Balance */}
-                    <div className="p-5 rounded-xl" style={{ backgroundColor: 'var(--hover-bg)' }}>
-                      <div className="flex items-center gap-2 mb-4">
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                      <div className="flex items-center gap-2 mb-3">
                         <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center">
                           <BanknotesIcon className="w-4 h-4 text-blue-400" />
                         </div>
@@ -922,8 +929,8 @@ export default function TreasuryPage() {
                     </div>
 
                     {/* BlocTime Balance */}
-                    <div className="p-5 rounded-xl" style={{ backgroundColor: 'var(--hover-bg)' }}>
-                      <div className="flex items-center gap-2 mb-4">
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                      <div className="flex items-center gap-2 mb-3">
                         <div className="w-8 h-8 rounded-lg bg-cyan-500/15 flex items-center justify-center">
                           <LockClosedIcon className="w-4 h-4 text-cyan-400" />
                         </div>
@@ -1166,10 +1173,10 @@ export default function TreasuryPage() {
 
               {/* Claimable Rewards */}
               {holderInfo && holderInfo.tokens.length > 0 && (
-                <Card className="p-5 overflow-hidden relative" style={{ borderColor: 'rgba(16, 185, 129, 0.15)' }}>
+                <Card className="p-4 overflow-hidden relative" style={{ borderColor: 'rgba(16, 185, 129, 0.15)' }}>
                   <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-green-500/5" />
                   <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
                           <WalletIcon className="w-4 h-4 text-emerald-400" />
@@ -1182,8 +1189,8 @@ export default function TreasuryPage() {
                     </div>
 
                     {/* Ownership */}
-                    <div className="mb-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--hover-bg)' }}>
-                      <div className="flex items-center justify-between mb-3">
+                    <div className="mb-3 p-3 rounded-xl" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                      <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Your Treasury Ownership</span>
                         <span className="text-lg font-bold text-emerald-400">
                           {(Number(holderInfo.ownershipPercentage) / 100).toFixed(2)}%
@@ -1315,18 +1322,18 @@ export default function TreasuryPage() {
 
               {/* Empty rewards state */}
               {!holderInfo?.tokens.length && (
-                <Card className="p-10 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-purple-500/10 flex items-center justify-center">
-                    <WalletIcon className="w-8 h-8 text-purple-500/30" />
+                <Card className="p-6 text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                    <WalletIcon className="w-6 h-6 text-purple-500/30" />
                   </div>
-                  <div className="text-sm mb-1.5 font-medium" style={{ color: 'var(--text-secondary)' }}>No claimable rewards</div>
+                  <div className="text-sm mb-1 font-medium" style={{ color: 'var(--text-secondary)' }}>No claimable rewards</div>
                   <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Rewards appear when you hold governance tokens</div>
                 </Card>
               )}
 
               {/* Contribute */}
-              <Card className="p-5">
-                <div className="flex items-center gap-2 mb-4">
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center">
                     <BuildingLibraryIcon className="w-4 h-4 text-purple-400" />
                   </div>
@@ -1365,8 +1372,8 @@ export default function TreasuryPage() {
               </Card>
 
               {/* Deposits */}
-              <Card className="p-5">
-                <div className="flex items-center justify-between mb-4">
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Deposit History</span>
                   <button
                     onClick={fetchDeposits}
@@ -1378,9 +1385,9 @@ export default function TreasuryPage() {
                 </div>
 
                 {depositsLoading ? (
-                  <div className="py-8 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</div>
+                  <div className="py-4 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</div>
                 ) : deposits.filter(dep => dep.funder.toLowerCase() === walletAddress.toLowerCase()).length === 0 ? (
-                  <div className="py-8 text-center">
+                  <div className="py-4 text-center">
                     <div className="text-sm mb-1 font-medium" style={{ color: 'var(--text-secondary)' }}>No deposits yet</div>
                     <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Your deposits will appear here</div>
                   </div>
@@ -1407,8 +1414,8 @@ export default function TreasuryPage() {
               </Card>
 
               {/* Claims History */}
-              <Card className="p-5">
-                <div className="flex items-center justify-between mb-4">
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Claims History</span>
                   <button
                     onClick={fetchClaims}
@@ -1420,9 +1427,9 @@ export default function TreasuryPage() {
                 </div>
 
                 {claimsLoading ? (
-                  <div className="py-8 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</div>
+                  <div className="py-4 text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</div>
                 ) : claims.filter(claim => claim.holder.toLowerCase() === walletAddress.toLowerCase()).length === 0 ? (
-                  <div className="py-8 text-center">
+                  <div className="py-4 text-center">
                     <div className="text-sm mb-1 font-medium" style={{ color: 'var(--text-secondary)' }}>No claims yet</div>
                     <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Your reward claims will appear here</div>
                   </div>
@@ -1473,10 +1480,10 @@ export default function TreasuryPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="space-y-5"
+              className="space-y-3"
             >
               {/* Admin Badge */}
-              <Card className="p-4 overflow-hidden relative" style={{ borderColor: 'rgba(245, 158, 11, 0.15)' }}>
+              <Card className="p-3 overflow-hidden relative" style={{ borderColor: 'rgba(245, 158, 11, 0.15)' }}>
                 <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-transparent to-orange-500/5" />
                 <div className="relative z-10 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
@@ -1492,8 +1499,8 @@ export default function TreasuryPage() {
               </Card>
 
               {/* Owner Withdrawals */}
-              <Card className="p-5">
-                <p className="text-xs font-medium mb-4 uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Owner Withdrawals</p>
+              <Card className="p-4">
+                <p className="text-xs font-medium mb-3 uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Owner Withdrawals</p>
                 <div className="space-y-2">
                   {tokenBalances.map(tb => (
                     <div key={tb.address} className="flex items-center justify-between p-3 rounded-xl transition-all hover:bg-amber-500/5" style={{ backgroundColor: 'var(--hover-bg)' }}>
@@ -1523,9 +1530,9 @@ export default function TreasuryPage() {
               </Card>
 
               {/* Settings */}
-              <Card className="p-5">
-                <p className="text-xs font-medium mb-5 uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Settings</p>
-                <div className="space-y-5">
+              <Card className="p-4">
+                <p className="text-xs font-medium mb-4 uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Settings</p>
+                <div className="space-y-4">
                   {[
                     { label: `Owner % (now: ${ownerPctDisplay}%)`, placeholder: 'e.g. 500 = 5%', value: newOwnerPct, onChange: setNewOwnerPct, type: 'number',
                       onSubmit: () => handleAdminTx('setOwnerPercentage', [Number(newOwnerPct)], 'Set Owner %', () => treasury.setOwnerPercentage(walletAddress, Number(newOwnerPct))),
@@ -1562,10 +1569,10 @@ export default function TreasuryPage() {
               </Card>
 
               {/* Emergency Withdraw */}
-              <Card className="p-5 overflow-hidden relative" style={{ borderColor: 'rgba(239, 68, 68, 0.15)' }}>
+              <Card className="p-4 overflow-hidden relative" style={{ borderColor: 'rgba(239, 68, 68, 0.15)' }}>
                 <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 via-transparent to-rose-500/5" />
                 <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-3">
                     <ExclamationTriangleIcon className="w-4 h-4 text-red-400/60" />
                     <p className="text-xs font-medium text-red-400/60 uppercase tracking-wider">Emergency Withdraw</p>
                   </div>
@@ -1609,10 +1616,10 @@ export default function TreasuryPage() {
               </Card>
 
               {/* Transfer Ownership */}
-              <Card className="p-5 overflow-hidden relative" style={{ borderColor: 'rgba(239, 68, 68, 0.15)' }}>
+              <Card className="p-4 overflow-hidden relative" style={{ borderColor: 'rgba(239, 68, 68, 0.15)' }}>
                 <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 via-transparent to-rose-500/5" />
                 <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <ExclamationTriangleIcon className="w-4 h-4 text-red-400/60" />
                       <p className="text-xs font-medium text-red-400/60 uppercase tracking-wider">Transfer Ownership</p>

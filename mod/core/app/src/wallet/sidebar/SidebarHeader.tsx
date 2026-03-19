@@ -5,7 +5,6 @@ import { ethers } from 'ethers'
 import { ArrowPathIcon, ArrowRightStartOnRectangleIcon, XMarkIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-toastify'
-import { NetworkSelector } from '@/network/NetworkSelector'
 import DebitABI from '@/contracts/market/debit/Debit.sol/Debit.json'
 import modConfig from '@/config.json'
 import { Auth } from '@/client/auth'
@@ -98,6 +97,8 @@ export function SidebarHeader({
 
   const [showKeyTypeDropdown, setShowKeyTypeDropdown] = useState(false)
   const keyTypeDropdownRef = useRef<HTMLDivElement>(null)
+  const [showWalletDropdown, setShowWalletDropdown] = useState(false)
+  const walletDropdownRef = useRef<HTMLDivElement>(null)
   const [showTokenCustomization, setShowTokenCustomization] = useState(false)
   const [tokenTab, setTokenTab] = useState<'token' | 'verify'>('token')
   const [showDecoded, setShowDecoded] = useState(false)
@@ -132,6 +133,9 @@ export function SidebarHeader({
     const handleClickOutside = (e: MouseEvent) => {
       if (keyTypeDropdownRef.current && !keyTypeDropdownRef.current.contains(e.target as Node)) {
         setShowKeyTypeDropdown(false)
+      }
+      if (walletDropdownRef.current && !walletDropdownRef.current.contains(e.target as Node)) {
+        setShowWalletDropdown(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -232,11 +236,10 @@ export function SidebarHeader({
           <div
             className="flex items-center gap-0"
             style={{
-              height: '42px',
+              height: '52px',
               fontFamily: 'var(--font-digital), monospace',
               backgroundColor: 'var(--bg-input)',
-              border: `1px solid ${isTokenExpired ? 'rgba(234, 179, 8, 0.25)' : 'var(--border-color)'}`,
-              borderRadius: '12px',
+              border: `2px solid ${isTokenExpired ? 'rgba(234, 179, 8, 0.4)' : 'var(--border-strong)'}`,
               overflow: 'visible',
               position: 'relative',
             }}
@@ -245,7 +248,7 @@ export function SidebarHeader({
             <div className="relative flex-shrink-0" ref={keyTypeDropdownRef}>
               <button
                 onClick={() => setShowKeyTypeDropdown(!showKeyTypeDropdown)}
-                className="flex items-center gap-1.5 h-[42px] px-3 transition-all hover:opacity-80 active:scale-[0.98]"
+                className="flex items-center gap-1.5 h-[52px] px-3 transition-all hover:opacity-80 active:scale-[0.98]"
                 style={{ color: keyColor }}
                 title="Select key type"
               >
@@ -254,7 +257,7 @@ export function SidebarHeader({
                   backgroundColor: keyColor,
                   boxShadow: `0 0 8px ${keyColor}60`,
                 }} />
-                <span className="text-[11px] font-bold tracking-wider">{keyLabel}</span>
+                <span className="text-sm font-bold tracking-wider">{keyLabel}</span>
                 <svg className={`w-2.5 h-2.5 opacity-40 transition-transform ${showKeyTypeDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -316,65 +319,137 @@ export function SidebarHeader({
             </div>
 
             {/* Separator */}
-            <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)' }} />
+            <div className="w-px h-6 flex-shrink-0" style={{ backgroundColor: 'var(--border-strong)' }} />
 
-            {/* Address */}
-            <button
-              onClick={copyAddress}
-              className="flex items-center gap-1.5 px-2.5 h-full transition-all hover:opacity-70 flex-shrink-0"
-              title="Copy address"
-            >
-              <span
-                className="text-sm font-bold tracking-wider"
-                style={{ color: copiedAddress ? '#4ade80' : 'var(--text-primary)', fontFamily: 'var(--font-digital), monospace' }}
-              >
-                {copiedAddress ? 'COPIED' : shortAddress}
-              </span>
-              <svg className="w-3 h-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                {copiedAddress ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            {/* Address + wallet switcher */}
+            <div className="relative flex-shrink-0" ref={walletDropdownRef}>
+              <div className="flex items-center h-full">
+                <button
+                  onClick={copyAddress}
+                  className="flex items-center gap-2 px-3 h-[52px] transition-all hover:opacity-70"
+                  title="Copy address"
+                >
+                  <span
+                    className="tabular-nums font-bold uppercase"
+                    style={{ fontSize: '20px', color: copiedAddress ? '#4ade80' : 'var(--text-tertiary)', fontFamily: 'var(--font-digital), monospace' }}
+                  >
+                    {copiedAddress ? 'COPIED' : shortAddress}
+                  </span>
+                  <svg className="w-4 h-4" style={{ color: copiedAddress ? '#4ade80' : 'var(--text-tertiary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    {copiedAddress ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    )}
+                  </svg>
+                </button>
+                {walletHistory.filter(w => w.address.toLowerCase() !== address.toLowerCase()).length > 0 && (
+                  <button
+                    onClick={() => setShowWalletDropdown(!showWalletDropdown)}
+                    className="flex items-center justify-center w-[28px] h-[52px] transition-all hover:opacity-70"
+                    style={{ color: 'var(--text-tertiary)' }}
+                    title="Switch wallet"
+                  >
+                    <svg className={`w-3 h-3 transition-transform ${showWalletDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
                 )}
-              </svg>
-            </button>
+              </div>
+
+              <AnimatePresence>
+                {showWalletDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute left-0 top-full mt-1.5 z-[200] overflow-hidden"
+                    style={{
+                      minWidth: '220px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                    }}
+                  >
+                    <div className="py-1">
+                      {walletHistory
+                        .filter(w => w.address.toLowerCase() !== address.toLowerCase())
+                        .map((wallet) => {
+                          const wColor = getKeyTypeColor(wallet.type)
+                          const wLabel = KEY_TYPE_CYCLE.find(k => k.type === wallet.type)?.label || wallet.type.toUpperCase()
+                          const wShort = `${wallet.address.slice(0, 5)}...${wallet.address.slice(-4)}`
+                          return (
+                            <div key={wallet.address} className="flex items-center gap-2 w-full group">
+                              <button
+                                onClick={() => { onSwitchWallet(wallet); setShowWalletDropdown(false) }}
+                                className="flex items-center gap-2 flex-1 px-3 py-2 transition-all text-left hover:bg-[var(--hover-bg)]"
+                                style={{ fontFamily: 'var(--font-digital), monospace' }}
+                              >
+                                <span style={{
+                                  width: '6px', height: '6px', borderRadius: '50%',
+                                  backgroundColor: wColor, flexShrink: 0,
+                                }} />
+                                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: wColor }}>
+                                  {wLabel}
+                                </span>
+                                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                  {wShort}
+                                </span>
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onRemoveFromHistory(wallet.address) }}
+                                className="px-2 py-1 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+                                style={{ color: 'var(--text-tertiary)' }}
+                                title="Remove"
+                              >
+                                <XMarkIcon className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Spacer */}
             <div className="flex-1 min-w-0" />
 
             {/* Right actions */}
-            <div className="flex items-center gap-0.5 pr-1 flex-shrink-0">
+            <div className="flex items-center gap-0 flex-shrink-0">
               {/* Token refresh + timer */}
               <button
                 onClick={handleRefreshToken}
                 disabled={isRefreshing}
-                className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold tracking-wide transition-all hover:opacity-70 active:scale-95 disabled:opacity-40"
+                className="flex items-center gap-1.5 px-3 h-[52px] font-bold tracking-wide transition-all hover:bg-[var(--hover-bg)] disabled:opacity-40"
                 style={{
-                  color: isTokenExpired ? '#eab308' : '#4ade80',
-                  borderRadius: '6px',
+                  fontSize: '18px',
+                  color: isTokenExpired ? '#eab308' : 'var(--text-tertiary)',
                   fontFamily: 'var(--font-digital), monospace',
+                  borderLeft: '2px solid var(--border-strong)',
                 }}
                 title="Refresh token"
               >
-                <ArrowPathIcon className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span className="tabular-nums">{tokenExpiry || getTokenExpiry()}</span>
               </button>
-
-              {/* Separator */}
-              <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)' }} />
 
               {/* Token copy */}
               <button
                 onClick={copyToken}
-                className="flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold tracking-wider transition-all hover:opacity-70"
+                className="flex items-center gap-1.5 px-3 h-[52px] font-bold tracking-wider transition-all hover:bg-[var(--hover-bg)]"
                 style={{
+                  fontSize: '18px',
                   color: copiedToken ? '#4ade80' : 'var(--text-tertiary)',
-                  borderRadius: '6px',
                   fontFamily: 'var(--font-digital), monospace',
+                  borderLeft: '2px solid var(--border-strong)',
                 }}
                 title="Copy token"
               >
-                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   {copiedToken ? (
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   ) : (
@@ -387,14 +462,14 @@ export function SidebarHeader({
               {/* Details toggle */}
               <button
                 onClick={(e) => { e.stopPropagation(); setShowTokenCustomization(!showTokenCustomization) }}
-                className="flex items-center justify-center w-6 h-6 transition-all hover:opacity-70"
+                className="flex items-center justify-center w-[42px] h-[52px] transition-all hover:bg-[var(--hover-bg)]"
                 style={{
                   color: showTokenCustomization ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                  borderRadius: '5px',
+                  borderLeft: '2px solid var(--border-strong)',
                 }}
                 title="Details"
               >
-                <svg className={`w-3 h-3 transition-transform ${showTokenCustomization ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className={`w-4 h-4 transition-transform ${showTokenCustomization ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
@@ -402,33 +477,37 @@ export function SidebarHeader({
               {/* Sign out */}
               <button
                 onClick={handleSignOut}
-                className="flex items-center justify-center w-6 h-6 transition-all hover:opacity-70"
-                style={{ color: 'var(--text-tertiary)', borderRadius: '5px' }}
+                className="flex items-center justify-center w-[42px] h-[52px] transition-all hover:bg-[var(--hover-bg)]"
+                style={{
+                  color: 'var(--text-tertiary)',
+                  borderLeft: '2px solid var(--border-strong)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#ef4444' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
                 title="Sign out"
               >
-                <ArrowRightStartOnRectangleIcon className="w-3.5 h-3.5" />
+                <ArrowRightStartOnRectangleIcon className="w-4 h-4" />
               </button>
 
               {/* Close */}
               <button
                 onClick={onClose}
-                className="flex items-center justify-center w-6 h-6 transition-all hover:opacity-70"
-                style={{ color: 'var(--text-tertiary)', borderRadius: '5px' }}
+                className="flex items-center justify-center w-[42px] h-[52px] transition-all hover:bg-[var(--hover-bg)]"
+                style={{
+                  color: 'var(--text-tertiary)',
+                  borderLeft: '2px solid var(--border-strong)',
+                }}
                 title="Close"
               >
-                <XMarkIcon className="w-3.5 h-3.5" />
+                <XMarkIcon className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Second row: Network + daily limit — compressed into one line */}
-          <div className="flex items-center gap-2 mt-1.5 px-1">
-            <NetworkSelector inline />
-
-            <div className="flex-1" />
-
-            {/* Daily limit inline */}
-            {dailyLimit !== null && !isEditing && (
+          {/* Daily limit row */}
+          {dailyLimit !== null && !isEditing && (
+            <div className="flex items-center gap-2 mt-1.5 px-1">
+              <div className="flex-1" />
               <button
                 onClick={() => { setIsEditing(true); setNewLimit(dailyLimit.toFixed(2)) }}
                 className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold tracking-wide transition-all hover:opacity-70"
@@ -444,8 +523,8 @@ export function SidebarHeader({
                   ${dailyRemaining !== null ? dailyRemaining.toFixed(0) : '—'}<span style={{ opacity: 0.35 }}>/{dailyLimit.toFixed(0)}</span>
                 </span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Token details panel */}
           <AnimatePresence>
@@ -662,7 +741,7 @@ export function SidebarHeader({
           </div>
         )}
 
-        <div className="mx-3" style={{ borderBottom: '1px solid var(--border-color)' }} />
+        <div className="mx-3" style={{ borderBottom: '2px solid var(--border-strong)' }} />
       </div>
     </>
   )

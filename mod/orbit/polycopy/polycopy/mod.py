@@ -1,455 +1,325 @@
-"""Polymarket copy trading SDK - Main anchor module"""
-
-import mod as m
-import asyncio
+import json
+import os
+import sys
 import time
-from typing import List, Union, Dict
-from .monitor import AccountMonitor
-from .executor import TradeExecutor
-from .copier import CopyTradingMonitor
-from .config import DEFAULT_CONFIG, ConfigSchema
-from .traders import TraderSearch, top_apr_traders, search_traders, trader_stats, interactive_trader_selection
-from .api import PolymarketAPI
-
 
 class Mod:
-    description = "Polymarket copy trading SDK - Monitor and mirror trades from target addresses"
+    description = """
+    Multi-chain copy trading engine.
+    Monitors profitable wallets across Base, Polygon, Arbitrum, Ethereum.
+    Executes copy trades through on-chain CopyTradeProxy contracts.
+    Rust-powered core with PyO3 bindings for speed.
+    """
 
-    def __init__(self, config: dict = None):
-        """Initialize with optional config override"""
-        stored_config = m.get('polycopy/config', default={})
-        self.config = ConfigSchema.validate({**DEFAULT_CONFIG, **stored_config, **(config or {})})
+    DEFAULT_CONFIG = {
+        'chains': [
+            {
+                'chain_id': 8453, 'name': 'base', 'enabled': True,
+                'rpc_urls': [
+                    'https://mainnet.base.org',
+                    'https://base.llamarpc.com',
+                    'https://base-rpc.publicnode.com',
+                    'https://base.drpc.org',
+                    'https://rpc.ankr.com/base',
+                ],
+                'routers': [
+                    {'address': '0x2626664c2603336E57B271c5C0b26F421741e481', 'name': 'Uniswap V3', 'dex_type': 'UniswapV3'},
+                    {'address': '0x6BDED42c6DA8FBf0d2bA55B2fa120C5e0c8D7891', 'name': 'SushiSwap', 'dex_type': 'UniswapV2'},
+                ],
+                'proxy_address': None,
+            },
+            {
+                'chain_id': 137, 'name': 'polygon', 'enabled': True,
+                'rpc_urls': [
+                    'https://polygon-rpc.com',
+                    'https://polygon.llamarpc.com',
+                    'https://polygon-bor-rpc.publicnode.com',
+                    'https://polygon.drpc.org',
+                    'https://rpc.ankr.com/polygon',
+                ],
+                'routers': [
+                    {'address': '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45', 'name': 'Uniswap V3', 'dex_type': 'UniswapV3'},
+                    {'address': '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506', 'name': 'SushiSwap', 'dex_type': 'UniswapV2'},
+                    {'address': '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff', 'name': 'QuickSwap', 'dex_type': 'UniswapV2'},
+                ],
+                'proxy_address': None,
+            },
+            {
+                'chain_id': 42161, 'name': 'arbitrum', 'enabled': True,
+                'rpc_urls': [
+                    'https://arb1.arbitrum.io/rpc',
+                    'https://arbitrum.llamarpc.com',
+                    'https://arbitrum-one-rpc.publicnode.com',
+                    'https://arbitrum.drpc.org',
+                    'https://rpc.ankr.com/arbitrum',
+                ],
+                'routers': [
+                    {'address': '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45', 'name': 'Uniswap V3', 'dex_type': 'UniswapV3'},
+                    {'address': '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506', 'name': 'SushiSwap', 'dex_type': 'UniswapV2'},
+                    {'address': '0xc873fEcbd354f5A56E00E710B90EF4201db2448d', 'name': 'Camelot', 'dex_type': 'UniswapV2'},
+                ],
+                'proxy_address': None,
+            },
+            {
+                'chain_id': 1, 'name': 'ethereum', 'enabled': False,
+                'rpc_urls': [
+                    'https://eth.llamarpc.com',
+                    'https://ethereum-rpc.publicnode.com',
+                    'https://eth.drpc.org',
+                    'https://rpc.ankr.com/eth',
+                    'https://rpc.flashbots.net',
+                ],
+                'routers': [
+                    {'address': '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45', 'name': 'Uniswap V3', 'dex_type': 'UniswapV3'},
+                    {'address': '0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F', 'name': 'SushiSwap', 'dex_type': 'UniswapV2'},
+                ],
+                'proxy_address': None,
+            },
+        ],
+        'wallets': [],
+        'max_trade_usd': 100,
+        'slippage_bps': 50,
+        'position_pct': 10.0,
+        'daily_limit_usd': 1000,
+        'auto_discover': False,
+        'min_score': 70.0,
+        'private_key': None,
+        'poll_interval_ms': 4000,
+    }
 
-        # Use self-contained API client for data fetching
-        self._client = PolymarketAPI()
-        self.monitors = {}  # address -> CopyTradingMonitor
-        self.futures = {}   # address -> future
-        self._trader_search = None
+    def __init__(self, config_path=None, **kwargs):
+        self.dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.config_path = config_path or os.path.join(self.dir, 'config.json')
+        self.config = self._load_config()
+        self.config.update({k: v for k, v in kwargs.items() if v is not None})
+        self.engine = None
 
-    @property
-    def client(self):
-        """Get Polymarket API client"""
-        return self._client
+    def _load_config(self):
+        if os.path.exists(self.config_path):
+            with open(self.config_path, 'r') as f:
+                saved = json.load(f)
+            # Merge with defaults
+            cfg = dict(self.DEFAULT_CONFIG)
+            cfg.update(saved)
+            return cfg
+        return dict(self.DEFAULT_CONFIG)
 
-    @property
-    def trader_search(self):
-        """Lazy-load trader search when first accessed"""
-        if self._trader_search is None:
-            self._trader_search = TraderSearch()
-        return self._trader_search
+    def _save_config(self):
+        # Don't persist private_key to disk
+        save = {k: v for k, v in self.config.items() if k != 'private_key'}
+        with open(self.config_path, 'w') as f:
+            json.dump(save, f, indent=2)
 
-    def forward(self,
-                addresses: Union[str, List[str]] = None,
-                mode: str = 'copy',
-                **kwargs) -> dict:
-        """
-        Main entry point
-
-        Args:
-            addresses: Single address or list to monitor
-            mode: 'monitor' (watch only), 'copy' (execute), 'server' (continuous)
-            **kwargs: Config overrides (dry_run, multiplier, etc.)
-
-        Returns:
-            Status dict with positions, trades, stats
-        """
-        # Override config with kwargs
-        if kwargs:
-            config_updates = {k: v for k, v in kwargs.items() if k in DEFAULT_CONFIG}
-            self.config.update(config_updates)
-
-        # Parse addresses
-        if addresses is None:
-            addresses = self.config.get('addresses', [])
-        if isinstance(addresses, str):
-            addresses = [addresses]
-
-        if not addresses:
-            return {'error': 'No addresses specified'}
-
-        if mode == 'server':
-            return self.monitor_continuous(addresses)
-        elif mode == 'copy':
-            return self.copy_trades(addresses)
-        elif mode == 'monitor':
-            return self.get_status(addresses)
-        else:
-            return {'error': f'Unknown mode: {mode}'}
-
-    def copy_trades(self, addresses: List[str]) -> dict:
-        """Start copy trading for N addresses"""
-        if len(addresses) == 1:
-            # Single address - simple async execution
-            return self._run_single(addresses[0])
-        else:
-            # Multiple addresses - parallel via thread pool
-            return self._run_parallel(addresses)
-
-    def _run_single(self, address: str) -> dict:
-        """Run single address monitor"""
-        copier = CopyTradingMonitor(self.client, address, self.config)
-        self.monitors[address] = copier
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(copier.start())
-        except KeyboardInterrupt:
-            copier.stop()
-            return copier.get_stats()
-        finally:
-            loop.close()
-
-        return copier.get_stats()
-
-    def _run_parallel(self, addresses: List[str]) -> dict:
-        """Run N addresses in parallel using thread pool"""
-        print(f"\nStarting parallel copy trading for {len(addresses)} addresses...")
-
-        executor = m.executor(mode='thread', max_workers=len(addresses))
-
-        for address in addresses:
-            print(f"  Spawning monitor for {address}")
-            future = executor.submit(
-                fn=self._run_single,
-                params={'address': address}
-            )
-            self.futures[address] = future
-
-        return {
-            'status': 'monitoring',
-            'addresses': addresses,
-            'count': len(addresses),
-            'mode': 'parallel'
-        }
-
-    def monitor_continuous(self, addresses: List[str]):
-        """Server mode - runs indefinitely via m.serve()"""
-        print(f"\n{'='*60}")
-        print(f"Starting continuous copy trading server")
-        print(f"Monitoring {len(addresses)} addresses")
-        print(f"{'='*60}\n")
-
-        self._run_parallel(addresses)
-
-        # Keep alive with periodic health checks
-        try:
-            while True:
-                time.sleep(60)
-                stats = self.stats()
-                m.put('polycopy/health', {
-                    **stats,
-                    'timestamp': time.time()
-                })
-                print(f"[Health Check] {stats}")
-        except KeyboardInterrupt:
-            self.stop()
-
-    def positions(self, address: str = None) -> dict:
-        """Get current positions"""
-        if address:
-            return m.get(f'polycopy/positions/{address}', default={})
-        else:
-            # All addresses
-            return {addr: m.get(f'polycopy/positions/{addr}', default={})
-                    for addr in self.config['addresses']}
-
-    def stats(self) -> dict:
-        """Get copy trading statistics"""
-        # Aggregate stats from all monitors
-        total_stats = {
-            'total_trades': 0,
-            'total_volume': 0,
-            'success_count': 0,
-            'fail_count': 0,
-            'active_positions': 0
-        }
-
-        for address, copier in self.monitors.items():
-            if hasattr(copier, 'get_stats'):
-                stats = copier.get_stats()
-                total_stats['total_trades'] += stats.get('total_trades', 0)
-                total_stats['total_volume'] += stats.get('total_volume', 0)
-                total_stats['success_count'] += stats.get('success_count', 0)
-                total_stats['fail_count'] += stats.get('fail_count', 0)
-                total_stats['active_positions'] += stats.get('active_positions', 0)
-
-        if total_stats['total_trades'] > 0:
-            total_stats['success_rate'] = (total_stats['success_count'] / total_stats['total_trades'] * 100)
-        else:
-            total_stats['success_rate'] = 0
-
-        # Also include stored stats
-        stored = m.get('polycopy/stats', default={})
-        if stored:
-            for key in ['total_trades', 'total_volume', 'success_count', 'fail_count']:
-                total_stats[key] += stored.get(key, 0)
-
-        return total_stats
-
-    def get_status(self, addresses: List[str]) -> dict:
-        """Get status for addresses without starting copy trading"""
-        status = {}
-        for address in addresses:
+    def _ensure_engine(self):
+        if self.engine is None:
             try:
-                positions_data = self.client.get_user_positions(address)
-                trades_data = self.client.get_user_trades(address, limit=10)
-                status[address] = {
-                    'positions': positions_data.get('positions', []),
-                    'position_count': len(positions_data.get('positions', [])),
-                    'recent_trades': trades_data.get('trades', []),
-                    'total_value': positions_data.get('totalValue', '0')
-                }
-            except Exception as e:
-                status[address] = {'error': str(e)}
-        return status
+                import polycopy_rs
+                self.engine = polycopy_rs.PolycopyEngine(json.dumps(self.config))
+            except ImportError:
+                raise RuntimeError(
+                    "polycopy_rs not built. Run:\n"
+                    f"  cd {os.path.join(self.dir, 'polycopy-rs')}\n"
+                    "  maturin develop --release"
+                )
 
-    def config_update(self, **updates) -> dict:
-        """Update configuration"""
-        self.config.update(updates)
-        validated = ConfigSchema.validate(self.config)
-        m.put('polycopy/config', validated)
-        return validated
+    # === CLI dispatch ===
 
-    def stop(self) -> dict:
-        """Stop all monitoring"""
-        print("\nStopping all monitors...")
-        for address, copier in self.monitors.items():
-            if hasattr(copier, 'stop'):
-                copier.stop()
+    def forward(self, cmd='status', **kwargs):
+        commands = {
+            'start': self.start,
+            'stop': self.stop,
+            'status': self.status,
+            'watch': self.watch,
+            'unwatch': self.unwatch,
+            'scores': self.scores,
+            'trades': self.trades,
+            'pause': self.pause,
+            'unpause': self.unpause,
+            'config': self.show_config,
+            'set': self.set_config,
+            'rpc': self.rpc_stats,
+            'wallets': self.list_wallets,
+            'build': self.build,
+        }
+        fn = commands.get(cmd, self.status)
+        return fn(**kwargs)
 
-        # Save final stats
-        final_stats = self.stats()
-        m.put('polycopy/stats', final_stats)
+    # === Core operations ===
 
-        return {'status': 'stopped', 'final_stats': final_stats}
+    def start(self, **kwargs):
+        """Start the copy trading engine."""
+        self._ensure_engine()
+        self.engine.start()
+        self._save_config()
+        return {
+            'status': 'running',
+            'chains': [c['name'] for c in self.config['chains'] if c['enabled']],
+            'wallets': len(self.config['wallets']),
+            'mode': 'auto-execute' if self.config.get('private_key') else 'monitor-only',
+        }
 
-    def test_api(self, address: str = None) -> dict:
-        """
-        Test API connectivity for a trader address
+    def stop(self, **kwargs):
+        """Stop the engine."""
+        if self.engine:
+            self.engine.stop()
+        return {'status': 'stopped'}
 
-        Args:
-            address: Trader address to test (uses first from config if not provided)
+    def status(self, **kwargs):
+        """Get engine status."""
+        running = False
+        if self.engine:
+            try:
+                running = self.engine.is_running()
+            except:
+                pass
+        return {
+            'running': running,
+            'chains': [
+                {'name': c['name'], 'chain_id': c['chain_id'], 'enabled': c['enabled'],
+                 'proxy': c.get('proxy_address')}
+                for c in self.config['chains']
+            ],
+            'wallets': len(self.config['wallets']),
+            'max_trade_usd': self.config['max_trade_usd'],
+            'slippage_bps': self.config['slippage_bps'],
+            'position_pct': self.config['position_pct'],
+            'daily_limit_usd': self.config['daily_limit_usd'],
+            'mode': 'auto-execute' if self.config.get('private_key') else 'monitor-only',
+        }
 
-        Returns:
-            Dict with API endpoint test results
-
-        Example:
-            # Test with specific address
-            results = m.test_api('0x916f7165c2c836aba22edb6453cdbb5f3ea253ba')
-
-            # Test with first configured address
-            results = m.test_api()
-        """
+    def watch(self, address=None, label=None, **kwargs):
+        """Add a wallet to watch list."""
         if not address:
-            addresses = self.config.get('addresses', [])
-            if not addresses:
-                return {'error': 'No address specified and none in config'}
-            address = addresses[0]
+            return {'error': 'address required'}
+        if address not in self.config['wallets']:
+            self.config['wallets'].append(address)
+            self._save_config()
+        if self.engine:
+            self.engine.add_wallet(address, label)
+        return {'watched': address, 'total': len(self.config['wallets'])}
 
-        return self.client.test_endpoints(address)
+    def unwatch(self, address=None, **kwargs):
+        """Remove a wallet from watch list."""
+        if not address:
+            return {'error': 'address required'}
+        if address in self.config['wallets']:
+            self.config['wallets'].remove(address)
+            self._save_config()
+        if self.engine:
+            self.engine.remove_wallet(address)
+        return {'unwatched': address, 'total': len(self.config['wallets'])}
 
-    # Trader search and discovery methods
-    def find_traders(self,
-                    window: str = '30d',
-                    limit: int = 20,
-                    min_volume: float = 10000,
-                    min_pnl: float = None,
-                    min_trades: int = 0,
-                    min_apr: float = None,
-                    sort_by: str = 'apr',
-                    display: bool = True) -> List[Dict]:
-        """
-        Search for top traders by APR and other metrics
+    def list_wallets(self, **kwargs):
+        """List watched wallets."""
+        if self.engine:
+            return json.loads(self.engine.get_wallets())
+        return self.config['wallets']
 
-        Args:
-            window: Time window ('1d', '7d', '30d', 'all')
-            limit: Max traders to return
-            min_volume: Minimum trading volume filter
-            min_pnl: Minimum profit/loss filter
-            min_trades: Minimum number of trades
-            min_apr: Minimum APR percentage filter
-            sort_by: Sort by 'pnl', 'vol', 'roi', or 'apr'
-            display: Print formatted leaderboard
+    def scores(self, **kwargs):
+        """Get trader scores."""
+        self._ensure_engine()
+        return json.loads(self.engine.get_scores())
 
-        Returns:
-            List of trader dicts with enhanced metrics
+    def trades(self, limit=20, **kwargs):
+        """Get recent trades."""
+        self._ensure_engine()
+        return json.loads(self.engine.get_trades(int(limit)))
 
-        Example:
-            # Find traders with >100% APR
-            traders = m.find_traders(min_apr=100, min_volume=50000, min_trades=10)
+    def pause(self, chain_id=None, chain=None, **kwargs):
+        """Pause trading on a chain."""
+        cid = chain_id or self._chain_name_to_id(chain)
+        if not cid:
+            return {'error': 'chain_id or chain name required'}
+        self._ensure_engine()
+        tx = self.engine.pause(int(cid))
+        return {'paused': cid, 'tx': tx}
 
-            # Top volume traders
-            traders = m.find_traders(sort_by='vol', limit=10)
-        """
-        traders = self.trader_search.leaderboard(
-            window=window,
-            limit=limit,
-            min_volume=min_volume,
-            min_pnl=min_pnl,
-            min_trades=min_trades,
-            sort_by=sort_by
-        )
+    def unpause(self, chain_id=None, chain=None, **kwargs):
+        """Unpause trading on a chain."""
+        cid = chain_id or self._chain_name_to_id(chain)
+        if not cid:
+            return {'error': 'chain_id or chain name required'}
+        self._ensure_engine()
+        tx = self.engine.unpause(int(cid))
+        return {'unpaused': cid, 'tx': tx}
 
-        # Apply APR filter if specified
-        if min_apr is not None:
-            traders = [t for t in traders if t.get('apr', 0) >= min_apr]
+    def rpc_stats(self, **kwargs):
+        """Get RPC provider pool stats."""
+        self._ensure_engine()
+        return json.loads(self.engine.get_rpc_stats())
 
-        if display and traders:
-            self.trader_search.display_leaderboard(traders, top_n=limit)
+    # === Configuration ===
 
-        return traders
+    def show_config(self, **kwargs):
+        """Show current config (without private key)."""
+        return {k: v for k, v in self.config.items() if k != 'private_key'}
 
-    def top_apr(self,
-                window: str = '30d',
-                limit: int = 20,
-                min_volume: float = 10000,
-                display: bool = True) -> List[Dict]:
-        """
-        Quick access to top APR traders
+    def set_config(self, key=None, value=None, **kwargs):
+        """Set a config value."""
+        if not key:
+            return {'error': 'key required', 'keys': list(self.DEFAULT_CONFIG.keys())}
 
-        Args:
-            window: Time window for analysis
-            limit: Number of traders to return
-            min_volume: Minimum volume to filter noise
-            display: Print formatted leaderboard
+        if key in ('max_trade_usd', 'daily_limit_usd', 'position_pct', 'min_score'):
+            value = float(value)
+        elif key in ('slippage_bps', 'poll_interval_ms'):
+            value = int(value)
+        elif key in ('auto_discover',):
+            value = str(value).lower() in ('true', '1', 'yes')
 
-        Returns:
-            List of top APR traders
+        self.config[key] = value
+        self._save_config()
+        return {'set': key, 'value': value}
 
-        Example:
-            # Get top 10 APR traders in last 7 days
-            top = m.top_apr(window='7d', limit=10)
-        """
-        return self.find_traders(
-            window=window,
-            limit=limit,
-            min_volume=min_volume,
-            sort_by='apr',
-            display=display
-        )
+    def set_proxy(self, chain_id=None, chain=None, address=None, **kwargs):
+        """Set proxy contract address for a chain."""
+        cid = chain_id or self._chain_name_to_id(chain)
+        if not cid or not address:
+            return {'error': 'chain_id/chain and address required'}
+        for c in self.config['chains']:
+            if c['chain_id'] == int(cid):
+                c['proxy_address'] = address
+                break
+        self._save_config()
+        if self.engine:
+            self.engine.set_proxy_address(int(cid), address)
+        return {'chain': cid, 'proxy': address}
 
-    def trader_profile(self, address: str, window: str = '30d') -> Dict:
-        """
-        Get comprehensive trader profile
+    def set_key(self, private_key=None, **kwargs):
+        """Set the private key for trade execution (not persisted to disk)."""
+        if not private_key:
+            return {'error': 'private_key required'}
+        self.config['private_key'] = private_key
+        return {'key_set': True, 'note': 'restart engine for changes to take effect'}
 
-        Args:
-            address: Trader wallet address
-            window: Time window for stats
+    # === Build ===
 
-        Returns:
-            Full trader profile with positions, trades, metrics
+    def build(self, **kwargs):
+        """Build the Rust bindings."""
+        rs_dir = os.path.join(self.dir, 'polycopy-rs')
+        if not os.path.exists(rs_dir):
+            return {'error': f'Rust crate not found at {rs_dir}'}
+        ret = os.system(f'cd {rs_dir} && maturin develop --release')
+        if ret == 0:
+            return {'status': 'built', 'path': rs_dir}
+        return {'status': 'build_failed', 'exit_code': ret}
 
-        Example:
-            profile = m.trader_profile('0xc257ea7e3a81ca8e16df8935d44d513959fa358e')
-        """
-        return self.trader_search.trader_profile(address, window)
+    # === Helpers ===
 
-    def compare_traders(self, addresses: List[str], window: str = '30d') -> Dict:
-        """
-        Compare multiple traders side-by-side
+    def _chain_name_to_id(self, name):
+        if not name:
+            return None
+        name = name.lower()
+        for c in self.config['chains']:
+            if c['name'] == name:
+                return c['chain_id']
+        return None
 
-        Args:
-            addresses: List of trader addresses
-            window: Time window for comparison
-
-        Returns:
-            Comparison data sorted by APR
-
-        Example:
-            comparison = m.compare_traders([
-                '0xc257ea7e3a81ca8e16df8935d44d513959fa358e',
-                '0xb45a797faa52b0fd8adc56d30382022b7b12192c'
-            ])
-        """
-        return self.trader_search.compare_traders(addresses, window)
-
-    def search_smart_traders(self,
-                            min_apr: float = 100,
-                            min_volume: float = 50000,
-                            min_trades: int = 10,
-                            window: str = '30d',
-                            display: bool = True) -> List[Dict]:
-        """
-        Find high-quality traders with strong metrics
-
-        Args:
-            min_apr: Minimum APR percentage (default 100%)
-            min_volume: Minimum trading volume
-            min_trades: Minimum number of trades
-            window: Time window
-            display: Print results
-
-        Returns:
-            List of traders matching all criteria
-
-        Example:
-            # Find super traders: >200% APR, >100k volume, >20 trades
-            smart = m.search_smart_traders(min_apr=200, min_volume=100000, min_trades=20)
-        """
-        traders = self.trader_search.search_by_criteria(
-            min_apr=min_apr,
-            min_volume=min_volume,
-            min_trades=min_trades,
-            window=window
-        )
-
-        if display and traders:
-            self.trader_search.display_leaderboard(traders, top_n=len(traders))
-
-        return traders
-
-    def browse(self,
-              window: str = '30d',
-              min_volume: float = 10000,
-              min_apr: float = None,
-              limit: int = 20,
-              auto_start: bool = True) -> dict:
-        """
-        Interactive trader browser - search, view, and select traders to copy
-
-        Args:
-            window: Time window for analysis (1d, 7d, 30d, all)
-            min_volume: Minimum trading volume filter
-            min_apr: Minimum APR percentage filter
-            limit: Number of traders to display
-            auto_start: If True, automatically start copy trading after selection
-
-        Returns:
-            Status dict with selected traders and monitoring status
-
-        Example:
-            # Browse and select traders interactively
-            m.browse()
-
-            # Customize filters
-            m.browse(min_apr=100, min_volume=50000, window='7d')
-
-            # Just browse without auto-starting
-            m.browse(auto_start=False)
-        """
-        selected_addresses = interactive_trader_selection(
-            window=window,
-            min_volume=min_volume,
-            min_apr=min_apr,
-            limit=limit
-        )
-
-        if not selected_addresses:
-            return {'status': 'cancelled', 'message': 'No traders selected'}
-
-        # Save selected addresses to config
-        self.config_update(addresses=selected_addresses)
-
-        print(f"\n✅ Saved {len(selected_addresses)} trader(s) to config")
-
-        if auto_start:
-            print(f"\n🚀 Starting copy trading...")
-            return self.copy_trades(selected_addresses)
-        else:
-            return {
-                'status': 'selected',
-                'addresses': selected_addresses,
-                'count': len(selected_addresses),
-                'message': f'Selected {len(selected_addresses)} traders. Run m.copy_trades() to start.'
-            }
+    def __repr__(self):
+        running = False
+        if self.engine:
+            try:
+                running = self.engine.is_running()
+            except:
+                pass
+        chains = [c['name'] for c in self.config['chains'] if c['enabled']]
+        return f"<Polycopy chains={chains} wallets={len(self.config['wallets'])} running={running}>"

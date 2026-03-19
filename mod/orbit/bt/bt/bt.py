@@ -144,7 +144,7 @@ class Bt:
         Returns:
             Wallet information dictionary
         """
-        wallet = bt.wallet(name=name, hotkey=hotkey)
+        wallet = bt.Wallet(name=name, hotkey=hotkey)
         return wallet
 
     
@@ -156,7 +156,7 @@ class Bt:
         Returns:
             Wallet information dictionary
         """
-        wallet = bt.wallet(name=name, hotkey=hotkey)
+        wallet = bt.Wallet(name=name, hotkey=hotkey)
         return dir(wallet)
 
     
@@ -183,7 +183,7 @@ class Bt:
         Returns:
             Success boolean
         """
-        wallet = bt.wallet(wallet_name)
+        wallet = bt.Wallet(wallet_name)
         amount_bal = Balance.from_tao(amount)
         return self.subtensor.transfer(
             wallet=wallet,
@@ -241,5 +241,248 @@ class Bt:
             Metagraph object
         """
         return self.subtensor.metagraph(netuid)
-    
+
     meta = metagraph
+
+
+class BtTrader:
+    """Simple trading interface for Bittensor subnet alpha tokens (dTAO).
+
+    Usage:
+        trader = BtTrader('my_wallet', hotkey='my_hotkey')
+        trader.scan()              # see all subnets with prices
+        trader.price(1)            # get TAO price per alpha for subnet 1
+        trader.buy(1, 10.0)        # stake 10 TAO into subnet 1 (buy alpha)
+        trader.sell(1, 5.0)        # unstake 5 TAO worth from subnet 1 (sell alpha)
+        trader.portfolio()         # see all your positions
+        trader.swap(1, 2, 5.0)    # swap stake from subnet 1 to subnet 2
+    """
+
+    def __init__(self, wallet_name: str = 'default', hotkey: str = 'default', network: str = 'finney'):
+        self.wallet = bt.Wallet(name=wallet_name, hotkey=hotkey)
+        self.subtensor = bt.Subtensor(network=network)
+        self.hotkey_ss58 = self.wallet.hotkey.ss58_address
+        self.coldkey_ss58 = self.wallet.coldkeypub.ss58_address
+        print(f'Trader ready | wallet={wallet_name} hotkey={hotkey} network={network}', color='green')
+        print(f'Coldkey: {self.coldkey_ss58}', color='cyan')
+        print(f'Hotkey:  {self.hotkey_ss58}', color='cyan')
+
+    def _subnet_info(self, netuid: int) -> Dict:
+        """Get raw DynamicInfo for a subnet and convert to dict."""
+        info = self.subtensor.subnet(netuid=netuid)
+        d = info.__dict__
+        for k in d:
+            if isinstance(d[k], Balance):
+                d[k] = float(d[k].tao)
+        return d
+
+    def price(self, netuid: int) -> Dict:
+        """Get current price info for a subnet's alpha token.
+        Returns dict with tao_in, alpha_in, price (TAO per alpha), and market cap.
+        """
+        info = self._subnet_info(netuid)
+        tao_in = info.get('tao_in', 0)
+        alpha_in = info.get('alpha_in', 0)
+        price = tao_in / alpha_in if alpha_in > 0 else 0
+        return {
+            'netuid': netuid,
+            'name': info.get('subnet_name', str(netuid)),
+            'price': price,
+            'tao_in': tao_in,
+            'alpha_in': alpha_in,
+            'alpha_out': info.get('alpha_out', 0),
+            'emission': info.get('emission', 0),
+        }
+
+    def scan(self, sort_by: str = 'price', limit: int = 20) -> List[Dict]:
+        """Scan all subnets and return sorted price info."""
+        netuids = self.subtensor.get_subnets()
+        results = []
+        for netuid in netuids:
+            try:
+                p = self.price(netuid)
+                results.append(p)
+            except Exception as e:
+                continue
+        results.sort(key=lambda x: x.get(sort_by, 0), reverse=True)
+        if limit:
+            results = results[:limit]
+        for r in results:
+            print(f"SN{r['netuid']:>3} | {r['name']:<20} | price: {r['price']:.6f} TAO | pool: {r['tao_in']:.2f} TAO", color='cyan')
+        return results
+
+    def balance(self) -> Dict:
+        """Get TAO balance for coldkey and hotkey."""
+        cold_bal = self.subtensor.get_balance(self.coldkey_ss58)
+        return {
+            'coldkey': float(cold_bal.tao),
+        }
+
+    def portfolio(self) -> List[Dict]:
+        """Get all staked positions across subnets."""
+        netuids = self.subtensor.get_subnets()
+        positions = []
+        for netuid in netuids:
+            try:
+                stake = self.subtensor.get_stake(
+                    coldkey_ss58=self.coldkey_ss58,
+                    hotkey_ss58=self.hotkey_ss58,
+                    netuid=netuid,
+                )
+                amt = float(stake.tao) if hasattr(stake, 'tao') else float(stake)
+                if amt > 0:
+                    p = self.price(netuid)
+                    value = amt * p['price'] if p['price'] > 0 else 0
+                    pos = {
+                        'netuid': netuid,
+                        'name': p['name'],
+                        'stake': amt,
+                        'price': p['price'],
+                        'value_tao': value,
+                    }
+                    positions.append(pos)
+                    print(f"SN{netuid:>3} | {p['name']:<20} | stake: {amt:.4f} | value: {value:.4f} TAO", color='green')
+            except Exception:
+                continue
+        if not positions:
+            print('No open positions.', color='yellow')
+        return positions
+
+    def buy(self, netuid: int, amount_tao: float, wait: bool = True) -> bool:
+        """Buy into a subnet by staking TAO (converts TAO → alpha).
+        Args:
+            netuid: subnet to buy into
+            amount_tao: amount of TAO to stake
+            wait: wait for tx inclusion
+        """
+        p = self.price(netuid)
+        print(f"Buying SN{netuid} ({p['name']}) | {amount_tao} TAO @ {p['price']:.6f} TAO/alpha", color='yellow')
+        amount = Balance.from_tao(amount_tao)
+        result = self.subtensor.add_stake(
+            wallet=self.wallet,
+            hotkey_ss58=self.hotkey_ss58,
+            netuid=netuid,
+            amount=amount,
+            wait_for_inclusion=wait,
+            wait_for_finalization=False,
+        )
+        if result:
+            print(f'Buy successful.', color='green')
+        else:
+            print(f'Buy failed.', color='red')
+        return result
+
+    def sell(self, netuid: int, amount_tao: float, wait: bool = True) -> bool:
+        """Sell out of a subnet by unstaking (converts alpha → TAO).
+        Args:
+            netuid: subnet to sell from
+            amount_tao: amount of TAO worth to unstake
+            wait: wait for tx inclusion
+        """
+        p = self.price(netuid)
+        print(f"Selling SN{netuid} ({p['name']}) | {amount_tao} TAO @ {p['price']:.6f} TAO/alpha", color='yellow')
+        amount = Balance.from_tao(amount_tao)
+        result = self.subtensor.unstake(
+            wallet=self.wallet,
+            hotkey_ss58=self.hotkey_ss58,
+            netuid=netuid,
+            amount=amount,
+            wait_for_inclusion=wait,
+            wait_for_finalization=False,
+        )
+        if result:
+            print(f'Sell successful.', color='green')
+        else:
+            print(f'Sell failed.', color='red')
+        return result
+
+    def sell_all(self, netuid: int, wait: bool = True) -> bool:
+        """Sell entire position in a subnet."""
+        print(f'Selling all of SN{netuid}...', color='yellow')
+        result = self.subtensor.unstake(
+            wallet=self.wallet,
+            hotkey_ss58=self.hotkey_ss58,
+            netuid=netuid,
+            amount=None,
+            wait_for_inclusion=wait,
+            wait_for_finalization=False,
+        )
+        if result:
+            print(f'Sold all of SN{netuid}.', color='green')
+        else:
+            print(f'Sell all failed.', color='red')
+        return result
+
+    def swap(self, from_netuid: int, to_netuid: int, amount_tao: float, wait: bool = True) -> bool:
+        """Swap stake from one subnet to another (same hotkey).
+        Args:
+            from_netuid: source subnet
+            to_netuid: destination subnet
+            amount_tao: amount to swap
+        """
+        print(f'Swapping {amount_tao} TAO from SN{from_netuid} → SN{to_netuid}', color='yellow')
+        amount = Balance.from_tao(amount_tao)
+        result = self.subtensor.swap_stake(
+            wallet=self.wallet,
+            hotkey_ss58=self.hotkey_ss58,
+            origin_netuid=from_netuid,
+            destination_netuid=to_netuid,
+            amount=amount,
+            wait_for_inclusion=wait,
+            wait_for_finalization=False,
+        )
+        if result:
+            print(f'Swap successful.', color='green')
+        else:
+            print(f'Swap failed.', color='red')
+        return result
+
+    def move(self, from_netuid: int, to_netuid: int, to_hotkey: str, amount_tao: float, wait: bool = True) -> bool:
+        """Move stake to a different hotkey and/or subnet.
+        Args:
+            from_netuid: source subnet
+            to_netuid: destination subnet
+            to_hotkey: destination hotkey ss58
+            amount_tao: amount to move
+        """
+        print(f'Moving {amount_tao} TAO from SN{from_netuid} → SN{to_netuid} (hotkey: {to_hotkey[:8]}...)', color='yellow')
+        amount = Balance.from_tao(amount_tao)
+        result = self.subtensor.move_stake(
+            wallet=self.wallet,
+            origin_hotkey=self.hotkey_ss58,
+            origin_netuid=from_netuid,
+            destination_hotkey=to_hotkey,
+            destination_netuid=to_netuid,
+            amount=amount,
+            wait_for_inclusion=wait,
+            wait_for_finalization=False,
+        )
+        if result:
+            print(f'Move successful.', color='green')
+        else:
+            print(f'Move failed.', color='red')
+        return result
+
+    def watch(self, netuids: List[int], interval: int = 30) -> None:
+        """Watch price changes for given subnets in a loop.
+        Args:
+            netuids: list of subnet UIDs to watch
+            interval: seconds between refreshes
+        """
+        import time
+        prev = {}
+        print(f'Watching subnets: {netuids} (Ctrl+C to stop)', color='cyan')
+        try:
+            while True:
+                for netuid in netuids:
+                    p = self.price(netuid)
+                    old = prev.get(netuid, p['price'])
+                    delta = p['price'] - old
+                    arrow = '↑' if delta > 0 else ('↓' if delta < 0 else '→')
+                    color = 'green' if delta > 0 else ('red' if delta < 0 else 'white')
+                    print(f"SN{netuid:>3} | {p['name']:<20} | {p['price']:.6f} TAO {arrow} ({delta:+.6f})", color=color)
+                    prev[netuid] = p['price']
+                print('---', color='white')
+                time.sleep(interval)
+        except KeyboardInterrupt:
+            print('Stopped watching.', color='yellow')
