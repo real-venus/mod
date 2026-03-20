@@ -1,23 +1,38 @@
 const path = require('path');
+const fs = require('fs');
+
+// Load config.json
+let cfg = {};
+try {
+  cfg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'config.json'), 'utf8'));
+} catch (e) {
+  console.warn('config.json not found, using defaults');
+}
+
+const enginePort = process.env.PORT || cfg.engine?.port || 8080;
+const appPort = process.env.APP_PORT || cfg.app?.port || 3000;
+const dataPath = path.resolve(__dirname, cfg.engine?.data_path || 'data');
+const baseRpc = process.env.BASE_RPC_URL || cfg.chains?.base?.rpc_url || 'https://base.gateway.tenderly.co';
+const polygonRpc = process.env.POLYGON_RPC_URL || cfg.chains?.polygon?.rpc_url || 'https://polygon-bor-rpc.publicnode.com';
 
 module.exports = {
   apps: [
     {
-      name: 'uniswap-server',
-      script: 'python3',
-      args: 'server/server.py',
-      cwd: path.resolve(__dirname),
+      name: 'uniswap-engine',
+      script: path.resolve(__dirname, 'engine/target/release/uniswap-engine'),
+      cwd: path.resolve(__dirname, 'engine'),
       interpreter: 'none',
       env: {
-        BASE_RPC_URL: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
-        PRIVATE_KEY: process.env.PRIVATE_KEY || '',
-        PORT: process.env.PORT || '8080',
-        NODE_ENV: 'production',
-        PYTHONUNBUFFERED: '1'
+        BASE_RPC_URL: baseRpc,
+        POLYGON_RPC_URL: polygonRpc,
+        PORT: enginePort,
+        DATA_PATH: dataPath,
+        RUST_LOG: cfg.engine?.log_level || 'uniswap_engine=info',
+        CONFIG_PATH: path.resolve(__dirname, 'config.json'),
       },
-      error_file: path.resolve(__dirname, 'logs/server-error.log'),
-      out_file: path.resolve(__dirname, 'logs/server-out.log'),
-      log_file: path.resolve(__dirname, 'logs/server-combined.log'),
+      error_file: path.resolve(__dirname, 'logs/engine-error.log'),
+      out_file: path.resolve(__dirname, 'logs/engine-out.log'),
+      log_file: path.resolve(__dirname, 'logs/engine-combined.log'),
       merge_logs: true,
       time: true,
       autorestart: true,
@@ -34,14 +49,15 @@ module.exports = {
     },
     {
       name: 'uniswap-app',
-      script: 'npm',
-      args: 'run start',
+      script: './node_modules/.bin/next',
+      args: 'start',
       cwd: path.resolve(__dirname, 'app'),
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',
-        PORT: process.env.APP_PORT || '3000',
-        HOSTNAME: '0.0.0.0'
+        PORT: appPort,
+        HOSTNAME: '0.0.0.0',
+        NEXT_PUBLIC_ENGINE_URL: `http://localhost:${enginePort}`,
       },
       error_file: path.resolve(__dirname, 'logs/app-error.log'),
       out_file: path.resolve(__dirname, 'logs/app-out.log'),
@@ -60,18 +76,5 @@ module.exports = {
       wait_ready: false,
       listen_timeout: 10000
     }
-  ],
-
-  deploy: {
-    production: {
-      user: 'broski',
-      host: 'localhost',
-      ref: 'origin/main',
-      repo: 'git@github.com:yourusername/mod.git',
-      path: '/Users/broski/mod/mod/orbit/uniswap',
-      'pre-deploy-local': '',
-      'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production',
-      'pre-setup': ''
-    }
-  }
+  ]
 };

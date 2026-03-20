@@ -6,7 +6,7 @@ DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(DIR)
 NEAR_CLI = "npx near-cli-rs"
 NETWORK = "testnet"
-WASM_PATH = os.path.join(ROOT, "target", "wasm32-unknown-unknown", "release", "near_token.wasm")
+WASM_PATH = os.path.join(ROOT, "target", "near", "near_token.wasm")
 
 
 def _run(cmd, cwd=ROOT, timeout=120):
@@ -38,8 +38,7 @@ class Mod:
 
     def build(self):
         """Compile the contract to WASM."""
-        _run("rustup target add wasm32-unknown-unknown", timeout=60)
-        _run("cargo build --target wasm32-unknown-unknown --release", timeout=600)
+        _run("cargo near build non-reproducible-wasm", timeout=600)
         assert os.path.exists(WASM_PATH), f"WASM not found: {WASM_PATH}"
         size = os.path.getsize(WASM_PATH)
         return {"wasm": WASM_PATH, "size": size}

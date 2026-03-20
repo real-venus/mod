@@ -3,7 +3,7 @@
 use near_workspaces::{Account, Contract};
 use serde_json::json;
 
-const WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/near_token.wasm");
+const WASM: &[u8] = include_bytes!("../target/near/near_token.wasm");
 
 async fn setup() -> (near_workspaces::Worker<near_workspaces::network::Sandbox>, Contract, Account, Account) {
     let worker = near_workspaces::sandbox().await.unwrap();

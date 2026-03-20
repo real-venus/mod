@@ -273,8 +273,8 @@ export default function WalletInfoTabs() {
                 <BanknotesIcon className="w-3.5 h-3.5" style={{ color: userColor }} />
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="font-mono text-sm font-bold" style={{ color: userColor }}>
-                  {user.balance?.toLocaleString() || 0}
+                <span className="font-mono text-sm font-bold" style={{ color: userColor }} suppressHydrationWarning>
+                  {user.balance?.toLocaleString('en-US') || 0}
                 </span>
                 <button
                   onClick={handleTopUp}

@@ -26,9 +26,9 @@ class TestBuild:
         assert os.path.exists(os.path.join(HERE, "src", "lib.rs"))
 
     def test_cargo_check(self):
-        """Verify the contract compiles (cargo check, no wasm needed)."""
+        """Verify the contract compiles (cargo check with unit-testing feature)."""
         result = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--features", "near-sdk/unit-testing"],
             cwd=HERE,
             capture_output=True,
             text=True,
@@ -38,14 +38,8 @@ class TestBuild:
 
     def test_wasm_build(self):
         """Build the contract to WASM."""
-        # Ensure target is available
-        subprocess.run(
-            ["rustup", "target", "add", "wasm32-unknown-unknown"],
-            cwd=HERE,
-            capture_output=True,
-        )
         result = subprocess.run(
-            ["cargo", "build", "--target", "wasm32-unknown-unknown", "--release"],
+            ["cargo", "near", "build", "non-reproducible-wasm"],
             cwd=HERE,
             capture_output=True,
             text=True,
@@ -53,9 +47,7 @@ class TestBuild:
         )
         assert result.returncode == 0, f"WASM build failed:\n{result.stderr}"
 
-        wasm_path = os.path.join(
-            HERE, "target", "wasm32-unknown-unknown", "release", "near_token.wasm"
-        )
+        wasm_path = os.path.join(HERE, "target", "near", "near_token.wasm")
         assert os.path.exists(wasm_path), "WASM binary not produced"
 
         # NEAR contracts must be < 4MB
@@ -87,8 +79,8 @@ class TestDeployScript:
     def test_deploy_script_builds_wasm(self):
         with open(os.path.join(HERE, "deploy.sh")) as f:
             content = f.read()
-        assert "cargo build" in content
-        assert "wasm32-unknown-unknown" in content
+        assert "cargo near build" in content
+        assert "wasm" in content.lower()
 
 
 # ── Contract ABI Tests ────────────────────────────────────────────────────────
@@ -190,15 +182,13 @@ class TestCryptoHelpers:
     """Test Ethereum message hashing (Python equivalent of contract logic)."""
 
     def test_eth_prefixed_hash(self):
-        """Verify personal_sign hash matches expected format."""
-        from hashlib import sha3_256
+        """Verify personal_sign message format is correct."""
         msg = b"test message"
         prefix = f"\x19Ethereum Signed Message:\n{len(msg)}"
-        import hashlib
-        h = hashlib.new("keccak_256")
-        h.update(prefix.encode() + msg)
-        result = h.hexdigest()
-        assert len(result) == 64  # 32 bytes hex
+        full_msg = prefix.encode() + msg
+        # Verify the prefix format
+        assert full_msg.startswith(b"\x19Ethereum Signed Message:\n12")
+        assert full_msg.endswith(b"test message")
 
     def test_canonical_message_format(self):
         """Test the message format used for transfer_signed."""

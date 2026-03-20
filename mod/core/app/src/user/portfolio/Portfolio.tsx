@@ -179,7 +179,7 @@ export function Portfolio() {
           <div className="text-purple-500/70 font-bold text-sm uppercase">Total Portfolio Value</div>
           <TrendingUp className="w-6 h-6 text-purple-500" />
         </div>
-        <div className="text-purple-500 font-black text-5xl">${totalValue}</div>
+        <div className="text-purple-500 font-black text-5xl" suppressHydrationWarning>${totalValue}</div>
       </div>
 
       <div className="bg-black border-2 border-purple-500/30 rounded-xl overflow-hidden">

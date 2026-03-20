@@ -9,11 +9,12 @@ path = "src/lib.rs"
 
 [dependencies]
 near-sdk = "5.6"
-ed25519-dalek = { version = "2", features = ["alloc"] }
-k256 = { version = "0.13", features = ["ecdsa"] }
-sha3 = "0.10"
-hex = "0.4"
-bs58 = "0.5"
+ed25519-dalek = { version = "2", default-features = false, features = ["alloc", "fast"] }
+k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+sha3 = { version = "0.10", default-features = false }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+bs58 = { version = "0.5", default-features = false, features = ["alloc"] }
+getrandom = { version = "0.2", features = ["custom"] }
 
 [dev-dependencies]
 near-sdk = { version = "5.6", features = ["unit-testing"] }

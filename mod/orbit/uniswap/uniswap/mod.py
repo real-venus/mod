@@ -1,267 +1,246 @@
-from web3 import Web3
-from typing import Dict, List, Any, Optional
-import asyncio
+"""Uniswap V3 Multichain Strategy Engine — Python wrapper for Rust backend"""
+
 import json
-import time
-from datetime import datetime, timedelta
-import numpy as np
-from collections import deque
+import urllib.request
+import urllib.error
+from typing import Dict, List, Any, Optional
 
-class UniswapScraper:
-    """Scrapes Uniswap pool data for training prediction models"""
-    
-    def __init__(self, w3: Web3):
-        self.w3 = w3
-        self.pool_data = deque(maxlen=10000)
-        self.swap_events = deque(maxlen=50000)
-        
-    async def scrape_pool_state(self, pool_address: str) -> Dict[str, Any]:
-        """Scrape current pool state"""
-        pool_abi = [
-            {"inputs": [], "name": "slot0", "outputs": [{"type": "uint160"}, {"type": "int24"}, {"type": "uint16"}, {"type": "uint16"}, {"type": "uint16"}, {"type": "uint8"}, {"type": "bool"}], "stateMutability": "view", "type": "function"},
-            {"inputs": [], "name": "liquidity", "outputs": [{"type": "uint128"}], "stateMutability": "view", "type": "function"}
-        ]
-        pool = self.w3.eth.contract(address=Web3.to_checksum_address(pool_address), abi=pool_abi)
-        slot0 = pool.functions.slot0().call()
-        liquidity = pool.functions.liquidity().call()
-        
-        state = {
-            'timestamp': int(time.time()),
-            'pool': pool_address,
-            'sqrt_price_x96': slot0[0],
-            'tick': slot0[1],
-            'liquidity': liquidity,
-            'price': (slot0[0] / (2**96)) ** 2
-        }
-        self.pool_data.append(state)
-        return state
-    
-    def get_training_data(self) -> List[Dict]:
-        """Get scraped data for model training"""
-        return list(self.pool_data)
+import os as _os
+import pathlib as _pathlib
 
+def _load_engine_url():
+    """Load engine URL from config.json or fallback to default"""
+    config_paths = [
+        _pathlib.Path(__file__).parent.parent / "config.json",
+        _pathlib.Path(__file__).parent / "config.json",
+    ]
+    for p in config_paths:
+        if p.exists():
+            try:
+                with open(p) as f:
+                    cfg = json.load(f)
+                port = cfg.get("engine", {}).get("port", 8080)
+                return f"http://localhost:{port}"
+            except Exception:
+                pass
+    return "http://localhost:8080"
 
-class PredictionModel:
-    """Simple prediction model for token values"""
-    
-    def __init__(self):
-        self.price_history = {}
-        self.predictions = {}
-        
-    def add_price_point(self, token: str, price: float, timestamp: int):
-        if token not in self.price_history:
-            self.price_history[token] = []
-        self.price_history[token].append({'price': price, 'ts': timestamp})
-        
-    def predict_price(self, token: str, horizon_minutes: int = 60) -> Dict[str, Any]:
-        """Predict future price using simple moving average + momentum"""
-        if token not in self.price_history or len(self.price_history[token]) < 10:
-            return {'error': 'Insufficient data'}
-        
-        prices = [p['price'] for p in self.price_history[token][-100:]]
-        sma_short = np.mean(prices[-10:])
-        sma_long = np.mean(prices[-50:]) if len(prices) >= 50 else np.mean(prices)
-        momentum = (sma_short - sma_long) / sma_long if sma_long > 0 else 0
-        
-        predicted = prices[-1] * (1 + momentum * (horizon_minutes / 60))
-        confidence = min(0.9, len(prices) / 100)
-        
-        return {
-            'token': token,
-            'current_price': prices[-1],
-            'predicted_price': predicted,
-            'horizon_minutes': horizon_minutes,
-            'confidence': confidence,
-            'momentum': momentum
-        }
-
-
-class PredictionMarket:
-    """Prediction market for token real values"""
-    
-    def __init__(self):
-        self.markets = {}
-        self.positions = {}
-        self.resolved = {}
-        
-    def create_market(self, token: str, target_price: float, expiry_ts: int) -> str:
-        """Create a prediction market for token price"""
-        market_id = f"{token}_{target_price}_{expiry_ts}"
-        self.markets[market_id] = {
-            'token': token,
-            'target_price': target_price,
-            'expiry': expiry_ts,
-            'yes_pool': 1000,
-            'no_pool': 1000,
-            'total_volume': 0,
-            'created': int(time.time())
-        }
-        return market_id
-    
-    def get_odds(self, market_id: str) -> Dict[str, float]:
-        """Get current market odds"""
-        if market_id not in self.markets:
-            return {'error': 'Market not found'}
-        m = self.markets[market_id]
-        total = m['yes_pool'] + m['no_pool']
-        return {
-            'yes_probability': m['yes_pool'] / total,
-            'no_probability': m['no_pool'] / total
-        }
-    
-    def place_bet(self, market_id: str, user: str, is_yes: bool, amount: float) -> Dict[str, Any]:
-        """Place a bet on market outcome"""
-        if market_id not in self.markets:
-            return {'error': 'Market not found'}
-        
-        m = self.markets[market_id]
-        if int(time.time()) > m['expiry']:
-            return {'error': 'Market expired'}
-        
-        if is_yes:
-            shares = amount * m['no_pool'] / m['yes_pool']
-            m['yes_pool'] += amount
-        else:
-            shares = amount * m['yes_pool'] / m['no_pool']
-            m['no_pool'] += amount
-        
-        m['total_volume'] += amount
-        
-        pos_key = f"{market_id}_{user}"
-        if pos_key not in self.positions:
-            self.positions[pos_key] = {'yes_shares': 0, 'no_shares': 0}
-        
-        if is_yes:
-            self.positions[pos_key]['yes_shares'] += shares
-        else:
-            self.positions[pos_key]['no_shares'] += shares
-        
-        return {'shares': shares, 'side': 'yes' if is_yes else 'no', 'market_id': market_id}
-    
-    def resolve_market(self, market_id: str, actual_price: float) -> Dict[str, Any]:
-        """Resolve market with actual price"""
-        if market_id not in self.markets:
-            return {'error': 'Market not found'}
-        
-        m = self.markets[market_id]
-        outcome = actual_price >= m['target_price']
-        self.resolved[market_id] = {'outcome': outcome, 'actual_price': actual_price}
-        return {'market_id': market_id, 'outcome': 'yes' if outcome else 'no', 'actual_price': actual_price}
+ENGINE_URL = _os.environ.get("ENGINE_URL") or _load_engine_url()
 
 
 class UniswapV3Mod:
-    """ANCHOR CLASS - Uniswap V3 with Scraping, Prediction & Market"""
-    
-    description = """
-    Enhanced Uniswap V3 Integration with:
-    - Data scraping for ML training
-    - Price prediction models
-    - Prediction markets for real token values
-    - MEV protection & gas optimization
+    """ANCHOR CLASS - Uniswap V3 Multichain Strategy Engine
+
+    Rust backend with support for Base and Polygon chains.
+    Strategies: DCA, Limit Order, Range LP, Momentum, Cross-Chain Arb, Rebalance.
     """
-    
-    TOKENS = {
-        'WETH': '0x4200000000000000000000000000000000000006',
-        'USDC': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-        'DAI': '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
-        'USDT': '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2'
-    }
-    
-    POOLS = {
-        'WETH_USDC': '0xd0b53D9277642d899DF5C87A3966A349A798F224',
-        'WETH_DAI': '0x6c6Bc977E13Df9b0de53b251522280BB72383700'
-    }
-    
-    def __init__(self, web3_provider: Web3, router_address: str):
-        self.w3 = web3_provider
-        self.router = router_address
-        self.scraper = UniswapScraper(web3_provider)
-        self.predictor = PredictionModel()
-        self.market = PredictionMarket()
-        self._scrape_task = None
-        
-    async def start_scraping(self, interval_seconds: int = 60):
-        """Start continuous data scraping"""
-        async def scrape_loop():
-            while True:
-                for pool_name, pool_addr in self.POOLS.items():
-                    try:
-                        state = await self.scraper.scrape_pool_state(pool_addr)
-                        token = pool_name.split('_')[0]
-                        self.predictor.add_price_point(token, state['price'], state['timestamp'])
-                    except Exception as e:
-                        print(f"Scrape error {pool_name}: {e}")
-                await asyncio.sleep(interval_seconds)
-        
-        self._scrape_task = asyncio.create_task(scrape_loop())
-        return {'status': 'scraping_started', 'interval': interval_seconds}
-    
-    def stop_scraping(self):
-        if self._scrape_task:
-            self._scrape_task.cancel()
-        return {'status': 'scraping_stopped'}
-    
-    def get_training_data(self) -> Dict[str, Any]:
-        """Export scraped data for ML training"""
-        return {
-            'pool_states': self.scraper.get_training_data(),
-            'price_history': self.predictor.price_history,
-            'count': len(self.scraper.pool_data)
+
+    description = """
+    Uniswap V3 Multichain Strategy Engine (Rust backend):
+    - Chains: Base (8453), Polygon (137)
+    - Swap execution with MEV protection
+    - Automated strategies: DCA, Limit Orders, Range LP, Momentum, Arb, Rebalance, Copy Trade
+    - Copy trading: track wallets, scrape 30-day trade history, mirror trades
+    - Token whitelist management
+    - Real-time pool state monitoring
+    - On-chain quoting via QuoterV2
+    """
+
+    def __init__(self, engine_url: str = ENGINE_URL):
+        self.url = engine_url.rstrip("/")
+
+    def _get(self, path: str, params: dict = None) -> dict:
+        url = f"{self.url}{path}"
+        if params:
+            qs = "&".join(f"{k}={v}" for k, v in params.items() if v is not None)
+            url += f"?{qs}"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+
+    def _post(self, path: str, data: dict) -> dict:
+        url = f"{self.url}{path}"
+        body = json.dumps(data).encode()
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+
+    def _delete(self, path: str) -> dict:
+        url = f"{self.url}{path}"
+        req = urllib.request.Request(url, method="DELETE")
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+
+    # --- Core ---
+
+    def health(self) -> dict:
+        return self._get("/health")
+
+    def chains(self) -> list:
+        return self._get("/chains")
+
+    def tokens(self, chain: str = "base") -> dict:
+        return self._get("/tokens", {"chain": chain})
+
+    def pools(self, chain: str = "base") -> list:
+        return self._get("/pools", {"chain": chain})
+
+    def pool_state(self, address: str, chain: str = "base") -> dict:
+        return self._get(f"/pool/{address}", {"chain": chain})
+
+    def quote(self, chain: str, token_in: str, token_out: str, amount: str, fee: int = 3000) -> dict:
+        return self._get("/quote", {
+            "chain": chain,
+            "token_in": token_in,
+            "token_out": token_out,
+            "amount": amount,
+            "fee": fee,
+        })
+
+    def balance(self, chain: str, token: str, wallet: str) -> dict:
+        return self._get("/balance", {"chain": chain, "token": token, "wallet": wallet})
+
+    def build_swap(self, chain: str, token_in: str, token_out: str,
+                   amount_in: str, amount_out_min: str, recipient: str, fee: int = 3000) -> dict:
+        return self._post("/swap/build", {
+            "chain": chain,
+            "token_in": token_in,
+            "token_out": token_out,
+            "amount_in": amount_in,
+            "amount_out_min": amount_out_min,
+            "recipient": recipient,
+            "fee": fee,
+        })
+
+    # --- Strategies ---
+
+    def list_strategies(self) -> list:
+        return self._get("/strategies")
+
+    def create_strategy(self, kind: str, chain: str, config: dict) -> dict:
+        return self._post("/strategies", {"kind": kind, "chain": chain, "config": config})
+
+    def get_strategy(self, strategy_id: str) -> dict:
+        return self._get(f"/strategies/{strategy_id}")
+
+    def delete_strategy(self, strategy_id: str) -> dict:
+        return self._delete(f"/strategies/{strategy_id}")
+
+    def pause_strategy(self, strategy_id: str) -> dict:
+        return self._post(f"/strategies/{strategy_id}/pause", {})
+
+    def resume_strategy(self, strategy_id: str) -> dict:
+        return self._post(f"/strategies/{strategy_id}/resume", {})
+
+    def strategy_history(self, strategy_id: str) -> list:
+        return self._get(f"/strategies/{strategy_id}/history")
+
+    # --- Convenience ---
+
+    def dca(self, chain: str, token_in: str, token_out: str,
+            amount_per_tick: str, interval_secs: int = 3600, fee: int = 3000) -> dict:
+        """Create a DCA strategy"""
+        return self.create_strategy("dca", chain, {
+            "token_in": token_in,
+            "token_out": token_out,
+            "amount_per_tick": amount_per_tick,
+            "fee": fee,
+            "interval_secs": interval_secs,
+        })
+
+    def limit_order(self, chain: str, pool_address: str, token_in: str, token_out: str,
+                    amount: str, target_price: float, direction: str = "above", fee: int = 3000) -> dict:
+        """Create a limit order strategy"""
+        return self.create_strategy("limit_order", chain, {
+            "pool_address": pool_address,
+            "token_in": token_in,
+            "token_out": token_out,
+            "amount": amount,
+            "target_price": target_price,
+            "direction": direction,
+            "fee": fee,
+        })
+
+    def momentum(self, chain: str, pool_address: str, token_in: str, token_out: str,
+                 amount: str, sma_short: int = 10, sma_long: int = 50, fee: int = 3000) -> dict:
+        """Create a momentum strategy"""
+        return self.create_strategy("momentum", chain, {
+            "pool_address": pool_address,
+            "token_in": token_in,
+            "token_out": token_out,
+            "amount": amount,
+            "sma_short": sma_short,
+            "sma_long": sma_long,
+            "fee": fee,
+        })
+
+    def arb(self, pool_base: str, pool_polygon: str, amount: str,
+            min_spread: float = 0.005, fee: int = 3000, **token_addrs) -> dict:
+        """Create a cross-chain arb strategy"""
+        config = {
+            "pool_base": pool_base,
+            "pool_polygon": pool_polygon,
+            "amount": amount,
+            "min_spread": min_spread,
+            "fee": fee,
+            **token_addrs,
         }
-    
-    def predict_token_value(self, token: str, horizon_minutes: int = 60) -> Dict[str, Any]:
-        """Predict future token value"""
-        return self.predictor.predict_price(token, horizon_minutes)
-    
-    def create_prediction_market(self, token: str, target_price: float, hours_until_expiry: int = 24) -> Dict[str, Any]:
-        """Create prediction market for token reaching target price"""
-        expiry = int(time.time()) + (hours_until_expiry * 3600)
-        market_id = self.market.create_market(token, target_price, expiry)
-        return {
-            'market_id': market_id,
-            'token': token,
-            'target_price': target_price,
-            'expiry': expiry,
-            'odds': self.market.get_odds(market_id)
+        return self.create_strategy("arb", "base", config)
+
+    # --- Copy Trading ---
+
+    def get_watchlist(self) -> list:
+        """Get all watched wallets"""
+        return self._get("/watchlist")
+
+    def add_to_watchlist(self, address: str, nickname: str = None) -> dict:
+        """Add a wallet to the watchlist"""
+        return self._post("/watchlist", {"address": address, "nickname": nickname})
+
+    def remove_from_watchlist(self, address: str) -> dict:
+        """Remove a wallet from the watchlist"""
+        return self._delete(f"/watchlist/{address}")
+
+    def get_wallet_trades(self, address: str, chain: str = "base", days: int = 30) -> list:
+        """Get scraped trades for a watched wallet"""
+        return self._get(f"/watchlist/{address}/trades", {"chain": chain, "days": days})
+
+    def get_wallet_performance(self, address: str) -> dict:
+        """Get 30-day performance metrics for a wallet"""
+        return self._get(f"/watchlist/{address}/performance")
+
+    def sync_wallet(self, address: str) -> dict:
+        """Trigger trade sync (scrape on-chain Swap events) for a wallet"""
+        return self._post(f"/watchlist/{address}/sync", {})
+
+    def copy_trade(self, wallet: str, chain: str = "base", max_trade_size: str = "1000000000000000000",
+                   token_whitelist: list = None, interval_secs: int = 60) -> dict:
+        """Create a copy trading strategy to mirror a wallet's trades"""
+        config = {
+            "wallet_address": wallet,
+            "max_trade_size": max_trade_size,
+            "slippage_tolerance": 0.01,
+            "interval_secs": interval_secs,
         }
-    
-    def bet_on_market(self, market_id: str, user: str, is_yes: bool, amount: float) -> Dict[str, Any]:
-        """Place bet on prediction market"""
-        return self.market.place_bet(market_id, user, is_yes, amount)
-    
-    def get_market_odds(self, market_id: str) -> Dict[str, Any]:
-        """Get current market odds"""
-        return self.market.get_odds(market_id)
-    
-    def resolve_prediction_market(self, market_id: str, actual_price: float) -> Dict[str, Any]:
-        """Resolve market with actual price"""
-        return self.market.resolve_market(market_id, actual_price)
-    
-    def list_tokens(self) -> Dict[str, str]:
-        return self.TOKENS.copy()
-    
-    async def get_best_route(self, token_in: str, token_out: str, amount: int) -> Dict[str, Any]:
-        routes = await self._analyze_routes(token_in, token_out, amount)
-        return max(routes, key=lambda r: r['output_amount'])
-    
-    async def execute_swap_with_protection(self, token_in: str, token_out: str, amount: int, max_slippage: float = 0.005) -> Dict[str, Any]:
-        route = await self.get_best_route(token_in, token_out, amount)
-        impact = self._calculate_price_impact(route)
-        if impact > max_slippage:
-            raise ValueError(f"Price impact {impact} exceeds max slippage {max_slippage}")
-        tx = await self._build_protected_transaction(route)
-        return await self._submit_private_transaction(tx)
-    
-    def _calculate_price_impact(self, route: Dict[str, Any]) -> float:
-        expected = route['amount_in'] * route['spot_price']
-        actual = route['output_amount']
-        return abs(expected - actual) / expected if expected > 0 else 0
-    
-    async def _analyze_routes(self, token_in: str, token_out: str, amount: int) -> List[Dict[str, Any]]:
-        return [{'amount_in': amount, 'output_amount': amount * 0.99, 'spot_price': 1.0, 'path': [token_in, token_out]}]
-    
-    async def _build_protected_transaction(self, route: Dict[str, Any]) -> Dict[str, Any]:
-        return {'data': '0x', 'to': self.router}
-    
-    async def _submit_private_transaction(self, tx: Dict[str, Any]) -> Dict[str, Any]:
-        return {'success': True, 'tx_hash': '0xabc123'}
+        if token_whitelist:
+            config["token_whitelist"] = token_whitelist
+        return self.create_strategy("copy_trade", chain, config)
+
+    # --- Token Whitelist ---
+
+    def get_whitelist(self, chain: str = "base") -> list:
+        """Get whitelisted tokens for a chain"""
+        return self._get("/whitelist", {"chain": chain})
+
+    def add_to_whitelist(self, chain: str, address: str, symbol: str, decimals: int) -> dict:
+        """Add a token to the whitelist"""
+        return self._post("/whitelist", {
+            "chain": chain,
+            "address": address,
+            "symbol": symbol,
+            "decimals": decimals,
+        })
+
+    def remove_from_whitelist(self, chain: str, address: str) -> dict:
+        """Remove a token from the whitelist"""
+        return self._delete(f"/whitelist/{chain}/{address}")

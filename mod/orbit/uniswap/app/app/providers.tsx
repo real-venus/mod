@@ -3,13 +3,13 @@
 import '@rainbow-me/rainbowkit/styles.css';
 import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { base, polygon } from 'wagmi/chains';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 
 const config = getDefaultConfig({
-  appName: 'Uniswap Base Swap',
+  appName: 'Uniswap Strategy Engine',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
-  chains: [base],
+  chains: [base, polygon],
   ssr: true,
 });
 
@@ -25,4 +25,4 @@ export function Providers({ children }: { children: React.ReactNode }) {
       </QueryClientProvider>
     </WagmiProvider>
   );
-}c
+}

@@ -17,7 +17,7 @@ cd "$SCRIPT_DIR"
 
 NETWORK="testnet"
 NEAR_CLI="npx near-cli-rs"
-WASM_PATH="target/wasm32-unknown-unknown/release/near_token.wasm"
+WASM_PATH="target/near/near_token.wasm"
 
 # Account name: arg > env > random
 if [[ -n "${1:-}" ]]; then
@@ -46,7 +46,7 @@ fi
 
 echo ""
 echo "▸ Building contract..."
-cargo build --target wasm32-unknown-unknown --release
+cargo near build non-reproducible-wasm
 
 if [[ ! -f "$WASM_PATH" ]]; then
     echo "ERROR: WASM not found at $WASM_PATH"

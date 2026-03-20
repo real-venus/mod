@@ -9,6 +9,9 @@ from bittensor.core.chain_data import StakeInfo
 
 print = m.print
 
+# Import engine from bt module
+from .bt import _get_engine
+
 # bittensor produces ~1 block every 12 seconds
 BLOCKS_PER_DAY = 7200
 BLOCKS_PER_MONTH = BLOCKS_PER_DAY * 30
@@ -42,7 +45,7 @@ class TaoCopy:
 
     def __init__(self, wallet_name: str = 'default', hotkey: str = 'default',
                  network: str = 'finney', lookback_days: int = 30):
-        self.wallet = bt.wallet(name=wallet_name, hotkey=hotkey)
+        self.wallet = bt.Wallet(name=wallet_name, hotkey=hotkey)
         self.subtensor = bt.Subtensor(network=network)
         self.hotkey_ss58 = self.wallet.hotkey.ss58_address
         self.coldkey_ss58 = self.wallet.coldkeypub.ss58_address
@@ -556,3 +559,47 @@ class TaoCopy:
             print(f"  SN{p['netuid']:>3} | {p['value']:.4f} TAO | actual: {actual_w:.1f}% target: {target_w:.1f}% drift: {drift:+.1f}%", color='cyan')
 
         return {'name': name, 'total_value': total, 'positions': positions}
+
+    # ── Rust-accelerated methods ──────────────────────────────────
+
+    def fast_rank(self, top_n: int = 20) -> List[Dict]:
+        """Fast leaderboard using Rust engine's parallel subnet scanning."""
+        engine = _get_engine()
+        if engine is None:
+            print('Falling back to Python rank...', color='yellow')
+            return self.rank(top_n=top_n)
+        result = json.loads(engine.leaderboard(top_n))
+        self._save('ranked', result)
+        print('\n── Fast Leaderboard (Rust engine) ──', color='yellow')
+        for i, entry in enumerate(result):
+            roi = entry.get('roi_30d', 0) * 100
+            color = 'green' if roi > 0 else 'red'
+            print(f"#{i+1:>2} {entry['coldkey'][:16]}... | {entry['total_value_tao']:.2f} TAO | ROI: {roi:+.2f}%", color=color)
+        return result
+
+    def fast_trades(self, days: int = 30, limit: int = 1000) -> List[Dict]:
+        """Fetch staking event history using Rust engine."""
+        engine = _get_engine()
+        if engine is None:
+            print('Rust engine not available for trade scanning', color='red')
+            return []
+        blocks = days * BLOCKS_PER_DAY
+        result = json.loads(engine.fetch_trades(blocks, limit))
+        self._save('recent_trades', result)
+        print(f'Fetched {len(result)} trades from last {days}d via Rust engine', color='green')
+        return result
+
+    def fast_copy(self, budget_tao: float, top_n: int = 1, wait: bool = True) -> List[Dict]:
+        """Copy trade using fast leaderboard + existing follow() logic."""
+        ranked = self.fast_rank(top_n=top_n * 3)  # scan more to filter
+        if not ranked:
+            return []
+        targets = ranked[:top_n]
+        per_target = budget_tao / len(targets)
+        all_trades = []
+        for t in targets:
+            coldkey = t['coldkey']
+            print(f"\n── Fast Copy: {coldkey[:16]}... ({t['total_value_tao']:.2f} TAO) ──", color='yellow')
+            trades = self.follow(coldkey, per_target, wait=wait)
+            all_trades.extend(trades)
+        return all_trades

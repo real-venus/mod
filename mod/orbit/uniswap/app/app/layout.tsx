@@ -1,10 +1,12 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Providers } from './providers';
+import dynamic from 'next/dynamic';
+
+const Providers = dynamic(() => import('./providers').then(m => ({ default: m.Providers })), { ssr: false });
 
 export const metadata: Metadata = {
-  title: 'Uniswap Base Swap',
-  description: 'Swap tokens on Uniswap Base',
+  title: 'UNISWAP ENGINE',
+  description: 'Multichain Strategy Engine — 8-bit Edition',
 };
 
 export default function RootLayout({
@@ -14,7 +16,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
+      <body className="font-pixel bg-retro-bg text-retro-green grid-bg">
         <Providers>{children}</Providers>
       </body>
     </html>

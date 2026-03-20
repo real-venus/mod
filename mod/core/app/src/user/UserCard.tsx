@@ -112,8 +112,8 @@ export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
               {user.balance !== undefined && (
                 <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-900/40 to-teal-900/40 rounded-xl px-4 py-2.5 shadow-lg transition-all hover:scale-105 border border-emerald-500/30">
                   <ClockIcon className="w-5 h-5" style={{ color: '#34d399' }} />
-                  <code className="text-base font-mono font-bold" style={{ color: '#34d399' }}>
-                    {user.balance.toLocaleString()}
+                  <code className="text-base font-mono font-bold" style={{ color: '#34d399' }} suppressHydrationWarning>
+                    {user.balance.toLocaleString('en-US')}
                   </code>
                 </div>
               )}

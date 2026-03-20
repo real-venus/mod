@@ -962,14 +962,6 @@ class Mod:
         return self.mod('key')().str2key(pwd, **kwargs)
 
     _executors = {}
-
-    def subtree(self, mod:str='store', depth:int=2, **kwargs) -> Dict[str, Any]:
-        """
-        Get the subtree of the mod
-        """
-        path = self.dirpath(mod)
-        tree = self.get_tree(path,**kwargs)
-        return tree
     
     def submit(self, 
                 fn, 
