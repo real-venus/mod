@@ -692,6 +692,81 @@ class Mod:
         logger.info(f"Batch processing complete: {successful}/{len(queries)} successful")
         return results
 
+    # ── Background Job Management (via Rust server) ──────────────────
+
+    def _jobs_url(self) -> str:
+        """Get the Claude Jobs server URL."""
+        return os.environ.get('CLAUDE_JOBS_URL', 'http://localhost:8820')
+
+    def _jobs_request(self, method: str, path: str, data: dict = None) -> dict:
+        """Make a request to the Claude Jobs server."""
+        import urllib.request
+        url = f"{self._jobs_url()}{path}"
+        body = json.dumps(data).encode() if data else None
+        headers = {'Content-Type': 'application/json'} if data else {}
+
+        req = urllib.request.Request(url, data=body, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read().decode())
+        except Exception as e:
+            logger.error(f"Jobs server request failed: {e}")
+            raise RuntimeError(
+                f"Claude Jobs server not reachable at {self._jobs_url()}. "
+                "Start it with: cd mod/orbit/claude/server && cargo run"
+            )
+
+    def submit(self, prompt: str, model: str = "sonnet", work_dir: str = None) -> dict:
+        """
+        Submit a background Claude job to the Rust job server.
+
+        Args:
+            prompt: Task prompt
+            model: Model to use (sonnet, opus, haiku)
+            work_dir: Working directory for the job
+
+        Returns:
+            Job object with id, status, etc.
+        """
+        data = {"prompt": prompt, "model": model}
+        if work_dir:
+            data["work_dir"] = work_dir
+        return self._jobs_request("POST", "/jobs", data)
+
+    def jobs(self) -> list:
+        """List all background jobs."""
+        result = self._jobs_request("GET", "/jobs")
+        return result.get("jobs", [])
+
+    def job(self, job_id: str) -> dict:
+        """Get a specific job by ID."""
+        return self._jobs_request("GET", f"/jobs/{job_id}")
+
+    def cancel(self, job_id: str) -> dict:
+        """Cancel a running job."""
+        return self._jobs_request("POST", f"/jobs/{job_id}/cancel")
+
+    def delete_job(self, job_id: str) -> dict:
+        """Delete a job."""
+        return self._jobs_request("DELETE", f"/jobs/{job_id}")
+
+    def logs(self, job_id: str) -> str:
+        """Get output logs for a job."""
+        result = self._jobs_request("GET", f"/jobs/{job_id}")
+        return result.get("output", "")
+
+    def serve_jobs(self, port: int = 8820) -> None:
+        """Start the Claude Jobs Rust server."""
+        server_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'server')
+        logger.info(f"Starting Claude Jobs server on port {port}...")
+        subprocess.Popen(
+            ["cargo", "run", "--release", "--", str(port)],
+            cwd=server_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        print(f"Claude Jobs server starting on port {port}")
+
 
 # Convenience function for quick usage
 def run_claude(query: str, path: Optional[str] = None, api_key: Optional[str] = None, **kwargs) -> Union[str, Dict[str, Any]]:

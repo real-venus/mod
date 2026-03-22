@@ -1,95 +1,54 @@
-# 🚀 Orbit Base
+# filecoin
 
-> A powerful, modular foundation for building AI-powered automation agents.
+Simple Filecoin network interface. Uses the public Glif RPC — no API key needed.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Docker](https://img.shields.io/badge/docker-ready-brightgreen.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-
-## 🎯 What is Orbit Base?
-
-Orbit Base is a lightweight yet powerful framework for creating autonomous coding agents. It provides the essential building blocks for file manipulation, command execution, and intelligent task orchestration.
-
-## ✨ Features
-
-- **🔧 File Operations** - Create, read, update, and manage files programmatically
-- **💻 Command Execution** - Run shell commands with full output capture
-- **🐳 Docker Ready** - Containerized deployment out of the box
-- **🧩 Modular Design** - Easily extend with custom tools
-- **⚡ Lightweight** - Minimal dependencies, maximum performance
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.8+
-- Docker (optional)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone <repo-url>
-cd orbit/base
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Using Docker
-
-```bash
-# Build and run with docker-compose
-docker-compose up --build
-
-# Or build manually
-docker build -t orbit-base .
-docker run -it orbit-base
-```
-
-## 📖 Usage
+## Usage
 
 ```python
-from base import Agent
+import mod as m
+fil = m.mod('filecoin')()
 
-# Initialize the agent
-agent = Agent()
+# Network status
+fil.status()
 
-# Execute a task
-result = agent.run("create a hello world script")
+# Balance
+fil.balance('f1...')
+
+# Chain
+fil.height()
+fil.head()
+fil.block(cid)
+fil.message(cid)
+
+# Gas
+fil.base_fee()
+fil.gas_estimate(address)
+
+# Storage deals
+fil.deal(deal_id)
+fil.miner_info('f0...')
+fil.miner_power('f0...')
+
+# Network
+fil.network()
+fil.supply()
+fil.network_power()
+
+# Search transactions
+fil.search_msg(cid)
+fil.receipt(cid)
 ```
 
-## 🛠️ Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `create_file` | Create new files with specified content |
-| `cmd` | Execute shell commands |
-
-## 📁 Project Structure
-
-```
-orbit/base/
-├── base/              # Core module
-├── requirements.txt   # Python dependencies
-├── Dockerfile         # Container definition
-├── docker-compose.yml # Multi-container setup
-├── TUTORIAL.md        # Detailed tutorial
-└── README.md          # You are here
+```bash
+# CLI
+m filecoin                           # network status
+m filecoin forward address=f1...     # balance
+m filecoin balance address=f1...     # balance
+m filecoin height                    # block height
+m filecoin deal deal_id=123          # deal info
+m filecoin test                      # connectivity test
 ```
 
-## 📚 Documentation
+## Config
 
-For detailed usage and examples, check out the [Tutorial](TUTORIAL.md).
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-<p align="center">Built with ❤️ by the Orbit Team</p>
+Set `FILECOIN_RPC` env var to use a different endpoint (default: `https://api.node.glif.io/rpc/v1`).

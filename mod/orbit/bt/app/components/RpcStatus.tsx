@@ -35,36 +35,36 @@ export default function RpcStatus() {
   const healthyCount = rpcHealth.filter((h: EndpointHealth) => h.healthy).length;
 
   return (
-    <div className="bg-btcard border border-btborder rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-btborder flex items-center justify-between">
+    <div className="pixel-box overflow-hidden">
+      <div className="px-4 py-3 border-b-2 border-btborder flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold">RPC Pool Status</h2>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-btdark">
+          <h2 className="text-[9px] font-pixel text-bttext">RPC POOL</h2>
+          <span className="text-[7px] font-pixel px-2 py-0.5 bg-btdark border border-btborder">
             <span className={healthyCount > 0 ? "text-btgreen" : "text-btred"}>
-              {healthyCount}/{rpcHealth.length} healthy
+              {healthyCount}/{rpcHealth.length} UP
             </span>
           </span>
           {checking && (
-            <span className="text-[10px] text-btyellow animate-pulse">checking...</span>
+            <span className="text-[7px] font-pixel text-btyellow pulse-dot">CHECKING...</span>
           )}
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`px-2 py-0.5 text-[10px] rounded border transition-all ${
+            className={`px-2 py-0.5 font-pixel text-[7px] border-2 ${
               autoRefresh
-                ? "bg-btgreen/10 text-btgreen border-btgreen/20"
-                : "text-btmuted border-btborder"
+                ? "bg-btgreen text-black border-btgreen"
+                : "bg-btcard text-btmuted border-btborder"
             }`}
           >
-            {autoRefresh ? "Auto: ON" : "Auto: OFF"}
+            AUTO:{autoRefresh ? "ON" : "OFF"}
           </button>
           <button
             onClick={runHealthCheck}
             disabled={checking}
-            className="px-3 py-1 bg-btgreen/10 text-btgreen border border-btgreen/30 rounded-md text-xs hover:bg-btgreen/20 transition-all disabled:opacity-50"
+            className="pixel-btn bg-btgreen text-black px-3 py-1 font-pixel text-[7px] border-btgreen disabled:opacity-50"
           >
-            Check
+            CHECK
           </button>
         </div>
       </div>
@@ -73,41 +73,41 @@ export default function RpcStatus() {
         {rpcHealth.map((h: EndpointHealth) => (
           <div
             key={h.url}
-            className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+            className={`flex items-center gap-3 p-3 border-2 ${
               h.healthy
-                ? "bg-btgreen/5 border-btgreen/20"
-                : "bg-btred/5 border-btred/20"
+                ? "bg-btgreen/5 border-btgreen"
+                : "bg-btred/5 border-btred"
             }`}
           >
             <div
-              className={`w-2 h-2 rounded-full ${
+              className={`w-3 h-3 ${
                 h.healthy ? "bg-btgreen pulse-dot" : "bg-btred"
               }`}
             />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-mono truncate">{h.url}</p>
+              <p className="text-[7px] font-pixel text-bttext truncate">{h.url}</p>
             </div>
-            <div className="flex items-center gap-4 text-[10px]">
+            <div className="flex items-center gap-4">
               <div className="text-right">
-                <span className="text-btmuted">Latency</span>
+                <span className="text-[6px] font-pixel text-btmuted block">MS</span>
                 <p
-                  className={`font-mono ${
+                  className={`text-[7px] font-pixel ${
                     h.latencyMs < 500 ? "text-btgreen" : h.latencyMs < 1500 ? "text-btyellow" : "text-btred"
                   }`}
                 >
-                  {h.latencyMs}ms
+                  {h.latencyMs}
                 </p>
               </div>
               <div className="text-right">
-                <span className="text-btmuted">Errors</span>
-                <p className={`font-mono ${h.errors > 0 ? "text-btred" : "text-btmuted"}`}>
+                <span className="text-[6px] font-pixel text-btmuted block">ERR</span>
+                <p className={`text-[7px] font-pixel ${h.errors > 0 ? "text-btred" : "text-btmuted"}`}>
                   {h.errors}
                 </p>
               </div>
               <div className="text-right">
-                <span className="text-btmuted">Status</span>
-                <p className={h.healthy ? "text-btgreen font-bold" : "text-btred font-bold"}>
-                  {h.healthy ? "UP" : "DOWN"}
+                <span className="text-[6px] font-pixel text-btmuted block">STS</span>
+                <p className={`text-[7px] font-pixel ${h.healthy ? "text-btgreen" : "text-btred"}`}>
+                  {h.healthy ? "UP" : "DN"}
                 </p>
               </div>
             </div>
@@ -115,17 +115,16 @@ export default function RpcStatus() {
         ))}
 
         {rpcHealth.length === 0 && (
-          <p className="text-xs text-btmuted text-center py-4">
-            Click Check to probe all RPC endpoints
+          <p className="text-[8px] font-pixel text-btmuted text-center py-4">
+            {">> CLICK CHECK TO PROBE RPC"}
           </p>
         )}
       </div>
 
-      {/* Round-robin info */}
-      <div className="px-4 py-3 border-t border-btborder bg-btdark/30">
-        <p className="text-[10px] text-btmuted">
-          Requests are distributed across healthy endpoints using round-robin with automatic failover.
-          Unhealthy endpoints are excluded after 3 consecutive failures and re-checked periodically.
+      <div className="px-4 py-3 border-t-2 border-btborder bg-btdark">
+        <p className="text-[6px] font-pixel text-btmuted">
+          ROUND-ROBIN DISTRIBUTION WITH AUTO FAILOVER.
+          BAD NODES EXCLUDED AFTER 3 FAILS.
         </p>
       </div>
     </div>

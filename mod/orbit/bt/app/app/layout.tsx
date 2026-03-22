@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./globals.css";
+import ThemeProvider from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "BT CopyTrade | Bittensor Subnet Alpha Trading",
@@ -10,14 +11,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-screen bg-btdark antialiased">
-        {children}
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className="min-h-screen antialiased scanlines">
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
         <ToastContainer
           position="bottom-right"
           autoClose={4000}
           theme="dark"
-          toastClassName="bg-btcard border border-btborder"
+          toastClassName="pixel-box !text-[8px]"
         />
       </body>
     </html>

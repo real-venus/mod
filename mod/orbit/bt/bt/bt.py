@@ -53,18 +53,19 @@ class Bt:
 
     def __init__(self, network: str = "finney", archive=False):
         self.network = network
-        self.subtensor = bt.Subtensor(network=network)
-        print(f'Connected to bittensor network: {network}', color='green')
         if archive:
             self.subtensor = bt.Subtensor(network=network, archive=True)
+        else:
+            self.subtensor = bt.Subtensor(network=network)
+        print(f'Connected to bittensor network: {network}', color='green')
 
     def mod2json(self, mod: Any) -> Dict:
         """Convert a neuron object to a JSON dictionary."""
-        mod = mod.__dict__
-        mod['axon_info'] = mod['axon_info'].__dict__
-        mod['prometheus_info'] = mod['prometheus_info'].__dict__
-        mod['url'] = mod['axon_info']['ip'] + ':' + str(mod['axon_info']['port'])
-        return mod
+        d = dict(mod.__dict__)
+        d['axon_info'] = dict(d['axon_info'].__dict__) if hasattr(d.get('axon_info'), '__dict__') else d.get('axon_info', {})
+        d['prometheus_info'] = dict(d['prometheus_info'].__dict__) if hasattr(d.get('prometheus_info'), '__dict__') else d.get('prometheus_info', {})
+        d['url'] = str(d['axon_info'].get('ip', '')) + ':' + str(d['axon_info'].get('port', ''))
+        return d
 
     def neurons(self, netuid: int = 2) -> List[Dict]:
         """List all neurons in a subnet."""
@@ -74,13 +75,13 @@ class Bt:
 
     def subnet2json(self, subnet: Any, neurons: bool = False) -> Dict:
         """Convert a subnet object to JSON dictionary."""
-        subnet = subnet.__dict__
-        identity = subnet.get('subnet_identity', None)
-        subnet['subnet_identity'] = identity.__dict__ if identity is not None else None
-        for key in subnet.keys():
-            if isinstance(subnet[key], Balance):
-                subnet[key] = subnet[key].tao
-        return subnet
+        d = dict(subnet.__dict__)
+        identity = d.get('subnet_identity', None)
+        d['subnet_identity'] = dict(identity.__dict__) if identity is not None and hasattr(identity, '__dict__') else identity
+        for key in list(d.keys()):
+            if isinstance(d[key], Balance):
+                d[key] = d[key].tao
+        return d
 
     def n(self, netuid: int = 1) -> int:
         """Get number of neurons in a subnet."""
@@ -216,8 +217,8 @@ class BtTrader:
     def _subnet_info(self, netuid: int) -> Dict:
         """Get raw DynamicInfo for a subnet and convert to dict."""
         info = self.subtensor.subnet(netuid=netuid)
-        d = info.__dict__
-        for k in d:
+        d = dict(info.__dict__)
+        for k in list(d.keys()):
             if isinstance(d[k], Balance):
                 d[k] = float(d[k].tao)
         return d

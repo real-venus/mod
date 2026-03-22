@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use alloy::providers::Provider;
 use chrono::Utc;
 use eyre::Result;
@@ -15,6 +16,63 @@ fn block_time_secs(chain: ChainId) -> u64 {
     match chain {
         ChainId::Base => 2,
         ChainId::Polygon => 2,
+    }
+}
+
+/// Free public RPC gateways per chain — round-robin to avoid rate limits
+fn free_rpc_gateways(chain: ChainId) -> Vec<&'static str> {
+    match chain {
+        ChainId::Base => vec![
+            "https://mainnet.base.org",
+            "https://base.gateway.tenderly.co",
+            "https://base-rpc.publicnode.com",
+            "https://base.meowrpc.com",
+            "https://1rpc.io/base",
+            "https://base.drpc.org",
+        ],
+        ChainId::Polygon => vec![
+            "https://polygon-bor-rpc.publicnode.com",
+            "https://polygon.meowrpc.com",
+            "https://1rpc.io/matic",
+            "https://polygon.drpc.org",
+            "https://polygon-rpc.com",
+        ],
+    }
+}
+
+/// Round-robin gateway selector
+pub struct RpcRoundRobin {
+    gateways: Vec<String>,
+    index: AtomicUsize,
+}
+
+impl RpcRoundRobin {
+    pub fn new(chain: ChainId, primary_rpc: &str) -> Self {
+        let mut gateways: Vec<String> = vec![primary_rpc.to_string()];
+        for gw in free_rpc_gateways(chain) {
+            if gw != primary_rpc {
+                gateways.push(gw.to_string());
+            }
+        }
+        Self {
+            gateways,
+            index: AtomicUsize::new(0),
+        }
+    }
+
+    /// Get next RPC URL in round-robin order
+    pub fn next(&self) -> &str {
+        let idx = self.index.fetch_add(1, Ordering::Relaxed) % self.gateways.len();
+        &self.gateways[idx]
+    }
+
+    /// Skip to next gateway (call on error to rotate away from bad one)
+    pub fn skip(&self) {
+        self.index.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn len(&self) -> usize {
+        self.gateways.len()
     }
 }
 
@@ -131,13 +189,15 @@ impl DiscoveryManager {
             config.position_manager.to_lowercase(),
         ].into_iter().collect();
 
-        // Use reqwest directly for eth_getLogs (alloy provider gets rate-limited)
+        // Use reqwest directly for eth_getLogs with round-robin across free RPCs
         let http_client = reqwest::Client::builder()
             .user_agent("Mozilla/5.0 (compatible; UniswapEngine/2.0)")
             .timeout(std::time::Duration::from_secs(30))
             .build()?;
 
-        let rpc_url = &config.rpc_url;
+        let rpc_pool = RpcRoundRobin::new(chain, &config.rpc_url);
+        tracing::info!("Discovery using {} RPC gateways (round-robin)", rpc_pool.len());
+
         let chunk_size: u64 = 2_000;
         let mut wallets: HashMap<String, TraderAccumulator> = HashMap::new();
         let mut block = from_block;
@@ -162,11 +222,13 @@ impl DiscoveryManager {
             });
             req_id += 1;
 
-            // Retry with backoff
+            // Retry across multiple gateways with backoff
             let mut logs_result: Option<Vec<serde_json::Value>> = None;
-            for attempt in 0..5u64 {
+            let max_attempts = (rpc_pool.len() * 2).max(5) as u64;
+            for attempt in 0..max_attempts {
+                let rpc_url = rpc_pool.next();
                 if attempt > 0 {
-                    let backoff = tokio::time::Duration::from_millis(1000 * attempt);
+                    let backoff = tokio::time::Duration::from_millis(500 * (attempt.min(4)));
                     tokio::time::sleep(backoff).await;
                 }
 
@@ -184,16 +246,24 @@ impl DiscoveryManager {
                                         consecutive_errors = 0;
                                         break;
                                     } else if let Some(err) = json.get("error") {
-                                        tracing::debug!("RPC error blocks {}-{}: {}", block, to_block, err);
+                                        tracing::debug!("RPC error {} blocks {}-{}: {}", rpc_url, block, to_block, err);
+                                        rpc_pool.skip(); // rotate to next gateway
                                     }
                                 }
-                                Err(e) => tracing::debug!("JSON parse error: {}", e),
+                                Err(e) => {
+                                    tracing::debug!("JSON parse error from {}: {}", rpc_url, e);
+                                    rpc_pool.skip();
+                                }
                             }
                         } else {
-                            tracing::debug!("HTTP {} for blocks {}-{}", resp.status(), block, to_block);
+                            tracing::debug!("HTTP {} from {} for blocks {}-{}", resp.status(), rpc_url, block, to_block);
+                            rpc_pool.skip();
                         }
                     }
-                    Err(e) => tracing::debug!("Request error blocks {}-{}: {}", block, to_block, e),
+                    Err(e) => {
+                        tracing::debug!("Request error {} blocks {}-{}: {}", rpc_url, block, to_block, e);
+                        rpc_pool.skip();
+                    }
                 }
             }
 
@@ -385,7 +455,7 @@ pub fn load_cached_top_traders(data_path: &str, chain: ChainId, days: u32) -> Op
     }
 }
 
-fn save_top_traders(data_path: &str, cache: &TopTradersCache) {
+pub fn save_top_traders(data_path: &str, cache: &TopTradersCache) {
     let dir = format!("{}/discovery", data_path);
     let _ = std::fs::create_dir_all(&dir);
     let path = format!("{}/{}_{}.json", dir, cache.chain.name(), cache.days);

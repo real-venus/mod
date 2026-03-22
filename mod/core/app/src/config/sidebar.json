@@ -47,6 +47,12 @@
       "label": "BRIDGE",
       "color": "#06b6d4",
       "type": "direct"
+    },
+    {
+      "href": "/jobs",
+      "label": "JOBS",
+      "color": "#8b5cf6",
+      "type": "direct"
     }
   ],
   "additionalModules": [],
@@ -64,6 +70,7 @@
     "network",
     "buidl",
     "create",
-    "home"
+    "home",
+    "jobs"
   ]
 }

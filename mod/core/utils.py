@@ -7,22 +7,21 @@ import subprocess
 import shutil
 import glob
 import socket
-import urllib
 import json
 import re
 import itertools
+import asyncio
+import threading
+import logging
 from contextlib import contextmanager
+from typing import Any, Optional, List, Dict, Tuple, Union
+
+# Third-party imports
 import requests
 import psutil
 import netaddr
-from loguru import logger
-from typing import Any, Optional, List, Dict, Tuple, Union
-import gc
-import asyncio
-import time
-import threading
-from contextlib import contextmanager
-asyncio.BaseEventLoop.__del__ = lambda self: None
+
+_logger = logging.getLogger(__name__)
 
 def length(data: Union[str, bytes]) -> int:
     """
@@ -39,21 +38,27 @@ def import_module( import_path:str ) -> 'Object':
     from importlib import import_module
     return import_module(import_path)
 
-def import_object( key:str, splitters=['/', '::', '.'], **kwargs)-> Any:
+def import_object(key: str, splitters=('/', '::', '.'), **kwargs) -> Any:
+    """Import an object from a string with the format of {module_path}.{object}"""
     from importlib import import_module
-    ''' Import an object from a string with the format of {module_path}.{object}'''
-    module_path = None
-    object_name = None
+    if isinstance(key, str) and key.endswith('.py') and path_exists(key):
+        # Convert file path to module path
+        key = os.path.abspath(key)
+        for base in sys.path:
+            if key.startswith(base):
+                key = key[len(base)+1:]
+                break
+        key = key.replace('/', '.').rstrip('.py')
+        if key.endswith('.'):
+            key = key[:-1]
     for splitter in splitters:
         key = key.replace(splitter, '.')
-    module_path = '.'.join(key.split('.')[:-1])
-    object_name = key.split('.')[-1]
-    
-    if isinstance(key, str) and key.endswith('.py') and path_exists(key):
-        key = m.path2objectpath(key)
-    assert module_path != None and object_name != None, f'Invalid key {key}'
+    parts = key.rsplit('.', 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError(f'Invalid import key: {key!r} — expected format: module.object')
+    module_path, object_name = parts
     module_obj = import_module(module_path)
-    return  getattr(module_obj, object_name)
+    return getattr(module_obj, object_name)
 
 def shlex_split(s):
     result = []
@@ -174,13 +179,18 @@ def log( *args, **kwargs):
 
 ### LOGGER LAND ###
 
-def resolve_logger( logger = None):
-    if not hasattr('logger'):
-        from loguru import logger
-        logger = logger.opt(colors=True)
-    if logger is not None:
-        logger = logger
-    return logger
+_cached_logger = None
+def resolve_logger(log=None):
+    global _cached_logger
+    if log is not None:
+        return log
+    if _cached_logger is None:
+        try:
+            from loguru import logger as _loguru
+            _cached_logger = _loguru.opt(colors=True)
+        except ImportError:
+            _cached_logger = logging.getLogger('mod')
+    return _cached_logger
 
 
 def critical( *args, **kwargs):
@@ -289,11 +299,15 @@ def reverse_map(x:dict)->dict:
     '''
     return {v:k for k,v in x.items()}
 
-def stdev( x:list= [0,1,2,3,4,5,6,7,8,9,10], p=2):
+def stdev(x: list = None, p: int = 2) -> float:
+    if x is None:
+        x = list(range(11))
     if not isinstance(x, list):
         x = list(x)
-    mean = mean(x)
-    return (sum([(i - mean)**p for i in x]) / len(x))**(1/p)
+    if len(x) == 0:
+        return 0.0
+    avg = mean(x)
+    return (sum((i - avg)**p for i in x) / len(x))**(1/p)
 std = stdev
 
 
@@ -325,9 +339,13 @@ def tensor( *args, **kwargs):
     from torch import tensor
     return tensor(*args, **kwargs)
 
-def mean(x:list=[0,1,2,3,4,5,6,7,8,9,10]):
+def mean(x: list = None) -> float:
+    if x is None:
+        x = list(range(11))
     if not isinstance(x, list):
         x = list(x)
+    if len(x) == 0:
+        return 0.0
     return sum(x) / len(x)
 
 def median(x:list=[0,1,2,3,4,5,6,7,8,9,10]):
@@ -347,17 +365,20 @@ def df( x, **kwargs):
 
 
 def retry(fn, trials:int = 3, verbose:bool = True):
-    # if fn is a self method, then it will be a bound method, and we need to get the function
     if hasattr(fn, '__self__'):
         fn = fn.__func__
     def wrapper(*args, **kwargs):
+        last_error = None
         for i in range(trials):
             try:
                 return fn(*args, **kwargs)
             except Exception as e:
+                last_error = e
                 if verbose:
-                    print(f'Retrying {fn.__name__} {i+1}/{trials}')
-
+                    _logger.warning(f'Retrying {fn.__name__} {i+1}/{trials}: {e}')
+        raise last_error
+    wrapper.__name__ = getattr(fn, '__name__', 'unknown')
+    wrapper.__doc__ = getattr(fn, '__doc__', None)
     return wrapper
 
 

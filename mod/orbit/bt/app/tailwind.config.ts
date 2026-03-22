@@ -9,14 +9,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        btgreen: "#00D18C",
-        btdark: "#0A0A0F",
-        btcard: "#12121A",
-        btborder: "#1E1E2E",
-        btmuted: "#6B7280",
-        btred: "#EF4444",
-        btblue: "#3B82F6",
-        btyellow: "#F59E0B",
+        btgreen: "var(--btgreen)",
+        btdark: "var(--btdark)",
+        btcard: "var(--btcard)",
+        btborder: "var(--btborder)",
+        btmuted: "var(--btmuted)",
+        btred: "var(--btred)",
+        btblue: "var(--btblue)",
+        btyellow: "var(--btyellow)",
+        bttext: "var(--bttext)",
+        btbg: "var(--btbg)",
+      },
+      fontFamily: {
+        pixel: ['"Press Start 2P"', "monospace"],
+      },
+      boxShadow: {
+        pixel: "4px 4px 0px var(--btborder)",
+        "pixel-sm": "2px 2px 0px var(--btborder)",
+        "pixel-green": "4px 4px 0px var(--btgreen)",
       },
     },
   },

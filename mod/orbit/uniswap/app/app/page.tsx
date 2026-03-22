@@ -206,6 +206,12 @@ export default function Home() {
     }
   }, [chainId, switchChain]);
 
+  // Check if a token is the wrapped native for current chain
+  const isWrappedNative = useCallback((token: typeof tokenIn) => {
+    const wn = WRAPPED_NATIVE[activeChain];
+    return wn && token.address.toLowerCase() === wn.address.toLowerCase();
+  }, [activeChain]);
+
   // Balance fetching
   const fetchBalance = useCallback(async (token: typeof tokenIn, setter: (val: string) => void) => {
     if (!address) return;
@@ -213,7 +219,15 @@ export default function Home() {
       const provider = new ethers.JsonRpcProvider(RPC_URLS[activeChain]);
       const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
       const balance = await contract.balanceOf(address);
-      setter(parseFloat(ethers.formatUnits(balance, token.decimals)).toFixed(6));
+      const wn = WRAPPED_NATIVE[activeChain];
+      // For wrapped native, show combined native + wrapped balance
+      if (wn && token.address.toLowerCase() === wn.address.toLowerCase()) {
+        const nativeBal = await provider.getBalance(address);
+        const combined = balance + nativeBal;
+        setter(parseFloat(ethers.formatUnits(combined, token.decimals)).toFixed(6));
+      } else {
+        setter(parseFloat(ethers.formatUnits(balance, token.decimals)).toFixed(6));
+      }
     } catch {}
   }, [address, activeChain]);
 
@@ -344,6 +358,21 @@ export default function Home() {
       const tokenInContract = new ethers.Contract(tokenIn.address, ERC20_ABI, signer);
       const amountInWei = ethers.parseUnits(amountIn, tokenIn.decimals);
 
+      // Auto-wrap: if tokenIn is wrapped native and WETH balance < needed, wrap ETH first
+      if (isWrappedNative(tokenIn)) {
+        const currentWrapped = await tokenInContract.balanceOf(address);
+        if (currentWrapped < amountInWei) {
+          const deficit = amountInWei - currentWrapped;
+          const wn = WRAPPED_NATIVE[activeChain];
+          const wethContract = new ethers.Contract(wn.address, WETH_ABI, signer);
+          setError('');
+          // Wrap just the deficit amount
+          const wrapTx = await wethContract.deposit({ value: deficit });
+          await wrapTx.wait();
+          fetchWrapBalances();
+        }
+      }
+
       const buildRes = await fetch(`${ENGINE_URL}/swap/build`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -373,6 +402,7 @@ export default function Home() {
       setAmountIn(''); setEstimatedOutput('');
       fetchBalance(tokenIn, setBalanceIn);
       fetchBalance(tokenOut, setBalanceOut);
+      fetchWrapBalances();
     } catch (err: any) {
       setError(err.reason || err.message || 'Swap failed');
     } finally { setLoading(false); setApproving(false); }
@@ -526,10 +556,51 @@ export default function Home() {
     } catch {}
   };
 
-  // Fetch top traders when copy tab opens or days change
+  // Fetch top traders when copy tab opens or days change; auto-scan if no data
   useEffect(() => {
-    if (tab === 'copytrade') fetchTopTraders();
-  }, [tab, fetchTopTraders]);
+    if (tab !== 'copytrade') return;
+    (async () => {
+      try {
+        const res = await fetch(`${ENGINE_URL}/top-traders?chain=${activeChain}&days=${discoveryDays}&limit=50`);
+        if (res.ok) {
+          const data = await res.json();
+          const traders = data.traders || [];
+          setTopTraders(traders);
+          // Auto-start scan if no cached data and not already scanning
+          if (traders.length === 0 && !discoveryLoading) {
+            const statusRes = await fetch(`${ENGINE_URL}/top-traders/scan/status`);
+            if (statusRes.ok) {
+              const status = await statusRes.json();
+              if (!status.scanning) {
+                setDiscoveryLoading(true);
+                setScanStatus(null);
+                await fetch(`${ENGINE_URL}/top-traders/scan`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ chain: activeChain, days: discoveryDays }),
+                });
+              } else {
+                setDiscoveryLoading(true);
+                setScanStatus(status);
+              }
+            }
+          }
+        } else {
+          setTopTraders([]);
+          // 404 means no cached data, auto-start scan
+          if (res.status === 404 && !discoveryLoading) {
+            setDiscoveryLoading(true);
+            setScanStatus(null);
+            await fetch(`${ENGINE_URL}/top-traders/scan`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chain: activeChain, days: discoveryDays }),
+            });
+          }
+        }
+      } catch { setTopTraders([]); }
+    })();
+  }, [tab, activeChain, discoveryDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll scan status while scanning
   useEffect(() => {
@@ -660,7 +731,12 @@ export default function Home() {
                     <div className="bg-black/50 border border-retro-green/20 p-3">
                       <div className="flex justify-between mb-2">
                         <span className="text-[8px] text-retro-green/50">FROM</span>
-                        <span className="text-[7px] text-retro-green/40">BAL: {balanceIn}</span>
+                        <span className="text-[7px] text-retro-green/40">
+                          BAL: {balanceIn}
+                          {isWrappedNative(tokenIn) && parseFloat(wrappedBalance) < parseFloat(balanceIn) && (
+                            <span className="text-retro-cyan/60"> ({wrappedBalance} {WRAPPED_NATIVE[activeChain].symbol} + {nativeBalance} {WRAPPED_NATIVE[activeChain].nativeSymbol})</span>
+                          )}
+                        </span>
                       </div>
                       <div className="flex gap-2">
                         <select
@@ -748,6 +824,8 @@ export default function Home() {
                       className="btn-pixel w-full bg-retro-cyan text-black py-3 text-[10px] tracking-wider disabled:bg-retro-green/20 disabled:text-retro-green/30">
                       {loading ? (approving ? '> APPROVING...' : '> SWAPPING...') :
                         parseFloat(amountIn) > parseFloat(balanceIn) ? 'INSUFFICIENT BALANCE' :
+                        isWrappedNative(tokenIn) && parseFloat(amountIn) > parseFloat(wrappedBalance) ?
+                        `> WRAP_ETH & SWAP [${CHAIN_CONFIG[activeChain].name}]` :
                         `> EXECUTE_SWAP [${CHAIN_CONFIG[activeChain].name}]`}
                     </button>
                   </div>

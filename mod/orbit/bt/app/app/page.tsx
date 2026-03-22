@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useStore } from "@/lib/store";
 import Header from "@/components/Header";
 import SubnetTable from "@/components/SubnetTable";
@@ -8,19 +9,31 @@ import Leaderboard from "@/components/Leaderboard";
 import CopyTrade from "@/components/CopyTrade";
 import ProxyAccounts from "@/components/ProxyAccounts";
 import RpcStatus from "@/components/RpcStatus";
+import { scanAllSubnets } from "@/lib/bittensor";
+import { rpc } from "@/lib/rpc";
 
 export default function Home() {
-  const { activeTab } = useStore();
+  const { activeTab, subnets, setSubnets, setSubnetsLoading, subnetsLoading, setRpcHealth } = useStore();
+
+  useEffect(() => {
+    if (subnets.length === 0 && !subnetsLoading) {
+      setSubnetsLoading(true);
+      scanAllSubnets()
+        .then((data) => setSubnets(data))
+        .catch(() => {})
+        .finally(() => setSubnetsLoading(false));
+    }
+
+    rpc.healthCheck().then((results) => setRpcHealth(results)).catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen">
       <Header />
 
       <main className="max-w-[1600px] mx-auto px-4 py-6">
-        {/* Stats bar */}
         <StatsBar />
 
-        {/* Tab content */}
         <div className="mt-6">
           {activeTab === "subnets" && <SubnetTable />}
           {activeTab === "swap" && <SwapPanel />}
@@ -31,14 +44,13 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-btborder py-4 mt-8">
+      <footer className="border-t-2 border-btborder py-4 mt-8 bg-btcard">
         <div className="max-w-[1600px] mx-auto px-4 flex items-center justify-between">
-          <p className="text-[10px] text-btmuted">
-            BT CopyTrade | Bittensor dTAO Subnet Trading
+          <p className="text-[6px] font-pixel text-btmuted">
+            BT COPYTRADE | BITTENSOR dTAO SUBNET TRADING
           </p>
-          <p className="text-[10px] text-btmuted">
-            Powered by bt-rs engine + round-robin RPC
+          <p className="text-[6px] font-pixel text-btmuted">
+            POWERED BY BT-RS ENGINE + ROUND-ROBIN RPC
           </p>
         </div>
       </footer>
@@ -51,28 +63,28 @@ function StatsBar() {
   const healthyRpc = rpcHealth.filter((h: any) => h.healthy).length;
 
   const stats = [
-    { label: "Subnets", value: subnets.length, color: "text-btgreen" },
+    { label: "SUBNETS", value: subnets.length, color: "text-btgreen" },
     {
-      label: "Top Performer",
+      label: "TOP ROI",
       value:
         leaderboard.length > 0
-          ? `${(leaderboard[0].roi_30d * 100).toFixed(1)}% ROI`
+          ? `${(leaderboard[0].roi_30d * 100).toFixed(1)}%`
           : "---",
       color: "text-btyellow",
     },
     {
-      label: "Proxies Active",
+      label: "PROXIES",
       value: `${proxyAccounts.filter((p) => p.active).length}/${proxyAccounts.length}`,
       color: "text-btblue",
     },
     {
-      label: "RPC Pool",
+      label: "RPC",
       value: `${healthyRpc}/${rpcHealth.length || 4}`,
       color: healthyRpc > 0 ? "text-btgreen" : "text-btred",
     },
     {
-      label: "Wallet",
-      value: wallet.connected ? "Connected" : "Not connected",
+      label: "WALLET",
+      value: wallet.connected ? "OK" : "---",
       color: wallet.connected ? "text-btgreen" : "text-btmuted",
     },
   ];
@@ -82,10 +94,10 @@ function StatsBar() {
       {stats.map((s) => (
         <div
           key={s.label}
-          className="bg-btcard border border-btborder rounded-lg px-4 py-3"
+          className="pixel-box px-4 py-3"
         >
-          <p className="text-[10px] text-btmuted uppercase">{s.label}</p>
-          <p className={`text-lg font-bold font-mono ${s.color}`}>{s.value}</p>
+          <p className="text-[6px] font-pixel text-btmuted uppercase">{s.label}</p>
+          <p className={`text-[12px] font-pixel ${s.color} mt-1`}>{s.value}</p>
         </div>
       ))}
     </div>

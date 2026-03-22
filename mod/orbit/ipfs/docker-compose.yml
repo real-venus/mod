@@ -19,7 +19,7 @@ services:
     working_dir: /root/mod/mod/orbit/ipfs
   ipfs.node:
     container_name: ipfs.node
-    image: ipfs/kubo:release
+    image: ipfs/kubo:v0.40.1
     networks:
     - default
     ports:

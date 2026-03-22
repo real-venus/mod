@@ -9,7 +9,7 @@ import pytest
 from unittest.mock import MagicMock, patch, call
 from types import SimpleNamespace
 
-from conftest import FakeBalance, FakeStakeInfo
+from bt.conftest import FakeBalance, FakeStakeInfo
 from bt import Bt, BtTrader
 from bt.taocopy import TaoCopy, BLOCKS_PER_DAY
 

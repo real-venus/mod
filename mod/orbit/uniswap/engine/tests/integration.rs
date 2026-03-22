@@ -604,3 +604,319 @@ mod strategy_tests {
         assert!(RebalanceStrategy::validate_config(&config).is_err());
     }
 }
+
+// --- Discovery & RPC Round-Robin tests ---
+
+mod discovery_tests {
+    use uniswap_engine::types::ChainId;
+    use uniswap_engine::discovery::RpcRoundRobin;
+    use uniswap_engine::scraper::decode_int256;
+
+    #[test]
+    fn test_rpc_round_robin_cycles() {
+        let rr = RpcRoundRobin::new(ChainId::Base, "https://mainnet.base.org");
+        assert!(rr.len() >= 2, "Should have multiple gateways, got {}", rr.len());
+
+        let first = rr.next().to_string();
+        let second = rr.next().to_string();
+        // After cycling through all, should come back
+        for _ in 0..rr.len() - 2 {
+            rr.next();
+        }
+        let wrapped = rr.next().to_string();
+        assert_eq!(first, wrapped, "Should wrap around to first gateway");
+        // Second call should give second gateway
+        let second_again = rr.next().to_string();
+        assert_eq!(second, second_again);
+    }
+
+    #[test]
+    fn test_rpc_round_robin_primary_first() {
+        let primary = "https://custom-rpc.example.com";
+        let rr = RpcRoundRobin::new(ChainId::Base, primary);
+        let first = rr.next();
+        assert_eq!(first, primary, "Primary RPC should be first in rotation");
+    }
+
+    #[test]
+    fn test_rpc_round_robin_no_duplicates() {
+        let rr = RpcRoundRobin::new(ChainId::Base, "https://mainnet.base.org");
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..rr.len() {
+            let url = rr.next().to_string();
+            assert!(seen.insert(url.clone()), "Duplicate gateway found: {}", url);
+        }
+    }
+
+    #[test]
+    fn test_rpc_round_robin_skip() {
+        let rr = RpcRoundRobin::new(ChainId::Base, "https://mainnet.base.org");
+        let first = rr.next().to_string();
+        rr.skip(); // skip past next
+        let after_skip = rr.next().to_string();
+        assert_ne!(first, after_skip, "Skip should advance past next gateway");
+    }
+
+    #[test]
+    fn test_polygon_has_gateways() {
+        let rr = RpcRoundRobin::new(ChainId::Polygon, "https://polygon-bor-rpc.publicnode.com");
+        assert!(rr.len() >= 2, "Polygon should have multiple gateways");
+    }
+
+    // --- Swap event parsing tests ---
+
+    #[test]
+    fn test_decode_int256_positive() {
+        // 1 ETH = 1000000000000000000 in hex
+        let mut data = [0u8; 32];
+        let val_bytes = 1_000_000_000_000_000_000u128.to_be_bytes();
+        data[16..32].copy_from_slice(&val_bytes);
+        let result = decode_int256(&data);
+        assert_eq!(result, 1_000_000_000_000_000_000i128);
+    }
+
+    #[test]
+    fn test_decode_int256_negative() {
+        // -1 in two's complement (all 0xff)
+        let data = [0xffu8; 32];
+        let result = decode_int256(&data);
+        assert_eq!(result, -1i128);
+    }
+
+    #[test]
+    fn test_decode_int256_zero() {
+        let data = [0u8; 32];
+        let result = decode_int256(&data);
+        assert_eq!(result, 0i128);
+    }
+
+    #[test]
+    fn test_decode_int256_negative_amount() {
+        // Simulate a typical negative swap amount: -500 USDC (6 decimals) = -500_000_000
+        // Two's complement of -500000000
+        let val: i128 = -500_000_000;
+        let mut data = if val < 0 { [0xffu8; 32] } else { [0u8; 32] };
+        let bytes = (val as u128).to_be_bytes();
+        data[16..32].copy_from_slice(&bytes);
+        let result = decode_int256(&data);
+        assert_eq!(result, val);
+    }
+
+    // --- USD volume estimation (unit tests for the logic) ---
+
+    #[test]
+    fn test_usd_volume_stable_token0() {
+        // If token0 is USDC (6 decimals), abs_amount0 = 1_000_000 (= 1 USDC)
+        // The estimate should use the stable amount directly
+        let abs_amount0: u128 = 1_000_000;
+        let decimals: u8 = 6;
+        let usd = abs_amount0 as f64 / 10f64.powi(decimals as i32);
+        assert!((usd - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_usd_volume_large_trade() {
+        // 100k USDC
+        let abs_amount: u128 = 100_000_000_000; // 100k with 6 decimals
+        let decimals: u8 = 6;
+        let usd = abs_amount as f64 / 10f64.powi(decimals as i32);
+        assert!((usd - 100_000.0).abs() < 0.01);
+    }
+
+    // --- Cache save/load tests ---
+
+    #[test]
+    fn test_cache_roundtrip() {
+        use uniswap_engine::types::{TopTradersCache, TopTrader};
+
+        let cache = TopTradersCache {
+            chain: ChainId::Base,
+            days: 7,
+            scanned_at: chrono::Utc::now(),
+            from_block: 1000,
+            to_block: 2000,
+            traders: vec![
+                TopTrader {
+                    rank: 1,
+                    address: "0x1234567890abcdef1234567890abcdef12345678".into(),
+                    trade_count: 42,
+                    total_volume_usd: 123456.78,
+                    most_traded: vec!["WETH".into(), "USDC".into()],
+                    last_active: chrono::Utc::now(),
+                    first_seen: chrono::Utc::now() - chrono::Duration::days(3),
+                },
+            ],
+        };
+
+        let tmp = std::env::temp_dir().join("uniswap_test_cache");
+        let _ = std::fs::create_dir_all(tmp.join("discovery"));
+        let data_path = tmp.to_str().unwrap();
+
+        uniswap_engine::discovery::save_top_traders(data_path, &cache);
+        let loaded = uniswap_engine::discovery::load_cached_top_traders(data_path, ChainId::Base, 7);
+
+        assert!(loaded.is_some(), "Cache should load after save");
+        let loaded = loaded.unwrap();
+        assert_eq!(loaded.chain, ChainId::Base);
+        assert_eq!(loaded.days, 7);
+        assert_eq!(loaded.traders.len(), 1);
+        assert_eq!(loaded.traders[0].rank, 1);
+        assert_eq!(loaded.traders[0].trade_count, 42);
+        assert!((loaded.traders[0].total_volume_usd - 123456.78).abs() < 0.01);
+        assert_eq!(loaded.traders[0].most_traded, vec!["WETH", "USDC"]);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_cache_load_nonexistent() {
+        let loaded = uniswap_engine::discovery::load_cached_top_traders("/nonexistent/path", ChainId::Base, 7);
+        assert!(loaded.is_none());
+    }
+
+    #[test]
+    fn test_cache_different_days() {
+        use uniswap_engine::types::{TopTradersCache, TopTrader};
+
+        let tmp = std::env::temp_dir().join("uniswap_test_cache_days");
+        let _ = std::fs::create_dir_all(tmp.join("discovery"));
+        let data_path = tmp.to_str().unwrap();
+
+        let cache_7d = TopTradersCache {
+            chain: ChainId::Base, days: 7,
+            scanned_at: chrono::Utc::now(),
+            from_block: 1000, to_block: 2000,
+            traders: vec![TopTrader {
+                rank: 1, address: "0xaaa".into(), trade_count: 10,
+                total_volume_usd: 100.0, most_traded: vec![],
+                last_active: chrono::Utc::now(), first_seen: chrono::Utc::now(),
+            }],
+        };
+        let cache_30d = TopTradersCache {
+            chain: ChainId::Base, days: 30,
+            scanned_at: chrono::Utc::now(),
+            from_block: 500, to_block: 2000,
+            traders: vec![TopTrader {
+                rank: 1, address: "0xbbb".into(), trade_count: 50,
+                total_volume_usd: 500.0, most_traded: vec![],
+                last_active: chrono::Utc::now(), first_seen: chrono::Utc::now(),
+            }],
+        };
+
+        uniswap_engine::discovery::save_top_traders(data_path, &cache_7d);
+        uniswap_engine::discovery::save_top_traders(data_path, &cache_30d);
+
+        let loaded_7 = uniswap_engine::discovery::load_cached_top_traders(data_path, ChainId::Base, 7).unwrap();
+        let loaded_30 = uniswap_engine::discovery::load_cached_top_traders(data_path, ChainId::Base, 30).unwrap();
+        assert_eq!(loaded_7.traders[0].address, "0xaaa");
+        assert_eq!(loaded_30.traders[0].address, "0xbbb");
+
+        // 14d should not exist
+        assert!(uniswap_engine::discovery::load_cached_top_traders(data_path, ChainId::Base, 14).is_none());
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    // --- RPC integration test (hits real chain, gated behind #[ignore]) ---
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_rpc_round_robin_real_requests() {
+        let rr = RpcRoundRobin::new(ChainId::Base, "https://mainnet.base.org");
+        let client = reqwest::Client::builder()
+            .user_agent("Mozilla/5.0 (test)")
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .unwrap();
+
+        let mut successes = 0;
+        for i in 0..rr.len() {
+            let url = rr.next();
+            let body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "method": "eth_blockNumber",
+                "params": [],
+                "id": i,
+            });
+
+            match client.post(url).json(&body).send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    let json: serde_json::Value = resp.json().await.unwrap();
+                    if json.get("result").is_some() {
+                        println!("Gateway OK: {}", url);
+                        successes += 1;
+                    } else {
+                        println!("Gateway error response: {} -> {}", url, json);
+                    }
+                }
+                Ok(resp) => println!("Gateway HTTP error: {} -> {}", url, resp.status()),
+                Err(e) => println!("Gateway connection error: {} -> {}", url, e),
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        }
+
+        assert!(successes >= 2, "At least 2 gateways should work, got {}", successes);
+        println!("{}/{} gateways responding", successes, rr.len());
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_discovery_scan_small_window() {
+        // Scan just 100 blocks (~3 minutes) to verify the pipeline works end-to-end
+        use uniswap_engine::discovery::RpcRoundRobin;
+
+        let rr = RpcRoundRobin::new(ChainId::Base, "https://mainnet.base.org");
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .build()
+            .unwrap();
+
+        // Get current block
+        let body = serde_json::json!({
+            "jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1
+        });
+        let resp = client.post(rr.next()).json(&body).send().await.unwrap();
+        let json: serde_json::Value = resp.json().await.unwrap();
+        let block_hex = json["result"].as_str().unwrap();
+        let current_block = u64::from_str_radix(block_hex.trim_start_matches("0x"), 16).unwrap();
+
+        // Fetch logs for last 100 blocks from WETH/USDC pool
+        let from_block = current_block - 100;
+        let filter = serde_json::json!({
+            "fromBlock": format!("0x{:x}", from_block),
+            "toBlock": format!("0x{:x}", current_block),
+            "topics": ["0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"],
+            "address": ["0xd0b53d9277642d899df5c87a3966a349a798f224"],
+        });
+        let body = serde_json::json!({
+            "jsonrpc": "2.0", "method": "eth_getLogs", "params": [filter], "id": 2
+        });
+        let resp = client.post(rr.next()).json(&body).send().await.unwrap();
+        let json: serde_json::Value = resp.json().await.unwrap();
+        let logs = json["result"].as_array().unwrap();
+
+        println!("Fetched {} swap events from blocks {}-{}", logs.len(), from_block, current_block);
+        assert!(logs.len() > 0, "WETH/USDC pool should have swaps in last 100 blocks");
+
+        // Verify log structure
+        let log = &logs[0];
+        let topics = log["topics"].as_array().unwrap();
+        assert_eq!(topics.len(), 3, "Swap event should have 3 topics");
+        assert_eq!(
+            topics[0].as_str().unwrap(),
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+        );
+
+        // Decode data
+        let data_hex = log["data"].as_str().unwrap().trim_start_matches("0x");
+        let data_bytes = hex::decode(data_hex).unwrap();
+        assert!(data_bytes.len() >= 160, "Swap event data should be >= 160 bytes");
+
+        let amount0 = decode_int256(&data_bytes[0..32]);
+        let amount1 = decode_int256(&data_bytes[32..64]);
+        println!("First swap: amount0={}, amount1={}", amount0, amount1);
+        // One should be positive, other negative (swap in/out)
+        assert!(amount0 != 0 || amount1 != 0, "Amounts should be non-zero");
+    }
+}

@@ -1,88 +1,56 @@
-# Orbit Base
+# Lighthouse Storage
 
-🚀 A modular agent framework for building intelligent automation systems.
+Decentralized storage adapter for [Lighthouse](https://lighthouse.storage) (IPFS + Filecoin).
 
-## Overview
-
-Orbit Base provides the foundational infrastructure for creating, deploying, and managing AI-powered agents that can execute tasks, interact with tools, and achieve complex goals.
-
-## Features
-
-- **Tool Integration** - Seamlessly integrate custom tools (file operations, shell commands, etc.)
-- **Multi-Step Execution** - Agents can plan and execute multi-step workflows
-- **Docker Support** - Containerized deployment for consistent environments
-- **Extensible Architecture** - Easy to add new capabilities and tools
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.8+
-- Docker & Docker Compose (optional)
-
-### Installation
+## Setup
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd orbit/base
-
-# Install dependencies
-pip install -r requirements.txt
+pip install lighthouseweb3
+export LIGHTHOUSE_TOKEN="your-api-token"
 ```
 
-### Using Docker
-
-```bash
-# Build and run with Docker Compose
-docker-compose up --build
-```
-
-## Project Structure
-
-```
-orbit/base/
-├── README.md           # This file
-├── TUTORIAL.md         # Detailed tutorial
-├── requirements.txt    # Python dependencies
-├── Dockerfile          # Container definition
-├── docker-compose.yml  # Multi-container orchestration
-└── base/               # Core module
-```
+Get a token at https://files.lighthouse.storage
 
 ## Usage
 
 ```python
-from base import Agent
+from lighthouse.mod import LighthouseClient
 
-# Initialize agent with tools
-agent = Agent(tools=['create_file', 'cmd'])
+lh = LighthouseClient()
 
-# Execute a query
-result = agent.run(query='your task here')
+# Upload file
+cid = lh.upload('/path/to/file.txt')
+
+# Upload JSON data
+cid = lh.put({'key': 'value'})
+
+# Upload with tag
+cid = lh.upload('/path/to/file.txt', tag='my-project')
+
+# Download
+data = lh.get(cid)           # JSON
+raw = lh.cat(cid)            # bytes
+lh.download(cid, './out.txt') # to file
+url = lh.get_url(cid)        # gateway URL
+
+# Status
+lh.uploads()                 # list uploads
+lh.info(cid)                 # file info
+lh.deal_status(cid)          # Filecoin deal status
+lh.balance()                 # storage balance
+lh.tagged('my-project')      # files by tag
+
+# IPNS
+key = lh.ipns_keygen()
+lh.ipns_publish(cid, key_name)
+lh.ipns_keys()
+lh.ipns_remove(key_name)
 ```
 
-## Available Tools
+## Via mod framework
 
-| Tool | Description |
-|------|-------------|
-| `create_file` | Create files with specified content |
-| `cmd` | Execute shell commands |
-
-## Documentation
-
-See [TUTORIAL.md](./TUTORIAL.md) for comprehensive guides and examples.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
-
-## License
-
-MIT License - See LICENSE for details.
-
----
-
-*Built with ❤️ by the Orbit team*
+```python
+import mod as m
+lh = m.mod('lighthouse')()
+cid = lh.put({'hello': 'world'})
+```

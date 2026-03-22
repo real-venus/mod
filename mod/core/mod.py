@@ -1,18 +1,18 @@
 
 import os
-import inspect
+import sys
 import json
-from openai import files
-import yaml
-import shutil
 import time
 import glob
-import sys
-import argparse
+import shutil
+import inspect
+import logging
+from typing import Any, Dict, List, Optional, Union
 from functools import partial
-import os
-from copy import deepcopy
-from typing import *
+
+import yaml
+
+logger = logging.getLogger(__name__)
 
 class Mod: 
 
@@ -26,9 +26,9 @@ class Mod:
         }
 
     # we are going to avoid these folders when listing files
-    avoid_folders = ['__pycache__', '.git', '.ipynb_checkpoints', 'node_modules', 'egg-info',  'private', 'node_modules', '.venv', 'venv', '.env']
-    file_types = ['py', 'json', 'sol'] # default file types
-    anchor_names = ['agent', 'mod', 'block'] # default anchor names
+    _avoid_folders = frozenset(['__pycache__', '.git', '.ipynb_checkpoints', 'node_modules', 'egg-info', 'private', '.venv', 'venv', '.env'])
+    _default_file_types = ('py', 'json', 'sol')
+    _default_anchor_names = ('agent', 'mod', 'block')
     lib_name = __file__.split('/')[-2] # mod/core/mod.py -> mod 
 
     def __init__(self, 
@@ -57,20 +57,23 @@ class Mod:
                 os.makedirs(path, exist_ok=True)
         self.paths['home'] = self.homepath  = os.path.expanduser('~')
         self.paths = self.munch(self.paths)
-        config =self.config()
+        # Instance-level copy to avoid mutating class state (must be before self.config() which uses files())
+        self.avoid_folders = set(self._avoid_folders)
+        config = self.config()
         self.name  = config['name']
         self.storage_path = f'{self.homepath}/.{self.name}'
         self.port_range = config['port_range']
         self.expose = self.endpoints = config['expose']
-        self.anchor_names.append(self.name)
+        self.file_types = list(self._default_file_types)
+        self.anchor_names = list(self._default_anchor_names) + [self.name]
         self.set_routes(self.routes())
 
-    def get_ports(self, n=3) -> list:
+    def get_ports(self, n: int = 3) -> list:
         port_range = self.get_port_range()
-        used_ports = self.used_ports()
+        used_ports = set(self.used_ports())
         available_ports = [p for p in range(port_range[0], port_range[1]) if p not in used_ports]
         if len(available_ports) < n:
-            raise Exception(f'Not enough available ports in range {port_range}, only {len(available_ports)} available')
+            raise RuntimeError(f'Not enough available ports in range {port_range}, only {len(available_ports)} available')
         return available_ports[:n]
 
     def munch(self, d:dict) -> Any:
@@ -84,17 +87,18 @@ class Mod:
         else:
             return d
 
-    def get_port_range(port_range: list = None) -> list:
-        import mod as m
-        port_range = m.get('port_range', [])
+    def get_port_range(self, port_range: list = None) -> list:
+        if port_range is None:
+            port_range = self.get('port_range', [])
         if isinstance(port_range, str):
             port_range = list(map(int, port_range.split('-')))
         if len(port_range) == 0:
-            port_range = m.port_range
+            port_range = self.port_range
         port_range = list(port_range)
-        assert isinstance(port_range, list), 'Port range must be a list'
-        assert isinstance(port_range[0], int), 'Port range must be a list of integers'
-        assert isinstance(port_range[1], int), 'Port range must be a list of integers'
+        if not isinstance(port_range, list) or len(port_range) < 2:
+            raise ValueError('Port range must be a list of at least 2 integers')
+        if not isinstance(port_range[0], int) or not isinstance(port_range[1], int):
+            raise TypeError('Port range values must be integers')
         return port_range
 
     def set_routes(self, routes:dict, verbose=True):
@@ -170,12 +174,6 @@ class Mod:
         assert os.path.exists(self.abspath(path)), f'{path} does not exist'
         return self.cmd(f'code {path}', **kwargs)
 
-    def getfile(self, obj=None) -> str:
-        return inspect.getfile(self.mod(obj))
-
-    def path(self, obj=None) -> str:
-        return inspect.getfile(self.mod(obj))
-
     def about(self, mod = 'store', query='what is this?', *extra_query):
         """
         Ask a question about the mod
@@ -207,9 +205,9 @@ class Mod:
         path = os.path.abspath(path)
         return self.cmd(f'code {path}')
 
-    def mod_class(self, obj= None) -> str:
-        if obj == None: 
-            objx = self 
+    def mod_class(self, obj=None) -> str:
+        if obj is None:
+            obj = self.__class__
         return obj.__name__
 
     def storage_dir(self, mod=None):
@@ -242,59 +240,8 @@ class Mod:
     def pwd(self):
         return os.getcwd()
 
-    def run(self, fn:str='info', params: Union[str, dict]="{}", auth=None,**_kwargs) -> Any: 
-        if isinstance(signature, str):
-            signature = self.verify(auth)
-        mod = 'mod'
-        if '/' in fn:
-            mod, fn = fn.split('/')
-        parser = argparse.ArgumentParser(description='Argparse for the mod')
-        parser.add_argument('--mod', dest='mod', help='The function', type=str, default=mod)
-        parser.add_argument('--fn', dest='fn', help='The function', type=str, default=fn)
-        parser.add_argument('--params', dest='params', help='key word arguments to the function', type=str, default=params) 
-        argv = parser.parse_args()
-        params = argv.params
-        mod = self.get_name(argv.mod)
-        fn = argv.fn
-        args, kwargs = [], {}
-        if isinstance(params, str):
-            params = json.loads(params.replace("'",'"')) 
-        print(f'Running {mod}.{fn} with params {params}')
-        if isinstance(params, dict):
-            if 'args' in params and 'kwargs' in params:
-                args = params['args']
-                kwargs = params['kwargs']
-            else:
-                kwargs = params
-        elif isinstance(params, list):
-            args = params
-        else:
-            raise Exception('Invalid params', params)
-        mod = self.mod(mod)()
-        return getattr(mod, fn)(*args, **kwargs)     
-
     def build(self, *args,   **kwargs):
         return self.fn(f'pm.docker/build')(*args, **kwargs)
-    
-    def run_fn(self,fn:str, params:Optional[dict]=None, args=None, kwargs=None, mod='mod') -> Any:
-        """
-        get a fucntion from a strings
-        """
-
-        if '/' in fn:
-            mod, fn = fn.split('/')
-        mod = self.mod(mod)()
-        fn_obj =  getattr(mod, fn)
-        params = params or {}
-        if isinstance(params, str):
-            params = json.loads(params.replace("'",'"'))
-        if isinstance(params, list):
-            args = params
-        elif isinstance(params, dict):
-            kwargs = params
-        args = args or []
-        kwargs = kwargs or {}
-        return fn_obj(*args, **kwargs)
 
     def is_mod_file(self, mod = None, exts=['py', 'rs', 'ts'], folder_filenames=['mod', 'agent', 'block',  'server']) -> bool:
         dirpath = self.dirpath(mod)
@@ -331,67 +278,57 @@ class Mod:
     def key2address(self,key:str = None , **kwargs) -> None:
         return self.get_key().key2address(key, **kwargs)
     
-    def folders(self, 
-            path:str = './', 
-            depth:Optional[int]=1, 
-            recursive:bool=True, 
-            search=None, 
-            include_hidden=False):
+    def folders(self,
+            path:str = './',
+            depth:Optional[int]=1,
+            recursive:bool=True,
+            search=None,
+            include_hidden=False) -> List[str]:
         path = self.abspath(path)
-        # filter only directories
-        paths = []
-        for path in self.ls(path):
-            if not self.filter_path(path, include_hidden=include_hidden):
+        seen = set()
+        result = []
+        for entry in self.ls(path):
+            if not self.filter_path(entry, include_hidden=include_hidden, search=search):
                 continue
-            if os.path.isdir(path):
-                paths.append(path)
-                if depth > 1 :
-                    paths.extend(self.folders(path, depth=depth-1, search=search, include_hidden=include_hidden))
-        # avoid hidden folders
-        paths = list(filter(lambda f:self.filter_path(f, include_hidden=include_hidden, search=search), paths))
-        paths = list(sorted(set(paths)))
-        return paths
+            if os.path.isdir(entry) and entry not in seen:
+                seen.add(entry)
+                result.append(entry)
+                if depth > 1:
+                    result.extend(self.folders(entry, depth=depth-1, search=search, include_hidden=include_hidden))
+        return sorted(set(result))
             
 
 
-    def files(self, 
-              path='./', 
-              search:str = None, 
-              include_hidden:bool = False, 
+    def files(self,
+              path='./',
+              search:str = None,
+              include_hidden:bool = False,
               depth=10,
               **kwargs) -> List[str]:
         """
-        Lists all files in the path
+        Lists all files in the path, with single-pass filtering.
         """
-        # if self.mod_exists(path):
-        #     path = self.dirpath(path)
-
-
-
         path = self.abspath(path)
         if not os.path.exists(path) and self.mod_exists(path):
             path = self.dirpath(path)
-            
-            
-        files = []
-        if depth == 0:
+        if depth <= 0:
             return []
-        else:
-            for path in self.ls(path):
-                files.extend(self.files(path, depth=depth-1) if os.path.isdir(path) else [path])
-        files =  list(filter(lambda f:os.path.isfile(f), files))
-        files = list(filter(lambda f:self.filter_path(f, include_hidden=include_hidden, search=search), files))
-        return sorted(files)
+        result = []
+        for entry in self.ls(path):
+            if os.path.isdir(entry):
+                result.extend(self.files(entry, search=search, include_hidden=include_hidden, depth=depth-1))
+            elif os.path.isfile(entry) and self.filter_path(entry, include_hidden=include_hidden, search=search):
+                result.append(entry)
+        return sorted(result)
 
-    def filter_path(self, path, include_hidden=False, search=None):
-        if not include_hidden:
-            if '/.' in path:
-                return False
-        if len(self.avoid_folders) > 0:
-            for af in self.avoid_folders:
-                if f'/{af}' in path:
-                    return False
-        if search != None and search not in path:
+    def filter_path(self, path: str, include_hidden: bool = False, search: str = None) -> bool:
+        if not include_hidden and '/.' in path:
+            return False
+        # Use set for O(1) lookups per folder segment
+        parts = path.split('/')
+        if self.avoid_folders and any(p in self.avoid_folders for p in parts):
+            return False
+        if search is not None and search not in path:
             return False
         return True
 
@@ -444,16 +381,15 @@ class Mod:
     def set_config(self, config=None):
         if config is None:
             configs = self.config_paths(config)
-            # sort configs by shortest then by json first
             configs = sorted(configs, key=lambda x: len(x))
-            assert len(configs) > 0, 'No config found'
-            # is this json or yaml
+            if not configs:
+                raise FileNotFoundError('No config file found')
             if configs[0].endswith('.json'):
                 config = self.get_json(configs[0])
-            elif configs[0].endswith('.yaml') or configs[0].endswith('.yml'):
+            elif configs[0].endswith(('.yaml', '.yml')):
                 config = self.get_yaml(configs[0])
             else:
-                raise Exception('Unknown config format', configs[0])
+                raise ValueError(f'Unknown config format: {configs[0]}')
         return config
 
     
@@ -486,44 +422,41 @@ class Mod:
             self.put_text(path, data)
         return path
 
-    def env(self, key=None):
+    def env(self, key: str = None) -> Union[str, dict, None]:
         """
-        Get the environment variables
+        Get environment variable(s). If key is provided, returns that value.
         """
-        import os
-        env = {}
-        for k,v in os.environ.items():
-            env[k] = v
-        if key != None:
-            return env.get(key, None)
-        return env
+        if key is not None:
+            return os.environ.get(key)
+        return dict(os.environ)
 
-    def rm(self, path:str, possible_extensions = ['json'], avoid_paths = ['~', '/']):
+    def rm(self, path: str, possible_extensions: list = None, avoid_paths: list = None) -> dict:
         """
-        Remove a file or directory
+        Remove a file or directory safely.
         """
-
-        # step 1 : find the paht first
+        if possible_extensions is None:
+            possible_extensions = ['json']
+        if avoid_paths is None:
+            avoid_paths = ['~', '/']
         path = self.abspath(path)
-        avoid_paths = list(map(self.abspath, avoid_paths))
-        assert path not in avoid_paths, f'Cannot remove {path}'
-        path_exists = lambda p: os.path.exists(p)
-        if not path_exists(path): 
-            for pe in possible_extensions:
-                possible_path = f'{path}.{pe}'
-                if os.path.exists(possible_path):
-                    path = possible_path
+        safe_paths = set(map(self.abspath, avoid_paths))
+        if path in safe_paths:
+            raise PermissionError(f'Cannot remove protected path: {path}')
+        if not os.path.exists(path):
+            for ext in possible_extensions:
+                candidate = f'{path}.{ext}'
+                if os.path.exists(candidate):
+                    path = candidate
                     break
-            if not path_exists(path):
-                return {'success':False, 'message':f'{path} does not exist'}
-        assert os.path.exists(path), f'Path {path} does not exist'
-        # step 2: now remove the path
+            else:
+                return {'success': False, 'message': f'{path} does not exist'}
         if os.path.isdir(path):
             shutil.rmtree(path)
-        if os.path.isfile(path):
+        elif os.path.isfile(path):
             os.remove(path)
-        assert not os.path.exists(path), f'{path} was not removed'
-        return {'success':True, 'message':f'{path} removed'}
+        if os.path.exists(path):
+            raise OSError(f'Failed to remove {path}')
+        return {'success': True, 'message': f'{path} removed'}
     
     def glob(self, path:str='./', depth:Optional[int]=4, recursive:bool=True, files_only:bool = True, include_hidden=False):
         path = self.abspath(path)
@@ -542,10 +475,8 @@ class Mod:
             paths = [ p for p in paths if '/.' not in p]
         return paths
     
-    def get_json(self, path:str,default:Any=None, **kwargs):
+    def get_json(self, path: str, default: Any = None, **kwargs) -> Any:
         path = self.abspath(path)
-
-        # return self.util('get_json')(path, default=default, **kwargs)
         if not path.endswith('.json'):
             path = path + '.json'
         if not os.path.exists(path):
@@ -553,8 +484,8 @@ class Mod:
         try:
             with open(path, 'r') as file:
                 data = json.load(file)
-        except Exception as e:
-            print(f'Error loading json from {path}: {e}')
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning(f'Error loading json from {path}: {e}')
             return default
         return data
     
@@ -601,10 +532,7 @@ class Mod:
         return {'success': True, 'path': f'{path}', 'size': len(text)*8}
 
 
-    def save_text(self, path:str, text:str, key=None) -> None:
-        return self.put_text(path, text, key=key)
-
-    path = write =  get_path
+    write = get_path
     
     def ls(self, path:str = './', 
            search = None,
@@ -829,13 +757,12 @@ class Mod:
         return self.get_key(key).key2address(**kwargs).get(key, key)
     
 
-    def content_files(self, mod = 'store' , search=None, **kwargs) ->  List[str]:
+    def mod_files(self, mod = 'store' , search=None, **kwargs) ->  List[str]:
         """
-        get the content of the mod as a dict of file path to file content
-        return a dict of file path to file content
+        Get the file paths for a given mod directory.
         """
         return self.files(self.dirpath(mod), search=search, **kwargs)
-    
+
     def content(self, mod = None , ignore_folders = [], depth=10,   **kwargs) ->  Dict[str, str]:
         """
         get the content of the mod as a dict of file path to file content
@@ -860,17 +787,11 @@ class Mod:
         return a dict of file path to file content
         """
         return list(self.content(mod=mod, **kwargs).keys())
-    cont = codemap =  cm =  content
+    cont = codemap = content
 
-    def cid(self, mod=None , **kwargs) -> Union[str, Dict[str, str]]:
-        """
-        get the cid of the mod
-        """
-        return self.info(mod=mod, **kwargs)['cid']
-
-    def dir(self, obj=None, sdearch=None, *args, **kwargs):
+    def dir(self, obj=None, search=None, *args, **kwargs):
         obj = self.obj(obj)
-        if search != None:
+        if search is not None:
             return [f for f in dir(obj) if search in f]
         return dir(obj)
     
@@ -906,17 +827,13 @@ class Mod:
 
     am = ms = mods
 
-    mods = mods
-    def get_mods(self, search=None, **kwargs):
-        return self.mods(search=search, **kwargs)
-
     def core_mods(self, *args,  **kwargs) -> List[str]:
         return list(self.core_tree(*args,orbit='core', **kwargs).keys())
-    cm = cmods = core_mods = core_mods 
+    cm = cmods = core_mods
 
     def local_mods(self) -> List[str]:
         return list(self.orbit('local').keys())
-    lm = lmods = local_mods = local_mods
+    lm = lmods = local_mods
 
     _api = None
     def info(self, 
@@ -954,9 +871,6 @@ class Mod:
         assert verify, f'Invalid signature {signature}'
         info['signature'] = signature
         return info
-
-    def epoch(self, *args, **kwargs):
-        return self.run_epoch(*args, **kwargs)
 
     def pwd2key(self, pwd, **kwargs) -> str:
         return self.mod('key')().str2key(pwd, **kwargs)
@@ -1222,9 +1136,6 @@ class Mod:
         except Exception as e:
             return False
 
-    def object_exists(self, path:str, verbose=False)-> Any:
-        return self.obj_exists(path, verbose=verbose)
-
     def mod_exists(self, mod:str, **kwargs) -> bool:
         '''
         Returns true if the mod exists
@@ -1299,7 +1210,6 @@ class Mod:
             raise Exception(f'No anchor file found in {path} with anchor names {anchor_names} and file types {self.file_types} {file_relative}')
         return result
         
-    af = anchor_file
     def anchor_object(self, path):
         path = self.get_name(path)
         anchor_file = self.anchor_file(path)
@@ -1343,7 +1253,7 @@ class Mod:
         path = '_'.join(path_chunks)
         return path
 
-    file_types = ['py']
+    _tree_file_types = ['py']
     ignore_suffixes = ['/src', '/core']
     def process_path(self, x,  ) -> str:
         for k in self.ignore_suffixes: 
@@ -1360,7 +1270,7 @@ class Mod:
         x = '/'.join(x_list)
         return x   
     def is_in_file_types(self, f:str) -> bool:
-        return any([f.endswith('.' + ft) for ft in self.file_types])
+        return any(f.endswith('.' + ft) for ft in self.file_types)
     
     tree_cache = {}
     def get_tree(self, 
@@ -1465,7 +1375,6 @@ class Mod:
             return {}
 
 
-    s = search
 
     def tree(self, 
             search=None, 
@@ -1517,7 +1426,7 @@ class Mod:
 
 
     def addcid(self, name='churn',  cid='QmXUjBQRFa8DbY2GhD1Aq6a44EBYzgejmtwwnYYTfvnFW4'):
-        api = c.mod('api')()
+        api = self.mod('api')()
         file2text =  api.content(cid, expand=True)
         path = self.paths["orbit"]["inner"] + '/' + name.replace('.', '/')
         for k,v in file2text.items():
@@ -1525,7 +1434,7 @@ class Mod:
             print(f'Creating {new_path} for mod {name}')
             self.put_text(new_path, v)
         self.tree(update=True)
-        assert self.mod_exists , f'Mod {name} not found after creation from cid {cid}'
+        assert self.mod_exists(name), f'Mod {name} not found after creation from cid {cid}'
         return {'name': name, 'path': path, 'msg': 'Mod Created from cid', 'cid': cid}
 
 
@@ -1703,14 +1612,18 @@ class Mod:
             raise KeyboardInterrupt('Operation cancelled by user')
         return True
 
-    def push(self,  comment, *extra_comment, mod = None, safety=False):
+    def push(self, comment, *extra_comment, mod=None, safety=False):
+        import subprocess
+        import shlex
         path = self.dp(mod, relative=True)
         comment = ' '.join([comment, *extra_comment])
-        assert os.path.exists(path), f'Path {path} does not exist'
-        cmd = f'cd {path} && git add . && git commit -m "{comment}" && git push'
+        if not os.path.exists(path):
+            raise FileNotFoundError(f'Path {path} does not exist')
         if safety:
             self.confirm(f'Are you sure you want to push to {path} with comment: {comment}?')
-        os.system(cmd)
+        subprocess.run(['git', 'add', '.'], cwd=path, check=True)
+        subprocess.run(['git', 'commit', '-m', comment], cwd=path, check=True)
+        subprocess.run(['git', 'push'], cwd=path, check=True)
         return {'msg': f'Pushed to {path} with comment: {comment}'}
 
     def get_mods_path(self, exp=True):
@@ -1721,9 +1634,6 @@ class Mod:
 
     
     def rmmod(self, mod:str = 'test'):
-        return self.fn('factory/rmmod')(mod=mod)
-
-    def rmmod(self, mod:str = 'dev'):
         return self.fn('factory/rmmod')(mod=mod)
     
     def address2key(self, *args, **kwargs):
@@ -1816,9 +1726,6 @@ class Mod:
     def tool(self, tool_name: str='cmd', *args, **kwargs) -> Any:
         return self.mod(tool_name)(*args, **kwargs).forward
 
-    def sand(self):
-        return self.fn('client/call')('api/history', params={"df":1})
-
     def setup(self):
         self.serve('ipfs') 
         self.serve('api')
@@ -1827,4 +1734,3 @@ class Mod:
     def pytest(self, mod='pypm'):
         return self.fn('tester/pytest')(mod)
     
-    s = setup
