@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+# ╔═══════════════════════════════════════════╗
+# ║  cj — Claude Jobs CLI                     ║
+# ║  Submit, list, tail, cancel background    ║
+# ║  Claude tasks via the Rust job server      ║
+# ╚═══════════════════════════════════════════╝
+#
+# Usage:
+#   cj submit "refactor auth module" [--model opus] [--dir /path]
+#   cj list
+#   cj logs <job-id>         # full output
+#   cj tail <job-id>         # live SSE stream
+#   cj cancel <job-id>
+#   cj delete <job-id>
+#   cj status <job-id>
+
+set -euo pipefail
+
+HOST="${CLAUDE_JOBS_URL:-http://localhost:8820}"
+TOKEN="${CLAUDE_JOBS_TOKEN:-}"
+
+# ── Auth header ──────────────────────────────────────────────────
+auth_header() {
+    if [ -n "$TOKEN" ]; then
+        echo "Authorization: Bearer $TOKEN"
+    else
+        echo "X-Local: 1"
+    fi
+}
+
+# ── Colors ───────────────────────────────────────────────────────
+G='\033[0;32m'  # green
+A='\033[0;33m'  # amber
+B='\033[0;34m'  # blue
+D='\033[2m'     # dim
+R='\033[0;31m'  # red
+C='\033[0;36m'  # cyan
+BOLD='\033[1m'
+NC='\033[0m'
+
+# ── Commands ─────────────────────────────────────────────────────
+
+cmd_submit() {
+    local prompt=""
+    local model="sonnet"
+    local work_dir=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --model|-m) model="$2"; shift 2 ;;
+            --dir|-d)   work_dir="$2"; shift 2 ;;
+            *)          prompt="$1"; shift ;;
+        esac
+    done
+
+    if [ -z "$prompt" ]; then
+        echo -e "${R}Error: prompt required${NC}"
+        echo "Usage: cj submit \"your task\" [--model opus] [--dir /path]"
+        exit 1
+    fi
+
+    local body
+    if [ -n "$work_dir" ]; then
+        body=$(printf '{"prompt":"%s","model":"%s","work_dir":"%s"}' \
+            "$(echo "$prompt" | sed 's/"/\\"/g')" "$model" "$work_dir")
+    else
+        body=$(printf '{"prompt":"%s","model":"%s"}' \
+            "$(echo "$prompt" | sed 's/"/\\"/g')" "$model")
+    fi
+
+    local result
+    result=$(curl -s -X POST "$HOST/jobs" \
+        -H "Content-Type: application/json" \
+        -H "$(auth_header)" \
+        -d "$body")
+
+    local job_id
+    job_id=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id','???'))" 2>/dev/null || echo "???")
+    local status
+    status=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','???'))" 2>/dev/null || echo "???")
+
+    echo -e "${G}Job submitted${NC}"
+    echo -e "  ${B}ID${NC}:     ${BOLD}$job_id${NC}"
+    echo -e "  ${B}Model${NC}:  $model"
+    echo -e "  ${B}Status${NC}: $status"
+    echo -e "  ${D}Tail:   cj tail $job_id${NC}"
+}
+
+cmd_list() {
+    local result
+    result=$(curl -s "$HOST/jobs" -H "$(auth_header)")
+
+    echo -e "${G}${BOLD}Claude Jobs${NC}"
+    echo -e "${D}────────────────────────────────────────────${NC}"
+
+    echo "$result" | python3 -c "
+import sys, json
+from datetime import datetime
+
+data = json.load(sys.stdin)
+jobs = data.get('jobs', [])
+if not jobs:
+    print('  No jobs found')
+    sys.exit(0)
+
+status_colors = {
+    'running':   '\033[0;33m',
+    'completed': '\033[0;32m',
+    'failed':    '\033[0;31m',
+    'cancelled': '\033[2m',
+    'pending':   '\033[0;34m',
+}
+nc = '\033[0m'
+bold = '\033[1m'
+dim = '\033[2m'
+
+for j in jobs:
+    s = j.get('status', '?')
+    color = status_colors.get(s, nc)
+    ts = datetime.fromtimestamp(j.get('created_at', 0)).strftime('%H:%M:%S')
+    prompt = j.get('prompt', '')[:60]
+    jid = j.get('id', '?')[:8]
+    model = j.get('model', '?')
+    print(f'  {color}{s:10}{nc} {bold}{jid}{nc}  {dim}{ts}{nc}  [{model}]  {prompt}')
+" 2>/dev/null || echo "$result"
+}
+
+cmd_status() {
+    local id="$1"
+    local result
+    result=$(curl -s "$HOST/jobs/$id" -H "$(auth_header)")
+    echo "$result" | python3 -c "
+import sys, json
+from datetime import datetime
+
+j = json.load(sys.stdin)
+if 'error' in j:
+    print(f'\033[0;31mError: {j[\"error\"]}\033[0m')
+    sys.exit(1)
+
+status_colors = {
+    'running':   '\033[0;33m',
+    'completed': '\033[0;32m',
+    'failed':    '\033[0;31m',
+    'cancelled': '\033[2m',
+    'pending':   '\033[0;34m',
+}
+nc = '\033[0m'
+bold = '\033[1m'
+dim = '\033[2m'
+s = j.get('status', '?')
+color = status_colors.get(s, nc)
+
+print(f'  {bold}Job{nc}: {j.get(\"id\", \"?\")[:8]}')
+print(f'  {bold}Status{nc}: {color}{s}{nc}')
+print(f'  {bold}Model{nc}: {j.get(\"model\", \"?\")}')
+print(f'  {bold}Dir{nc}: {j.get(\"work_dir\", \"?\")}')
+print(f'  {bold}Prompt{nc}: {j.get(\"prompt\", \"?\")}')
+if j.get('error'):
+    print(f'  {bold}Error{nc}: \033[0;31m{j[\"error\"]}\033[0m')
+if j.get('pid'):
+    print(f'  {bold}PID{nc}: {j[\"pid\"]}')
+" 2>/dev/null || echo "$result"
+}
+
+cmd_logs() {
+    local id="$1"
+    local result
+    result=$(curl -s "$HOST/jobs/$id" -H "$(auth_header)")
+    echo "$result" | python3 -c "
+import sys, json
+j = json.load(sys.stdin)
+if 'error' in j:
+    print(f'\033[0;31mError: {j[\"error\"]}\033[0m')
+    sys.exit(1)
+output = j.get('output', '')
+if output:
+    print(output)
+else:
+    print('\033[2mNo output yet\033[0m')
+" 2>/dev/null || echo "$result"
+}
+
+cmd_tail() {
+    local id="$1"
+    echo -e "${G}${BOLD}Streaming job $id${NC}"
+    echo -e "${D}────────────────────────────────────────────${NC}"
+    echo -e "${D}(Ctrl+C to detach — job keeps running)${NC}"
+    echo ""
+
+    # SSE stream — curl streams and we parse data: lines
+    curl -s -N "$HOST/jobs/$id/stream" \
+        -H "$(auth_header)" \
+        -H "Accept: text/event-stream" 2>/dev/null | while IFS= read -r line; do
+        if [[ "$line" == data:* ]]; then
+            text="${line#data:}"
+            if [[ "$text" == "[DONE]" ]]; then
+                echo ""
+                echo -e "${G}${BOLD}Job finished${NC}"
+                break
+            fi
+            printf '%s' "$text"
+        fi
+    done
+}
+
+cmd_cancel() {
+    local id="$1"
+    local result
+    result=$(curl -s -X POST "$HOST/jobs/$id/cancel" -H "$(auth_header)")
+    echo -e "${A}Job $id cancelled${NC}"
+}
+
+cmd_delete() {
+    local id="$1"
+    curl -s -X DELETE "$HOST/jobs/$id" -H "$(auth_header)" > /dev/null
+    echo -e "${D}Job $id deleted${NC}"
+}
+
+cmd_help() {
+    echo -e "${G}${BOLD}cj — Claude Jobs CLI${NC}"
+    echo ""
+    echo -e "  ${BOLD}cj submit${NC} \"task\"  [--model opus] [--dir /path]   Submit a background job"
+    echo -e "  ${BOLD}cj list${NC}                                           List all jobs"
+    echo -e "  ${BOLD}cj status${NC} <id>                                    Job details"
+    echo -e "  ${BOLD}cj logs${NC}   <id>                                    Full output"
+    echo -e "  ${BOLD}cj tail${NC}   <id>                                    Live stream output"
+    echo -e "  ${BOLD}cj cancel${NC} <id>                                    Cancel running job"
+    echo -e "  ${BOLD}cj delete${NC} <id>                                    Delete job record"
+    echo ""
+    echo -e "  ${D}Server: $HOST${NC}"
+    echo -e "  ${D}Set CLAUDE_JOBS_URL to change server address${NC}"
+    echo -e "  ${D}Set CLAUDE_JOBS_LOCAL=1 on server for no-auth mode${NC}"
+}
+
+# ── Main ─────────────────────────────────────────────────────────
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+    submit|s)  cmd_submit "$@" ;;
+    list|ls|l) cmd_list ;;
+    status|st) cmd_status "$1" ;;
+    logs|log)  cmd_logs "$1" ;;
+    tail|t)    cmd_tail "$1" ;;
+    cancel|c)  cmd_cancel "$1" ;;
+    delete|d)  cmd_delete "$1" ;;
+    help|h|-h|--help) cmd_help ;;
+    *)
+        echo -e "${R}Unknown command: $cmd${NC}"
+        cmd_help
+        exit 1
+        ;;
+esac

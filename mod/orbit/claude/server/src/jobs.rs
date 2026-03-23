@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{broadcast, RwLock};
+use base64::Engine;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -60,11 +61,27 @@ pub struct ClaudeJob {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageAttachment {
+    pub name: String,
+    pub data: String, // base64-encoded image data (without data URL prefix)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitRequest {
     pub prompt: String,
     #[serde(default = "default_model")]
     pub model: String,
     pub work_dir: Option<String>,
+    #[serde(default)]
+    pub module_name: Option<String>,
+    #[serde(default)]
+    pub creation_mode: Option<String>, // "new", "fork"
+    #[serde(default)]
+    pub fork_source: Option<String>,
+    #[serde(default)]
+    pub anchor_dir: Option<String>,
+    #[serde(default)]
+    pub images: Option<Vec<ImageAttachment>>,
 }
 
 fn default_model() -> String {
@@ -247,13 +264,113 @@ impl ClaudeJobManager {
     pub async fn submit(&self, req: SubmitRequest) -> ClaudeJob {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().timestamp();
-        let work_dir = req.work_dir.unwrap_or_else(|| {
-            std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string())
-        });
+
+        // Determine anchor directory
+        let anchor_dir = expand_tilde(&req.anchor_dir.unwrap_or_else(|| {
+            std::env::var("MOD_ANCHOR").unwrap_or_else(|_| "~/mod".to_string())
+        }));
+
+        // Handle module creation modes
+        let work_dir = if let Some(module_name) = &req.module_name {
+            let orbit_path = std::path::PathBuf::from(&anchor_dir).join("mod/orbit");
+            let module_path = orbit_path.join(module_name);
+
+            // If fork mode, copy from source module
+            if req.creation_mode.as_deref() == Some("fork") {
+                if let Some(fork_source) = &req.fork_source {
+                    let source_path = orbit_path.join(fork_source);
+                    if source_path.exists() {
+                        // Clone will be done in the prompt preparation
+                        module_path.to_string_lossy().to_string()
+                    } else {
+                        // Fallback to new module creation
+                        module_path.to_string_lossy().to_string()
+                    }
+                } else {
+                    module_path.to_string_lossy().to_string()
+                }
+            } else {
+                // New module creation
+                module_path.to_string_lossy().to_string()
+            }
+        } else {
+            expand_tilde(&req.work_dir.unwrap_or_else(|| {
+                std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string())
+            }))
+        };
+
+        // Enhance prompt with module creation context
+        let enhanced_prompt = if req.module_name.is_some() {
+            let mut prompt_parts = vec![];
+
+            if req.creation_mode.as_deref() == Some("fork") && req.fork_source.is_some() {
+                prompt_parts.push(format!(
+                    "Fork module '{}' from '{}' in the orbit directory. ",
+                    req.module_name.as_ref().unwrap(),
+                    req.fork_source.as_ref().unwrap()
+                ));
+                prompt_parts.push(format!(
+                    "First, copy the entire '{}' module directory to '{}'. ",
+                    req.fork_source.as_ref().unwrap(),
+                    req.module_name.as_ref().unwrap()
+                ));
+            } else {
+                prompt_parts.push(format!(
+                    "Create a new module named '{}' in the orbit directory. ",
+                    req.module_name.as_ref().unwrap()
+                ));
+                prompt_parts.push("Create the directory structure and a basic mod.py or anchor file. ".to_string());
+            }
+
+            prompt_parts.push(format!("Anchor directory is: {}. ", anchor_dir));
+            prompt_parts.push(req.prompt.clone());
+            prompt_parts.join("")
+        } else {
+            req.prompt.clone()
+        };
+
+        // Save attached images to temp dir and prepend paths to prompt
+        let enhanced_prompt = if let Some(images) = &req.images {
+            if !images.is_empty() {
+                let img_dir = format!("/tmp/claude-jobs/{}", id);
+                std::fs::create_dir_all(&img_dir).ok();
+
+                let mut saved_paths = Vec::new();
+                for img in images {
+                    // Strip data URL prefix if present (e.g. "data:image/png;base64,")
+                    let b64 = if let Some(pos) = img.data.find(",") {
+                        &img.data[pos + 1..]
+                    } else {
+                        &img.data
+                    };
+
+                    if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b64) {
+                        let path = format!("{}/{}", img_dir, img.name);
+                        if std::fs::write(&path, &bytes).is_ok() {
+                            saved_paths.push(path);
+                        }
+                    }
+                }
+
+                if !saved_paths.is_empty() {
+                    let paths_str = saved_paths.join(", ");
+                    format!(
+                        "[Attached images: {}]\n\nPlease read and analyze the attached image files above.\n\n{}",
+                        paths_str, enhanced_prompt
+                    )
+                } else {
+                    enhanced_prompt
+                }
+            } else {
+                enhanced_prompt
+            }
+        } else {
+            enhanced_prompt
+        };
 
         let job = ClaudeJob {
             id: id.clone(),
-            prompt: req.prompt.clone(),
+            prompt: enhanced_prompt.clone(),
             model: req.model.clone(),
             work_dir: work_dir.clone(),
             status: JobStatus::Pending,
@@ -278,7 +395,7 @@ impl ClaudeJobManager {
         let streams = Arc::clone(&self.streams);
         let claude_bin = self.claude_bin.clone();
         let job_id = id.clone();
-        let prompt = req.prompt;
+        let prompt = enhanced_prompt;
         let model = req.model;
 
         tokio::spawn(async move {
@@ -303,16 +420,26 @@ impl ClaudeJobManager {
     pub async fn cancel_job(&self, id: &str) -> Result<(), String> {
         let job = self.store.get(id).ok_or_else(|| format!("Job {} not found", id))?;
 
-        if job.status == JobStatus::Running {
+        if job.status == JobStatus::Running || job.status == JobStatus::Pending {
             if let Some(pid) = job.pid {
                 #[cfg(unix)]
                 unsafe {
-                    libc::kill(pid as i32, libc::SIGTERM);
+                    // Kill the process group to catch all children
+                    libc::kill(-(pid as i32), libc::SIGTERM);
+                    // Also kill the process directly as fallback
+                    libc::kill(pid as i32, libc::SIGKILL);
                 }
             }
         }
 
         self.store.update_status(id, &JobStatus::Cancelled, None);
+        // Notify stream subscribers
+        {
+            let streams = self.streams.read().await;
+            if let Some(tx) = streams.get(id) {
+                tx.send("[DONE]\n".to_string()).ok();
+            }
+        }
         let mut streams = self.streams.write().await;
         streams.remove(id);
         Ok(())
@@ -322,6 +449,17 @@ impl ClaudeJobManager {
         let streams = self.streams.read().await;
         streams.get(id).map(|tx| tx.subscribe())
     }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+fn expand_tilde(path: &str) -> String {
+    if path.starts_with("~/") || path == "~" {
+        if let Ok(home) = std::env::var("HOME") {
+            return path.replacen("~", &home, 1);
+        }
+    }
+    path.to_string()
 }
 
 // ── Process Runner ───────────────────────────────────────────────────
@@ -338,10 +476,11 @@ async fn run_claude_process(
 ) {
     let mut cmd = Command::new(claude_bin);
     cmd.arg("--print")
+        .arg("--verbose")
         .arg("--model")
         .arg(model)
         .arg("--output-format")
-        .arg("text")
+        .arg("stream-json")
         .arg("--dangerously-skip-permissions")
         .arg(prompt)
         .current_dir(work_dir)
@@ -372,10 +511,14 @@ async fn run_claude_process(
     let id_out = job_id.to_string();
 
     let stdout_task = tokio::spawn(async move {
+        let mut parser = StreamParser::new();
         while let Ok(Some(line)) = stdout_reader.next_line().await {
-            let text = format!("{}\n", line);
-            store_out.append_output(&id_out, &text);
-            tx_out.send(text).ok();
+            if let Some(text) = parser.parse(&line) {
+                if !text.is_empty() {
+                    store_out.append_output(&id_out, &text);
+                    tx_out.send(text).ok();
+                }
+            }
         }
     });
 
@@ -414,6 +557,169 @@ async fn run_claude_process(
     // Clean up
     let mut s = streams.write().await;
     s.remove(job_id);
+}
+
+// ── Stateful Stream Parser ───────────────────────────────────────────
+
+struct StreamParser {
+    current_tool: Option<String>,
+    current_tool_input: String,
+}
+
+impl StreamParser {
+    fn new() -> Self {
+        Self {
+            current_tool: None,
+            current_tool_input: String::new(),
+        }
+    }
+
+    fn parse(&mut self, line: &str) -> Option<String> {
+        let v: serde_json::Value = serde_json::from_str(line).ok()?;
+
+        match v.get("type")?.as_str()? {
+            "assistant" => {
+                if let Some(content) = v.pointer("/message/content") {
+                    if let Some(arr) = content.as_array() {
+                        let mut out = String::new();
+                        for block in arr {
+                            match block.get("type").and_then(|t| t.as_str()) {
+                                Some("text") => {
+                                    if let Some(t) = block.get("text").and_then(|t| t.as_str()) {
+                                        out.push_str(t);
+                                    }
+                                }
+                                Some("tool_use") => {
+                                    let name = block.get("name").and_then(|n| n.as_str()).unwrap_or("tool");
+                                    out.push_str(&format!("\n⚡ {}", name));
+                                    // Extract tool input details from the complete message
+                                    if let Some(input) = block.get("input") {
+                                        let input_str = serde_json::to_string(input).unwrap_or_default();
+                                        if let Some(detail) = self.format_tool_input(name, &input_str) {
+                                            out.push_str(&detail);
+                                        } else {
+                                            out.push('\n');
+                                        }
+                                    } else {
+                                        out.push('\n');
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        if !out.is_empty() {
+                            return Some(out);
+                        }
+                    }
+                }
+                None
+            }
+            "content_block_start" => {
+                if let Some(cb) = v.get("content_block") {
+                    if cb.get("type").and_then(|t| t.as_str()) == Some("tool_use") {
+                        let name = cb.get("name").and_then(|n| n.as_str()).unwrap_or("tool");
+                        self.current_tool = Some(name.to_string());
+                        self.current_tool_input.clear();
+                        return Some(format!("\n⚡ {}", name));
+                    }
+                }
+                None
+            }
+            "content_block_delta" => {
+                if let Some(delta) = v.get("delta") {
+                    match delta.get("type").and_then(|t| t.as_str())? {
+                        "text_delta" => {
+                            return delta.get("text").and_then(|t| t.as_str()).map(|s| s.to_string());
+                        }
+                        "thinking_delta" => {
+                            return delta.get("thinking").and_then(|t| t.as_str()).map(|s| format!("💭 {}", s));
+                        }
+                        "input_json_delta" => {
+                            if let Some(json) = delta.get("partial_json").and_then(|t| t.as_str()) {
+                                self.current_tool_input.push_str(json);
+                            }
+                            return None;
+                        }
+                        _ => {}
+                    }
+                }
+                None
+            }
+            "content_block_stop" => {
+                if let Some(tool_name) = self.current_tool.take() {
+                    let input = std::mem::take(&mut self.current_tool_input);
+                    return self.format_tool_input(&tool_name, &input);
+                }
+                None
+            }
+            "result" => {
+                if let Some(result) = v.get("result").and_then(|r| r.as_str()) {
+                    if !result.is_empty() {
+                        return Some(format!("\n{}\n", result));
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn format_tool_input(&self, tool: &str, input_json: &str) -> Option<String> {
+        if input_json.is_empty() {
+            return None;
+        }
+        let v: serde_json::Value = serde_json::from_str(input_json).ok()?;
+
+        match tool {
+            "Edit" => {
+                let file = v.get("file_path").and_then(|f| f.as_str()).unwrap_or("?");
+                let old = v.get("old_string").and_then(|s| s.as_str()).unwrap_or("");
+                let new = v.get("new_string").and_then(|s| s.as_str()).unwrap_or("");
+                let mut out = format!("\n┌─ EDIT: {}\n", file);
+                for l in old.lines() {
+                    out.push_str(&format!("│- {}\n", l));
+                }
+                out.push_str("│───\n");
+                for l in new.lines() {
+                    out.push_str(&format!("│+ {}\n", l));
+                }
+                out.push_str("└─\n");
+                Some(out)
+            }
+            "Write" => {
+                let file = v.get("file_path").and_then(|f| f.as_str()).unwrap_or("?");
+                let content = v.get("content").and_then(|s| s.as_str()).unwrap_or("");
+                let line_count = content.lines().count();
+                Some(format!("\n┌─ WRITE: {} ({} lines)\n└─\n", file, line_count))
+            }
+            "Read" => {
+                let file = v.get("file_path").and_then(|f| f.as_str()).unwrap_or("?");
+                Some(format!(" {}\n", file))
+            }
+            "Bash" => {
+                let cmd = v.get("command").and_then(|s| s.as_str()).unwrap_or("?");
+                let desc = v.get("description").and_then(|s| s.as_str());
+                if let Some(d) = desc {
+                    Some(format!("\n$ {} # {}\n", cmd, d))
+                } else {
+                    Some(format!("\n$ {}\n", cmd))
+                }
+            }
+            "Glob" => {
+                let pattern = v.get("pattern").and_then(|s| s.as_str()).unwrap_or("?");
+                Some(format!(" glob:{}\n", pattern))
+            }
+            "Grep" => {
+                let pattern = v.get("pattern").and_then(|s| s.as_str()).unwrap_or("?");
+                Some(format!(" grep:{}\n", pattern))
+            }
+            "Task" => {
+                let desc = v.get("description").and_then(|s| s.as_str()).unwrap_or("subtask");
+                Some(format!(" → {}\n", desc))
+            }
+            _ => None,
+        }
+    }
 }
 
 fn which_claude() -> Option<String> {

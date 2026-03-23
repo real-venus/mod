@@ -4,6 +4,7 @@ This file is automatically loaded by pytest and provides shared fixtures.
 """
 import pytest
 import os
+from pathlib import Path
 
 
 def pytest_configure(config):
@@ -12,13 +13,15 @@ def pytest_configure(config):
     print("CLAUDE CODE TEST SUITE")
     print("="*60)
 
-    # Check if API key is available
-    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    api_key = os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_AUTH_TOKEN')
+    max_auth = (Path.home() / '.claude' / '.credentials.json').exists()
+
     if api_key:
-        print("✓ API key found - all tests can run")
+        print("  Auth: API key")
+    elif max_auth:
+        print("  Auth: Claude Max subscription")
     else:
-        print("⚠ No API key found - some tests will be skipped")
-        print("  Set ANTHROPIC_API_KEY to run all tests")
+        print("  Auth: None detected — CLI tests will be skipped")
 
     print("="*60 + "\n")
 

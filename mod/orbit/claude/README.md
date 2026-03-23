@@ -1,905 +1,598 @@
-# Claude Code Mod
+# Claude Mod
 
 <div align="center">
 
-### 🤖 Automate your development workflow with AI-powered code operations
+**Programmable AI developer interface**
+
+Python SDK • Rust Job Server • 8-Bit Terminal UI
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-Mod-green.svg)](LICENSE)
-[![Type Safe](https://img.shields.io/badge/type-safe-brightgreen.svg)](https://github.com/python/mypy)
+[![Rust 1.70+](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
+[![Next.js 14](https://img.shields.io/badge/next.js-14-black.svg)](https://nextjs.org)
 
-[Features](#features) • [Installation](#installation) • [Quick Start](#quick-start) • [API Docs](#api-reference) • [Examples](#real-world-use-cases)
+```
+╔══════════════════════════════════════════════════════════╗
+║              █  J O B   R U N N E R  v1  █              ║
+║         « Background AI Tasks • 8-Bit Terminal »        ║
+╚══════════════════════════════════════════════════════════╝
+```
 
 </div>
 
----
+**Claude Mod** provides a programmable interface to Claude Code for autonomous development workflows.
 
-A Python interface for programmatically interacting with **Claude Code**. Automate code analysis, generation, refactoring, and debugging without manual intervention.
-
-```python
-from claude import Mod
-
-mod = Mod()
-mod.analyze_code(focus="security")  # AI-powered security audit
-mod.refactor(instructions="Extract helpers into utils.py")  # Automated refactoring
-mod.debug(issue="NoneType error in user.py:42")  # Intelligent debugging
-```
-
-## Table of Contents
-
-- [At a Glance](#at-a-glance)
-- [Why Claude Code Mod?](#why-claude-code-mod)
-- [Features](#features)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [API Reference](#api-reference)
-- [Real-World Use Cases](#real-world-use-cases)
-- [Configuration](#configuration)
-- [Docker Deployment](#-docker-deployment)
-- [Error Handling](#️-error-handling)
-- [Best Practices](#-best-practices)
-- [Troubleshooting](#-troubleshooting)
-- [Development](#️-development)
-
-## At a Glance
-
-```python
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY=your_key
-
-from claude import Mod
-mod = Mod()
-
-# Security audit
-mod.analyze_code(focus="security")
-
-# Auto-refactor
-mod.refactor("Extract helpers into utils/")
-
-# Debug production errors
-mod.debug("NoneType error on line 127")
-
-# Batch CI checks
-mod.batch_process([
-    "Check for SQL injection",
-    "Verify type hints",
-    "Optimize imports"
-])
-```
-
-## Why Claude Code Mod?
-
-- **🔄 Automation-First** - Built for CI/CD pipelines, pre-commit hooks, and scheduled jobs
-- **🎯 Zero-Config** - Auto-installs CLI, detects API keys, works out of the box
-- **🚀 Production-Ready** - Type-safe API, robust error handling, comprehensive logging
-- **⚡ Flexible** - From quick syntax checks to complex architectural refactoring
-- **🔌 Extensible** - Integrate AI into any Python workflow or application
+**Three ways to use it:**
+- 🐍 **Python SDK** — Script and automate code tasks
+- 🖥️ **Web UI** — Retro terminal interface with 6 themes
+- 🚀 **Background Jobs** — Long-running autonomous tasks
 
 ## Features
 
-✅ **Auto-Installation** - Claude CLI installed via Homebrew if missing
-✅ **Auto-Authentication** - API key detection from env vars, config files, or interactive prompt
-✅ **Smart Operations** - Analyze, generate, refactor, debug with specialized methods
-✅ **Model Selection** - Choose between Haiku (fast), Sonnet (balanced), or Opus (powerful)
-✅ **Batch Processing** - Execute multiple operations efficiently
-✅ **Type-Safe API** - Full type hints for excellent IDE support
-✅ **Docker Support** - Containerized deployment ready
-✅ **Comprehensive Logging** - Track operations with configurable log levels
+- 🐍 **Python SDK** — Type-safe API for code analysis, generation, refactoring, debugging
+- ⚙️ **Rust Job Engine** — Axum HTTP server with SQLite, SSE streaming, wallet auth
+- 🖥️ **8-Bit Terminal UI** — Next.js dashboard with CRT aesthetic, 6 themes, image paste support
+- 🔒 **Owner-Based Access Control** — Restrict code edits to specific wallet addresses
+- 📦 **IPFS Storage** — Automatic content-addressed versioning of all code changes
+- 🚀 **Background Jobs** — Long-running autonomous tasks with streaming logs
+- 🤖 **Multi-Model Support** — Access 200+ models via OpenRouter (Claude, GPT, Llama, etc.)
+- 🔗 **Module Creation** — Generate and fork Mod framework modules programmatically
 
-## Installation
+## Table of Contents
 
-### Quick Start
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# (Optional) Set your API key
-export ANTHROPIC_API_KEY=your_key_here
-
-# That's it! Claude CLI installs automatically on first use
-```
-
-The module handles everything else:
-- ✅ Auto-installs Claude CLI via Homebrew
-- ✅ Auto-detects API keys from environment or `~/.anthropic/api_key`
-- ✅ Interactive prompt if API key not found
-
-### API Key Configuration
-
-**Option 1: Environment Variable** (Recommended for CI/CD)
-```bash
-export ANTHROPIC_API_KEY=your_key_here
-```
-
-**Option 2: Config File** (Recommended for local development)
-```bash
-mkdir -p ~/.anthropic
-echo "your_key_here" > ~/.anthropic/api_key
-chmod 600 ~/.anthropic/api_key
-```
-
-**Option 3: Code** (For dynamic keys)
-```python
-mod = Mod(api_key="your_key_here")
-```
-
-### Verify Installation
-
-```bash
-# Run tests
-python tests/test_simple.py
-
-# Live execution test (requires API key)
-python tests/test_simple.py --live
-```
-
-📖 **Need more details?** See [SETUP_GUIDE.md](SETUP_GUIDE.md) for comprehensive setup instructions.
+- [Quick Start](#quick-start)
+  - [From GitHub](#from-github)
+  - [From IPFS](#from-ipfs)
+  - [Launch](#launch)
+- [Usage](#usage)
+  - [Web UI](#web-ui)
+  - [Python SDK](#python-sdk)
+  - [REST API](#rest-api)
+- [Configuration](#configuration)
+- [Advanced](#advanced)
+  - [Architecture](#architecture)
+  - [Auth](#auth)
+  - [Access Control](#owner-based-access-control)
+  - [IPFS Versioning](#ipfs-version-history)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
 
 ## Quick Start
 
-### 30-Second Example
+### From GitHub
+
+```bash
+# Clone the repository
+git clone https://github.com/modprotocol/mod.git
+cd mod/mod/orbit/claude
+
+# Install dependencies
+pip install -r requirements.txt
+cd app && npm install && cd ..
+```
+
+### From IPFS
+
+```bash
+# Get the module from IPFS (requires ipfs CLI)
+ipfs get <CID> -o claude
+cd claude
+
+# Install dependencies
+pip install -r requirements.txt
+cd app && npm install && cd ..
+```
+
+> **Note:** The IPFS CID for the latest version is stored in the module's on-chain registry. Use `m.get_cid('claude')` to retrieve it.
+
+### Launch
+
+```bash
+# Start everything (Rust backend on :8820, Next.js UI on :8821)
+./scripts/start.sh
+
+# Options
+./scripts/start.sh --build   # Force Rust rebuild
+./scripts/start.sh --prod    # Production Next.js build
+```
+
+**Open http://localhost:8821** — No wallet required in local mode (default)
+
+✅ The start script sets `CLAUDE_JOBS_LOCAL=1` by default, skipping authentication entirely.
+
+---
+
+## Fork This Module
+
+Want to customize Claude Mod for your own use case? You can fork it as a new module in the Mod framework.
+
+### Using the Web UI
+
+1. Open http://localhost:8821
+2. Look for the **"Fork Module"** section
+3. Enter your module name (e.g., `myclaude`)
+4. Add your customization prompt (e.g., "Add support for GitLab integration")
+5. Click **Fork** — it creates a copy in `~/mod/mod/orbit/myclaude`
+
+### Using Python
 
 ```python
 from claude import Mod
 
-# Initialize (auto-installs CLI, detects API key)
-mod = Mod(default_path="/path/to/your/project")
-
-# Analyze your codebase
-result = mod.analyze_code(focus="security")
-print(result)
-
-# Generate new code
-mod.generate_code(
-    description="Create a FastAPI health check endpoint",
-    file_path="api/health.py"
-)
-
-# Refactor existing code
-mod.refactor(
-    instructions="Extract database logic into repository pattern",
-    target_files=["models.py", "views.py"]
-)
-
-# Debug issues
-mod.debug(
-    issue_description="User authentication fails with 500 error",
-    file_path="auth/handlers.py"
+c = Mod()
+c.fork_module(
+    "myclaude",
+    fork_source="claude",
+    prompt="Add support for GitLab integration and custom themes"
 )
 ```
 
-### One-Liner for Quick Tasks
+### Using the Mod Framework
 
-```python
-from claude import run_claude
+```bash
+# From anywhere in your terminal
+m fork claude myclaude "Add GitLab integration"
 
-# Execute any task quickly
-result = run_claude("Add type hints to all functions", path="/path/to/project")
+# Or use the interactive CLI
+m
+> fork claude myclaude
 ```
 
-## API Reference
+**What gets forked:**
+- ✅ Full source code (Python SDK, Rust server, Next.js UI)
+- ✅ All dependencies and configuration files
+- ✅ Tests and documentation
+- ✅ Your customizations via AI prompt
 
-### Core Methods
-
-#### 🔍 `analyze_code()` - Code Analysis
-
-Analyze code for quality, performance, security, or custom aspects.
-
-```python
-# General analysis
-mod.analyze_code(path="/path/to/project")
-
-# Focused analysis
-mod.analyze_code(
-    path="/path/to/project",
-    focus="security"  # "performance", "architecture", "best practices"
-)
-```
-
-**Use cases**: Security audits, performance reviews, code quality checks, architectural analysis
+**The forked module:**
+- Lives in `~/mod/mod/orbit/<your-module-name>`
+- Can be published to IPFS with `m.publish('your-module-name')`
+- Can be shared via GitHub, IPFS, or the on-chain registry
+- Maintains its own git history and version control
 
 ---
 
-#### ✨ `generate_code()` - Code Generation
+## Usage
 
-Generate new code from natural language descriptions.
+### Web UI
 
-```python
-mod.generate_code(
-    description="Create a FastAPI endpoint for user authentication with JWT",
-    path="/path/to/project",
-    file_path="app/api/auth.py"
-)
-```
+**8-bit terminal dashboard** at http://localhost:8821
 
-**Use cases**: Boilerplate generation, API endpoints, database models, test files
+**Features:**
+- ✏️ **Job submission** — Describe a task, pick a model (haiku/sonnet/opus), set working directory
+- 📸 **Image paste** — Paste screenshots from clipboard directly into task description
+- 📦 **Module creation** — Create new orbit modules or fork existing ones
+- 📡 **Live streaming** — Real-time output as Claude works (Server-Sent Events)
+- 🎛️ **Job management** — Filter, cancel, delete, view full output
+- 🔐 **Wallet auth** — MetaMask, SubWallet, local key, or password-derived key (optional)
+- 💎 **Wallet manager** — View balance, transaction history, and token holdings ([Quick Start](WALLET_QUICKSTART.md) • [Full Guide](WALLET_GUIDE.md))
+- 🎨 **Theme selector** — 6 retro themes (dark, light, matrix, cyberpunk, amber, ocean)
 
----
+### Python SDK
 
-#### 🔧 `refactor()` - Code Refactoring
-
-Refactor existing code with AI assistance.
-
-```python
-mod.refactor(
-    path="/path/to/project",
-    instructions="Extract repeated validation logic into decorators",
-    target_files=["api/handlers.py", "api/validators.py"]
-)
-```
-
-**Use cases**: Code cleanup, pattern application, modernization, optimization
-
----
-
-#### 🐛 `debug()` - Issue Debugging
-
-Get intelligent debugging assistance.
-
-```python
-mod.debug(
-    path="/path/to/project",
-    issue_description="AuthenticationError: invalid signature on line 127",
-    file_path="auth/jwt.py"
-)
-```
-
-**Use cases**: Bug investigation, error analysis, stack trace interpretation
-
----
-
-#### 🚀 `run_task()` - Custom Tasks
-
-Execute any custom development task.
-
-```python
-mod.run_task(
-    task="Add comprehensive docstrings to all public functions",
-    path="/path/to/project",
-    agent_type="general-purpose"  # "Bash", "Explore"
-)
-```
-
-**Use cases**: Documentation, testing, migrations, custom workflows
-
----
-
-#### 📦 `batch_process()` - Batch Operations
-
-Process multiple operations efficiently.
-
-```python
-tasks = [
-    "Check for SQL injection vulnerabilities",
-    "Optimize N+1 query patterns",
-    "Add rate limiting to API endpoints"
-]
-
-results = mod.batch_process(tasks, path="/path/to/project", model="haiku")
-
-for r in results:
-    print(f"{'✓' if r['success'] else '✗'} {r['query']}")
-```
-
-**Use cases**: CI/CD checks, comprehensive audits, bulk operations
-
----
-
-#### ⚡ `forward()` - Raw Query Execution
-
-Low-level method for custom Claude Code queries.
-
-```python
-mod.forward(
-    query="Analyze API rate limiting and suggest improvements",
-    path="/path/to/project",
-    model="sonnet",  # "haiku", "opus"
-    output_format="json",  # "text", "stream-json"
-    bypass_permissions=True
-)
-```
-
-**Use cases**: Advanced custom workflows, experimental operations
-
-## Real-World Use Cases
-
-### 🔐 Automated Security Audits
+**Import and initialize:**
 
 ```python
 from claude import Mod
 
-def security_audit(repo_path):
-    """Comprehensive security analysis for pull requests"""
-    mod = Mod(default_path=repo_path)
-
-    checks = [
-        "Check for SQL injection vulnerabilities",
-        "Identify hardcoded secrets or API keys",
-        "Review authentication and authorization logic",
-        "Check for XSS vulnerabilities in templates",
-        "Analyze CORS and CSP configurations"
-    ]
-
-    results = mod.batch_process(checks, model="sonnet")
-
-    # Generate security report
-    critical_issues = [r for r in results if "critical" in r.get("output", "").lower()]
-    return {
-        "total_checks": len(results),
-        "critical_issues": len(critical_issues),
-        "details": results
-    }
+c = Mod()
 ```
 
-### 🔄 CI/CD Pre-Commit Hooks
+**Synchronous Operations**
 
 ```python
-def pre_commit_validation(repo_path):
-    """Run automated checks before commit"""
-    mod = Mod(default_path=repo_path)
+# Code analysis
+c.analyze_code(path="/project", focus="security")
 
-    # Fast checks with Haiku
-    checks = [
-        "Verify all functions have docstrings",
-        "Check for unused imports",
-        "Ensure type hints on public functions",
-        "Check for TODO/FIXME comments"
-    ]
+# Code generation
+c.generate_code(description="FastAPI auth endpoint with JWT", path="/project")
 
-    results = mod.batch_process(checks, model="haiku")
+# Refactoring
+c.refactor(instructions="Extract validation into decorators", path="/project")
 
-    # Fail commit if issues found
-    failures = [r for r in results if not r.get("success")]
-    if failures:
-        print("❌ Pre-commit checks failed:")
-        for f in failures:
-            print(f"  - {f['query']}: {f.get('error')}")
-        sys.exit(1)
+# Debugging
+c.debug(issue_description="TypeError on line 42", path="/project")
 
-    print("✅ All pre-commit checks passed")
+# Custom tasks
+c.run_task(task="Add docstrings to all public functions", path="/project")
+
+# Batch processing
+c.batch_process(["Check SQL injection", "Find unused imports"], model="haiku")
+
+# Raw query
+c.forward(query="Explain this error", path="/project", model="sonnet")
 ```
 
-### 📈 Automated Code Modernization
+**Background Jobs (No Server)**
+
+Fire-and-forget tasks using Claude CLI directly:
 
 ```python
-def modernize_legacy_code(project_path):
-    """Incrementally modernize legacy codebase"""
-    mod = Mod(default_path=project_path)
-
-    migrations = [
-        ("Phase 1", "Convert string formatting to f-strings"),
-        ("Phase 2", "Add type hints to all functions"),
-        ("Phase 3", "Replace % formatting with f-strings"),
-        ("Phase 4", "Migrate to context managers for file operations"),
-        ("Phase 5", "Update to async/await where applicable")
-    ]
-
-    for phase, task in migrations:
-        print(f"Starting {phase}: {task}")
-        result = mod.refactor(instructions=task)
-
-        if result.get("success"):
-            print(f"✓ {phase} completed")
-        else:
-            print(f"✗ {phase} failed: {result.get('error')}")
-            break
+task = c.bg("refactor utils.py to use async", mod="core", model="sonnet")
+# Returns: {'pid': 12345, 'log_file': '~/.mod/claude/logs/...'}
+# Use: tail -f <log_file> to watch progress
 ```
 
-### 🧪 Test Generation Automation
+**Background Jobs (Rust Server)**
+
+Submit to the Rust job engine for managed execution with streaming:
 
 ```python
-def generate_missing_tests(project_path):
-    """Automatically generate unit tests for uncovered code"""
-    mod = Mod(default_path=project_path)
+# Submit job
+job = c.submit("Build React dashboard", model="sonnet", work_dir="/project")
 
-    result = mod.run_task(
-        task="""
-        1. Identify all functions/classes without test coverage
-        2. Generate comprehensive unit tests with pytest
-        3. Include edge cases and error scenarios
-        4. Add docstrings to test functions
-        """,
-        path=project_path
-    )
+# Manage jobs
+c.tail(job['id'])       # Stream live output
+c.jobs()                # List all jobs
+c.cancel(job['id'])     # Cancel running job
 
-    return result
+# Create modules
+c.create_module("mymod", prompt="Build a web scraper module")
+c.fork_module("mymod", fork_source="claude", prompt="Add rate limiting")
 ```
 
-### 📝 Documentation Automation
+**AI Chat**
 
 ```python
-def generate_api_docs(source_path):
-    """Generate comprehensive API documentation"""
-    mod = Mod(default_path=source_path)
+# Ask questions
+response = c.ask("Explain this error: TypeError on line 42")
 
-    tasks = [
-        mod.run_task("Generate OpenAPI/Swagger spec from FastAPI app"),
-        mod.run_task("Create README with usage examples"),
-        mod.run_task("Generate docstrings for all public APIs"),
-        mod.run_task("Create architecture diagram in Mermaid")
-    ]
-
-    print("✓ Documentation generated successfully")
+# List models
+c.models(search="claude")  # Show Claude models only
 ```
 
-### 🚨 Production Error Analysis
+### REST API
 
-```python
-def analyze_production_error(error_log, codebase_path):
-    """Intelligent analysis of production errors"""
-    mod = Mod(default_path=codebase_path)
+**Rust server endpoints** (port `8820`)
 
-    result = mod.debug(
-        issue_description=f"""
-        Production error occurred:
-        {error_log}
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/repos` | List git repos |
+| `GET` | `/auth/challenge?address=0x...` | Get signature challenge |
+| `POST` | `/auth/verify` | Verify signature → JWT token |
+| `POST` | `/jobs` | Submit new job |
+| `GET` | `/jobs` | List all jobs |
+| `GET` | `/jobs/{id}` | Get job details |
+| `DELETE` | `/jobs/{id}` | Delete job |
+| `POST` | `/jobs/{id}/cancel` | Cancel running job |
+| `GET` | `/jobs/{id}/stream` | SSE stream of job output |
 
-        Please:
-        1. Identify the root cause
-        2. Suggest fixes with code examples
-        3. Recommend preventive measures
-        4. Check for similar issues elsewhere
-        """,
-        file_path=extract_file_from_traceback(error_log)
-    )
+**Example: Submit Job**
 
-    return result
+```bash
+curl -X POST http://localhost:8820/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Add error handling to api.py",
+    "model": "sonnet",
+    "work_dir": "/path/to/project",
+    "images": [{"name": "screenshot.png", "data": "data:image/png;base64,..."}]
+  }'
 ```
 
 ## Configuration
 
-### 🎯 Model Selection
+**Environment Variables**
 
-Choose the right model for your task:
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `ANTHROPIC_API_KEY` | — | Anthropic API key (optional for Claude Max users) |
+| `OPENROUTER_API_KEY` | — | OpenRouter key for 200+ models |
+| `CLAUDE_JOBS_LOCAL` | `0` | Set to `1` to disable authentication |
+| `MOD_ANCHOR` | `~/mod` | Base directory for module creation |
 
-| Model | Best For | Speed | Cost | Use When |
-|-------|----------|-------|------|----------|
-| **haiku** | Simple tasks, CI checks | ⚡⚡⚡ | $ | Syntax checks, linting, quick validations |
-| **sonnet** | General development | ⚡⚡ | $$ | Code review, refactoring, most tasks (default) |
-| **opus** | Complex architecture | ⚡ | $$$ | Major refactors, architectural design, complex bugs |
+**Model Selection**
 
-```python
-# Fast CI checks
-mod.batch_process(checks, model="haiku")
-
-# Balanced code review
-mod.analyze_code(focus="security", model="sonnet")
-
-# Complex refactoring
-mod.refactor("Migrate to microservices architecture", model="opus")
-```
-
-### 📊 Output Formats
-
-```python
-# Structured JSON (default, best for automation)
-result = mod.forward(query="...", output_format="json")
-
-# Plain text (best for human review)
-result = mod.forward(query="...", output_format="text")
-
-# Streaming (best for real-time feedback)
-result = mod.forward(query="...", output_format="stream-json")
-```
-
-### 🔐 Permission Management
-
-```python
-# Automation mode (default, no prompts)
-mod = Mod(bypass_permissions=True)
-
-# Interactive mode (requires approval)
-mod = Mod(bypass_permissions=False)
-```
-
-### 📝 Logging Configuration
-
-```python
-from claude import Mod
-
-# Set log level
-Mod.set_log_level("DEBUG")  # Show all logs
-Mod.set_log_level("INFO")   # Default
-Mod.set_log_level("WARNING")  # Only warnings/errors
-Mod.set_log_level("ERROR")  # Only errors
-```
-
-## 🐳 Docker Deployment
-
-Run Claude Code Mod in a containerized environment:
-
-```bash
-# Build and start
-docker-compose up -d
-
-# View logs
-docker-compose logs -f base
-
-# Stop service
-docker-compose down
-```
-
-**Container Configuration:**
-- **Image**: Python 3.11 + Claude CLI
-- **Network**: `modnet`
-- **Port**: 50119
-- **Restart**: Automatic
-- **Volumes**: Persistent code storage
-
-**Environment Variables:**
-```yaml
-# docker-compose.yml
-environment:
-  - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-```
-
-## 📚 Complete API Reference
-
-### `Mod` Class
-
-Main interface for all Claude Code operations.
-
-```python
-from claude import Mod
-
-mod = Mod(
-    default_path: Optional[str] = None,  # Working directory (default: cwd)
-    api_key: Optional[str] = None        # API key (default: auto-detect)
-)
-```
-
-### Method Signatures
-
-```python
-# Analysis
-mod.analyze_code(
-    path: str = None,
-    focus: str = None,
-    model: str = "sonnet"
-) -> dict
-
-# Generation
-mod.generate_code(
-    description: str,
-    path: str = None,
-    file_path: str = None,
-    model: str = "sonnet"
-) -> dict
-
-# Refactoring
-mod.refactor(
-    instructions: str,
-    path: str = None,
-    target_files: List[str] = None,
-    model: str = "sonnet"
-) -> dict
-
-# Debugging
-mod.debug(
-    issue_description: str,
-    path: str = None,
-    file_path: str = None,
-    model: str = "sonnet"
-) -> dict
-
-# Custom tasks
-mod.run_task(
-    task: str,
-    path: str = None,
-    agent_type: str = "general-purpose",
-    model: str = "sonnet"
-) -> dict
-
-# Batch processing
-mod.batch_process(
-    queries: List[str],
-    path: str = None,
-    model: str = "sonnet"
-) -> List[dict]
-
-# Raw execution
-mod.forward(
-    query: str,
-    path: str = None,
-    model: str = "sonnet",
-    output_format: str = "json",
-    bypass_permissions: bool = True,
-    additional_options: dict = None
-) -> dict
-```
-
-## ⚠️ Error Handling
-
-### Exception Handling
-
-```python
-from claude import Mod
-import logging
-
-try:
-    mod = Mod(default_path="/path/to/project")
-    result = mod.analyze_code(focus="security")
-
-except FileNotFoundError:
-    # Path doesn't exist
-    print("Project path not found")
-
-except PermissionError:
-    # Insufficient permissions
-    print("Permission denied - check file permissions")
-
-except RuntimeError as e:
-    # Claude Code execution error
-    print(f"Claude Code error: {e}")
-    logging.error(f"Full error: {e}")
-
-except Exception as e:
-    # Unexpected errors
-    print(f"Unexpected error: {e}")
-    logging.exception("Full traceback:")
-```
-
-### Common Issues
-
-| Error | Cause | Solution |
+| Model | Speed | Best For |
 |-------|-------|----------|
-| `Claude CLI not found` | Missing installation | Auto-installs on first run |
-| `API key not configured` | Missing authentication | Set `ANTHROPIC_API_KEY` env var |
-| `Permission denied` | File access issues | Check file permissions or use sudo |
-| `Timeout after 300s` | Long-running operation | Increase timeout or split task |
-| `Invalid model` | Wrong model name | Use "haiku", "sonnet", or "opus" |
+| `haiku` | ⚡⚡⚡ | Fast checks, linting, simple tasks |
+| `sonnet` | ⚡⚡ | General development (default) |
+| `opus` | ⚡ | Complex architecture, major refactors |
 
-## 💡 Best Practices
+### Module Configuration & Commune Registration
 
-### Performance Optimization
+The `config.json` file contains module metadata for **on-chain registration with commune**:
+
+```json
+{
+  "name": "claude",
+  "version": "1.0.0",
+  "urls": {
+    "app": "http://localhost:8821",
+    "api": "http://localhost:8820"
+  },
+  "fns": ["forward", "ask", "analyze_code", ...],
+  "endpoints": {"/health": "Health check", ...}
+}
+```
+
+**When config.json is missing**, it's automatically created with default localhost URLs on first initialization.
+
+**Register with Commune:**
 
 ```python
-# ✅ Good: Use Haiku for simple checks
-mod.batch_process(simple_checks, model="haiku")
+c = Mod()
 
-# ❌ Avoid: Using Opus for simple tasks
-mod.batch_process(simple_checks, model="opus")  # Slower and more expensive
+# View current config and IPFS CID
+c.show_config()
+
+# Get CID for registration
+cid = c.get_config_cid()
+print(f"Register this CID: {cid}")
+
+# Update URLs for production deployment
+cid = c.update_config_urls(
+    app_url="https://claude.yourapp.com",
+    api_url="https://api.yourapp.com"
+)
+
+# Register with commune using the CID (pseudo-code)
+# commune.register_module(name='claude', cid=cid, key=m.key())
 ```
 
-### Batch Processing
+**Benefits:**
+- 🔗 Content-addressed config on IPFS
+- 🌐 On-chain discoverability via commune
+- 📍 URLs reference app frontend and API backend
+- 🔄 Version tracking with IPFS CID updates
 
-```python
-# ✅ Good: Batch independent operations
-tasks = ["Check security", "Add docstrings", "Optimize imports"]
-results = mod.batch_process(tasks)
+See [examples/commune_registration.py](examples/commune_registration.py) for full example.
 
-# ❌ Avoid: Sequential individual calls
-for task in tasks:
-    mod.run_task(task)  # Slower than batching
-```
+## Advanced
 
-### Error Handling
-
-```python
-# ✅ Good: Always handle errors
-try:
-    result = mod.analyze_code()
-except RuntimeError as e:
-    logger.error(f"Analysis failed: {e}")
-    send_alert_to_team()
-
-# ❌ Avoid: Uncaught exceptions in production
-result = mod.analyze_code()  # Could crash your app
-```
-
-### Model Selection Strategy
-
-```python
-# ✅ Good: Match model to task complexity
-mod.run_task("Add type hints", model="haiku")        # Simple
-mod.refactor("Extract services", model="sonnet")     # Medium
-mod.refactor("Redesign architecture", model="opus")  # Complex
-
-# ❌ Avoid: One-size-fits-all approach
-mod.run_task("Add type hints", model="opus")  # Overkill
-```
-
-### Focused Analysis
-
-```python
-# ✅ Good: Use specific focus for targeted analysis
-mod.analyze_code(focus="security")
-mod.analyze_code(focus="performance")
-
-# ❌ Avoid: Generic analysis for specific needs
-mod.analyze_code()  # Might miss specific security issues
-```
-
-### Path Management
-
-```python
-# ✅ Good: Explicit paths
-mod = Mod(default_path="/absolute/path/to/project")
-mod.analyze_code(path="/absolute/path/to/module")
-
-# ❌ Avoid: Relying on current directory
-mod = Mod()  # Might not be the project you expect
-```
-
-## 🔧 Troubleshooting
-
-### Installation Issues
-
-<details>
-<summary><b>Claude CLI not found</b></summary>
-
-Auto-installation should handle this. If it fails:
-
-```bash
-# Install manually
-brew install anthropics/claude/claude
-
-# Verify installation
-claude --version
-```
-
-If Homebrew is missing, install it first: https://brew.sh
-</details>
-
-<details>
-<summary><b>Homebrew permission errors</b></summary>
-
-```bash
-# Fix Homebrew permissions
-sudo chown -R $(whoami) /usr/local/Homebrew
-```
-</details>
-
-### Authentication Issues
-
-<details>
-<summary><b>API key not found</b></summary>
-
-Set your API key using any method:
-
-```bash
-# Option 1: Environment variable
-export ANTHROPIC_API_KEY=your_key_here
-
-# Option 2: Config file
-mkdir -p ~/.anthropic
-echo "your_key_here" > ~/.anthropic/api_key
-chmod 600 ~/.anthropic/api_key
-
-# Option 3: In code
-mod = Mod(api_key="your_key_here")
-```
-</details>
-
-<details>
-<summary><b>Invalid API key error</b></summary>
-
-1. Verify your key at https://console.anthropic.com/
-2. Check for extra spaces or newlines
-3. Ensure key has `ANTHROPIC_API_KEY` format
-</details>
-
-### Runtime Issues
-
-<details>
-<summary><b>Operation timeout (300s)</b></summary>
-
-Break down into smaller tasks or increase timeout:
-
-```python
-# Increase timeout
-result = mod.forward(query="...", timeout=600)
-
-# Or split into smaller tasks
-mod.refactor("Phase 1: Extract helpers")
-mod.refactor("Phase 2: Extract validators")
-```
-</details>
-
-<details>
-<summary><b>Permission denied errors</b></summary>
-
-```bash
-# Check file permissions
-ls -la /path/to/project
-
-# Fix permissions if needed
-chmod -R u+rw /path/to/project
-
-# Or run with elevated permissions
-sudo python your_script.py
-```
-</details>
-
-<details>
-<summary><b>Import errors</b></summary>
-
-```bash
-# Reinstall dependencies
-pip install -r requirements.txt --force-reinstall
-
-# Verify Python version (requires 3.11+)
-python --version
-```
-</details>
-
-### Getting Help
-
-Still stuck? Here's how to get help:
-
-1. **Check logs**: Enable debug logging with `Mod.set_log_level("DEBUG")`
-2. **Run tests**: `python tests/test_simple.py` to verify setup
-3. **Review setup guide**: See [SETUP_GUIDE.md](SETUP_GUIDE.md)
-4. **Check Claude Code docs**: https://docs.anthropic.com/claude-code
-
-## 🛠️ Development
-
-### Project Structure
+### Architecture
 
 ```
 claude/
-├── claude/
-│   ├── __init__.py         # Package initialization
-│   └── claude.py          # Main implementation
-├── tests/
-│   └── test_simple.py     # Test suite
-├── docker-compose.yml     # Container orchestration
-├── Dockerfile            # Container image
-├── requirements.txt      # Python dependencies
-├── package.json         # Node metadata
-├── SETUP_GUIDE.md      # Detailed setup instructions
-└── README.md          # This file
+├── claude/claude.py        # Python SDK — sync ops, background jobs, AI chat
+├── server/src/             # Rust job engine — Axum HTTP + SQLite + SSE
+│   ├── api.rs              # REST endpoints (port 8820)
+│   ├── jobs.rs             # Job lifecycle, Claude CLI process management
+│   ├── auth.rs             # Wallet signature auth (EIP-191)
+│   └── main.rs             # Entry point
+├── app/src/app/            # Next.js 14 — retro terminal UI
+│   ├── page.tsx            # Dashboard with job management
+│   └── globals.css         # 6 retro themes
+├── scripts/start.sh        # One-command launcher
+└── tests/                  # Python test suite
 ```
 
-### Running Tests
+### Auth
+
+**Two modes:**
+
+- 🔓 **Local mode** (`CLAUDE_JOBS_LOCAL=1`) — No auth, all endpoints open
+- 🔐 **Wallet mode** — EIP-191 signature challenge/verify → 24-hour JWT token
+
+**Wallet options:**
+- MetaMask (browser extension)
+- SubWallet (browser extension)
+- Local key (BIP-39 mnemonic stored in localStorage)
+- Password-derived key (keccak256 hash → deterministic wallet)
+
+### Owner-Based Access Control
+
+**Automatic ownership on first sign-in:**
+
+When no owner is configured, the **first person to authenticate** automatically becomes the owner:
+
+```python
+# No owner set yet
+c = Mod()  # → "No owner set - first authenticated user will become owner"
+
+# First user signs in via web UI → automatically becomes owner
+# Check ownership
+c.reload_owner()           # Reload from disk after auth
+owner = c.get_owner()      # → "0x1234..."
+```
+
+**Manual ownership management:**
+
+```python
+c = Mod(owner="0x1234...")  # Set owner during init
+c.set_owner("0x1234...")    # Or set later
+c.is_owner("0x1234...")     # Check ownership
+c.reload_owner()            # Reload from config file
+```
+
+**Permission levels:**
+- ✏️ **Owner-only:** `refactor()`, `generate_code()`, `edit_file()`
+- 👁️ **Read-only:** `analyze_code()`, `debug()`, `ask()`
+
+**API endpoint:**
+```bash
+# Check owner status
+curl http://localhost:8820/owner
+# → {"has_owner": true, "owner": "0x...", "message": "Owner is set"}
+```
+
+See [AUTO_OWNER_SETUP.md](./AUTO_OWNER_SETUP.md) for detailed documentation.
+
+### IPFS Version History
+
+**All code changes** are automatically stored to IPFS:
+
+```python
+c.show_history(limit=10)   # Display recent changes with CIDs
+history = c.get_history()   # Get full history as JSON
+cid = c.get_latest_cid()    # Get most recent CID
+content = c.ipfs.cat(cid)   # Retrieve code from IPFS
+```
+
+**Benefits:**
+- 📦 Immutable storage
+- 🔗 Content-addressed sharing
+- 📝 Complete audit trail
+- 🌐 Decentralized distribution
+
+### File-Level Editing
+
+**Direct file modifications** with AI assistance:
+
+```python
+c.edit_file("config.py", "Add DATABASE_URL environment variable")
+c.edit_file("api/routes.py", "Add rate limiting to all endpoints")
+```
+
+## Development
+
+**Install dependencies:**
 
 ```bash
-# Basic tests (mocked)
-python tests/test_simple.py
-
-# Live tests (requires API key)
-python tests/test_simple.py --live
-
-# Test auto-installation
-python tests/test_auto_install.py
+pip install -r requirements.txt
+cd app && npm install && cd ..
 ```
 
-### Contributing
+**Run tests:**
 
-This module is part of the **Mod framework** ecosystem. Contributions welcome!
+```bash
+python -m pytest tests/                # All tests
+python tests/test_simple.py            # Basic unit tests
+python tests/test_simple.py --live     # Live API tests
+```
 
-**To contribute:**
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Follow existing code style (type hints, docstrings)
-5. Submit a pull request
+**Build Rust server only:**
 
-**Code style:**
-- Type hints on all functions
-- Docstrings with examples
-- Error handling with meaningful messages
-- Logging for debugging
+```bash
+cd server && cargo build --release
+```
 
-## 🔗 Related Resources
+**Frontend dev server:**
 
-- 📖 [SETUP_GUIDE.md](SETUP_GUIDE.md) - Comprehensive setup guide
-- 🌐 [Claude Code Docs](https://docs.anthropic.com/claude-code) - Official documentation
-- 🏗️ [Mod Framework](https://github.com/your-org/mod) - Parent framework
+```bash
+cd app && npm run dev -- -p 8821
+```
 
-## 📄 License
+**Enable debug logging:**
 
-Part of the Mod ecosystem.
+```python
+from claude import Mod
+Mod.set_log_level('DEBUG')
+```
+
+## Documentation
+
+📚 **Detailed guides:**
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — System design and component overview
+- [BACKENDS.md](BACKENDS.md) — Backend integration patterns
+- [PERMISSIONS_AND_IPFS.md](PERMISSIONS_AND_IPFS.md) — Access control and IPFS storage
+- [MODULE_CREATION.md](MODULE_CREATION.md) — Creating new orbit modules
+- [EXAMPLE_USAGE.md](EXAMPLE_USAGE.md) — Real-world usage patterns
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) — API cheat sheet
+- [WALLET_QUICKSTART.md](WALLET_QUICKSTART.md) — Wallet manager quick start
+- [WALLET_GUIDE.md](WALLET_GUIDE.md) — Complete wallet manager guide
+
+## Troubleshooting
+
+### ❌ Claude CLI not found
+
+Auto-installation should handle this, but if it fails:
+
+```bash
+brew install anthropics/claude/claude
+claude --version
+```
+
+### ❌ API key issues
+
+```bash
+# Set via environment variable
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Or store in file
+echo "sk-ant-..." > ~/.anthropic/api_key && chmod 600 ~/.anthropic/api_key
+```
+
+### ❌ Job server not starting
+
+```bash
+# Check if port 8820 is in use
+lsof -i :8820
+
+# Kill existing process
+pkill -f claude-jobs
+
+# Restart with rebuild
+./scripts/start.sh --build
+```
+
+### ❌ Permission errors
+
+```python
+# Bypass permission prompts for automation
+c = Mod(bypass_permissions=True)
+```
+
+### ❌ IPFS not available
+
+```bash
+# Install IPFS (required for version history and IPFS forking)
+brew install ipfs
+
+# Initialize and start daemon
+ipfs init
+ipfs daemon &
+```
+
+---
+
+## Quick Reference Card
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ GETTING STARTED                                             │
+├─────────────────────────────────────────────────────────────┤
+│ GitHub:  git clone https://github.com/modprotocol/mod.git  │
+│ IPFS:    ipfs get <CID> -o claude                           │
+│ Install: pip install -r requirements.txt && cd app && npm i │
+│ Launch:  ./scripts/start.sh                                 │
+│ Open:    http://localhost:8821                              │
+├─────────────────────────────────────────────────────────────┤
+│ PYTHON SDK                                                  │
+├─────────────────────────────────────────────────────────────┤
+│ from claude import Mod                                      │
+│ c = Mod()                                                   │
+│                                                             │
+│ c.generate_code("FastAPI endpoint")  # Generate code       │
+│ c.refactor("Use async/await")        # Refactor            │
+│ c.debug("Fix TypeError on line 42")  # Debug               │
+│ c.submit("Build dashboard")          # Background job      │
+│ c.ask("How does this work?")         # Ask questions       │
+├─────────────────────────────────────────────────────────────┤
+│ REST API (port 8820)                                        │
+├─────────────────────────────────────────────────────────────┤
+│ POST /jobs              Submit job                          │
+│ GET  /jobs              List all jobs                       │
+│ GET  /jobs/{id}/stream  Stream job output (SSE)            │
+│ POST /jobs/{id}/cancel  Cancel running job                 │
+├─────────────────────────────────────────────────────────────┤
+│ MODELS                                                      │
+├─────────────────────────────────────────────────────────────┤
+│ haiku  → Fast checks, linting (⚡⚡⚡)                       │
+│ sonnet → General development (⚡⚡) [default]               │
+│ opus   → Complex architecture (⚡)                          │
+├─────────────────────────────────────────────────────────────┤
+│ FORKING                                                     │
+├─────────────────────────────────────────────────────────────┤
+│ Web UI:  Use "Fork Module" section at localhost:8821       │
+│ Python:  c.fork_module("name", fork_source="claude")       │
+│ CLI:     m fork claude myname "customization prompt"       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## License
+
+Part of the [Mod framework](https://github.com/modprotocol/mod) ecosystem.
 
 ---
 
 <div align="center">
 
-**Built for developers who automate**
+**Built for autonomous development workflows**
 
-⚡ Fast • 🎯 Focused • 🔧 Flexible
-
-[Get Started](#installation) • [Examples](#real-world-use-cases) • [API Reference](#-complete-api-reference)
+[Quick Start](#quick-start) • [Fork This](#fork-this-module) • [Python SDK](#python-sdk) • [Web UI](#web-ui)
 
 </div>

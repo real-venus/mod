@@ -7,14 +7,20 @@ from typing import Dict, Any, List, Optional
 class Quests:
     """
     Quest System - People can create quests with rewards, others can respond,
-    and if the quest initiator approves the response, the responder gets the reward.
-    
+    and the quest referee approves the response, triggering reward payment.
+
     Flow:
-    1. Initiator creates a quest with a description and reward amount
-    2. The reward is escrowed (locked from initiator's balance)
+    1. Creator creates a quest with a description, reward, and referee (defaults to self)
+    2. The reward is escrowed (locked from creator's balance)
     3. Responders submit responses to the quest
-    4. Initiator reviews responses and approves one
-    5. Approved responder receives the reward (minus treasury fee)
+    4. Referee reviews responses and approves one (taking their fee %)
+    5. Approved responder receives the reward (minus treasury fee and referee fee)
+
+    Referee System:
+    - Creator selects a referee when creating the quest (defaults to creator)
+    - Referee sets their fee percentage (0-50%) when they accept
+    - Only the referee can approve or reject responses
+    - Referee fee is paid from the quest reward on approval
     """
     
     folder_path = m.abspath('~/.mod/quests')
@@ -33,48 +39,66 @@ class Quests:
 
     # ==================== QUEST CREATION ====================
     
-    def create_quest(self, 
+    # Max referee fee percentage to prevent abuse
+    MAX_REFEREE_FEE_PCT = 50
+
+    def create_quest(self,
                      title: str,
-                     description: str, 
+                     description: str,
                      reward: float,
                      token: str = None,
+                     referee: str = None,
                      tags: List[str] = None,
                      deadline: int = None) -> Dict[str, Any]:
         """
         Create a new quest with a reward.
-        
+
         The initiator's balance is checked to ensure they can cover the reward.
-        The reward amount is noted for escrow when the quest is approved.
-        
+        The creator selects a referee who will judge responses. Defaults to the
+        creator themselves. The referee must accept_referee() to set their fee.
+
         Args:
             title: Short title for the quest
             description: Detailed description of what needs to be done
             reward: Amount of reward in stable tokens
             token: Auth token of the quest creator
+            referee: Address of the referee (defaults to creator)
             tags: Optional tags for categorization
             deadline: Optional unix timestamp deadline
-            
+
         Returns:
             Quest object with id and details
         """
         assert token is not None, "Auth token required to create a quest"
         verified = self.auth.verify(token)
         creator_key = verified['key']
-        
+
         assert reward > 0, "Reward must be greater than 0"
         assert title and len(title.strip()) > 0, "Title is required"
         assert description and len(description.strip()) > 0, "Description is required"
         # Check if creator has sufficient balance to cover the reward
         creator_balance = self.chain.balance(address=creator_key, token='market')
         assert creator_balance >= reward, f"Insufficient balance. You have ${creator_balance:.2f} but the quest reward requires ${reward:.2f}"
+
+        # Referee defaults to creator
+        referee_key = referee if referee else creator_key
+        assert isinstance(referee_key, str) and len(referee_key) > 0, "Referee address must be a valid string"
+
+        # If creator is referee, auto-accept with 0% fee
+        referee_accepted = (referee_key == creator_key)
+        referee_fee_pct = 0 if referee_accepted else None
+
         quest_id = m.hash(f"{creator_key}:{title}:{time.time()}")[:16]
-        
+
         quest = {
             'id': quest_id,
             'title': title.strip(),
             'description': description.strip(),
             'reward': reward,
             'creator': creator_key,
+            'referee': referee_key,
+            'referee_accepted': referee_accepted,
+            'referee_fee_pct': referee_fee_pct,
             'status': 'open',  # open, in_review, completed, cancelled
             'tags': tags or [],
             'deadline': deadline,
@@ -83,10 +107,10 @@ class Quests:
             'responses': [],
             'approved_response': None,
         }
-        
+
         quest_path = os.path.join(self.quests_path, f"{quest_id}.json")
         m.put(quest_path, quest)
-        
+
         return quest
 
     # ==================== QUEST DISCOVERY ====================
@@ -153,6 +177,81 @@ class Quests:
         assert quest is not None, f"Quest {quest_id} not found"
         return quest
 
+    # ==================== REFEREE ACCEPTANCE ====================
+
+    def accept_referee(self,
+                       quest_id: str,
+                       fee_pct: float,
+                       token: str = None) -> Dict[str, Any]:
+        """
+        Accept the referee role for a quest and set fee percentage.
+
+        Only the designated referee can call this. The fee percentage is the
+        portion of the reward the referee takes on approval.
+
+        Args:
+            quest_id: The quest ID
+            fee_pct: Referee fee as a percentage of the reward (0-50)
+            token: Auth token of the referee
+
+        Returns:
+            Updated quest object
+        """
+        assert token is not None, "Auth token required"
+        verified = self.auth.verify(token)
+        caller_key = verified['key']
+
+        quest = self.get_quest(quest_id)
+        assert quest['referee'] == caller_key, "Only the designated referee can accept"
+        assert not quest.get('referee_accepted'), "Referee has already accepted"
+        assert quest['status'] == 'open', "Quest is not open"
+
+        assert isinstance(fee_pct, (int, float)), "Fee must be a number"
+        assert 0 <= fee_pct <= self.MAX_REFEREE_FEE_PCT, \
+            f"Referee fee must be between 0% and {self.MAX_REFEREE_FEE_PCT}%"
+
+        quest['referee_accepted'] = True
+        quest['referee_fee_pct'] = fee_pct
+        quest['updated_at'] = time.time()
+
+        quest_path = os.path.join(self.quests_path, f"{quest_id}.json")
+        m.put(quest_path, quest)
+
+        return quest
+
+    def decline_referee(self,
+                        quest_id: str,
+                        token: str = None) -> Dict[str, Any]:
+        """
+        Decline the referee role. Resets referee back to the creator.
+
+        Args:
+            quest_id: The quest ID
+            token: Auth token of the referee
+
+        Returns:
+            Updated quest object
+        """
+        assert token is not None, "Auth token required"
+        verified = self.auth.verify(token)
+        caller_key = verified['key']
+
+        quest = self.get_quest(quest_id)
+        assert quest['referee'] == caller_key, "Only the designated referee can decline"
+        assert quest['referee'] != quest['creator'], "Creator-referee cannot decline"
+        assert not quest.get('referee_accepted'), "Referee has already accepted"
+
+        # Reset to creator as referee with 0% fee, auto-accepted
+        quest['referee'] = quest['creator']
+        quest['referee_accepted'] = True
+        quest['referee_fee_pct'] = 0
+        quest['updated_at'] = time.time()
+
+        quest_path = os.path.join(self.quests_path, f"{quest_id}.json")
+        m.put(quest_path, quest)
+
+        return quest
+
     # ==================== RESPONDING TO QUESTS ====================
     
     def respond(self,
@@ -178,11 +277,12 @@ class Quests:
         
         quest = self.get_quest(quest_id)
         assert quest['status'] == 'open', f"Quest is not open for responses (status: {quest['status']})"
-        
+        assert quest.get('referee_accepted'), "Referee has not yet accepted this quest"
+
         # Check deadline
         if quest.get('deadline') and time.time() > quest['deadline']:
             raise Exception("Quest deadline has passed")
-        
+
         # Check if this responder already responded
         existing = [r for r in quest.get('responses', []) if r.get('responder') == responder_key]
         assert len(existing) == 0, "You have already responded to this quest"
@@ -339,43 +439,73 @@ class Quests:
                 token: str = None) -> Dict[str, Any]:
         """
         Approve a response to a quest. This triggers the reward payment.
-        
-        Only the quest creator can approve responses.
-        The reward is transferred from the creator to the responder
+
+        Only the quest referee can approve responses.
+        The reward is transferred from the creator to the responder and referee
         via the Market contract's debit function (with 5% treasury fee).
-        
+
+        Payment split:
+        - Treasury: 5% of total reward
+        - Referee: referee_fee_pct% of total reward (0% if creator is referee)
+        - Responder: remainder
+
         Args:
             quest_id: The quest ID
             response_id: The response ID to approve
-            token: Auth token of the quest creator
-            
+            token: Auth token of the quest referee
+
         Returns:
             Result with payment details
         """
         assert token is not None, "Auth token required to approve"
         verified = self.auth.verify(token)
         approver_key = verified['key']
-        
+
         quest = self.get_quest(quest_id)
-        assert quest['creator'] == approver_key, "Only the quest creator can approve responses"
+        assert quest['referee'] == approver_key, "Only the quest referee can approve responses"
+        assert quest.get('referee_accepted'), "Referee has not accepted this quest"
         assert quest['status'] == 'open', f"Quest is not open (status: {quest['status']})"
-        
+
         # Get the response
         response = self.get_response(response_id)
         assert response['quest_id'] == quest_id, "Response does not belong to this quest"
         assert response['status'] == 'pending', "Response is not pending"
-        
+        # Referee cannot approve their own response
+        assert response['responder'] != approver_key, "Referee cannot approve their own response"
+
         responder_key = response['responder']
         reward = quest['reward']
-        
-        # Execute payment: debit from creator, credit to responder
-        # The chain.debit function handles the 5% treasury fee
-        print(f"Approving response {response_id} for quest {quest_id}. Paying reward of ${reward:.2f} from {approver_key} to {responder_key}")
+        referee_fee_pct = quest.get('referee_fee_pct', 0)
+        referee_key = quest['referee']
+
+        # Calculate splits
+        treasury_fee = reward * 0.05
+        referee_fee = reward * (referee_fee_pct / 100.0)
+        responder_receives = reward - treasury_fee - referee_fee
+
+        assert responder_receives > 0, "Reward split leaves nothing for responder"
+
+        # Execute main payment: debit from creator, credit to responder
+        # The chain.debit function handles the 5% treasury fee on this amount
+        responder_payment_amount = reward - referee_fee  # treasury comes out of this
+        print(f"Approving response {response_id} for quest {quest_id}. "
+              f"Paying ${reward:.2f}: responder gets ${responder_receives:.2f}, "
+              f"referee gets ${referee_fee:.2f}, treasury gets ${treasury_fee:.2f}")
+
         payment_hash = self.chain.debit(
             client=quest['creator'],
             provider=responder_key,
-            amount=reward
+            amount=responder_payment_amount
         )
+
+        # Pay referee fee if applicable (referee != creator and fee > 0)
+        referee_payment_hash = None
+        if referee_fee > 0 and referee_key != quest['creator']:
+            referee_payment_hash = self.chain.debit(
+                client=quest['creator'],
+                provider=referee_key,
+                amount=referee_fee
+            )
 
         # Update response status
         response['status'] = 'approved'
@@ -383,14 +513,15 @@ class Quests:
         response['payment_hash'] = payment_hash
         response_path = os.path.join(self.responses_path, f"{response_id}.json")
         m.put(response_path, response)
-        
+
         # Update quest status
         quest['status'] = 'completed'
         quest['approved_response'] = response_id
         quest['completed_at'] = time.time()
         quest['payment_hash'] = payment_hash
+        quest['referee_payment_hash'] = referee_payment_hash
         quest['updated_at'] = time.time()
-        
+
         # Mark all other responses as rejected
         for ref in quest.get('responses', []):
             if ref['id'] == response_id:
@@ -404,18 +535,22 @@ class Quests:
                     m.put(other_path, other_resp)
                 except:
                     pass
-        
+
         quest_path = os.path.join(self.quests_path, f"{quest_id}.json")
         m.put(quest_path, quest)
-        
+
         return {
             'quest_id': quest_id,
             'response_id': response_id,
             'responder': responder_key,
+            'referee': referee_key,
             'reward': reward,
-            'treasury_fee': reward * 0.05,
-            'responder_receives': reward * 0.95,
+            'treasury_fee': treasury_fee,
+            'referee_fee': referee_fee,
+            'referee_fee_pct': referee_fee_pct,
+            'responder_receives': responder_receives,
             'payment_hash': payment_hash,
+            'referee_payment_hash': referee_payment_hash,
             'status': 'completed',
         }
 
@@ -428,22 +563,23 @@ class Quests:
                token: str = None) -> Dict[str, Any]:
         """
         Reject a specific response to a quest.
-        
+
         Args:
             quest_id: The quest ID
             response_id: The response ID to reject
             reason: Optional reason for rejection
-            token: Auth token of the quest creator
-            
+            token: Auth token of the quest referee
+
         Returns:
             Updated response object
         """
         assert token is not None, "Auth token required"
         verified = self.auth.verify(token)
         approver_key = verified['key']
-        
+
         quest = self.get_quest(quest_id)
-        assert quest['creator'] == approver_key, "Only the quest creator can reject responses"
+        assert quest['referee'] == approver_key, "Only the quest referee can reject responses"
+        assert quest.get('referee_accepted'), "Referee has not accepted this quest"
         
         response = self.get_response(response_id)
         assert response['quest_id'] == quest_id, "Response does not belong to this quest"
@@ -620,10 +756,11 @@ class Quests:
             'version': '1.0.0',
             'stats': self.stats(),
             'flow': [
-                '1. Creator posts a quest with title, description, and reward amount',
-                '2. Responders submit responses with proof of work',
-                '3. Creator reviews responses',
-                '4. Creator approves best response -> reward is paid (5% treasury fee)',
-                '5. Or creator rejects responses / cancels quest',
+                '1. Creator posts a quest with title, description, reward, and referee (defaults to self)',
+                '2. Referee accepts the role and sets their fee % (0-50%)',
+                '3. Responders submit responses with proof of work',
+                '4. Referee reviews responses',
+                '5. Referee approves best response -> reward is paid (5% treasury + referee fee)',
+                '6. Or referee rejects responses / creator cancels quest',
             ],
         }

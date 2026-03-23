@@ -17,10 +17,11 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SERVER_DIR="$ROOT_DIR/server"
 APP_DIR="$ROOT_DIR/app"
 
-BACKEND_PORT=8820
-FRONTEND_PORT=8821
 BACKEND_PID=""
 FRONTEND_PID=""
+
+BACKEND_PORT=8820
+FRONTEND_PORT=8821
 
 # ── Colors ────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'
@@ -98,9 +99,28 @@ for arg in "$@"; do
     esac
 done
 
+# ── Kill existing processes ───────────────────────────────────────────
+kill_existing() {
+    local port=$1
+    local name=$2
+    local pids
+    pids=$(lsof -ti:"$port" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        warn "Killing existing $name on port $port (PIDs: $pids)"
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+        sleep 0.5
+    fi
+}
+
 # ── Main ──────────────────────────────────────────────────────────────
 
 print_banner
+
+# 0. Kill any existing claude-jobs / next.js on our ports
+kill_existing 8820 "backend"
+kill_existing 8821 "frontend"
+# Also kill any leftover claude-jobs binary
+pkill -f "claude-jobs" 2>/dev/null || true
 
 # 1. Check prerequisites
 info "Checking prerequisites..."
@@ -150,6 +170,7 @@ fi
 
 # 4. Start Rust backend
 info "Starting backend on port $BACKEND_PORT..."
+export CLAUDE_JOBS_LOCAL=1
 "$BINARY" "$BACKEND_PORT" &
 BACKEND_PID=$!
 sleep 1
@@ -169,11 +190,11 @@ if [ "$PROD_MODE" = true ]; then
         exit 1
     }
     info "Starting frontend in production mode on port $FRONTEND_PORT..."
-    (cd "$APP_DIR" && npm run start) &
+    (cd "$APP_DIR" && npx next start -p "$FRONTEND_PORT") &
     FRONTEND_PID=$!
 else
     info "Starting frontend in dev mode on port $FRONTEND_PORT..."
-    (cd "$APP_DIR" && npm run dev) &
+    (cd "$APP_DIR" && npx next dev -p "$FRONTEND_PORT") &
     FRONTEND_PID=$!
 fi
 
@@ -199,5 +220,7 @@ echo ""
 echo -e "  ${DIM}Press Ctrl+C to stop all services${NC}"
 echo ""
 
-# Wait for either process to exit
-wait -n "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true
+# Wait forever (cleanup runs on SIGINT/SIGTERM)
+while kill -0 "$BACKEND_PID" 2>/dev/null && kill -0 "$FRONTEND_PID" 2>/dev/null; do
+    sleep 2
+done

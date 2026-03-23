@@ -4,7 +4,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, List
 import mod as m
 
 # Configure logging
@@ -51,29 +51,234 @@ class Mod:
         logger.setLevel(log_level)
         logger.info(f"Log level set to {level.upper()}")
 
-    def __init__(self, default_path: Optional[str] = None, api_key: Optional[str] = None, model: str = 'anthropic/claude-opus-4', **kwargs):
+    def __init__(self, default_path: Optional[str] = None, api_key: Optional[str] = None, model: str = 'anthropic/claude-opus-4', owner: Optional[str] = None, **kwargs):
         """
         Initialize the Claude Code interface.
 
         Args:
             default_path: Default working directory for Claude Code operations
-            api_key: Optional Anthropic API key (will check environment if not provided)
+            api_key: Optional Anthropic API key (None = use Claude Max subscription auth)
             model: Default model for OpenRouter API calls (default: anthropic/claude-opus-4)
+            owner: Owner address/key for access control (only owner can edit)
         """
         logger.info("Initializing Claude Code interface...")
         self.default_path = default_path or os.getcwd()
         self.model = model
         self._router = None
+        self._ipfs = None
         logger.info(f"Default path: {self.default_path}")
 
-        self.api_key = api_key or self._get_api_key()
+        # API key is optional — Claude Max auth works without one
+        self.api_key = api_key or os.environ.get('ANTHROPIC_AUTH_TOKEN') or os.environ.get('ANTHROPIC_API_KEY')
         if self.api_key:
             logger.info("API key configured successfully")
         else:
-            logger.warning("No API key configured - CLI operations will require an API key")
+            logger.info("No API key — using Claude Max subscription auth")
+
+        # Initialize owner and permissions
+        self.owner = owner or self._load_owner()
+        self._init_permissions()
+
+        # Initialize CID history
+        self.history_path = os.path.join(str(Path.home()), '.mod', 'claude', 'cid_history.json')
+        os.makedirs(os.path.dirname(self.history_path), exist_ok=True)
+
+        # Ensure config.json exists with URLs for commune registration
+        self._ensure_config()
 
         self.claude_bin = self._find_or_install_claude()
         logger.info("Claude Code interface initialized successfully")
+
+    def _load_owner(self) -> Optional[str]:
+        """
+        Load owner address from config file.
+
+        Returns:
+            Owner address or None
+        """
+        config_path = os.path.join(str(Path.home()), '.mod', 'claude', 'owner.json')
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    return config.get('owner')
+            except Exception as e:
+                logger.warning(f"Failed to load owner config: {e}")
+        return None
+
+    def _ensure_config(self) -> None:
+        """
+        Ensure config.json exists with app and API URLs for commune registration.
+        Creates it if missing, stores content to IPFS and saves CID for on-chain registration.
+        """
+        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.json')
+
+        if not os.path.exists(config_path):
+            logger.info("config.json not found, creating with default URLs")
+
+            # Default configuration with app and API URLs
+            config = {
+                "name": "claude",
+                "version": "1.0.0",
+                "description": "Programmable AI developer interface with Python SDK, Rust Job Server, and 8-Bit Terminal UI",
+                "urls": {
+                    "app": "http://localhost:8821",
+                    "api": "http://localhost:8820"
+                },
+                "fns": [
+                    "forward",
+                    "ask",
+                    "analyze_code",
+                    "generate_code",
+                    "refactor",
+                    "debug",
+                    "edit_file",
+                    "run_task",
+                    "batch_process",
+                    "bg",
+                    "submit",
+                    "create_module",
+                    "fork_module"
+                ],
+                "endpoints": {
+                    "/health": "Health check",
+                    "/repos": "List git repositories",
+                    "/auth/challenge": "Get signature challenge",
+                    "/auth/verify": "Verify signature and get JWT",
+                    "/jobs": "Submit and list jobs",
+                    "/jobs/{id}": "Get job details",
+                    "/jobs/{id}/cancel": "Cancel running job",
+                    "/jobs/{id}/stream": "SSE stream of job output"
+                }
+            }
+
+            # Write config.json
+            with open(config_path, 'w') as f:
+                json.dump(config, f, indent=2)
+
+            logger.info(f"Created config.json at {config_path}")
+
+            # Store to IPFS for commune registration
+            try:
+                ipfs_client = self.ipfs()
+                config_cid = ipfs_client.put(config)
+
+                # Store CID reference for commune registration
+                cid_path = os.path.join(str(Path.home()), '.mod', 'claude', 'config_cid.json')
+                os.makedirs(os.path.dirname(cid_path), exist_ok=True)
+
+                with open(cid_path, 'w') as f:
+                    json.dump({
+                        'cid': config_cid,
+                        'timestamp': os.path.getmtime(config_path),
+                        'gateway': f'https://ipfs.io/ipfs/{config_cid}'
+                    }, f, indent=2)
+
+                logger.info(f"Config stored to IPFS: {config_cid}")
+                logger.info(f"Use this CID for commune registration")
+
+            except Exception as e:
+                logger.warning(f"Failed to store config to IPFS: {e}")
+                logger.info("Config file created locally, IPFS storage optional")
+        else:
+            logger.info(f"config.json exists at {config_path}")
+
+    def _init_permissions(self) -> None:
+        """Initialize permissions system based on owner."""
+        if not self.owner:
+            logger.info("No owner set - first authenticated user will become owner")
+            logger.info("Use set_owner() to manually set the owner address")
+
+    def set_owner(self, owner: str) -> None:
+        """
+        Set the owner address for access control.
+        Only the owner can perform edit operations.
+
+        Args:
+            owner: Ethereum address or key to set as owner
+        """
+        config_path = os.path.join(str(Path.home()), '.mod', 'claude', 'owner.json')
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+        # Normalize address
+        if hasattr(owner, 'address'):
+            owner = owner.address
+        owner = owner.lower()
+
+        config = {'owner': owner}
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+
+        self.owner = owner
+        logger.info(f"Owner set to: {owner}")
+        print(f"✓ Owner set to: {owner}")
+        print("  Only this address can perform edit operations.")
+
+    def get_owner(self) -> Optional[str]:
+        """Get the current owner address."""
+        return self.owner
+
+    def reload_owner(self) -> Optional[str]:
+        """
+        Reload owner configuration from disk.
+        Useful after the first user authenticates via the web UI.
+
+        Returns:
+            The new owner address, or None if still not set
+        """
+        self.owner = self._load_owner()
+        if self.owner:
+            logger.info(f"Owner reloaded: {self.owner}")
+        else:
+            logger.info("No owner set yet")
+        return self.owner
+
+    def is_owner(self, key=None) -> bool:
+        """
+        Check if the given key is the owner.
+
+        Args:
+            key: Key object or address string to check
+
+        Returns:
+            True if key is owner or no owner is set
+        """
+        if not self.owner:
+            return True  # No owner = everyone has access
+
+        if key is None:
+            key = m.key()
+
+        # Normalize key to address
+        if hasattr(key, 'address'):
+            key = key.address
+        key = str(key).lower()
+
+        return key == self.owner
+
+    def require_owner(self, key=None, operation: str = "operation") -> None:
+        """
+        Require that the key is the owner, raise error otherwise.
+
+        Args:
+            key: Key to check
+            operation: Name of operation for error message
+
+        Raises:
+            PermissionError: If key is not owner
+        """
+        if not self.is_owner(key):
+            current_key = key
+            if hasattr(key, 'address'):
+                current_key = key.address
+            elif key is None:
+                current_key = m.key().address
+            raise PermissionError(
+                f"Access denied: {operation} requires owner permission.\n"
+                f"Current key: {current_key}\n"
+                f"Owner: {self.owner}\n"
+                f"Only the owner can perform this operation."
+            )
 
     def save_api_key(self, api_key: str) -> None:
         """
@@ -263,7 +468,11 @@ class Mod:
                 output_format: str = "json",
                 bypass_permissions: bool = True,
                 stream_output: bool = True,
-                additional_options: Optional[Dict[str, Any]] = None, **kwargs) -> Union[str, Dict[str, Any]]:
+                additional_options: Optional[Dict[str, Any]] = None,
+                key = None,
+                store_ipfs: bool = False,
+                description: str = None,
+                **kwargs) -> Union[str, Dict[str, Any]]:
         """
         Execute a Claude Code query in the background without user prompts.
 
@@ -275,6 +484,9 @@ class Mod:
             bypass_permissions: If True, bypasses all permission checks
             stream_output: If True, streams output in real-time so you can see what Claude is doing
             additional_options: Additional CLI options as key-value pairs
+            key: Key for permission check (only owner can edit)
+            store_ipfs: If True, stores result to IPFS and shows CID
+            description: Description for IPFS history entry
 
         Returns:
             Response from Claude Code (parsed JSON if output_format='json', otherwise text)
@@ -284,21 +496,23 @@ class Mod:
             >>> result = mod.forward(
             ...     query="Analyze the main.py file and suggest improvements",
             ...     path="/path/to/project",
-            ...     stream_output=True  # See output in real-time
+            ...     stream_output=True,  # See output in real-time
+            ...     store_ipfs=True  # Store to IPFS
             ... )
         """
+        # Check if this is an edit operation (requires owner permission)
+        is_edit_op = any(keyword in query.lower() for keyword in [
+            'edit', 'modify', 'change', 'update', 'refactor', 'fix', 'add', 'remove', 'delete'
+        ])
+
+        if is_edit_op:
+            self.require_owner(key, operation="code editing")
+            logger.info("Owner permission verified for edit operation")
+
         if mod != None:
             path = m.dp(mod)
 
         work_dir = path or self.default_path
-
-        # Check if API key is available
-        if not self.api_key:
-            logger.error("No API key available - cannot execute Claude Code")
-            raise RuntimeError(
-                "No API key available. Please set ANTHROPIC_API_KEY environment variable "
-                "or save an API key using mod.save_api_key()"
-            )
 
         logger.info(f"Executing Claude Code query in: {work_dir}")
         logger.info(f"Model: {model}, Format: {output_format}")
@@ -336,10 +550,10 @@ class Mod:
         # Add the query
         cmd.append(query)
 
-        # Prepare environment with API key if available
+        # Prepare environment — pass API key if we have one, otherwise Claude uses Max auth
         env = os.environ.copy()
-        if self.api_key and 'ANTHROPIC_API_KEY' not in env:
-            env['ANTHROPIC_API_KEY'] = self.api_key
+        if self.api_key:
+            env.setdefault('ANTHROPIC_API_KEY', self.api_key)
 
         # Log the command (without the API key for security)
         cmd_safe = [c if not c.startswith('sk-') else '***' for c in cmd]
@@ -425,12 +639,35 @@ class Mod:
                     try:
                         parsed = json.loads(stdout_text)
                         logger.debug(f"Successfully parsed JSON response")
-                        return parsed
+                        result_data = parsed
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse JSON: {e}")
-                        return {"raw_output": stdout_text, "error": "Failed to parse JSON"}
+                        result_data = {"raw_output": stdout_text, "error": "Failed to parse JSON"}
+                else:
+                    result_data = stdout_text
 
-                return stdout_text
+                # Store to IPFS if requested (for edit operations)
+                if store_ipfs and is_edit_op:
+                    try:
+                        # Create metadata for IPFS
+                        ipfs_data = {
+                            'query': query,
+                            'result': result_data,
+                            'work_dir': work_dir,
+                            'model': model,
+                            'description': description or query[:100]
+                        }
+                        cid = self._store_to_ipfs(ipfs_data, description or query[:100])
+                        print("\n" + "="*60)
+                        print("IPFS STORAGE")
+                        print("="*60)
+                        print(f"CID: {cid}")
+                        print(f"Gateway: https://ipfs.io/ipfs/{cid}")
+                        print("="*60 + "\n")
+                    except Exception as e:
+                        logger.warning(f"Failed to store to IPFS: {e}")
+
+                return result_data
             else:
                 # Capture output silently (original behavior)
                 result = subprocess.run(
@@ -455,12 +692,35 @@ class Mod:
                     try:
                         parsed = json.loads(result.stdout)
                         logger.debug(f"Successfully parsed JSON response")
-                        return parsed
+                        result_data = parsed
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse JSON: {e}")
-                        return {"raw_output": result.stdout, "error": "Failed to parse JSON"}
+                        result_data = {"raw_output": result.stdout, "error": "Failed to parse JSON"}
+                else:
+                    result_data = result.stdout
 
-                return result.stdout
+                # Store to IPFS if requested (for edit operations)
+                if store_ipfs and is_edit_op:
+                    try:
+                        # Create metadata for IPFS
+                        ipfs_data = {
+                            'query': query,
+                            'result': result_data,
+                            'work_dir': work_dir,
+                            'model': model,
+                            'description': description or query[:100]
+                        }
+                        cid = self._store_to_ipfs(ipfs_data, description or query[:100])
+                        print("\n" + "="*60)
+                        print("IPFS STORAGE")
+                        print("="*60)
+                        print(f"CID: {cid}")
+                        print(f"Gateway: https://ipfs.io/ipfs/{cid}")
+                        print("="*60 + "\n")
+                    except Exception as e:
+                        logger.warning(f"Failed to store to IPFS: {e}")
+
+                return result_data
 
         except subprocess.TimeoutExpired:
             logger.error("Claude Code request timed out after 5 minutes")
@@ -474,6 +734,130 @@ class Mod:
         if self._router is None:
             self._router = m.mod('model.openrouter')()
         return self._router
+
+    def ipfs(self):
+        """Get or create the IPFS client instance."""
+        if self._ipfs is None:
+            try:
+                self._ipfs = m.mod('ipfs')()
+                logger.info("IPFS client initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize IPFS: {e}")
+                raise RuntimeError(
+                    "IPFS module not available. Install with: m install ipfs"
+                )
+        return self._ipfs
+
+    def _store_to_ipfs(self, content: Dict[str, Any], description: str = None) -> str:
+        """
+        Store content to IPFS and track in history.
+
+        Args:
+            content: Content to store
+            description: Optional description of the update
+
+        Returns:
+            IPFS CID
+        """
+        try:
+            ipfs_client = self.ipfs()
+            cid = ipfs_client.put(content)
+            logger.info(f"Stored to IPFS: {cid}")
+
+            # Add to history
+            self._add_to_history(cid, description)
+
+            return cid
+        except Exception as e:
+            logger.error(f"Failed to store to IPFS: {e}")
+            raise
+
+    def _add_to_history(self, cid: str, description: str = None) -> None:
+        """
+        Add a CID to the history log.
+
+        Args:
+            cid: IPFS CID to record
+            description: Optional description
+        """
+        import time
+
+        history = self._load_history()
+
+        entry = {
+            'cid': cid,
+            'timestamp': time.time(),
+            'date': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'description': description or 'Code update'
+        }
+
+        history.append(entry)
+
+        # Save history
+        with open(self.history_path, 'w') as f:
+            json.dump(history, f, indent=2)
+
+        logger.info(f"Added to history: {cid}")
+
+    def _load_history(self) -> List[Dict[str, Any]]:
+        """Load CID history from file."""
+        if os.path.exists(self.history_path):
+            try:
+                with open(self.history_path, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.warning(f"Failed to load history: {e}")
+        return []
+
+    def get_history(self, limit: int = None) -> List[Dict[str, Any]]:
+        """
+        Get CID history, newest first.
+
+        Args:
+            limit: Optional limit on number of entries
+
+        Returns:
+            List of history entries
+        """
+        history = self._load_history()
+        history.reverse()  # Newest first
+
+        if limit:
+            history = history[:limit]
+
+        return history
+
+    def show_history(self, limit: int = 10) -> None:
+        """
+        Display CID history in a readable format.
+
+        Args:
+            limit: Number of entries to show (default: 10)
+        """
+        history = self.get_history(limit=limit)
+
+        if not history:
+            print("No history entries found.")
+            return
+
+        print("\n" + "="*80)
+        print(f"IPFS CID HISTORY (showing {len(history)} most recent)")
+        print("="*80)
+
+        for i, entry in enumerate(history, 1):
+            print(f"\n{i}. {entry['date']}")
+            print(f"   CID: {entry['cid']}")
+            print(f"   Description: {entry['description']}")
+
+            # Show IPFS gateway link
+            print(f"   View: https://ipfs.io/ipfs/{entry['cid']}")
+
+        print("\n" + "="*80 + "\n")
+
+    def get_latest_cid(self) -> Optional[str]:
+        """Get the most recent CID from history."""
+        history = self.get_history(limit=1)
+        return history[0]['cid'] if history else None
 
     def ask(self, message: str, model: str = None, stream: bool = False,
             history: list = None, system_prompt: str = None,
@@ -533,44 +917,70 @@ class Mod:
     def generate_code(self,
                      description: str,
                      path: str,
-                     file_path: Optional[str] = None) -> Dict[str, Any]:
+                     file_path: Optional[str] = None,
+                     key = None,
+                     store_ipfs: bool = True) -> Dict[str, Any]:
         """
         Generate code based on a description.
+        Requires owner permission. Automatically stores to IPFS.
 
         Args:
             description: What code to generate
             path: Working directory
             file_path: Optional specific file to create/modify
+            key: Key for permission check (only owner can edit)
+            store_ipfs: If True, stores result to IPFS (default: True)
 
         Returns:
-            Generation results
+            Generation results with IPFS CID
         """
         query = f"Generate code: {description}"
         if file_path:
             query += f" in file {file_path}"
 
-        return self.forward(query=query, path=path)
+        desc = f"Generate: {description[:80]}"
+
+        return self.forward(
+            query=query,
+            path=path,
+            key=key,
+            store_ipfs=store_ipfs,
+            description=desc
+        )
 
     def refactor(self,
                  path: str,
                  instructions: str,
-                 target_files: Optional[list] = None) -> Dict[str, Any]:
+                 target_files: Optional[list] = None,
+                 key = None,
+                 store_ipfs: bool = True) -> Dict[str, Any]:
         """
         Refactor code based on instructions.
+        Requires owner permission. Automatically stores to IPFS.
 
         Args:
             path: Working directory
             instructions: Refactoring instructions
             target_files: Optional list of specific files to refactor
+            key: Key for permission check (only owner can edit)
+            store_ipfs: If True, stores result to IPFS (default: True)
 
         Returns:
-            Refactoring results
+            Refactoring results with IPFS CID
         """
         query = f"Refactor: {instructions}"
         if target_files:
             query += f"\nTarget files: {', '.join(target_files)}"
 
-        return self.forward(query=query, path=path)
+        description = f"Refactor: {instructions[:80]}"
+
+        return self.forward(
+            query=query,
+            path=path,
+            key=key,
+            store_ipfs=store_ipfs,
+            description=description
+        )
 
     def debug(self,
              path: str,
@@ -598,9 +1008,12 @@ class Mod:
                   instructions: str,
                   path: Optional[str] = None,
                   mod = None,
-                  stream_output: bool = False) -> Dict[str, Any]:
+                  stream_output: bool = False,
+                  key = None,
+                  store_ipfs: bool = True) -> Dict[str, Any]:
         """
         Edit a specific file based on instructions.
+        Requires owner permission. Automatically stores to IPFS.
 
         Args:
             file_path: Path to the file to edit (relative to working directory)
@@ -608,9 +1021,11 @@ class Mod:
             path: Working directory (defaults to self.default_path)
             mod: Optional mod object to get path from
             stream_output: If True, streams output in real-time
+            key: Key for permission check (only owner can edit)
+            store_ipfs: If True, stores result to IPFS (default: True)
 
         Returns:
-            Edit results from Claude Code
+            Edit results from Claude Code with IPFS CID
 
         Example:
             >>> mod = Mod()
@@ -620,15 +1035,25 @@ class Mod:
             ...     path="/path/to/project",
             ...     stream_output=True
             ... )
+            # Result includes IPFS CID for tracking
         """
+        # This will be caught by forward() permission check
         if mod is not None:
             path = m.dp(mod)
 
         work_dir = path or self.default_path
 
         query = f"Edit the file {file_path}: {instructions}"
+        description = f"Edit {file_path}: {instructions[:80]}"
 
-        return self.forward(query=query, path=work_dir, stream_output=stream_output)
+        return self.forward(
+            query=query,
+            path=work_dir,
+            stream_output=stream_output,
+            key=key,
+            store_ipfs=store_ipfs,
+            description=description
+        )
 
     def run_task(self,
                 task: str,
@@ -692,6 +1117,90 @@ class Mod:
         logger.info(f"Batch processing complete: {successful}/{len(queries)} successful")
         return results
 
+    # ── Local Background Tasks (no server needed) ────────────────────
+
+    def bg(self, prompt: str, path: Optional[str] = None, mod=None,
+           model: str = "sonnet", log_dir: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Fire-and-forget background Claude task using your Max subscription.
+        No server required — just spawns claude CLI in the background.
+
+        Args:
+            prompt: Task to run
+            path: Working directory
+            mod: Optional mod name to resolve path
+            model: Model (sonnet, opus, haiku)
+            log_dir: Where to store output logs (default: ~/.mod/claude/logs/)
+
+        Returns:
+            Dict with pid, log_file, and command info
+
+        Example:
+            >>> c = Mod()
+            >>> task = c.bg("refactor utils.py to use async", mod="core")
+            >>> print(task['log_file'])  # tail -f this to watch progress
+        """
+        if mod is not None:
+            path = m.dp(mod)
+        work_dir = path or self.default_path
+
+        log_dir = log_dir or os.path.join(str(Path.home()), '.mod', 'claude', 'logs')
+        os.makedirs(log_dir, exist_ok=True)
+
+        import time
+        task_id = f"{int(time.time())}_{os.getpid()}"
+        log_file = os.path.join(log_dir, f"{task_id}.log")
+
+        cmd = [
+            self.claude_bin, "--print",
+            "--model", model,
+            "--output-format", "text",
+            "--dangerously-skip-permissions",
+        ]
+        cmd.append(prompt)
+
+        with open(log_file, 'w') as f:
+            f.write(f"# Task: {prompt}\n# Dir: {work_dir}\n# Model: {model}\n# Started: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+        log_out = open(log_file, 'a')
+        process = subprocess.Popen(
+            cmd, cwd=work_dir,
+            stdout=log_out, stderr=log_out,
+            start_new_session=True,
+        )
+
+        logger.info(f"Background task started: PID {process.pid} → {log_file}")
+        print(f"Background task started (PID {process.pid})")
+        print(f"Log: {log_file}")
+        print(f"Watch: tail -f {log_file}")
+
+        return {
+            "pid": process.pid,
+            "task_id": task_id,
+            "log_file": log_file,
+            "prompt": prompt,
+            "model": model,
+            "work_dir": work_dir,
+        }
+
+    def bg_status(self, pid: int) -> str:
+        """Check if a background task is still running."""
+        try:
+            os.kill(pid, 0)
+            return "running"
+        except ProcessLookupError:
+            return "completed"
+        except PermissionError:
+            return "running"
+
+    def bg_list(self, log_dir: Optional[str] = None) -> list:
+        """List recent background task logs."""
+        log_dir = log_dir or os.path.join(str(Path.home()), '.mod', 'claude', 'logs')
+        if not os.path.exists(log_dir):
+            return []
+        logs = sorted(Path(log_dir).glob("*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+        return [{"file": str(l), "size": l.stat().st_size, "modified": l.stat().st_mtime} for l in logs[:20]]
+
     # ── Background Job Management (via Rust server) ──────────────────
 
     def _jobs_url(self) -> str:
@@ -716,22 +1225,100 @@ class Mod:
                 "Start it with: cd mod/orbit/claude/server && cargo run"
             )
 
-    def submit(self, prompt: str, model: str = "sonnet", work_dir: str = None) -> dict:
+    def submit(self, prompt: str, model: str = "sonnet", work_dir: str = None,
+               module_name: str = None, creation_mode: str = None,
+               fork_source: str = None, anchor_dir: str = None) -> dict:
         """
         Submit a background Claude job to the Rust job server.
 
         Args:
             prompt: Task prompt
             model: Model to use (sonnet, opus, haiku)
-            work_dir: Working directory for the job
+            work_dir: Working directory for the job (standard mode)
+            module_name: Name of module to create (for new/fork modes)
+            creation_mode: "new" or "fork" for module creation
+            fork_source: Source module to fork from (fork mode only)
+            anchor_dir: Anchor directory (default: ~/mod or MOD_ANCHOR env var)
 
         Returns:
             Job object with id, status, etc.
+
+        Examples:
+            >>> # Standard job
+            >>> job = c.submit("fix the bug", work_dir="~/project")
+
+            >>> # Create new module
+            >>> job = c.submit("add a REST API", module_name="myapi", creation_mode="new")
+
+            >>> # Fork existing module
+            >>> job = c.submit("customize for my use case",
+            ...                module_name="myagent", creation_mode="fork",
+            ...                fork_source="agent")
         """
         data = {"prompt": prompt, "model": model}
         if work_dir:
             data["work_dir"] = work_dir
+        if module_name:
+            data["module_name"] = module_name
+        if creation_mode:
+            data["creation_mode"] = creation_mode
+        if fork_source:
+            data["fork_source"] = fork_source
+        if anchor_dir:
+            data["anchor_dir"] = anchor_dir
         return self._jobs_request("POST", "/jobs", data)
+
+    def create_module(self, module_name: str, prompt: str,
+                     model: str = "sonnet", anchor_dir: str = None) -> dict:
+        """
+        Create a new module in the orbit directory.
+
+        Args:
+            module_name: Name of the new module
+            prompt: Description of what the module should do
+            model: Model to use
+            anchor_dir: Anchor directory (default: ~/mod)
+
+        Returns:
+            Job object
+
+        Example:
+            >>> job = c.create_module("chatbot", "Create a conversational AI module")
+        """
+        return self.submit(
+            prompt=prompt,
+            model=model,
+            module_name=module_name,
+            creation_mode="new",
+            anchor_dir=anchor_dir
+        )
+
+    def fork_module(self, module_name: str, fork_source: str, prompt: str,
+                   model: str = "sonnet", anchor_dir: str = None) -> dict:
+        """
+        Fork an existing module and customize it.
+
+        Args:
+            module_name: Name for the new forked module
+            fork_source: Name of the module to fork from
+            prompt: How to customize the forked module
+            model: Model to use
+            anchor_dir: Anchor directory (default: ~/mod)
+
+        Returns:
+            Job object
+
+        Example:
+            >>> job = c.fork_module("myagent", "agent", "Add web scraping capabilities")
+        """
+        return self.submit(
+            prompt=prompt,
+            model=model,
+            module_name=module_name,
+            creation_mode="fork",
+            fork_source=fork_source,
+            anchor_dir=anchor_dir
+        )
 
     def jobs(self) -> list:
         """List all background jobs."""
@@ -755,6 +1342,34 @@ class Mod:
         result = self._jobs_request("GET", f"/jobs/{job_id}")
         return result.get("output", "")
 
+    def tail(self, job_id: str) -> None:
+        """
+        Live-stream job output via SSE. Prints as it arrives.
+        Ctrl+C to detach (job keeps running).
+
+        Args:
+            job_id: Job ID to tail
+        """
+        import urllib.request
+        url = f"{self._jobs_url()}/jobs/{job_id}/stream"
+        req = urllib.request.Request(url, headers={"Accept": "text/event-stream"})
+
+        print(f"Streaming job {job_id[:8]}...")
+        print("-" * 50)
+
+        try:
+            with urllib.request.urlopen(req, timeout=600) as resp:
+                for raw_line in resp:
+                    line = raw_line.decode("utf-8", errors="replace").rstrip()
+                    if line.startswith("data:"):
+                        text = line[5:]
+                        if text.strip() == "[DONE]":
+                            print("\n--- Job finished ---")
+                            break
+                        print(text, end="", flush=True)
+        except KeyboardInterrupt:
+            print("\n--- Detached (job still running) ---")
+
     def serve_jobs(self, port: int = 8820) -> None:
         """Start the Claude Jobs Rust server."""
         server_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'server')
@@ -766,6 +1381,134 @@ class Mod:
             stderr=subprocess.DEVNULL,
         )
         print(f"Claude Jobs server starting on port {port}")
+
+    def get_config_cid(self) -> Optional[str]:
+        """
+        Get the IPFS CID of the config.json for commune registration.
+
+        Returns:
+            CID string or None if not yet stored
+        """
+        cid_path = os.path.join(str(Path.home()), '.mod', 'claude', 'config_cid.json')
+        if os.path.exists(cid_path):
+            try:
+                with open(cid_path, 'r') as f:
+                    data = json.load(f)
+                    return data.get('cid')
+            except Exception as e:
+                logger.warning(f"Failed to load config CID: {e}")
+        return None
+
+    def update_config_urls(self, app_url: str = None, api_url: str = None) -> str:
+        """
+        Update the app and API URLs in config.json and re-store to IPFS.
+
+        Args:
+            app_url: New app URL (default: http://localhost:8821)
+            api_url: New API URL (default: http://localhost:8820)
+
+        Returns:
+            New IPFS CID for the updated config
+
+        Example:
+            >>> c = Mod()
+            >>> cid = c.update_config_urls(
+            ...     app_url="https://claude.example.com",
+            ...     api_url="https://api.claude.example.com"
+            ... )
+            >>> print(f"Register this CID with commune: {cid}")
+        """
+        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.json')
+
+        # Load existing config or create new
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+        else:
+            # Trigger creation
+            self._ensure_config()
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+
+        # Update URLs
+        if 'urls' not in config:
+            config['urls'] = {}
+
+        if app_url:
+            config['urls']['app'] = app_url
+        if api_url:
+            config['urls']['api'] = api_url
+
+        # Write updated config
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+
+        logger.info(f"Updated config.json with URLs: app={config['urls']['app']}, api={config['urls']['api']}")
+
+        # Store to IPFS
+        try:
+            ipfs_client = self.ipfs()
+            config_cid = ipfs_client.put(config)
+
+            # Update CID reference
+            cid_path = os.path.join(str(Path.home()), '.mod', 'claude', 'config_cid.json')
+            os.makedirs(os.path.dirname(cid_path), exist_ok=True)
+
+            with open(cid_path, 'w') as f:
+                json.dump({
+                    'cid': config_cid,
+                    'timestamp': os.path.getmtime(config_path),
+                    'gateway': f'https://ipfs.io/ipfs/{config_cid}',
+                    'urls': config['urls']
+                }, f, indent=2)
+
+            logger.info(f"Config updated and stored to IPFS: {config_cid}")
+            print(f"\n{'='*60}")
+            print(f"CONFIG UPDATED")
+            print(f"{'='*60}")
+            print(f"App URL:  {config['urls']['app']}")
+            print(f"API URL:  {config['urls']['api']}")
+            print(f"IPFS CID: {config_cid}")
+            print(f"Gateway:  https://ipfs.io/ipfs/{config_cid}")
+            print(f"{'='*60}\n")
+            print(f"✓ Use this CID to register with commune on-chain")
+
+            return config_cid
+
+        except Exception as e:
+            logger.error(f"Failed to store config to IPFS: {e}")
+            raise RuntimeError(f"Failed to store config to IPFS: {e}")
+
+    def show_config(self) -> None:
+        """
+        Display the current config.json and its IPFS CID for commune registration.
+        """
+        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.json')
+
+        if not os.path.exists(config_path):
+            print("No config.json found. Initializing...")
+            self._ensure_config()
+
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+
+        cid = self.get_config_cid()
+
+        print(f"\n{'='*60}")
+        print("CLAUDE MODULE CONFIGURATION")
+        print(f"{'='*60}")
+        print(json.dumps(config, indent=2))
+        print(f"{'='*60}")
+
+        if cid:
+            print(f"\nIPFS CID: {cid}")
+            print(f"Gateway:  https://ipfs.io/ipfs/{cid}")
+            print(f"\n✓ Use this CID to register with commune on-chain")
+        else:
+            print("\n⚠ Not yet stored to IPFS")
+            print("  Run update_config_urls() to store to IPFS")
+
+        print(f"{'='*60}\n")
 
 
 # Convenience function for quick usage

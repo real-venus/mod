@@ -4,6 +4,8 @@
         "edit_quest",
         "quests",
         "get_quest",
+        "accept_referee",
+        "decline_referee",
         "respond",
         "edit_response",
         "get_responses",

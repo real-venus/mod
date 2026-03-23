@@ -3,7 +3,7 @@
 use crate::auth;
 use crate::jobs::{ClaudeJobManager, SubmitRequest};
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     middleware,
     response::{
@@ -13,6 +13,7 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
+use serde::Deserialize;
 use serde_json::json;
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -28,22 +29,34 @@ pub async fn serve(manager: AppState, port: u16) {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    let local_mode = std::env::var("CLAUDE_JOBS_LOCAL").unwrap_or_default() == "1";
+
     let challenge_store = auth::new_challenge_store();
 
-    // Protected job routes (require bearer token)
-    let job_routes = Router::new()
-        .route("/jobs", post(submit_job))
-        .route("/jobs", get(list_jobs))
-        .route("/jobs/{id}", get(get_job))
-        .route("/jobs/{id}", delete(delete_job))
-        .route("/jobs/{id}/cancel", post(cancel_job))
-        .route("/jobs/{id}/stream", get(stream_job))
-        .layer(middleware::from_fn(auth::auth_middleware))
-        .with_state(manager);
+    // Job routes — skip auth in local mode
+    let job_routes = {
+        let base = Router::new()
+            .route("/jobs", post(submit_job))
+            .route("/jobs", get(list_jobs))
+            .route("/jobs/{id}", get(get_job))
+            .route("/jobs/{id}", delete(delete_job))
+            .route("/jobs/{id}/cancel", post(cancel_job))
+            .route("/jobs/{id}/stream", get(stream_job));
+
+        if local_mode {
+            println!("⚡ Local mode — auth disabled");
+            base.with_state(manager)
+        } else {
+            base.layer(middleware::from_fn(auth::auth_middleware))
+                .with_state(manager)
+        }
+    };
 
     // Public routes (no auth required)
     let public_routes = Router::new()
         .route("/health", get(health))
+        .route("/repos", get(list_repos))
+        .route("/owner", get(get_owner))
         .route(
             "/auth/challenge",
             get(auth::challenge).with_state(challenge_store.clone()),
@@ -69,6 +82,51 @@ pub async fn serve(manager: AppState, port: u16) {
 
 async fn health() -> impl IntoResponse {
     Json(json!({ "status": "ok", "service": "claude-jobs" }))
+}
+
+async fn get_owner() -> impl IntoResponse {
+    let owner_path = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".mod")
+        .join("claude")
+        .join("owner.json");
+
+    if !owner_path.exists() {
+        return Json(json!({
+            "has_owner": false,
+            "owner": null,
+            "message": "No owner set - first authenticated user will become owner"
+        }));
+    }
+
+    match std::fs::read_to_string(&owner_path) {
+        Ok(content) => {
+            match serde_json::from_str::<serde_json::Value>(&content) {
+                Ok(data) => {
+                    let owner = data.get("owner").and_then(|v| v.as_str());
+                    Json(json!({
+                        "has_owner": owner.is_some(),
+                        "owner": owner,
+                        "message": if owner.is_some() {
+                            "Owner is set"
+                        } else {
+                            "Owner file exists but is invalid"
+                        }
+                    }))
+                }
+                Err(_) => Json(json!({
+                    "has_owner": false,
+                    "owner": null,
+                    "message": "Owner file is corrupted"
+                }))
+            }
+        }
+        Err(_) => Json(json!({
+            "has_owner": false,
+            "owner": null,
+            "message": "Failed to read owner file"
+        }))
+    }
 }
 
 async fn submit_job(
@@ -118,6 +176,88 @@ async fn cancel_job(
         )
             .into_response(),
     }
+}
+
+#[derive(Deserialize)]
+struct RepoQuery {
+    q: Option<String>,
+}
+
+async fn list_repos(Query(params): Query<RepoQuery>) -> impl IntoResponse {
+    let query = params.q.unwrap_or_default().to_lowercase();
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+
+    // Directories to scan for git repos (check for .git)
+    let git_scan_dirs = vec![
+        home.clone(),
+        format!("{}/mod", home),
+    ];
+
+    // Directories to list as project folders (subfolders of a git repo)
+    let project_scan_dirs = vec![
+        format!("{}/mod/mod/orbit", home),
+        format!("{}/mod/mod/core", home),
+    ];
+
+    let mut repos: Vec<serde_json::Value> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    // Scan for git repos
+    for scan_dir in &git_scan_dirs {
+        let dir_path = std::path::Path::new(scan_dir);
+        if !dir_path.is_dir() { continue; }
+        if let Ok(entries) = std::fs::read_dir(dir_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() { continue; }
+                let git_dir = path.join(".git");
+                if !git_dir.exists() { continue; }
+                let full_path = path.to_string_lossy().to_string();
+                if seen.contains(&full_path) { continue; }
+                let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let display_path = full_path.replacen(&home, "~", 1);
+                if !query.is_empty()
+                    && !name.to_lowercase().contains(&query)
+                    && !display_path.to_lowercase().contains(&query)
+                { continue; }
+                seen.insert(full_path.clone());
+                repos.push(json!({ "name": name, "path": full_path, "display": display_path }));
+            }
+        }
+    }
+
+    // Scan project folders (modules/components within a repo)
+    for scan_dir in &project_scan_dirs {
+        let dir_path = std::path::Path::new(scan_dir);
+        if !dir_path.is_dir() { continue; }
+        if let Ok(entries) = std::fs::read_dir(dir_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() { continue; }
+                // Skip hidden dirs and __pycache__
+                let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                if name.starts_with('.') || name.starts_with('_') { continue; }
+                let full_path = path.to_string_lossy().to_string();
+                if seen.contains(&full_path) { continue; }
+                let display_path = full_path.replacen(&home, "~", 1);
+                if !query.is_empty()
+                    && !name.to_lowercase().contains(&query)
+                    && !display_path.to_lowercase().contains(&query)
+                { continue; }
+                seen.insert(full_path.clone());
+                repos.push(json!({ "name": name, "path": full_path, "display": display_path }));
+            }
+        }
+    }
+
+    // Sort by name
+    repos.sort_by(|a, b| {
+        let a_name = a["name"].as_str().unwrap_or("");
+        let b_name = b["name"].as_str().unwrap_or("");
+        a_name.cmp(b_name)
+    });
+
+    Json(json!({ "repos": repos }))
 }
 
 async fn stream_job(

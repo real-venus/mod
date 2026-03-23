@@ -124,6 +124,31 @@ pub async fn verify(
         challenges.remove(&addr);
     }
 
+    // If no owner is set, make this user the owner
+    let owner_path = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".mod")
+        .join("claude")
+        .join("owner.json");
+
+    let is_new_owner = if !owner_path.exists() {
+        // Create the directory if it doesn't exist
+        if let Some(parent) = owner_path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+
+        // Set this user as owner
+        let owner_data = serde_json::json!({ "owner": addr });
+        if let Ok(json_str) = serde_json::to_string_pretty(&owner_data) {
+            std::fs::write(&owner_path, json_str).ok();
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
     // Generate bearer token: address:timestamp:hmac
     let timestamp = chrono::Utc::now().timestamp();
     let payload = format!("{}:{}", addr, timestamp);
@@ -131,6 +156,10 @@ pub async fn verify(
     mac.update(payload.as_bytes());
     let sig = hex::encode(mac.finalize().into_bytes());
     let token = format!("{}:{}", payload, sig);
+
+    if is_new_owner {
+        println!("✓ First user authenticated - set as owner: {}", addr);
+    }
 
     Ok(Json(VerifyResponse {
         token,

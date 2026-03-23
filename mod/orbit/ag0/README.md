@@ -1,159 +1,156 @@
-# BaseMod 🚀
+# ag0
 
-> *"Simplicity is the ultimate sophistication."* - Leonardo da Vinci
+A minimal Python module template within the Mod framework ecosystem.
 
 ## Overview
 
-BaseMod is a foundational Python module providing core functionality and utilities for building elegant, modular systems. Engineered with simplicity and extensibility at its core, it serves as a battle-tested template for creating production-ready applications.
+`ag0` is a foundational module demonstrating the basic structure for Mod framework modules. It serves as a starting point for building custom functionality within the modular Mod ecosystem.
 
-## ✨ Features
+## Features
 
-- **🔢 Mathematical Operations**: Efficient utilities for calculations and data processing
-- **💰 Cryptocurrency Integration**: Real-time price fetching from CoinGecko API with robust error handling
-- **🏛️ Clean Architecture**: Modular, extensible design following SOLID principles
-- **🛡️ Production Ready**: Battle-tested, reliable, and optimized for performance
-- **🐳 Docker Support**: Containerized deployment for consistency across environments
-- **📦 Lightweight**: Minimal dependencies, maximum efficiency
+- Clean, minimal module structure
+- Compatible with Mod framework loading patterns (`m.mod('ag0')()`)
+- Docker-ready for containerized deployment
+- Easy to extend and customize
 
-## 🚀 Quick Start
-
-### Installation
+## Installation
 
 ```bash
-# Clone or navigate to the base module directory
-cd /Users/broski/mod/mod/_orbit/base
+# Via Mod framework
+m.mod('ag0')()
 
-# Install dependencies
+# Or navigate directly
+cd /Users/broski/mod/mod/orbit/ag0
+
+# Install dependencies (if any)
 pip install -r requirements.txt
 ```
 
-### Basic Usage
+## Usage
+
+### Within Mod Framework
 
 ```python
-from base.mod import BaseMod
+import mod.core.mod as m
 
-# Initialize the module
-mod = BaseMod()
+# Load and instantiate the module
+ag0 = m.mod('ag0')()
 
-# Perform mathematical operations
-result = mod.multiply(5, 10)
-print(f"Result: {result}")  # Output: Result: 50
-
-# Fetch real-time cryptocurrency prices
-price = mod.get_bittenso_price()
-print(f"Current Bittenso price: ${price:,.2f}")
+# Use the forward method
+result = ag0.forward(5, 10)
+print(result)  # Output: 15
 ```
 
-## 📚 Documentation
+### Standalone
 
-For comprehensive documentation, advanced examples, and complete API reference, see **[TUTORIAL.md](TUTORIAL.md)**.
+```python
+from ag0.mod import Mod
 
-## 🏗️ Project Structure
+# Create instance
+mod = Mod()
 
-```
-base/
-├── base/
-│   └── mod.py          # Core BaseMod implementation
-├── Dockerfile          # Docker configuration for containerization
-├── docker-compose.yml  # Multi-container orchestration
-├── requirements.txt    # Python dependencies
-├── TUTORIAL.md         # Comprehensive tutorial and examples
-└── README.md           # Project overview (this file)
+# Call methods
+result = mod.forward(a=3, b=7)
+print(result)  # Output: 10
 ```
 
-## 🐳 Docker Deployment
+## Project Structure
 
-Run BaseMod in a containerized environment for consistency and portability:
+```
+ag0/
+├── ag0/
+│   └── mod.py              # Core module implementation
+├── Dockerfile              # Container configuration
+├── docker-compose.yml      # Container orchestration
+├── requirements.txt        # Python dependencies
+├── README.md               # This file
+└── TUTORIAL.md             # Extended examples
+```
+
+## Module API
+
+### `Mod` class
+
+The main module class following Mod framework conventions.
+
+#### `forward(a=1, b=2) -> int`
+
+Adds two numbers and returns the result.
+
+**Parameters:**
+- `a` (int): First number (default: 1)
+- `b` (int): Second number (default: 2)
+
+**Returns:**
+- `int`: Sum of a and b
+
+## Docker Deployment
 
 ```bash
-# Build and launch with Docker Compose
+# Build and run
 docker-compose up --build
 
-# Run in detached mode
+# Run in background
 docker-compose up -d
 
-# Stop containers
+# Stop
 docker-compose down
 ```
 
-## 🔧 Extending BaseMod
+## Extending the Module
 
-BaseMod is architected for extensibility. Create custom modules by inheriting from the base class:
+Modify `ag0/mod.py` to add your custom functionality:
 
 ```python
-from base.mod import BaseMod
+class Mod:
+    description = """
+    Your custom module description
+    """
 
-class MyCustomMod(BaseMod):
-    """Extended module with custom functionality"""
-    
-    def custom_method(self, data):
-        """Your custom business logic"""
-        processed = self.multiply(data, 2)
-        return processed
-    
-    def advanced_crypto_analysis(self):
-        """Combine base features for advanced use cases"""
-        price = self.get_bittenso_price()
-        # Add your analysis logic
-        return analysis_result
+    def forward(self, a=1, b=2) -> int:
+        """Your core logic here"""
+        return a + b
+
+    def your_custom_method(self, data):
+        """Add new methods as needed"""
+        # Your implementation
+        pass
 ```
 
-## 💡 Use Cases
+## Mod Framework Integration
 
-- **🏢 Enterprise Applications**: Foundation for scalable, modular systems
-- **📊 Cryptocurrency Monitoring**: Real-time price tracking and analysis
-- **🎓 Educational Projects**: Learn modular design patterns and best practices
-- **🔌 API Integration**: Template for building API-driven applications
-- **⚙️ Microservices**: Base component for distributed architectures
+This module follows Mod framework patterns:
 
-## 🤝 Contributing
+- **Anchor file**: `mod.py` in module directory
+- **Class name**: `Mod` (framework convention)
+- **Description**: Class attribute for module metadata
+- **Loading**: Via `m.mod('ag0')()` or `m.fn('ag0/method')()`
 
-Contributions are welcome and appreciated! Here's how you can help:
+## Development
 
-- 🐛 **Report bugs** via GitHub issues
-- 💡 **Suggest features** and improvements
-- 🔀 **Submit pull requests** with enhancements
-- 📖 **Improve documentation** and examples
-- ⭐ **Star the project** if you find it useful
+```bash
+# Run tests (if available)
+pytest
 
-## 📝 License
+# Format code
+black ag0/
 
-This project is open source and available for use under permissive licensing.
+# Type checking
+mypy ag0/
+```
 
-## 🌟 Philosophy
+## Contributing
 
-BaseMod is built on foundational principles:
+1. Fork the module
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-- **SOLID Principles** → Maintainable, scalable code architecture
-- **Simplicity First** → Elegant solutions over complex implementations
-- **Modular Design** → Composable, reusable components
-- **Production Quality** → Enterprise-grade reliability and performance
-- **Developer Experience** → Intuitive APIs and comprehensive documentation
+## License
 
-## 🎯 Performance
-
-- ⚡ **Fast**: Optimized for low-latency operations
-- 🪶 **Lightweight**: Minimal resource footprint
-- 🔄 **Scalable**: Designed to handle growth
-- 🛡️ **Reliable**: Robust error handling and validation
-
-## 🔗 Quick Links
-
-- 📘 [Complete Tutorial](TUTORIAL.md)
-- 🐳 [Docker Hub](#) (if applicable)
-- 📦 [PyPI Package](#) (if applicable)
-- 💬 [Community Forum](#) (if applicable)
+Open source under permissive licensing.
 
 ---
 
-**🚀 Ready to build something extraordinary?**
-
-👉 **Start with the [TUTORIAL.md](TUTORIAL.md) for hands-on examples and advanced patterns!**
-
-*Crafted with precision, purpose, and passion.* ⚡
-
----
-
-<div align="center">
-  <sub>Built by developers, for developers. Made with ❤️ and ☕</sub>
-</div>
+**Part of the [Mod Framework](https://github.com/modframework) ecosystem** 🚀

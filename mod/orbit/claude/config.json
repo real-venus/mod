@@ -1,0 +1,34 @@
+{
+  "name": "claude",
+  "version": "1.0.0",
+  "description": "Programmable AI developer interface with Python SDK, Rust Job Server, and 8-Bit Terminal UI",
+  "urls": {
+    "app": "http://localhost:8821",
+    "api": "http://localhost:8820"
+  },
+  "fns": [
+    "forward",
+    "ask",
+    "analyze_code",
+    "generate_code",
+    "refactor",
+    "debug",
+    "edit_file",
+    "run_task",
+    "batch_process",
+    "bg",
+    "submit",
+    "create_module",
+    "fork_module"
+  ],
+  "endpoints": {
+    "/health": "Health check",
+    "/repos": "List git repositories",
+    "/auth/challenge": "Get signature challenge",
+    "/auth/verify": "Verify signature and get JWT",
+    "/jobs": "Submit and list jobs",
+    "/jobs/{id}": "Get job details",
+    "/jobs/{id}/cancel": "Cancel running job",
+    "/jobs/{id}/stream": "SSE stream of job output"
+  }
+}
