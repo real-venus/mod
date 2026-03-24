@@ -19,8 +19,8 @@ class Mod:
     orbits = [ 'core',  'inner', 'outer']
     name = 'mod'
     orbit2depth = {
-        'inner': 10,
-        'outer': 5,
+        'inner': 2,
+        'outer': 2,
         'core': 10,
         # 'local': 4
         }
@@ -285,17 +285,27 @@ class Mod:
             search=None,
             include_hidden=False) -> List[str]:
         path = self.abspath(path)
-        seen = set()
+        avoid = self.avoid_folders
         result = []
-        for entry in self.ls(path):
-            if not self.filter_path(entry, include_hidden=include_hidden, search=search):
+        # os.walk with top-down allows pruning dirs in-place
+        for root, dirs, _files in os.walk(path):
+            # calculate current depth relative to start
+            rel = os.path.relpath(root, path)
+            cur_depth = 0 if rel == '.' else rel.count(os.sep) + 1
+            if cur_depth >= depth:
+                dirs.clear()
                 continue
-            if os.path.isdir(entry) and entry not in seen:
-                seen.add(entry)
-                result.append(entry)
-                if depth > 1:
-                    result.extend(self.folders(entry, depth=depth-1, search=search, include_hidden=include_hidden))
-        return sorted(set(result))
+            # prune avoided and hidden dirs in-place (prevents descending)
+            dirs[:] = [d for d in dirs
+                       if d not in avoid
+                       and (include_hidden or not d.startswith('.'))]
+            dirs.sort()
+            for d in dirs:
+                full = os.path.join(root, d)
+                if search is not None and search not in full:
+                    continue
+                result.append(full)
+        return sorted(result)
             
 
 
@@ -306,19 +316,33 @@ class Mod:
               depth=10,
               **kwargs) -> List[str]:
         """
-        Lists all files in the path, with single-pass filtering.
+        Lists all files in the path, with single-pass os.walk and early pruning.
         """
         path = self.abspath(path)
         if not os.path.exists(path) and self.mod_exists(path):
             path = self.dirpath(path)
         if depth <= 0:
             return []
+        avoid = self.avoid_folders
         result = []
-        for entry in self.ls(path):
-            if os.path.isdir(entry):
-                result.extend(self.files(entry, search=search, include_hidden=include_hidden, depth=depth-1))
-            elif os.path.isfile(entry) and self.filter_path(entry, include_hidden=include_hidden, search=search):
-                result.append(entry)
+        for root, dirs, files in os.walk(path):
+            rel = os.path.relpath(root, path)
+            cur_depth = 0 if rel == '.' else rel.count(os.sep) + 1
+            if cur_depth >= depth:
+                dirs.clear()
+                continue
+            # prune dirs in-place to avoid descending into them
+            dirs[:] = [d for d in dirs
+                       if d not in avoid
+                       and (include_hidden or not d.startswith('.'))]
+            dirs.sort()
+            for f in files:
+                if not include_hidden and f.startswith('.'):
+                    continue
+                full = os.path.join(root, f)
+                if search is not None and search not in full:
+                    continue
+                result.append(full)
         return sorted(result)
 
     def filter_path(self, path: str, include_hidden: bool = False, search: str = None) -> bool:
@@ -460,20 +484,28 @@ class Mod:
     
     def glob(self, path:str='./', depth:Optional[int]=4, recursive:bool=True, files_only:bool = True, include_hidden=False):
         path = self.abspath(path)
-        if depth > 0:
-            paths = []
-            for path in self.ls(path):
-                if os.path.isdir(path):
-                    paths += self.glob(path, depth=depth-1)
-                else:
-                    paths.append(path)
-        else:
+        if depth <= 0:
             return []
-        if files_only:
-            paths =  list(filter(lambda f:os.path.isfile(f), paths))
-        if not include_hidden: 
-            paths = [ p for p in paths if '/.' not in p]
-        return paths
+        avoid = self.avoid_folders
+        result = []
+        for root, dirs, files in os.walk(path):
+            rel = os.path.relpath(root, path)
+            cur_depth = 0 if rel == '.' else rel.count(os.sep) + 1
+            if cur_depth >= depth:
+                dirs.clear()
+                continue
+            dirs[:] = [d for d in dirs
+                       if d not in avoid
+                       and (include_hidden or not d.startswith('.'))]
+            dirs.sort()
+            if not files_only:
+                for d in dirs:
+                    result.append(os.path.join(root, d))
+            for f in files:
+                if not include_hidden and f.startswith('.'):
+                    continue
+                result.append(os.path.join(root, f))
+        return result
     
     def get_json(self, path: str, default: Any = None, **kwargs) -> Any:
         path = self.abspath(path)
@@ -534,28 +566,28 @@ class Mod:
 
     write = get_path
     
-    def ls(self, path:str = './', 
+    def ls(self, path:str = './',
            search = None,
-           include_hidden = False, 
+           include_hidden = False,
            depth=None,
            return_full_path:bool = True):
         """
-        provides a list of files in the path 
+        provides a list of files in the path
         this path is relative to the mod path if you dont specifcy ./ or ~/ or /
         which means its based on the mod path
         """
         path = self.abspath(path)
         try:
-            ls_files = os.listdir(path)
-        except Exception as e:
+            # os.scandir is faster than os.listdir — avoids extra stat calls
+            entries = os.scandir(path)
+        except (OSError, PermissionError):
             return []
         if return_full_path:
-            ls_files = [os.path.abspath(os.path.join(path,f)) for f in ls_files]
-        ls_files = sorted(ls_files)
-        
-        if search != None:
-            ls_files = list(filter(lambda x: search in x, ls_files))
-
+            ls_files = sorted(e.path for e in entries)
+        else:
+            ls_files = sorted(e.name for e in entries)
+        if search is not None:
+            ls_files = [f for f in ls_files if search in f]
         return ls_files
 
     def put(self, 
@@ -1273,18 +1305,16 @@ class Mod:
         return any(f.endswith('.' + ft) for ft in self.file_types)
     
     tree_cache = {}
-    def get_tree(self, 
-                path:Optional[str]=None, 
-                search:Optional[str]=None, 
-                depth=1, 
+    def get_tree(self,
+                path:Optional[str]=None,
+                search:Optional[str]=None,
+                depth=1,
                 update=False,
-                key = None, 
-                local_cache = True,
-                **kwargs) -> Dict[str, str]: 
+                key = None,
+                local_cache = False,
+                **kwargs) -> Dict[str, str]:
         """
         get the tree of the mods in the path
-        params: 
-            
         """
         if key is not None:
             key_address = self.key_address(key)
@@ -1293,32 +1323,27 @@ class Mod:
             path = path or self.paths.orbit.core
         relpath = self.hash(self.relpath(path))
         cache_path = self.abspath(f'~/.mod/tree/{relpath}/depth_{depth}.json')
-        if update:
-            tree = {}
+        # fast path: check in-memory cache first before hitting disk
+        if not update and cache_path in self.tree_cache:
+            tree = self.tree_cache[cache_path]
         else:
-            if local_cache:
-                tree = self.tree_cache.get(cache_path, {})
-            else:
-                tree = self.get(cache_path, {}, update=update)
+            tree = self.get(cache_path, {}, update=update)
         if len(tree) == 0:
             paths = self.folders(path, depth=depth)
             for p in paths:
                 name = self.get_name(p)
-                p = self.process_path(p)
-                if name in tree:
-                    if len(p) < len(tree[name]):
-                        tree[name] = p
-                else:
-                    tree[name] = p
+                pp = self.process_path(p)
+                if name not in tree or len(pp) < len(tree[name]):
+                    tree[name] = pp
             tree = dict(sorted(tree.items()))
             for k,v in self.shortcuts.items():
                 if v in tree:
                     tree[k] = tree[v]
             # make all the trees relative to the homepath
             tree = {k: self.relpath(v) for k,v in tree.items()}
-            if local_cache:
-                self.tree_cache[cache_path] = tree
-            else:
+            # always keep in memory for fast re-access
+            self.tree_cache[cache_path] = tree
+            if not local_cache:
                 self.put(cache_path, tree)
 
         tree = {k: self.abspath(v) for k,v in tree.items()}

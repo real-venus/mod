@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{broadcast, RwLock};
+use std::collections::HashSet;
 use base64::Engine;
 use uuid::Uuid;
 
@@ -239,6 +240,7 @@ impl JobStore {
 pub struct ClaudeJobManager {
     store: Arc<JobStore>,
     streams: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
+    cancelled: Arc<RwLock<HashSet<String>>>,
     claude_bin: String,
 }
 
@@ -252,6 +254,7 @@ impl ClaudeJobManager {
         Ok(Self {
             store: Arc::new(store),
             streams: Arc::new(RwLock::new(HashMap::new())),
+            cancelled: Arc::new(RwLock::new(HashSet::new())),
             claude_bin,
         })
     }
@@ -393,13 +396,14 @@ impl ClaudeJobManager {
         // Spawn the process
         let store = Arc::clone(&self.store);
         let streams = Arc::clone(&self.streams);
+        let cancelled = Arc::clone(&self.cancelled);
         let claude_bin = self.claude_bin.clone();
         let job_id = id.clone();
         let prompt = enhanced_prompt;
         let model = req.model;
 
         tokio::spawn(async move {
-            run_claude_process(&job_id, &prompt, &model, &work_dir, &claude_bin, store, streams, tx).await;
+            run_claude_process(&job_id, &prompt, &model, &work_dir, &claude_bin, store, streams, cancelled, tx).await;
         });
 
         self.store.get(&id).unwrap_or(job)
@@ -420,24 +424,38 @@ impl ClaudeJobManager {
     pub async fn cancel_job(&self, id: &str) -> Result<(), String> {
         let job = self.store.get(id).ok_or_else(|| format!("Job {} not found", id))?;
 
+        // Mark as cancelled FIRST so run_claude_process won't overwrite
+        {
+            let mut cancelled = self.cancelled.write().await;
+            cancelled.insert(id.to_string());
+        }
+        self.store.update_status(id, &JobStatus::Cancelled, None);
+
         if job.status == JobStatus::Running || job.status == JobStatus::Pending {
             if let Some(pid) = job.pid {
                 #[cfg(unix)]
-                unsafe {
-                    // Kill the process group to catch all children
-                    libc::kill(-(pid as i32), libc::SIGTERM);
-                    // Also kill the process directly as fallback
-                    libc::kill(pid as i32, libc::SIGKILL);
+                {
+                    unsafe {
+                        // SIGTERM the process group (child was spawned with setsid)
+                        libc::kill(-(pid as i32), libc::SIGTERM);
+                    }
+                    // Give it a moment to die gracefully
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    unsafe {
+                        // Force kill the entire process group
+                        libc::kill(-(pid as i32), libc::SIGKILL);
+                        // Also kill the process directly as final fallback
+                        libc::kill(pid as i32, libc::SIGKILL);
+                    }
                 }
             }
         }
 
-        self.store.update_status(id, &JobStatus::Cancelled, None);
         // Notify stream subscribers
         {
             let streams = self.streams.read().await;
             if let Some(tx) = streams.get(id) {
-                tx.send("[DONE]\n".to_string()).ok();
+                tx.send("[CANCELLED]\n".to_string()).ok();
             }
         }
         let mut streams = self.streams.write().await;
@@ -472,6 +490,7 @@ async fn run_claude_process(
     claude_bin: &str,
     store: Arc<JobStore>,
     streams: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
+    cancelled: Arc<RwLock<HashSet<String>>>,
     tx: broadcast::Sender<String>,
 ) {
     let mut cmd = Command::new(claude_bin);
@@ -486,6 +505,15 @@ async fn run_claude_process(
         .current_dir(work_dir)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+
+    // Put child in its own process group so kill(-pid) works
+    #[cfg(unix)]
+    unsafe {
+        cmd.pre_exec(|| {
+            libc::setsid();
+            Ok(())
+        });
+    }
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
@@ -539,16 +567,25 @@ async fn run_claude_process(
 
     // Wait for exit status
     let status = child.wait().await;
-    match status {
-        Ok(exit) if exit.success() => {
-            store.update_status(job_id, &JobStatus::Completed, None);
-        }
-        Ok(exit) => {
-            let code = exit.code().unwrap_or(-1);
-            store.update_status(job_id, &JobStatus::Failed, Some(&format!("Exit code: {}", code)));
-        }
-        Err(e) => {
-            store.update_status(job_id, &JobStatus::Failed, Some(&format!("Wait error: {}", e)));
+
+    // Don't overwrite status if job was already cancelled
+    let was_cancelled = {
+        let mut c = cancelled.write().await;
+        c.remove(job_id)
+    };
+
+    if !was_cancelled {
+        match status {
+            Ok(exit) if exit.success() => {
+                store.update_status(job_id, &JobStatus::Completed, None);
+            }
+            Ok(exit) => {
+                let code = exit.code().unwrap_or(-1);
+                store.update_status(job_id, &JobStatus::Failed, Some(&format!("Exit code: {}", code)));
+            }
+            Err(e) => {
+                store.update_status(job_id, &JobStatus::Failed, Some(&format!("Wait error: {}", e)));
+            }
         }
     }
 

@@ -55,10 +55,14 @@ pub async fn serve(manager: AppState, port: u16) {
     // Public routes (no auth required)
     let public_routes = Router::new()
         .route("/health", get(health))
+        .route("/config", get(get_config))
         .route("/repos", get(list_repos))
         .route("/modules", get(list_modules))
         .route("/modules/{name}/config", get(get_module_config))
         .route("/files/tree", get(file_tree))
+        .route("/files/content", get(file_content))
+        .route("/files/search", get(file_search))
+        .route("/files/grep", get(file_grep))
         .route("/owner", get(get_owner))
         .route(
             "/auth/challenge",
@@ -85,6 +89,55 @@ pub async fn serve(manager: AppState, port: u16) {
 
 async fn health() -> impl IntoResponse {
     Json(json!({ "status": "ok", "service": "claude-jobs" }))
+}
+
+async fn get_config() -> impl IntoResponse {
+    // Walk up from the binary's location to find config.json in the module root
+    let config_path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .and_then(|d| {
+            // Binary is in server/target/release/ — walk up to module root
+            let mut dir = d.as_path();
+            for _ in 0..5 {
+                let candidate = dir.join("config.json");
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+                dir = dir.parent()?;
+            }
+            None
+        });
+
+    // Fallback: check known module path
+    let config_path = config_path.unwrap_or_else(|| {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        std::path::PathBuf::from(format!("{}/mod/mod/orbit/claude/config.json", home))
+    });
+
+    if !config_path.exists() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "config.json not found" })),
+        )
+            .into_response();
+    }
+
+    match std::fs::read_to_string(&config_path) {
+        Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
+            Ok(config) => (StatusCode::OK, Json(config)).into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": format!("Invalid JSON: {}", e) })),
+            )
+                .into_response(),
+        },
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("Failed to read config: {}", e) })),
+        )
+            .into_response(),
+    }
 }
 
 async fn get_owner() -> impl IntoResponse {
@@ -522,4 +575,168 @@ async fn stream_job(
             Ok(Sse::new(pinned).keep_alive(KeepAlive::default()))
         }
     }
+}
+
+#[derive(Deserialize)]
+struct ContentQuery {
+    path: String,
+}
+
+async fn file_content(Query(params): Query<ContentQuery>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let resolved = params.path.replacen("~", &home, 1);
+    let file_path = std::path::Path::new(&resolved);
+
+    if !file_path.exists() || !file_path.is_file() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "File not found" })),
+        )
+            .into_response();
+    }
+
+    match std::fs::read_to_string(file_path) {
+        Ok(content) => (
+            StatusCode::OK,
+            Json(json!({ "content": content, "path": params.path })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("Failed to read file: {}", e) })),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct SearchQuery {
+    path: String,
+    query: String,
+}
+
+async fn file_search(Query(params): Query<SearchQuery>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let resolved = params.path.replacen("~", &home, 1);
+    let dir_path = std::path::Path::new(&resolved);
+
+    if !dir_path.is_dir() {
+        return Json(json!({ "results": [], "error": "Directory not found" }));
+    }
+
+    let query = params.query.to_lowercase();
+    let mut results = Vec::new();
+
+    fn search_recursive(
+        dir: &std::path::Path,
+        query: &str,
+        home: &str,
+        results: &mut Vec<serde_json::Value>,
+        depth: usize,
+    ) {
+        if depth > 10 || results.len() > 100 {
+            return;
+        }
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') || name == "node_modules" || name == "__pycache__" || name == "target" {
+                continue;
+            }
+            if path.is_file() && name.to_lowercase().contains(query) {
+                let full = path.to_string_lossy().to_string();
+                let display = full.replacen(home, "~", 1);
+                results.push(json!({
+                    "filename": name,
+                    "path": display,
+                    "matches": 1,
+                }));
+            } else if path.is_dir() {
+                search_recursive(&path, query, home, results, depth + 1);
+            }
+        }
+    }
+
+    search_recursive(dir_path, &query, &home, &mut results, 0);
+    Json(json!({ "results": results }))
+}
+
+#[derive(Deserialize)]
+struct GrepQuery {
+    path: String,
+    query: String,
+    #[serde(default)]
+    caseSensitive: bool,
+    #[serde(default)]
+    regex: bool,
+}
+
+async fn file_grep(Query(params): Query<GrepQuery>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let resolved = params.path.replacen("~", &home, 1);
+    let dir_path = std::path::Path::new(&resolved);
+
+    if !dir_path.is_dir() {
+        return Json(json!({ "matches": [], "error": "Directory not found" }));
+    }
+
+    let mut matches = Vec::new();
+    let query = if params.caseSensitive {
+        params.query.clone()
+    } else {
+        params.query.to_lowercase()
+    };
+
+    fn grep_recursive(
+        dir: &std::path::Path,
+        query: &str,
+        case_sensitive: bool,
+        home: &str,
+        matches: &mut Vec<serde_json::Value>,
+        depth: usize,
+    ) {
+        if depth > 10 || matches.len() > 200 {
+            return;
+        }
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') || name == "node_modules" || name == "__pycache__" || name == "target" {
+                continue;
+            }
+            if path.is_file() {
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    for (line_num, line) in content.lines().enumerate() {
+                        let search_line = if case_sensitive {
+                            line.to_string()
+                        } else {
+                            line.to_lowercase()
+                        };
+                        if let Some(pos) = search_line.find(query) {
+                            let full = path.to_string_lossy().to_string();
+                            let display = full.replacen(home, "~", 1);
+                            matches.push(json!({
+                                "filename": name,
+                                "path": display,
+                                "line": line_num + 1,
+                                "content": line.trim(),
+                                "matchStart": pos,
+                                "matchEnd": pos + query.len(),
+                            }));
+                            if matches.len() >= 200 {
+                                return;
+                            }
+                        }
+                    }
+                }
+            } else if path.is_dir() {
+                grep_recursive(&path, query, case_sensitive, home, matches, depth + 1);
+            }
+        }
+    }
+
+    grep_recursive(dir_path, &query, params.caseSensitive, &home, &mut matches, 0);
+    Json(json!({ "matches": matches }))
 }
