@@ -46,9 +46,10 @@ export default function Home() {
     if (typeof window !== 'undefined' && window.ethereum) {
       window.ethereum
         .request({ method: 'eth_accounts' })
-        .then((accounts: string[]) => {
-          if (accounts.length > 0) {
-            setWallet(accounts[0]);
+        .then((accounts: unknown) => {
+          const accts = accounts as string[];
+          if (accts.length > 0) {
+            setWallet(accts[0]);
           }
         })
         .catch(() => {});
@@ -61,9 +62,9 @@ export default function Home() {
       return;
     }
     try {
-      const accounts: string[] = await window.ethereum.request({
+      const accounts = (await window.ethereum.request({
         method: 'eth_requestAccounts',
-      });
+      })) as string[];
       if (accounts.length > 0) {
         setWallet(accounts[0]);
         toast.success('Wallet connected');

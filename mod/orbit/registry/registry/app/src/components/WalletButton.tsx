@@ -1,23 +1,22 @@
 'use client';
 
-interface WalletButtonProps {
+interface Props {
   wallet: string | null;
   onConnect: () => void;
 }
 
-export default function WalletButton({ wallet, onConnect }: WalletButtonProps) {
+export default function WalletButton({ wallet, onConnect }: Props) {
   if (wallet) {
-    const truncated = `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
     return (
       <div
         className="px-4 py-2 rounded-lg text-sm font-mono"
         style={{
           backgroundColor: 'var(--bg-surface)',
           border: '1px solid var(--border)',
-          color: 'var(--accent)',
+          color: 'var(--text-secondary)',
         }}
       >
-        {truncated}
+        {wallet.slice(0, 6)}...{wallet.slice(-4)}
       </div>
     );
   }
@@ -25,13 +24,13 @@ export default function WalletButton({ wallet, onConnect }: WalletButtonProps) {
   return (
     <button
       onClick={onConnect}
-      className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+      className="px-4 py-2 rounded-lg text-sm font-medium"
       style={{
         backgroundColor: 'var(--accent)',
         color: '#000000',
       }}
     >
-      Connect Wallet
+      Connect
     </button>
   );
 }

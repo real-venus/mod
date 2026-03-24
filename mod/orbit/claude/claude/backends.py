@@ -4,6 +4,13 @@ Backend Abstraction Layer for Claude Module
 Provides a pluggable backend system that allows the claude module to use
 different AI code agents: Claude Code CLI, dev module tools, OpenAI Codex,
 and any other compatible agent implementation.
+
+NOTE: The claude module uses a unified operation model where both read and write
+operations flow through the same backend. There is no separate "standard" vs "edit"
+backend - instead, permission requirements are determined by the operation type
+(requires_owner flag). All operations use the same forward() execution path.
+
+See UNIFIED_OPERATIONS.md for details on the unified architecture.
 """
 
 from typing import Dict, Any, Optional, Union, List

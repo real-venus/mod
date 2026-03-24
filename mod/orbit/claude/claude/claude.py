@@ -20,12 +20,28 @@ class Mod:
     """
     Claude Code Interface Module
 
-    Provides programmatic access to Claude Code for automated code analysis,
-    generation, and modifications without user prompts.
+    Provides programmatic access to Claude Code for automated code operations.
+    Uses a unified architecture where all operations (read and write) flow through
+    the same backend with permission checks based on operation type.
+
+    Key Features:
+    - Unified operation model - all operations use forward()
+    - Owner-based access control for write operations
+    - Automatic IPFS versioning for code changes
+    - Read-only operations (analyze, debug) require no permission
+    - Write operations (edit, generate, refactor) require owner key
+    - Background job execution via Rust server
+    - Multi-model support via OpenRouter
+
+    See UNIFIED_OPERATIONS.md for architectural details.
     """
 
     description = """
-    Claude Code Interface - Automate code tasks with AI assistance
+    Claude Code Interface - Unified AI developer interface with permission control.
+
+    Supports two creation modes:
+    - "new": Create new modules from scratch or import from GitHub
+    - "edit": Edit existing modules in your orbit directory
     """
 
     @staticmethod
@@ -138,7 +154,7 @@ class Mod:
                     "bg",
                     "submit",
                     "create_module",
-                    "fork_module"
+                    "edit_module"
                 ],
                 "endpoints": {
                     "/health": "Health check",
@@ -472,9 +488,10 @@ class Mod:
                 key = None,
                 store_ipfs: bool = False,
                 description: str = None,
+                requires_owner: bool = None,
                 **kwargs) -> Union[str, Dict[str, Any]]:
         """
-        Execute a Claude Code query in the background without user prompts.
+        Execute a Claude Code query.
 
         Args:
             query: The prompt/question to send to Claude Code
@@ -487,6 +504,7 @@ class Mod:
             key: Key for permission check (only owner can edit)
             store_ipfs: If True, stores result to IPFS and shows CID
             description: Description for IPFS history entry
+            requires_owner: If True, requires owner permission. If None, auto-detects based on query keywords.
 
         Returns:
             Response from Claude Code (parsed JSON if output_format='json', otherwise text)
@@ -501,13 +519,17 @@ class Mod:
             ... )
         """
         # Check if this is an edit operation (requires owner permission)
-        is_edit_op = any(keyword in query.lower() for keyword in [
-            'edit', 'modify', 'change', 'update', 'refactor', 'fix', 'add', 'remove', 'delete'
-        ])
+        if requires_owner is None:
+            # Auto-detect based on query keywords
+            requires_owner = any(keyword in query.lower() for keyword in [
+                'edit', 'modify', 'change', 'update', 'refactor', 'fix', 'add', 'remove', 'delete'
+            ])
 
-        if is_edit_op:
+        if requires_owner:
             self.require_owner(key, operation="code editing")
             logger.info("Owner permission verified for edit operation")
+
+        is_edit_op = requires_owner
 
         if mod != None:
             path = m.dp(mod)
@@ -898,7 +920,7 @@ class Mod:
                      focus: Optional[str] = None,
                      stream_output: bool = False) -> Dict[str, Any]:
         """
-        Analyze code in a directory or file.
+        Analyze code in a directory or file (read-only operation).
 
         Args:
             path: Path to directory or file
@@ -912,7 +934,7 @@ class Mod:
         if focus:
             query += f" focusing on {focus}"
 
-        return self.forward(query=query, path=path, stream_output=stream_output)
+        return self.forward(query=query, path=path, stream_output=stream_output, requires_owner=False)
 
     def generate_code(self,
                      description: str,
@@ -921,8 +943,7 @@ class Mod:
                      key = None,
                      store_ipfs: bool = True) -> Dict[str, Any]:
         """
-        Generate code based on a description.
-        Requires owner permission. Automatically stores to IPFS.
+        Generate code based on a description (write operation - requires owner).
 
         Args:
             description: What code to generate
@@ -945,7 +966,8 @@ class Mod:
             path=path,
             key=key,
             store_ipfs=store_ipfs,
-            description=desc
+            description=desc,
+            requires_owner=True
         )
 
     def refactor(self,
@@ -955,8 +977,7 @@ class Mod:
                  key = None,
                  store_ipfs: bool = True) -> Dict[str, Any]:
         """
-        Refactor code based on instructions.
-        Requires owner permission. Automatically stores to IPFS.
+        Refactor code based on instructions (write operation - requires owner).
 
         Args:
             path: Working directory
@@ -979,7 +1000,8 @@ class Mod:
             path=path,
             key=key,
             store_ipfs=store_ipfs,
-            description=description
+            description=description,
+            requires_owner=True
         )
 
     def debug(self,
@@ -987,7 +1009,7 @@ class Mod:
              issue_description: str,
              file_path: Optional[str] = None) -> Dict[str, Any]:
         """
-        Debug an issue in the codebase.
+        Debug an issue in the codebase (read-only operation).
 
         Args:
             path: Working directory
@@ -1001,7 +1023,7 @@ class Mod:
         if file_path:
             query += f"\nFile: {file_path}"
 
-        return self.forward(query=query, path=path)
+        return self.forward(query=query, path=path, requires_owner=False)
 
     def edit_file(self,
                   file_path: str,
@@ -1012,8 +1034,7 @@ class Mod:
                   key = None,
                   store_ipfs: bool = True) -> Dict[str, Any]:
         """
-        Edit a specific file based on instructions.
-        Requires owner permission. Automatically stores to IPFS.
+        Edit a specific file based on instructions (write operation - requires owner).
 
         Args:
             file_path: Path to the file to edit (relative to working directory)
@@ -1037,7 +1058,6 @@ class Mod:
             ... )
             # Result includes IPFS CID for tracking
         """
-        # This will be caught by forward() permission check
         if mod is not None:
             path = m.dp(mod)
 
@@ -1052,7 +1072,8 @@ class Mod:
             stream_output=stream_output,
             key=key,
             store_ipfs=store_ipfs,
-            description=description
+            description=description,
+            requires_owner=True
         )
 
     def run_task(self,
@@ -1227,33 +1248,33 @@ class Mod:
 
     def submit(self, prompt: str, model: str = "sonnet", work_dir: str = None,
                module_name: str = None, creation_mode: str = None,
-               fork_source: str = None, anchor_dir: str = None) -> dict:
+               github_url: str = None, anchor_dir: str = None) -> dict:
         """
         Submit a background Claude job to the Rust job server.
 
         Args:
             prompt: Task prompt
             model: Model to use (sonnet, opus, haiku)
-            work_dir: Working directory for the job (standard mode)
-            module_name: Name of module to create (for new/fork modes)
-            creation_mode: "new" or "fork" for module creation
-            fork_source: Source module to fork from (fork mode only)
+            work_dir: Working directory for the job (edit mode)
+            module_name: Name of module to create (for new mode) or use (for edit mode)
+            creation_mode: "new" for creating module, "edit" for editing existing
+            github_url: GitHub repo URL to import (new mode only)
             anchor_dir: Anchor directory (default: ~/mod or MOD_ANCHOR env var)
 
         Returns:
             Job object with id, status, etc.
 
         Examples:
-            >>> # Standard job
-            >>> job = c.submit("fix the bug", work_dir="~/project")
+            >>> # Edit existing module
+            >>> job = c.submit("fix the bug", module_name="mymod", creation_mode="edit")
 
-            >>> # Create new module
+            >>> # Create new module from scratch
             >>> job = c.submit("add a REST API", module_name="myapi", creation_mode="new")
 
-            >>> # Fork existing module
+            >>> # Create new module from GitHub
             >>> job = c.submit("customize for my use case",
-            ...                module_name="myagent", creation_mode="fork",
-            ...                fork_source="agent")
+            ...                module_name="myagent", creation_mode="new",
+            ...                github_url="https://github.com/user/repo")
         """
         data = {"prompt": prompt, "model": model}
         if work_dir:
@@ -1262,46 +1283,56 @@ class Mod:
             data["module_name"] = module_name
         if creation_mode:
             data["creation_mode"] = creation_mode
-        if fork_source:
-            data["fork_source"] = fork_source
+        if github_url:
+            data["github_url"] = github_url
         if anchor_dir:
             data["anchor_dir"] = anchor_dir
         return self._jobs_request("POST", "/jobs", data)
 
     def create_module(self, module_name: str, prompt: str,
-                     model: str = "sonnet", anchor_dir: str = None) -> dict:
+                     github_url: str = None, model: str = "sonnet",
+                     anchor_dir: str = None) -> dict:
         """
         Create a new module in the orbit directory.
 
         Args:
-            module_name: Name of the new module
+            module_name: Name of the new module (auto-inferred from GitHub if not provided)
             prompt: Description of what the module should do
+            github_url: Optional GitHub repo URL to import from
             model: Model to use
             anchor_dir: Anchor directory (default: ~/mod)
 
         Returns:
             Job object
 
-        Example:
+        Examples:
+            >>> # Create from scratch
             >>> job = c.create_module("chatbot", "Create a conversational AI module")
+
+            >>> # Create from GitHub repo
+            >>> job = c.create_module(
+            ...     "myagent",
+            ...     "Add web scraping capabilities",
+            ...     github_url="https://github.com/user/agent"
+            ... )
         """
         return self.submit(
             prompt=prompt,
             model=model,
             module_name=module_name,
             creation_mode="new",
+            github_url=github_url,
             anchor_dir=anchor_dir
         )
 
-    def fork_module(self, module_name: str, fork_source: str, prompt: str,
+    def edit_module(self, module_name: str, prompt: str,
                    model: str = "sonnet", anchor_dir: str = None) -> dict:
         """
-        Fork an existing module and customize it.
+        Edit an existing module with Claude.
 
         Args:
-            module_name: Name for the new forked module
-            fork_source: Name of the module to fork from
-            prompt: How to customize the forked module
+            module_name: Name of the module to edit
+            prompt: Instructions for what to change
             model: Model to use
             anchor_dir: Anchor directory (default: ~/mod)
 
@@ -1309,14 +1340,13 @@ class Mod:
             Job object
 
         Example:
-            >>> job = c.fork_module("myagent", "agent", "Add web scraping capabilities")
+            >>> job = c.edit_module("chatbot", "Add error handling to all API calls")
         """
         return self.submit(
             prompt=prompt,
             model=model,
             module_name=module_name,
-            creation_mode="fork",
-            fork_source=fork_source,
+            creation_mode="edit",
             anchor_dir=anchor_dir
         )
 

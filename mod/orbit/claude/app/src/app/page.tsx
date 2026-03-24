@@ -74,15 +74,15 @@ const STATUS_COLOR: Record<string, string> = {
 const BOOT_ART = `
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
-║     ░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗  ║
-║     ██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝  ║
-║     ██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░  ║
-║     ██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░  ║
-║     ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗  ║
-║     ░╚════╝░╚══════╝╚═╝░░╚═╝░╚═════╝░╚═════╝░╚══════╝  ║
+║     ███╗░░░███╗░█████╗░██████╗░░░░░░░█████╗░██╗        ║
+║     ████╗░████║██╔══██╗██╔══██╗░░░░░██╔══██╗██║        ║
+║     ██╔████╔██║██║░░██║██║░░██║░░░░░███████║██║        ║
+║     ██║╚██╔╝██║██║░░██║██║░░██║░░░░░██╔══██║██║        ║
+║     ██║░╚═╝░██║╚█████╔╝██████╔╝░░░░░██║░░██║██║        ║
+║     ╚═╝░░░░░╚═╝░╚════╝░╚═════╝░░░░░╚═╝░░╚═╝╚═╝        ║
 ║                                                          ║
 ║              ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄              ║
-║              █  J O B   R U N N E R  v1  █              ║
+║              █  T A S K   R U N N E R  v1  █              ║
 ║              ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀              ║
 ║                                                          ║
 ║         « Background AI Tasks • 8-Bit Terminal »         ║
@@ -117,19 +117,27 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showModuleOptions, setShowModuleOptions] = useState(false);
   const [moduleName, setModuleName] = useState("");
-  const [creationMode, setCreationMode] = useState<"standard" | "new" | "fork" | "edit">("standard");
-  const [selectedModule, setSelectedModule] = useState("");
-  const [forkSource, setForkSource] = useState("");
+  const [creationMode, setCreationMode] = useState<"edit" | "new">("edit");
+  const [selectedModule, setSelectedModule] = useState("claude");
+  const [githubUrl, setGithubUrl] = useState("");
   const [anchorDir, setAnchorDir] = useState("~/mod");
   const [modules, setModules] = useState<string[]>([]);
+  const [moduleList, setModuleList] = useState<Array<{
+    name: string; path: string; display: string; category: string; has_config: boolean;
+    app_url: string | null; api_url: string | null; description: string | null;
+    fns: string[]; has_app_dir: boolean; has_server_dir: boolean;
+  }>>([]);
+  const [moduleSearch, setModuleSearch] = useState("");
+  const [showModuleDropdown, setShowModuleDropdown] = useState(false);
+  const [selectedModuleInfo, setSelectedModuleInfo] = useState<typeof moduleList[0] | null>(null);
+  const [moduleConfig, setModuleConfig] = useState<any>(null);
+  const [loadingConfig, setLoadingConfig] = useState(false);
   const [expandedAsks, setExpandedAsks] = useState<Set<string>>(new Set());
   const [images, setImages] = useState<Array<{ name: string; data: string }>>(
     []
   );
   const [theme, setTheme] = useState<"dark" | "light" | "matrix" | "cyberpunk" | "amber" | "ocean" | "ibm" | "win95">("dark");
   const [showThemeMenu, setShowThemeMenu] = useState(false);
-  const [fontSize, setFontSize] = useState<"small" | "medium" | "large" | "xlarge">("small");
-  const [showFontMenu, setShowFontMenu] = useState(false);
   const [showUserDetails, setShowUserDetails] = useState(false);
 
   // Token stats modal
@@ -142,14 +150,33 @@ export default function Home() {
 
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
+  const [hasMetaMask, setHasMetaMask] = useState(false);
+  const [hasSubWallet, setHasSubWallet] = useState(false);
 
+  // New UI state
+  const [rightTab, setRightTab] = useState<"files" | "app" | "api" | "output">("output");
+  const [viewMode, setViewMode] = useState<"output" | "code">("output");
+  const [directoryTree, setDirectoryTree] = useState<any[]>([]);
+  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
+
+  // Resizable divider state
+  const [dividerPosition, setDividerPosition] = useState(40); // percentage for left panel (tasks)
+  const [isDragging, setIsDragging] = useState(false);
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
+
+  const moduleDropdownRef = useRef<HTMLDivElement>(null);
   const repoRef = useRef<HTMLDivElement>(null);
   const outputRef = useRef<HTMLPreElement>(null);
   const esRef = useRef<EventSource | null>(null);
   const themeRef = useRef<HTMLDivElement>(null);
   const userDetailsRef = useRef<HTMLDivElement>(null);
   const tokenStatsRef = useRef<HTMLDivElement>(null);
-  const fontRef = useRef<HTMLDivElement>(null);
+
+  // Detect wallet extensions client-side only (avoids hydration mismatch)
+  useEffect(() => {
+    setHasMetaMask(!!(window as any).ethereum?.isMetaMask);
+    setHasSubWallet(!!(window as any).ethereum?.isSubWallet);
+  }, []);
 
   // Boot animation
   useEffect(() => {
@@ -236,33 +263,12 @@ export default function Home() {
 
   // Check owner status when address changes
   useEffect(() => {
-    const checkOwner = async () => {
-      if (!address || address === "local") {
-        setIsOwner(true); // Local mode = owner
-        setOwnerAddress(null);
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_URL}/owner`);
-        if (res.ok) {
-          const data = await res.json();
-          setOwnerAddress(data.owner);
-          setIsOwner(data.has_owner && data.owner === address);
-        }
-      } catch (e) {
-        console.error("Failed to check owner status:", e);
-        setIsOwner(false);
-      }
-    };
-
-    checkOwner();
+    // Everyone is an owner
+    setIsOwner(true);
+    setOwnerAddress(address);
   }, [address]);
 
   // ── Auth ──────────────────────────────────────────────────────────
-
-  const hasMetaMask = typeof window !== "undefined" && !!(window as any).ethereum?.isMetaMask;
-  const hasSubWallet = typeof window !== "undefined" && !!(window as any).ethereum?.isSubWallet;
 
   const safeJson = async (res: Response) => {
     const text = await res.text();
@@ -415,7 +421,7 @@ export default function Home() {
 
       if (isNew) {
         console.log(
-          "%c[CLAUDE JOBS] New local wallet created. Back up your seed phrase from localStorage key 'claude_jobs_seed'",
+          "%c[MOD AI] New local wallet created. Back up your seed phrase from localStorage key 'claude_jobs_seed'",
           "color: #ffb000"
         );
       }
@@ -504,6 +510,54 @@ export default function Home() {
     [token]
   );
 
+  // ── Directory Tree ────────────────────────────────────────────────
+
+  const fetchDirectoryTree = useCallback(async (path?: string) => {
+    try {
+      const targetPath = path || (selectedJob ? jobs.find(j => j.id === selectedJob)?.work_dir : workDir) || "~/mod";
+      const res = await fetch(`${API_URL}/files/tree?path=${encodeURIComponent(targetPath)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDirectoryTree(data.tree || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch directory tree:", e);
+    }
+  }, [selectedJob, jobs, workDir]);
+
+  useEffect(() => {
+    if (rightTab === "files") {
+      fetchDirectoryTree();
+    }
+  }, [rightTab, selectedJob, workDir]);
+
+  // Handle divider dragging
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const newPosition = (e.clientX / window.innerWidth) * 100;
+      setDividerPosition(Math.max(30, Math.min(70, newPosition))); // clamp between 30-70%
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDragging]);
+
   // ── Jobs ──────────────────────────────────────────────────────────
 
   const fetchJobs = useCallback(async () => {
@@ -542,29 +596,25 @@ export default function Home() {
       const body: any = { prompt: prompt.trim(), model };
       if (images.length > 0) body.images = images;
 
-      // Standard mode - use work_dir directly
-      if (creationMode === "standard") {
-        if (workDir.trim()) body.work_dir = workDir.trim();
-      }
-      // Edit mode - set work_dir to selected module
-      else if (creationMode === "edit") {
-        if (!selectedModule.trim()) {
-          setError("SELECT A MODULE TO EDIT");
-          setSubmitting(false);
-          return;
+      // Edit mode - edit existing module
+      if (creationMode === "edit") {
+        // If a module is selected, use that as work_dir
+        if (selectedModule.trim()) {
+          // Enforce _outer restriction for non-owners
+          if (!isOwner && !selectedModule.includes("_outer/") && !selectedModule.startsWith("_outer.")) {
+            setError("NON-OWNERS CAN ONLY EDIT MODULES IN _outer FOLDER");
+            setSubmitting(false);
+            return;
+          }
+          body.work_dir = `${anchorDir}/mod/orbit/${selectedModule}`;
         }
-
-        // Enforce _outer restriction for non-owners
-        if (!isOwner && !selectedModule.includes("_outer/") && !selectedModule.startsWith("_outer.")) {
-          setError("NON-OWNERS CAN ONLY EDIT MODULES IN _outer FOLDER");
-          setSubmitting(false);
-          return;
+        // Otherwise use the manual work_dir input
+        else if (workDir.trim()) {
+          body.work_dir = workDir.trim();
         }
-
-        body.work_dir = `${anchorDir}/mod/orbit/${selectedModule}`;
       }
-      // Module creation modes (new/fork)
-      else {
+      // New mode - create new module
+      else if (creationMode === "new") {
         if (!moduleName.trim()) {
           setError("MODULE NAME REQUIRED");
           setSubmitting(false);
@@ -573,29 +623,17 @@ export default function Home() {
 
         // For non-owners, enforce _outer folder for new modules
         let finalModuleName = moduleName.trim();
-        if (!isOwner && creationMode === "new") {
-          // Prepend _outer/ if not already there
-          if (!finalModuleName.startsWith("_outer/")) {
-            finalModuleName = `_outer/${finalModuleName}`;
-          }
+        if (!isOwner && !finalModuleName.startsWith("_outer/")) {
+          finalModuleName = `_outer/${finalModuleName}`;
         }
 
         body.module_name = finalModuleName;
         body.creation_mode = creationMode;
         body.anchor_dir = anchorDir;
 
-        if (creationMode === "fork") {
-          if (!forkSource.trim()) {
-            setError("FORK SOURCE REQUIRED");
-            setSubmitting(false);
-            return;
-          }
-          body.fork_source = forkSource.trim();
-
-          // For non-owners, fork destination must be in _outer
-          if (!isOwner && !finalModuleName.startsWith("_outer/")) {
-            body.module_name = `_outer/${finalModuleName}`;
-          }
+        // Add GitHub URL if provided
+        if (githubUrl.trim()) {
+          body.github_url = githubUrl.trim();
         }
       }
 
@@ -608,7 +646,7 @@ export default function Home() {
       setPrompt("");
       setImages([]);
       setModuleName("");
-      setForkSource("");
+      setGithubUrl("");
       setSelectedModule("");
       setSelectedJob(job.id);
       fetchJobs();
@@ -686,6 +724,50 @@ export default function Home() {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchModules = useCallback(async (q: string = "", anchor?: string) => {
+    try {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (anchor || anchorDir) params.set("anchor", anchor || anchorDir);
+      const res = await fetch(`${API_URL}/modules?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setModuleList(data.modules || []);
+      }
+    } catch { /* ignore */ }
+  }, [anchorDir]);
+
+  const fetchModuleConfig = useCallback(async (name: string) => {
+    setLoadingConfig(true);
+    setModuleConfig(null);
+    try {
+      const params = new URLSearchParams();
+      if (anchorDir) params.set("anchor", anchorDir);
+      const res = await fetch(`${API_URL}/modules/${encodeURIComponent(name)}/config?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setModuleConfig(data);
+      }
+    } catch { /* ignore */ }
+    finally { setLoadingConfig(false); }
+  }, [anchorDir]);
+
+  useEffect(() => {
+    fetchModules();
+  }, [fetchModules]);
+
+  // Auto-select default module ("claude") once module list loads
+  useEffect(() => {
+    if (selectedModule && moduleList.length > 0 && !selectedModuleInfo) {
+      const match = moduleList.find((m) => m.name === selectedModule);
+      if (match) {
+        setSelectedModuleInfo(match);
+        setWorkDir(match.path);
+        fetchModuleConfig(match.name);
+      }
+    }
+  }, [moduleList, selectedModule, selectedModuleInfo]);
+
   useEffect(() => {
     searchRepos("");
   }, [searchRepos]);
@@ -694,6 +776,9 @@ export default function Home() {
     const handleClick = (e: MouseEvent) => {
       if (repoRef.current && !repoRef.current.contains(e.target as Node)) {
         setShowRepos(false);
+      }
+      if (moduleDropdownRef.current && !moduleDropdownRef.current.contains(e.target as Node)) {
+        setShowModuleDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
@@ -775,7 +860,7 @@ export default function Home() {
           <pre
             className="text-crt-green leading-none select-none whitespace-pre transition-opacity duration-700"
             style={{
-              fontSize: "6px",
+              fontSize: "9px",
               textShadow: "0 0 10px rgba(51,255,51,0.4), 0 0 3px rgba(51,255,51,0.2)",
               opacity: bootPhase >= 1 ? 1 : 0,
             }}
@@ -789,15 +874,15 @@ export default function Home() {
             style={{ opacity: bootPhase >= 2 ? 1 : 0 }}
           >
             <div className="border-2 border-crt-green/30 p-4 space-y-1" style={{ background: "rgba(51,255,51,0.02)" }}>
-              <div className="text-[9px] text-crt-green/60">SYSTEM CHECK ............ OK</div>
-              <div className="text-[9px] text-crt-green/60">CLAUDE ENGINE ........... READY</div>
-              <div className="text-[9px] text-crt-green/60">JOB SCHEDULER ........... ACTIVE</div>
-              <div className="text-[9px] text-crt-green/60">SSE STREAM .............. ENABLED</div>
-              <div className="text-[9px] text-crt-amber/80 mt-2">
+              <div className="text-[12px] text-crt-green/60">SYSTEM CHECK ............ OK</div>
+              <div className="text-[12px] text-crt-green/60">CLAUDE ENGINE ........... READY</div>
+              <div className="text-[12px] text-crt-green/60">JOB SCHEDULER ........... ACTIVE</div>
+              <div className="text-[12px] text-crt-green/60">SSE STREAM .............. ENABLED</div>
+              <div className="text-[12px] text-crt-amber/80 mt-2">
                 ⚠ WALLET SIGNATURE REQUIRED FOR ACCESS
               </div>
               {!hasMetaMask && !hasSubWallet && (
-                <div className="text-[9px] text-crt-green/40">
+                <div className="text-[12px] text-crt-green/40">
                   ◇ NO WEB3 WALLET — LOCAL KEY MODE AVAILABLE
                 </div>
               )}
@@ -820,16 +905,16 @@ export default function Home() {
               }}
             >
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-crt-amber text-[14px]">⬡</span>
+                <span className="text-crt-amber text-[18px]">⬡</span>
                 <h2
-                  className="text-[11px] text-crt-amber"
+                  className="text-[16px] text-crt-amber"
                   style={{ textShadow: "0 0 8px rgba(255,176,0,0.4)" }}
                 >
                   WALLET AUTHENTICATION
                 </h2>
               </div>
 
-              <div className="text-[8px] text-crt-green/50 mb-4 leading-relaxed">
+              <div className="text-[12px] text-crt-green/50 mb-4 leading-relaxed">
                 Sign a cryptographic challenge to authenticate.
                 Your signature is verified server-side via ecrecover and
                 becomes a 24-hour bearer token for all API requests.
@@ -843,7 +928,7 @@ export default function Home() {
                         <button
                           onClick={() => connectWallet("metamask")}
                           disabled={authLoading}
-                          className="pixel-btn pixel-btn-amber flex-1 text-[10px] py-3"
+                          className="pixel-btn pixel-btn-amber flex-1 text-[14px] py-3"
                           style={{ letterSpacing: "2px" }}
                         >
                           {authLoading ? (
@@ -857,7 +942,7 @@ export default function Home() {
                         <button
                           onClick={() => connectWallet("subwallet")}
                           disabled={authLoading}
-                          className="pixel-btn pixel-btn-blue flex-1 text-[10px] py-3"
+                          className="pixel-btn pixel-btn-blue flex-1 text-[14px] py-3"
                           style={{ letterSpacing: "2px" }}
                         >
                           {authLoading ? (
@@ -871,7 +956,7 @@ export default function Home() {
 
                     <div className="flex items-center gap-3 w-full max-w-xs">
                       <div className="flex-1 border-t border-crt-green/10" />
-                      <span className="text-[7px] text-crt-green/20">OR</span>
+                      <span className="text-[14px] text-crt-green/20">OR</span>
                       <div className="flex-1 border-t border-crt-green/10" />
                     </div>
                   </>
@@ -880,7 +965,7 @@ export default function Home() {
                 <button
                   onClick={connectLocal}
                   disabled={authLoading}
-                  className="pixel-btn w-full max-w-xs text-[10px] py-3"
+                  className="pixel-btn w-full max-w-xs text-[14px] py-3"
                   style={{ letterSpacing: "2px" }}
                 >
                   {authLoading && !hasMetaMask && !hasSubWallet ? (
@@ -892,14 +977,14 @@ export default function Home() {
 
                 <div className="flex items-center gap-3 w-full max-w-xs">
                   <div className="flex-1 border-t border-crt-green/10" />
-                  <span className="text-[7px] text-crt-green/20">OR</span>
+                  <span className="text-[14px] text-crt-green/20">OR</span>
                   <div className="flex-1 border-t border-crt-green/10" />
                 </div>
 
                 {!showPasswordInput ? (
                   <button
                     onClick={() => setShowPasswordInput(true)}
-                    className="pixel-btn w-full max-w-xs text-[10px] py-3"
+                    className="pixel-btn w-full max-w-xs text-[14px] py-3"
                     style={{ letterSpacing: "2px" }}
                   >
                     USE  PASSWORD  KEY
@@ -911,7 +996,7 @@ export default function Home() {
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
                       placeholder="Enter password..."
-                      className="w-full px-3 py-2 text-[10px] bg-crt-dark text-crt-green border-2 border-crt-amber/40 font-pixel"
+                      className="w-full px-3 py-2 text-[14px] bg-crt-dark text-crt-green border-2 border-crt-amber/40 font-pixel"
                       style={{ letterSpacing: "1px" }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && passwordInput.trim()) connectWithPassword(passwordInput.trim());
@@ -920,7 +1005,7 @@ export default function Home() {
                     <button
                       onClick={() => passwordInput.trim() && connectWithPassword(passwordInput.trim())}
                       disabled={authLoading || !passwordInput.trim()}
-                      className="pixel-btn pixel-btn-amber w-full text-[10px] py-3"
+                      className="pixel-btn pixel-btn-amber w-full text-[14px] py-3"
                       style={{ letterSpacing: "2px" }}
                     >
                       {authLoading ? (
@@ -932,27 +1017,410 @@ export default function Home() {
                   </div>
                 )}
 
-                <div className="text-[7px] text-crt-green/25">
+                <div className="text-[14px] text-crt-green/25">
                   Password derives a deterministic wallet key via keccak256
                 </div>
               </div>
 
               {authError && (
                 <div className="mt-4 border-2 border-crt-red/60 p-3" style={{ background: "rgba(255,51,51,0.05)" }}>
-                  <div className="text-[8px] text-crt-red text-center">{authError}</div>
+                  <div className="text-[12px] text-crt-red text-center">{authError}</div>
                 </div>
               )}
             </div>
           </div>
 
           {/* Footer */}
-          <div className="text-[7px] text-crt-green/20 mt-4">
-            BISMILLAH ░ CLAUDE JOBS v1.0 ░ POWERED BY RUST + NEXT.JS
+          <div className="text-[14px] text-crt-green/20 mt-4">
+            BISMILLAH ░ MOD AI v1.0 ░ POWERED BY RUST + NEXT.JS
           </div>
         </div>
       </div>
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // RENDER FUNCTIONS
+  // ═══════════════════════════════════════════════════════════════════
+
+  const renderDirectoryTree = (tree: any[], depth: number = 0): JSX.Element[] => {
+    return tree.map((item, idx) => {
+      const isExpanded = expandedDirs.has(item.path);
+      const isDir = item.type === "directory";
+
+      return (
+        <div key={item.path + idx} style={{ marginLeft: `${depth * 12}px` }}>
+          <div
+            className="flex items-center gap-1.5 py-1 px-2 hover:bg-crt-green/5 cursor-pointer transition-colors text-[12px]"
+            onClick={() => {
+              if (isDir) {
+                const newExpanded = new Set(expandedDirs);
+                if (isExpanded) {
+                  newExpanded.delete(item.path);
+                } else {
+                  newExpanded.add(item.path);
+                }
+                setExpandedDirs(newExpanded);
+              }
+            }}
+          >
+            {isDir ? (
+              <span className="text-crt-amber/70">{isExpanded ? "📂" : "📁"}</span>
+            ) : (
+              <span className="text-crt-blue/50">📄</span>
+            )}
+            <span className="text-crt-green/80 truncate" style={{ fontSize: "12px" }}>
+              {item.name}
+            </span>
+          </div>
+          {isDir && isExpanded && item.children && renderDirectoryTree(item.children, depth + 1)}
+        </div>
+      );
+    });
+  };
+
+  const renderDirectoryTab = () => {
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Directory Header */}
+        <div
+          className="px-4 py-3 border-b"
+          style={{
+            borderColor: "rgba(255,255,255,0.08)",
+            background: "rgba(51,255,51,0.02)",
+          }}
+        >
+          <span className="text-[14px] text-crt-green/70" style={{ letterSpacing: "1.5px" }}>
+            📁 DIRECTORY TREE
+          </span>
+          {(selectedJob || workDir) && (
+            <div className="text-[14px] text-crt-green/40 mt-1 truncate">
+              {selectedJob ? jobs.find(j => j.id === selectedJob)?.work_dir : workDir}
+            </div>
+          )}
+        </div>
+
+        {/* Directory Tree */}
+        <div className="flex-1 overflow-y-auto p-3">
+          {directoryTree.length > 0 ? (
+            renderDirectoryTree(directoryTree, 0)
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full">
+              <span className="text-[14px] text-crt-green/30">No directory loaded</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTasksTab = () => {
+    const filteredJobs = jobs.filter((j) => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        !q ||
+        j.prompt.toLowerCase().includes(q) ||
+        j.status.toLowerCase().includes(q) ||
+        j.model.toLowerCase().includes(q) ||
+        j.id.toLowerCase().includes(q) ||
+        (j.work_dir && j.work_dir.toLowerCase().includes(q));
+      const matchesStatus = !statusFilter || j.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* NEW TASK FORM - Always at top */}
+        <div className="border-b-2 p-4" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(51,255,51,0.02)" }}>
+          <div className="mb-3">
+            <label className="text-[11px] text-crt-amber/60 mb-1.5 block uppercase" style={{ letterSpacing: "1px" }}>
+              Task Description
+            </label>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Describe what Claude should do..."
+              className="w-full h-24 p-3 text-[12px] resize-none rounded-none"
+              style={{ lineHeight: "1.6" }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && e.ctrlKey) {
+                  e.preventDefault();
+                  submitJob();
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex gap-2 mb-3">
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="flex-1 px-2 py-1.5 text-[11px] bg-crt-dark text-crt-green border border-crt-green/20 font-pixel uppercase"
+            >
+              <option value="haiku">HAIKU</option>
+              <option value="sonnet">SONNET</option>
+              <option value="opus">OPUS</option>
+            </select>
+
+            {["edit", "new"].map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setCreationMode(mode as any)}
+                className={`text-[10px] px-2 py-1 border transition-all uppercase ${
+                  creationMode === mode
+                    ? "border-crt-amber text-crt-amber bg-crt-amber/10"
+                    : "border-crt-green/20 text-crt-green/50 hover:border-crt-green/40"
+                }`}
+                style={{ letterSpacing: "0.5px" }}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
+          {/* NEW MODE: Module name and optional GitHub URL */}
+          {creationMode === "new" && (
+            <div className="space-y-2 mt-2">
+              <div>
+                <label className="text-[14px] text-crt-amber/60 mb-1 block uppercase" style={{ letterSpacing: "1px" }}>
+                  Module Name
+                </label>
+                <input
+                  type="text"
+                  value={moduleName}
+                  onChange={(e) => setModuleName(e.target.value)}
+                  placeholder="my-new-module"
+                  className="w-full px-2 py-1.5 text-[14px] bg-crt-dark text-crt-green border border-crt-green/20 font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-[14px] text-crt-amber/60 mb-1 block uppercase" style={{ letterSpacing: "1px" }}>
+                  GitHub URL (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={githubUrl}
+                  onChange={(e) => {
+                    const url = e.target.value;
+                    setGithubUrl(url);
+                    // Auto-infer module name from GitHub URL if not already set
+                    if (url && !moduleName) {
+                      const match = url.match(/github\.com\/[^/]+\/([^/]+?)(?:\.git)?$/);
+                      if (match) setModuleName(match[1]);
+                    }
+                  }}
+                  placeholder="https://github.com/user/repo or user/repo"
+                  className="w-full px-2 py-1.5 text-[14px] bg-crt-dark text-crt-green border border-crt-green/20 font-mono"
+                />
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={submitJob}
+            disabled={submitting || !prompt.trim()}
+            className="pixel-btn text-[11px] py-2 px-4 w-full uppercase"
+            style={{ letterSpacing: "2px" }}
+          >
+            {submitting ? (
+              <span className="animate-pulse">⚡ SUBMITTING...</span>
+            ) : (
+              "⚡ EXECUTE TASK"
+            )}
+          </button>
+        </div>
+
+        {/* Search & Filter Bar */}
+        <div className="border-b" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(51,255,51,0.02)" }}>
+          <div className="px-4 py-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="🔍 Filter tasks..."
+              className="w-full px-3 py-1.5 text-[11px] border border-crt-green/20 bg-crt-dark text-crt-green"
+            />
+          </div>
+          <div className="px-4 py-2 border-t border-crt-green/10">
+            <div className="flex gap-1.5 flex-wrap">
+              {["running", "pending", "completed", "failed", "cancelled"].map((status) => {
+                const count = jobs.filter(j => j.status === status).length;
+                if (count === 0) return null;
+                const isActive = statusFilter === status;
+                return (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(isActive ? null : status)}
+                    className={`text-[10px] px-1.5 py-0.5 border transition-colors uppercase ${
+                      isActive ? 'border-crt-green text-crt-green' : 'border-crt-green/20 text-crt-green/50'
+                    }`}
+                    style={{
+                      background: isActive ? `${STATUS_COLOR[status]}15` : 'transparent',
+                      letterSpacing: '0.5px'
+                    }}
+                  >
+                    {STATUS_ICON[status]} {STATUS_LABEL[status]} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Task List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && !jobs.length ? (
+            <div className="p-8 text-center">
+              <p className="text-[11px] cursor-blink" style={{ color: "var(--text-tertiary)" }}>
+                LOADING JOBS
+              </p>
+            </div>
+          ) : filteredJobs.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-[11px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+                No tasks found
+              </p>
+            </div>
+          ) : (
+            filteredJobs.map((job) => {
+              const isSelected = selectedJob === job.id;
+              const color = STATUS_COLOR[job.status];
+              return (
+                <div
+                  key={job.id}
+                  onClick={() => viewJob(job)}
+                  className="cursor-pointer transition-all duration-150 border-b"
+                  style={{
+                    borderColor: "rgba(51,255,51,0.06)",
+                    borderLeft: isSelected ? `4px solid ${color}` : "4px solid transparent",
+                    background: isSelected ? `${color}10` : "transparent",
+                  }}
+                >
+                  <div className="px-3 py-2.5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[11px] ${job.status === "running" ? "led-pulse" : ""}`} style={{ color }}>
+                          {STATUS_ICON[job.status]}
+                        </span>
+                        <span className="text-[10px] font-pixel" style={{ color, letterSpacing: "0.5px" }}>
+                          {STATUS_LABEL[job.status]}
+                        </span>
+                      </div>
+                      <span className="text-[10px]" style={{ color: "rgba(51,255,51,0.2)" }}>
+                        {timeSince(job.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed mb-1" style={{ color: "var(--text-secondary)" }}>
+                      {job.prompt.length > 60 ? job.prompt.slice(0, 60) + "..." : job.prompt}
+                    </p>
+                    {job.work_dir && (
+                      <p className="text-[10px] truncate" style={{ color: "var(--crt-amber)", opacity: 0.5 }}>
+                        📁 {job.work_dir}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderAppTab = () => {
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* App Header */}
+        <div
+          className="px-4 py-3 border-b"
+          style={{
+            borderColor: "rgba(255,255,255,0.08)",
+            background: "rgba(51,255,51,0.02)",
+          }}
+        >
+          <span className="text-[12px] text-crt-green/70 uppercase" style={{ letterSpacing: "1.5px" }}>
+            🎨 APP URL
+          </span>
+          {selectedModuleInfo?.app_url && (
+            <div className="text-[11px] text-crt-blue mt-1 truncate">
+              {selectedModuleInfo.app_url}
+            </div>
+          )}
+        </div>
+
+        {/* App Content */}
+        <div className="flex-1 overflow-hidden">
+          {selectedModuleInfo?.app_url ? (
+            <iframe
+              src={selectedModuleInfo.app_url}
+              className="w-full h-full border-0"
+              title="Module App"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-4 p-6">
+              <span className="text-[48px] text-crt-green/10">🎨</span>
+              <span className="text-[11px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+                No app available
+              </span>
+              <p className="text-[10px] text-crt-green/20 text-center max-w-xs">
+                {selectedModule
+                  ? `Module "${selectedModule}" does not have an app interface.`
+                  : "Select a module with an app to view it here."}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderApiTab = () => {
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* API Header */}
+        <div
+          className="px-4 py-3 border-b"
+          style={{
+            borderColor: "rgba(255,255,255,0.08)",
+            background: "rgba(51,255,51,0.02)",
+          }}
+        >
+          <span className="text-[12px] text-crt-red/70 uppercase" style={{ letterSpacing: "1.5px" }}>
+            ⚙️ API DOCS
+          </span>
+          {selectedModuleInfo?.api_url && (
+            <div className="text-[11px] text-crt-amber mt-1 truncate">
+              {selectedModuleInfo.api_url}
+            </div>
+          )}
+        </div>
+
+        {/* API Content */}
+        <div className="flex-1 overflow-hidden">
+          {selectedModuleInfo?.api_url ? (
+            <iframe
+              src={selectedModuleInfo.api_url}
+              className="w-full h-full border-0"
+              title="Module API"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-4 p-6">
+              <span className="text-[48px] text-crt-green/10">⚙️</span>
+              <span className="text-[11px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+                No API docs available
+              </span>
+              <p className="text-[10px] text-crt-green/20 text-center max-w-xs">
+                {selectedModule
+                  ? `Module "${selectedModule}" does not have API documentation.`
+                  : "Select a module with API docs to view them here."}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // ═══════════════════════════════════════════════════════════════════
   // DASHBOARD
@@ -968,1112 +1436,472 @@ export default function Home() {
     >
       {/* ── Header ───────────────────────────────────────────────── */}
       <header
-        className="flex items-center justify-between px-5 py-3 border-b-4"
+        className="flex flex-col border-b-4"
         style={{
           borderColor: "var(--accent-color)",
           background: "var(--bg-secondary)",
           boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
         }}
       >
-        <div className="flex items-center gap-5">
+        {/* Top row - Logo and controls */}
+        <div className="flex items-center justify-between px-4 py-1.5">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-crt-green text-[16px]" style={{ textShadow: "0 0 10px rgba(51,255,51,0.5)" }}>◈</span>
+              <h1 className="text-[16px] text-crt-green" style={{ textShadow: "0 0 8px rgba(51,255,51,0.3)", letterSpacing: "2px" }}>
+                MOD AI
+              </h1>
+            </div>
+            <div className="hidden sm:flex items-center gap-1.5 border border-crt-green/10 px-2 py-0.5">
+              <span className={`text-[14px] ${runningCount > 0 ? "text-crt-blue led-pulse" : "text-crt-green/30"}`}>
+                ● {runningCount} ACTIVE
+              </span>
+              <span className="text-crt-green/10">│</span>
+              <span className="text-[14px] text-crt-green/40">
+                ✦ {completedCount} DONE
+              </span>
+              <span className="text-crt-green/10">│</span>
+              <span className="text-[14px] text-crt-green/30">
+                Σ {jobs.length} TOTAL
+              </span>
+            </div>
+          </div>
+
           <div className="flex items-center gap-2">
-            <span className="text-crt-green text-[14px]" style={{ textShadow: "0 0 10px rgba(51,255,51,0.5)" }}>◈</span>
-            <h1 className="text-[12px] text-crt-green" style={{ textShadow: "0 0 8px rgba(51,255,51,0.3)", letterSpacing: "3px" }}>
-              CLAUDE JOBS
-            </h1>
-          </div>
+            {/* Token Display - Clickable */}
+            {address !== "local" && tokenStats && (
+              <div className="relative" ref={tokenStatsRef}>
+                <button
+                  onClick={() => setShowTokenStats(!showTokenStats)}
+                  className="border border-crt-blue/30 px-2 py-0.5 flex items-center gap-1.5 hover:border-crt-blue/50 transition-all hover:bg-crt-blue/5"
+                  title="View token stats"
+                >
+                  <span className="text-[13px] text-crt-blue/50">BALANCE</span>
+                  <span className="text-[14px] text-crt-blue" style={{ textShadow: "0 0 6px rgba(0,170,255,0.3)" }}>
+                    {parseFloat(tokenStats.balance).toFixed(4)} {tokenStats.symbol}
+                  </span>
+                </button>
 
-          {/* Mode Tabs */}
-          <div className="flex items-center gap-1 border border-crt-green/20 px-1 py-1">
-            <button
-              onClick={() => setCreationMode("standard")}
-              className={`text-[7px] px-2 py-1 transition-colors ${
-                creationMode === "standard"
-                  ? "text-crt-green bg-crt-green/10"
-                  : "text-crt-green/50 hover:text-crt-green/70"
-              }`}
-              style={{ letterSpacing: "0.5px" }}
-            >
-              STANDARD
-            </button>
-            <button
-              onClick={() => setCreationMode("edit")}
-              className={`text-[7px] px-2 py-1 transition-colors ${
-                creationMode === "edit"
-                  ? "text-crt-amber bg-crt-amber/10"
-                  : "text-crt-green/50 hover:text-crt-green/70"
-              }`}
-              style={{ letterSpacing: "0.5px" }}
-            >
-              EDIT
-            </button>
-            <button
-              onClick={() => setCreationMode("new")}
-              className={`text-[7px] px-2 py-1 transition-colors ${
-                creationMode === "new"
-                  ? "text-crt-blue bg-crt-blue/10"
-                  : "text-crt-green/50 hover:text-crt-green/70"
-              }`}
-              style={{ letterSpacing: "0.5px" }}
-            >
-              NEW
-            </button>
-            <button
-              onClick={() => setCreationMode("fork")}
-              className={`text-[7px] px-2 py-1 transition-colors ${
-                creationMode === "fork"
-                  ? "text-crt-blue bg-crt-blue/10"
-                  : "text-crt-green/50 hover:text-crt-green/70"
-              }`}
-              style={{ letterSpacing: "0.5px" }}
-            >
-              FORK
-            </button>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 border border-crt-green/10 px-3 py-1">
-            <span className={`text-[7px] ${runningCount > 0 ? "text-crt-blue led-pulse" : "text-crt-green/30"}`}>
-              ● {runningCount} ACTIVE
-            </span>
-            <span className="text-crt-green/10">│</span>
-            <span className="text-[7px] text-crt-green/40">
-              ✦ {completedCount} DONE
-            </span>
-            <span className="text-crt-green/10">│</span>
-            <span className="text-[7px] text-crt-green/30">
-              Σ {jobs.length} TOTAL
-            </span>
-          </div>
-        </div>
+                {/* Token Stats Modal */}
+                {showTokenStats && (
+                  <div
+                    className="absolute right-0 top-full mt-2 border-2 z-50 min-w-[280px]"
+                    style={{
+                      background: "var(--bg-primary)",
+                      borderColor: "var(--crt-blue)",
+                      boxShadow: "0 0 30px rgba(0,170,255,0.3)",
+                    }}
+                  >
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center gap-2 border-b border-crt-blue/20 pb-2">
+                        <span className="text-[14px] text-crt-blue" style={{ letterSpacing: "1px" }}>
+                          TOKEN STATS
+                        </span>
+                      </div>
 
-        <div className="flex items-center gap-3">
-          {/* Token Display - Clickable */}
-          {address !== "local" && tokenStats && (
-            <div className="relative" ref={tokenStatsRef}>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[14px] text-crt-green/50">BALANCE:</span>
+                          <span className="text-[13px] text-crt-blue">
+                            {parseFloat(tokenStats.balance).toFixed(6)} {tokenStats.symbol}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-[14px] text-crt-green/50">NETWORK:</span>
+                          <span className="text-[12px] text-crt-amber">{tokenStats.network}</span>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-[14px] text-crt-green/50">ADDRESS:</span>
+                          <span className="text-[14px] text-crt-green/70 font-mono">
+                            {tokenStats.address.slice(0, 6)}...{tokenStats.address.slice(-4)}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-[14px] text-crt-green/50">WALLET TYPE:</span>
+                          <span className="text-[14px] text-crt-green/70 uppercase">
+                            {walletType || "Unknown"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={loadTokenStats}
+                        disabled={loadingTokenStats}
+                        className="pixel-btn text-[14px] py-2 w-full"
+                      >
+                        {loadingTokenStats ? "REFRESHING..." : "REFRESH"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Theme Selector */}
+            <div className="relative" ref={themeRef}>
               <button
-                onClick={() => setShowTokenStats(!showTokenStats)}
-                className="border border-crt-blue/30 px-3 py-1 flex items-center gap-2 hover:border-crt-blue/50 transition-all hover:bg-crt-blue/5"
-                title="View token stats"
+                onClick={() => setShowThemeMenu(!showThemeMenu)}
+                className="pixel-btn text-[14px] py-0.5 px-2"
+                style={{
+                  background: "var(--accent-color)",
+                  color: theme === "light" ? "#fff" : "#000",
+                }}
+                title="Change theme"
               >
-                <span className="text-[6px] text-crt-blue/50">BALANCE</span>
-                <span className="text-[9px] text-crt-blue" style={{ textShadow: "0 0 6px rgba(0,170,255,0.3)" }}>
-                  {parseFloat(tokenStats.balance).toFixed(4)} {tokenStats.symbol}
-                </span>
+                🎨 {theme.toUpperCase()}
               </button>
-
-              {/* Token Stats Modal */}
-              {showTokenStats && (
+              {showThemeMenu && (
                 <div
-                  className="absolute right-0 top-full mt-2 border-2 z-50 min-w-[280px]"
+                  className="absolute right-0 top-full mt-1 border-2 z-50 min-w-[140px]"
                   style={{
                     background: "var(--bg-primary)",
-                    borderColor: "var(--crt-blue)",
-                    boxShadow: "0 0 30px rgba(0,170,255,0.3)",
+                    borderColor: "var(--accent-color)",
+                    boxShadow: "0 0 20px rgba(0,0,0,0.5)",
                   }}
                 >
-                  <div className="p-4 space-y-3">
-                    <div className="flex items-center gap-2 border-b border-crt-blue/20 pb-2">
-                      <span className="text-[10px] text-crt-blue" style={{ letterSpacing: "1px" }}>
-                        TOKEN STATS
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[7px] text-crt-green/50">BALANCE:</span>
-                        <span className="text-[9px] text-crt-blue">
-                          {parseFloat(tokenStats.balance).toFixed(6)} {tokenStats.symbol}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-[7px] text-crt-green/50">NETWORK:</span>
-                        <span className="text-[8px] text-crt-amber">{tokenStats.network}</span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-[7px] text-crt-green/50">ADDRESS:</span>
-                        <span className="text-[7px] text-crt-green/70 font-mono">
-                          {tokenStats.address.slice(0, 6)}...{tokenStats.address.slice(-4)}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-[7px] text-crt-green/50">WALLET TYPE:</span>
-                        <span className="text-[7px] text-crt-green/70 uppercase">
-                          {walletType || "Unknown"}
-                        </span>
-                      </div>
-                    </div>
-
+                  {(["dark", "light", "matrix", "cyberpunk", "amber", "ocean", "ibm", "win95"] as const).map((t) => (
                     <button
-                      onClick={loadTokenStats}
-                      disabled={loadingTokenStats}
-                      className="pixel-btn text-[7px] py-2 w-full"
+                      key={t}
+                      onClick={() => {
+                        setTheme(t);
+                        setShowThemeMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-[12px] hover:opacity-100 transition-all border-b"
+                      style={{
+                        color: "var(--text-primary)",
+                        opacity: theme === t ? 1 : 0.6,
+                        background: theme === t ? "rgba(255,255,255,0.05)" : "transparent",
+                        borderColor: "rgba(255,255,255,0.05)",
+                      }}
                     >
-                      {loadingTokenStats ? "REFRESHING..." : "REFRESH"}
+                      {theme === t && "▸ "}{t.toUpperCase()}
                     </button>
-                  </div>
+                  ))}
                 </div>
               )}
             </div>
-          )}
 
-          {/* Font Size Selector */}
-          <div className="relative" ref={fontRef}>
-            <button
-              onClick={() => setShowFontMenu(!showFontMenu)}
-              className="pixel-btn text-[7px] py-1 px-3"
-              style={{
-                background: "var(--accent-color)",
-                color: theme === "light" ? "#fff" : "#000",
-              }}
-              title="Change font size"
-            >
-              Aa {fontSize.toUpperCase()}
-            </button>
-            {showFontMenu && (
+            {/* Owner Status Badge */}
+            {address !== "local" && (
               <div
-                className="absolute right-0 top-full mt-1 border-2 z-50 min-w-[140px]"
-                style={{
-                  background: "var(--bg-primary)",
-                  borderColor: "var(--accent-color)",
-                  boxShadow: "0 0 20px rgba(0,0,0,0.5)",
-                }}
+                className={`border px-2 py-0.5 flex items-center gap-1.5 ${
+                  isOwner
+                    ? "border-crt-green/30 bg-crt-green/5"
+                    : "border-crt-amber/30 bg-crt-amber/5"
+                }`}
+                title={isOwner ? "You are the owner" : "You are not the owner"}
               >
-                {(["small", "medium", "large", "xlarge"] as const).map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => {
-                      setFontSize(size);
-                      setShowFontMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-[8px] hover:opacity-100 transition-all border-b"
-                    style={{
-                      color: "var(--text-primary)",
-                      opacity: fontSize === size ? 1 : 0.6,
-                      background: fontSize === size ? "rgba(255,255,255,0.05)" : "transparent",
-                      borderColor: "rgba(255,255,255,0.05)",
-                    }}
-                  >
-                    {fontSize === size && "▸ "}{size.toUpperCase()}
-                  </button>
-                ))}
+                <span className="text-[13px]" style={{ color: isOwner ? "var(--crt-green)" : "var(--crt-amber)", opacity: 0.5 }}>
+                  ROLE
+                </span>
+                <span
+                  className="text-[14px]"
+                  style={{
+                    color: isOwner ? "var(--crt-green)" : "var(--crt-amber)",
+                    textShadow: isOwner ? "0 0 6px rgba(51,255,51,0.3)" : "0 0 6px rgba(255,176,0,0.3)",
+                  }}
+                >
+                  {isOwner ? "◆ OWNER" : "○ USER"}
+                </span>
               </div>
             )}
-          </div>
 
-          {/* Theme Selector */}
-          <div className="relative" ref={themeRef}>
+            {/* Wallet Info - Clickable */}
             <button
-              onClick={() => setShowThemeMenu(!showThemeMenu)}
-              className="pixel-btn text-[7px] py-1 px-3"
-              style={{
-                background: "var(--accent-color)",
-                color: theme === "light" ? "#fff" : "#000",
-              }}
-              title="Change theme"
+              onClick={() => setShowWalletModal(true)}
+              className="border border-crt-amber/30 px-2 py-0.5 flex items-center gap-1.5 hover:border-crt-amber/50 transition-all hover:bg-crt-amber/5"
+              title="View wallet details"
             >
-              🎨 {theme.toUpperCase()}
+              <span className="text-[13px] text-crt-amber/50">{address === "local" ? "MODE" : "WALLET"}</span>
+              <span className="text-[14px] text-crt-amber" style={{ textShadow: "0 0 6px rgba(255,176,0,0.3)" }}>
+                {address === "local" ? "LOCAL" : `${address?.slice(0, 6)}··${address?.slice(-4)}`}
+              </span>
             </button>
-            {showThemeMenu && (
-              <div
-                className="absolute right-0 top-full mt-1 border-2 z-50 min-w-[140px]"
-                style={{
-                  background: "var(--bg-primary)",
-                  borderColor: "var(--accent-color)",
-                  boxShadow: "0 0 20px rgba(0,0,0,0.5)",
-                }}
-              >
-                {(["dark", "light", "matrix", "cyberpunk", "amber", "ocean", "ibm", "win95"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => {
-                      setTheme(t);
-                      setShowThemeMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-[8px] hover:opacity-100 transition-all border-b"
-                    style={{
-                      color: "var(--text-primary)",
-                      opacity: theme === t ? 1 : 0.6,
-                      background: theme === t ? "rgba(255,255,255,0.05)" : "transparent",
-                      borderColor: "rgba(255,255,255,0.05)",
-                    }}
-                  >
-                    {theme === t && "▸ "}{t.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Owner Status Badge */}
-          {address !== "local" && (
-            <div
-              className={`border px-3 py-1 flex items-center gap-2 ${
-                isOwner
-                  ? "border-crt-green/30 bg-crt-green/5"
-                  : "border-crt-amber/30 bg-crt-amber/5"
-              }`}
-              title={isOwner ? "You are the owner" : "You are not the owner"}
-            >
-              <span className="text-[6px]" style={{ color: isOwner ? "var(--crt-green)" : "var(--crt-amber)", opacity: 0.5 }}>
-                ROLE
-              </span>
-              <span
-                className="text-[9px]"
-                style={{
-                  color: isOwner ? "var(--crt-green)" : "var(--crt-amber)",
-                  textShadow: isOwner ? "0 0 6px rgba(51,255,51,0.3)" : "0 0 6px rgba(255,176,0,0.3)",
+            {/* Disconnect Button */}
+            <button onClick={disconnect} className="pixel-btn pixel-btn-red text-[14px] py-0.5 px-2">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom row - Module Selector */}
+        <div className="px-5 py-2 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+          <div className="flex items-center gap-3">
+            <label className="text-[14px] text-crt-green/50 shrink-0" style={{ letterSpacing: "1px" }}>
+              MODULE:
+            </label>
+            <div className="flex-1 max-w-md relative" ref={moduleDropdownRef}>
+              <input
+                type="text"
+                value={selectedModule ? selectedModule : moduleSearch}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setModuleSearch(v);
+                  setSelectedModule("");
+                  setSelectedModuleInfo(null);
+                  setShowModuleDropdown(true);
+                  fetchModules(v);
                 }}
-              >
-                {isOwner ? "◆ OWNER" : "○ USER"}
-              </span>
+                onFocus={() => {
+                  setShowModuleDropdown(true);
+                  if (!moduleList.length) fetchModules(moduleSearch);
+                }}
+                placeholder="Search modules..."
+                className="w-full px-3 py-1.5 text-[12px] border border-crt-green/20 bg-crt-dark text-crt-green font-mono"
+              />
+              {showModuleDropdown && (
+                <div
+                  className="absolute left-0 right-0 top-full mt-1 border border-crt-green/30 max-h-[200px] overflow-y-auto z-50"
+                  style={{ background: "var(--bg-primary)", boxShadow: "0 4px 20px rgba(0,0,0,0.5)" }}
+                >
+                  {moduleList.length === 0 ? (
+                    <div className="px-3 py-2 text-[14px] text-crt-green/30">No modules found</div>
+                  ) : (
+                    moduleList.map((m) => (
+                      <div
+                        key={m.name}
+                        onClick={() => {
+                          setSelectedModule(m.name);
+                          setSelectedModuleInfo(m);
+                          setWorkDir(m.path);
+                          setModuleSearch("");
+                          setShowModuleDropdown(false);
+                          fetchModuleConfig(m.name);
+                        }}
+                        className="px-3 py-2 cursor-pointer hover:bg-crt-green/10 transition-colors border-b border-crt-green/5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[12px] text-crt-green">{m.name}</span>
+                            <span className={`text-[13px] px-1 py-0.5 border ${m.category === "core" ? "border-crt-red/30 text-crt-red/50" : "border-crt-green/15 text-crt-green/25"}`}>
+                              {m.category}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {m.app_url && (
+                              <span className="text-[13px] px-1.5 py-0.5 border border-crt-blue/40 text-crt-blue bg-crt-blue/10">
+                                APP
+                              </span>
+                            )}
+                            {m.api_url && (
+                              <span className="text-[13px] px-1.5 py-0.5 border border-crt-amber/40 text-crt-amber bg-crt-amber/10">
+                                API
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
-          )}
-
-          {/* Wallet Info - Clickable */}
-          <button
-            onClick={() => setShowWalletModal(true)}
-            className="border border-crt-amber/30 px-3 py-1 flex items-center gap-2 hover:border-crt-amber/50 transition-all hover:bg-crt-amber/5"
-            title="View wallet details"
-          >
-            <span className="text-[6px] text-crt-amber/50">{address === "local" ? "MODE" : "WALLET"}</span>
-            <span className="text-[9px] text-crt-amber" style={{ textShadow: "0 0 6px rgba(255,176,0,0.3)" }}>
-              {address === "local" ? "LOCAL" : `${address?.slice(0, 6)}··${address?.slice(-4)}`}
-            </span>
-          </button>
-
-          {/* Disconnect Button */}
-          <button onClick={disconnect} className="pixel-btn pixel-btn-red text-[7px] py-1 px-3">
-            ✕
-          </button>
+            {selectedModule && (
+              <button
+                onClick={() => {
+                  setSelectedModule("");
+                  setSelectedModuleInfo(null);
+                  setModuleConfig(null);
+                  setWorkDir("");
+                  setModuleSearch("");
+                }}
+                className="text-[14px] text-crt-red/60 hover:text-crt-red transition-colors px-2 py-1 border border-crt-red/30 hover:border-crt-red/50"
+              >
+                CLEAR
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
       {error && (
         <div className="mx-4 mt-2 p-3 border-2 border-crt-red/50" style={{ background: "rgba(255,51,51,0.05)" }}>
-          <div className="text-[8px] text-crt-red flex items-center gap-2">
+          <div className="text-[12px] text-crt-red flex items-center gap-2">
             <span>⚠</span> {error}
           </div>
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* ── Left Panel ─────────────────────────────────────────── */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* ── Left Panel: Tasks ──────────────────────── */}
         <div
-          className="w-[50%] min-w-[400px] border-r-2 flex flex-col"
-          style={{
-            borderColor: "rgba(255,255,255,0.1)",
-            background: "var(--bg-secondary)",
-          }}
-        >
-
-          {/* Submit Toggle */}
-          <button
-            onClick={() => setShowSubmit(!showSubmit)}
-            className="flex items-center justify-between px-5 py-3 border-b-2 hover:bg-crt-green/5 transition-colors"
-            style={{
-              borderColor: "var(--crt-amber)",
-              background: "rgba(255,176,0,0.02)",
-              boxShadow: "0 2px 8px rgba(255,176,0,0.1)",
-            }}
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="text-[11px] text-crt-amber" style={{ textShadow: "0 0 8px rgba(255,176,0,0.4)" }}>
-                {showSubmit ? "▼" : "▶"}
-              </span>
-              <span className="text-[10px] text-crt-amber" style={{ textShadow: "0 0 6px rgba(255,176,0,0.3)", letterSpacing: "1.5px", fontWeight: "bold" }}>
-                NEW TASK
-              </span>
-            </div>
-            <span className="text-[7px] text-crt-green/40 px-2 py-1 border-2 border-crt-green/20" style={{ letterSpacing: "0.5px" }}>
-              ENTER TO SUBMIT
-            </span>
-          </button>
-
-          {/* Submit Form */}
-          {showSubmit && (
-            <div className="p-5 border-b-4" style={{ borderColor: "var(--crt-green)", background: "rgba(255,176,0,0.02)", boxShadow: "inset 0 4px 8px rgba(0,0,0,0.2)" }}>
-              <div className="mb-3">
-                <label className="text-[7px] text-crt-amber/60 mb-1.5 block" style={{ letterSpacing: "1px" }}>
-                  TASK DESCRIPTION
-                </label>
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Describe what Claude should do... (Enter to submit, paste images from clipboard)"
-                  className="w-full h-32 p-4 text-[10px] resize-none rounded-none"
-                  style={{ lineHeight: "1.8" }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      submitJob();
-                    }
-                  }}
-                  onPaste={(e) => {
-                    const items = e.clipboardData?.files;
-                    if (!items || items.length === 0) return;
-                    const imageFiles = Array.from(items).filter((f) =>
-                      f.type.startsWith("image/")
-                    );
-                    if (imageFiles.length === 0) return;
-                    e.preventDefault();
-                    imageFiles.forEach((file) => {
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const dataUrl = reader.result as string;
-                        const ext = file.type.split("/")[1] || "png";
-                        const name = file.name || `image-${Date.now()}.${ext}`;
-                        setImages((prev) => [...prev, { name, data: dataUrl }]);
-                      };
-                      reader.readAsDataURL(file);
-                    });
-                  }}
-                />
-                {images.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {images.map((img, idx) => (
-                      <div
-                        key={idx}
-                        className="relative group border border-crt-green/20"
-                        style={{ width: 64, height: 64 }}
-                      >
-                        <img
-                          src={img.data}
-                          alt={img.name}
-                          className="w-full h-full object-cover"
-                          style={{ imageRendering: "auto" }}
-                        />
-                        <button
-                          onClick={() =>
-                            setImages((prev) =>
-                              prev.filter((_, i) => i !== idx)
-                            )
-                          }
-                          className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[8px] bg-crt-red text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          x
-                        </button>
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-[5px] text-crt-green/60 px-1 truncate">
-                          {img.name}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3">
-                {/* Model Selection */}
-                <div>
-                  <label className="text-[7px] text-crt-green/50 mb-1.5 block" style={{ letterSpacing: "1px" }}>
-                    MODEL
-                  </label>
-                  <div className="flex items-center gap-1 border border-crt-green/20 px-2">
-                    <select
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      className="px-2 py-2 text-[9px] bg-crt-dark text-crt-green border-none font-pixel w-full"
-                    >
-                      <option value="haiku">HAIKU</option>
-                      <option value="sonnet">SONNET</option>
-                      <option value="opus">OPUS</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Mode Status Display */}
-                <div className="p-3 border border-crt-green/20" style={{ background: "rgba(51,255,51,0.02)" }}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[7px] text-crt-green/50" style={{ letterSpacing: "1px" }}>
-                      MODE: <span className="text-crt-amber">{creationMode.toUpperCase()}</span>
-                    </span>
-                    {!isOwner && (
-                      <span className="text-[6px] text-crt-amber/70 border border-crt-amber/30 px-2 py-0.5">
-                        ⚠ NON-OWNER → _outer ONLY
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Standard Mode - Work Directory */}
-                {creationMode === "standard" && (
-                  <div className="relative" ref={repoRef}>
-                    <label className="text-[7px] text-crt-green/50 mb-1.5 block" style={{ letterSpacing: "1px" }}>
-                      WORKING DIRECTORY
-                    </label>
-                    <input
-                      type="text"
-                      value={workDir}
-                      onChange={(e) => {
-                        setWorkDir(e.target.value);
-                        searchRepos(e.target.value);
-                        setShowRepos(true);
-                      }}
-                      onFocus={() => setShowRepos(true)}
-                      placeholder="~/project"
-                      className="w-full px-3 py-2 text-[9px]"
-                    />
-                    {showRepos && repos.length > 0 && (
-                      <div
-                        className="absolute left-0 right-0 bottom-full mb-1 max-h-48 overflow-y-auto border-2 border-crt-green/30 z-50"
-                        style={{ background: "#0a0a0a" }}
-                      >
-                        {repos.map((repo) => (
-                          <button
-                            key={repo.path}
-                            onClick={() => {
-                              setWorkDir(repo.path);
-                              setShowRepos(false);
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-crt-green/10 transition-colors border-b border-crt-green/5 flex items-center gap-2"
-                          >
-                            <span className="text-[8px] text-crt-amber">▸</span>
-                            <span className="text-[9px] text-crt-green/70">{repo.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Edit Mode */}
-                {creationMode === "edit" && (
-                  <div className="space-y-3 p-3 border-2 border-crt-amber/40" style={{ background: "rgba(255,176,0,0.03)", boxShadow: "0 0 15px rgba(255,176,0,0.1)" }}>
-                    <div>
-                      <label className="text-[7px] text-crt-amber/80 mb-2 block flex items-center gap-2" style={{ letterSpacing: "1px", textShadow: "0 0 4px rgba(255,176,0,0.3)" }}>
-                        <span className="text-[10px]">◈</span>
-                        SELECT MODULE TO EDIT
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={selectedModule}
-                          onChange={(e) => setSelectedModule(e.target.value)}
-                          className="w-full px-3 py-3 text-[9px] bg-crt-dark text-crt-green border-2 border-crt-green/30 font-pixel hover:border-crt-green/50 transition-all"
-                          style={{
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.3), inset 0 1px 3px rgba(0,0,0,0.2)",
-                            backgroundImage: `linear-gradient(to bottom, rgba(51,255,51,0.02) 0%, rgba(51,255,51,0) 100%)`
-                          }}
-                        >
-                          <option value="" style={{ background: "var(--bg-primary)" }}>⌘ Select a module to edit...</option>
-                          {modules
-                            .filter((mod) => {
-                              // Non-owners can only edit modules in _outer
-                              if (!isOwner) {
-                                return mod.includes("_outer/") || mod.startsWith("_outer.");
-                              }
-                              return true;
-                            })
-                            .sort((a, b) => {
-                              // Sort _outer modules first for non-owners
-                              if (!isOwner) {
-                                const aIsOuter = a.includes("_outer/") || a.startsWith("_outer.");
-                                const bIsOuter = b.includes("_outer/") || b.startsWith("_outer.");
-                                if (aIsOuter && !bIsOuter) return -1;
-                                if (!aIsOuter && bIsOuter) return 1;
-                              }
-                              return a.localeCompare(b);
-                            })
-                            .map((mod) => {
-                              const isOuter = mod.includes("_outer/") || mod.startsWith("_outer.");
-                              const icon = isOuter ? "◇" : "◆";
-                              return (
-                                <option key={mod} value={mod} style={{ background: "var(--bg-primary)", padding: "8px" }}>
-                                  {icon} {mod} {!isOwner && !isOuter ? " [RESTRICTED]" : ""}
-                                </option>
-                              );
-                            })}
-                        </select>
-                        {selectedModule && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                            <span className="text-crt-green text-[10px]">✓</span>
-                          </div>
-                        )}
-                      </div>
-                      {!isOwner && (
-                        <div className="text-[6px] text-crt-amber/70 mt-2 flex items-center gap-1 p-2 border border-crt-amber/20" style={{ background: "rgba(255,176,0,0.05)" }}>
-                          <span>⚠</span>
-                          <span>Non-owners can only edit modules in mod/orbit/_outer/</span>
-                        </div>
-                      )}
-                    </div>
-                    {selectedModule && (
-                      <div className="text-[7px] text-crt-green/80 p-2 border border-crt-green/20 flex items-center gap-2" style={{ background: "rgba(51,255,51,0.03)" }}>
-                        <span className="text-[9px]">📁</span>
-                        <span className="font-bold text-[9px]">{selectedModule}</span>
-                        <span className="text-crt-green/40 text-[7px] font-mono">→ {anchorDir}/mod/orbit/{selectedModule}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Module Creation Modes */}
-                {(creationMode === "new" || creationMode === "fork") && (
-                  <div className="space-y-3 p-3 border border-crt-amber/30" style={{ background: "rgba(255,176,0,0.02)" }}>
-                    <div>
-                      <label className="text-[7px] text-crt-amber/60 mb-1.5 block" style={{ letterSpacing: "1px" }}>
-                        ANCHOR DIRECTORY
-                      </label>
-                      <input
-                        type="text"
-                        value={anchorDir}
-                        onChange={(e) => setAnchorDir(e.target.value)}
-                        placeholder="~/mod"
-                        className="w-full px-3 py-2 text-[9px]"
-                      />
-                      <div className="text-[6px] text-crt-green/30 mt-1">
-                        Module will be created in: {anchorDir}/mod/orbit/{!isOwner ? "_outer/" : ""}[module-name]
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-[7px] text-crt-amber/60 mb-1.5 block" style={{ letterSpacing: "1px" }}>
-                        MODULE NAME
-                      </label>
-                      <input
-                        type="text"
-                        value={moduleName}
-                        onChange={(e) => setModuleName(e.target.value)}
-                        placeholder="my-new-module"
-                        className="w-full px-3 py-2 text-[9px]"
-                      />
-                      {!isOwner && (
-                        <div className="text-[6px] text-crt-amber/70 mt-1 flex items-center gap-1">
-                          <span>⚠</span>
-                          <span>Will be created in _outer folder (non-owner restriction)</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {creationMode === "fork" && (
-                      <div>
-                        <label className="text-[7px] text-crt-amber/80 mb-2 block flex items-center gap-2" style={{ letterSpacing: "1px", textShadow: "0 0 4px rgba(255,176,0,0.3)" }}>
-                          <span className="text-[10px]">⑂</span>
-                          FORK FROM MODULE
-                        </label>
-                        <div className="relative">
-                          <select
-                            value={forkSource}
-                            onChange={(e) => setForkSource(e.target.value)}
-                            className="w-full px-3 py-3 text-[9px] bg-crt-dark text-crt-green border-2 border-crt-green/30 font-pixel hover:border-crt-green/50 transition-all"
-                            style={{
-                              boxShadow: "0 2px 8px rgba(0,0,0,0.3), inset 0 1px 3px rgba(0,0,0,0.2)",
-                              backgroundImage: `linear-gradient(to bottom, rgba(51,255,51,0.02) 0%, rgba(51,255,51,0) 100%)`
-                            }}
-                          >
-                            <option value="" style={{ background: "var(--bg-primary)" }}>⌘ Select a module to fork...</option>
-                            {modules.sort((a, b) => a.localeCompare(b)).map((mod) => {
-                              const isOuter = mod.includes("_outer/") || mod.startsWith("_outer.");
-                              const icon = isOuter ? "◇" : "◆";
-                              return (
-                                <option key={mod} value={mod} style={{ background: "var(--bg-primary)", padding: "8px" }}>
-                                  {icon} {mod}
-                                </option>
-                              );
-                            })}
-                          </select>
-                          {forkSource && (
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <span className="text-crt-green text-[10px]">✓</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-[6px] text-crt-green/50 mt-2 p-2 border border-crt-green/20" style={{ background: "rgba(51,255,51,0.03)" }}>
-                          <span className="text-crt-green/70">ℹ</span> Will copy entire module directory structure
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Execute Button */}
-              <button
-                onClick={submitJob}
-                disabled={submitting || !prompt.trim()}
-                className="pixel-btn text-[10px] py-3 px-6 w-full mt-4"
-                style={{ letterSpacing: "2px" }}
-              >
-                {submitting ? (
-                  <span className="animate-pulse">⚡ SUBMITTING TASK...</span>
-                ) : (
-                  "⚡ EXECUTE TASK"
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Search & Job List Header */}
-          <div className="border-b-4" style={{ borderColor: "var(--crt-blue)", background: "rgba(51,255,51,0.02)", boxShadow: "0 4px 8px rgba(0,170,255,0.15)" }}>
-            <div className="px-5 py-3">
-              <label
-                className="text-[7px] mb-2 flex items-center gap-2"
-                style={{
-                  letterSpacing: "1px",
-                  color: "var(--text-tertiary)",
-                }}
-              >
-                <span>🔍 SEARCH TASKS</span>
-                {searchQuery.trim() && (
-                  <span
-                    className="animate-pulse"
-                    style={{
-                      color: "var(--crt-amber)",
-                    }}
-                  >
-                    ● FILTERING
-                  </span>
-                )}
-              </label>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter by prompt, status, model, id, directory..."
-                className="w-full px-3 py-2 text-[9px]"
-              />
-            </div>
-            <div className="px-5 py-2.5 border-t border-crt-green/10">
-              <div className="flex items-center justify-between mb-2">
-                <span
-                  className="text-[8px]"
-                  style={{
-                    letterSpacing: "2px",
-                    color: "var(--text-tertiary)",
-                  }}
-                >
-                  {searchQuery.trim() || statusFilter ? `FILTERED (${filteredJobs.length}/${jobs.length})` : `ALL TASKS (${jobs.length})`}
-                </span>
-                {(searchQuery.trim() || statusFilter) && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery("");
-                      setStatusFilter(null);
-                    }}
-                    className="text-[7px] text-crt-amber/60 hover:text-crt-amber transition-colors px-2 py-1 border border-crt-amber/20 hover:border-crt-amber/40"
-                  >
-                    CLEAR ALL ✕
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-1.5 flex-wrap">
-                {["running", "pending", "completed", "failed", "cancelled"].map((status) => {
-                  const count = jobs.filter(j => j.status === status).length;
-                  if (count === 0) return null;
-                  const isActive = statusFilter === status;
-                  return (
-                    <button
-                      key={status}
-                      onClick={() => setStatusFilter(isActive ? null : status)}
-                      className={`text-[7px] px-2 py-1 border transition-colors ${
-                        isActive ? 'border-crt-green text-crt-green' : 'border-crt-green/20 text-crt-green/50 hover:border-crt-green/40 hover:text-crt-green/70'
-                      }`}
-                      style={{
-                        background: isActive ? `${STATUS_COLOR[status]}15` : 'transparent',
-                        letterSpacing: '0.5px'
-                      }}
-                    >
-                      {STATUS_ICON[status]} {STATUS_LABEL[status]} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Job List */}
-          <div className="flex-1 overflow-y-auto">
-            {loading && !jobs.length ? (
-              <div className="p-8 text-center">
-                <p
-                  className="text-[9px] cursor-blink"
-                  style={{
-                    color: "var(--text-tertiary)",
-                  }}
-                >
-                  LOADING JOBS
-                </p>
-              </div>
-            ) : jobs.length === 0 ? (
-              <div className="p-8 text-center space-y-3">
-                <pre
-                  className="text-[6px] leading-tight inline-block"
-                  style={{
-                    color: "var(--text-tertiary)",
-                    opacity: 0.3,
-                  }}
-                >
-{`  ┌──────────────┐
-  │              │
-  │   NO TASKS   │
-  │    YET ◇     │
-  │              │
-  └──────────────┘`}
-                </pre>
-                <p
-                  className="text-[8px]"
-                  style={{
-                    color: "var(--text-tertiary)",
-                    opacity: 0.5,
-                  }}
-                >
-                  Create your first task above
-                </p>
-              </div>
-            ) : filteredJobs.length === 0 ? (
-              <div className="p-8 text-center space-y-3">
-                <pre
-                  className="text-[6px] leading-tight inline-block"
-                  style={{
-                    color: "var(--crt-amber)",
-                    opacity: 0.4,
-                  }}
-                >
-{`  ┌──────────────┐
-  │              │
-  │  NO RESULTS  │
-  │    FOUND     │
-  │      ✕       │
-  └──────────────┘`}
-                </pre>
-                <p
-                  className="text-[8px]"
-                  style={{
-                    color: "var(--text-tertiary)",
-                    opacity: 0.5,
-                  }}
-                >
-                  No tasks match "{searchQuery}"
-                </p>
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="text-[8px] transition-colors"
-                  style={{
-                    color: "var(--crt-amber)",
-                    opacity: 0.8,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = "1";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = "0.8";
-                  }}
-                >
-                  CLEAR SEARCH
-                </button>
-              </div>
-            ) : (
-              filteredJobs.map((job) => {
-                const isSelected = selectedJob === job.id;
-                const color = STATUS_COLOR[job.status];
-                return (
-                  <div
-                    key={job.id}
-                    onClick={() => viewJob(job)}
-                    className="cursor-pointer transition-all duration-150 group"
-                    style={{
-                      borderBottom: "1px solid rgba(51,255,51,0.06)",
-                      borderLeft: isSelected ? `4px solid ${color}` : "4px solid transparent",
-                      background: isSelected ? `${color}10` : "transparent",
-                      boxShadow: isSelected ? `0 0 15px ${color}15` : "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.background = "rgba(51,255,51,0.04)";
-                        e.currentTarget.style.borderLeft = `4px solid ${color}40`;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.borderLeft = "4px solid transparent";
-                      }
-                    }}
-                  >
-                    <div className="px-4 py-3.5">
-                      {/* Status Row */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-[11px] ${job.status === "running" ? "led-pulse" : ""}`}
-                            style={{ color }}
-                          >
-                            {STATUS_ICON[job.status]}
-                          </span>
-                          <span className="text-[9px] font-pixel" style={{ color, letterSpacing: "1px" }}>
-                            {STATUS_LABEL[job.status]}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="text-[7px] border px-1.5 py-0.5"
-                            style={{
-                              color: theme !== "light" ? "rgba(51,255,51,0.25)" : "rgba(26,26,26,0.4)",
-                              borderColor: theme !== "light" ? "rgba(51,255,51,0.1)" : "rgba(26,26,26,0.15)",
-                            }}
-                          >
-                            {job.model.toUpperCase()}
-                          </span>
-                          <span
-                            className="text-[7px]"
-                            style={{
-                              color: theme !== "light" ? "rgba(51,255,51,0.2)" : "rgba(26,26,26,0.35)",
-                            }}
-                          >
-                            {timeSince(job.created_at)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Prompt */}
-                      <p
-                        className="text-[9px] leading-relaxed mb-1"
-                        style={{
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        {job.prompt.length > 90 ? job.prompt.slice(0, 90) + "..." : job.prompt}
-                      </p>
-
-                      {/* Work Dir */}
-                      {job.work_dir && (
-                        <p
-                          className="text-[7px] mb-1.5 truncate"
-                          style={{
-                            color: "var(--crt-amber)",
-                            opacity: 0.6,
-                          }}
-                        >
-                          📁 {job.work_dir}
-                        </p>
-                      )}
-
-                      {/* Asks Section - Collapsible */}
-                      {job.asks && job.asks.length > 0 && (
-                        <div className="mt-2 mb-2">
-                          <button
-                            onClick={(e) => toggleAsks(job.id, e)}
-                            className="flex items-center gap-2 text-[7px] text-crt-blue/70 hover:text-crt-blue transition-colors"
-                          >
-                            <span className="transition-transform duration-200" style={{
-                              display: "inline-block",
-                              transform: expandedAsks.has(job.id) ? "rotate(90deg)" : "rotate(0deg)"
-                            }}>▶</span>
-                            <span>{job.asks.length} {job.asks.length === 1 ? "Ask" : "Asks"}</span>
-                          </button>
-                          {expandedAsks.has(job.id) && (
-                            <div className="mt-2 space-y-1.5 pl-4 border-l-2 border-crt-blue/30">
-                              {job.asks.map((ask, idx) => (
-                                <div
-                                  key={idx}
-                                  className="text-[7px] p-2 border border-crt-blue/20"
-                                  style={{
-                                    background: "rgba(0,170,255,0.05)",
-                                  }}
-                                >
-                                  <div className="text-crt-blue/80 mb-1">Q: {ask.question}</div>
-                                  {ask.answer && (
-                                    <div className="text-crt-green/60 pl-2">A: {ask.answer}</div>
-                                  )}
-                                  {ask.timestamp && (
-                                    <div className="text-crt-green/20 text-[6px] mt-1">
-                                      {timeSince(ask.timestamp)}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      <div className="flex justify-between items-center mt-2">
-                        <span
-                          className="text-[6px] font-mono"
-                          style={{
-                            color: "var(--text-tertiary)",
-                            opacity: 0.4,
-                          }}
-                        >
-                          {job.id.slice(0, 8)}
-                        </span>
-                        <div className="flex gap-2">
-                          {job.status === "running" && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); cancelJob(job.id); }}
-                              className="text-[7px] text-crt-red hover:text-crt-red/80 font-pixel px-2 py-0.5 border border-crt-red/30 hover:border-crt-red/60 transition-colors"
-                            >
-                              KILL
-                            </button>
-                          )}
-                          {["completed", "failed", "cancelled"].includes(job.status) && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); deleteJob(job.id); }}
-                              className="text-[7px] text-crt-green/30 hover:text-crt-red font-pixel px-2 py-0.5 border border-crt-green/10 hover:border-crt-red/40 transition-colors"
-                            >
-                              DELETE
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* ── Right Panel: Output ────────────────────────────────── */}
-        <div
-          className="flex-1 flex flex-col overflow-hidden"
+          className="flex flex-col overflow-hidden"
           style={{
             background: "var(--bg-primary)",
+            width: rightSidebarCollapsed ? "100%" : `${dividerPosition}%`,
           }}
         >
-          {selectedJobData ? (
-            <>
-              {/* Job Detail Header */}
-              <div
-                className="px-5 py-4 border-b-4"
-                style={{
-                  borderColor: "var(--crt-blue)",
-                  background: "var(--bg-secondary)",
-                  boxShadow: "0 4px 12px rgba(0,170,255,0.2)",
-                }}
+          {renderTasksTab()}
+        </div>
+
+        {/* ── Draggable Divider ──────────────────────── */}
+        {!rightSidebarCollapsed && (
+          <div
+            onMouseDown={() => setIsDragging(true)}
+            className="w-1 cursor-col-resize hover:bg-crt-green/30 transition-colors relative group"
+            style={{
+              background: "rgba(255,255,255,0.1)",
+            }}
+          >
+            <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-crt-green/10" />
+          </div>
+        )}
+
+        {/* ── Right Panel: Module Info & Output ──────────────────────── */}
+        {!rightSidebarCollapsed && (
+          <div
+            className="flex flex-col overflow-hidden"
+            style={{
+              background: "var(--bg-secondary)",
+              width: `${100 - dividerPosition}%`,
+            }}
+          >
+            {/* Tab Headers */}
+            <div className="flex border-b-2" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+              <button
+                onClick={() => setRightTab("output")}
+                className={`flex-1 px-3 py-2.5 text-[11px] transition-all ${
+                  rightTab === "output"
+                    ? "bg-crt-blue/10 text-crt-blue border-b-2 border-crt-blue"
+                    : "text-crt-green/50 hover:text-crt-green/70"
+                }`}
+                style={{ letterSpacing: "1.5px" }}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`text-[12px] ${selectedJobData.status === "running" ? "led-pulse" : ""}`}
-                      style={{ color: STATUS_COLOR[selectedJobData.status] }}
-                    >
-                      {STATUS_ICON[selectedJobData.status]}
-                    </span>
-                    <span
-                      className="text-[10px] font-pixel"
-                      style={{
-                        color: STATUS_COLOR[selectedJobData.status],
-                        letterSpacing: "1px",
-                        textShadow: `0 0 8px ${STATUS_COLOR[selectedJobData.status]}40`,
-                      }}
-                    >
-                      {STATUS_LABEL[selectedJobData.status]}
-                    </span>
-                    <span className="text-crt-green/10">│</span>
-                    <span className="text-[9px] text-crt-amber/70 border border-crt-amber/20 px-2 py-0.5">
-                      {selectedJobData.model.toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="text-[8px] text-crt-green/25 font-mono">
-                    {selectedJobData.id.slice(0, 12)}
-                  </span>
-                </div>
-
-                <p
-                  className="text-[10px] leading-relaxed mb-2"
-                  style={{
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  {selectedJobData.prompt}
-                </p>
-
-                <div
-                  className="flex items-center gap-4 text-[7px]"
-                  style={{
-                    color: "var(--text-tertiary)",
-                  }}
-                >
-                  {selectedJobData.work_dir && (
-                    <span>DIR: {selectedJobData.work_dir}</span>
-                  )}
-                  <span>CREATED: {formatDate(selectedJobData.created_at)}</span>
-                  {selectedJobData.pid && <span>PID: {selectedJobData.pid}</span>}
-                </div>
-              </div>
-
-              {/* Output Terminal */}
-              <div className="flex-1 overflow-hidden relative">
-                {/* Terminal decoration */}
-                <div
-                  className="absolute top-0 left-0 right-0 px-5 py-1 flex items-center justify-between border-b z-10"
-                  style={{
-                    background: "var(--bg-primary)",
-                    borderColor: "rgba(255,255,255,0.08)",
-                    opacity: 0.98,
-                  }}
-                >
-                  <span
-                    className="text-[6px]"
-                    style={{
-                      color: "var(--text-tertiary)",
-                      opacity: 0.5,
-                    }}
-                  >
-                    OUTPUT TERMINAL
-                  </span>
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 rounded-full" style={{ background: "#ff3333" }} />
-                    <span className="w-2 h-2 rounded-full" style={{ background: "#ffb000" }} />
-                    <span className="w-2 h-2 rounded-full" style={{ background: "var(--accent-color)" }} />
-                  </div>
-                </div>
-
-                <pre
-                  ref={outputRef}
-                  className="h-full overflow-y-auto pt-8 pb-4 px-6 m-0 whitespace-pre-wrap text-[11px] leading-relaxed font-mono"
-                  style={{
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {(streamOutput || selectedJobData.output)
-                    ? renderOutput(streamOutput || selectedJobData.output)
-                    : (selectedJobData.status === "pending" ? (
-                      <span
-                        style={{
-                          color: "var(--crt-amber)",
-                          opacity: 0.7,
-                        }}
-                      >
-                        {"░░░ QUEUED — WAITING FOR WORKER ░░░\n\n"}
-                        {"The task will begin shortly..."}
-                      </span>
-                    ) : selectedJobData.status === "running" ? (
-                      <span
-                        className="cursor-blink"
-                        style={{
-                          color: "var(--crt-blue)",
-                        }}
-                      >
-                        {"CONNECTING TO LIVE STREAM"}
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          color: "var(--text-tertiary)",
-                          opacity: 0.5,
-                        }}
-                      >
-                        {"— NO OUTPUT —"}
-                      </span>
-                    ))}
-                  {selectedJobData.error && (
-                    <span className="text-crt-red block mt-6 pt-3 border-t-2 border-crt-red/20">
-                      {"╔══ ERROR ══════════════════════════\n"}
-                      {"║ " + selectedJobData.error + "\n"}
-                      {"╚══════════════════════════════════"}
-                    </span>
-                  )}
-                </pre>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center gap-4">
-              <pre
-                className="text-crt-green/10 leading-tight select-none"
-                style={{ fontSize: "7px" }}
+                📟 OUTPUT
+              </button>
+              <button
+                onClick={() => setRightTab("files")}
+                className={`flex-1 px-3 py-2.5 text-[11px] transition-all ${
+                  rightTab === "files"
+                    ? "bg-crt-amber/10 text-crt-amber border-b-2 border-crt-amber"
+                    : "text-crt-green/50 hover:text-crt-green/70"
+                }`}
+                style={{ letterSpacing: "1.5px" }}
               >
+                📁 FILES
+              </button>
+              <button
+                onClick={() => setRightTab("app")}
+                className={`flex-1 px-3 py-2.5 text-[11px] transition-all ${
+                  rightTab === "app"
+                    ? "bg-crt-green/10 text-crt-green border-b-2 border-crt-green"
+                    : "text-crt-green/50 hover:text-crt-green/70"
+                }`}
+                style={{ letterSpacing: "1.5px" }}
+              >
+                🎨 APP
+              </button>
+              <button
+                onClick={() => setRightTab("api")}
+                className={`flex-1 px-3 py-2.5 text-[11px] transition-all ${
+                  rightTab === "api"
+                    ? "bg-crt-red/10 text-crt-red border-b-2 border-crt-red"
+                    : "text-crt-green/50 hover:text-crt-green/70"
+                }`}
+                style={{ letterSpacing: "1.5px" }}
+              >
+                ⚙️ API
+              </button>
+              <button
+                onClick={() => setRightSidebarCollapsed(true)}
+                className="px-3 py-2.5 text-[11px] text-crt-green/50 hover:text-crt-red/70 hover:bg-crt-red/5 transition-all border-l"
+                style={{ borderColor: "rgba(255,255,255,0.1)" }}
+                title="Collapse sidebar"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-hidden">
+              {rightTab === "output" ? (
+                selectedJobData ? (
+                  <>
+                    {/* Output Terminal */}
+                    <div className="h-full overflow-hidden relative">
+                      {/* Terminal decoration */}
+                      <div
+                        className="absolute top-0 left-0 right-0 px-5 py-1 flex items-center justify-between border-b z-10"
+                        style={{
+                          background: "var(--bg-primary)",
+                          borderColor: "rgba(255,255,255,0.08)",
+                          opacity: 0.98,
+                        }}
+                      >
+                        <span
+                          className="text-[14px]"
+                          style={{
+                            color: "var(--text-tertiary)",
+                            opacity: 0.5,
+                          }}
+                        >
+                          OUTPUT TERMINAL
+                        </span>
+                        <div className="flex gap-1">
+                          <span className="w-2 h-2 rounded-full" style={{ background: "#ff3333" }} />
+                          <span className="w-2 h-2 rounded-full" style={{ background: "#ffb000" }} />
+                          <span className="w-2 h-2 rounded-full" style={{ background: "var(--accent-color)" }} />
+                        </div>
+                      </div>
+
+                      <pre
+                        ref={outputRef}
+                        className="h-full overflow-y-auto pt-8 pb-4 px-6 m-0 whitespace-pre-wrap text-[14px] leading-relaxed font-mono"
+                        style={{
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {(streamOutput || selectedJobData.output)
+                          ? renderOutput(streamOutput || selectedJobData.output)
+                          : (selectedJobData.status === "pending" ? (
+                            <span
+                              style={{
+                                color: "var(--crt-amber)",
+                                opacity: 0.7,
+                              }}
+                            >
+                              {"░░░ QUEUED — WAITING FOR WORKER ░░░\n\n"}
+                              {"The task will begin shortly..."}
+                            </span>
+                          ) : selectedJobData.status === "running" ? (
+                            <span
+                              className="cursor-blink"
+                              style={{
+                                color: "var(--crt-blue)",
+                              }}
+                            >
+                              {"CONNECTING TO LIVE STREAM"}
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                color: "var(--text-tertiary)",
+                                opacity: 0.5,
+                              }}
+                            >
+                              {"— NO OUTPUT —"}
+                            </span>
+                          ))}
+                        {selectedJobData.error && (
+                          <span className="text-crt-red block mt-6 pt-3 border-t-2 border-crt-red/20">
+                            {"╔══ ERROR ══════════════════════════\n"}
+                            {"║ " + selectedJobData.error + "\n"}
+                            {"╚══════════════════════════════════"}
+                          </span>
+                        )}
+                      </pre>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                    <pre
+                      className="text-crt-green/10 leading-tight select-none"
+                      style={{ fontSize: "11px" }}
+                    >
 {`
      ╔═══════════════════════════════════╗
      ║                                   ║
@@ -2088,14 +1916,39 @@ export default function Home() {
      ║                                   ║
      ╚═══════════════════════════════════╝
 `}
-              </pre>
-              <p className="text-[8px] text-crt-green/15" style={{ letterSpacing: "2px" }}>
-                AWAITING SELECTION
-              </p>
+                    </pre>
+                    <p className="text-[12px] text-crt-green/15" style={{ letterSpacing: "2px" }}>
+                      AWAITING SELECTION
+                    </p>
+                  </div>
+                )
+              ) : rightTab === "files" ? (
+                renderDirectoryTab()
+              ) : rightTab === "app" ? (
+                renderAppTab()
+              ) : (
+                renderApiTab()
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Collapsed Sidebar Toggle Button */}
+        {rightSidebarCollapsed && (
+          <button
+            onClick={() => setRightSidebarCollapsed(false)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 px-2 py-8 bg-crt-green/10 hover:bg-crt-green/20 border-l-2 border-crt-green/30 transition-all z-50"
+            style={{
+              writingMode: "vertical-rl",
+              letterSpacing: "2px",
+            }}
+            title="Show module panel"
+          >
+            <span className="text-[11px] text-crt-green">◀ MOD PANEL</span>
+          </button>
+        )}
       </div>
+
 
       {/* ── Status Bar ───────────────────────────────────────────── */}
       <footer
@@ -2108,20 +1961,20 @@ export default function Home() {
       >
         <div className="flex items-center gap-3">
           <span
-            className="text-[7px]"
+            className="text-[14px]"
             style={{
               color: "var(--text-tertiary)",
               letterSpacing: "1px",
               opacity: 0.5,
             }}
           >
-            CLAUDE JOBS v1.0
+            MOD AI v1.0
           </span>
           <span style={{ color: "var(--text-tertiary)", opacity: 0.2 }}>
             ░
           </span>
           <span
-            className="text-[7px]"
+            className="text-[14px]"
             style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
           >
             BISMILLAH
@@ -2129,7 +1982,7 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-3">
           <span
-            className="text-[7px]"
+            className="text-[14px]"
             style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
           >
             BACKEND: localhost:8820
@@ -2138,7 +1991,7 @@ export default function Home() {
             │
           </span>
           <span
-            className="text-[7px]"
+            className="text-[14px]"
             style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
           >
             {new Date().toLocaleTimeString()}

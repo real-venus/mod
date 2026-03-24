@@ -81,8 +81,11 @@ class Quests:
         assert creator_balance >= reward, f"Insufficient balance. You have ${creator_balance:.2f} but the quest reward requires ${reward:.2f}"
 
         # Referee defaults to creator
-        referee_key = referee if referee else creator_key
-        assert isinstance(referee_key, str) and len(referee_key) > 0, "Referee address must be a valid string"
+        if referee is not None:
+            assert isinstance(referee, str) and len(referee.strip()) > 0, "Referee address must be a valid string"
+            referee_key = referee.strip()
+        else:
+            referee_key = creator_key
 
         # If creator is referee, auto-accept with 0% fee
         referee_accepted = (referee_key == creator_key)

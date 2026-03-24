@@ -1,198 +1,86 @@
-# ⚡ Quick Reference: Collapsible Asks & Themes
+# Claude Module Quick Reference - Unified Operations
 
-## 🚀 TL;DR
+## TL;DR
 
-Two new features:
-1. **Collapsible Asks** - Show/hide questions under tasks
-2. **Theme Toggle** - Switch between dark/light modes
+All operations use the same `forward()` method. The only difference:
+- **Read operations**: `requires_owner=False` (no permission check)
+- **Write operations**: `requires_owner=True` (owner key required)
 
-## 🎯 Quick Actions
+## Basic Usage
 
-| Action | How |
-|--------|-----|
-| Toggle theme | Click **☀/🌙** in header |
-| Expand asks | Click **▶ N Asks** on task |
-| Collapse asks | Click **▼ N Asks** again |
-| View ask details | Expand to see Q, A, timestamp |
+### Setup
 
-## 📊 Data Structure
+```python
+from claude import Mod
 
-```typescript
-// Add to any job
-{
-  asks: [
-    {
-      question: "Your question here?",
-      answer: "Optional answer",
-      timestamp: 1710234567
-    }
-  ]
-}
+# Local development (no owner)
+mod = Mod()
+
+# Production (with owner)
+mod = Mod(owner="0xYourAddress")
 ```
 
-## 🎨 Theme Comparison
+### Read Operations (No Permission Required)
 
-| Feature | Dark Mode | Light Mode |
-|---------|-----------|------------|
-| Background | `#0a0a0a` | `#f5f5f0` |
-| Text | `#33ff33` | `#1a3d0a` |
-| Icon | 🌙 | ☀ |
-| Best for | Night, low light | Day, bright rooms |
+```python
+# Analyze code
+result = mod.analyze_code(
+    path="./src",
+    focus="security"  # optional
+)
 
-## 🔧 Quick Setup
+# Debug issues
+result = mod.debug(
+    path="./src",
+    issue_description="Login fails with 500 error",
+    file_path="auth.py"  # optional
+)
 
-### 1. Frontend (Already Done ✅)
-```bash
-cd app
-npm run dev
+# General queries
+response = mod.ask("What does this code do?")
+
+# Direct forward call
+result = mod.forward(
+    query="Explain the architecture",
+    requires_owner=False  # explicit
+)
 ```
 
-### 2. Test with Mock Data
-```typescript
-// In fetchJobs() function
-const mockAsk = {
-  question: "Test question?",
-  answer: "Test answer",
-  timestamp: Date.now() / 1000 - 300
-};
+### Write Operations (Owner Required)
 
-job.asks = [mockAsk];
+```python
+import mod as m
+
+# Get owner key
+owner_key = m.key()
+
+# Edit a file
+result = mod.edit_file(
+    file_path="utils.py",
+    instructions="Add error handling",
+    key=owner_key,
+    store_ipfs=True  # default
+)
+
+# Generate code
+result = mod.generate_code(
+    description="Create a REST API endpoint",
+    path="./api",
+    key=owner_key
+)
+
+# Refactor code
+result = mod.refactor(
+    path="./src",
+    instructions="Extract helper functions",
+    target_files=["main.py", "utils.py"],  # optional
+    key=owner_key
+)
 ```
 
-### 3. Backend (Optional - Future Work)
-```rust
-// In server/src/jobs.rs
-pub struct ClaudeJob {
-    // ... existing fields
-    pub asks: Option<Vec<Ask>>,
-}
-```
+## See Full Documentation
 
-## 💡 Tips & Tricks
-
-1. **Theme Preference**: Will auto-reset on refresh (localStorage coming soon)
-2. **Multiple Asks**: Can have unlimited asks per job
-3. **Unanswered Asks**: Leave `answer` field empty
-4. **Timestamps**: Automatically formats to "Xm ago" / "Xh ago"
-5. **Event Bubbling**: Clicking asks won't select the task
-
-## 🎬 Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `⌘+Enter` | Submit new task |
-| *(Future)* `⌘+T` | Toggle theme |
-| *(Future)* `⌘+K` | Focus search |
-
-## 📱 Responsive Behavior
-
-- **Desktop**: Full 50/50 split panel
-- **Tablet**: Adjusts panel sizes
-- **Mobile**: Stack panels vertically (future)
-
-## 🐛 Known Issues
-
-| Issue | Status | Workaround |
-|-------|--------|------------|
-| Theme not saved | Known | Re-toggle on refresh |
-| Asks not persisted | Known | Backend WIP |
-| No ask editing | Known | Coming soon |
-
-## 🔮 Coming Soon
-
-- [ ] localStorage theme persistence
-- [ ] Backend API for asks
-- [ ] Real-time ask streaming
-- [ ] Filter by unanswered asks
-- [ ] Inline ask editor
-- [ ] Ask notifications
-
-## 📚 Documentation
-
-| File | Purpose |
-|------|---------|
-| `FEATURE_SUMMARY.md` | Executive summary |
-| `COLLAPSIBLE_ASKS_FEATURE.md` | Detailed guide |
-| `VISUAL_GUIDE.md` | Visual diagrams |
-| `IMPROVEMENTS.md` | All enhancements |
-| `QUICK_REFERENCE.md` | This file |
-
-## 🎯 Code Snippets
-
-### Toggle Theme
-```typescript
-<button onClick={() => setIsDarkMode(!isDarkMode)}>
-  {isDarkMode ? "☀" : "🌙"}
-</button>
-```
-
-### Toggle Asks
-```typescript
-const toggleAsks = (jobId: string, e: React.MouseEvent) => {
-  e.stopPropagation();
-  setExpandedAsks((prev) => {
-    const next = new Set(prev);
-    next.has(jobId) ? next.delete(jobId) : next.add(jobId);
-    return next;
-  });
-};
-```
-
-### Render Asks
-```tsx
-{job.asks && job.asks.length > 0 && (
-  <button onClick={(e) => toggleAsks(job.id, e)}>
-    <span style={{
-      transform: expandedAsks.has(job.id)
-        ? "rotate(90deg)"
-        : "rotate(0deg)"
-    }}>▶</span>
-    {job.asks.length} Asks
-  </button>
-)}
-```
-
-## 🧪 Testing Checklist
-
-- [ ] Asks expand/collapse smoothly
-- [ ] Theme toggle works
-- [ ] Colors change correctly
-- [ ] Timestamps format properly
-- [ ] Multiple asks display
-- [ ] Unanswered asks show
-- [ ] Arrow rotates on toggle
-- [ ] Event bubbling prevented
-- [ ] Works with search/filter
-- [ ] Responsive on mobile
-
-## 🎨 Color Codes
-
-### Dark Mode
-```
-Green:  #33ff33  rgb(51,255,51)
-Amber:  #ffb000  rgb(255,176,0)
-Blue:   #00aaff  rgb(0,170,255)
-Red:    #ff3333  rgb(255,51,51)
-BG:     #0a0a0a  rgb(10,10,10)
-```
-
-### Light Mode
-```
-Green:  #1a3d0a  rgb(26,61,10)
-Amber:  #996600  rgb(153,102,0)
-Blue:   #004d99  rgb(0,77,153)
-Red:    #b30000  rgb(179,0,0)
-BG:     #f5f5f0  rgb(245,245,240)
-```
-
-## 📞 Support
-
-- Issues: [GitHub Issues](https://github.com/your-repo/issues)
-- Docs: This directory
-- Questions: Open a discussion
-
----
-
-**Bismillah** ░ Quick Ref ░ Claude Jobs v1.0
-
-*Get productive in 60 seconds ⚡*
+- `UNIFIED_OPERATIONS.md` - Complete architecture
+- `ARCHITECTURE_DIAGRAM.md` - Visual diagrams
+- `examples/` - Working examples
+- `README.md` - Full docs

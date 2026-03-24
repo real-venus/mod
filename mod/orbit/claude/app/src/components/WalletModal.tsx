@@ -274,17 +274,6 @@ export default function WalletModal({
           {/* Overview Tab */}
           {!loading && activeTab === "overview" && (
             <div className="space-y-4">
-              {/* Balance Card */}
-              <div className="border-2 p-4" style={{ borderColor: "var(--crt-blue)", background: "rgba(0,170,255,0.05)" }}>
-                <div className="text-[7px] mb-2" style={{ color: "var(--text-tertiary)" }}>BALANCE</div>
-                <div className="text-[18px] font-bold mb-2" style={{ color: "var(--crt-blue)" }}>
-                  {parseFloat(balance).toFixed(6)} ETH
-                </div>
-                <div className="text-[7px]" style={{ color: "var(--text-tertiary)" }}>
-                  ${(parseFloat(balance) * 2000).toFixed(2)} USD (estimated)
-                </div>
-              </div>
-
               {/* Wallet Info */}
               <div className="border p-4 space-y-3" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
                 <div className="flex justify-between items-center">
@@ -472,27 +461,6 @@ export default function WalletModal({
           {/* Tokens Tab */}
           {!loading && activeTab === "tokens" && (
             <div className="space-y-4">
-              {/* Native Token */}
-              <div className="border-2 p-4" style={{ borderColor: "var(--crt-blue)", background: "rgba(0,170,255,0.05)" }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-[12px]">⟠</span>
-                    <div>
-                      <div className="text-[9px]" style={{ color: "var(--crt-blue)" }}>ETH</div>
-                      <div className="text-[7px]" style={{ color: "var(--text-tertiary)" }}>Ethereum</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[10px] font-bold" style={{ color: "var(--crt-blue)" }}>
-                      {parseFloat(balance).toFixed(6)}
-                    </div>
-                    <div className="text-[7px]" style={{ color: "var(--text-tertiary)" }}>
-                      ${(parseFloat(balance) * 2000).toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* ERC20 Tokens */}
               {tokens.length > 0 ? (
                 <div className="space-y-2">
