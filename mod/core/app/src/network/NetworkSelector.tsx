@@ -15,6 +15,13 @@ interface ChainConfig {
   mainnetName: string
   testnetId: string
   mainnetId: string
+  nativeCurrency: string
+  testnetChainId: number
+  mainnetChainId: number
+  testnetRpc: string
+  mainnetRpc: string
+  testnetExplorer: string
+  mainnetExplorer: string
 }
 
 const CHAINS: ChainConfig[] = [
@@ -27,6 +34,13 @@ const CHAINS: ChainConfig[] = [
     mainnetName: 'Base Mainnet',
     testnetId: 'base-sepolia',
     mainnetId: 'base-mainnet',
+    nativeCurrency: 'ETH',
+    testnetChainId: 84532,
+    mainnetChainId: 8453,
+    testnetRpc: 'https://sepolia.base.org',
+    mainnetRpc: 'https://mainnet.base.org',
+    testnetExplorer: 'https://sepolia.basescan.org',
+    mainnetExplorer: 'https://basescan.org',
   },
   {
     id: 'ethereum',
@@ -37,6 +51,13 @@ const CHAINS: ChainConfig[] = [
     mainnetName: 'Eth Mainnet',
     testnetId: 'eth-sepolia',
     mainnetId: 'eth-mainnet',
+    nativeCurrency: 'ETH',
+    testnetChainId: 11155111,
+    mainnetChainId: 1,
+    testnetRpc: 'https://rpc.sepolia.org',
+    mainnetRpc: 'https://eth.llamarpc.com',
+    testnetExplorer: 'https://sepolia.etherscan.io',
+    mainnetExplorer: 'https://etherscan.io',
   },
   {
     id: 'monad',
@@ -47,6 +68,13 @@ const CHAINS: ChainConfig[] = [
     mainnetName: 'Monad Mainnet',
     testnetId: 'monad-testnet',
     mainnetId: 'monad-mainnet',
+    nativeCurrency: 'MON',
+    testnetChainId: 10143,
+    mainnetChainId: 10143,
+    testnetRpc: 'https://testnet.monad.xyz/v1',
+    mainnetRpc: 'https://testnet.monad.xyz/v1',
+    testnetExplorer: 'https://testnet.monadexplorer.com',
+    mainnetExplorer: 'https://monadexplorer.com',
   },
   {
     id: 'solana',
@@ -57,6 +85,13 @@ const CHAINS: ChainConfig[] = [
     mainnetName: 'Sol Mainnet',
     testnetId: 'solana-devnet',
     mainnetId: 'solana-mainnet',
+    nativeCurrency: 'SOL',
+    testnetChainId: 0,
+    mainnetChainId: 0,
+    testnetRpc: 'https://api.devnet.solana.com',
+    mainnetRpc: 'https://api.mainnet-beta.solana.com',
+    testnetExplorer: 'https://explorer.solana.com/?cluster=devnet',
+    mainnetExplorer: 'https://explorer.solana.com',
   },
 ]
 
@@ -64,6 +99,7 @@ export function NetworkSelector({ inline = false, sidebar = false, onClose }: { 
   const [selectedChain, setSelectedChain] = useState<ChainConfig>(CHAINS[0])
   const [networkEnv, setNetworkEnv] = useState<NetworkEnvironment>('testnet')
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showInfo, setShowInfo] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const syncFromStorage = () => {
@@ -256,6 +292,88 @@ export function NetworkSelector({ inline = false, sidebar = false, onClose }: { 
           })}
         </div>
       </div>
+
+      {/* Network Info Toggle */}
+      <div style={{ borderTop: '1px solid var(--border-color)' }}>
+        <button
+          onClick={() => setShowInfo(!showInfo)}
+          className="w-full flex items-center justify-between px-3 py-2 transition-all"
+          style={{ fontFamily: 'var(--font-pixel), monospace' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+        >
+          <span style={{ fontSize: '8px', color: 'var(--text-tertiary)', letterSpacing: '0.1em' }} className="uppercase font-bold">
+            Network Info
+          </span>
+          <ChevronDownIcon
+            className={`w-3 h-3 transition-transform duration-200 ${showInfo ? 'rotate-180' : ''}`}
+            style={{ color: 'var(--text-tertiary)' }}
+          />
+        </button>
+
+        <AnimatePresence>
+          {showInfo && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
+            >
+              <div className="px-3 pb-3 flex flex-col gap-2" style={{ fontFamily: 'var(--font-pixel), monospace' }}>
+                {/* Chain ID */}
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: '7px', color: 'var(--text-tertiary)', letterSpacing: '0.1em' }} className="uppercase">Chain ID</span>
+                  <span style={{ fontSize: '8px', color: selectedChain.color }} className="font-bold">
+                    {selectedChain.id === 'solana' ? 'N/A' : (networkEnv === 'testnet' ? selectedChain.testnetChainId : selectedChain.mainnetChainId)}
+                  </span>
+                </div>
+
+                {/* Currency */}
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: '7px', color: 'var(--text-tertiary)', letterSpacing: '0.1em' }} className="uppercase">Currency</span>
+                  <span style={{ fontSize: '8px', color: 'var(--text-primary)' }} className="font-bold">
+                    {selectedChain.nativeCurrency}
+                  </span>
+                </div>
+
+                {/* Network Name */}
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: '7px', color: 'var(--text-tertiary)', letterSpacing: '0.1em' }} className="uppercase">Network</span>
+                  <span style={{ fontSize: '8px', color: 'var(--text-primary)' }} className="font-bold">
+                    {networkEnv === 'testnet' ? selectedChain.testnetName : selectedChain.mainnetName}
+                  </span>
+                </div>
+
+                {/* RPC */}
+                <div className="flex items-center justify-between gap-2">
+                  <span style={{ fontSize: '7px', color: 'var(--text-tertiary)', letterSpacing: '0.1em' }} className="uppercase flex-shrink-0">RPC</span>
+                  <span
+                    style={{ fontSize: '7px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    title={networkEnv === 'testnet' ? selectedChain.testnetRpc : selectedChain.mainnetRpc}
+                  >
+                    {networkEnv === 'testnet' ? selectedChain.testnetRpc : selectedChain.mainnetRpc}
+                  </span>
+                </div>
+
+                {/* Explorer */}
+                <div className="flex items-center justify-between gap-2">
+                  <span style={{ fontSize: '7px', color: 'var(--text-tertiary)', letterSpacing: '0.1em' }} className="uppercase flex-shrink-0">Explorer</span>
+                  <a
+                    href={networkEnv === 'testnet' ? selectedChain.testnetExplorer : selectedChain.mainnetExplorer}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '7px', color: selectedChain.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {networkEnv === 'testnet' ? selectedChain.testnetExplorer : selectedChain.mainnetExplorer}
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </>
   )
 
@@ -281,8 +399,8 @@ export function NetworkSelector({ inline = false, sidebar = false, onClose }: { 
       {inline ? (
         <div
           onClick={() => setShowDropdown(!showDropdown)}
-          className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-all"
-          style={{ fontFamily: 'var(--font-pixel), monospace' }}
+          className="flex items-center gap-1.5 px-3 cursor-pointer hover:opacity-70 transition-all"
+          style={{ fontFamily: 'var(--font-pixel), monospace', height: '52px' }}
         >
           {triggerContent(true)}
         </div>

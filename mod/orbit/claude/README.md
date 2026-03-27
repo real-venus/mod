@@ -14,19 +14,7 @@ Python SDK · Rust Job Server · 8-Bit Terminal UI
 
 ---
 
-Claude Mod gives you a programmable interface to Claude Code for autonomous development workflows. Script code tasks with Python, manage long-running jobs through a Rust backend, and monitor everything from a retro terminal dashboard.
-
-**What's in the box:**
-
-- **Python SDK** — Type-safe API for code analysis, generation, refactoring, debugging, and AI chat
-- **Rust Job Engine** — Axum HTTP server with SQLite persistence, SSE streaming, and wallet auth
-- **8-Bit Terminal UI** — Next.js dashboard with CRT aesthetic, 6 themes, and image paste support
-- **File Browser** — VS Code-style file explorer with syntax highlighting, search (Cmd+P), and content search (Cmd+Shift+F)
-- **Background Jobs** — Long-running autonomous tasks with streaming logs
-- **IPFS Storage** — Content-addressed versioning of all code changes
-- **Multi-Model Support** — 200+ models via OpenRouter (Claude, GPT, Llama, etc.)
-- **Owner-Based Access Control** — Restrict code edits to specific wallet addresses
-- **Module Forking** — Generate and fork Mod framework modules programmatically
+Script code tasks with Python, run long-lived jobs through a Rust backend, version everything to IPFS, and watch it all from a retro terminal dashboard.
 
 ## Quick Start
 
@@ -37,17 +25,14 @@ cd mod/mod/orbit/claude
 pip install -r requirements.txt
 cd app && npm install && cd ..
 
-./scripts/start.sh
+./scripts/start.sh          # starts Rust server + Next.js UI
 ```
 
 Open **http://localhost:8821** — no wallet required in local mode (default).
 
-The start script sets `CLAUDE_JOBS_LOCAL=1` by default, skipping authentication entirely.
-
 ```bash
-# Options
-./scripts/start.sh --build   # Force Rust rebuild
-./scripts/start.sh --prod    # Production Next.js build
+./scripts/start.sh --build   # force Rust rebuild
+./scripts/start.sh --prod    # production Next.js build
 ```
 
 <details>
@@ -71,68 +56,110 @@ from claude import Mod
 c = Mod()
 ```
 
-### Synchronous Operations
+### Core Operations
 
 ```python
-c.analyze_code(path="/project", focus="security")
-c.generate_code(description="FastAPI auth endpoint with JWT", path="/project")
-c.refactor(instructions="Extract validation into decorators", path="/project")
-c.debug(issue_description="TypeError on line 42", path="/project")
-c.run_task(task="Add docstrings to all public functions", path="/project")
-c.batch_process(["Check SQL injection", "Find unused imports"], model="haiku")
-c.ask("Explain this error: TypeError on line 42")
+c.analyze_code(path="/project", focus="security")       # read-only analysis
+c.generate_code(description="FastAPI auth with JWT",     # generate new code (owner-only)
+                path="/project")
+c.refactor(instructions="Extract into decorators",       # refactor existing code (owner-only)
+           path="/project")
+c.debug(issue_description="TypeError on line 42",        # debug issues
+        path="/project")
+c.run_task(task="Add docstrings to public functions",    # general task
+           path="/project")
+c.batch_process(["Check SQL injection",                  # batch multiple queries
+                 "Find unused imports"], model="haiku")
+c.ask("Explain this error: TypeError on line 42")        # conversational (OpenRouter)
+c.edit_file("config.py", "Add DATABASE_URL env var")     # edit a specific file (owner-only)
 ```
 
-### Background Jobs (CLI)
+### Background Jobs
 
-Fire-and-forget tasks using Claude CLI directly:
+**Local** — fire-and-forget via Claude CLI:
 
 ```python
 task = c.bg("refactor utils.py to use async", mod="core", model="sonnet")
-# Returns: {'pid': 12345, 'log_file': '~/.mod/claude/logs/...'}
+# => {'pid': 12345, 'log_file': '~/.mod/claude/logs/...'}
 ```
 
-### Background Jobs (Server)
-
-Submit to the Rust job engine for managed execution with streaming:
+**Server** — managed execution with streaming through the Rust engine:
 
 ```python
 job = c.submit("Build React dashboard", model="sonnet", work_dir="/project")
 
-c.tail(job['id'])       # Stream live output
-c.jobs()                # List all jobs
-c.cancel(job['id'])     # Cancel running job
+c.tail(job['id'])       # stream live output (SSE)
+c.jobs()                # list all jobs
+c.cancel(job['id'])     # cancel a running job
+c.delete_job(job['id']) # delete a job
+```
+
+### Versioning
+
+Semantic versioning backed by IPFS:
+
+```python
+c.snapshot("v1.2.0", message="Add auth endpoints")   # create versioned snapshot
+c.changelog()                                          # view version history
+c.show_changelog()                                     # pretty-print changelog
+c.get_version("v1.2.0")                               # fetch specific version
+c.restore_version("v1.2.0")                            # restore from IPFS CID
 ```
 
 ### Module Operations
 
 ```python
 c.create_module("mymod", prompt="Build a web scraper module")
-c.fork_module("mymod", fork_source="claude", prompt="Add rate limiting")
-c.edit_file("config.py", "Add DATABASE_URL environment variable")
+c.edit_module("mymod", prompt="Add rate limiting")
+c.fork_module("myclaude", fork_source="claude", prompt="Add GitLab integration")
 ```
 
 ## Web UI
 
-Retro terminal dashboard at **http://localhost:8821** with job submission, live SSE streaming, module creation, image paste, wallet auth, and 6 themes (dark, light, matrix, cyberpunk, amber, ocean).
+Retro terminal dashboard at **http://localhost:8821** with:
+
+- ASCII boot screen and CRT aesthetic
+- Job submission, live SSE streaming, cancel/delete
+- File browser with syntax highlighting (20+ languages)
+- File search (`Cmd+P`) and content search (`Cmd+Shift+F`)
+- Image paste support
+- MetaMask wallet auth
+- 6 themes: dark, light, matrix, cyberpunk, amber, ocean
 
 ## REST API
 
-Rust server on port `8820`:
+Rust server on port `8820`.
+
+### Public (no auth required)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/health` | Health check |
+| `GET` | `/config` | Module config |
+| `GET` | `/owner` | Owner status |
 | `GET` | `/repos` | List git repos |
-| `GET` | `/auth/challenge?address=0x...` | Get signature challenge |
-| `POST` | `/auth/verify` | Verify signature, returns JWT |
+| `GET` | `/modules` | List orbit/core modules |
+| `GET` | `/modules/{name}/config` | Module config by name |
+| `GET` | `/changelog` | Version changelog |
+| `GET` | `/versions/{version}` | Specific version entry |
+| `GET` | `/files/tree?path=&depth=` | Directory tree |
+| `GET` | `/files/content?path=` | File contents |
+| `GET` | `/files/search?path=&query=` | Search file names |
+| `GET` | `/files/grep?path=&query=` | Grep file contents |
+
+### Authenticated
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/auth/challenge?address=0x...` | Signature challenge |
+| `POST` | `/auth/verify` | Verify signature, get JWT |
+| `GET` | `/auth/role` | Check user role |
 | `POST` | `/jobs` | Submit new job |
 | `GET` | `/jobs` | List all jobs |
-| `GET` | `/jobs/{id}` | Get job details |
+| `GET` | `/jobs/{id}` | Job details |
 | `DELETE` | `/jobs/{id}` | Delete job |
 | `POST` | `/jobs/{id}/cancel` | Cancel running job |
 | `GET` | `/jobs/{id}/stream` | SSE stream of job output |
-| `GET` | `/owner` | Check owner status |
 
 ```bash
 curl -X POST http://localhost:8820/jobs \
@@ -140,13 +167,28 @@ curl -X POST http://localhost:8820/jobs \
   -d '{"prompt": "Add error handling to api.py", "model": "sonnet", "work_dir": "/project"}'
 ```
 
+## Auth & Permissions
+
+| Mode | How | Details |
+|------|-----|---------|
+| **Local** | `CLAUDE_JOBS_LOCAL=1` (default) | No auth, all endpoints open |
+| **Wallet** | MetaMask / SubWallet / BIP-39 mnemonic / password-derived key | EIP-191 challenge/verify, 24-hour JWT |
+
+The first wallet to authenticate becomes the **owner**. Owners can edit any file. Non-owners can only edit modules under `_outer/{their_address}/`. Read-only operations (`analyze_code`, `debug`, `ask`) are open to everyone.
+
+```python
+c = Mod(owner="0x1234...")   # set owner at init
+c.set_owner("0x1234...")     # or set later
+c.is_owner("0x1234...")      # check ownership
+```
+
 ## Configuration
 
 | Env Var | Default | Description |
 |---------|---------|-------------|
-| `ANTHROPIC_API_KEY` | — | Anthropic API key (optional for Claude Max users) |
+| `ANTHROPIC_API_KEY` | — | Anthropic API key (optional for Claude Max) |
 | `OPENROUTER_API_KEY` | — | OpenRouter key for 200+ models |
-| `CLAUDE_JOBS_LOCAL` | `0` | Set to `1` to disable authentication |
+| `CLAUDE_JOBS_LOCAL` | `0` | `1` to disable auth |
 | `MOD_ANCHOR` | `~/mod` | Base directory for module creation |
 
 **Models:**
@@ -161,133 +203,32 @@ curl -X POST http://localhost:8820/jobs \
 
 ```
 claude/
-├── claude/claude.py        # Python SDK
+├── claude/claude.py        # Python SDK (Mod class)
 ├── server/src/             # Rust job engine (Axum + SQLite + SSE)
-│   ├── api.rs              #   REST endpoints
+│   ├── api.rs              #   REST endpoints + file browser
 │   ├── jobs.rs             #   Job lifecycle and process management
 │   ├── auth.rs             #   Wallet signature auth (EIP-191)
 │   └── main.rs             #   Entry point
-├── app/src/app/            # Next.js 14 terminal UI
-│   ├── page.tsx            #   Dashboard
-│   └── globals.css         #   6 retro themes
+├── app/src/                # Next.js 14 terminal UI
+│   ├── app/page.tsx        #   Dashboard
+│   ├── app/globals.css     #   6 retro themes
+│   └── components/         #   FileTree, CodeViewer, Search, WalletModal
+├── config.json             # Module metadata, endpoints, owner
 ├── scripts/start.sh        # One-command launcher
 └── tests/                  # Python test suite
 ```
 
-## Auth
-
-- **Local mode** (`CLAUDE_JOBS_LOCAL=1`) — No auth, all endpoints open
-- **Wallet mode** — EIP-191 signature challenge/verify with 24-hour JWT tokens
-
-Wallet options: MetaMask, SubWallet, local key (BIP-39 mnemonic), or password-derived key (keccak256 hash).
-
-<details>
-<summary><strong>Owner-Based Access Control</strong></summary>
-
-The first person to authenticate automatically becomes the owner. Owner-only operations include `refactor()`, `generate_code()`, and `edit_file()`. Read-only operations like `analyze_code()`, `debug()`, and `ask()` are available to everyone.
-
-```python
-c = Mod(owner="0x1234...")   # Set owner during init
-c.set_owner("0x1234...")     # Or set later
-c.is_owner("0x1234...")      # Check ownership
-c.reload_owner()             # Reload from config
-```
-
-See [AUTO_OWNER_SETUP.md](./AUTO_OWNER_SETUP.md) for details.
-
-</details>
-
-<details>
-<summary><strong>IPFS Version History</strong></summary>
-
-All code changes are automatically stored to IPFS for immutable, content-addressed versioning.
-
-```python
-c.show_history(limit=10)    # Display recent changes with CIDs
-history = c.get_history()    # Get full history as JSON
-cid = c.get_latest_cid()    # Get most recent CID
-content = c.ipfs.cat(cid)   # Retrieve code from IPFS
-```
-
-</details>
-
-<details>
-<summary><strong>Commune Registration</strong></summary>
-
-Register the module on-chain via commune using IPFS CIDs from `config.json`:
-
-```python
-c = Mod()
-c.show_config()
-cid = c.get_config_cid()
-cid = c.update_config_urls(app_url="https://claude.yourapp.com", api_url="https://api.yourapp.com")
-```
-
-See [examples/commune_registration.py](examples/commune_registration.py) for a full example.
-
-</details>
-
-<details>
-<summary><strong>File Browser with Syntax Highlighting</strong></summary>
-
-VS Code-style file explorer built into the UI with color-coded files, syntax highlighting, and full-text search.
-
-**Features:**
-- 📁 **File Tree** — Color-coded by type (Python, JS, Rust, etc.) with expand/collapse
-- 🎨 **Code Viewer** — Syntax highlighting for 20+ languages (VS Code Dark+ theme)
-- 🔍 **File Search** — `Cmd+P` / `Ctrl+P` for quick file name search
-- 🔎 **Content Search** — `Cmd+Shift+F` / `Ctrl+Shift+F` for grep-style full-text search
-- ⌨️ **Keyboard Navigation** — Arrow keys, Enter, Esc throughout
-
-**Usage:**
-
-```typescript
-import FileTree from "../components/FileTree";
-import CodeViewer from "../components/CodeViewer";
-import FileSearch from "../components/FileSearch";
-import ContentSearch from "../components/ContentSearch";
-
-<FileTree workDir="~/mod" onFileSelect={setFile} selectedFile={file} />
-<CodeViewer filePath={file} workDir="~/mod" />
-<FileSearch workDir="~/mod" onFileSelect={setFile} isOpen={searchOpen} onClose={close} />
-<ContentSearch workDir="~/mod" onFileSelect={setFile} isOpen={grepOpen} onClose={close} />
-```
-
-**API Endpoints:**
-- `GET /files/tree?path=~/mod&depth=3` — Directory tree structure
-- `GET /files/content?path=~/mod/file.py` — File contents
-- `GET /files/search?path=~/mod&query=test` — Search file names
-- `GET /files/grep?path=~/mod&query=function&caseSensitive=false` — Search contents
-
-See [FILE_BROWSER_GUIDE.md](./FILE_BROWSER_GUIDE.md) for complete documentation, [FILE_BROWSER_ARCHITECTURE.md](./FILE_BROWSER_ARCHITECTURE.md) for architecture details, and [examples/file-browser.tsx](./examples/file-browser.tsx) for a working example.
-
-</details>
-
-## Fork This Module
-
-```bash
-# CLI
-m fork claude myclaude "Add GitLab integration"
-```
-
-```python
-# Python
-c.fork_module("myclaude", fork_source="claude", prompt="Add GitLab integration")
-```
-
-Forks include full source (Python, Rust, Next.js), all config, tests, and docs. The forked module lives in `~/mod/mod/orbit/<name>` and can be published to IPFS with `m.publish('name')`.
-
 ## Development
 
 ```bash
-python -m pytest tests/              # Run tests
-cd server && cargo build --release   # Build Rust server
-cd app && npm run dev -- -p 8821     # Frontend dev server
+python -m pytest tests/              # run tests
+cd server && cargo build --release   # build Rust server
+cd app && npm run dev -- -p 8821     # frontend dev server
 ```
 
 ```python
 from claude import Mod
-Mod.set_log_level('DEBUG')           # Enable debug logging
+Mod.set_log_level('DEBUG')           # enable debug logging
 ```
 
 ## Troubleshooting
@@ -305,7 +246,6 @@ brew install anthropics/claude/claude
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-# Or: echo "sk-ant-..." > ~/.anthropic/api_key && chmod 600 ~/.anthropic/api_key
 ```
 </details>
 
@@ -313,9 +253,9 @@ export ANTHROPIC_API_KEY=sk-ant-...
 <summary>Job server not starting</summary>
 
 ```bash
-lsof -i :8820              # Check if port is in use
-pkill -f claude-jobs        # Kill existing process
-./scripts/start.sh --build  # Restart with rebuild
+lsof -i :8820              # check if port is in use
+pkill -f claude-jobs        # kill existing process
+./scripts/start.sh --build  # restart with rebuild
 ```
 </details>
 
@@ -328,12 +268,16 @@ ipfs init && ipfs daemon &
 ```
 </details>
 
----
+## Fork This Module
 
-## Docs
+```bash
+m fork claude myclaude "Add GitLab integration"
+```
+
+Forks include full source (Python, Rust, Next.js), config, tests, and docs. Lives in `~/mod/mod/orbit/<name>` and can be published with `m.publish('name')`.
+
+---
 
 [Architecture](ARCHITECTURE.md) · [Backends](BACKENDS.md) · [Permissions & IPFS](PERMISSIONS_AND_IPFS.md) · [Module Creation](MODULE_CREATION.md) · [Examples](EXAMPLE_USAGE.md) · [Quick Ref](QUICK_REFERENCE.md) · [Wallet Guide](WALLET_GUIDE.md)
-
----
 
 Part of the [Mod framework](https://github.com/modprotocol/mod).

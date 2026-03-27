@@ -141,7 +141,7 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }
         {/* Search Input */}
         <div style={{ padding: "16px", borderBottom: "1px solid #333" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-            <span style={{ color: "#00aaff", fontSize: "16px" }}>🔎</span>
+            <span style={{ color: "#00aaff", fontSize: "11px" }}>🔎</span>
             <input
               ref={inputRef}
               type="text"
@@ -155,17 +155,17 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }
                 border: "none",
                 outline: "none",
                 color: "#fff",
-                fontSize: "14px",
+                fontSize: "10px",
                 fontFamily: "monospace",
               }}
             />
             {loading && (
-              <span style={{ color: "#666", fontSize: "12px" }}>Searching...</span>
+              <span style={{ color: "#666", fontSize: "8px" }}>Searching...</span>
             )}
           </div>
 
           {/* Options */}
-          <div style={{ display: "flex", gap: "16px", fontSize: "12px" }}>
+          <div style={{ display: "flex", gap: "16px", fontSize: "8px" }}>
             <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
               <input
                 type="checkbox"
@@ -196,7 +196,7 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }
                 textAlign: "center",
                 color: "#666",
                 fontFamily: "monospace",
-                fontSize: "13px",
+                fontSize: "9px",
               }}
             >
               No matches found
@@ -226,7 +226,7 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }
                   style={{
                     color: "#00aaff",
                     fontFamily: "monospace",
-                    fontSize: "13px",
+                    fontSize: "9px",
                     fontWeight: "500",
                   }}
                 >
@@ -236,7 +236,7 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }
                   style={{
                     color: "#666",
                     fontFamily: "monospace",
-                    fontSize: "11px",
+                    fontSize: "8px",
                   }}
                 >
                   :{result.line}
@@ -246,7 +246,7 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }
                 style={{
                   color: "#ccc",
                   fontFamily: "monospace",
-                  fontSize: "12px",
+                  fontSize: "8px",
                   whiteSpace: "pre",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -258,7 +258,7 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }
                 style={{
                   color: "#555",
                   fontFamily: "monospace",
-                  fontSize: "10px",
+                  fontSize: "7px",
                 }}
               >
                 {result.path}
@@ -274,7 +274,7 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }
             borderTop: "1px solid #333",
             display: "flex",
             justifyContent: "space-between",
-            fontSize: "11px",
+            fontSize: "8px",
             color: "#666",
             fontFamily: "monospace",
           }}

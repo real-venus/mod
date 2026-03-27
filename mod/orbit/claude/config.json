@@ -2,7 +2,9 @@
   "name": "claude",
   "version": "1.0.0",
   "description": "Programmable AI developer interface with Python SDK, Rust Job Server, and Next.js Terminal UI",
+  "owner": "0xeb0631ce3ec62ceed053c66eb6481753d0c812a8",
   "port": 8820,
+  "default_path": "~/mod",
   "urls": {
     "app": "http://localhost:8821",
     "api": "http://localhost:8820"
@@ -25,7 +27,12 @@
     "job",
     "cancel",
     "delete_job",
-    "tail"
+    "tail",
+    "snapshot",
+    "changelog",
+    "get_version",
+    "restore_version",
+    "show_changelog"
   ],
   "schema": {
     "forward": {
@@ -206,6 +213,50 @@
       "output": {"type": "list", "value": null},
       "docs": "Process a batch of items with the same instruction.",
       "cost": 0
+    },
+    "snapshot": {
+      "input": [
+        {"name": "description", "type": "str", "value": null},
+        {"name": "version", "type": "str", "value": null}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Take a snapshot of the current module state, store all source files to IPFS, and add to changelog.",
+      "cost": 0
+    },
+    "changelog": {
+      "input": [
+        {"name": "limit", "type": "int", "value": null}
+      ],
+      "output": {"type": "list", "value": null},
+      "docs": "Get the version changelog (newest first) with version, CID, date, and description.",
+      "cost": 0
+    },
+    "get_version": {
+      "input": [
+        {"name": "version", "type": "str", "value": null},
+        {"name": "cid", "type": "str", "value": null}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Retrieve a specific version snapshot from IPFS by version label or CID.",
+      "cost": 0
+    },
+    "restore_version": {
+      "input": [
+        {"name": "version", "type": "str", "value": null},
+        {"name": "cid", "type": "str", "value": null},
+        {"name": "dry_run", "type": "bool", "value": true}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Restore the module to a previous version from IPFS. Defaults to dry_run=True.",
+      "cost": 0
+    },
+    "show_changelog": {
+      "input": [
+        {"name": "limit", "type": "int", "value": 20}
+      ],
+      "output": {"type": "None", "value": null},
+      "docs": "Display the version changelog in a readable terminal format.",
+      "cost": 0
     }
   },
   "endpoints": {
@@ -311,6 +362,19 @@
       "auth": true,
       "docs": "SSE live stream of job output",
       "output": "text/event-stream"
+    },
+    "/changelog": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Get version changelog (newest first) with IPFS CIDs",
+      "input": [{"name": "limit", "type": "int", "value": null}],
+      "output": {"changelog": "list", "count": "int"}
+    },
+    "/versions/{version}": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Get a specific version entry from the changelog",
+      "output": {"version": "dict", "gateway": "str"}
     }
   }
 }

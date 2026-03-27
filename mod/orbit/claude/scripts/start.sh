@@ -14,7 +14,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-SERVER_DIR="$ROOT_DIR/server"
+SERVER_DIR="$ROOT_DIR/api"
 APP_DIR="$ROOT_DIR/app"
 
 BACKEND_PID=""

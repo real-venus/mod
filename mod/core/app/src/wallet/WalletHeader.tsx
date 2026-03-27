@@ -17,6 +17,7 @@ import { useWalletAccounts } from './hooks/useWalletAccounts'
 import { useNetwork } from './hooks/useNetwork'
 import { useSidebarResize } from './hooks/useSidebarResize'
 import { WalletSidebar } from './sidebar/WalletSidebar'
+import { NetworkSelector } from '@/network/NetworkSelector'
 
 const WalletModeLogo = ({ mode, size = 16 }: { mode: string; size?: number }) => {
   const m = mode.toLowerCase()
@@ -293,7 +294,7 @@ export function WalletHeader() {
         <div
           onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen) }}
           className="flex items-center gap-2 px-3 h-[52px] transition-all hover:opacity-70 cursor-pointer"
-          title="Open wallet"
+          title={address}
           role="button"
         >
           <span className="tabular-nums font-bold uppercase" style={{ fontSize: '20px', fontFamily: 'var(--font-digital)', color: 'var(--text-tertiary)' }}>
@@ -306,7 +307,7 @@ export function WalletHeader() {
           onClick={copyAddress}
           className="flex items-center justify-center h-[52px] px-2 transition-all hover:opacity-70 flex-shrink-0"
           style={{ color: copiedAddress ? '#4ade80' : 'var(--text-tertiary)' }}
-          title="Copy address"
+          title={`Copy: ${address}`}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             {copiedAddress ? (
@@ -316,6 +317,17 @@ export function WalletHeader() {
             )}
           </svg>
         </button>
+
+        {/* Separator */}
+        <div className="w-px h-6 flex-shrink-0" style={{ backgroundColor: 'var(--border-strong)' }} />
+
+        {/* Inline Network Selector */}
+        <div className="flex items-center h-[52px] flex-shrink-0">
+          <NetworkSelector inline />
+        </div>
+
+        {/* Separator */}
+        <div className="w-px h-6 flex-shrink-0" style={{ backgroundColor: 'var(--border-strong)' }} />
 
         {/* Wallet switcher dropdown */}
         {accounts.walletHistory.filter(w => w.address.toLowerCase() !== address.toLowerCase()).length > 0 && (

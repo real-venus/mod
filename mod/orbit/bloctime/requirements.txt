@@ -1,8 +1,4 @@
-# GraphQL Requirements
-# Add your GraphQL dependencies here
-
-graphene>=3.0
-graphql-core>=3.2.0
-graphql-relay>=3.2.0
-gql>=3.0.0
-requests_toolbelt
+web3>=6.0
+eth-account>=0.10.0
+requests
+python-dotenv

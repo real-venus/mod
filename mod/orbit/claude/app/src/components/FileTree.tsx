@@ -121,12 +121,12 @@ function FileTreeNode({
           alignItems: "center",
           gap: "6px",
           fontFamily: "monospace",
-          fontSize: "13px",
+          fontSize: "9px",
           borderLeft: isSelected ? "2px solid #00aaff" : "none",
         }}
       >
         {node.type === "directory" && (
-          <span style={{ color: "#888", fontSize: "10px" }}>
+          <span style={{ color: "#888", fontSize: "7px" }}>
             {expanded ? "▼" : "▶"}
           </span>
         )}
@@ -202,7 +202,7 @@ export default function FileTree({ workDir, onFileSelect, selectedFile }: FileTr
         borderBottom: "1px solid #333",
         color: "#00aaff",
         fontFamily: "monospace",
-        fontSize: "12px",
+        fontSize: "8px",
         fontWeight: "bold",
       }}>
         FILES

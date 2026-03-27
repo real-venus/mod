@@ -113,7 +113,7 @@ export default function FileSearch({ workDir, onFileSelect, isOpen, onClose }: F
         {/* Search Input */}
         <div style={{ padding: "16px", borderBottom: "1px solid #333" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ color: "#00aaff", fontSize: "16px" }}>🔍</span>
+            <span style={{ color: "#00aaff", fontSize: "11px" }}>🔍</span>
             <input
               ref={inputRef}
               type="text"
@@ -127,12 +127,12 @@ export default function FileSearch({ workDir, onFileSelect, isOpen, onClose }: F
                 border: "none",
                 outline: "none",
                 color: "#fff",
-                fontSize: "14px",
+                fontSize: "10px",
                 fontFamily: "monospace",
               }}
             />
             {loading && (
-              <span style={{ color: "#666", fontSize: "12px" }}>Searching...</span>
+              <span style={{ color: "#666", fontSize: "8px" }}>Searching...</span>
             )}
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function FileSearch({ workDir, onFileSelect, isOpen, onClose }: F
                 textAlign: "center",
                 color: "#666",
                 fontFamily: "monospace",
-                fontSize: "13px",
+                fontSize: "9px",
               }}
             >
               No files found
@@ -175,7 +175,7 @@ export default function FileSearch({ workDir, onFileSelect, isOpen, onClose }: F
                 style={{
                   color: "#fff",
                   fontFamily: "monospace",
-                  fontSize: "13px",
+                  fontSize: "9px",
                   fontWeight: "500",
                 }}
               >
@@ -185,7 +185,7 @@ export default function FileSearch({ workDir, onFileSelect, isOpen, onClose }: F
                 style={{
                   color: "#666",
                   fontFamily: "monospace",
-                  fontSize: "11px",
+                  fontSize: "8px",
                 }}
               >
                 {result.path}
@@ -201,7 +201,7 @@ export default function FileSearch({ workDir, onFileSelect, isOpen, onClose }: F
             borderTop: "1px solid #333",
             display: "flex",
             justifyContent: "space-between",
-            fontSize: "11px",
+            fontSize: "8px",
             color: "#666",
             fontFamily: "monospace",
           }}

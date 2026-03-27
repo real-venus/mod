@@ -89,7 +89,7 @@ export default function CodeViewer({ filePath, workDir }: CodeViewerProps) {
           justifyContent: "center",
           color: "#666",
           fontFamily: "monospace",
-          fontSize: "14px",
+          fontSize: "13px",
         }}
       >
         Select a file to view
@@ -107,7 +107,7 @@ export default function CodeViewer({ filePath, workDir }: CodeViewerProps) {
           justifyContent: "center",
           color: "#00aaff",
           fontFamily: "monospace",
-          fontSize: "14px",
+          fontSize: "13px",
         }}
       >
         Loading file...
@@ -125,7 +125,7 @@ export default function CodeViewer({ filePath, workDir }: CodeViewerProps) {
           justifyContent: "center",
           color: "#ff3333",
           fontFamily: "monospace",
-          fontSize: "14px",
+          fontSize: "13px",
         }}
       >
         Error: {error}
@@ -153,11 +153,11 @@ export default function CodeViewer({ filePath, workDir }: CodeViewerProps) {
           <span style={{ color: "#00aaff", fontFamily: "monospace", fontSize: "13px", fontWeight: "bold" }}>
             {filename}
           </span>
-          <span style={{ color: "#666", fontFamily: "monospace", fontSize: "11px" }}>
+          <span style={{ color: "#666", fontFamily: "monospace", fontSize: "12px" }}>
             {language.toUpperCase()}
           </span>
         </div>
-        <div style={{ color: "#666", fontFamily: "monospace", fontSize: "11px" }}>
+        <div style={{ color: "#666", fontFamily: "monospace", fontSize: "12px" }}>
           {lineCount} lines
         </div>
       </div>

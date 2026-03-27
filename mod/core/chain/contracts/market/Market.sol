@@ -34,9 +34,12 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
 
     uint256 public totalTreasuryFeesAccrued;
 
+    address public constant ETH_SENTINEL = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+
     event Credit(uint256 indexed txId, address indexed user, uint256 amount, address paymentToken, uint256 paidAmount);
     event Debit(uint256 indexed txId, address indexed client, address indexed provider, uint256 amount);
     event Withdrawal(uint256 indexed txId, address indexed user, uint256 amount, address paymentToken, uint256 receivedAmount);
+    event Mint(uint256 indexed txId, address indexed user, uint256 mintedAmount, address paymentToken, uint256 paidAmount, uint256 treasuryAmount, uint256 feeAmount);
     event TreasuryUpdated(address indexed newTreasury);
     event TokenGateUpdated(address indexed newTokenGate);
     event DebitContractUpdated(address indexed newDebitContract);
@@ -221,6 +224,77 @@ contract Market is ERC20, ReentrancyGuard, Pausable, Ownable {
 
         uint256 txId = nextTransactionId++;
         emit Withdrawal(txId, msg.sender, stableAmount, paymentToken, withdrawAmount);
+        return txId;
+    }
+
+    // ========== MINT ==========
+
+    /**
+     * @dev Mint native market tokens by paying with any whitelisted ERC20 token.
+     * 1:1 at oracle USD price — pay $1 worth of USDT/USDC/etc, get 1 market token.
+     * Payment goes to treasury, minus the credit fee which also goes to treasury.
+     * @param paymentToken Address of the whitelisted payment token
+     * @param paymentAmount Amount of payment tokens to spend
+     */
+    function mint(address paymentToken, uint256 paymentAmount) external nonReentrant whenNotPaused returns (uint256) {
+        require(paymentAmount > 0, "Invalid amount");
+        require(tokenGate.isTokenWhitelisted(paymentToken), "Token not whitelisted");
+
+        (uint256 tokenPrice, uint8 priceDecimals,) = tokenGate.getTokenPrice(paymentToken);
+        require(tokenPrice > 0, "Invalid price");
+
+        uint8 paymentDecimals = IERC20Metadata(paymentToken).decimals();
+
+        // Convert payment amount to stable value (8 decimals): paymentAmount * price / 10^paymentDecimals / 10^priceDecimals * 10^8
+        uint256 stableAmount = (paymentAmount * tokenPrice * 10**uint256(decimals())) / (10**uint256(paymentDecimals) * 10**uint256(priceDecimals));
+        require(stableAmount > 0, "Amount too small");
+
+        // Calculate fee and mint amounts
+        uint256 feePayment = (paymentAmount * creditFeeBps) / 10000;
+        uint256 treasuryPayment = paymentAmount - feePayment;
+        uint256 mintAmount = stableAmount - (stableAmount * creditFeeBps) / 10000;
+
+        // Transfer payment to treasury (fee + principal all go to treasury)
+        IERC20(paymentToken).safeTransferFrom(msg.sender, treasury, paymentAmount);
+
+        // Mint market tokens to the caller
+        _mint(msg.sender, mintAmount);
+
+        uint256 txId = nextTransactionId++;
+        emit Mint(txId, msg.sender, mintAmount, paymentToken, paymentAmount, treasuryPayment, feePayment);
+        return txId;
+    }
+
+    /**
+     * @dev Mint native market tokens by paying with native ETH.
+     * 1:1 at oracle USD price — pay $1 worth of ETH, get 1 market token.
+     * ETH is forwarded to treasury, credit fee is deducted from minted amount.
+     * Requires ETH_SENTINEL (0xEee...EEeE) to be whitelisted in TokenGate with a price feed.
+     */
+    function mintWithETH() external payable nonReentrant whenNotPaused returns (uint256) {
+        require(msg.value > 0, "No ETH sent");
+        require(tokenGate.isTokenWhitelisted(ETH_SENTINEL), "ETH not whitelisted");
+
+        (uint256 ethPrice, uint8 priceDecimals,) = tokenGate.getTokenPrice(ETH_SENTINEL);
+        require(ethPrice > 0, "Invalid ETH price");
+
+        // Convert ETH (18 decimals) to stable value (8 decimals)
+        uint256 stableAmount = (msg.value * ethPrice * 10**uint256(decimals())) / (10**18 * 10**uint256(priceDecimals));
+        require(stableAmount > 0, "Amount too small");
+
+        // Calculate mint amount after fee
+        uint256 feeAmount = (stableAmount * creditFeeBps) / 10000;
+        uint256 mintAmount = stableAmount - feeAmount;
+
+        // Forward all ETH to treasury
+        (bool sent,) = treasury.call{value: msg.value}("");
+        require(sent, "ETH transfer failed");
+
+        // Mint market tokens to the caller
+        _mint(msg.sender, mintAmount);
+
+        uint256 txId = nextTransactionId++;
+        emit Mint(txId, msg.sender, mintAmount, ETH_SENTINEL, msg.value, msg.value, 0);
         return txId;
     }
 

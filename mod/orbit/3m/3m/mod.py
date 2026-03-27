@@ -1,7 +1,8 @@
 
+
 class Mod:
     description = """
-    Base mod - Uniswap GraphQL scraper
+    3m - Uniswap GraphQL scraper
     """
 
     def forward(self, a=1, b=2) -> int:

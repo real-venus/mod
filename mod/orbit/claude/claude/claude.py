@@ -881,6 +881,225 @@ class Mod:
         history = self.get_history(limit=1)
         return history[0]['cid'] if history else None
 
+    def snapshot(self, description: str = None, version: str = None) -> Dict[str, Any]:
+        """
+        Take a snapshot of the current module state and store it to IPFS.
+        Creates a versioned entry in the changelog that can be restored later.
+
+        Args:
+            description: Description of this version / what changed
+            version: Optional semantic version label (e.g. "1.2.0"). Auto-increments if not provided.
+
+        Returns:
+            Dict with cid, version, description, and gateway URL
+        """
+        import time
+        import glob as glob_mod
+
+        # Determine version
+        changelog = self._load_changelog()
+        if version is None:
+            if changelog:
+                last_ver = changelog[-1].get('version', '0.0.0')
+                parts = last_ver.split('.')
+                try:
+                    parts[-1] = str(int(parts[-1]) + 1)
+                    version = '.'.join(parts)
+                except ValueError:
+                    version = f"{last_ver}.1"
+            else:
+                version = '0.1.0'
+
+        # Collect module files to snapshot
+        module_root = os.path.dirname(os.path.dirname(__file__))
+        snapshot_data = {
+            'module': 'claude',
+            'version': version,
+            'description': description or f'Snapshot v{version}',
+            'timestamp': time.time(),
+            'date': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'files': {}
+        }
+
+        # Include key source files
+        for pattern in ['claude/*.py', 'config.json', 'requirements.txt', 'api/src/*.rs', 'api/Cargo.toml']:
+            for filepath in glob_mod.glob(os.path.join(module_root, pattern)):
+                try:
+                    with open(filepath, 'r') as f:
+                        rel = os.path.relpath(filepath, module_root)
+                        snapshot_data['files'][rel] = f.read()
+                except Exception:
+                    pass
+
+        # Store to IPFS
+        cid = self._store_to_ipfs(snapshot_data, description=f'v{version}: {description or "snapshot"}')
+
+        # Add to changelog
+        entry = {
+            'version': version,
+            'cid': cid,
+            'timestamp': time.time(),
+            'date': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'description': description or f'Snapshot v{version}',
+            'file_count': len(snapshot_data['files'])
+        }
+        changelog.append(entry)
+        self._save_changelog(changelog)
+
+        logger.info(f"Snapshot v{version} stored: {cid}")
+        print(f"\n{'='*60}")
+        print(f"SNAPSHOT v{version}")
+        print(f"{'='*60}")
+        print(f"CID: {cid}")
+        print(f"Files: {len(snapshot_data['files'])}")
+        print(f"Gateway: https://ipfs.io/ipfs/{cid}")
+        print(f"{'='*60}\n")
+
+        return {
+            'version': version,
+            'cid': cid,
+            'description': entry['description'],
+            'date': entry['date'],
+            'file_count': len(snapshot_data['files']),
+            'gateway': f'https://ipfs.io/ipfs/{cid}'
+        }
+
+    def changelog(self, limit: int = None) -> List[Dict[str, Any]]:
+        """
+        Get the version changelog, newest first.
+
+        Args:
+            limit: Optional limit on number of entries
+
+        Returns:
+            List of changelog entries with version, cid, date, description
+        """
+        entries = self._load_changelog()
+        entries.reverse()
+        if limit:
+            entries = entries[:limit]
+        return entries
+
+    def show_changelog(self, limit: int = 20) -> None:
+        """Display the version changelog in a readable format."""
+        entries = self.changelog(limit=limit)
+
+        if not entries:
+            print("No changelog entries. Use snapshot() to create the first version.")
+            return
+
+        print(f"\n{'='*70}")
+        print(f"  CHANGELOG — {len(entries)} version(s)")
+        print(f"{'='*70}")
+
+        for i, entry in enumerate(entries):
+            marker = "►" if i == 0 else " "
+            print(f"\n {marker} v{entry['version']}  ({entry['date']})")
+            print(f"   CID: {entry['cid']}")
+            print(f"   {entry['description']}")
+            if entry.get('file_count'):
+                print(f"   Files: {entry['file_count']}")
+
+        print(f"\n{'='*70}\n")
+
+    def get_version(self, version: str = None, cid: str = None) -> Dict[str, Any]:
+        """
+        Retrieve a specific version from IPFS by version label or CID.
+
+        Args:
+            version: Version string (e.g. "0.1.0")
+            cid: IPFS CID to retrieve directly
+
+        Returns:
+            The stored snapshot data including all files
+        """
+        if cid:
+            ipfs_client = self.ipfs()
+            return ipfs_client.get(cid)
+
+        if version:
+            changelog = self._load_changelog()
+            for entry in changelog:
+                if entry['version'] == version:
+                    ipfs_client = self.ipfs()
+                    return ipfs_client.get(entry['cid'])
+            raise ValueError(f"Version '{version}' not found in changelog")
+
+        raise ValueError("Must provide either version or cid")
+
+    def restore_version(self, version: str = None, cid: str = None, dry_run: bool = True) -> Dict[str, Any]:
+        """
+        Restore the module to a previous version from IPFS.
+
+        Args:
+            version: Version string to restore (e.g. "0.1.0")
+            cid: IPFS CID to restore from directly
+            dry_run: If True, only show what would change without writing (default: True)
+
+        Returns:
+            Dict with restored files list and status
+        """
+        snapshot_data = self.get_version(version=version, cid=cid)
+        module_root = os.path.dirname(os.path.dirname(__file__))
+
+        files = snapshot_data.get('files', {})
+        if not files:
+            raise ValueError("Snapshot contains no files")
+
+        result = {
+            'version': snapshot_data.get('version', 'unknown'),
+            'files': list(files.keys()),
+            'dry_run': dry_run,
+            'restored': []
+        }
+
+        for rel_path, content in files.items():
+            target = os.path.join(module_root, rel_path)
+            if dry_run:
+                exists = os.path.exists(target)
+                result['restored'].append({
+                    'path': rel_path,
+                    'action': 'overwrite' if exists else 'create',
+                    'size': len(content)
+                })
+            else:
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                with open(target, 'w') as f:
+                    f.write(content)
+                result['restored'].append({'path': rel_path, 'action': 'written'})
+                logger.info(f"Restored: {rel_path}")
+
+        action = "DRY RUN" if dry_run else "RESTORED"
+        print(f"\n{'='*60}")
+        print(f"  {action} — v{result['version']}")
+        print(f"{'='*60}")
+        for f in result['restored']:
+            print(f"  {f['action'].upper():>10}  {f['path']}")
+        print(f"{'='*60}\n")
+
+        if dry_run:
+            print("  Pass dry_run=False to actually restore these files.")
+
+        return result
+
+    def _load_changelog(self) -> List[Dict[str, Any]]:
+        """Load changelog from file."""
+        changelog_path = os.path.join(str(Path.home()), '.mod', 'claude', 'changelog.json')
+        if os.path.exists(changelog_path):
+            try:
+                with open(changelog_path, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.warning(f"Failed to load changelog: {e}")
+        return []
+
+    def _save_changelog(self, changelog: List[Dict[str, Any]]) -> None:
+        """Save changelog to file."""
+        changelog_path = os.path.join(str(Path.home()), '.mod', 'claude', 'changelog.json')
+        os.makedirs(os.path.dirname(changelog_path), exist_ok=True)
+        with open(changelog_path, 'w') as f:
+            json.dump(changelog, f, indent=2)
+
     def ask(self, message: str, model: str = None, stream: bool = False,
             history: list = None, system_prompt: str = None,
             temperature: float = 1.0, max_tokens: int = 10000000, **kwargs) -> str:
@@ -1243,7 +1462,7 @@ class Mod:
             logger.error(f"Jobs server request failed: {e}")
             raise RuntimeError(
                 f"Claude Jobs server not reachable at {self._jobs_url()}. "
-                "Start it with: cd mod/orbit/claude/server && cargo run"
+                "Start it with: cd mod/orbit/claude/api && cargo run"
             )
 
     def submit(self, prompt: str, model: str = "sonnet", work_dir: str = None,
@@ -1401,8 +1620,8 @@ class Mod:
             print("\n--- Detached (job still running) ---")
 
     def serve_jobs(self, port: int = 8820) -> None:
-        """Start the Claude Jobs Rust server."""
-        server_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'server')
+        """Start the Claude Jobs Rust API."""
+        server_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'api')
         logger.info(f"Starting Claude Jobs server on port {port}...")
         subprocess.Popen(
             ["cargo", "run", "--release", "--", str(port)],

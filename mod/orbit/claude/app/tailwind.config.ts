@@ -6,6 +6,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         pixel: ['"Press Start 2P"', "monospace"],
+        code: ['"JetBrains Mono"', '"SF Mono"', 'Monaco', '"Cascadia Code"', '"Fira Code"', '"Courier New"', "monospace"],
       },
       colors: {
         crt: {

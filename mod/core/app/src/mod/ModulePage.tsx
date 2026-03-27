@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { Loading } from '@/ui/Loading'
 import { ModuleType } from '@/types'
 import { userContext } from '@/context'
-import { ModContent, ModApi, ModApp } from '@/mod'
+import { ModContent } from '@/mod'
 import ModCard from '@/mod/ModCard'
 import { ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -13,9 +13,11 @@ import { text2color, colorWithOpacity } from '@/utils'
 import UpdateMod from '@/user/UpdateMod'
 import ModEdit from '@/mod/edit/ModEdit'
 import ModVersions from '@/mod/versions/ModVersions'
+import ModTask from '@/mod/task/ModTask'
+import ModCode from '@/mod/code/ModCode'
 
-const defaultTab = 'api'
-const availableTabs = ['api', 'app', 'versions', 'content', 'edit']
+const defaultTab = 'task'
+const availableTabs = ['task', 'code', 'versions', 'content', 'edit']
 export default function ModulePage() {
   const params = useParams()
   const router = useRouter()
@@ -34,21 +36,6 @@ export default function ModulePage() {
 
   const moduleColor = mod ? text2color(mod.name || mod.key) : '#ffffff'
 
-
-  // if mod has no app, remove app from availableTabs
-  if (mod && !mod.url_app) {
-    const index = availableTabs.indexOf('app')
-    if (index > -1) {
-      availableTabs.splice(index, 1)
-      if (activeTab === 'app') {
-        setActiveTab(defaultTab)
-      }
-    }
-  } else {
-    if (!availableTabs.includes('app')) {
-      availableTabs.push('app')
-    }
-  }
 
   useEffect(() => {
     const fetchMod = async () => {
@@ -168,7 +155,7 @@ export default function ModulePage() {
       }}
     >
       <main className="relative flex-1 px-6 pt-16 pb-8">
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className={`${activeTab === 'code' ? 'max-w-[1600px]' : 'max-w-5xl'} mx-auto space-y-6`}>
           {/* Hero Header Card */}
           <div
             className="relative border-4 overflow-hidden"
@@ -224,15 +211,15 @@ export default function ModulePage() {
 
           {/* Tab content */}
           <div
-            className="min-h-[400px] p-6 border-4"
+            className={`min-h-[400px] border-4 ${activeTab === 'code' ? 'p-0 overflow-hidden' : 'p-6'}`}
             style={{
               backgroundColor: 'var(--bg-secondary)',
               borderColor: 'var(--border-strong)',
             }}
           >
             {activeTab === 'content' && <ModContent mod={mod} />}
-            {activeTab === 'api' && <ModApi mod={mod} />}
-            {activeTab === 'app' && mod.url_app && <ModApp mod={mod} moduleColor={moduleColor} />}
+            {activeTab === 'task' && <ModTask mod={mod} moduleColor={moduleColor} />}
+            {activeTab === 'code' && <ModCode mod={mod} moduleColor={moduleColor} />}
             {activeTab === 'versions' && <ModVersions mod={mod} selectedVersionIndex={selectedVersionIndex} onVersionChange={handleVersionChange} />}
             {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
             {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}

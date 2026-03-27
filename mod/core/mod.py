@@ -1756,6 +1756,43 @@ class Mod:
         self.serve('api')
         self.up('app')
 
+    def start(self, mod=None):
+        """
+        Find and execute the closest start.sh script in the mod's directory tree.
+        Walks up from the mod's directory until a start.sh is found, ensures it
+        is executable (chmod +x), and runs it.
+        """
+        import subprocess
+        path = self.dirpath(mod) if mod else os.getcwd()
+        path = self.abspath(path)
+        start_script = None
+        # first search down into the module directory
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('node_modules', '__pycache__', '.git')]
+            if 'start.sh' in files:
+                start_script = os.path.join(root, 'start.sh')
+                break
+        # fallback: walk up the directory tree
+        if start_script is None:
+            current = os.path.dirname(path)
+            while True:
+                candidate = os.path.join(current, 'start.sh')
+                if os.path.isfile(candidate):
+                    start_script = candidate
+                    break
+                parent = os.path.dirname(current)
+                if parent == current:
+                    break
+                current = parent
+        if start_script is None:
+            raise FileNotFoundError(f'No start.sh found in or above {path}')
+        # ensure executable
+        os.chmod(start_script, os.stat(start_script).st_mode | 0o755)
+        mod_dir = self.dirpath(mod) if mod else self.dirpath()
+        mod_dir = self.abspath(mod_dir)
+        self.print(f'Running {start_script} in {mod_dir}')
+        return self.cmd(f'bash {start_script}', cwd=mod_dir, verbose=True)
+
     def pytest(self, mod='pypm'):
         return self.fn('tester/pytest')(mod)
-    
+

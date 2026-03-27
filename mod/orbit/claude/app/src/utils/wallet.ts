@@ -110,24 +110,102 @@ export function getExplorerUrl(chainId: number, hash: string, type: "tx" | "addr
 }
 
 /**
+ * EVM Network definitions with chain params for wallet_addEthereumChain
+ */
+export interface EVMNetwork {
+  chainId: number;
+  name: string;
+  symbol: string;
+  rpcUrl: string;
+  explorer: string;
+  testnet: boolean;
+}
+
+export const EVM_NETWORKS: EVMNetwork[] = [
+  { chainId: 1,        name: "Ethereum",         symbol: "ETH",   rpcUrl: "https://eth.llamarpc.com",              explorer: "https://etherscan.io",           testnet: false },
+  { chainId: 8453,     name: "Base",              symbol: "ETH",   rpcUrl: "https://mainnet.base.org",              explorer: "https://basescan.org",           testnet: false },
+  { chainId: 137,      name: "Polygon",           symbol: "MATIC", rpcUrl: "https://polygon-rpc.com",               explorer: "https://polygonscan.com",        testnet: false },
+  { chainId: 42161,    name: "Arbitrum",           symbol: "ETH",   rpcUrl: "https://arb1.arbitrum.io/rpc",          explorer: "https://arbiscan.io",            testnet: false },
+  { chainId: 10,       name: "Optimism",          symbol: "ETH",   rpcUrl: "https://mainnet.optimism.io",           explorer: "https://optimistic.etherscan.io", testnet: false },
+  { chainId: 56,       name: "BNB Chain",         symbol: "BNB",   rpcUrl: "https://bsc-dataseed.binance.org",      explorer: "https://bscscan.com",            testnet: false },
+  { chainId: 43114,    name: "Avalanche",         symbol: "AVAX",  rpcUrl: "https://api.avax.network/ext/bc/C/rpc", explorer: "https://snowtrace.io",           testnet: false },
+  { chainId: 11155111, name: "Sepolia",           symbol: "ETH",   rpcUrl: "https://rpc.sepolia.org",               explorer: "https://sepolia.etherscan.io",   testnet: true },
+  { chainId: 84532,    name: "Base Sepolia",      symbol: "ETH",   rpcUrl: "https://sepolia.base.org",              explorer: "https://sepolia.basescan.org",   testnet: true },
+  { chainId: 421614,   name: "Arbitrum Sepolia",  symbol: "ETH",   rpcUrl: "https://sepolia-rollup.arbitrum.io/rpc", explorer: "https://sepolia.arbiscan.io",   testnet: true },
+  { chainId: 80001,    name: "Mumbai",            symbol: "MATIC", rpcUrl: "https://rpc-mumbai.maticvigil.com",     explorer: "https://mumbai.polygonscan.com", testnet: true },
+];
+
+/**
+ * Network logo SVG paths (viewBox 0 0 24 24)
+ */
+export const NETWORK_LOGOS: Record<number, { svg: string; color: string }> = {
+  1:        { color: "#627EEA", svg: `<path d="M12 2L5 12l7 4 7-4L12 2z" fill="currentColor" opacity="0.6"/><path d="M12 2l7 10-7 4V2z" fill="currentColor"/><path d="M12 17l-7-4 7 9 7-9-7 4z" fill="currentColor" opacity="0.6"/><path d="M12 17l7-4-7 9V17z" fill="currentColor"/>` },
+  8453:     { color: "#0052FF", svg: `<circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 6a6 6 0 100 12 6 6 0 000-12z" fill="#0A0B0D"/><path d="M10.5 9h3a1 1 0 011 1v4a1 1 0 01-1 1h-3a1 1 0 01-1-1v-4a1 1 0 011-1z" fill="currentColor"/>` },
+  137:      { color: "#8247E5", svg: `<path d="M16.3 10.2l-3.5-2a1.5 1.5 0 00-1.6 0l-3.5 2a1.6 1.6 0 00-.7 1.3v4.1c0 .5.3 1 .7 1.3l3.5 2a1.5 1.5 0 001.6 0l3.5-2c.4-.3.7-.8.7-1.3v-4.1c0-.5-.3-1-.7-1.3z" fill="currentColor"/>` },
+  42161:    { color: "#28A0F0", svg: `<path d="M12 2l8 5v10l-8 5-8-5V7l8-5z" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1"/><path d="M10 9l2 6 2-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>` },
+  10:       { color: "#FF0420", svg: `<circle cx="12" cy="12" r="10" fill="currentColor"/><circle cx="12" cy="12" r="5" fill="#0A0B0D"/>` },
+  56:       { color: "#F0B90B", svg: `<path d="M12 2l2.5 2.5L12 7 9.5 4.5 12 2zm-5.5 5.5L9 5l2.5 2.5L9 10 6.5 7.5zM3 12l2.5-2.5L8 12l-2.5 2.5L3 12zm3.5 4.5L9 14l2.5 2.5L9 19l-2.5-2.5zM12 17l2.5-2.5L17 17l-2.5 2.5L12 17zm5.5-4.5L15 15l-2.5-2.5L15 10l2.5 2.5zM21 12l-2.5 2.5L16 12l2.5-2.5L21 12zm-3.5-4.5L15 10l-2.5-2.5L15 5l2.5 2.5z" fill="currentColor"/>` },
+  43114:    { color: "#E84142", svg: `<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="currentColor"/><path d="M15.5 15.5H8.5l3.5-7 3.5 7z" fill="#fff"/>` },
+  11155111: { color: "#627EEA", svg: `<path d="M12 2L5 12l7 4 7-4L12 2z" fill="currentColor" opacity="0.6"/><path d="M12 2l7 10-7 4V2z" fill="currentColor"/><path d="M12 17l-7-4 7 9 7-9-7 4z" fill="currentColor" opacity="0.6"/><path d="M12 17l7-4-7 9V17z" fill="currentColor"/>` },
+  84532:    { color: "#0052FF", svg: `<circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 6a6 6 0 100 12 6 6 0 000-12z" fill="#0A0B0D"/><path d="M10.5 9h3a1 1 0 011 1v4a1 1 0 01-1 1h-3a1 1 0 01-1-1v-4a1 1 0 011-1z" fill="currentColor"/>` },
+  421614:   { color: "#28A0F0", svg: `<path d="M12 2l8 5v10l-8 5-8-5V7l8-5z" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1"/><path d="M10 9l2 6 2-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>` },
+  80001:    { color: "#8247E5", svg: `<path d="M16.3 10.2l-3.5-2a1.5 1.5 0 00-1.6 0l-3.5 2a1.6 1.6 0 00-.7 1.3v4.1c0 .5.3 1 .7 1.3l3.5 2a1.5 1.5 0 001.6 0l3.5-2c.4-.3.7-.8.7-1.3v-4.1c0-.5-.3-1-.7-1.3z" fill="currentColor"/>` },
+};
+
+/**
  * Get network name from chain ID
  */
 export function getNetworkName(chainId: number): string {
-  const networks: Record<number, string> = {
-    1: "Ethereum Mainnet",
-    5: "Goerli Testnet",
-    11155111: "Sepolia Testnet",
-    8453: "Base Mainnet",
-    84532: "Base Sepolia",
-    137: "Polygon Mainnet",
-    80001: "Mumbai Testnet",
-    42161: "Arbitrum One",
-    421614: "Arbitrum Sepolia",
-    10: "Optimism Mainnet",
-    420: "Optimism Goerli",
-  };
+  const net = EVM_NETWORKS.find(n => n.chainId === chainId);
+  return net ? net.name : `Unknown (${chainId})`;
+}
 
-  return networks[chainId] || `Unknown Network (${chainId})`;
+/**
+ * Get native token symbol for a chain
+ */
+export function getNativeSymbol(chainId: number): string {
+  const net = EVM_NETWORKS.find(n => n.chainId === chainId);
+  return net ? net.symbol : "ETH";
+}
+
+/**
+ * Switch the wallet to a different EVM network
+ */
+export async function switchNetwork(chainId: number): Promise<boolean> {
+  const ethereum = (window as any).ethereum;
+  if (!ethereum) return false;
+
+  const hexChainId = "0x" + chainId.toString(16);
+
+  try {
+    await ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: hexChainId }],
+    });
+    return true;
+  } catch (switchError: any) {
+    // 4902 = chain not added yet
+    if (switchError.code === 4902) {
+      const net = EVM_NETWORKS.find(n => n.chainId === chainId);
+      if (!net) return false;
+      try {
+        await ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: hexChainId,
+            chainName: net.name,
+            nativeCurrency: { name: net.symbol, symbol: net.symbol, decimals: 18 },
+            rpcUrls: [net.rpcUrl],
+            blockExplorerUrls: [net.explorer],
+          }],
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
 }
 
 /**

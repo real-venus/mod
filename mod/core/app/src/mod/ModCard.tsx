@@ -87,7 +87,7 @@ export default function ModCard({
             className="tracking-wider text-2xl"
             style={{ color: 'var(--text-primary)', fontFamily: TERM_FONT, textShadow: `0 0 12px ${colorWithOpacity(modColor, 0.4)}` }}
           >
-            {mod.name}
+            {mod.name?.toLowerCase()}
           </code>
           <CopyButton text={mod.name} size="sm" showValueOnHover={true} />
         </div>

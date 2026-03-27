@@ -84,8 +84,8 @@ class Router:
         assert len(self.task_paths()) == 0, "Failed to clear task paths"
         return True
 
-    def txs(self, key=None, mod=None, df=1, features=['fn', 'status', 'cid' ], n=10, page=0, expand=1) -> List[Dict[str, Any]]:
-        paths = self.task_paths()
+    def txs(self, key=None, mod=None, df=1, features=['fn', 'status', 'cid' ], n=10, page=0, expand=1, max_age=None) -> List[Dict[str, Any]]:
+        paths = self.task_paths(key=key, mod=mod, max_age=max_age)
         tasks = []
 
         filter_fn = lambda p : (True if mod is None else mod in p) and (True if key is None else key in p)
