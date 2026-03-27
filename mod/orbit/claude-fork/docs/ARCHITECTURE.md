@@ -1,0 +1,423 @@
+# Claude Module Architecture
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     User Application                         │
+│                                                              │
+│  from claude import Mod                                      │
+│  mod = Mod(backend='dev-tools')                             │
+│  result = mod.forward("Analyze code")                       │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     │ Uses
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 Claude Module (Mod class)                    │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  High-Level Methods:                                  │  │
+│  │  • analyze_code()                                     │  │
+│  │  • generate_code()                                    │  │
+│  │  • refactor()                                        │  │
+│  │  • debug()                                           │  │
+│  │  • batch_process()                                   │  │
+│  └──────────────────┬───────────────────────────────────┘  │
+│                     │                                        │
+│                     │ Delegates to                           │
+│                     ▼                                        │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │         Backend Registry                              │  │
+│  │  • Auto-selection                                     │  │
+│  │  • Backend discovery                                  │  │
+│  │  • Runtime switching                                  │  │
+│  └──────────────────┬───────────────────────────────────┘  │
+└────────────────────┬┴──────────────────────────────────────┘
+                     │
+         ┌───────────┼───────────┐
+         │           │           │
+         ▼           ▼           ▼
+┌─────────────┐ ┌─────────┐ ┌─────────┐
+│Claude Code  │ │Dev Tools│ │ Codex   │
+│  Backend    │ │ Backend │ │ Backend │
+└─────────────┘ └─────────┘ └─────────┘
+         │           │           │
+         ▼           ▼           ▼
+┌─────────────┐ ┌─────────┐ ┌─────────┐
+│   claude    │ │dev.tool │ │ OpenAI  │
+│     CLI     │ │ modules │ │   API   │
+└─────────────┘ └─────────┘ └─────────┘
+```
+
+## Backend Interface
+
+All backends implement the same interface:
+
+```
+┌──────────────────────────────────────────┐
+│           Backend (ABC)                   │
+├──────────────────────────────────────────┤
+│ Properties:                               │
+│  • name: str                              │
+│  • description: str                       │
+│                                           │
+│ Methods:                                  │
+│  • is_available() → bool                  │
+│  • install() → bool                       │
+│  • forward(query, **kwargs) → result      │
+└───────────────┬──────────────────────────┘
+                │
+                │ Implements
+    ┌───────────┼───────────┐
+    │           │           │
+    ▼           ▼           ▼
+┌─────────┐ ┌─────────┐ ┌────────┐
+│ Claude  │ │  Dev    │ │ Codex  │
+│  Code   │ │ Tools   │ │        │
+│ Backend │ │ Backend │ │Backend │
+└─────────┘ └─────────┘ └────────┘
+```
+
+## Data Flow
+
+### Forward Request Flow
+
+```
+User Code
+   │
+   │ mod.forward("query")
+   ▼
+Mod class
+   │
+   │ Validates & prepares
+   ▼
+Backend Registry
+   │
+   │ Routes to active backend
+   ▼
+Active Backend
+   │
+   ├─→ ClaudeCodeBackend → claude CLI → Anthropic API
+   │
+   ├─→ DevToolsBackend → dev.tool.* → mod framework
+   │
+   └─→ CodexBackend → openai library → OpenAI API
+   │
+   │ Returns result
+   ▼
+User Code
+```
+
+## Module Structure
+
+```
+claude/
+│
+├── claude/                          # Main package
+│   ├── claude.py                    # Original implementation
+│   ├── backends.py                  # Backend system
+│   │   ├── Backend (ABC)
+│   │   ├── BackendRegistry
+│   │   ├── ClaudeCodeBackend
+│   │   ├── DevToolsBackend
+│   │   └── CodexBackend
+│   └── mod_with_backends.py         # Enhanced Mod class
+│
+├── examples/                        # Usage examples
+│   ├── multi_backend_example.py
+│   ├── custom_backend_example.py
+│   └── mod_ecosystem_integration.py
+│
+├── tests/                           # Test suite
+│   └── test_backends.py
+│
+└── docs/                            # Documentation
+    ├── README.md
+    ├── BACKENDS.md
+    ├── BACKENDS_QUICKSTART.md
+    ├── MIGRATION_GUIDE.md
+    ├── ARCHITECTURE.md (this file)
+    └── BACKEND_IMPLEMENTATION_SUMMARY.md
+```
+
+## Backend Lifecycle
+
+```
+┌─────────────────────┐
+│   Initialization    │
+│                     │
+│  mod = Mod()        │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Backend Selection   │
+│                     │
+│ • Auto-select       │
+│   OR                │
+│ • Explicit choice   │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Availability Check  │
+│                     │
+│ is_available()?     │
+└──────────┬──────────┘
+           │
+     ┌─────┴─────┐
+     │           │
+  Yes│           │No
+     │           │
+     ▼           ▼
+┌─────────┐ ┌─────────┐
+│  Ready  │ │ Install?│
+└─────────┘ └────┬────┘
+                 │
+           ┌─────┴─────┐
+           │           │
+        Yes│           │No
+           │           │
+           ▼           ▼
+    ┌─────────┐   ┌───────┐
+    │install()│   │ Error │
+    └────┬────┘   └───────┘
+         │
+         ▼
+    ┌─────────┐
+    │  Ready  │
+    └────┬────┘
+         │
+         ▼
+    ┌─────────┐
+    │  Usage  │
+    │         │
+    │forward()│
+    └─────────┘
+```
+
+## Integration with Mod Ecosystem
+
+```
+┌────────────────────────────────────────────────────────┐
+│              Mod Framework Ecosystem                    │
+├────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐            │
+│  │  claude  │  │  agent   │  │dev.tool.*│            │
+│  │  module  │  │  module  │  │  modules │            │
+│  └────┬─────┘  └─────┬────┘  └────┬─────┘            │
+│       │              │             │                   │
+│       │  Can use     │             │                   │
+│       └──────┐       │       ┌─────┘                   │
+│              │       │       │                         │
+│              ▼       ▼       ▼                         │
+│         ┌─────────────────────────┐                    │
+│         │   Shared Infrastructure │                    │
+│         │  • OpenRouter           │                    │
+│         │  • Storage              │                    │
+│         │  • Utilities            │                    │
+│         └─────────────────────────┘                    │
+└────────────────────────────────────────────────────────┘
+```
+
+## Backend Auto-Selection Logic
+
+```
+Start
+  │
+  ▼
+Try claude-code
+  │
+  ├─→ Available? ──Yes─→ Use it ──┐
+  │                               │
+  No                              │
+  │                               │
+  ▼                               │
+Try dev-tools                     │
+  │                               │
+  ├─→ Available? ──Yes─→ Use it ──┤
+  │                               │
+  No                              │
+  │                               │
+  ▼                               │
+Try codex                         │
+  │                               │
+  ├─→ Available? ──Yes─→ Use it ──┤
+  │                               │
+  No                              │
+  │                               │
+  ▼                               │
+Fallback to claude-code           │
+(will prompt for install)         │
+  │                               │
+  └───────────────────────────────┤
+                                  │
+                                  ▼
+                             Return backend
+```
+
+## Custom Backend Integration
+
+```
+Your Custom Backend
+        │
+        │ Extends
+        ▼
+   Backend (ABC)
+        │
+        │ Implements required methods
+        │
+        ▼
+┌────────────────────┐
+│  register()        │
+│  with registry     │
+└────────┬───────────┘
+         │
+         ▼
+Available via Mod()
+         │
+         │ mod = Mod(backend='custom')
+         ▼
+    Your backend is used!
+```
+
+## Thread Safety
+
+```
+┌─────────────────────────────────────┐
+│         Thread Safety               │
+├─────────────────────────────────────┤
+│                                     │
+│ • Backend instances: Thread-safe    │
+│ • Backend registry: Thread-safe     │
+│ • Mod instances: Not thread-safe    │
+│                                     │
+│ Recommendation:                     │
+│ • Create one Mod per thread         │
+│ • Share backend registry            │
+└─────────────────────────────────────┘
+```
+
+## Extension Points
+
+```
+┌──────────────────────────────────────┐
+│      Extension Points                │
+├──────────────────────────────────────┤
+│                                      │
+│ 1. Custom Backends                   │
+│    • Extend Backend class            │
+│    • Implement interface             │
+│    • Register with registry          │
+│                                      │
+│ 2. Custom Backend Discovery          │
+│    • Override auto_select()          │
+│    • Add custom selection logic      │
+│                                      │
+│ 3. Custom Installation               │
+│    • Override install()              │
+│    • Add custom setup logic          │
+│                                      │
+│ 4. Custom Forward Logic              │
+│    • Override forward()              │
+│    • Add preprocessing/postprocessing│
+└──────────────────────────────────────┘
+```
+
+## Error Handling Flow
+
+```
+User calls mod.forward()
+         │
+         ▼
+Try backend.forward()
+         │
+    ┌────┴────┐
+    │         │
+ Success    Error
+    │         │
+    │         ▼
+    │    Log error
+    │         │
+    │         ▼
+    │    Raise RuntimeError
+    │         │
+    └────┬────┘
+         │
+         ▼
+Return result to user
+```
+
+## Performance Considerations
+
+```
+┌────────────────────────────────────────┐
+│        Performance Profile              │
+├────────────────────────────────────────┤
+│                                        │
+│ Auto-selection: ~1ms overhead          │
+│ Backend switching: ~1ms overhead       │
+│ Backend instantiation: <1ms            │
+│                                        │
+│ Bottlenecks:                           │
+│ • Network latency (API calls)          │
+│ • Model inference time                 │
+│ • File I/O operations                  │
+│                                        │
+│ Not in critical path:                  │
+│ • Backend selection                    │
+│ • Registry lookup                      │
+└────────────────────────────────────────┘
+```
+
+## Future Architecture
+
+```
+Current:
+  Mod → Backend Registry → Backends
+
+Future possibilities:
+  Mod → Backend Registry → Backends
+         │                    ↕
+         │              Backend Pool
+         │              (for parallel execution)
+         │
+         └→ Plugin System
+            (for third-party backends)
+```
+
+## Design Principles
+
+1. **Separation of Concerns**
+   - Core logic in Mod class
+   - Backend-specific logic in Backend classes
+   - Discovery in BackendRegistry
+
+2. **Open/Closed Principle**
+   - Open for extension (new backends)
+   - Closed for modification (stable interface)
+
+3. **Dependency Inversion**
+   - Depend on Backend abstraction
+   - Not concrete implementations
+
+4. **Interface Segregation**
+   - Minimal required interface
+   - Additional methods optional
+
+5. **Single Responsibility**
+   - Each backend handles one AI service
+   - Registry handles discovery
+   - Mod class handles high-level operations
+
+## Summary
+
+The architecture is designed to be:
+- ✅ **Modular** - Clean separation of concerns
+- ✅ **Extensible** - Easy to add new backends
+- ✅ **Maintainable** - Clear structure and interfaces
+- ✅ **Testable** - Each component can be tested independently
+- ✅ **Performant** - Minimal overhead
+- ✅ **Reliable** - Robust error handling

@@ -20,6 +20,23 @@ function getRpcProvider(): ethers.JsonRpcProvider {
   return new ethers.JsonRpcProvider(RPC_URL)
 }
 
+const ORACLE_ABI = [
+  'function getPrice(address token) view returns (uint256 price, uint8 decimals, uint256 timestamp)',
+]
+
+async function fetchEthPriceUSD(): Promise<number> {
+  const oracleAddr = CONTRACTS.ManualPriceOracle?.address
+  if (!oracleAddr) return 0
+  try {
+    const provider = getRpcProvider()
+    const oracle = new ethers.Contract(oracleAddr, ORACLE_ABI, provider)
+    const [price, decimals] = await oracle.getPrice(ethers.ZeroAddress)
+    return parseFloat(ethers.formatUnits(price, decimals))
+  } catch {
+    return 0
+  }
+}
+
 async function fetchOnChainBalances(address: string): Promise<Record<string, number>> {
   const provider = getRpcProvider()
   const balances: Record<string, number> = {}
@@ -79,14 +96,19 @@ export function useBalances(userKey: string | undefined, client: any) {
   const [showAddToken, setShowAddToken] = useState(false)
   const [newTokenAddress, setNewTokenAddress] = useState('')
   const [isAddingToken, setIsAddingToken] = useState(false)
+  const [ethPrice, setEthPrice] = useState(0)
 
   const fetchMarketCredit = async () => {
     if (!userKey) return
     try {
       setIsRefreshing(true)
-      const result = await fetchOnChainBalances(userKey)
+      const [result, price] = await Promise.all([
+        fetchOnChainBalances(userKey),
+        fetchEthPriceUSD(),
+      ])
       setTokenBalances(result)
       setMarketCredit(result?.MARKET || 0)
+      if (price > 0) setEthPrice(price)
     } catch (err) {
       console.error('Error fetching balances:', err)
       setMarketCredit(0)
@@ -179,7 +201,7 @@ export function useBalances(userKey: string | undefined, client: any) {
   }, [userKey])
 
   return {
-    marketCredit, tokenBalances, isRefreshing,
+    marketCredit, tokenBalances, isRefreshing, ethPrice,
     customTokens, customTokenBalances,
     showAddToken, setShowAddToken,
     newTokenAddress, setNewTokenAddress,

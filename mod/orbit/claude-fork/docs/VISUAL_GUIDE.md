@@ -1,0 +1,337 @@
+# 🎨 Visual Guide: Collapsible Asks & Themes
+
+## 📱 UI Layout Overview
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  ◈ CLAUDE JOBS       [☀/🌙]  [WALLET: 0x1234..5678]  [✕]     │ ← Theme Toggle
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  LEFT PANEL (50%)              │  RIGHT PANEL (50%)            │
+│  ─────────────────             │  ─────────────────            │
+│                                                                │
+│  ▼ NEW TASK                    │  ▶ OUTPUT TERMINAL            │
+│  ┌──────────────────┐          │  ┌────────────────────────┐  │
+│  │ Task Description │          │  │ ◉ ◉ ◉               │  │
+│  │                  │          │  │                        │  │
+│  │ [Textarea]       │          │  │ $ npm install         │  │
+│  │                  │          │  │ Installing deps...    │  │
+│  └──────────────────┘          │  │                        │  │
+│                                 │  │ ⚡ EDIT: page.tsx     │  │
+│  🔍 SEARCH TASKS                │  │ │+ Added feature X   │  │
+│  [Search input...]              │  │ │- Removed old code  │  │
+│                                 │  │                        │  │
+│  ─ TASK LIST ─                 │  └────────────────────────┘  │
+│                                                                │
+│  ┌─ Job Card ──────────────┐   │                              │
+│  │ ✦ COMPLETE │ 5m ago     │   │                              │
+│  │ Implement auth system   │   │                              │
+│  │ 📁 ~/project/auth       │   │                              │
+│  │                         │   │                              │
+│  │ ▶ 2 Asks  ← Click!      │ ← Collapsible Section           │
+│  └─────────────────────────┘   │                              │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+│ CLAUDE JOBS v1.0 ░ BISMILLAH     │  localhost:8820  │  10:30 AM │
+└────────────────────────────────────────────────────────────────┘
+```
+
+## 🔽 Collapsible Asks - Collapsed State
+
+```
+┌────────────────────────────────────┐
+│ ✦ COMPLETE │ SONNET │ 5m ago      │
+│                                    │
+│ Implement user authentication      │
+│ 📁 ~/project/auth                  │
+│                                    │
+│ ▶ 2 Asks                           │ ← Click to expand
+│                                    │
+│ [DELETE]                           │
+└────────────────────────────────────┘
+```
+
+## 🔼 Collapsible Asks - Expanded State
+
+```
+┌────────────────────────────────────┐
+│ ✦ COMPLETE │ SONNET │ 5m ago      │
+│                                    │
+│ Implement user authentication      │
+│ 📁 ~/project/auth                  │
+│                                    │
+│ ▼ 2 Asks                           │ ← Click to collapse
+│ │                                  │
+│ │ ┌────────────────────────────┐  │
+│ │ │ Q: Should I use JWT?       │  │ ← Ask #1
+│ │ │ A: Yes, with refresh tokens│  │
+│ │ │ 10m ago                    │  │
+│ │ └────────────────────────────┘  │
+│ │                                  │
+│ │ ┌────────────────────────────┐  │
+│ │ │ Q: Which database?         │  │ ← Ask #2
+│ │ │ A: PostgreSQL with UUID    │  │
+│ │ │ 8m ago                     │  │
+│ │ └────────────────────────────┘  │
+│ │                                  │
+│                                    │
+│ [DELETE]                           │
+└────────────────────────────────────┘
+```
+
+## 🌙 Dark Mode Theme
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                       DARK MODE                         │
+│                    (Default Theme)                      │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  Background:  ███████  #0a0a0a  (Very dark gray)       │
+│  Primary:     ███████  #33ff33  (CRT green)            │
+│  Accent:      ███████  #ffb000  (Amber)                │
+│  Asks:        ███████  #00aaff  (Blue)                 │
+│  Error:       ███████  #ff3333  (Red)                  │
+│                                                         │
+│  ┌─────────────────────────────────────────────┐       │
+│  │ ◈ CLAUDE JOBS     [🌙]  [WALLET]  [✕]     │       │
+│  ├─────────────────────────────────────────────┤       │
+│  │                                             │       │
+│  │  ✦ COMPLETE                                 │       │
+│  │  Implement feature X                        │       │
+│  │  ▼ 1 Ask                                    │       │
+│  │  │ Q: Use TypeScript?                       │       │
+│  │  │ A: Yes                                   │       │
+│  │                                             │       │
+│  └─────────────────────────────────────────────┘       │
+│                                                         │
+│  • Terminal aesthetic                                  │
+│  • High contrast green text                            │
+│  • Retro CRT glow effects                              │
+│  • Best for: Night coding, dark rooms                  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+## ☀️ Light Mode Theme
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                       LIGHT MODE                        │
+│                    (Toggle with ☀)                      │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  Background:  ███████  #f5f5f0  (Off-white)            │
+│  Primary:     ███████  #1a3d0a  (Dark green)           │
+│  Accent:      ███████  #996600  (Dark amber)           │
+│  Asks:        ███████  #004d99  (Dark blue)            │
+│  Error:       ███████  #b30000  (Dark red)             │
+│                                                         │
+│  ┌─────────────────────────────────────────────┐       │
+│  │ ◈ CLAUDE JOBS     [☀]  [WALLET]  [✕]      │       │
+│  ├─────────────────────────────────────────────┤       │
+│  │                                             │       │
+│  │  ✦ COMPLETE                                 │       │
+│  │  Implement feature X                        │       │
+│  │  ▼ 1 Ask                                    │       │
+│  │  │ Q: Use TypeScript?                       │       │
+│  │  │ A: Yes                                   │       │
+│  │                                             │       │
+│  └─────────────────────────────────────────────┘       │
+│                                                         │
+│  • Clean modern design                                 │
+│  • High contrast dark text                             │
+│  • No glow effects                                     │
+│  • Best for: Daytime, bright rooms                     │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+## 🎬 Animation States
+
+### Expand Animation (200ms)
+
+```
+State 1: Collapsed          State 2: Expanding          State 3: Expanded
+▶ 2 Asks                    ▷ 2 Asks (rotating)         ▼ 2 Asks
+                            │                           │
+                            │                           │ ┌─────────┐
+                            │                           │ │ Ask #1  │
+                            │                           │ └─────────┘
+                            │                           │ ┌─────────┐
+                            │                           │ │ Ask #2  │
+                            │                           │ └─────────┘
+```
+
+### Theme Toggle Animation
+
+```
+Click ☀ button       →       Document updates        →       UI re-renders
+                              data-theme="light"              with light colors
+```
+
+## 🎯 Interaction Flow
+
+### 1. Viewing Asks
+
+```
+User Action                    System Response
+───────────                    ───────────────
+1. Clicks "▶ 2 Asks"    →     Arrow rotates 90° (▼)
+                              Asks section slides open
+                              Shows all asks with Q&A
+
+2. Clicks "▼ 2 Asks"    →     Arrow rotates back (▶)
+                              Asks section collapses
+                              Returns to compact view
+```
+
+### 2. Theme Switching
+
+```
+User Action                    System Response
+───────────                    ───────────────
+1. Clicks 🌙 button     →     Changes to ☀ button
+                              document.documentElement
+                              .setAttribute('data-theme', 'light')
+                              All CSS variables update
+                              Background: dark → light
+                              Text: green → dark green
+
+2. Clicks ☀ button      →     Changes to 🌙 button
+                              document.documentElement
+                              .removeAttribute('data-theme')
+                              All CSS variables revert
+                              Background: light → dark
+                              Text: dark green → green
+```
+
+## 📐 Component Hierarchy
+
+```
+<HomePage>
+├── <Header>
+│   ├── Logo & Title
+│   ├── Stats (Running/Completed)
+│   ├── [Theme Toggle Button] ← ☀/🌙
+│   ├── Wallet Info
+│   └── Disconnect Button
+│
+├── <Main>
+│   ├── <LeftPanel>
+│   │   ├── <NewTaskForm>
+│   │   ├── <SearchBar>
+│   │   └── <JobList>
+│   │       └── <JobCard> (multiple)
+│   │           ├── Status Badge
+│   │           ├── Prompt Text
+│   │           ├── Work Directory
+│   │           ├── <AsksSection> ← New Feature
+│   │           │   ├── <ToggleButton>
+│   │           │   └── {expanded && <AsksList>}
+│   │           │       └── <Ask> (multiple)
+│   │           │           ├── Question
+│   │           │           ├── Answer
+│   │           │           └── Timestamp
+│   │           └── Action Buttons
+│   │
+│   └── <RightPanel>
+│       ├── <JobDetailHeader>
+│       └── <OutputTerminal>
+│
+└── <Footer>
+    ├── Version Info
+    └── Timestamp
+```
+
+## 🔍 State Management
+
+```
+Component State:
+├── expandedAsks: Set<string>     ← Which asks are expanded
+├── isDarkMode: boolean           ← Current theme
+├── jobs: Job[]                   ← All jobs data
+├── selectedJob: string | null    ← Currently viewed job
+└── ... (existing state)
+
+Job Interface:
+{
+  id: string
+  prompt: string
+  status: string
+  asks?: Ask[]  ← New field
+  ...
+}
+
+Ask Interface:
+{
+  question: string
+  answer?: string
+  timestamp?: number
+}
+```
+
+## 💾 Data Flow
+
+```
+Backend (Future)          Frontend State           UI Display
+────────────             ─────────────            ──────────
+
+Job { asks: [] }    →    useState(jobs)      →   <JobCard>
+                                                      │
+                                                      ▼
+                                                  <AsksSection>
+                                                      │
+                                                      ├─ Collapsed: "▶ N Asks"
+                                                      │
+                                                      └─ Expanded: List of Q&A
+```
+
+## 🎨 CSS Variables Reference
+
+```css
+/* Dark Mode (default) */
+:root {
+  --crt-green: #33ff33;
+  --crt-amber: #ffb000;
+  --crt-blue: #00aaff;
+  --crt-red: #ff3333;
+  --crt-dark: #0a0a0a;
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-tertiary: #808080;
+}
+
+/* Light Mode */
+:root[data-theme="light"] {
+  --crt-green: #1a3d0a;
+  --crt-amber: #996600;
+  --crt-blue: #004d99;
+  --crt-red: #b30000;
+  --crt-dark: #f5f5f0;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-tertiary: #7a7a7a;
+}
+```
+
+## ✅ Feature Checklist
+
+- [x] Collapsible asks UI
+- [x] Theme toggle button
+- [x] Dark mode (default)
+- [x] Light mode
+- [x] Smooth animations
+- [x] Prevent event bubbling
+- [x] Responsive design
+- [x] Timestamp formatting
+- [x] Optional answers
+- [x] Multiple asks per job
+- [ ] Backend persistence
+- [ ] Theme localStorage
+- [ ] Real-time updates
+- [ ] Inline editing
+
+---
+
+**Bismillah** ░ Visual Guide ░ Claude Jobs v1.0

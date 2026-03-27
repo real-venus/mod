@@ -115,6 +115,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("opus");
+  const [agentType, setAgentType] = useState("general");
   const [workDir, setWorkDir] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
@@ -174,6 +175,7 @@ export default function Home() {
   // Wallet modal
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
+  const [showWalletSidebar, setShowWalletSidebar] = useState(false);
 
   // Network switcher (header)
   const [currentChainId, setCurrentChainId] = useState<number>(1);
@@ -444,6 +446,8 @@ export default function Home() {
   useEffect(() => {
     const savedModel = localStorage.getItem("claude_jobs_model");
     if (savedModel) setModel(savedModel);
+    const savedAgentType = localStorage.getItem("claude_agent_type");
+    if (savedAgentType) setAgentType(savedAgentType);
     const savedUrl = localStorage.getItem("claude_backend_url");
     if (savedUrl) setApiUrl(savedUrl);
   }, []);
@@ -902,6 +906,7 @@ export default function Home() {
     setSubmitting(true);
     try {
       const body: any = { prompt: prompt.trim(), model };
+      if (agentType && agentType !== "general") body.agent_type = agentType;
       if (images.length > 0) body.images = images;
 
       // Edit mode - edit existing module
@@ -1553,7 +1558,7 @@ export default function Home() {
           <pre
             className="text-crt-green leading-none select-none whitespace-pre transition-opacity duration-700"
             style={{
-              fontSize: "6px",
+              fontSize: "9px",
               textShadow: isLight ? "none" : "0 0 10px rgba(51,255,51,0.4), 0 0 3px rgba(51,255,51,0.2)",
               opacity: bootPhase >= 1 ? 1 : 0,
             }}
@@ -1567,15 +1572,15 @@ export default function Home() {
             style={{ opacity: bootPhase >= 2 ? 1 : 0 }}
           >
             <div className="border-2 border-crt-green/30 p-4 space-y-1" style={{ background: tintBg }}>
-              <div className="text-[8px] text-crt-green/60">SYSTEM CHECK ............ OK</div>
-              <div className="text-[8px] text-crt-green/60">CLAUDE ENGINE ........... READY</div>
-              <div className="text-[8px] text-crt-green/60">JOB SCHEDULER ........... ACTIVE</div>
-              <div className="text-[8px] text-crt-green/60">SSE STREAM .............. ENABLED</div>
-              <div className="text-[8px] text-crt-amber/80 mt-2">
+              <div className="text-[14px] text-crt-green/60">SYSTEM CHECK ............ OK</div>
+              <div className="text-[14px] text-crt-green/60">CLAUDE ENGINE ........... READY</div>
+              <div className="text-[14px] text-crt-green/60">JOB SCHEDULER ........... ACTIVE</div>
+              <div className="text-[14px] text-crt-green/60">SSE STREAM .............. ENABLED</div>
+              <div className="text-[14px] text-crt-amber/80 mt-2">
                 ⚠ WALLET SIGNATURE REQUIRED FOR ACCESS
               </div>
               {!hasMetaMask && !hasSubWallet && (
-                <div className="text-[8px] text-crt-green/40">
+                <div className="text-[14px] text-crt-green/40">
                   ◇ NO WEB3 WALLET — LOCAL KEY MODE AVAILABLE
                 </div>
               )}
@@ -1600,14 +1605,14 @@ export default function Home() {
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-crt-amber text-[13px]">⬡</span>
                 <h2
-                  className="text-[11px] text-crt-amber"
+                  className="text-[14px] text-crt-amber"
                   style={{ textShadow: "0 0 8px rgba(255,176,0,0.4)" }}
                 >
                   WALLET AUTHENTICATION
                 </h2>
               </div>
 
-              <div className="text-[8px] text-crt-green/50 mb-4 leading-relaxed">
+              <div className="text-[14px] text-crt-green/50 mb-4 leading-relaxed">
                 Sign a cryptographic challenge to authenticate.
                 Your signature is verified server-side via ecrecover and
                 becomes a 24-hour bearer token for all API requests.
@@ -1621,7 +1626,7 @@ export default function Home() {
                         <button
                           onClick={() => connectWallet("metamask")}
                           disabled={authLoading}
-                          className="pixel-btn pixel-btn-amber flex-1 text-[10px] py-3"
+                          className="pixel-btn pixel-btn-amber flex-1 text-[13px] py-3"
                           style={{ letterSpacing: "2px" }}
                         >
                           {authLoading ? (
@@ -1635,7 +1640,7 @@ export default function Home() {
                         <button
                           onClick={() => connectWallet("subwallet")}
                           disabled={authLoading}
-                          className="pixel-btn pixel-btn-blue flex-1 text-[10px] py-3"
+                          className="pixel-btn pixel-btn-blue flex-1 text-[13px] py-3"
                           style={{ letterSpacing: "2px" }}
                         >
                           {authLoading ? (
@@ -1649,7 +1654,7 @@ export default function Home() {
 
                     <div className="flex items-center gap-3 w-full max-w-xs">
                       <div className="flex-1 border-t border-crt-green/10" />
-                      <span className="text-[10px] text-crt-green/20">OR</span>
+                      <span className="text-[13px] text-crt-green/20">OR</span>
                       <div className="flex-1 border-t border-crt-green/10" />
                     </div>
                   </>
@@ -1658,7 +1663,7 @@ export default function Home() {
                 <button
                   onClick={connectLocal}
                   disabled={authLoading}
-                  className="pixel-btn w-full max-w-xs text-[10px] py-3"
+                  className="pixel-btn w-full max-w-xs text-[13px] py-3"
                   style={{ letterSpacing: "2px" }}
                 >
                   {authLoading && !hasMetaMask && !hasSubWallet ? (
@@ -1670,14 +1675,14 @@ export default function Home() {
 
                 <div className="flex items-center gap-3 w-full max-w-xs">
                   <div className="flex-1 border-t border-crt-green/10" />
-                  <span className="text-[10px] text-crt-green/20">OR</span>
+                  <span className="text-[13px] text-crt-green/20">OR</span>
                   <div className="flex-1 border-t border-crt-green/10" />
                 </div>
 
                 {!showPasswordInput ? (
                   <button
                     onClick={() => setShowPasswordInput(true)}
-                    className="pixel-btn w-full max-w-xs text-[10px] py-3"
+                    className="pixel-btn w-full max-w-xs text-[13px] py-3"
                     style={{ letterSpacing: "2px" }}
                   >
                     USE  PASSWORD  KEY
@@ -1689,7 +1694,7 @@ export default function Home() {
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
                       placeholder="Enter password..."
-                      className="w-full px-3 py-2 text-[10px] bg-crt-dark text-crt-green border-2 border-crt-amber/40 font-pixel"
+                      className="w-full px-3 py-2 text-[13px] bg-crt-dark text-crt-green border-2 border-crt-amber/40 font-pixel"
                       style={{ letterSpacing: "1px" }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && passwordInput.trim()) connectWithPassword(passwordInput.trim());
@@ -1698,7 +1703,7 @@ export default function Home() {
                     <button
                       onClick={() => passwordInput.trim() && connectWithPassword(passwordInput.trim())}
                       disabled={authLoading || !passwordInput.trim()}
-                      className="pixel-btn pixel-btn-amber w-full text-[10px] py-3"
+                      className="pixel-btn pixel-btn-amber w-full text-[13px] py-3"
                       style={{ letterSpacing: "2px" }}
                     >
                       {authLoading ? (
@@ -1710,21 +1715,21 @@ export default function Home() {
                   </div>
                 )}
 
-                <div className="text-[10px] text-crt-green/25">
+                <div className="text-[13px] text-crt-green/25">
                   Password derives a deterministic wallet key via keccak256
                 </div>
               </div>
 
               {authError && (
                 <div className="mt-4 border-2 border-crt-red/60 p-3" style={{ background: "rgba(255,51,51,0.05)" }}>
-                  <div className="text-[8px] text-crt-red text-center">{authError}</div>
+                  <div className="text-[14px] text-crt-red text-center">{authError}</div>
                 </div>
               )}
             </div>
           </div>
 
           {/* Footer */}
-          <div className="text-[10px] text-crt-green/20 mt-4">
+          <div className="text-[13px] text-crt-green/20 mt-4">
             BISMILLAH ░ MOD AI v1.0 ░ POWERED BY RUST + NEXT.JS
           </div>
         </div>
@@ -1744,7 +1749,7 @@ export default function Home() {
       return (
         <div key={item.path + idx} style={{ marginLeft: `${depth * 12}px` }}>
           <div
-            className="flex items-center gap-1.5 py-1 px-2 hover:bg-crt-green/5 cursor-pointer transition-colors text-[8px]"
+            className="flex items-center gap-1.5 py-1 px-2 hover:bg-crt-green/5 cursor-pointer transition-colors text-[14px]"
             onClick={() => {
               if (isDir) {
                 const newExpanded = new Set(expandedDirs);
@@ -1764,7 +1769,7 @@ export default function Home() {
             ) : (
               <span className="text-crt-blue/50">📄</span>
             )}
-            <span className="text-crt-green/80 truncate font-code" style={{ fontSize: "12px" }}>
+            <span className="text-crt-green/80 truncate font-code" style={{ fontSize: "14px" }}>
               {item.name}
             </span>
           </div>
@@ -1789,7 +1794,7 @@ export default function Home() {
     if (changelogLoading) {
       return (
         <div className="flex-1 flex items-center justify-center h-full">
-          <span className="text-[8px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
             Loading changelog...
           </span>
         </div>
@@ -1800,16 +1805,16 @@ export default function Home() {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 h-full p-6">
           <span className="text-[48px] text-crt-green/10">v0</span>
-          <span className="text-[8px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
             No versions yet
           </span>
-          <p className="text-[7px] text-crt-green/20 text-center max-w-xs">
+          <p className="text-[14px] text-crt-green/20 text-center max-w-xs">
             Use <code className="text-crt-amber/40">c.snapshot(&quot;description&quot;)</code> from the Python SDK to create
             the first version. Each version is stored permanently on IPFS.
           </p>
           <button
             onClick={fetchChangelog}
-            className="pixel-btn text-[8px] px-3 py-1.5 mt-2"
+            className="pixel-btn text-[14px] px-3 py-1.5 mt-2"
             style={{ background: "var(--accent-color)", color: "#000" }}
           >
             REFRESH
@@ -1826,16 +1831,16 @@ export default function Home() {
           style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,170,255,0.02)" }}
         >
           <div>
-            <span className="text-[8px] text-crt-blue/70 uppercase" style={{ letterSpacing: "1.5px" }}>
+            <span className="text-[14px] text-crt-blue/70 uppercase" style={{ letterSpacing: "1.5px" }}>
               VERSION HISTORY
             </span>
-            <div className="text-[7px] text-crt-green/40 mt-0.5">
+            <div className="text-[14px] text-crt-green/40 mt-0.5">
               {changelogEntries.length} version{changelogEntries.length !== 1 ? "s" : ""} on IPFS
             </div>
           </div>
           <button
             onClick={fetchChangelog}
-            className="text-[7px] text-crt-green/40 hover:text-crt-green/70 transition-colors"
+            className="text-[14px] text-crt-green/40 hover:text-crt-green/70 transition-colors"
           >
             REFRESH
           </button>
@@ -1858,24 +1863,24 @@ export default function Home() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-bold ${isLatest ? "text-crt-green" : "text-crt-amber/70"}`}>
+                      <span className={`text-[13px] font-bold ${isLatest ? "text-crt-green" : "text-crt-amber/70"}`}>
                         v{entry.version}
                       </span>
                       {isLatest && (
-                        <span className="text-[6px] px-1.5 py-0.5 bg-crt-green/20 text-crt-green rounded" style={{ letterSpacing: "1px" }}>
+                        <span className="text-[13px] px-1.5 py-0.5 bg-crt-green/20 text-crt-green rounded" style={{ letterSpacing: "1px" }}>
                           LATEST
                         </span>
                       )}
                     </div>
-                    <span className="text-[7px] text-crt-green/30">{entry.date}</span>
+                    <span className="text-[14px] text-crt-green/30">{entry.date}</span>
                   </div>
-                  <div className="text-[8px] text-crt-green/50 mt-1">{entry.description}</div>
+                  <div className="text-[14px] text-crt-green/50 mt-1">{entry.description}</div>
                   <div className="flex items-center gap-3 mt-1.5">
-                    <span className="text-[6px] text-crt-green/25 font-mono">
+                    <span className="text-[13px] text-crt-green/25 font-mono">
                       {entry.cid?.substring(0, 20)}...
                     </span>
                     {entry.file_count && (
-                      <span className="text-[6px] text-crt-green/25">
+                      <span className="text-[13px] text-crt-green/25">
                         {entry.file_count} files
                       </span>
                     )}
@@ -1892,40 +1897,40 @@ export default function Home() {
                 className="px-4 py-2 border-b flex items-center justify-between sticky top-0 z-10"
                 style={{ borderColor: "rgba(255,255,255,0.08)", background: "var(--bg-secondary)" }}
               >
-                <span className="text-[8px] text-crt-blue uppercase" style={{ letterSpacing: "1px" }}>
+                <span className="text-[14px] text-crt-blue uppercase" style={{ letterSpacing: "1px" }}>
                   v{selectedVersion}
                 </span>
                 <button
                   onClick={() => { setSelectedVersion(null); setVersionDetail(null); }}
-                  className="text-[7px] text-crt-red/50 hover:text-crt-red/70"
+                  className="text-[14px] text-crt-red/50 hover:text-crt-red/70"
                 >
                   CLOSE
                 </button>
               </div>
 
               {versionDetailLoading ? (
-                <div className="p-4 text-[8px] text-crt-green/30">Loading version data...</div>
+                <div className="p-4 text-[14px] text-crt-green/30">Loading version data...</div>
               ) : versionDetail ? (
                 <div className="p-4">
-                  <div className="text-[8px] text-crt-green/60 mb-3">
+                  <div className="text-[14px] text-crt-green/60 mb-3">
                     {versionDetail.version?.description || "No description"}
                   </div>
 
                   {/* CID with link */}
                   <div className="mb-3">
-                    <div className="text-[7px] text-crt-green/30 mb-1" style={{ letterSpacing: "1px" }}>IPFS CID</div>
+                    <div className="text-[14px] text-crt-green/30 mb-1" style={{ letterSpacing: "1px" }}>IPFS CID</div>
                     <a
                       href={versionDetail.gateway}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[8px] text-crt-blue/70 hover:text-crt-blue font-mono break-all transition-colors"
+                      className="text-[14px] text-crt-blue/70 hover:text-crt-blue font-mono break-all transition-colors"
                     >
                       {versionDetail.version?.cid}
                     </a>
                   </div>
 
                   {/* Metadata */}
-                  <div className="grid grid-cols-2 gap-2 text-[7px]">
+                  <div className="grid grid-cols-2 gap-2 text-[14px]">
                     <div>
                       <span className="text-crt-green/30">Date</span>
                       <div className="text-crt-green/60">{versionDetail.version?.date}</div>
@@ -1940,14 +1945,14 @@ export default function Home() {
 
                   {/* Restore hint */}
                   <div className="mt-4 p-2 border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
-                    <div className="text-[7px] text-crt-amber/50 mb-1">RESTORE THIS VERSION</div>
-                    <code className="text-[7px] text-crt-green/40 block">
+                    <div className="text-[14px] text-crt-amber/50 mb-1">RESTORE THIS VERSION</div>
+                    <code className="text-[14px] text-crt-green/40 block">
                       c.restore_version(&quot;{selectedVersion}&quot;, dry_run=False)
                     </code>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 text-[8px] text-crt-green/30">Select a version to view details</div>
+                <div className="p-4 text-[14px] text-crt-green/30">Select a version to view details</div>
               )}
             </div>
           )}
@@ -1970,7 +1975,7 @@ export default function Home() {
         >
           <div className="px-3 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-[8px] text-crt-green/70" style={{ letterSpacing: "1.5px" }}>
+              <span className="text-[14px] text-crt-green/70" style={{ letterSpacing: "1.5px" }}>
                 📁 FILES
               </span>
             </div>
@@ -1982,7 +1987,7 @@ export default function Home() {
                   setInlineSearchResults([]);
                   setTimeout(() => inlineSearchRef.current?.focus(), 50);
                 }}
-                className={`text-[6px] px-1.5 py-0.5 border transition-all uppercase ${
+                className={`text-[13px] px-1.5 py-0.5 border transition-all uppercase ${
                   inlineSearchMode === "files"
                     ? "border-crt-blue text-crt-blue bg-crt-blue/10"
                     : "border-crt-blue/30 text-crt-blue/60 hover:text-crt-blue hover:border-crt-blue"
@@ -1999,7 +2004,7 @@ export default function Home() {
                   setInlineSearchResults([]);
                   setTimeout(() => inlineSearchRef.current?.focus(), 50);
                 }}
-                className={`text-[6px] px-1.5 py-0.5 border transition-all uppercase ${
+                className={`text-[13px] px-1.5 py-0.5 border transition-all uppercase ${
                   inlineSearchMode === "grep"
                     ? "border-crt-blue text-crt-blue bg-crt-blue/10"
                     : "border-crt-blue/30 text-crt-blue/60 hover:text-crt-blue hover:border-crt-blue"
@@ -2011,7 +2016,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => fetchDirectoryTree()}
-                className="text-[6px] px-1.5 py-0.5 border border-crt-green/20 text-crt-green/40 hover:text-crt-green/70 hover:border-crt-green/40 transition-all"
+                className="text-[13px] px-1.5 py-0.5 border border-crt-green/20 text-crt-green/40 hover:text-crt-green/70 hover:border-crt-green/40 transition-all"
                 title="Refresh"
               >
                 ↻
@@ -2025,7 +2030,7 @@ export default function Home() {
               <div className="flex items-center gap-2 px-2 py-1.5 border border-crt-blue/30 bg-black/40"
                 style={{ borderRadius: "2px" }}
               >
-                <span className="text-[8px] text-crt-blue/60">
+                <span className="text-[14px] text-crt-blue/60">
                   {inlineSearchMode === "files" ? "🔍" : "🔎"}
                 </span>
                 <input
@@ -2054,13 +2059,13 @@ export default function Home() {
                     }
                   }}
                   placeholder={inlineSearchMode === "files" ? "Search files by name..." : "Search file contents..."}
-                  className="flex-1 bg-transparent border-none outline-none text-[9px] text-white font-code"
+                  className="flex-1 bg-transparent border-none outline-none text-[13px] text-white font-code"
                   autoFocus
                 />
                 {inlineSearchLoading && (
-                  <span className="text-[7px] text-crt-green/40 animate-pulse">...</span>
+                  <span className="text-[14px] text-crt-green/40 animate-pulse">...</span>
                 )}
-                <span className="text-[6px] text-white/20">ESC</span>
+                <span className="text-[13px] text-white/20">ESC</span>
               </div>
 
               {/* Inline Results */}
@@ -2085,16 +2090,16 @@ export default function Home() {
                     >
                       {inlineSearchMode === "files" ? (
                         <>
-                          <div className="text-[8px] text-white font-code">{result.filename}</div>
-                          <div className="text-[7px] text-white/30 font-code truncate">{result.path}</div>
+                          <div className="text-[14px] text-white font-code">{result.filename}</div>
+                          <div className="text-[14px] text-white/30 font-code truncate">{result.path}</div>
                         </>
                       ) : (
                         <>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[8px] text-crt-blue font-code">{result.filename}</span>
-                            <span className="text-[7px] text-white/30 font-code">:{result.line}</span>
+                            <span className="text-[14px] text-crt-blue font-code">{result.filename}</span>
+                            <span className="text-[14px] text-white/30 font-code">:{result.line}</span>
                           </div>
-                          <div className="text-[7px] text-white/50 font-code truncate whitespace-pre">{result.content}</div>
+                          <div className="text-[14px] text-white/50 font-code truncate whitespace-pre">{result.content}</div>
                         </>
                       )}
                     </div>
@@ -2102,7 +2107,7 @@ export default function Home() {
                 </div>
               )}
               {inlineSearchQuery && !inlineSearchLoading && inlineSearchResults.length === 0 && (
-                <div className="mt-1 text-center text-[7px] text-white/20 py-2 font-code">No results</div>
+                <div className="mt-1 text-center text-[14px] text-white/20 py-2 font-code">No results</div>
               )}
             </div>
           )}
@@ -2110,7 +2115,7 @@ export default function Home() {
 
         {/* Path display */}
         {(selectedJob || workDir) && (
-          <div className="px-3 py-1 border-b text-[11px] text-crt-green/30 truncate font-code" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+          <div className="px-3 py-1 border-b text-[14px] text-crt-green/30 truncate font-code" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
             {fileWorkDir}
           </div>
         )}
@@ -2129,11 +2134,11 @@ export default function Home() {
               renderDirectoryTree(directoryTree, 0)
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-3">
-                <span className="text-[10px] text-crt-green/50">📂 No files loaded</span>
-                <span className="text-[7px] text-crt-green/30">Select a module above or click refresh</span>
+                <span className="text-[13px] text-crt-green/50">📂 No files loaded</span>
+                <span className="text-[14px] text-crt-green/30">Select a module above or click refresh</span>
                 <button
                   onClick={() => fetchDirectoryTree()}
-                  className="text-[8px] px-3 py-1.5 border border-crt-green/30 text-crt-green/60 hover:text-crt-green hover:border-crt-green transition-all"
+                  className="text-[14px] px-3 py-1.5 border border-crt-green/30 text-crt-green/60 hover:text-crt-green hover:border-crt-green transition-all"
                 >
                   ↻ LOAD FILES
                 </button>
@@ -2153,17 +2158,17 @@ export default function Home() {
                   <span className="text-[13px] text-crt-blue font-bold truncate font-code">
                     {viewingFile.split("/").pop()}
                   </span>
-                  <span className="text-[11px] text-crt-green/30 uppercase shrink-0 font-code">
+                  <span className="text-[14px] text-crt-green/30 uppercase shrink-0 font-code">
                     {getLanguageFromPath(viewingFile)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] text-crt-green/20 font-code">
+                  <span className="text-[14px] text-crt-green/20 font-code">
                     {viewingFileContent.split("\n").length} lines
                   </span>
                   <button
                     onClick={() => { setViewingFile(null); setViewingFileContent(""); }}
-                    className="text-[6px] px-1.5 py-0.5 border border-crt-red/30 text-crt-red/50 hover:text-crt-red hover:border-crt-red transition-all"
+                    className="text-[13px] px-1.5 py-0.5 border border-crt-red/30 text-crt-red/50 hover:text-crt-red hover:border-crt-red transition-all"
                     title="Close file"
                   >
                     ✕
@@ -2171,14 +2176,14 @@ export default function Home() {
                 </div>
               </div>
               {/* File path */}
-              <div className="px-3 py-0.5 text-[11px] text-crt-green/20 truncate border-b shrink-0 font-code" style={{ borderColor: "rgba(255,255,255,0.03)" }}>
+              <div className="px-3 py-0.5 text-[14px] text-crt-green/20 truncate border-b shrink-0 font-code" style={{ borderColor: "rgba(255,255,255,0.03)" }}>
                 {viewingFile}
               </div>
               {/* File content */}
               <div className="flex-1 overflow-auto">
                 {viewingFileLoading ? (
                   <div className="flex items-center justify-center h-full">
-                    <span className="text-[8px] text-crt-blue animate-pulse">Loading file...</span>
+                    <span className="text-[14px] text-crt-blue animate-pulse">Loading file...</span>
                   </div>
                 ) : (
                   <pre
@@ -2336,7 +2341,7 @@ export default function Home() {
                   >
                     <span style={{ color: "var(--crt-green)", opacity: 0.5 }}>/</span>
                     {selectedModule || "claude"}
-                    <span style={{ color: "var(--crt-green)", opacity: 0.3, fontSize: "10px" }}>▼</span>
+                    <span style={{ color: "var(--crt-green)", opacity: 0.3, fontSize: "13px" }}>▼</span>
                   </button>
                 )}
                 {showInlineModuleDropdown && moduleList.length > 0 && (
@@ -2388,14 +2393,14 @@ export default function Home() {
               {images.length > 0 && (
                 <div className="relative group flex items-center">
                   <span
-                    className="text-[12px] px-2 py-1 border border-crt-blue/30 text-crt-blue/70 uppercase cursor-default"
+                    className="text-[14px] px-2 py-1 border border-crt-blue/30 text-crt-blue/70 uppercase cursor-default"
                     style={{ letterSpacing: "0.5px" }}
                   >
                     {images.length} IMG{images.length > 1 ? "S" : ""}
                   </span>
                   <button
                     onClick={() => setImages([])}
-                    className="text-[12px] text-crt-red/60 hover:text-crt-red ml-1 transition-colors"
+                    className="text-[14px] text-crt-red/60 hover:text-crt-red ml-1 transition-colors"
                     title="Clear all images"
                   >
                     ✕
@@ -2432,7 +2437,7 @@ export default function Home() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter..."
-            className="flex-1 min-w-0 px-2 py-1 text-[10px] border-none bg-transparent text-crt-green/70 focus:outline-none placeholder:text-crt-green/20"
+            className="flex-1 min-w-0 px-2 py-1 text-[13px] border-none bg-transparent text-crt-green/70 focus:outline-none placeholder:text-crt-green/20"
           />
           <div className="flex gap-2 shrink-0 items-center">
             {["running", "pending", "completed", "failed", "cancelled"].map((status) => {
@@ -2443,7 +2448,7 @@ export default function Home() {
                 <button
                   key={status}
                   onClick={() => setStatusFilter(isActive ? null : status)}
-                  className="text-[9px] transition-opacity whitespace-nowrap border-none bg-transparent cursor-pointer"
+                  className="text-[13px] transition-opacity whitespace-nowrap border-none bg-transparent cursor-pointer"
                   style={{
                     color: isActive ? STATUS_COLOR[status] : `${STATUS_COLOR[status]}66`,
                     opacity: isActive ? 1 : 0.6,
@@ -2461,13 +2466,13 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto">
           {loading && !jobs.length ? (
             <div className="p-8 text-center">
-              <p className="text-[12px] cursor-blink" style={{ color: "var(--text-tertiary)" }}>
+              <p className="text-[14px] cursor-blink" style={{ color: "var(--text-tertiary)" }}>
                 LOADING JOBS
               </p>
             </div>
           ) : filteredJobs.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-[12px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+              <p className="text-[14px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
                 No agent tasks found
               </p>
             </div>
@@ -2491,13 +2496,13 @@ export default function Home() {
                   <div className="px-3 py-2.5">
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
-                        <span className={`text-[12px] ${job.status === "running" ? "led-pulse" : ""}`} style={{ color }}>
+                        <span className={`text-[14px] ${job.status === "running" ? "led-pulse" : ""}`} style={{ color }}>
                           {STATUS_ICON[job.status]}
                         </span>
-                        <span className="text-[11px] font-pixel" style={{ color, letterSpacing: "0.5px" }}>
+                        <span className="text-[14px] font-pixel" style={{ color, letterSpacing: "0.5px" }}>
                           {STATUS_LABEL[job.status]}
                         </span>
-                        <span className="text-[9px] font-pixel" style={{ color: "var(--crt-amber)", opacity: 0.4, letterSpacing: "0.5px" }}>
+                        <span className="text-[13px] font-pixel" style={{ color: "var(--crt-amber)", opacity: 0.4, letterSpacing: "0.5px" }}>
                           {job.model === "opus" ? "OPUS 4.6" : job.model === "sonnet" ? "SONNET 4.5" : job.model === "haiku" ? "HAIKU 4.5" : job.model.toUpperCase()}
                         </span>
                       </div>
@@ -2505,7 +2510,7 @@ export default function Home() {
                         {(job.status === "running" || job.status === "pending") && (
                           <button
                             onClick={(e) => { e.stopPropagation(); cancelJob(job.id); }}
-                            className="text-[9px] px-2 py-1 border border-red-500/40 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all uppercase"
+                            className="text-[13px] px-2 py-1 border border-red-500/40 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all uppercase"
                             style={{ letterSpacing: "0.5px" }}
                             title="Cancel task"
                           >
@@ -2515,14 +2520,14 @@ export default function Home() {
                         {(job.status === "completed" || job.status === "failed" || job.status === "cancelled") && (
                           <button
                             onClick={(e) => { e.stopPropagation(); deleteJob(job.id); }}
-                            className="text-[9px] px-2 py-1 border border-red-500/30 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500 transition-all uppercase"
+                            className="text-[13px] px-2 py-1 border border-red-500/30 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500 transition-all uppercase"
                             style={{ letterSpacing: "0.5px" }}
                             title="Delete task"
                           >
                             DEL
                           </button>
                         )}
-                        <span className="text-[10px]" style={{ color: faintGreenText }}>
+                        <span className="text-[13px]" style={{ color: faintGreenText }}>
                           {timeSince(job.created_at)}
                         </span>
                       </div>
@@ -2534,18 +2539,18 @@ export default function Home() {
                       className="mb-1"
                       style={{ cursor: job.prompt.length > 80 ? "pointer" : "default" }}
                     >
-                      <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary)", whiteSpace: isPromptExpanded ? "pre-wrap" : "nowrap", overflow: isPromptExpanded ? "visible" : "hidden", textOverflow: isPromptExpanded ? "clip" : "ellipsis" }}>
+                      <p className="text-[14px] leading-relaxed" style={{ color: "var(--text-secondary)", whiteSpace: isPromptExpanded ? "pre-wrap" : "nowrap", overflow: isPromptExpanded ? "visible" : "hidden", textOverflow: isPromptExpanded ? "clip" : "ellipsis" }}>
                         {isPromptExpanded ? job.prompt : (job.prompt.length > 80 ? job.prompt.slice(0, 80) + "..." : job.prompt)}
                       </p>
                       {job.prompt.length > 80 && (
-                        <span className="text-[8px]" style={{ color: "var(--crt-blue)", opacity: 0.5 }}>
+                        <span className="text-[14px]" style={{ color: "var(--crt-blue)", opacity: 0.5 }}>
                           {isPromptExpanded ? "▲ COLLAPSE" : "▼ EXPAND"}
                         </span>
                       )}
                     </div>
 
                     {job.work_dir && (
-                      <p className="text-[10px] truncate mb-1.5" style={{ color: "var(--crt-amber)", opacity: 0.5 }}>
+                      <p className="text-[13px] truncate mb-1.5" style={{ color: "var(--crt-amber)", opacity: 0.5 }}>
                         {moduleName ? `◈ ${moduleName.toUpperCase()}` : `📁 ${job.work_dir}`}
                       </p>
                     )}
@@ -2554,7 +2559,7 @@ export default function Home() {
                     <div className="flex items-center gap-1.5 mt-1" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={(e) => copyTaskToInput(job, e)}
-                        className="text-[8px] px-2 py-0.5 border border-crt-blue/30 text-crt-blue/70 hover:bg-crt-blue/15 hover:border-crt-blue/60 hover:text-crt-blue transition-all uppercase"
+                        className="text-[14px] px-2 py-0.5 border border-crt-blue/30 text-crt-blue/70 hover:bg-crt-blue/15 hover:border-crt-blue/60 hover:text-crt-blue transition-all uppercase"
                         style={{ letterSpacing: "0.5px" }}
                         title="Copy prompt & module into input"
                       >
@@ -2585,10 +2590,10 @@ export default function Home() {
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4 p-6">
               <span className="text-[48px] text-crt-green/10">🎨</span>
-              <span className="text-[8px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+              <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
                 No app available
               </span>
-              <p className="text-[7px] text-crt-green/20 text-center max-w-xs">
+              <p className="text-[14px] text-crt-green/20 text-center max-w-xs">
                 {selectedModule
                   ? `Module "${selectedModule}" does not have an app interface.`
                   : "Select a module with an app to view it here."}
@@ -2642,11 +2647,11 @@ export default function Home() {
 
     // Type badge for values
     const typeBadge = (val: any) => {
-      if (val === null) return <span className="text-[6px] px-1 py-px rounded ml-1" style={{ color: "#888", background: "rgba(136,136,136,0.1)", border: "1px solid rgba(136,136,136,0.15)" }}>null</span>;
-      if (typeof val === "boolean") return <span className="text-[6px] px-1 py-px rounded ml-1" style={{ color: "#ff79c6", background: "rgba(255,121,198,0.08)", border: "1px solid rgba(255,121,198,0.15)" }}>bool</span>;
-      if (typeof val === "number") return <span className="text-[6px] px-1 py-px rounded ml-1" style={{ color: "#bd93f9", background: "rgba(189,147,249,0.08)", border: "1px solid rgba(189,147,249,0.15)" }}>num</span>;
-      if (typeof val === "string" && val.startsWith("0x")) return <span className="text-[6px] px-1 py-px rounded ml-1" style={{ color: "#50fa7b", background: "rgba(80,250,123,0.08)", border: "1px solid rgba(80,250,123,0.15)" }}>addr</span>;
-      if (typeof val === "string" && val.startsWith("http")) return <span className="text-[6px] px-1 py-px rounded ml-1" style={{ color: "#8be9fd", background: "rgba(139,233,253,0.08)", border: "1px solid rgba(139,233,253,0.15)" }}>url</span>;
+      if (val === null) return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#888", background: "rgba(136,136,136,0.1)", border: "1px solid rgba(136,136,136,0.15)" }}>null</span>;
+      if (typeof val === "boolean") return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#ff79c6", background: "rgba(255,121,198,0.08)", border: "1px solid rgba(255,121,198,0.15)" }}>bool</span>;
+      if (typeof val === "number") return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#bd93f9", background: "rgba(189,147,249,0.08)", border: "1px solid rgba(189,147,249,0.15)" }}>num</span>;
+      if (typeof val === "string" && val.startsWith("0x")) return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#50fa7b", background: "rgba(80,250,123,0.08)", border: "1px solid rgba(80,250,123,0.15)" }}>addr</span>;
+      if (typeof val === "string" && val.startsWith("http")) return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#8be9fd", background: "rgba(139,233,253,0.08)", border: "1px solid rgba(139,233,253,0.15)" }}>url</span>;
       return null;
     };
 
@@ -2683,7 +2688,7 @@ export default function Home() {
               <><span style={{ color: "#8be9fd", fontWeight: "bold" }}>&quot;{key}&quot;</span><span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>: </span></>
             )}
             {isArrayItem && key !== null && (
-              <span className="text-[7px] mr-1.5 inline-flex items-center justify-center w-4 text-center" style={{ color: "var(--text-tertiary)", opacity: 0.35 }}>{key}</span>
+              <span className="text-[14px] mr-1.5 inline-flex items-center justify-center w-4 text-center" style={{ color: "var(--text-tertiary)", opacity: 0.35 }}>{key}</span>
             )}
             {renderVal()}
             {typeBadge(value)}
@@ -2691,7 +2696,7 @@ export default function Home() {
           </div>
           <span
             onClick={() => copyValue(path, value)}
-            className="cursor-pointer opacity-0 group-hover/jrow:opacity-60 hover:!opacity-100 text-[7px] px-2 py-0 mr-2 rounded transition-all select-none shrink-0 flex items-center"
+            className="cursor-pointer opacity-0 group-hover/jrow:opacity-60 hover:!opacity-100 text-[14px] px-2 py-0 mr-2 rounded transition-all select-none shrink-0 flex items-center"
             style={{ color: isCopied ? "#50fa7b" : "var(--text-tertiary)", background: isCopied ? "rgba(80,250,123,0.1)" : "rgba(255,255,255,0.04)" }}
             title="Copy value"
           >
@@ -2735,7 +2740,7 @@ export default function Home() {
           onClick={() => toggleCollapse(path)}
         >
           {renderGuides(depth)}
-          <span className="w-4 flex items-center justify-center text-[9px] shrink-0 select-none transition-transform" style={{ color: bracketColor }}>
+          <span className="w-4 flex items-center justify-center text-[13px] shrink-0 select-none transition-transform" style={{ color: bracketColor }}>
             {isCollapsed ? "▸" : "▾"}
           </span>
           <div className="flex-1 flex items-center py-[2px]">
@@ -2743,12 +2748,12 @@ export default function Home() {
               <><span style={{ color: "#8be9fd", fontWeight: "bold" }}>&quot;{key}&quot;</span><span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>: </span></>
             )}
             {isArrayItem && key !== null && (
-              <span className="text-[7px] mr-1.5 inline-flex items-center justify-center w-4 text-center" style={{ color: "var(--text-tertiary)", opacity: 0.35 }}>{key}</span>
+              <span className="text-[14px] mr-1.5 inline-flex items-center justify-center w-4 text-center" style={{ color: "var(--text-tertiary)", opacity: 0.35 }}>{key}</span>
             )}
             <span style={{ color: bracketColor, fontWeight: "bold", textShadow: `0 0 8px ${bracketColor}44` }}>{openBracket}</span>
             {isCollapsed && (
               <>
-                <span className="text-[7px] px-1.5 mx-1 rounded-sm inline-flex items-center gap-1" style={{
+                <span className="text-[14px] px-1.5 mx-1 rounded-sm inline-flex items-center gap-1" style={{
                   color: bracketColor,
                   background: `${bracketColor}11`,
                   border: `1px solid ${bracketColor}22`,
@@ -2763,7 +2768,7 @@ export default function Home() {
           </div>
           <span
             onClick={(e) => { e.stopPropagation(); copyValue(path, value); }}
-            className="cursor-pointer opacity-0 group-hover/jrow:opacity-60 hover:!opacity-100 text-[7px] px-2 py-0 mr-2 rounded transition-all select-none shrink-0 flex items-center"
+            className="cursor-pointer opacity-0 group-hover/jrow:opacity-60 hover:!opacity-100 text-[14px] px-2 py-0 mr-2 rounded transition-all select-none shrink-0 flex items-center"
             style={{ color: isCopied ? "#50fa7b" : "var(--text-tertiary)", background: isCopied ? "rgba(80,250,123,0.1)" : "rgba(255,255,255,0.04)" }}
             title="Copy object"
           >
@@ -2795,12 +2800,12 @@ export default function Home() {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 h-full p-6">
           <span className="text-[48px] opacity-10">⚙️</span>
-          <span className="text-[8px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
             {loadingConfig ? "Loading config..." : "No config loaded"}
           </span>
           <button
             onClick={fetchDirectConfig}
-            className="text-[7px] px-3 py-1 border border-crt-green/30 text-crt-green/60 hover:bg-crt-green/10 transition-all uppercase"
+            className="text-[14px] px-3 py-1 border border-crt-green/30 text-crt-green/60 hover:bg-crt-green/10 transition-all uppercase"
             style={{ letterSpacing: "1px" }}
           >
             Retry
@@ -2824,20 +2829,20 @@ export default function Home() {
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold" style={{ color: "var(--crt-amber)", letterSpacing: "2px", textShadow: "0 0 10px rgba(255,176,0,0.4)" }}>
+              <span className="text-[13px] font-bold" style={{ color: "var(--crt-amber)", letterSpacing: "2px", textShadow: "0 0 10px rgba(255,176,0,0.4)" }}>
                 {cfg.name?.toUpperCase() || "MODULE"}
               </span>
-              <span className="text-[7px] px-1.5 py-0.5 rounded-sm" style={{ color: "#50fa7b", background: "rgba(80,250,123,0.1)", border: "1px solid rgba(80,250,123,0.2)" }}>
+              <span className="text-[14px] px-1.5 py-0.5 rounded-sm" style={{ color: "#50fa7b", background: "rgba(80,250,123,0.1)", border: "1px solid rgba(80,250,123,0.2)" }}>
                 v{cfg.version || "?"}
               </span>
-              <span className="text-[7px] px-1.5 py-0.5 rounded-sm" style={{ color: "var(--crt-blue)", background: "rgba(0,170,255,0.08)", border: "1px solid rgba(0,170,255,0.15)" }}>
+              <span className="text-[14px] px-1.5 py-0.5 rounded-sm" style={{ color: "var(--crt-blue)", background: "rgba(0,170,255,0.08)", border: "1px solid rgba(0,170,255,0.15)" }}>
                 :{cfg.port || "?"}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => collapseAll(cfg)}
-                className="text-[6px] px-2.5 py-1 rounded-sm transition-all hover:brightness-125"
+                className="text-[13px] px-2.5 py-1 rounded-sm transition-all hover:brightness-125"
                 style={{
                   color: "#ffa502",
                   background: "rgba(255,165,2,0.08)",
@@ -2850,7 +2855,7 @@ export default function Home() {
               </button>
               <button
                 onClick={expandAll}
-                className="text-[6px] px-2.5 py-1 rounded-sm transition-all hover:brightness-125"
+                className="text-[13px] px-2.5 py-1 rounded-sm transition-all hover:brightness-125"
                 style={{
                   color: "#51cf66",
                   background: "rgba(81,207,102,0.08)",
@@ -2863,7 +2868,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => copyValue("$root", cfg)}
-                className="text-[6px] px-2.5 py-1 rounded-sm transition-all hover:brightness-125"
+                className="text-[13px] px-2.5 py-1 rounded-sm transition-all hover:brightness-125"
                 style={{
                   color: copiedPath === "$root" ? "#50fa7b" : "#748ffc",
                   background: copiedPath === "$root" ? "rgba(80,250,123,0.12)" : "rgba(116,143,252,0.08)",
@@ -2877,7 +2882,7 @@ export default function Home() {
             </div>
           </div>
           {/* Stats bar */}
-          <div className="flex items-center gap-3 text-[7px]">
+          <div className="flex items-center gap-3 text-[14px]">
             {endpointCount > 0 && (
               <span style={{ color: "#ff6b6b", opacity: 0.7 }}>
                 ● {endpointCount} endpoints
@@ -2899,7 +2904,7 @@ export default function Home() {
 
         {/* Collapsible JSON Tree - Enhanced */}
         <div
-          className="flex-1 overflow-y-auto overflow-x-auto px-1 py-2 text-[9px] font-mono leading-[1.5]"
+          className="flex-1 overflow-y-auto overflow-x-auto px-1 py-2 text-[13px] font-mono leading-[1.5]"
           style={{
             color: "var(--crt-green)",
             background: "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 2%)",
@@ -2920,10 +2925,10 @@ export default function Home() {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 h-full p-6">
           <span className="text-[48px] text-crt-green/10">⚙️</span>
-          <span className="text-[11px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
             {loadingConfig ? "Loading config..." : "No API endpoints"}
           </span>
-          <p className="text-[10px] text-crt-green/20 text-center max-w-xs">
+          <p className="text-[13px] text-crt-green/20 text-center max-w-xs">
             {selectedModule
               ? `Select a module with endpoints in config.json`
               : "Select a module to explore its API."}
@@ -2945,13 +2950,13 @@ export default function Home() {
           style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,51,51,0.02)" }}
         >
           <div className="flex items-center justify-between">
-            <div>
-              <span className="text-[11px] text-crt-red/70 uppercase" style={{ letterSpacing: "1.5px" }}>
+            <div className="flex items-center gap-3">
+              <span className="text-[14px] text-crt-red/70 uppercase" style={{ letterSpacing: "1.5px" }}>
                 API EXPLORER
               </span>
-              <div className="text-[10px] text-crt-amber/50 mt-0.5">{baseUrl}</div>
+              <span className="text-[13px] text-crt-amber/50">{baseUrl}</span>
             </div>
-            <span className="text-[10px] text-crt-green/30">{endpointKeys.length} endpoints</span>
+            <span className="text-[13px] text-crt-green/30">{endpointKeys.length} endpoints</span>
           </div>
         </div>
 
@@ -2983,7 +2988,7 @@ export default function Home() {
                       {methods.map((m: string) => (
                         <span
                           key={m}
-                          className="text-[9px] px-1.5 py-0.5 font-bold border"
+                          className="text-[13px] px-1.5 py-0.5 font-bold border"
                           style={{
                             color: m === "GET" ? "var(--crt-green)" : m === "POST" ? "var(--crt-blue)" : "var(--crt-red)",
                             borderColor: m === "GET" ? apiGreenBorder : m === "POST" ? apiBlueBorder : apiRedBorder,
@@ -2994,12 +2999,12 @@ export default function Home() {
                         </span>
                       ))}
                     </div>
-                    <span className="text-[11px] font-mono truncate" style={{ color: isSelected ? "var(--crt-red)" : "var(--text-primary)", opacity: isSelected ? 1 : 0.7 }}>
+                    <span className="text-[14px] font-mono truncate" style={{ color: isSelected ? "var(--crt-red)" : "var(--text-primary)", opacity: isSelected ? 1 : 0.7 }}>
                       {ep}
                     </span>
-                    {info.auth && <span className="text-[9px] px-1 py-0.5 border border-crt-amber/30 text-crt-amber/60">AUTH</span>}
+                    {info.auth && <span className="text-[13px] px-1 py-0.5 border border-crt-amber/30 text-crt-amber/60">AUTH</span>}
                   </div>
-                  <div className="text-[9px] mt-0.5 truncate" style={{ color: "var(--text-tertiary)", opacity: 0.4 }}>
+                  <div className="text-[13px] mt-0.5 truncate" style={{ color: "var(--text-tertiary)", opacity: 0.4 }}>
                     {info.docs}
                   </div>
                 </div>
@@ -3016,7 +3021,7 @@ export default function Home() {
                   <select
                     value={apiMethod}
                     onChange={(e) => setApiMethod(e.target.value)}
-                    className="text-[10px] font-bold px-2 py-1 border bg-transparent font-mono"
+                    className="text-[13px] font-bold px-2 py-1 border bg-transparent font-mono"
                     style={{
                       color: apiMethod === "GET" ? "var(--crt-green)" : apiMethod === "POST" ? "var(--crt-blue)" : "var(--crt-red)",
                       borderColor: "rgba(255,255,255,0.15)",
@@ -3028,7 +3033,7 @@ export default function Home() {
                   </select>
                 ) : (
                   <span
-                    className="text-[10px] font-bold px-2 py-1 border"
+                    className="text-[13px] font-bold px-2 py-1 border"
                     style={{
                       color: currentEndpoint.method === "GET" ? "var(--crt-green)" : currentEndpoint.method === "POST" ? "var(--crt-blue)" : "var(--crt-red)",
                       borderColor: "rgba(255,255,255,0.15)",
@@ -3037,13 +3042,13 @@ export default function Home() {
                     {currentEndpoint.method}
                   </span>
                 )}
-                <span className="text-[11px] font-mono flex-1" style={{ color: "var(--text-primary)", opacity: 0.8 }}>
+                <span className="text-[14px] font-mono flex-1" style={{ color: "var(--text-primary)", opacity: 0.8 }}>
                   {apiSelectedEndpoint}
                 </span>
                 <button
                   onClick={() => fireApiRequest(apiSelectedEndpoint, apiMethod, apiParams)}
                   disabled={apiLoading}
-                  className="text-[10px] font-bold px-3 py-1 border transition-all"
+                  className="text-[13px] font-bold px-3 py-1 border transition-all"
                   style={{
                     color: apiLoading ? "var(--text-tertiary)" : "#000",
                     background: apiLoading ? "transparent" : "var(--crt-green)",
@@ -3059,17 +3064,17 @@ export default function Home() {
               {/* Params */}
               {(currentInputs.length > 0 || pathParams.length > 0) && (
                 <div className="px-3 py-2 border-b space-y-1.5" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                  <span className="text-[9px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "1px" }}>
+                  <span className="text-[13px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "1px" }}>
                     Parameters
                   </span>
                   {pathParams.map((p: string) => (
                     <div key={p} className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono w-24 shrink-0" style={{ color: "var(--crt-amber)" }}>{`{${p}}`}</span>
+                      <span className="text-[13px] font-mono w-24 shrink-0" style={{ color: "var(--crt-amber)" }}>{`{${p}}`}</span>
                       <input
                         type="text"
                         value={apiParams[p] || ""}
                         onChange={(e) => setApiParams({ ...apiParams, [p]: e.target.value })}
-                        className="flex-1 text-[10px] font-mono px-2 py-1 border bg-transparent"
+                        className="flex-1 text-[13px] font-mono px-2 py-1 border bg-transparent"
                         style={{ color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.1)" }}
                         placeholder={`path param: ${p}`}
                         onKeyDown={(e) => { if (e.key === "Enter") fireApiRequest(apiSelectedEndpoint!, apiMethod, apiParams); }}
@@ -3078,14 +3083,14 @@ export default function Home() {
                   ))}
                   {currentInputs.map((input: any) => (
                     <div key={input.name} className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono w-24 shrink-0 truncate" style={{ color: "var(--text-primary)", opacity: 0.6 }} title={`${input.name} (${input.type})`}>
+                      <span className="text-[13px] font-mono w-24 shrink-0 truncate" style={{ color: "var(--text-primary)", opacity: 0.6 }} title={`${input.name} (${input.type})`}>
                         {input.name}
                       </span>
                       {input.type === "bool" ? (
                         <select
                           value={apiParams[input.name] || ""}
                           onChange={(e) => setApiParams({ ...apiParams, [input.name]: e.target.value })}
-                          className="flex-1 text-[10px] font-mono px-2 py-1 border bg-transparent"
+                          className="flex-1 text-[13px] font-mono px-2 py-1 border bg-transparent"
                           style={{ color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.1)" }}
                         >
                           <option value="" style={{ background: "#111" }}>—</option>
@@ -3097,7 +3102,7 @@ export default function Home() {
                           type="text"
                           value={apiParams[input.name] || ""}
                           onChange={(e) => setApiParams({ ...apiParams, [input.name]: e.target.value })}
-                          className="flex-1 text-[10px] font-mono px-2 py-1 border bg-transparent"
+                          className="flex-1 text-[13px] font-mono px-2 py-1 border bg-transparent"
                           style={{ color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.1)" }}
                           placeholder={input.value === "_empty" ? `required (${input.type})` : `${input.type}${input.value != null ? ` = ${input.value}` : ""}`}
                           onKeyDown={(e) => { if (e.key === "Enter") fireApiRequest(apiSelectedEndpoint!, apiMethod, apiParams); }}
@@ -3111,12 +3116,12 @@ export default function Home() {
               {/* Response */}
               <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="px-3 py-1 flex items-center justify-between" style={{ background: "rgba(0,0,0,0.2)" }}>
-                  <span className="text-[9px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "1px" }}>
+                  <span className="text-[13px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "1px" }}>
                     Response
                   </span>
                   {apiResponseStatus !== null && (
                     <span
-                      className="text-[10px] font-bold px-1.5 py-0.5"
+                      className="text-[13px] font-bold px-1.5 py-0.5"
                       style={{
                         color: apiResponseStatus >= 200 && apiResponseStatus < 300 ? "var(--crt-green)" : apiResponseStatus === 0 ? "var(--crt-red)" : "var(--crt-amber)",
                       }}
@@ -3125,7 +3130,7 @@ export default function Home() {
                     </span>
                   )}
                 </div>
-                <pre className="flex-1 overflow-y-auto px-3 py-2 m-0 text-[10px] font-mono leading-relaxed" style={{ color: "var(--text-primary)", opacity: 0.8 }}>
+                <pre className="flex-1 overflow-y-auto px-3 py-2 m-0 text-[13px] font-mono leading-relaxed" style={{ color: "var(--text-primary)", opacity: 0.8 }}>
                   {apiLoading ? "Sending request..." : apiResponse || "Hit SEND to execute the request"}
                 </pre>
               </div>
@@ -3133,7 +3138,7 @@ export default function Home() {
           ) : (
             /* No endpoint selected */
             <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
-              <span className="text-[11px] text-crt-green/20 uppercase" style={{ letterSpacing: "1px" }}>
+              <span className="text-[14px] text-crt-green/20 uppercase" style={{ letterSpacing: "1px" }}>
                 Select an endpoint
               </span>
             </div>
@@ -3239,21 +3244,21 @@ export default function Home() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-crt-green font-code">{m.name}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 border font-code ${m.category === "core" ? "border-crt-red/30 text-crt-red/50" : "border-crt-green/15 text-crt-green/25"}`}>
+                          <span className={`text-[13px] px-1.5 py-0.5 border font-code ${m.category === "core" ? "border-crt-red/30 text-crt-red/50" : "border-crt-green/15 text-crt-green/25"}`}>
                             {m.category}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {m.app_url && (
-                            <span className="text-[10px] px-1.5 py-0.5 border border-crt-blue/40 text-crt-blue bg-crt-blue/10">APP</span>
+                            <span className="text-[13px] px-1.5 py-0.5 border border-crt-blue/40 text-crt-blue bg-crt-blue/10">APP</span>
                           )}
                           {m.api_url && (
-                            <span className="text-[10px] px-1.5 py-0.5 border border-crt-amber/40 text-crt-amber bg-crt-amber/10">API</span>
+                            <span className="text-[13px] px-1.5 py-0.5 border border-crt-amber/40 text-crt-amber bg-crt-amber/10">API</span>
                           )}
                         </div>
                       </div>
                       {m.description && (
-                        <div className="text-[10px] text-crt-green/30 mt-0.5 truncate">{m.description}</div>
+                        <div className="text-[13px] text-crt-green/30 mt-0.5 truncate">{m.description}</div>
                       )}
                     </div>
                   ))}
@@ -3270,226 +3275,6 @@ export default function Home() {
               </span>
             )}
 
-            {/* Create / Fork buttons */}
-            <div className="relative" ref={headerCreateRef}>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    setShowHeaderCreateForm(showHeaderCreateForm === "create" ? null : "create");
-                    setHeaderNewName("");
-                    setHeaderGithubUrl("");
-                  }}
-                  className="text-[10px] px-1.5 py-0.5 border transition-all hover:brightness-125"
-                  style={{
-                    borderColor: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.2)",
-                    color: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.5)",
-                    background: showHeaderCreateForm === "create" ? "rgba(51,255,51,0.08)" : "transparent",
-                    letterSpacing: "1px",
-                  }}
-                  title="Create new module"
-                >
-                  + NEW
-                </button>
-                <button
-                  onClick={() => {
-                    setShowHeaderCreateForm(showHeaderCreateForm === "fork" ? null : "fork");
-                    setHeaderNewName(selectedModule ? selectedModule + "-fork" : "");
-                    setHeaderGithubUrl("");
-                  }}
-                  className="text-[10px] px-1.5 py-0.5 border transition-all hover:brightness-125"
-                  style={{
-                    borderColor: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.2)",
-                    color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.5)",
-                    background: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.08)" : "transparent",
-                    letterSpacing: "1px",
-                  }}
-                  title={`Fork ${selectedModule || "module"}`}
-                >
-                  ⑂ FORK
-                </button>
-              </div>
-
-              {/* Create/Fork dropdown form */}
-              {showHeaderCreateForm && (
-                <div
-                  className="absolute left-0 top-full mt-1 border z-50 p-3 flex flex-col gap-2 min-w-[300px]"
-                  style={{
-                    background: "var(--bg-primary)",
-                    borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                  }}
-                >
-                  <div className="text-[10px] font-bold uppercase" style={{
-                    letterSpacing: "1.5px",
-                    color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "var(--crt-green)",
-                  }}>
-                    {showHeaderCreateForm === "fork" ? `⑂ FORK FROM ${selectedModule?.toUpperCase() || "?"}` : "+ CREATE MODULE"}
-                  </div>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={headerNewName}
-                    onChange={(e) => setHeaderNewName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") headerCreateOrFork();
-                      if (e.key === "Escape") setShowHeaderCreateForm(null);
-                    }}
-                    placeholder="module name..."
-                    className="px-2 py-1.5 text-[12px] bg-transparent border font-code outline-none"
-                    style={{
-                      borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
-                      color: "var(--text-primary)",
-                    }}
-                  />
-                  {showHeaderCreateForm === "create" && (
-                    <input
-                      type="text"
-                      value={headerGithubUrl}
-                      onChange={(e) => setHeaderGithubUrl(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") headerCreateOrFork();
-                        if (e.key === "Escape") setShowHeaderCreateForm(null);
-                      }}
-                      placeholder="github url (optional)..."
-                      className="px-2 py-1.5 text-[12px] bg-transparent border border-crt-green/20 font-code outline-none"
-                      style={{ color: "var(--text-primary)" }}
-                    />
-                  )}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={headerCreateOrFork}
-                      disabled={!headerNewName.trim() || submitting}
-                      className="pixel-btn text-[11px] py-1 px-4 uppercase flex-1"
-                      style={{ letterSpacing: "1px", opacity: headerNewName.trim() ? 1 : 0.4 }}
-                    >
-                      {submitting ? "..." : showHeaderCreateForm === "fork" ? "FORK" : "CREATE"}
-                    </button>
-                    <button
-                      onClick={() => setShowHeaderCreateForm(null)}
-                      className="text-[11px] px-2 py-1 border border-crt-red/20 text-crt-red/50 hover:text-crt-red hover:border-crt-red/40 transition-all"
-                    >
-                      ESC
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex items-center gap-1 mx-4">
-            <button
-              onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-              className="text-[10px] transition-all px-1.5 py-0.5 mr-1"
-              style={{
-                letterSpacing: "1.5px",
-                color: leftSidebarOpen ? "var(--crt-blue)" : "var(--text-tertiary)",
-                opacity: leftSidebarOpen ? 1 : 0.5,
-                border: leftSidebarOpen ? "1px solid rgba(0,170,255,0.3)" : "1px solid rgba(255,255,255,0.1)",
-                background: leftSidebarOpen ? "rgba(0,170,255,0.08)" : "transparent",
-              }}
-              title={leftSidebarOpen ? "Hide agent" : "Show agent"}
-            >
-              {leftSidebarOpen ? "◂" : "▸"} AGENT
-            </button>
-            <button
-              onClick={() => setSidebarView("config")}
-              className="text-[10px] transition-all px-1.5 py-0.5"
-              style={{
-                letterSpacing: "1.5px",
-                color: sidebarView === "config" ? "var(--crt-amber)" : "var(--text-tertiary)",
-                borderBottom: sidebarView === "config" ? "1px solid var(--crt-amber)" : "1px solid transparent",
-                opacity: sidebarView === "config" ? 1 : 0.5,
-              }}
-            >
-              CONFIG
-            </button>
-            <button
-              onClick={() => setSidebarView("api")}
-              className="text-[10px] transition-all px-1.5 py-0.5"
-              style={{
-                letterSpacing: "1.5px",
-                color: sidebarView === "api" ? "var(--crt-red)" : "var(--text-tertiary)",
-                borderBottom: sidebarView === "api" ? "1px solid var(--crt-red)" : "1px solid transparent",
-                opacity: sidebarView === "api" ? 1 : 0.5,
-              }}
-            >
-              API
-            </button>
-            {selectedModuleInfo?.app_url && (
-              <button
-                onClick={() => setSidebarView("app")}
-                className="text-[10px] transition-all px-1.5 py-0.5"
-                style={{
-                  letterSpacing: "1.5px",
-                  color: sidebarView === "app" ? "var(--crt-green)" : "var(--text-tertiary)",
-                  borderBottom: sidebarView === "app" ? "1px solid var(--crt-green)" : "1px solid transparent",
-                  opacity: sidebarView === "app" ? 1 : 0.5,
-                }}
-              >
-                APP
-              </button>
-            )}
-            <button
-              onClick={() => setSidebarView("files")}
-              className="text-[10px] transition-all px-1.5 py-0.5"
-              style={{
-                letterSpacing: "1.5px",
-                color: sidebarView === "files" ? "var(--crt-green)" : "var(--text-tertiary)",
-                borderBottom: sidebarView === "files" ? "1px solid var(--crt-green)" : "1px solid transparent",
-                opacity: sidebarView === "files" ? 1 : 0.5,
-              }}
-            >
-              FILES
-            </button>
-            <button
-              onClick={() => { setSidebarView("changelog"); if (changelogEntries.length === 0) fetchChangelog(); }}
-              className="text-[10px] transition-all px-1.5 py-0.5"
-              style={{
-                letterSpacing: "1.5px",
-                color: sidebarView === "changelog" ? "#cc5de8" : "var(--text-tertiary)",
-                borderBottom: sidebarView === "changelog" ? "1px solid #cc5de8" : "1px solid transparent",
-                opacity: sidebarView === "changelog" ? 1 : 0.5,
-              }}
-            >
-              LOG
-            </button>
-            {/* ON/OFF toggle */}
-            {selectedModuleInfo?.api_url && moduleRunning !== null && (
-              <button
-                onClick={toggleModule}
-                disabled={togglingModule}
-                className="flex items-center gap-1 px-1.5 py-0.5 border text-[8px] transition-all hover:brightness-125 ml-1"
-                style={{
-                  borderColor: togglingModule
-                    ? `${walletAmber}0.4)`
-                    : moduleRunning
-                      ? `${walletGreen}0.4)`
-                      : `${isLight ? "rgba(204,34,34," : "rgba(255,50,50,"}0.3)`,
-                  color: togglingModule
-                    ? "var(--crt-amber)"
-                    : moduleRunning
-                      ? "var(--crt-green)"
-                      : "var(--crt-red)",
-                  cursor: togglingModule ? "wait" : "pointer",
-                  letterSpacing: "0.5px",
-                }}
-                title={togglingModule ? "Toggling..." : moduleRunning ? "Stop module" : "Start module"}
-              >
-                <span
-                  className={`inline-block w-1.5 h-1.5 rounded-full ${togglingModule ? "led-pulse" : ""}`}
-                  style={{
-                    background: togglingModule
-                      ? "var(--crt-amber)"
-                      : moduleRunning
-                        ? "var(--crt-green)"
-                        : "var(--crt-red)",
-                    boxShadow: `0 0 4px ${togglingModule ? "var(--crt-amber)" : moduleRunning ? "var(--crt-green)" : "var(--crt-red)"}`,
-                  }}
-                />
-                {togglingModule ? "..." : moduleRunning ? "ON" : "OFF"}
-              </button>
-            )}
           </div>
 
           {/* Network + Wallet Widget */}
@@ -3520,129 +3305,142 @@ export default function Home() {
                   title="Switch network"
                 >
                   <span
-                    className="w-[22px] h-[22px] flex items-center justify-center"
+                    className="w-[18px] h-[18px] flex items-center justify-center"
                     style={{ color: NETWORK_LOGOS[currentChainId]?.color || "var(--crt-green)" }}
                     dangerouslySetInnerHTML={{
-                      __html: `<svg viewBox="0 0 24 24" width="22" height="22">${NETWORK_LOGOS[currentChainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
+                      __html: `<svg viewBox="0 0 24 24" width="18" height="18">${NETWORK_LOGOS[currentChainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
                     }}
                   />
-                  <span className="text-[14px] font-bold tracking-wide" style={{ color: "var(--crt-green)" }}>
+                  <span className="text-[13px] font-bold tracking-wide" style={{ color: "var(--crt-green)" }}>
                     {getNetworkName(currentChainId)}
                   </span>
-                  <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+                  <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
                     {showNetworkDropdown ? "▴" : "▾"}
                   </span>
                 </button>
 
-                {/* Network Dropdown */}
+                {/* Network Dropdown - Grid Layout */}
                 {showNetworkDropdown && (
                   <div
-                    className="absolute top-full right-0 mt-1 z-50 py-2 network-dropdown"
+                    className="absolute top-full right-0 mt-1 z-50 p-3 network-dropdown"
                     style={{
                       background: "var(--bg-primary)",
                       border: "1px solid rgba(255,176,0,0.2)",
-                      borderRadius: "4px",
-                      boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 16px rgba(255,176,0,0.05)",
-                      minWidth: "220px",
+                      borderRadius: "6px",
+                      boxShadow: "0 12px 48px rgba(0,0,0,0.7), 0 0 20px rgba(255,176,0,0.05)",
+                      minWidth: "380px",
                     }}
                   >
-                    <div className="px-3 py-1.5">
-                      <span className="text-[8px] tracking-[2px] font-bold" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>MAINNETS</span>
-                    </div>
-                    {EVM_NETWORKS.filter(n => !n.testnet).map(n => (
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] tracking-[2px] font-bold" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>SELECT NETWORK</span>
                       <button
-                        key={n.chainId}
-                        onClick={() => handleHeaderNetworkSwitch(n.chainId)}
-                        disabled={switchingNetwork}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all"
-                        style={{
-                          color: n.chainId === currentChainId ? "var(--crt-amber)" : "var(--text-secondary)",
-                          background: n.chainId === currentChainId ? "rgba(255,176,0,0.06)" : "transparent",
-                          opacity: switchingNetwork ? 0.5 : 1,
-                        }}
-                        onMouseEnter={(e) => {
-                          if (n.chainId !== currentChainId) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
-                        }}
-                        onMouseLeave={(e) => {
-                          if (n.chainId !== currentChainId) (e.currentTarget as HTMLElement).style.background = "transparent";
-                        }}
+                        onClick={() => setShowNetworkDropdown(false)}
+                        className="text-[9px] px-2 py-0.5 transition-all"
+                        style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
+                        onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "var(--crt-red)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.4"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
                       >
-                        <span
-                          className="w-[20px] h-[20px] flex items-center justify-center shrink-0"
-                          style={{ color: NETWORK_LOGOS[n.chainId]?.color || "#888" }}
-                          dangerouslySetInnerHTML={{
-                            __html: `<svg viewBox="0 0 24 24" width="20" height="20">${NETWORK_LOGOS[n.chainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
-                          }}
-                        />
-                        <span className="text-[10px] font-bold tracking-wide flex-1">{n.name}</span>
-                        {n.chainId === currentChainId && (
-                          <span className="w-[5px] h-[5px] rounded-full led-pulse" style={{ background: "var(--crt-green)", boxShadow: "0 0 6px var(--crt-green)" }} />
-                        )}
-                        <span className="text-[9px] font-mono" style={{ color: "var(--text-tertiary)", opacity: 0.4 }}>{n.symbol}</span>
+                        ESC
                       </button>
-                    ))}
-
-                    <div className="mx-3 my-1.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
-
-                    <div className="px-3 py-1.5">
-                      <span className="text-[8px] tracking-[2px] font-bold" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>TESTNETS</span>
                     </div>
-                    {EVM_NETWORKS.filter(n => n.testnet).map(n => (
-                      <button
-                        key={n.chainId}
-                        onClick={() => handleHeaderNetworkSwitch(n.chainId)}
-                        disabled={switchingNetwork}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all"
-                        style={{
-                          color: n.chainId === currentChainId ? "var(--crt-amber)" : "var(--text-secondary)",
-                          background: n.chainId === currentChainId ? "rgba(255,176,0,0.06)" : "transparent",
-                          opacity: switchingNetwork ? 0.5 : 1,
-                        }}
-                        onMouseEnter={(e) => {
-                          if (n.chainId !== currentChainId) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
-                        }}
-                        onMouseLeave={(e) => {
-                          if (n.chainId !== currentChainId) (e.currentTarget as HTMLElement).style.background = "transparent";
-                        }}
-                      >
-                        <span
-                          className="w-[20px] h-[20px] flex items-center justify-center shrink-0"
-                          style={{ color: NETWORK_LOGOS[n.chainId]?.color || "#888" }}
-                          dangerouslySetInnerHTML={{
-                            __html: `<svg viewBox="0 0 24 24" width="20" height="20">${NETWORK_LOGOS[n.chainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
-                          }}
-                        />
-                        <span className="text-[10px] font-bold tracking-wide flex-1">{n.name}</span>
-                        {n.chainId === currentChainId && (
-                          <span className="w-[5px] h-[5px] rounded-full led-pulse" style={{ background: "var(--crt-green)", boxShadow: "0 0 6px var(--crt-green)" }} />
-                        )}
-                        <span className="text-[9px] font-mono" style={{ color: "var(--text-tertiary)", opacity: 0.4 }}>{n.symbol}</span>
-                      </button>
-                    ))}
+
+                    {/* Mainnets */}
+                    <div className="mb-2">
+                      <div className="text-[9px] tracking-[2px] mb-2 px-1" style={{ color: "var(--crt-amber)", opacity: 0.6 }}>MAINNET</div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {EVM_NETWORKS.filter(n => !n.testnet).map(n => (
+                          <button
+                            key={n.chainId}
+                            onClick={() => handleHeaderNetworkSwitch(n.chainId)}
+                            disabled={switchingNetwork}
+                            className="flex flex-col items-center gap-1.5 p-2.5 transition-all rounded"
+                            style={{
+                              border: n.chainId === currentChainId ? `1px solid ${NETWORK_LOGOS[n.chainId]?.color || "var(--crt-amber)"}60` : "1px solid rgba(255,255,255,0.04)",
+                              background: n.chainId === currentChainId ? `${NETWORK_LOGOS[n.chainId]?.color || "var(--crt-amber)"}10` : "rgba(0,0,0,0.15)",
+                              opacity: switchingNetwork ? 0.5 : 1,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (n.chainId !== currentChainId) {
+                                e.currentTarget.style.borderColor = `${NETWORK_LOGOS[n.chainId]?.color || "#ffb000"}40`;
+                                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (n.chainId !== currentChainId) {
+                                e.currentTarget.style.borderColor = "rgba(255,255,255,0.04)";
+                                e.currentTarget.style.background = "rgba(0,0,0,0.15)";
+                              }
+                            }}
+                          >
+                            <span
+                              className="w-[24px] h-[24px] flex items-center justify-center"
+                              style={{ color: NETWORK_LOGOS[n.chainId]?.color || "#888" }}
+                              dangerouslySetInnerHTML={{
+                                __html: `<svg viewBox="0 0 24 24" width="24" height="24">${NETWORK_LOGOS[n.chainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
+                              }}
+                            />
+                            <span className="text-[9px] font-bold tracking-wide text-center" style={{ color: n.chainId === currentChainId ? NETWORK_LOGOS[n.chainId]?.color || "var(--crt-amber)" : "var(--text-secondary)" }}>
+                              {n.name}
+                            </span>
+                            {n.chainId === currentChainId && (
+                              <span className="w-[4px] h-[4px] rounded-full led-pulse" style={{ background: "var(--crt-green)", boxShadow: "0 0 6px var(--crt-green)" }} />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="my-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }} />
+
+                    {/* Testnets */}
+                    <div>
+                      <div className="text-[9px] tracking-[2px] mb-2 px-1" style={{ color: "var(--crt-blue)", opacity: 0.6 }}>TESTNET</div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {EVM_NETWORKS.filter(n => n.testnet).map(n => (
+                          <button
+                            key={n.chainId}
+                            onClick={() => handleHeaderNetworkSwitch(n.chainId)}
+                            disabled={switchingNetwork}
+                            className="flex flex-col items-center gap-1.5 p-2.5 transition-all rounded"
+                            style={{
+                              border: n.chainId === currentChainId ? `1px solid ${NETWORK_LOGOS[n.chainId]?.color || "var(--crt-blue)"}60` : "1px solid rgba(255,255,255,0.04)",
+                              background: n.chainId === currentChainId ? `${NETWORK_LOGOS[n.chainId]?.color || "var(--crt-blue)"}10` : "rgba(0,0,0,0.15)",
+                              opacity: switchingNetwork ? 0.5 : 1,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (n.chainId !== currentChainId) {
+                                e.currentTarget.style.borderColor = `${NETWORK_LOGOS[n.chainId]?.color || "#00aaff"}40`;
+                                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (n.chainId !== currentChainId) {
+                                e.currentTarget.style.borderColor = "rgba(255,255,255,0.04)";
+                                e.currentTarget.style.background = "rgba(0,0,0,0.15)";
+                              }
+                            }}
+                          >
+                            <span
+                              className="w-[24px] h-[24px] flex items-center justify-center"
+                              style={{ color: NETWORK_LOGOS[n.chainId]?.color || "#888" }}
+                              dangerouslySetInnerHTML={{
+                                __html: `<svg viewBox="0 0 24 24" width="24" height="24">${NETWORK_LOGOS[n.chainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
+                              }}
+                            />
+                            <span className="text-[9px] font-bold tracking-wide text-center" style={{ color: n.chainId === currentChainId ? NETWORK_LOGOS[n.chainId]?.color || "var(--crt-blue)" : "var(--text-secondary)" }}>
+                              {n.name}
+                            </span>
+                            {n.chainId === currentChainId && (
+                              <span className="w-[4px] h-[4px] rounded-full led-pulse" style={{ background: "var(--crt-green)", boxShadow: "0 0 6px var(--crt-green)" }} />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             )}
-            {/* Balance */}
-            <div
-              className="flex items-baseline gap-1.5 px-3 cursor-pointer"
-              onClick={() => setShowWalletModal(true)}
-              title="View wallet details"
-            >
-              <span
-                className="text-[22px] font-bold font-mono tabular-nums"
-                style={{
-                  color: "var(--crt-green)",
-                  textShadow: "0 0 20px rgba(51,255,51,0.15)",
-                  letterSpacing: "-0.5px",
-                }}
-              >
-                {tokenStats ? parseFloat(tokenStats.balance).toFixed(4) : "0.0000"}
-              </span>
-              <span className="text-[12px] font-bold" style={{ color: "var(--crt-green)", opacity: 0.4 }}>
-                {tokenStats?.symbol || "ETH"}
-              </span>
-            </div>
 
             {/* Address + Copy */}
             <button
@@ -3654,30 +3452,30 @@ export default function Home() {
                   setTimeout(() => setCopiedAddress(false), 1500);
                 }
               }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 transition-all"
               style={{
-                border: copiedAddress ? "1px solid var(--crt-green)" : `1px solid ${walletAmber}0.2)`,
+                border: copiedAddress ? "1px solid var(--crt-green)" : "1px solid rgba(51,255,51,0.2)",
                 background: copiedAddress ? "rgba(51,255,51,0.08)" : "transparent",
                 borderRadius: "3px",
               }}
               onMouseEnter={(e) => {
                 if (!copiedAddress) {
-                  e.currentTarget.style.borderColor = `${walletAmber}0.35)`;
-                  e.currentTarget.style.background = `${walletAmber}0.04)`;
+                  e.currentTarget.style.borderColor = "rgba(51,255,51,0.35)";
+                  e.currentTarget.style.background = "rgba(51,255,51,0.04)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!copiedAddress) {
-                  e.currentTarget.style.borderColor = `${walletAmber}0.2)`;
+                  e.currentTarget.style.borderColor = "rgba(51,255,51,0.2)";
                   e.currentTarget.style.background = "transparent";
                 }
               }}
               title={copiedAddress ? "Copied!" : `Copy: ${address}`}
             >
-              <span className="text-[11px] font-bold font-mono" style={{ color: copiedAddress ? "var(--crt-green)" : "var(--crt-amber)", letterSpacing: "0.5px" }}>
+              <span className="text-[13px] font-bold font-mono" style={{ color: copiedAddress ? "var(--crt-green)" : "var(--crt-green)", letterSpacing: "0.5px", opacity: copiedAddress ? 1 : 0.7 }}>
                 {copiedAddress ? "COPIED" : address === "local" ? "LOCAL" : `${address?.slice(0, 6)}··${address?.slice(-4)}`}
               </span>
-              <svg className="w-3 h-3" style={{ color: copiedAddress ? "var(--crt-green)" : "var(--text-tertiary)", opacity: copiedAddress ? 1 : 0.5 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-3.5 h-3.5" style={{ color: copiedAddress ? "var(--crt-green)" : "var(--crt-green)", opacity: copiedAddress ? 1 : 0.5 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 {copiedAddress ? (
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 ) : (
@@ -3685,10 +3483,270 @@ export default function Home() {
                 )}
               </svg>
             </button>
+
+            {/* Wallet Expand Button */}
+            {address && address !== "local" && walletType && (
+              <button
+                onClick={() => setShowWalletSidebar(!showWalletSidebar)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 transition-all"
+                style={{
+                  border: showWalletSidebar ? "1px solid var(--crt-blue)" : "1px solid rgba(0,170,255,0.2)",
+                  background: showWalletSidebar ? "rgba(0,170,255,0.08)" : "transparent",
+                  borderRadius: "3px",
+                  color: showWalletSidebar ? "var(--crt-blue)" : "rgba(0,170,255,0.6)",
+                }}
+                onMouseEnter={(e) => {
+                  if (!showWalletSidebar) {
+                    e.currentTarget.style.borderColor = "rgba(0,170,255,0.4)";
+                    e.currentTarget.style.background = "rgba(0,170,255,0.04)";
+                    e.currentTarget.style.color = "var(--crt-blue)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!showWalletSidebar) {
+                    e.currentTarget.style.borderColor = "rgba(0,170,255,0.2)";
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "rgba(0,170,255,0.6)";
+                  }
+                }}
+                title={showWalletSidebar ? "Close wallet" : "Open wallet"}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                </svg>
+                <span className="text-[11px] font-bold tracking-wide">
+                  {showWalletSidebar ? "▸" : "◂"}
+                </span>
+              </button>
+            )}
           </div>
+          </div>
+
+        {/* Second row - Navigation Tabs */}
+        <div className="flex items-center gap-1 px-4 py-1" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+          {/* Create / Fork buttons */}
+          <div className="relative" ref={headerCreateRef}>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  setShowHeaderCreateForm(showHeaderCreateForm === "create" ? null : "create");
+                  setHeaderNewName("");
+                  setHeaderGithubUrl("");
+                }}
+                className="text-[13px] px-1.5 py-0.5 border transition-all hover:brightness-125"
+                style={{
+                  borderColor: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.2)",
+                  color: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.5)",
+                  background: showHeaderCreateForm === "create" ? "rgba(51,255,51,0.08)" : "transparent",
+                  letterSpacing: "1px",
+                }}
+                title="Create new module"
+              >
+                + NEW
+              </button>
+              <button
+                onClick={() => {
+                  setShowHeaderCreateForm(showHeaderCreateForm === "fork" ? null : "fork");
+                  setHeaderNewName(selectedModule ? selectedModule + "-fork" : "");
+                  setHeaderGithubUrl("");
+                }}
+                className="text-[13px] px-1.5 py-0.5 border transition-all hover:brightness-125"
+                style={{
+                  borderColor: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.2)",
+                  color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.5)",
+                  background: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.08)" : "transparent",
+                  letterSpacing: "1px",
+                }}
+                title={`Fork ${selectedModule || "module"}`}
+              >
+                ⑂ FORK
+              </button>
+            </div>
+
+            {/* Create/Fork dropdown form */}
+            {showHeaderCreateForm && (
+              <div
+                className="absolute left-0 top-full mt-1 border z-50 p-3 flex flex-col gap-2 min-w-[300px]"
+                style={{
+                  background: "var(--bg-primary)",
+                  borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                }}
+              >
+                <div className="text-[13px] font-bold uppercase" style={{
+                  letterSpacing: "1.5px",
+                  color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "var(--crt-green)",
+                }}>
+                  {showHeaderCreateForm === "fork" ? `⑂ FORK FROM ${selectedModule?.toUpperCase() || "?"}` : "+ CREATE MODULE"}
+                </div>
+                <input
+                  type="text"
+                  autoFocus
+                  value={headerNewName}
+                  onChange={(e) => setHeaderNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") headerCreateOrFork();
+                    if (e.key === "Escape") setShowHeaderCreateForm(null);
+                  }}
+                  placeholder="module name..."
+                  className="px-2 py-1.5 text-[14px] bg-transparent border font-code outline-none"
+                  style={{
+                    borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                {showHeaderCreateForm === "create" && (
+                  <input
+                    type="text"
+                    value={headerGithubUrl}
+                    onChange={(e) => setHeaderGithubUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") headerCreateOrFork();
+                      if (e.key === "Escape") setShowHeaderCreateForm(null);
+                    }}
+                    placeholder="github url (optional)..."
+                    className="px-2 py-1.5 text-[14px] bg-transparent border border-crt-green/20 font-code outline-none"
+                    style={{ color: "var(--text-primary)" }}
+                  />
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={headerCreateOrFork}
+                    disabled={!headerNewName.trim() || submitting}
+                    className="pixel-btn text-[14px] py-1 px-4 uppercase flex-1"
+                    style={{ letterSpacing: "1px", opacity: headerNewName.trim() ? 1 : 0.4 }}
+                  >
+                    {submitting ? "..." : showHeaderCreateForm === "fork" ? "FORK" : "CREATE"}
+                  </button>
+                  <button
+                    onClick={() => setShowHeaderCreateForm(null)}
+                    className="text-[14px] px-2 py-1 border border-crt-red/20 text-crt-red/50 hover:text-crt-red hover:border-crt-red/40 transition-all"
+                  >
+                    ESC
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <span className="mx-1" style={{ borderLeft: "1px solid rgba(255,255,255,0.08)", height: "14px" }} />
+
+          <button
+            onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
+            className="text-[13px] transition-all px-1.5 py-0.5 mr-1"
+            style={{
+              letterSpacing: "1.5px",
+              color: leftSidebarOpen ? "var(--crt-blue)" : "var(--text-tertiary)",
+              opacity: leftSidebarOpen ? 1 : 0.5,
+              border: leftSidebarOpen ? "1px solid rgba(0,170,255,0.3)" : "1px solid rgba(255,255,255,0.1)",
+              background: leftSidebarOpen ? "rgba(0,170,255,0.08)" : "transparent",
+            }}
+            title={leftSidebarOpen ? "Hide agent" : "Show agent"}
+          >
+            {leftSidebarOpen ? "◂" : "▸"} AGENT
+          </button>
+          <button
+            onClick={() => setSidebarView("config")}
+            className="text-[13px] transition-all px-1.5 py-0.5"
+            style={{
+              letterSpacing: "1.5px",
+              color: sidebarView === "config" ? "var(--crt-amber)" : "var(--text-tertiary)",
+              borderBottom: sidebarView === "config" ? "1px solid var(--crt-amber)" : "1px solid transparent",
+              opacity: sidebarView === "config" ? 1 : 0.5,
+            }}
+          >
+            CONFIG
+          </button>
+          <button
+            onClick={() => setSidebarView("api")}
+            className="text-[13px] transition-all px-1.5 py-0.5"
+            style={{
+              letterSpacing: "1.5px",
+              color: sidebarView === "api" ? "var(--crt-red)" : "var(--text-tertiary)",
+              borderBottom: sidebarView === "api" ? "1px solid var(--crt-red)" : "1px solid transparent",
+              opacity: sidebarView === "api" ? 1 : 0.5,
+            }}
+          >
+            API
+          </button>
+          {selectedModuleInfo?.app_url && (
+            <button
+              onClick={() => setSidebarView("app")}
+              className="text-[13px] transition-all px-1.5 py-0.5"
+              style={{
+                letterSpacing: "1.5px",
+                color: sidebarView === "app" ? "var(--crt-green)" : "var(--text-tertiary)",
+                borderBottom: sidebarView === "app" ? "1px solid var(--crt-green)" : "1px solid transparent",
+                opacity: sidebarView === "app" ? 1 : 0.5,
+              }}
+            >
+              APP
+            </button>
+          )}
+          <button
+            onClick={() => setSidebarView("files")}
+            className="text-[13px] transition-all px-1.5 py-0.5"
+            style={{
+              letterSpacing: "1.5px",
+              color: sidebarView === "files" ? "var(--crt-green)" : "var(--text-tertiary)",
+              borderBottom: sidebarView === "files" ? "1px solid var(--crt-green)" : "1px solid transparent",
+              opacity: sidebarView === "files" ? 1 : 0.5,
+            }}
+          >
+            FILES
+          </button>
+          <button
+            onClick={() => { setSidebarView("changelog"); if (changelogEntries.length === 0) fetchChangelog(); }}
+            className="text-[13px] transition-all px-1.5 py-0.5"
+            style={{
+              letterSpacing: "1.5px",
+              color: sidebarView === "changelog" ? "#cc5de8" : "var(--text-tertiary)",
+              borderBottom: sidebarView === "changelog" ? "1px solid #cc5de8" : "1px solid transparent",
+              opacity: sidebarView === "changelog" ? 1 : 0.5,
+            }}
+          >
+            LOG
+          </button>
+          {/* ON/OFF toggle */}
+          {selectedModuleInfo?.api_url && moduleRunning !== null && (
+            <button
+              onClick={toggleModule}
+              disabled={togglingModule}
+              className="flex items-center gap-1 px-1.5 py-0.5 border text-[14px] transition-all hover:brightness-125 ml-1"
+              style={{
+                borderColor: togglingModule
+                  ? `${walletAmber}0.4)`
+                  : moduleRunning
+                    ? `${walletGreen}0.4)`
+                    : `${isLight ? "rgba(204,34,34," : "rgba(255,50,50,"}0.3)`,
+                color: togglingModule
+                  ? "var(--crt-amber)"
+                  : moduleRunning
+                    ? "var(--crt-green)"
+                    : "var(--crt-red)",
+                cursor: togglingModule ? "wait" : "pointer",
+                letterSpacing: "0.5px",
+              }}
+              title={togglingModule ? "Toggling..." : moduleRunning ? "Stop module" : "Start module"}
+            >
+              <span
+                className={`inline-block w-1.5 h-1.5 rounded-full ${togglingModule ? "led-pulse" : ""}`}
+                style={{
+                  background: togglingModule
+                    ? "var(--crt-amber)"
+                    : moduleRunning
+                      ? "var(--crt-green)"
+                      : "var(--crt-red)",
+                  boxShadow: `0 0 4px ${togglingModule ? "var(--crt-amber)" : moduleRunning ? "var(--crt-green)" : "var(--crt-red)"}`,
+                }}
+              />
+              {togglingModule ? "..." : moduleRunning ? "ON" : "OFF"}
+            </button>
+          )}
+
         </div>
 
-        {/* ── Second row: My Mods ─────────────────────────────── */}
+        {/* ── Third row: My Mods ─────────────────────────────── */}
         {address && moduleList.length > 0 && (() => {
           const myMods = moduleList.filter(
             (m) => m.owner && address && m.owner.toLowerCase() === address.toLowerCase()
@@ -3700,7 +3758,7 @@ export default function Home() {
               style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
             >
               <span
-                className="text-[8px] uppercase shrink-0 mr-1"
+                className="text-[14px] uppercase shrink-0 mr-1"
                 style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "1.5px" }}
               >
                 MY MODS
@@ -3714,7 +3772,7 @@ export default function Home() {
                     setWorkDir(m.path);
                     fetchModuleConfig(m.name);
                   }}
-                  className="text-[10px] px-2 py-0.5 border transition-all hover:brightness-125 shrink-0"
+                  className="text-[13px] px-2 py-0.5 border transition-all hover:brightness-125 shrink-0"
                   style={{
                     letterSpacing: "0.5px",
                     borderColor: m.name === selectedModule
@@ -3739,7 +3797,7 @@ export default function Home() {
 
       {error && (
         <div className="mx-4 mt-2 p-3 border-2 border-crt-red/50" style={{ background: "rgba(255,51,51,0.05)" }}>
-          <div className="text-[8px] text-crt-red flex items-center gap-2">
+          <div className="text-[14px] text-crt-red flex items-center gap-2">
             <span>⚠</span> {error}
           </div>
         </div>
@@ -3763,16 +3821,43 @@ export default function Home() {
               {/* Left sidebar header */}
               <div className="flex items-center justify-between border-b-2 px-3 py-2 shrink-0" style={{ borderColor: subtleBorderStrong, background: tintBgStrong }}>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold" style={{ letterSpacing: "1.5px", color: "var(--crt-blue)" }}>AGENT</span>
+                  <span className="text-[13px] font-bold" style={{ letterSpacing: "1.5px", color: "var(--crt-blue)" }}>AGENT</span>
+
+                  {/* Agent type selector */}
+                  <select
+                    value={agentType}
+                    onChange={(e) => {
+                      setAgentType(e.target.value);
+                      localStorage.setItem("claude_agent_type", e.target.value);
+                    }}
+                    className="px-1.5 py-0.5 text-[13px] bg-transparent border border-crt-amber/20 font-pixel uppercase cursor-pointer hover:border-crt-amber/40 transition-colors"
+                    style={{ color: "var(--crt-amber)", letterSpacing: "0.5px" }}
+                    title="Select agent type"
+                  >
+                    <option value="general">GENERAL</option>
+                    <option value="bash">BASH</option>
+                    <option value="explore">EXPLORE</option>
+                    <option value="plan">PLAN</option>
+                  </select>
+
                   {jobs.filter(j => j.status === "running").length > 0 && (
-                    <span className="text-[8px] px-1.5 py-0.5 border border-crt-blue/30 text-crt-blue led-pulse" style={{ letterSpacing: "0.5px" }}>
-                      {jobs.filter(j => j.status === "running").length} RUNNING
+                    <span className="flex items-center gap-1">
+                      <span className="text-[14px] px-1.5 py-0.5 border border-crt-blue/30 text-crt-blue led-pulse" style={{ letterSpacing: "0.5px" }}>
+                        {jobs.filter(j => j.status === "running").length} RUNNING
+                      </span>
+                      <button
+                        onClick={() => { jobs.filter(j => j.status === "running").forEach(j => cancelJob(j.id)); }}
+                        className="text-[13px] px-1.5 py-0.5 border border-red-500/40 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all"
+                        title="Cancel all running tasks"
+                      >
+                        ✕
+                      </button>
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setLeftSidebarOpen(false)}
-                  className="text-[9px] px-1.5 py-0.5 text-crt-green/40 hover:text-crt-red hover:bg-crt-red/10 transition-all"
+                  className="text-[13px] px-1.5 py-0.5 text-crt-green/40 hover:text-crt-red hover:bg-crt-red/10 transition-all"
                   title="Close agent sidebar"
                 >
                   ✕
@@ -3789,7 +3874,7 @@ export default function Home() {
                     <div className="flex border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.08)", background: "var(--bg-primary)" }}>
                       <button
                         onClick={() => setTaskSubTab("output")}
-                        className={`px-5 py-1.5 text-[9px] transition-all ${
+                        className={`px-5 py-1.5 text-[13px] transition-all ${
                           taskSubTab === "output" ? "border-b-2" : "opacity-40 hover:opacity-70"
                         }`}
                         style={{
@@ -3802,7 +3887,7 @@ export default function Home() {
                       </button>
                       <button
                         onClick={() => setTaskSubTab("deltas")}
-                        className={`px-5 py-1.5 text-[9px] transition-all ${
+                        className={`px-5 py-1.5 text-[13px] transition-all ${
                           taskSubTab === "deltas" ? "border-b-2" : "opacity-40 hover:opacity-70"
                         }`}
                         style={{
@@ -3814,12 +3899,12 @@ export default function Home() {
                         DELTAS
                       </button>
                       <div className="ml-auto flex items-center gap-2 pr-3">
-                        <span className="text-[8px]" style={{ color: STATUS_COLOR[selectedJobData.status], letterSpacing: "0.5px" }}>
+                        <span className="text-[14px]" style={{ color: STATUS_COLOR[selectedJobData.status], letterSpacing: "0.5px" }}>
                           {STATUS_ICON[selectedJobData.status]} {STATUS_LABEL[selectedJobData.status]}
                         </span>
                         <button
                           onClick={() => { setSelectedJob(null); setStreamOutput(""); }}
-                          className="px-1.5 py-0.5 text-[9px] text-crt-green/40 hover:text-crt-red hover:bg-crt-red/10 transition-all"
+                          className="px-1.5 py-0.5 text-[13px] text-crt-green/40 hover:text-crt-red hover:bg-crt-red/10 transition-all"
                           title="Close output panel"
                         >
                           ✕
@@ -3831,7 +3916,7 @@ export default function Home() {
                     {taskSubTab === "output" && (
                       <div ref={outputRef} className="flex-1 overflow-y-auto pb-4">
                         <pre
-                          className="px-6 pt-3 m-0 whitespace-pre-wrap text-[10px] leading-relaxed font-mono"
+                          className="px-6 pt-3 m-0 whitespace-pre-wrap text-[13px] leading-relaxed font-mono"
                           style={{ color: "var(--text-primary)" }}
                         >
                           {(streamOutput || selectedJobData.output)
@@ -3889,7 +3974,7 @@ export default function Home() {
                             return (
                               <div className="h-full flex flex-col items-center justify-center gap-3">
                                 <span className="text-[24px] opacity-10">◇</span>
-                                <span className="text-[9px] text-crt-green/20" style={{ letterSpacing: "2px" }}>
+                                <span className="text-[13px] text-crt-green/20" style={{ letterSpacing: "2px" }}>
                                   NO FILE CHANGES
                                 </span>
                               </div>
@@ -3902,16 +3987,16 @@ export default function Home() {
                                 className="px-5 py-2 flex items-center gap-4 border-b sticky top-0 z-10"
                                 style={{ borderColor: "rgba(255,255,255,0.08)", background: "var(--bg-primary)" }}
                               >
-                                <span className="text-[9px]" style={{ color: "var(--text-tertiary)", opacity: 0.6, letterSpacing: "1px" }}>
+                                <span className="text-[13px]" style={{ color: "var(--text-tertiary)", opacity: 0.6, letterSpacing: "1px" }}>
                                   {uniqueFiles} {uniqueFiles === 1 ? "FILE" : "FILES"}
                                 </span>
-                                <span className="text-[9px]" style={{ color: "var(--crt-amber)", opacity: 0.6, letterSpacing: "1px" }}>
+                                <span className="text-[13px]" style={{ color: "var(--crt-amber)", opacity: 0.6, letterSpacing: "1px" }}>
                                   {blocks.length} {blocks.length === 1 ? "BLOCK" : "BLOCKS"}
                                 </span>
-                                <span className="text-[9px] font-bold" style={{ color: "var(--accent-color)", letterSpacing: "1px" }}>
+                                <span className="text-[13px] font-bold" style={{ color: "var(--accent-color)", letterSpacing: "1px" }}>
                                   +{totalAdded}
                                 </span>
-                                <span className="text-[9px] font-bold" style={{ color: "var(--crt-red)", letterSpacing: "1px" }}>
+                                <span className="text-[13px] font-bold" style={{ color: "var(--crt-red)", letterSpacing: "1px" }}>
                                   -{totalRemoved}
                                 </span>
                               </div>
@@ -3929,7 +4014,7 @@ export default function Home() {
                                       }}
                                     >
                                       <div
-                                        className="px-3 py-1.5 text-[8px] font-bold flex items-center gap-2 border-b"
+                                        className="px-3 py-1.5 text-[14px] font-bold flex items-center gap-2 border-b"
                                         style={{
                                           color: block.type === "WRITE" ? "var(--crt-blue)" : "var(--crt-amber)",
                                           borderColor: "rgba(255,255,255,0.06)",
@@ -3947,10 +4032,10 @@ export default function Home() {
                                           {removed > 0 && <span style={{ color: "var(--crt-red)", fontWeight: "bold" }}>-{removed}</span>}
                                         </span>
                                       </div>
-                                      <div className="px-1 text-[8px] text-crt-green/30 truncate" style={{ padding: "2px 12px" }}>
+                                      <div className="px-1 text-[14px] text-crt-green/30 truncate" style={{ padding: "2px 12px" }}>
                                         {block.file}
                                       </div>
-                                      <pre className="px-3 py-2 text-[8px] leading-relaxed font-mono overflow-x-auto m-0" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                                      <pre className="px-3 py-2 text-[14px] leading-relaxed font-mono overflow-x-auto m-0" style={{ maxHeight: "300px", overflowY: "auto" }}>
                                         {block.lines.map((line, li) => {
                                           if (line.startsWith("│- ")) {
                                             return <span key={li} style={{ color: "var(--crt-red)" }}>{line}{"\n"}</span>;
@@ -4032,6 +4117,79 @@ export default function Home() {
               </div>
         </div>
 
+        {/* ── Right Sidebar: Wallet ──────────────────────── */}
+        {showWalletSidebar && address && address !== "local" && walletType && (
+          <>
+            <div
+              className="shrink-0"
+              style={{
+                width: "6px",
+                cursor: "col-resize",
+                background: "transparent",
+                transition: "background 0.15s ease",
+                flexShrink: 0,
+                borderLeft: "1px solid var(--accent-color)",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--accent-color)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            />
+            <div
+              className="flex flex-col overflow-hidden shrink-0"
+              style={{
+                width: "380px",
+                minWidth: "320px",
+                maxWidth: "50vw",
+                background: "var(--bg-primary)",
+              }}
+            >
+              {/* Wallet sidebar header */}
+              <div
+                className="flex items-center justify-between px-4 py-2 shrink-0"
+                style={{
+                  borderBottom: "1px solid rgba(0,170,255,0.12)",
+                  background: "linear-gradient(180deg, rgba(0,170,255,0.04) 0%, transparent 100%)",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" style={{ color: "var(--crt-blue)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                  </svg>
+                  <span className="text-[11px] font-bold tracking-[2px]" style={{ color: "var(--crt-blue)" }}>WALLET</span>
+                </div>
+                <button
+                  onClick={() => setShowWalletSidebar(false)}
+                  className="text-[11px] px-1.5 py-0.5 transition-all"
+                  style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "var(--crt-red)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.4"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                >
+                  ✕
+                </button>
+              </div>
+              {/* Inline WalletModal */}
+              <WalletModal
+                address={address}
+                walletType={walletType}
+                onClose={() => setShowWalletSidebar(false)}
+                onDisconnect={() => {
+                  setShowWalletSidebar(false);
+                  disconnect();
+                }}
+                inline={true}
+                isOwner={isOwner}
+                onNetworkChange={() => {
+                  const ethereum = (window as any).ethereum;
+                  if (ethereum) {
+                    ethereum.request({ method: "eth_chainId" }).then((cid: string) => {
+                      setCurrentChainId(parseInt(cid, 16));
+                    }).catch(() => {});
+                  }
+                }}
+              />
+            </div>
+          </>
+        )}
+
       </div>
 
 
@@ -4046,7 +4204,7 @@ export default function Home() {
       >
         <div className="flex items-center gap-3">
           <span
-            className="text-[10px]"
+            className="text-[13px]"
             style={{
               color: "var(--text-tertiary)",
               letterSpacing: "1px",
@@ -4059,7 +4217,7 @@ export default function Home() {
             ░
           </span>
           <span
-            className="text-[10px]"
+            className="text-[13px]"
             style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
           >
             BISMILLAH
@@ -4079,12 +4237,12 @@ export default function Home() {
                 setShowBackendEditor(false);
               }}
             >
-              <span className="text-[10px]" style={{ color: "var(--text-tertiary)", opacity: 0.6 }}>
+              <span className="text-[13px]" style={{ color: "var(--text-tertiary)", opacity: 0.6 }}>
                 BACKEND:
               </span>
               <input
                 autoFocus
-                className="text-[10px] bg-transparent border-b outline-none"
+                className="text-[13px] bg-transparent border-b outline-none"
                 style={{
                   color: "var(--accent-color)",
                   borderColor: "var(--accent-color)",
@@ -4102,7 +4260,7 @@ export default function Home() {
             </form>
           ) : (
             <span
-              className="text-[10px] cursor-pointer hover:opacity-70 transition-opacity"
+              className="text-[13px] cursor-pointer hover:opacity-70 transition-opacity"
               style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
               onClick={() => {
                 setBackendInput(apiUrl);
@@ -4120,7 +4278,7 @@ export default function Home() {
           <div className="relative" ref={themeRef}>
             <button
               onClick={() => setShowThemeMenu(!showThemeMenu)}
-              className="pixel-btn text-[9px] py-0.5 px-2"
+              className="pixel-btn text-[13px] py-0.5 px-2"
               style={{
                 background: "var(--accent-color)",
                 color: theme === "light" ? "#fff" : "#000",
@@ -4145,7 +4303,7 @@ export default function Home() {
                       setTheme(t);
                       setShowThemeMenu(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-[8px] hover:opacity-100 transition-all border-b"
+                    className="w-full text-left px-3 py-2 text-[14px] hover:opacity-100 transition-all border-b"
                     style={{
                       color: "var(--text-primary)",
                       opacity: theme === t ? 1 : 0.6,
@@ -4163,7 +4321,7 @@ export default function Home() {
             │
           </span>
           <span
-            className="text-[10px]"
+            className="text-[13px]"
             style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
           >
             {new Date().toLocaleTimeString()}

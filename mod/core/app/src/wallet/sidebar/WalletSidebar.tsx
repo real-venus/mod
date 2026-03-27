@@ -8,6 +8,7 @@ import { CreditTab } from './CreditTab'
 import { TransactionsTab } from './TransactionsTab'
 import { AccountsTab } from './AccountsTab'
 import { PortfolioTab } from './PortfolioTab'
+import { ContractsTab } from './ContractsTab'
 
 function TabButton({ active, onClick, icon, label, colorActive, colorInactive }: {
   active: boolean
@@ -119,6 +120,8 @@ interface WalletSidebarProps {
   expandedTxIdx: number | null
   setExpandedTxIdx: (v: number | null) => void
   totalCost24h: number
+  // ETH Price
+  ethPrice: number
 }
 
 export function WalletSidebar(props: WalletSidebarProps) {
@@ -135,6 +138,7 @@ export function WalletSidebar(props: WalletSidebarProps) {
   const showCredit = activeTab === 'credit'
   const showTxs = activeTab === 'txs'
   const showWallets = activeTab === 'wallets'
+  const showContracts = activeTab === 'contracts'
 
   return (
     <div>
@@ -229,6 +233,18 @@ export function WalletSidebar(props: WalletSidebarProps) {
               colorActive="from-amber-500/30 to-orange-500/30 border-amber-400 text-amber-300 shadow-amber-500/50"
               colorInactive="from-amber-950/40 to-orange-950/40 border-amber-900/60 text-amber-600 hover:text-amber-300 hover:border-amber-400/60 hover:shadow-amber-500/30"
             />
+            <TabButton
+              active={showContracts}
+              onClick={() => openTab('contracts')}
+              icon={
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              }
+              label="CHAIN"
+              colorActive="from-cyan-500/30 to-blue-500/30 border-cyan-400 text-cyan-300 shadow-cyan-500/50"
+              colorInactive="from-cyan-950/40 to-blue-950/40 border-cyan-900/60 text-cyan-600 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30"
+            />
           </div>
 
           <PortfolioTab
@@ -237,6 +253,7 @@ export function WalletSidebar(props: WalletSidebarProps) {
             customTokens={props.customTokens}
             customTokenBalances={props.customTokenBalances}
             marketCredit={marketCredit}
+            ethPrice={props.ethPrice}
             sendFromPortfolio={props.sendFromPortfolio}
             setSendFromPortfolio={props.setSendFromPortfolio}
             transferRecipient={props.transferRecipient}
@@ -292,6 +309,8 @@ export function WalletSidebar(props: WalletSidebarProps) {
             setExpandedTxIdx={props.setExpandedTxIdx}
             totalCost24h={props.totalCost24h}
           />
+
+          <ContractsTab show={showContracts} />
 
         </div>
       </motion.div>

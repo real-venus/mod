@@ -1,48 +1,50 @@
-# base
+# targon
 
-A minimal example mod showing the standard module structure.
+GPU cloud compute interface for [targon.com](https://targon.com/inventory) (Manifold Labs).
 
-## Structure
+Browse inventory, rent GPUs, manage workloads via the Targon API.
 
+## Setup
+
+```bash
+export TARGON_API_KEY=your_key_here  # from targon.com/settings
 ```
-base/
-├── base/
-│   └── mod.py    # Anchor file with Mod class
-└── README.md
-```
+
+Inventory browsing works without a key. Rentals/workloads require one.
 
 ## Usage
+
+```bash
+# browse available GPUs (no auth needed)
+m targon
+m targon inventory
+m targon cheapest
+
+# rent a GPU
+m targon rent resource=h200-small name=my-job
+
+# manage
+m targon rentals
+m targon status uid=workload-xxx
+m targon logs uid=workload-xxx
+m targon stop uid=workload-xxx
+
+# account
+m targon credits
+m targon ssh_keys
+```
 
 ```python
 import mod as m
 
-# Load and run
-base = m.mod('base')()
-result = base.forward(3, 4)  # 7
+t = m.mod('targon')()
+
+# browse inventory
+gpus = t.inventory()
+cheap = t.cheapest()
+
+# rent
+w = t.rent(resource='h200-small', name='training-run')
+t.status(w['uid'])
+t.stop(w['uid'])
 ```
-
-```bash
-# CLI
-m base forward a=3 b=4
-```
-
-## Creating a New Mod
-
-Every mod follows this pattern:
-
-1. Create a directory: `orbit/<name>/<name>/mod.py`
-2. Define a `Mod` class with a `description` and a `forward` method:
-
-```python
-class Mod:
-    description = """
-    What your mod does
-    """
-
-    def forward(self, **kwargs):
-        """Entry point for the mod."""
-        # your logic here
-        return result
-```
-
-The `forward` method is the default entry point called when the mod is invoked. Additional methods can be called via `m.fn('name/method')()`.
