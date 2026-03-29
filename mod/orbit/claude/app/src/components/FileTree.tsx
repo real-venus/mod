@@ -13,6 +13,7 @@ interface FileTreeProps {
   workDir: string;
   onFileSelect: (path: string) => void;
   selectedFile: string | null;
+  apiUrl?: string;
 }
 
 const FILE_COLORS: Record<string, string> = {
@@ -93,7 +94,7 @@ function FileTreeNode({
   onFileSelect: (path: string) => void;
   selectedFile: string | null;
 }) {
-  const [expanded, setExpanded] = useState(depth < 2);
+  const [expanded, setExpanded] = useState(false);
   const isSelected = selectedFile === node.path;
 
   const handleClick = () => {
@@ -150,7 +151,7 @@ function FileTreeNode({
   );
 }
 
-export default function FileTree({ workDir, onFileSelect, selectedFile }: FileTreeProps) {
+export default function FileTree({ workDir, onFileSelect, selectedFile, apiUrl }: FileTreeProps) {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +164,7 @@ export default function FileTree({ workDir, onFileSelect, selectedFile }: FileTr
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/tree?path=${encodeURIComponent(workDir)}`);
+      const res = await fetch(`${apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/tree?path=${encodeURIComponent(workDir)}`);
       if (!res.ok) throw new Error("Failed to load file tree");
       const data = await res.json();
       setTree(data.tree || []);
@@ -173,6 +174,16 @@ export default function FileTree({ workDir, onFileSelect, selectedFile }: FileTr
       setLoading(false);
     }
   };
+
+  // Auto-select config.json on initial load
+  useEffect(() => {
+    if (tree.length > 0 && !selectedFile) {
+      const configNode = tree.find(n => n.type === "file" && n.name === "config.json");
+      if (configNode) {
+        onFileSelect(configNode.path);
+      }
+    }
+  }, [tree]);
 
   if (loading) {
     return (

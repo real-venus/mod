@@ -1728,6 +1728,243 @@ class Mod:
             logger.error(f"Failed to store config to IPFS: {e}")
             raise RuntimeError(f"Failed to store config to IPFS: {e}")
 
+    # ── Dev Fork Management ─────────────────────────────────────────
+
+    def _dev_dir(self) -> str:
+        """Get the claude-dev directory path."""
+        module_root = os.path.dirname(os.path.dirname(__file__))
+        return os.path.join(os.path.dirname(module_root), 'claude-dev')
+
+    def _dev_script(self) -> str:
+        """Get the dev.sh script path."""
+        return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'scripts', 'dev.sh')
+
+    def _run_dev_cmd(self, cmd: str) -> str:
+        """Run a dev.sh subcommand and return output."""
+        script = self._dev_script()
+        if not os.path.exists(script):
+            raise FileNotFoundError(f"Dev script not found: {script}")
+        result = subprocess.run(
+            ['bash', script, cmd],
+            capture_output=True, text=True, timeout=300
+        )
+        output = result.stdout + result.stderr
+        print(output)
+        return output
+
+    def dev_fork(self) -> Dict[str, Any]:
+        """
+        Create a claude-dev fork from the current claude module.
+        Copies source, patches ports (API:8830, App:8831), generates dev config,
+        initializes git, and creates IPFS tracking metadata.
+
+        Returns:
+            Dict with dev_dir, ports, and status
+        """
+        dev_dir = self._dev_dir()
+        module_root = os.path.dirname(os.path.dirname(__file__))
+
+        logger.info("Forking claude → claude-dev")
+        output = self._run_dev_cmd('fork')
+
+        return {
+            'dev_dir': dev_dir,
+            'api_port': 8830,
+            'app_port': 8831,
+            'exists': os.path.exists(dev_dir),
+            'output': output
+        }
+
+    def dev_deploy(self) -> Dict[str, Any]:
+        """
+        Deploy (start) the claude-dev fork.
+        Runs the dev API on port 8830 and dev App on port 8831.
+
+        Returns:
+            Dict with URLs and status
+        """
+        dev_dir = self._dev_dir()
+        if not os.path.exists(dev_dir):
+            raise FileNotFoundError("claude-dev not found. Run dev_fork() first.")
+
+        logger.info("Deploying claude-dev")
+        output = self._run_dev_cmd('deploy')
+
+        return {
+            'api_url': 'http://localhost:8830',
+            'app_url': 'http://localhost:8831',
+            'dev_dir': dev_dir,
+            'output': output
+        }
+
+    def dev_sync(self) -> Dict[str, Any]:
+        """
+        Sync changes from claude → claude-dev.
+        Copies updated source files, re-applies dev port patches,
+        stores an IPFS snapshot of the sync state, and commits to git.
+
+        Returns:
+            Dict with sync CID, file list, and status
+        """
+        import time
+
+        dev_dir = self._dev_dir()
+        if not os.path.exists(dev_dir):
+            raise FileNotFoundError("claude-dev not found. Run dev_fork() first.")
+
+        logger.info("Syncing claude → claude-dev")
+
+        # Run the shell sync
+        output = self._run_dev_cmd('sync')
+
+        # Read back the meta for return info
+        meta_path = os.path.join(dev_dir, '.dev_meta.json')
+        meta = {}
+        if os.path.exists(meta_path):
+            with open(meta_path) as f:
+                meta = json.load(f)
+
+        result = {
+            'synced': True,
+            'date': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'dev_dir': dev_dir,
+            'last_sync_cid': meta.get('last_sync_cid'),
+            'total_syncs': len(meta.get('syncs', [])),
+            'output': output
+        }
+
+        if meta.get('last_sync_cid'):
+            result['gateway'] = f"https://ipfs.io/ipfs/{meta['last_sync_cid']}"
+
+        return result
+
+    def dev_stop(self) -> str:
+        """Stop the running claude-dev instance."""
+        return self._run_dev_cmd('stop')
+
+    def dev_status(self) -> Dict[str, Any]:
+        """
+        Get the status of the claude-dev fork.
+
+        Returns:
+            Dict with running state, sync history, and metadata
+        """
+        dev_dir = self._dev_dir()
+
+        if not os.path.exists(dev_dir):
+            return {'exists': False, 'message': 'claude-dev not found. Run dev_fork() first.'}
+
+        meta_path = os.path.join(dev_dir, '.dev_meta.json')
+        meta = {}
+        if os.path.exists(meta_path):
+            with open(meta_path) as f:
+                meta = json.load(f)
+
+        # Check if ports are in use
+        import socket
+        def port_open(port):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(1)
+                    return s.connect_ex(('localhost', port)) == 0
+            except:
+                return False
+
+        return {
+            'exists': True,
+            'dev_dir': dev_dir,
+            'api_running': port_open(8830),
+            'app_running': port_open(8831),
+            'api_url': 'http://localhost:8830',
+            'app_url': 'http://localhost:8831',
+            'created': meta.get('created'),
+            'source': meta.get('source'),
+            'last_sync': meta.get('last_sync'),
+            'last_sync_cid': meta.get('last_sync_cid'),
+            'total_syncs': len(meta.get('syncs', [])),
+            'syncs': meta.get('syncs', [])[-5:]  # Last 5 syncs
+        }
+
+    def dev_diff(self) -> str:
+        """Show diff between claude and claude-dev."""
+        return self._run_dev_cmd('diff')
+
+    def dev_snapshot(self, description: str = None) -> Dict[str, Any]:
+        """
+        Take an IPFS snapshot of the current claude-dev state.
+        Like snapshot() but specifically for the dev fork.
+
+        Args:
+            description: Description of the dev snapshot
+
+        Returns:
+            Dict with CID, version info, and gateway URL
+        """
+        import time
+        import glob as glob_mod
+
+        dev_dir = self._dev_dir()
+        if not os.path.exists(dev_dir):
+            raise FileNotFoundError("claude-dev not found. Run dev_fork() first.")
+
+        snapshot_data = {
+            'module': 'claude-dev',
+            'type': 'dev_snapshot',
+            'description': description or f'Dev snapshot @ {time.strftime("%Y-%m-%d %H:%M")}',
+            'timestamp': time.time(),
+            'date': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'files': {}
+        }
+
+        for pattern in ['claude/*.py', 'config.json', 'api/src/*.rs', 'api/Cargo.toml']:
+            for filepath in glob_mod.glob(os.path.join(dev_dir, pattern)):
+                try:
+                    with open(filepath, 'r') as f:
+                        rel = os.path.relpath(filepath, dev_dir)
+                        snapshot_data['files'][rel] = f.read()
+                except Exception:
+                    pass
+
+        cid = self._store_to_ipfs(snapshot_data, description=f'claude-dev: {description or "snapshot"}')
+
+        # Update dev meta
+        meta_path = os.path.join(dev_dir, '.dev_meta.json')
+        try:
+            with open(meta_path) as f:
+                meta = json.load(f)
+        except Exception:
+            meta = {'syncs': []}
+
+        meta['last_snapshot_cid'] = cid
+        meta['syncs'].append({
+            'date': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'cid': cid,
+            'type': 'dev_snapshot',
+            'description': description,
+            'gateway': f'https://ipfs.io/ipfs/{cid}'
+        })
+        meta['syncs'] = meta['syncs'][-50:]
+
+        with open(meta_path, 'w') as f:
+            json.dump(meta, f, indent=2)
+
+        logger.info(f"Dev snapshot stored: {cid}")
+        print(f"\n{'='*60}")
+        print(f"DEV SNAPSHOT")
+        print(f"{'='*60}")
+        print(f"CID: {cid}")
+        print(f"Files: {len(snapshot_data['files'])}")
+        print(f"Gateway: https://ipfs.io/ipfs/{cid}")
+        print(f"{'='*60}\n")
+
+        return {
+            'cid': cid,
+            'file_count': len(snapshot_data['files']),
+            'description': snapshot_data['description'],
+            'date': snapshot_data['date'],
+            'gateway': f'https://ipfs.io/ipfs/{cid}'
+        }
+
     def show_config(self) -> None:
         """
         Display the current config.json and its IPFS CID for commune registration.

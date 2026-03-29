@@ -16,9 +16,10 @@ interface ContentSearchProps {
   onFileSelect: (path: string, line?: number) => void;
   isOpen: boolean;
   onClose: () => void;
+  apiUrl?: string;
 }
 
-export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }: ContentSearchProps) {
+export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose, apiUrl }: ContentSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ContentMatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,7 +62,7 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose }
       });
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/grep?${params}`
+        `${apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/grep?${params}`
       );
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();

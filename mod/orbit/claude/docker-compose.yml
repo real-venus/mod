@@ -6,10 +6,10 @@ services:
   claude:
     container_name: claude
     deploy: {}
-    entrypoint: bash -c "m serve port=50115 key=claude remote=0 mod=claude"
+    entrypoint: bash -c "m serve port=50116 key=claude remote=0 mod=claude"
     image: claude
     ports:
-    - 50115:50115
+    - 50116:50116
     restart: unless-stopped
     shm_size: 100g
     volumes:

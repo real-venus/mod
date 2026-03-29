@@ -1793,6 +1793,190 @@ class Mod:
         self.print(f'Running {start_script} in {mod_dir}')
         return self.cmd(f'bash {start_script}', cwd=mod_dir, verbose=True)
 
+    def _pm2_running(self):
+        """Get set of running PM2 process names."""
+        import subprocess
+        try:
+            result = subprocess.run(['pm2', 'jlist'], capture_output=True, text=True, timeout=10)
+            import json
+            procs = json.loads(result.stdout) if result.stdout.strip() else []
+            return {p['name'] for p in procs if p.get('pm2_env', {}).get('status') == 'online'}
+        except Exception:
+            return set()
+
+    def _find_start_script(self, mod):
+        """Find start.sh for a module, returns path or None."""
+        path = self.dirpath(mod)
+        path = self.abspath(path)
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('node_modules', '__pycache__', '.git', 'target', '.next', 'venv', '.venv')]
+            if 'start.sh' in files:
+                return os.path.join(root, 'start.sh')
+        return None
+
+    def _detect_mod_type(self, mod):
+        """Detect what kind of module this is based on its files."""
+        path = self.dirpath(mod)
+        path = self.abspath(path)
+        info = {'path': path, 'name': mod, 'has_python': False, 'has_node': False,
+                'has_rust': False, 'has_docker': False, 'has_app': False,
+                'has_requirements': False, 'has_mod_py': False, 'python_module': None}
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('node_modules', '__pycache__', '.git', 'target', '.next', 'venv', '.venv')]
+            rel = os.path.relpath(root, path)
+            depth = 0 if rel == '.' else rel.count(os.sep) + 1
+            if depth > 2:
+                continue
+            for f in files:
+                fp = os.path.join(root, f)
+                if f == 'requirements.txt':
+                    info['has_requirements'] = True
+                    info['has_python'] = True
+                if f == 'package.json':
+                    info['has_node'] = True
+                    if os.path.basename(root) == 'app' or rel == '.':
+                        info['has_app'] = True
+                if f == 'Cargo.toml':
+                    info['has_rust'] = True
+                if f == 'docker-compose.yml' or f == 'Dockerfile':
+                    info['has_docker'] = True
+                if f == 'mod.py':
+                    info['has_mod_py'] = True
+                    info['has_python'] = True
+                    # derive python module name from directory
+                    info['python_module'] = os.path.basename(root)
+        return info
+
+    def create_start_script(self, mod):
+        """Auto-generate a start.sh script for a module based on its contents."""
+        info = self._detect_mod_type(mod)
+        path = info['path']
+        mod_name = info['name'].split('.')[-1]  # last segment for nested names
+        lines = ['#!/bin/bash', f'# Auto-generated start script for {mod_name}',
+                 f'DIR="$(cd "$(dirname "$0")" && pwd)"', 'cd "$DIR"', '']
+
+        if info['has_docker'] and os.path.isfile(os.path.join(path, 'docker-compose.yml')):
+            lines += [f'echo "Starting {mod_name} via docker-compose..."',
+                      'docker-compose up -d']
+        elif info['has_rust']:
+            lines += [f'# Build Rust binary if needed',
+                      'if [ ! -f "target/release/{}" ]; then'.format(mod_name),
+                      f'    echo "Building {mod_name}..."',
+                      '    cargo build --release',
+                      'fi', '',
+                      f'echo "Starting {mod_name}..."',
+                      f'exec ./target/release/{mod_name}']
+        elif info['has_python'] and info['has_node'] and info['has_app']:
+            # dual: python backend + node frontend
+            lines += ['# Install Python dependencies',
+                      'if [ -f "requirements.txt" ]; then',
+                      '    pip3 install -r requirements.txt -q',
+                      'fi', '']
+            if info['has_mod_py'] and info['python_module']:
+                lines += [f'# Start Python backend',
+                          f'python3 -m {info["python_module"]}.mod &',
+                          'SERVER_PID=$!', '']
+            lines += ['# Start Next.js frontend',
+                      'cd "$DIR/app"',
+                      'if [ ! -d "node_modules" ]; then',
+                      '    npm install',
+                      'fi',
+                      'npm run dev &',
+                      'APP_PID=$!', '',
+                      f'echo "{mod_name} started"',
+                      'trap "kill $SERVER_PID $APP_PID 2>/dev/null" EXIT',
+                      'wait']
+        elif info['has_node']:
+            lines += ['# Install dependencies',
+                      'if [ ! -d "node_modules" ]; then',
+                      '    echo "Installing dependencies..."',
+                      '    npm install',
+                      'fi', '',
+                      f'echo "Starting {mod_name}..."',
+                      'npm run dev']
+        elif info['has_python']:
+            if info['has_requirements']:
+                lines += ['# Install Python dependencies',
+                          'if [ -f "requirements.txt" ]; then',
+                          '    pip3 install -r requirements.txt -q',
+                          'fi', '']
+            if info['has_mod_py'] and info['python_module']:
+                lines += [f'echo "Starting {mod_name}..."',
+                          f'python3 -m {info["python_module"]}.mod']
+            else:
+                lines += [f'echo "Starting {mod_name}..."',
+                          f'python3 -c "import mod; mod.Mod().serve(\'{mod_name}\')"']
+        else:
+            # fallback: serve via mod framework
+            lines += [f'echo "Starting {mod_name} via mod serve..."',
+                      f'python3 -c "import mod; mod.Mod().serve(\'{mod_name}\')"']
+
+        script_content = '\n'.join(lines) + '\n'
+        # write to module root or scripts/ if it exists
+        scripts_dir = os.path.join(path, 'scripts')
+        if os.path.isdir(scripts_dir):
+            script_path = os.path.join(scripts_dir, 'start.sh')
+        else:
+            script_path = os.path.join(path, 'start.sh')
+
+        with open(script_path, 'w') as f:
+            f.write(script_content)
+        os.chmod(script_path, os.stat(script_path).st_mode | 0o755)
+        self.print(f'Created {script_path}')
+        return script_path
+
+    def off_mods(self, search=None, orbit='inner'):
+        """List modules that are not currently running in PM2."""
+        running = self._pm2_running()
+        all_mods = self.mods(search=search, orbit=orbit)
+        off = [m for m in all_mods if m not in running]
+        return off
+
+    def deploy(self, mod=None, search=None, orbit='inner', create=True):
+        """
+        Deploy modules that are off by calling their start script.
+        If no start.sh exists and create=True, auto-generate one.
+
+        Usage:
+            m.deploy('mymod')       # deploy a single module
+            m.deploy()              # list all off modules
+            m.deploy(search='api')  # deploy off modules matching 'api'
+        """
+        if mod:
+            # deploy a single module
+            mods_to_deploy = [mod]
+        else:
+            mods_to_deploy = self.off_mods(search=search, orbit=orbit)
+            if not search and not mod:
+                # just list them
+                self.print(f'{len(mods_to_deploy)} modules are off:')
+                for m in sorted(mods_to_deploy):
+                    has_script = '✓' if self._find_start_script(m) else '✗'
+                    self.print(f'  [{has_script}] {m}')
+                return mods_to_deploy
+
+        results = {}
+        for mod_name in mods_to_deploy:
+            script = self._find_start_script(mod_name)
+            if script is None:
+                if create:
+                    self.print(f'No start.sh for {mod_name}, creating one...')
+                    script = self.create_start_script(mod_name)
+                else:
+                    self.print(f'No start.sh for {mod_name}, skipping (use create=True to auto-generate)')
+                    results[mod_name] = 'skipped'
+                    continue
+            try:
+                self.print(f'Deploying {mod_name}...')
+                mod_dir = self.abspath(self.dirpath(mod_name))
+                os.chmod(script, os.stat(script).st_mode | 0o755)
+                result = self.cmd(f'bash {script}', cwd=mod_dir, verbose=True)
+                results[mod_name] = 'deployed'
+            except Exception as e:
+                self.print(f'Failed to deploy {mod_name}: {e}')
+                results[mod_name] = f'error: {e}'
+        return results
+
     def pytest(self, mod='pypm'):
         return self.fn('tester/pytest')(mod)
 

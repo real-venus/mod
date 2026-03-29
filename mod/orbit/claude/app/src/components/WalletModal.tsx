@@ -14,20 +14,29 @@ import {
   exportToCSV,
   copyToClipboard as utilCopyToClipboard,
   switchNetwork,
+  getProvider,
+  getStoredChainId,
   EVM_NETWORKS,
   NETWORK_LOGOS,
   COMMON_TOKENS,
+  getCustomTokens,
+  saveCustomToken,
+  removeCustomToken,
+  fetchTokenMetadata,
   type Transaction,
+  type TokenInfo,
 } from "../utils/wallet";
 
 // Transaction type imported from utils/wallet.ts
 
 interface TokenBalance {
   symbol: string;
+  name: string;
   balance: string;
   decimals: number;
   address?: string;
   usdValue?: string;
+  isCustom?: boolean;
 }
 
 interface WalletModalProps {
@@ -65,6 +74,13 @@ export default function WalletModal({
   const [showNetworkSelector, setShowNetworkSelector] = useState(false);
   const [switchingNetwork, setSwitchingNetwork] = useState(false);
   const [showTestnets, setShowTestnets] = useState(false);
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  const [showAddToken, setShowAddToken] = useState(false);
+  const [addTokenAddress, setAddTokenAddress] = useState("");
+  const [addTokenLoading, setAddTokenLoading] = useState(false);
+  const [addTokenError, setAddTokenError] = useState<string | null>(null);
+  const [addTokenPreview, setAddTokenPreview] = useState<TokenInfo | null>(null);
+  const [tokensLoading, setTokensLoading] = useState(false);
 
   // Load wallet data
   useEffect(() => {
@@ -91,20 +107,22 @@ export default function WalletModal({
     setLoading(true);
     try {
       const ethereum = (window as any).ethereum;
-      if (!ethereum) {
-        setLoading(false);
-        return;
-      }
-
-      const provider = new ethers.BrowserProvider(ethereum);
+      const provider = ethereum
+        ? new ethers.BrowserProvider(ethereum)
+        : getProvider();
 
       // Get balance
       const bal = await provider.getBalance(address);
       setBalance(ethers.formatEther(bal));
 
-      // Get network info
-      const net = await provider.getNetwork();
-      const cid = Number(net.chainId);
+      // Get network info — for JsonRpcProvider use stored chain ID
+      let cid: number;
+      if (ethereum) {
+        const net = await provider.getNetwork();
+        cid = Number(net.chainId);
+      } else {
+        cid = getStoredChainId();
+      }
       setChainId(cid);
       setNetwork(getNetworkName(cid));
       setNativeSymbol(getNativeSymbol(cid));
@@ -123,7 +141,7 @@ export default function WalletModal({
     }
   };
 
-  const loadTransactionHistory = async (provider: ethers.BrowserProvider) => {
+  const loadTransactionHistory = async (provider: ethers.BrowserProvider | ethers.JsonRpcProvider) => {
     try {
       const currentBlock = await provider.getBlockNumber();
       const fromBlock = Math.max(0, currentBlock - 10000);
@@ -176,38 +194,125 @@ export default function WalletModal({
     }
   };
 
-  const loadTokenBalances = async (provider: ethers.BrowserProvider) => {
+  const loadTokenBalances = async (provider: ethers.BrowserProvider | ethers.JsonRpcProvider) => {
+    setTokensLoading(true);
     try {
-      const tokensToCheck = COMMON_TOKENS[chainId] || [];
+      const commonTokens = COMMON_TOKENS[chainId] || [];
+      const customTokens = getCustomTokens(chainId);
+      // Merge, deduplicate by address
+      const seen = new Set<string>();
+      const allTokens: (TokenInfo & { isCustom?: boolean })[] = [];
+      for (const t of commonTokens) {
+        const key = t.address.toLowerCase();
+        if (!seen.has(key)) { seen.add(key); allTokens.push(t); }
+      }
+      for (const t of customTokens) {
+        const key = t.address.toLowerCase();
+        if (!seen.has(key)) { seen.add(key); allTokens.push({ ...t, isCustom: true }); }
+      }
+
       const balances: TokenBalance[] = [];
 
       const erc20Abi = [
         "function balanceOf(address) view returns (uint256)",
+        "function name() view returns (string)",
+        "function symbol() view returns (string)",
+        "function decimals() view returns (uint8)",
       ];
 
-      for (const token of tokensToCheck) {
-        try {
+      const results = await Promise.allSettled(
+        allTokens.map(async (token) => {
           const contract = new ethers.Contract(token.address, erc20Abi, provider);
-          const balance = await contract.balanceOf(address);
-          const formattedBalance = ethers.formatUnits(balance, token.decimals);
+          const [bal, name, symbol, decimals] = await Promise.all([
+            contract.balanceOf(address),
+            contract.name().catch(() => token.name),
+            contract.symbol().catch(() => token.symbol),
+            contract.decimals().catch(() => token.decimals),
+          ]);
+          const dec = Number(decimals);
+          const formattedBalance = ethers.formatUnits(bal, dec);
+          return {
+            symbol: symbol || token.symbol,
+            name: name || token.name,
+            balance: formattedBalance,
+            decimals: dec,
+            address: token.address,
+            isCustom: !!(token as any).isCustom,
+            rawBalance: bal,
+          };
+        })
+      );
 
-          if (parseFloat(formattedBalance) > 0) {
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          // Show all custom tokens (even 0 balance) and common tokens with balance > 0
+          if (r.value.isCustom || parseFloat(r.value.balance) > 0) {
             balances.push({
-              symbol: token.symbol,
-              balance: formattedBalance,
-              decimals: token.decimals,
-              address: token.address,
+              symbol: r.value.symbol,
+              name: r.value.name,
+              balance: r.value.balance,
+              decimals: r.value.decimals,
+              address: r.value.address,
+              isCustom: r.value.isCustom,
             });
           }
-        } catch (e) {
-          console.log(`Failed to load ${token.symbol}:`, e);
         }
       }
 
       setTokens(balances);
     } catch (e) {
       console.error("Failed to load token balances:", e);
+    } finally {
+      setTokensLoading(false);
     }
+  };
+
+  const handleFetchTokenPreview = async () => {
+    const addr = addTokenAddress.trim();
+    if (!ethers.isAddress(addr)) {
+      setAddTokenError("Invalid address");
+      return;
+    }
+    // Check if already added
+    const existing = tokens.find(t => t.address?.toLowerCase() === addr.toLowerCase());
+    if (existing) {
+      setAddTokenError(`${existing.symbol} already in list`);
+      return;
+    }
+    setAddTokenLoading(true);
+    setAddTokenError(null);
+    setAddTokenPreview(null);
+    try {
+      const ethereum = (window as any).ethereum;
+      const provider = ethereum ? new ethers.BrowserProvider(ethereum) : getProvider();
+      const meta = await fetchTokenMetadata(provider, addr);
+      if (!meta) {
+        setAddTokenError("Not a valid ERC20 contract");
+      } else {
+        setAddTokenPreview(meta);
+      }
+    } catch {
+      setAddTokenError("Failed to fetch token data");
+    } finally {
+      setAddTokenLoading(false);
+    }
+  };
+
+  const handleAddToken = async () => {
+    if (!addTokenPreview) return;
+    saveCustomToken(chainId, addTokenPreview);
+    setAddTokenAddress("");
+    setAddTokenPreview(null);
+    setShowAddToken(false);
+    // Reload tokens
+    const ethereum = (window as any).ethereum;
+    const provider = ethereum ? new ethers.BrowserProvider(ethereum) : getProvider();
+    await loadTokenBalances(provider);
+  };
+
+  const handleRemoveToken = async (tokenAddress: string) => {
+    removeCustomToken(chainId, tokenAddress);
+    setTokens(prev => prev.filter(t => t.address?.toLowerCase() !== tokenAddress.toLowerCase()));
   };
 
   const filteredTransactions = transactions.filter(tx => {
@@ -238,12 +343,17 @@ export default function WalletModal({
       return;
     }
     setSwitchingNetwork(true);
+    setNetworkError(null);
     const ok = await switchNetwork(targetChainId);
     setSwitchingNetwork(false);
-    setShowNetworkSelector(false);
     if (ok) {
+      setShowNetworkSelector(false);
       loadWalletData();
       onNetworkChange?.();
+    } else {
+      const net = EVM_NETWORKS.find(n => n.chainId === targetChainId);
+      setNetworkError(`Failed to switch to ${net?.name || "network"}`);
+      setTimeout(() => setNetworkError(null), 3000);
     }
   };
 
@@ -258,90 +368,88 @@ export default function WalletModal({
   const content = (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header: Balance + Address + Copy + Close */}
-      {!inline && (
-        <div
-          className="flex items-center justify-between px-6 py-3 shrink-0"
-          style={{
-            borderBottom: "1px solid rgba(0,170,255,0.12)",
-            background: "linear-gradient(180deg, rgba(0,170,255,0.06) 0%, transparent 100%)",
-          }}
-        >
-          {/* Left: balance */}
-          <div className="flex items-baseline gap-1.5">
-            <span
-              className="text-[28px] font-bold font-mono tabular-nums"
-              style={{
-                color: "var(--crt-green)",
-                textShadow: "0 0 30px rgba(51,255,51,0.2), 0 0 8px rgba(51,255,51,0.1)",
-                letterSpacing: "-1px",
-              }}
-            >
-              {parseFloat(balance).toFixed(4)}
-            </span>
-            <span className="text-[11px] font-bold" style={{ color: "var(--crt-green)", opacity: 0.4 }}>
-              {nativeSymbol}
-            </span>
-          </div>
-
-          {/* Right: address copy + close */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleCopy(address, "address")}
-              className="flex items-center gap-2 px-3 py-2 transition-all"
-              style={{
-                border: copied === "address" ? "1px solid var(--crt-green)" : "1px solid rgba(255,255,255,0.08)",
-                background: copied === "address" ? "rgba(51,255,51,0.08)" : "transparent",
-                borderRadius: "2px",
-              }}
-              onMouseEnter={(e) => {
-                if (copied !== "address") {
-                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,170,255,0.3)";
-                  (e.currentTarget as HTMLElement).style.background = "rgba(0,170,255,0.04)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (copied !== "address") {
-                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
-                  (e.currentTarget as HTMLElement).style.background = "transparent";
-                }
-              }}
-              title={copied === "address" ? "Copied!" : `Copy: ${address}`}
-            >
-              <span className="text-[11px] font-bold font-mono" style={{ color: copied === "address" ? "var(--crt-green)" : "var(--crt-amber)", letterSpacing: "0.5px" }}>
-                {copied === "address" ? "COPIED" : `${address?.slice(0, 6)}··${address?.slice(-4)}`}
-              </span>
-              <svg className="w-3.5 h-3.5" style={{ color: copied === "address" ? "var(--crt-green)" : "var(--text-tertiary)", opacity: copied === "address" ? 1 : 0.5 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                {copied === "address" ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                )}
-              </svg>
-            </button>
-            <button
-              onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center text-[12px] transition-all"
-              style={{
-                color: "var(--text-tertiary)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "2px",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,51,51,0.4)";
-                (e.currentTarget as HTMLElement).style.color = "var(--crt-red)";
-                (e.currentTarget as HTMLElement).style.background = "rgba(255,51,51,0.08)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
-                (e.currentTarget as HTMLElement).style.color = "var(--text-tertiary)";
-                (e.currentTarget as HTMLElement).style.background = "transparent";
-              }}
-            >
-              ✕
-            </button>
-          </div>
+      <div
+        className="flex items-center justify-between px-5 py-3 shrink-0"
+        style={{
+          borderBottom: "1px solid rgba(0,170,255,0.12)",
+          background: "linear-gradient(180deg, rgba(0,170,255,0.06) 0%, transparent 100%)",
+        }}
+      >
+        {/* Left: balance */}
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className={`${inline ? "text-[22px]" : "text-[28px]"} font-bold font-mono tabular-nums`}
+            style={{
+              color: "var(--crt-green)",
+              textShadow: "0 0 30px rgba(51,255,51,0.2), 0 0 8px rgba(51,255,51,0.1)",
+              letterSpacing: "-1px",
+            }}
+          >
+            {parseFloat(balance).toFixed(4)}
+          </span>
+          <span className="text-[11px] font-bold" style={{ color: "var(--crt-green)", opacity: 0.4 }}>
+            {nativeSymbol}
+          </span>
         </div>
-      )}
+
+        {/* Right: address copy + close */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleCopy(address, "address")}
+            className="flex items-center gap-2 px-3 py-2 transition-all"
+            style={{
+              border: copied === "address" ? "1px solid var(--crt-green)" : "1px solid rgba(255,255,255,0.08)",
+              background: copied === "address" ? "rgba(51,255,51,0.08)" : "transparent",
+              borderRadius: "2px",
+            }}
+            onMouseEnter={(e) => {
+              if (copied !== "address") {
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,170,255,0.3)";
+                (e.currentTarget as HTMLElement).style.background = "rgba(0,170,255,0.04)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (copied !== "address") {
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+                (e.currentTarget as HTMLElement).style.background = "transparent";
+              }
+            }}
+            title={copied === "address" ? "Copied!" : `Copy: ${address}`}
+          >
+            <span className="text-[11px] font-bold font-mono" style={{ color: copied === "address" ? "var(--crt-green)" : "var(--crt-amber)", letterSpacing: "0.5px" }}>
+              {copied === "address" ? "COPIED" : `${address?.slice(0, 6)}··${address?.slice(-4)}`}
+            </span>
+            <svg className="w-3.5 h-3.5" style={{ color: copied === "address" ? "var(--crt-green)" : "var(--text-tertiary)", opacity: copied === "address" ? 1 : 0.5 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {copied === "address" ? (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              )}
+            </svg>
+          </button>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center text-[12px] transition-all"
+            style={{
+              color: "var(--text-tertiary)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "2px",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,51,51,0.4)";
+              (e.currentTarget as HTMLElement).style.color = "var(--crt-red)";
+              (e.currentTarget as HTMLElement).style.background = "rgba(255,51,51,0.08)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+              (e.currentTarget as HTMLElement).style.color = "var(--text-tertiary)";
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
 
       {/* Tabs */}
       <div
@@ -352,7 +460,7 @@ export default function WalletModal({
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className="flex-1 px-4 py-3 text-[10px] transition-all relative"
+            className="flex-1 px-4 py-2 text-[10px] transition-all relative"
             style={{
               color: activeTab === tab ? "var(--text-primary)" : "var(--text-tertiary)",
               letterSpacing: "2px",
@@ -375,7 +483,7 @@ export default function WalletModal({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3">
         {loading && (
           <div className="text-center py-16">
             <div className="inline-flex items-center gap-3">
@@ -390,7 +498,7 @@ export default function WalletModal({
 
         {/* Overview Tab */}
         {!loading && activeTab === "overview" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Address Card */}
             <div
               className="p-4 space-y-3"
@@ -566,6 +674,15 @@ export default function WalletModal({
                     </button>
                   ))}
                 </div>
+
+                {networkError && (
+                  <div
+                    className="text-[10px] text-center py-2 tracking-wider"
+                    style={{ color: "var(--crt-red)", border: "1px solid rgba(255,51,51,0.2)", background: "rgba(255,51,51,0.06)", borderRadius: "2px" }}
+                  >
+                    {networkError}
+                  </div>
+                )}
               </div>
             )}
 
@@ -674,7 +791,7 @@ export default function WalletModal({
 
         {/* Transactions Tab */}
         {!loading && activeTab === "transactions" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Filter & Export */}
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
@@ -821,7 +938,184 @@ export default function WalletModal({
 
         {/* Tokens Tab */}
         {!loading && activeTab === "tokens" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
+            {/* Native balance card */}
+            <div
+              className="p-4"
+              style={{
+                border: "1px solid rgba(0,170,255,0.15)",
+                background: "rgba(0,170,255,0.03)",
+                borderRadius: "3px",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-9 h-9 flex items-center justify-center"
+                    style={{ color: NETWORK_LOGOS[chainId]?.color || "var(--crt-blue)" }}
+                    dangerouslySetInnerHTML={{
+                      __html: `<svg viewBox="0 0 24 24" width="22" height="22">${NETWORK_LOGOS[chainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
+                    }}
+                  />
+                  <div>
+                    <div className="text-[12px] font-bold tracking-wider" style={{ color: "var(--crt-blue)" }}>
+                      {nativeSymbol}
+                    </div>
+                    <div className="text-[9px] mt-0.5" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+                      Native Token
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[16px] font-bold font-mono tabular-nums" style={{ color: "var(--text-primary)" }}>
+                    {parseFloat(balance).toFixed(4)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Add Token Button */}
+            <button
+              onClick={() => { setShowAddToken(!showAddToken); setAddTokenError(null); setAddTokenPreview(null); setAddTokenAddress(""); }}
+              className="w-full py-2.5 text-[9px] tracking-[2px] transition-all"
+              style={{
+                border: showAddToken ? "1px solid var(--crt-green)" : "1px dashed rgba(51,255,51,0.2)",
+                color: "var(--crt-green)",
+                background: showAddToken ? "rgba(51,255,51,0.06)" : "transparent",
+                borderRadius: "3px",
+              }}
+              onMouseEnter={(e) => { if (!showAddToken) e.currentTarget.style.borderColor = "rgba(51,255,51,0.4)"; }}
+              onMouseLeave={(e) => { if (!showAddToken) e.currentTarget.style.borderColor = "rgba(51,255,51,0.2)"; }}
+            >
+              {showAddToken ? "CANCEL" : "+ IMPORT TOKEN"}
+            </button>
+
+            {/* Add Token Form */}
+            {showAddToken && (
+              <div
+                className="p-4 space-y-3"
+                style={{
+                  border: "1px solid rgba(51,255,51,0.15)",
+                  background: "rgba(51,255,51,0.02)",
+                  borderRadius: "3px",
+                }}
+              >
+                <div className="text-[9px] tracking-[2px]" style={{ color: "var(--text-tertiary)" }}>
+                  TOKEN CONTRACT ADDRESS
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={addTokenAddress}
+                    onChange={(e) => { setAddTokenAddress(e.target.value); setAddTokenError(null); setAddTokenPreview(null); }}
+                    placeholder="0x..."
+                    className="flex-1 px-3 py-2 text-[11px] font-mono outline-none"
+                    style={{
+                      background: "rgba(0,0,0,0.3)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      color: "var(--text-primary)",
+                      borderRadius: "2px",
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(51,255,51,0.3)"; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleFetchTokenPreview(); }}
+                  />
+                  <button
+                    onClick={handleFetchTokenPreview}
+                    disabled={addTokenLoading || !addTokenAddress.trim()}
+                    className="px-4 py-2 text-[9px] tracking-wider transition-all"
+                    style={{
+                      background: addTokenLoading ? "transparent" : "var(--crt-green)",
+                      color: addTokenLoading ? "var(--crt-green)" : "#000",
+                      border: addTokenLoading ? "1px solid rgba(51,255,51,0.3)" : "none",
+                      borderRadius: "2px",
+                      fontWeight: "bold",
+                      opacity: !addTokenAddress.trim() ? 0.4 : 1,
+                    }}
+                  >
+                    {addTokenLoading ? "FETCHING..." : "FETCH"}
+                  </button>
+                </div>
+
+                {addTokenError && (
+                  <div className="text-[10px] tracking-wider py-1.5 px-3" style={{
+                    color: "var(--crt-red)",
+                    border: "1px solid rgba(255,51,51,0.2)",
+                    background: "rgba(255,51,51,0.06)",
+                    borderRadius: "2px",
+                  }}>
+                    {addTokenError}
+                  </div>
+                )}
+
+                {/* Token Preview */}
+                {addTokenPreview && (
+                  <div
+                    className="p-3 space-y-2"
+                    style={{
+                      border: "1px solid rgba(51,255,51,0.2)",
+                      background: "rgba(51,255,51,0.04)",
+                      borderRadius: "3px",
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="w-9 h-9 flex items-center justify-center text-[11px] font-bold"
+                          style={{
+                            background: "rgba(51,255,51,0.08)",
+                            border: "1px solid rgba(51,255,51,0.25)",
+                            color: "var(--crt-green)",
+                            borderRadius: "2px",
+                          }}
+                        >
+                          {addTokenPreview.symbol.slice(0, 3)}
+                        </span>
+                        <div>
+                          <div className="text-[12px] font-bold" style={{ color: "var(--crt-green)" }}>
+                            {addTokenPreview.symbol}
+                          </div>
+                          <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                            {addTokenPreview.name}
+                          </div>
+                          <div className="text-[8px] font-mono mt-0.5" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+                            Decimals: {addTokenPreview.decimals}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleAddToken}
+                      className="w-full py-2.5 text-[9px] tracking-[2px] transition-all mt-2"
+                      style={{
+                        background: "var(--crt-green)",
+                        color: "#000",
+                        fontWeight: "bold",
+                        border: "none",
+                        borderRadius: "2px",
+                        boxShadow: "0 2px 12px rgba(51,255,51,0.2)",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 2px 20px rgba(51,255,51,0.35)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 2px 12px rgba(51,255,51,0.2)"; }}
+                    >
+                      ADD {addTokenPreview.symbol} TO WALLET
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Token loading indicator */}
+            {tokensLoading && (
+              <div className="text-center py-4">
+                <div className="inline-flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full led-pulse" style={{ background: "var(--crt-green)", boxShadow: "0 0 6px var(--crt-green)" }} />
+                  <p className="text-[9px] tracking-[2px]" style={{ color: "var(--crt-green)" }}>SCANNING TOKENS</p>
+                </div>
+              </div>
+            )}
+
+            {/* ERC20 Token List */}
             {tokens.length > 0 ? (
               <div className="space-y-2">
                 {tokens.map(token => (
@@ -853,39 +1147,83 @@ export default function WalletModal({
                             borderRadius: "2px",
                           }}
                         >
-                          {token.symbol.slice(0, 2)}
+                          {token.symbol.slice(0, 3)}
                         </span>
                         <div>
-                          <div className="text-[12px] font-bold tracking-wider" style={{ color: "var(--crt-green)" }}>
-                            {token.symbol}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[12px] font-bold tracking-wider" style={{ color: "var(--crt-green)" }}>
+                              {token.symbol}
+                            </span>
+                            {token.isCustom && (
+                              <span className="text-[7px] px-1.5 py-0.5 tracking-wider" style={{
+                                color: "var(--crt-amber)",
+                                border: "1px solid rgba(255,176,0,0.2)",
+                                borderRadius: "2px",
+                              }}>
+                                IMPORTED
+                              </span>
+                            )}
                           </div>
-                          <div className="text-[9px] font-mono mt-0.5" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+                          <div className="text-[9px] mt-0.5" style={{ color: "var(--text-secondary)", opacity: 0.7 }}>
+                            {token.name}
+                          </div>
+                          <div className="text-[8px] font-mono mt-0.5" style={{ color: "var(--text-tertiary)", opacity: 0.4 }}>
                             {token.address?.slice(0, 10)}...{token.address?.slice(-6)}
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-[16px] font-bold font-mono tabular-nums" style={{ color: "var(--text-primary)" }}>
-                          {parseFloat(token.balance).toFixed(4)}
-                        </div>
-                        {token.usdValue && (
-                          <div className="text-[10px] mt-0.5" style={{ color: "var(--text-tertiary)", opacity: 0.6 }}>
-                            ${token.usdValue}
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="text-[16px] font-bold font-mono tabular-nums" style={{ color: "var(--text-primary)" }}>
+                            {parseFloat(token.balance).toFixed(4)}
                           </div>
+                          {token.usdValue && (
+                            <div className="text-[10px] mt-0.5" style={{ color: "var(--text-tertiary)", opacity: 0.6 }}>
+                              ${token.usdValue}
+                            </div>
+                          )}
+                        </div>
+                        {token.isCustom && (
+                          <button
+                            onClick={() => token.address && handleRemoveToken(token.address)}
+                            className="w-6 h-6 flex items-center justify-center text-[10px] transition-all"
+                            style={{
+                              color: "var(--text-tertiary)",
+                              border: "1px solid rgba(255,255,255,0.06)",
+                              borderRadius: "2px",
+                              opacity: 0.5,
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = "rgba(255,51,51,0.3)";
+                              e.currentTarget.style.color = "var(--crt-red)";
+                              e.currentTarget.style.opacity = "1";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                              e.currentTarget.style.color = "var(--text-tertiary)";
+                              e.currentTarget.style.opacity = "0.5";
+                            }}
+                            title="Remove token"
+                          >
+                            ✕
+                          </button>
                         )}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-20">
+            ) : !tokensLoading ? (
+              <div className="text-center py-12">
                 <div className="text-[32px] mb-4" style={{ opacity: 0.06 }}>&#9673;</div>
-                <p className="text-[10px] tracking-[2px]" style={{ color: "var(--text-tertiary)", opacity: 0.4 }}>
+                <p className="text-[10px] tracking-[2px] mb-2" style={{ color: "var(--text-tertiary)", opacity: 0.4 }}>
                   NO ERC20 TOKENS FOUND
                 </p>
+                <p className="text-[9px] tracking-wider" style={{ color: "var(--text-tertiary)", opacity: 0.3 }}>
+                  Import a token by contract address above
+                </p>
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>

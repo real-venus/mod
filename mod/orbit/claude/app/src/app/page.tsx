@@ -5,7 +5,12 @@ import dynamic from "next/dynamic";
 
 const WalletModal = dynamic(() => import("../components/WalletModal"), { ssr: false });
 
-import { EVM_NETWORKS, NETWORK_LOGOS, switchNetwork, getNetworkName, getNativeSymbol } from "../utils/wallet";
+import {
+  getNetworkName,
+  NETWORK_LOGOS,
+  EVM_NETWORKS,
+  switchNetwork,
+} from "../utils/wallet";
 
 const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820";
 
@@ -79,6 +84,26 @@ const STATUS_COLOR_LIGHT: Record<string, string> = {
   cancelled: "#888888",
 };
 
+// ── File Type Colors ─────────────────────────────────────────────────
+
+const FILE_TYPE_COLORS: Record<string, string> = {
+  ".py": "#3572A5", ".js": "#f1e05a", ".ts": "#2b7489", ".tsx": "#2b7489",
+  ".jsx": "#f1e05a", ".rs": "#dea584", ".go": "#00ADD8", ".java": "#b07219",
+  ".cpp": "#f34b7d", ".c": "#555555", ".sh": "#89e051", ".json": "#ffb000",
+  ".md": "#519aba", ".yaml": "#cb171e", ".yml": "#cb171e", ".toml": "#9c4221",
+  ".xml": "#0060ac", ".html": "#e34c26", ".css": "#563d7c", ".sol": "#AA6746",
+  ".txt": "#cccccc", ".log": "#888888", ".ini": "#d1dbe0", ".lock": "#555555",
+  ".svg": "#ff9900", ".png": "#a074c4", ".jpg": "#a074c4", ".gif": "#a074c4",
+  ".sql": "#e38c00", ".rb": "#701516", ".php": "#4F5D95", ".swift": "#F05138",
+};
+
+function getFileTypeColor(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  if (dot === -1) return "#cccccc";
+  const ext = filename.substring(dot).toLowerCase();
+  return FILE_TYPE_COLORS[ext] || "#cccccc";
+}
+
 // ── ASCII Art ────────────────────────────────────────────────────────
 
 const BOOT_ART = `
@@ -115,7 +140,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("opus");
-  const [agentType, setAgentType] = useState("general");
+
   const [workDir, setWorkDir] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
@@ -148,6 +173,7 @@ export default function Home() {
   const [togglingModule, setTogglingModule] = useState(false);
   const [expandedAsks, setExpandedAsks] = useState<Set<string>>(new Set());
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
+  const [expandedJobImage, setExpandedJobImage] = useState<string | null>(null);
   const [images, setImages] = useState<Array<{ name: string; data: string }>>(
     []
   );
@@ -160,7 +186,7 @@ export default function Home() {
   const [viewingFileContent, setViewingFileContent] = useState<string>("");
   const [viewingFileLoading, setViewingFileLoading] = useState(false);
   // Inline search state
-  const [inlineSearchMode, setInlineSearchMode] = useState<"off" | "files" | "grep">("off");
+  const [inlineSearchMode, setInlineSearchMode] = useState<"off" | "files" | "grep">("files");
   const [inlineSearchQuery, setInlineSearchQuery] = useState("");
   const [inlineSearchResults, setInlineSearchResults] = useState<any[]>([]);
   const [inlineSearchLoading, setInlineSearchLoading] = useState(false);
@@ -179,9 +205,8 @@ export default function Home() {
 
   // Network switcher (header)
   const [currentChainId, setCurrentChainId] = useState<number>(1);
-  const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
-  const [switchingNetwork, setSwitchingNetwork] = useState(false);
-  const networkDropdownRef = useRef<HTMLDivElement>(null);
+  const [showHeaderNetworkDropdown, setShowHeaderNetworkDropdown] = useState(false);
+  const [headerSwitchingNetwork, setHeaderSwitchingNetwork] = useState(false);
 
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
@@ -237,7 +262,7 @@ export default function Home() {
   const [sidebarWidth, setSidebarWidth] = useState(480);
   const [isSidebarDragging, setIsSidebarDragging] = useState(false);
   const [isLeftDragging, setIsLeftDragging] = useState(false);
-  const [sidebarView, setSidebarView] = useState<"tasks" | "app" | "api" | "changelog" | "config" | "files">("config");
+  const [sidebarView, setSidebarView] = useState<"tasks" | "app" | "api" | "overview" | "files">("overview");
 
   // Left sidebar (agent) and right sidebar (wallet)
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
@@ -249,9 +274,12 @@ export default function Home() {
   const [showInlineModuleDropdown, setShowInlineModuleDropdown] = useState(false);
   const [showHeaderModuleDropdown, setShowHeaderModuleDropdown] = useState(false);
   const [headerModuleSearch, setHeaderModuleSearch] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState<string | null>(null);
   const [showHeaderCreateForm, setShowHeaderCreateForm] = useState<"create" | "fork" | null>(null);
   const [headerNewName, setHeaderNewName] = useState("");
   const [headerGithubUrl, setHeaderGithubUrl] = useState("");
+
+
   const headerCreateRef = useRef<HTMLDivElement>(null);
   const repoRef = useRef<HTMLDivElement>(null);
   const outputRef = useRef<HTMLDivElement>(null);
@@ -280,8 +308,17 @@ export default function Home() {
   const darkOverlay = isLight ? "rgba(0,0,0,0.03)" : "rgba(0,0,0,0.3)";
   const darkOverlayStrong = isLight ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.4)";
 
+  // Pick the best default tab for a module based on its capabilities
+  const getBestTab = useCallback((info: typeof moduleList[0] | null): "overview" | "app" | "api" | "files" => {
+    if (!info) return "overview";
+    if (info.app_url) return "app";
+    if (info.api_url || info.has_api_dir) return "api";
+    if (info.fns?.length > 0) return "overview";
+    return "files";
+  }, []);
+
   // Reset all module-specific state when switching modules
-  const resetModuleState = useCallback(() => {
+  const resetModuleState = useCallback((newModuleInfo?: typeof moduleList[0] | null) => {
     // API explorer
     setApiSelectedEndpoint(null);
     setApiParams({});
@@ -310,9 +347,9 @@ export default function Home() {
     setExpandedDirs(new Set());
     // JSON tree
     setCollapsedPaths(new Set());
-    // Reset sidebar view to default if on a tab that may not exist for new module
-    setSidebarView((prev) => (prev === "app" ? "config" : prev));
-  }, []);
+    // Auto-select the best tab for the new module
+    setSidebarView(getBestTab(newModuleInfo || null));
+  }, [getBestTab]);
 
   // Detect wallet extensions client-side only (avoids hydration mismatch)
   useEffect(() => {
@@ -414,7 +451,7 @@ export default function Home() {
       setInlineSelectedIndex(0);
     }, 300);
     return () => clearTimeout(tid);
-  }, [inlineSearchQuery, inlineSearchMode]);
+  }, [inlineSearchQuery, inlineSearchMode, workDir, selectedJob, jobs, apiUrl]);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -434,9 +471,6 @@ export default function Home() {
       if (headerCreateRef.current && !headerCreateRef.current.contains(e.target as Node)) {
         setShowHeaderCreateForm(null);
       }
-      if (networkDropdownRef.current && !networkDropdownRef.current.contains(e.target as Node)) {
-        setShowNetworkDropdown(false);
-      }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -446,8 +480,7 @@ export default function Home() {
   useEffect(() => {
     const savedModel = localStorage.getItem("claude_jobs_model");
     if (savedModel) setModel(savedModel);
-    const savedAgentType = localStorage.getItem("claude_agent_type");
-    if (savedAgentType) setAgentType(savedAgentType);
+
     const savedUrl = localStorage.getItem("claude_backend_url");
     if (savedUrl) setApiUrl(savedUrl);
   }, []);
@@ -624,7 +657,8 @@ export default function Home() {
         localStorage.setItem("claude_jobs_wallet_type", "metamask");
       }
     } catch (e: any) {
-      setAuthError(e.message || "AUTHENTICATION FAILED");
+      const msg = e.message || "";
+      setAuthError(msg === "Load failed" || msg === "Failed to fetch" ? "API OFFLINE — start the backend first" : msg || "AUTHENTICATION FAILED");
     } finally {
       setAuthLoading(false);
     }
@@ -646,7 +680,8 @@ export default function Home() {
       setWalletType("password");
       localStorage.setItem("claude_jobs_wallet_type", "password");
     } catch (e: any) {
-      setAuthError(e.message || "PASSWORD KEY DERIVATION FAILED");
+      const msg = e.message || "";
+      setAuthError(msg === "Load failed" || msg === "Failed to fetch" ? "API OFFLINE — start the backend first" : msg || "PASSWORD KEY DERIVATION FAILED");
     } finally {
       setAuthLoading(false);
     }
@@ -684,7 +719,8 @@ export default function Home() {
         );
       }
     } catch (e: any) {
-      setAuthError(e.message || "LOCAL KEY GENERATION FAILED");
+      const msg = e.message || "";
+      setAuthError(msg === "Load failed" || msg === "Failed to fetch" ? "API OFFLINE — start the backend first" : msg || "LOCAL KEY GENERATION FAILED");
     } finally {
       setAuthLoading(false);
     }
@@ -702,19 +738,6 @@ export default function Home() {
     localStorage.removeItem("claude_jobs_address");
     localStorage.removeItem("claude_jobs_wallet_type");
     if (esRef.current) esRef.current.close();
-  };
-
-  // ── Network Switch (header) ───────────────────────────────────────
-  const handleHeaderNetworkSwitch = async (targetChainId: number) => {
-    if (targetChainId === currentChainId) {
-      setShowNetworkDropdown(false);
-      return;
-    }
-    setSwitchingNetwork(true);
-    const ok = await switchNetwork(targetChainId);
-    setSwitchingNetwork(false);
-    setShowNetworkDropdown(false);
-    if (ok) setCurrentChainId(targetChainId);
   };
 
   // ── Token Stats ───────────────────────────────────────────────────
@@ -794,35 +817,6 @@ export default function Home() {
     return paths;
   };
 
-  const fetchDirectoryTree = useCallback(async (path?: string) => {
-    try {
-      const targetPath = path || (selectedJob ? jobs.find(j => j.id === selectedJob)?.work_dir : workDir) || "~/mod";
-      const res = await fetch(`${apiUrl}/files/tree?path=${encodeURIComponent(targetPath)}`);
-      if (res.ok) {
-        const data = await res.json();
-        const tree = data.tree || [];
-        setDirectoryTree(tree);
-        // Auto-expand all directories
-        const allDirs = collectDirPaths(tree);
-        setExpandedDirs(new Set(allDirs));
-      }
-    } catch (e) {
-      console.error("Failed to fetch directory tree:", e);
-    }
-  }, [selectedJob, jobs, workDir, apiUrl]);
-
-  // Load directory tree on mount and when relevant state changes
-  useEffect(() => {
-    fetchDirectoryTree();
-  }, [selectedJob, workDir]);
-
-  // Also reload when switching to changelog tab if empty
-  useEffect(() => {
-    if (moduleTab === "changelog" && changelogEntries.length === 0) {
-      fetchChangelog();
-    }
-  }, [moduleTab]);
-
   // Load file content for viewer
   const loadFileContent = useCallback(async (filePath: string) => {
     setViewingFile(filePath);
@@ -841,6 +835,75 @@ export default function Home() {
       setViewingFileLoading(false);
     }
   }, [apiUrl]);
+
+  // Navigate file tree to show the parent folder of a file and expand all ancestor dirs
+  const navigateToFile = useCallback(async (filePath: string) => {
+    // Extract parent directory
+    const parentDir = filePath.substring(0, filePath.lastIndexOf("/"));
+    if (!parentDir) return;
+
+    // Fetch the tree for the parent directory so we see sibling files
+    try {
+      const res = await fetch(`${apiUrl}/files/tree?path=${encodeURIComponent(parentDir)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const tree = data.tree || [];
+        setDirectoryTree(tree);
+
+        // Expand all ancestor directories by collecting path segments
+        const newExpanded = new Set<string>();
+        // Build ancestor paths from the parent dir down through the tree
+        const collectDirPaths = (nodes: any[]) => {
+          for (const node of nodes) {
+            if (node.type === "directory") {
+              // Check if the file is somewhere inside this directory
+              if (filePath.startsWith(node.path + "/") || filePath.startsWith(node.path)) {
+                newExpanded.add(node.path);
+              }
+              if (node.children) collectDirPaths(node.children);
+            }
+          }
+        };
+        collectDirPaths(tree);
+        setExpandedDirs(newExpanded);
+      }
+    } catch (e) {
+      console.error("Failed to navigate to file:", e);
+    }
+  }, [apiUrl]);
+
+  const fetchDirectoryTree = useCallback(async (path?: string) => {
+    try {
+      const targetPath = path || (selectedJob ? jobs.find(j => j.id === selectedJob)?.work_dir : workDir) || "~/mod";
+      const res = await fetch(`${apiUrl}/files/tree?path=${encodeURIComponent(targetPath)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const tree = data.tree || [];
+        setDirectoryTree(tree);
+        // Start with all folders collapsed
+        setExpandedDirs(new Set());
+        // Auto-select config.json
+        const configFile = tree.find((n: any) => n.type === "file" && n.name === "config.json");
+        if (configFile) {
+          loadFileContent(configFile.path);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch directory tree:", e);
+    }
+  }, [selectedJob, jobs, workDir, apiUrl, loadFileContent]);
+
+  // Load directory tree on mount and when relevant state changes
+  useEffect(() => {
+    fetchDirectoryTree();
+  }, [fetchDirectoryTree]);
+
+  // Also reload when switching to changelog tab if empty
+  useEffect(() => {
+    if (moduleTab === "changelog" && changelogEntries.length === 0) {
+      fetchChangelog();
+    }
+  }, [moduleTab]);
 
   // Handle sidebar resize dragging
   useEffect(() => {
@@ -906,7 +969,7 @@ export default function Home() {
     setSubmitting(true);
     try {
       const body: any = { prompt: prompt.trim(), model };
-      if (agentType && agentType !== "general") body.agent_type = agentType;
+
       if (images.length > 0) body.images = images;
 
       // Edit mode - edit existing module
@@ -999,6 +1062,59 @@ export default function Home() {
     fetchJobs();
   };
 
+  const [confirmDeleteModule, setConfirmDeleteModule] = useState<string | null>(null);
+  const [renamingModule, setRenamingModule] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState("");
+  const [moduleManageSearch, setModuleManageSearch] = useState("");
+
+  const renameModule = async (oldName: string, newName: string) => {
+    if (!token || !newName.trim()) return;
+    try {
+      const res = await authFetch(`/modules/${encodeURIComponent(oldName)}/rename`, {
+        method: "PUT",
+        body: JSON.stringify({ new_name: newName.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Rename failed" }));
+        setError(data.error || "RENAME FAILED");
+        return;
+      }
+      setRenamingModule(null);
+      setRenameInput("");
+      if (selectedModule === oldName) {
+        setSelectedModule(newName.trim());
+        setSelectedModuleInfo(null);
+        setModuleConfig(null);
+        fetchModuleConfig(newName.trim());
+      }
+      fetchModules();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const deleteModule = async (name: string) => {
+    if (!token) return;
+    try {
+      const res = await authFetch(`/modules/${encodeURIComponent(name)}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Delete failed" }));
+        setError(data.error || "DELETE FAILED");
+        return;
+      }
+      setConfirmDeleteModule(null);
+      // Reset selection if we deleted the current module
+      if (selectedModule === name) {
+        setSelectedModule("claude");
+        setSelectedModuleInfo(null);
+        setModuleConfig(null);
+      }
+      fetchModules();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const viewJob = (job: Job) => {
     setSelectedJob(job.id);
     if (job.status === "running") {
@@ -1030,7 +1146,7 @@ export default function Home() {
 
   const copyTaskToInput = (job: Job, e: React.MouseEvent) => {
     e.stopPropagation();
-    setPrompt(job.prompt);
+    setPrompt(parsePromptImages(job.prompt).cleanPrompt);
     setModel(job.model);
     setCreationMode("edit");
     if (job.work_dir) {
@@ -1038,6 +1154,7 @@ export default function Home() {
       if (mod) {
         const moduleInfo = moduleList.find(m => m.name === mod);
         if (moduleInfo) {
+          resetModuleState(moduleInfo);
           setSelectedModule(mod);
           setSelectedModuleInfo(moduleInfo);
           setWorkDir(moduleInfo.path);
@@ -1049,7 +1166,7 @@ export default function Home() {
 
   const forkTask = (job: Job, e: React.MouseEvent) => {
     e.stopPropagation();
-    setPrompt(job.prompt);
+    setPrompt(parsePromptImages(job.prompt).cleanPrompt);
     setModel(job.model);
     setCreationMode("new");
     if (job.work_dir) {
@@ -1205,17 +1322,22 @@ export default function Home() {
     fetchModules();
   }, [fetchModules]);
 
-  // Auto-select default module ("claude") once module list loads
+  // Auto-select default module and keep selectedModuleInfo in sync with moduleList
   useEffect(() => {
-    if (selectedModule && moduleList.length > 0 && !selectedModuleInfo) {
+    if (selectedModule && moduleList.length > 0) {
       const match = moduleList.find((m) => m.name === selectedModule);
       if (match) {
+        if (!selectedModuleInfo) {
+          // First load: set info, workDir, fetch config, and auto-select best tab
+          setWorkDir(match.path);
+          fetchModuleConfig(match.name);
+          setSidebarView(getBestTab(match));
+        }
+        // Always sync selectedModuleInfo with latest moduleList data
         setSelectedModuleInfo(match);
-        setWorkDir(match.path);
-        fetchModuleConfig(match.name);
       }
     }
-  }, [moduleList, selectedModule, selectedModuleInfo]);
+  }, [moduleList, selectedModule]);
 
   // ── Module health check ────────────────────────────────────────────
   const checkModuleHealth = useCallback(async () => {
@@ -1318,6 +1440,15 @@ export default function Home() {
   const selectedJobData = jobs.find((j) => j.id === selectedJob);
   const runningCount = jobs.filter((j) => j.status === "running").length;
 
+  // Parse attached images from prompt text
+  const parsePromptImages = (prompt: string): { cleanPrompt: string; imagePaths: string[] } => {
+    const match = prompt.match(/^\[Attached images: (.+?)\]\n\nPlease read and analyze the attached image files above\.\n\n/);
+    if (!match) return { cleanPrompt: prompt, imagePaths: [] };
+    const paths = match[1].split(", ").map(p => p.trim());
+    const cleanPrompt = prompt.slice(match[0].length);
+    return { cleanPrompt, imagePaths: paths };
+  };
+
   // Colorize output with diff highlighting
   const renderOutput = (text: string) => {
     if (!text) return null;
@@ -1354,6 +1485,10 @@ export default function Home() {
   // Effective config: prefer moduleConfig, fallback to directConfig (hoisted before early return)
   const effectiveConfig = moduleConfig?.config || directConfig;
 
+  // The active module's API URL (for display, API explorer, health checks, etc.)
+  // Falls back to the host apiUrl if the module has no dedicated API
+  const moduleApiUrl = selectedModuleInfo?.api_url || effectiveConfig?.urls?.api || effectiveConfig?.api_url || apiUrl;
+
   // Auto-collapse nested objects (depth >= 2) when config loads
   useEffect(() => {
     if (!effectiveConfig) return;
@@ -1369,8 +1504,29 @@ export default function Home() {
     setCollapsedPaths(paths);
   }, [effectiveConfig]);
 
+  // Sync api_url/app_url from config when moduleList doesn't have them
+  useEffect(() => {
+    if (!selectedModuleInfo || !effectiveConfig) return;
+    const cfgApiUrl = effectiveConfig.urls?.api || effectiveConfig.api_url;
+    const cfgAppUrl = effectiveConfig.urls?.app || effectiveConfig.app_url;
+    const needsApiUrl = !selectedModuleInfo.api_url && cfgApiUrl;
+    const needsAppUrl = !selectedModuleInfo.app_url && cfgAppUrl;
+    if (needsApiUrl || needsAppUrl) {
+      const updated = {
+        ...selectedModuleInfo,
+        api_url: selectedModuleInfo.api_url || cfgApiUrl || null,
+        app_url: selectedModuleInfo.app_url || cfgAppUrl || null,
+      };
+      setSelectedModuleInfo(updated);
+      // Auto-switch to best tab if we just discovered new capabilities
+      if (sidebarView === "overview") {
+        setSidebarView(getBestTab(updated));
+      }
+    }
+  }, [effectiveConfig]);
+
   const fireApiRequest = useCallback(async (endpoint: string, method: string, params: Record<string, string>) => {
-    const baseUrl = selectedModuleInfo?.api_url || apiUrl;
+    const baseUrl = selectedModuleInfo?.api_url || effectiveConfig?.urls?.api || effectiveConfig?.api_url || apiUrl;
     setApiLoading(true);
     setApiResponse(null);
     setApiResponseStatus(null);
@@ -1435,7 +1591,7 @@ export default function Home() {
 
   // ── Fire a function from the config schema ──
   const fireConfigFn = useCallback(async (fnName: string, params: Record<string, string>) => {
-    const baseUrl = selectedModuleInfo?.api_url || apiUrl;
+    const baseUrl = selectedModuleInfo?.api_url || effectiveConfig?.urls?.api || effectiveConfig?.api_url || apiUrl;
     setConfigFnLoading(true);
     setConfigFnResponse(null);
     try {
@@ -1471,9 +1627,10 @@ export default function Home() {
 
   // Fetch changelog from API (must be before early return to maintain hook order)
   const fetchChangelog = useCallback(async () => {
+    const base = selectedModuleInfo?.api_url || effectiveConfig?.urls?.api || effectiveConfig?.api_url || apiUrl;
     setChangelogLoading(true);
     try {
-      const res = await fetch(`${apiUrl}/changelog`);
+      const res = await fetch(`${base}/changelog`);
       if (res.ok) {
         const data = await res.json();
         setChangelogEntries(data.changelog || []);
@@ -1483,14 +1640,15 @@ export default function Home() {
     } finally {
       setChangelogLoading(false);
     }
-  }, [apiUrl]);
+  }, [selectedModuleInfo, effectiveConfig, apiUrl]);
 
   // Fetch a specific version detail (must be before early return to maintain hook order)
   const fetchVersionDetail = useCallback(async (version: string) => {
+    const base = selectedModuleInfo?.api_url || effectiveConfig?.urls?.api || effectiveConfig?.api_url || apiUrl;
     setVersionDetailLoading(true);
     setSelectedVersion(version);
     try {
-      const res = await fetch(`${apiUrl}/versions/${encodeURIComponent(version)}`);
+      const res = await fetch(`${base}/versions/${encodeURIComponent(version)}`);
       if (res.ok) {
         const data = await res.json();
         setVersionDetail(data);
@@ -1500,7 +1658,7 @@ export default function Home() {
     } finally {
       setVersionDetailLoading(false);
     }
-  }, [apiUrl]);
+  }, [selectedModuleInfo, effectiveConfig, apiUrl]);
 
   // ── JSON Tree Helpers (must be before early return to maintain hook order)
   const toggleCollapse = useCallback((path: string) => {
@@ -1769,7 +1927,7 @@ export default function Home() {
             ) : (
               <span className="text-crt-blue/50">📄</span>
             )}
-            <span className="text-crt-green/80 truncate font-code" style={{ fontSize: "14px" }}>
+            <span className="truncate font-code" style={{ fontSize: "14px", color: isDir ? "#33ff33" : getFileTypeColor(item.name) }}>
               {item.name}
             </span>
           </div>
@@ -1973,12 +2131,51 @@ export default function Home() {
             background: tintBg,
           }}
         >
-          <div className="px-3 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] text-crt-green/70" style={{ letterSpacing: "1.5px" }}>
+          <div className="px-3 py-2 flex items-center gap-2">
+            {inlineSearchMode === "off" ? (
+              <span className="text-[14px] text-crt-green/70 flex-1" style={{ letterSpacing: "1.5px" }}>
                 📁 FILES
               </span>
-            </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-1 px-2 py-0.5 border border-crt-blue/30 bg-black/40" style={{ borderRadius: "2px" }}>
+                <span className="text-[13px] text-crt-blue/60">
+                  {inlineSearchMode === "files" ? "🔍" : "🔎"}
+                </span>
+                <input
+                  ref={inlineSearchRef}
+                  type="text"
+                  value={inlineSearchQuery}
+                  onChange={(e) => setInlineSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setInlineSearchMode("off");
+                      setInlineSearchQuery("");
+                      setInlineSearchResults([]);
+                    } else if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setInlineSelectedIndex((p) => Math.min(p + 1, inlineSearchResults.length - 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setInlineSelectedIndex((p) => Math.max(p - 1, 0));
+                    } else if (e.key === "Enter" && inlineSearchResults[inlineSelectedIndex]) {
+                      const r = inlineSearchResults[inlineSelectedIndex];
+                      loadFileContent(r.path);
+                      navigateToFile(r.path);
+                      setInlineSearchMode("off");
+                      setInlineSearchQuery("");
+                      setInlineSearchResults([]);
+                    }
+                  }}
+                  placeholder={inlineSearchMode === "files" ? "Search files by name..." : "Search file contents..."}
+                  className="flex-1 bg-transparent border-none outline-none text-[13px] text-white font-code"
+                  autoFocus
+                />
+                {inlineSearchLoading && (
+                  <span className="text-[13px] text-crt-green/40 animate-pulse">...</span>
+                )}
+                <span className="text-[11px] text-white/20">ESC</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => {
@@ -2024,49 +2221,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Inline Search Bar */}
+          {/* Inline Search Results (below the single-line header) */}
           {inlineSearchMode !== "off" && (
             <div className="px-3 pb-2">
-              <div className="flex items-center gap-2 px-2 py-1.5 border border-crt-blue/30 bg-black/40"
-                style={{ borderRadius: "2px" }}
-              >
-                <span className="text-[14px] text-crt-blue/60">
-                  {inlineSearchMode === "files" ? "🔍" : "🔎"}
-                </span>
-                <input
-                  ref={inlineSearchRef}
-                  type="text"
-                  value={inlineSearchQuery}
-                  onChange={(e) => setInlineSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setInlineSearchMode("off");
-                      setInlineSearchQuery("");
-                      setInlineSearchResults([]);
-                    } else if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      setInlineSelectedIndex((p) => Math.min(p + 1, inlineSearchResults.length - 1));
-                    } else if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      setInlineSelectedIndex((p) => Math.max(p - 1, 0));
-                    } else if (e.key === "Enter" && inlineSearchResults[inlineSelectedIndex]) {
-                      const r = inlineSearchResults[inlineSelectedIndex];
-                      loadFileContent(r.path);
-                      setModuleTab("app");
-                      setInlineSearchMode("off");
-                      setInlineSearchQuery("");
-                      setInlineSearchResults([]);
-                    }
-                  }}
-                  placeholder={inlineSearchMode === "files" ? "Search files by name..." : "Search file contents..."}
-                  className="flex-1 bg-transparent border-none outline-none text-[13px] text-white font-code"
-                  autoFocus
-                />
-                {inlineSearchLoading && (
-                  <span className="text-[14px] text-crt-green/40 animate-pulse">...</span>
-                )}
-                <span className="text-[13px] text-white/20">ESC</span>
-              </div>
 
               {/* Inline Results */}
               {inlineSearchResults.length > 0 && (
@@ -2076,7 +2233,7 @@ export default function Home() {
                       key={inlineSearchMode === "files" ? result.path : `${result.path}-${result.line}-${idx}`}
                       onClick={() => {
                         loadFileContent(result.path);
-                        setModuleTab("app");
+                        navigateToFile(result.path);
                         setInlineSearchMode("off");
                         setInlineSearchQuery("");
                         setInlineSearchResults([]);
@@ -2090,13 +2247,13 @@ export default function Home() {
                     >
                       {inlineSearchMode === "files" ? (
                         <>
-                          <div className="text-[14px] text-white font-code">{result.filename}</div>
+                          <div className="text-[14px] font-code" style={{ color: getFileTypeColor(result.filename || result.path) }}>{result.filename}</div>
                           <div className="text-[14px] text-white/30 font-code truncate">{result.path}</div>
                         </>
                       ) : (
                         <>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[14px] text-crt-blue font-code">{result.filename}</span>
+                            <span className="text-[14px] font-code" style={{ color: getFileTypeColor(result.filename || result.path) }}>{result.filename}</span>
                             <span className="text-[14px] text-white/30 font-code">:{result.line}</span>
                           </div>
                           <div className="text-[14px] text-white/50 font-code truncate whitespace-pre">{result.content}</div>
@@ -2287,108 +2444,6 @@ export default function Home() {
                 <option value="haiku">HAIKU 4.5</option>
               </select>
 
-              {/* Divider */}
-              <div className="w-px h-5 bg-crt-green/15" />
-
-              {/* Inline Module Bubble */}
-              <div className="relative" ref={inlineModuleRef}>
-                {showInlineModuleDropdown ? (
-                  <input
-                    type="text"
-                    autoFocus
-                    value={selectedModule ? selectedModule : moduleSearch}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setModuleSearch(v);
-                      setSelectedModule("");
-                      setSelectedModuleInfo(null);
-                      fetchModules(v);
-                    }}
-                    onFocus={(e) => {
-                      e.target.select();
-                      if (!moduleList.length) fetchModules(moduleSearch);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && moduleList.length > 0) {
-                        const firstModule = moduleList[0];
-                        setSelectedModule(firstModule.name);
-                        setSelectedModuleInfo(firstModule);
-                        setWorkDir(firstModule.path);
-                        setModuleSearch("");
-                        setShowInlineModuleDropdown(false);
-                        setShowModuleDropdown(false);
-                        fetchModuleConfig(firstModule.name);
-                      }
-                      if (e.key === "Escape") {
-                        setShowInlineModuleDropdown(false);
-                      }
-                    }}
-                    onBlur={() => {
-                      // small delay so click on dropdown item fires first
-                      setTimeout(() => setShowInlineModuleDropdown(false), 150);
-                    }}
-                    placeholder="module..."
-                    className="px-2 py-1 text-[13px] bg-transparent text-crt-green border border-crt-green/40 font-pixel uppercase outline-none w-[140px]"
-                  />
-                ) : (
-                  <button
-                    onClick={() => {
-                      setShowInlineModuleDropdown(true);
-                      if (!moduleList.length) fetchModules(moduleSearch);
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-[13px] border border-crt-green/30 text-crt-green font-pixel uppercase cursor-pointer hover:border-crt-green/60 hover:bg-crt-green/5 transition-all"
-                    title="Click to change module"
-                  >
-                    <span style={{ color: "var(--crt-green)", opacity: 0.5 }}>/</span>
-                    {selectedModule || "claude"}
-                    <span style={{ color: "var(--crt-green)", opacity: 0.3, fontSize: "13px" }}>▼</span>
-                  </button>
-                )}
-                {showInlineModuleDropdown && moduleList.length > 0 && (
-                  <div
-                    className="absolute left-0 bottom-full mb-1 border border-crt-green/30 max-h-[200px] overflow-y-auto z-50 rounded-sm min-w-[220px]"
-                    style={{ background: "var(--bg-primary)", boxShadow: "0 -8px 32px rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
-                  >
-                    {moduleList.map((m) => (
-                      <div
-                        key={m.name}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setSelectedModule(m.name);
-                          setSelectedModuleInfo(m);
-                          setWorkDir(m.path);
-                          setModuleSearch("");
-                          setShowInlineModuleDropdown(false);
-                          setShowModuleDropdown(false);
-                          fetchModuleConfig(m.name);
-                        }}
-                        className={`px-3 py-2 cursor-pointer hover:bg-crt-green/10 transition-colors border-b border-crt-green/5 ${m.name === selectedModule ? 'bg-crt-green/8' : ''}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-crt-green font-code">{m.name}</span>
-                            <span className={`text-xs px-1.5 py-0.5 border font-code ${m.category === "core" ? "border-crt-red/30 text-crt-red/50" : "border-crt-green/15 text-crt-green/25"}`}>
-                              {m.category}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {m.app_url && (
-                              <span className="text-xs px-1.5 py-0.5 border border-crt-blue/40 text-crt-blue bg-crt-blue/10">APP</span>
-                            )}
-                            {m.api_url && (
-                              <span className="text-xs px-1.5 py-0.5 border border-crt-amber/40 text-crt-amber bg-crt-amber/10">API</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Divider */}
-              <div className="w-px h-5 bg-crt-green/15" />
-
               {/* Image count badge */}
               {images.length > 0 && (
                 <div className="relative group flex items-center">
@@ -2437,7 +2492,7 @@ export default function Home() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter..."
-            className="flex-1 min-w-0 px-2 py-1 text-[13px] border-none bg-transparent text-crt-green/70 focus:outline-none placeholder:text-crt-green/20"
+            className="flex-1 min-w-0 px-2 py-1 text-[10px] border-none bg-transparent text-crt-green/70 focus:outline-none placeholder:text-crt-green/20"
           />
           <div className="flex gap-2 shrink-0 items-center">
             {["running", "pending", "completed", "failed", "cancelled"].map((status) => {
@@ -2448,7 +2503,7 @@ export default function Home() {
                 <button
                   key={status}
                   onClick={() => setStatusFilter(isActive ? null : status)}
-                  className="text-[13px] transition-opacity whitespace-nowrap border-none bg-transparent cursor-pointer"
+                  className="text-[10px] transition-opacity whitespace-nowrap border-none bg-transparent cursor-pointer"
                   style={{
                     color: isActive ? STATUS_COLOR[status] : `${STATUS_COLOR[status]}66`,
                     opacity: isActive ? 1 : 0.6,
@@ -2466,13 +2521,13 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto">
           {loading && !jobs.length ? (
             <div className="p-8 text-center">
-              <p className="text-[14px] cursor-blink" style={{ color: "var(--text-tertiary)" }}>
+              <p className="text-[11px] cursor-blink" style={{ color: "var(--text-tertiary)" }}>
                 LOADING JOBS
               </p>
             </div>
           ) : filteredJobs.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-[14px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+              <p className="text-[11px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
                 No agent tasks found
               </p>
             </div>
@@ -2493,16 +2548,16 @@ export default function Home() {
                     background: isSelected ? `${color}10` : "transparent",
                   }}
                 >
-                  <div className="px-3 py-2.5">
-                    <div className="flex items-center justify-between mb-1.5">
+                  <div className="px-3 py-1.5">
+                    <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <span className={`text-[14px] ${job.status === "running" ? "led-pulse" : ""}`} style={{ color }}>
+                        <span className={`text-[11px] ${job.status === "running" ? "led-pulse" : ""}`} style={{ color }}>
                           {STATUS_ICON[job.status]}
                         </span>
-                        <span className="text-[14px] font-pixel" style={{ color, letterSpacing: "0.5px" }}>
+                        <span className="text-[11px] font-pixel" style={{ color, letterSpacing: "0.5px" }}>
                           {STATUS_LABEL[job.status]}
                         </span>
-                        <span className="text-[13px] font-pixel" style={{ color: "var(--crt-amber)", opacity: 0.4, letterSpacing: "0.5px" }}>
+                        <span className="text-[10px] font-pixel" style={{ color: "var(--crt-amber)", opacity: 0.4, letterSpacing: "0.5px" }}>
                           {job.model === "opus" ? "OPUS 4.6" : job.model === "sonnet" ? "SONNET 4.5" : job.model === "haiku" ? "HAIKU 4.5" : job.model.toUpperCase()}
                         </span>
                       </div>
@@ -2510,7 +2565,7 @@ export default function Home() {
                         {(job.status === "running" || job.status === "pending") && (
                           <button
                             onClick={(e) => { e.stopPropagation(); cancelJob(job.id); }}
-                            className="text-[13px] px-2 py-1 border border-red-500/40 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all uppercase"
+                            className="text-[10px] px-2 py-0.5 border border-red-500/40 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all uppercase"
                             style={{ letterSpacing: "0.5px" }}
                             title="Cancel task"
                           >
@@ -2520,37 +2575,76 @@ export default function Home() {
                         {(job.status === "completed" || job.status === "failed" || job.status === "cancelled") && (
                           <button
                             onClick={(e) => { e.stopPropagation(); deleteJob(job.id); }}
-                            className="text-[13px] px-2 py-1 border border-red-500/30 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500 transition-all uppercase"
+                            className="text-[10px] px-2 py-0.5 border border-red-500/30 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500 transition-all uppercase"
                             style={{ letterSpacing: "0.5px" }}
                             title="Delete task"
                           >
                             DEL
                           </button>
                         )}
-                        <span className="text-[13px]" style={{ color: faintGreenText }}>
+                        <span className="text-[10px]" style={{ color: faintGreenText }}>
                           {timeSince(job.created_at)}
                         </span>
                       </div>
                     </div>
 
                     {/* Prompt - click to expand/collapse */}
-                    <div
-                      onClick={(e) => { if (job.prompt.length > 80) togglePromptExpand(job.id, e); }}
-                      className="mb-1"
-                      style={{ cursor: job.prompt.length > 80 ? "pointer" : "default" }}
-                    >
-                      <p className="text-[14px] leading-relaxed" style={{ color: "var(--text-secondary)", whiteSpace: isPromptExpanded ? "pre-wrap" : "nowrap", overflow: isPromptExpanded ? "visible" : "hidden", textOverflow: isPromptExpanded ? "clip" : "ellipsis" }}>
-                        {isPromptExpanded ? job.prompt : (job.prompt.length > 80 ? job.prompt.slice(0, 80) + "..." : job.prompt)}
-                      </p>
-                      {job.prompt.length > 80 && (
-                        <span className="text-[14px]" style={{ color: "var(--crt-blue)", opacity: 0.5 }}>
-                          {isPromptExpanded ? "▲ COLLAPSE" : "▼ EXPAND"}
-                        </span>
-                      )}
-                    </div>
+                    {(() => {
+                      const { cleanPrompt, imagePaths } = parsePromptImages(job.prompt);
+                      return (
+                        <>
+                          <div
+                            onClick={(e) => { if (cleanPrompt.length > 80) togglePromptExpand(job.id, e); }}
+                            className="mb-1"
+                            style={{ cursor: cleanPrompt.length > 80 ? "pointer" : "default" }}
+                          >
+                            <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary)", whiteSpace: isPromptExpanded ? "pre-wrap" : "nowrap", overflow: isPromptExpanded ? "visible" : "hidden", textOverflow: isPromptExpanded ? "clip" : "ellipsis" }}>
+                              {isPromptExpanded ? cleanPrompt : (cleanPrompt.length > 80 ? cleanPrompt.slice(0, 80) + "..." : cleanPrompt)}
+                            </p>
+                            {cleanPrompt.length > 80 && (
+                              <span className="text-[10px]" style={{ color: "var(--crt-blue)", opacity: 0.5 }}>
+                                {isPromptExpanded ? "▲ COLLAPSE" : "▼ EXPAND"}
+                              </span>
+                            )}
+                          </div>
+                          {imagePaths.length > 0 && (
+                            <div className="flex gap-1.5 mb-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                              {imagePaths.map((imgPath, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => setExpandedJobImage(expandedJobImage === imgPath ? null : imgPath)}
+                                  className="border border-crt-blue/30 hover:border-crt-blue/60 transition-all overflow-hidden"
+                                  style={{ width: 36, height: 36, padding: 0, background: "var(--bg-primary)" }}
+                                  title={imgPath.split("/").pop() || "image"}
+                                >
+                                  <img
+                                    src={`${apiUrl}/files/raw?path=${encodeURIComponent(imgPath)}`}
+                                    alt={`attachment ${idx + 1}`}
+                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {expandedJobImage && imagePaths.includes(expandedJobImage) && (
+                            <div
+                              className="mb-2 border border-crt-blue/30 overflow-hidden"
+                              style={{ maxWidth: "100%", background: "var(--bg-primary)" }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <img
+                                src={`${apiUrl}/files/raw?path=${encodeURIComponent(expandedJobImage)}`}
+                                alt="expanded attachment"
+                                style={{ width: "100%", height: "auto", maxHeight: 400, objectFit: "contain" }}
+                              />
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
 
                     {job.work_dir && (
-                      <p className="text-[13px] truncate mb-1.5" style={{ color: "var(--crt-amber)", opacity: 0.5 }}>
+                      <p className="text-[10px] truncate mb-1" style={{ color: "var(--crt-amber)", opacity: 0.5 }}>
                         {moduleName ? `◈ ${moduleName.toUpperCase()}` : `📁 ${job.work_dir}`}
                       </p>
                     )}
@@ -2559,7 +2653,7 @@ export default function Home() {
                     <div className="flex items-center gap-1.5 mt-1" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={(e) => copyTaskToInput(job, e)}
-                        className="text-[14px] px-2 py-0.5 border border-crt-blue/30 text-crt-blue/70 hover:bg-crt-blue/15 hover:border-crt-blue/60 hover:text-crt-blue transition-all uppercase"
+                        className="text-[10px] px-1.5 py-0.5 border border-crt-blue/30 text-crt-blue/70 hover:bg-crt-blue/15 hover:border-crt-blue/60 hover:text-crt-blue transition-all uppercase"
                         style={{ letterSpacing: "0.5px" }}
                         title="Copy prompt & module into input"
                       >
@@ -2794,6 +2888,462 @@ export default function Home() {
     );
   };
 
+  const renderModulesTab = () => {
+    const filtered = moduleList.filter(m =>
+      !moduleManageSearch || m.name.toLowerCase().includes(moduleManageSearch.toLowerCase())
+    );
+    const canManage = (m: typeof moduleList[0]) =>
+      isOwner || (m.owner && address && m.owner.toLowerCase() === address.toLowerCase());
+
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div
+          className="px-4 py-3 border-b shrink-0"
+          style={{
+            borderColor: "rgba(0,170,255,0.15)",
+            background: "linear-gradient(180deg, rgba(0,170,255,0.06) 0%, rgba(0,170,255,0.01) 100%)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[13px] font-bold" style={{ color: "var(--crt-blue)", letterSpacing: "2px", textShadow: "0 0 10px rgba(0,170,255,0.4)" }}>
+              MODULES
+            </span>
+            <span className="text-[12px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+              {filtered.length} module{filtered.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <input
+            type="text"
+            value={moduleManageSearch}
+            onChange={(e) => setModuleManageSearch(e.target.value)}
+            placeholder="filter modules..."
+            className="w-full px-2 py-1.5 text-[13px] bg-transparent border font-code outline-none"
+            style={{
+              borderColor: "rgba(0,170,255,0.2)",
+              color: "var(--text-primary)",
+            }}
+          />
+        </div>
+
+        {/* Module List */}
+        <div className="flex-1 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="flex items-center justify-center p-8">
+              <span className="text-[13px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+                {moduleList.length === 0 ? "Loading modules..." : "No modules match filter"}
+              </span>
+            </div>
+          ) : (
+            filtered.map((m) => (
+              <div
+                key={m.name}
+                className="border-b transition-colors"
+                style={{
+                  borderColor: "rgba(255,255,255,0.05)",
+                  background: m.name === selectedModule ? "rgba(0,170,255,0.06)" : "transparent",
+                }}
+              >
+                {renamingModule === m.name ? (
+                  /* Rename mode */
+                  <div className="px-4 py-3 flex flex-col gap-2">
+                    <div className="text-[11px] uppercase" style={{ color: "var(--crt-amber)", letterSpacing: "1px" }}>
+                      RENAME MODULE
+                    </div>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={renameInput}
+                      onChange={(e) => setRenameInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && renameInput.trim()) renameModule(m.name, renameInput);
+                        if (e.key === "Escape") { setRenamingModule(null); setRenameInput(""); }
+                      }}
+                      className="px-2 py-1.5 text-[13px] bg-transparent border font-code outline-none"
+                      style={{
+                        borderColor: "rgba(255,176,0,0.4)",
+                        color: "var(--text-primary)",
+                      }}
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => renameModule(m.name, renameInput)}
+                        disabled={!renameInput.trim() || renameInput.trim() === m.name}
+                        className="text-[12px] px-3 py-1 border transition-all hover:brightness-125 uppercase"
+                        style={{
+                          borderColor: "rgba(255,176,0,0.4)",
+                          color: "var(--crt-amber)",
+                          opacity: renameInput.trim() && renameInput.trim() !== m.name ? 1 : 0.3,
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        onClick={() => { setRenamingModule(null); setRenameInput(""); }}
+                        className="text-[12px] px-3 py-1 border border-crt-green/20 text-crt-green/50 hover:text-crt-green hover:border-crt-green/40 transition-all uppercase"
+                        style={{ letterSpacing: "0.5px" }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Normal mode */
+                  <div className="px-4 py-2.5">
+                    <div className="flex items-center justify-between">
+                      <div
+                        className="flex items-center gap-2 cursor-pointer flex-1 min-w-0"
+                        onClick={() => {
+                          resetModuleState(m);
+                          setSelectedModule(m.name);
+                          setSelectedModuleInfo(m);
+                          setWorkDir(m.path);
+                          fetchModuleConfig(m.name);
+                        }}
+                      >
+                        <span className="text-[14px] font-code truncate" style={{ color: m.name === selectedModule ? "var(--crt-blue)" : "var(--crt-green)" }}>
+                          {m.name}
+                        </span>
+                        {m.cid && (
+                          <span className="text-[11px] px-1.5 py-0.5 border font-code shrink-0 border-crt-green/15 text-crt-green/25" title={m.cid}>
+                            {m.cid.slice(0, 6)}..{m.cid.slice(-4)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {m.app_url && (
+                          <span className="text-[10px] px-1 py-0.5 border border-crt-blue/30 text-crt-blue/60">APP</span>
+                        )}
+                        {m.api_url && (
+                          <span className="text-[10px] px-1 py-0.5 border border-crt-amber/30 text-crt-amber/60">API</span>
+                        )}
+                      </div>
+                    </div>
+                    {m.description && (
+                      <div className="text-[12px] mt-1 truncate" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+                        {m.description}
+                      </div>
+                    )}
+                    {m.owner && (
+                      <div className="text-[11px] mt-0.5 font-mono" style={{ color: "var(--text-tertiary)", opacity: 0.3 }}>
+                        {m.owner.slice(0, 6)}..{m.owner.slice(-4)}
+                      </div>
+                    )}
+                    {/* Action buttons */}
+                    {canManage(m) && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => {
+                            setRenamingModule(m.name);
+                            setRenameInput(m.name);
+                          }}
+                          className="text-[11px] px-2 py-0.5 border transition-all hover:brightness-125 uppercase"
+                          style={{
+                            borderColor: "rgba(255,176,0,0.25)",
+                            color: "rgba(255,176,0,0.6)",
+                            letterSpacing: "0.5px",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,176,0,0.5)"; e.currentTarget.style.color = "var(--crt-amber)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,176,0,0.25)"; e.currentTarget.style.color = "rgba(255,176,0,0.6)"; }}
+                        >
+                          Rename
+                        </button>
+                        {m.name !== "claude" && (
+                          confirmDeleteModule === m.name ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-crt-red/70">Delete?</span>
+                              <button
+                                onClick={() => deleteModule(m.name)}
+                                className="text-[11px] px-2 py-0.5 border border-crt-red/50 text-crt-red bg-crt-red/10 hover:bg-crt-red/20 transition-all uppercase"
+                                style={{ letterSpacing: "0.5px" }}
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteModule(null)}
+                                className="text-[11px] px-2 py-0.5 border border-crt-green/20 text-crt-green/50 hover:text-crt-green transition-all uppercase"
+                                style={{ letterSpacing: "0.5px" }}
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteModule(m.name)}
+                              className="text-[11px] px-2 py-0.5 border transition-all uppercase"
+                              style={{
+                                borderColor: "rgba(255,51,51,0.2)",
+                                color: "rgba(255,51,51,0.4)",
+                                letterSpacing: "0.5px",
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,51,51,0.5)"; e.currentTarget.style.color = "var(--crt-red)"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,51,51,0.2)"; e.currentTarget.style.color = "rgba(255,51,51,0.4)"; }}
+                            >
+                              Delete
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderProfileTab = () => {
+    const cfg = effectiveConfig;
+    const info = selectedModuleInfo;
+
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Profile Content */}
+        <div className="flex-1 overflow-y-auto">
+          {sidebarView === "overview" && (
+            <div className="p-4 flex flex-col gap-4">
+              {/* Status Cards - only show if module has API or App */}
+              {(info?.api_url || info?.app_url) && (
+              <div className={`grid gap-3 ${info?.api_url && info?.app_url ? "grid-cols-2" : "grid-cols-1"}`}>
+                {info?.api_url && (
+                <div className="p-3 border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
+                  <div className="text-[11px] uppercase mb-2" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>API</div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-block w-2 h-2 rounded-full"
+                        style={{
+                          background: moduleRunning ? "var(--crt-green)" : "var(--crt-red)",
+                          boxShadow: `0 0 6px ${moduleRunning ? "var(--crt-green)" : "var(--crt-red)"}`,
+                        }}
+                      />
+                      <span className="text-[13px]" style={{ color: moduleRunning ? "var(--crt-green)" : "var(--crt-red)" }}>
+                        {moduleRunning ? "Online" : "Offline"}
+                      </span>
+                      <span className="text-[12px] text-crt-green/30 ml-auto font-mono">{info.api_url}</span>
+                    </div>
+                </div>
+                )}
+                {info?.app_url && (
+                <div className="p-3 border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
+                  <div className="text-[11px] uppercase mb-2" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>APP</div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-2 h-2 rounded-full" style={{ background: "var(--crt-green)", boxShadow: "0 0 6px var(--crt-green)" }} />
+                      <span className="text-[13px] text-crt-green">Available</span>
+                      <span className="text-[12px] text-crt-green/30 ml-auto font-mono">{info.app_url}</span>
+                    </div>
+                </div>
+                )}
+              </div>
+              )}
+
+              {/* Module Info */}
+              <div className="border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
+                <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>MODULE INFO</span>
+                </div>
+                <div className="p-3 grid grid-cols-2 gap-y-2 gap-x-4 text-[13px]">
+                  {info?.path && (
+                    <>
+                      <span className="text-crt-green/30">Path</span>
+                      <span className="text-crt-green/60 font-mono text-[12px] break-all">{info.path}</span>
+                    </>
+                  )}
+                  {cfg?.owner && (
+                    <>
+                      <span className="text-crt-green/30">Owner</span>
+                      <span className="text-crt-green/60 font-mono text-[12px]">{cfg.owner.slice(0, 6)}...{cfg.owner.slice(-4)}</span>
+                    </>
+                  )}
+                  {info?.category && (
+                    <>
+                      <span className="text-crt-green/30">Category</span>
+                      <span className="text-crt-green/60">{info.category}</span>
+                    </>
+                  )}
+                  {cfg?.fns && cfg.fns.length > 0 && (
+                    <>
+                      <span className="text-crt-green/30">Functions</span>
+                      <span className="text-crt-green/60">{cfg.fns.length}</span>
+                    </>
+                  )}
+                  {cfg?.endpoints && (
+                    <>
+                      <span className="text-crt-green/30">Endpoints</span>
+                      <span className="text-crt-green/60">{Object.keys(cfg.endpoints).length}</span>
+                    </>
+                  )}
+                  {info?.has_app_dir !== undefined && (
+                    <>
+                      <span className="text-crt-green/30">Has App</span>
+                      <span className="text-crt-green/60">{info.has_app_dir ? "Yes" : "No"}</span>
+                    </>
+                  )}
+                  {(info?.has_api_dir || info?.has_server_dir) && (
+                    <>
+                      <span className="text-crt-green/30">Has API</span>
+                      <span className="text-crt-green/60">Yes</span>
+                    </>
+                  )}
+                  {info?.cid && (
+                    <>
+                      <span className="text-crt-green/30">Latest CID</span>
+                      <span className="text-crt-green/60 font-mono text-[12px] break-all">{info.cid}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
+                <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>QUICK ACTIONS</span>
+                </div>
+                <div className="p-3 flex flex-wrap gap-2">
+                  {info?.api_url && (
+                    <button
+                      onClick={toggleModule}
+                      disabled={togglingModule}
+                      className="text-[12px] px-3 py-1.5 border transition-all hover:brightness-125 uppercase"
+                      style={{
+                        letterSpacing: "0.5px",
+                        borderColor: moduleRunning ? "rgba(255,50,50,0.3)" : "rgba(51,255,51,0.3)",
+                        color: moduleRunning ? "var(--crt-red)" : "var(--crt-green)",
+                      }}
+                    >
+                      {togglingModule ? "..." : moduleRunning ? "Stop Module" : "Start Module"}
+                    </button>
+                  )}
+                  <button
+                    onClick={fetchDirectConfig}
+                    className="text-[12px] px-3 py-1.5 border border-crt-amber/20 text-crt-amber/60 hover:text-crt-amber hover:border-crt-amber/40 transition-all uppercase"
+                    style={{ letterSpacing: "0.5px" }}
+                  >
+                    Reload Config
+                  </button>
+                  <button
+                    onClick={() => checkModuleHealth()}
+                    className="text-[12px] px-3 py-1.5 border border-crt-blue/20 text-crt-blue/60 hover:text-crt-blue hover:border-crt-blue/40 transition-all uppercase"
+                    style={{ letterSpacing: "0.5px" }}
+                  >
+                    Check Health
+                  </button>
+                  {selectedModule && selectedModule !== "claude" && (isOwner || (cfg?.owner && address && cfg.owner.toLowerCase() === address.toLowerCase())) && (
+                    confirmDeleteModule === selectedModule ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-crt-red/70 uppercase">Delete?</span>
+                        <button
+                          onClick={() => deleteModule(selectedModule)}
+                          className="text-[12px] px-2 py-1 border border-crt-red/50 text-crt-red bg-crt-red/10 hover:bg-crt-red/20 transition-all uppercase"
+                          style={{ letterSpacing: "0.5px" }}
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteModule(null)}
+                          className="text-[12px] px-2 py-1 border border-crt-green/20 text-crt-green/50 hover:text-crt-green hover:border-crt-green/40 transition-all uppercase"
+                          style={{ letterSpacing: "0.5px" }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteModule(selectedModule)}
+                        className="text-[12px] px-3 py-1.5 border border-crt-red/20 text-crt-red/40 hover:text-crt-red hover:border-crt-red/40 transition-all uppercase"
+                        style={{ letterSpacing: "0.5px" }}
+                      >
+                        Delete Module
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+
+              {/* Scripts Info */}
+              <div className="border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
+                <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>SCRIPTS & PORTS</span>
+                </div>
+                <div className="p-3 flex flex-col gap-2 text-[12px] font-mono">
+                  <div className="flex items-center gap-2">
+                    <span className="text-crt-green/40">start</span>
+                    <span className="text-crt-green/60">scripts/start.sh</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-crt-green/40">stop</span>
+                    <span className="text-crt-green/60">stop.sh</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-crt-green/40">docker</span>
+                    <span className="text-crt-green/60">docker-compose.yml</span>
+                  </div>
+                  {cfg?.port && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-crt-amber/40">port</span>
+                      <span className="text-crt-green/60">{cfg.port}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Config */}
+              <div className="border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
+                <div className="px-3 py-2 border-b flex items-center gap-1.5" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>CONFIG</span>
+                  <div className="ml-auto flex items-center gap-1">
+                    <button
+                      onClick={() => collapseAll(cfg)}
+                      className="text-[11px] px-1.5 py-0.5 rounded-sm transition-all hover:brightness-125"
+                      style={{ color: "#ffa502", background: "rgba(255,165,2,0.08)", border: "1px solid rgba(255,165,2,0.2)" }}
+                    >
+                      COLLAPSE
+                    </button>
+                    <button
+                      onClick={expandAll}
+                      className="text-[11px] px-1.5 py-0.5 rounded-sm transition-all hover:brightness-125"
+                      style={{ color: "#51cf66", background: "rgba(81,207,102,0.08)", border: "1px solid rgba(81,207,102,0.2)" }}
+                    >
+                      EXPAND
+                    </button>
+                    <button
+                      onClick={() => copyValue("$root", cfg)}
+                      className="text-[11px] px-1.5 py-0.5 rounded-sm transition-all hover:brightness-125"
+                      style={{
+                        color: copiedPath === "$root" ? "#50fa7b" : "#748ffc",
+                        background: copiedPath === "$root" ? "rgba(80,250,123,0.12)" : "rgba(116,143,252,0.08)",
+                        border: `1px solid ${copiedPath === "$root" ? "rgba(80,250,123,0.3)" : "rgba(116,143,252,0.2)"}`,
+                      }}
+                    >
+                      {copiedPath === "$root" ? "COPIED" : "COPY"}
+                    </button>
+                  </div>
+                </div>
+                {cfg ? (
+                  <div
+                    className="overflow-y-auto overflow-x-auto px-1 py-2 text-[13px] font-mono leading-[1.5]"
+                    style={{ color: "var(--crt-green)", maxHeight: "400px" }}
+                  >
+                    {renderJsonNode(null, cfg, "$", 0, true, false)}
+                  </div>
+                ) : (
+                  <div className="p-3 text-center">
+                    <span className="text-[13px] text-crt-green/30 uppercase">
+                      {loadingConfig ? "Loading config..." : "No config loaded"}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderConfigTab = () => {
     const cfg = effectiveConfig;
     if (!cfg) {
@@ -2917,11 +3467,13 @@ export default function Home() {
   };
 
   const renderApiTab = () => {
-    const endpoints = effectiveConfig?.endpoints || {};
+    // Only show the selected module's own endpoints — never fall back to another module's config
+    const ownConfig = moduleConfig?.config;
+    const endpoints = ownConfig?.endpoints || {};
     const endpointKeys = Object.keys(endpoints);
-    const baseUrl = selectedModuleInfo?.api_url || apiUrl;
+    const baseUrl = selectedModuleInfo?.api_url || ownConfig?.urls?.api || ownConfig?.api_url || apiUrl;
 
-    if (!effectiveConfig || endpointKeys.length === 0) {
+    if (!ownConfig || endpointKeys.length === 0) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 h-full p-6">
           <span className="text-[48px] text-crt-green/10">⚙️</span>
@@ -3162,16 +3714,18 @@ export default function Home() {
     >
       {/* ── Header ───────────────────────────────────────────────── */}
       <header
-        className="flex flex-col border-b-2 shrink-0"
+        className="flex flex-col shrink-0"
         style={{
-          borderColor: "var(--accent-color)",
           background: "var(--bg-secondary)",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        {/* Top row - Module selector, tabs, and controls */}
+        {/* Top row - Brand + Module selector and controls */}
         <div className="flex items-center px-4 py-2">
           <div className="flex items-center gap-3">
+            {/* Brand */}
+            <span style={{ color: "var(--text-tertiary)", opacity: 0.15 }}>│</span>
             {/* Module selector dropdown */}
             <div className="relative" ref={headerModuleRef}>
               {showHeaderModuleDropdown ? (
@@ -3190,6 +3744,7 @@ export default function Home() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && moduleList.length > 0) {
                       const firstModule = moduleList[0];
+                      resetModuleState(firstModule);
                       setSelectedModule(firstModule.name);
                       setSelectedModuleInfo(firstModule);
                       setWorkDir(firstModule.path);
@@ -3203,8 +3758,8 @@ export default function Home() {
                     }
                   }}
                   placeholder="search modules..."
-                  className="px-3 py-1.5 bg-transparent text-crt-green border border-crt-green/40 font-code outline-none w-[200px]"
-                  style={{ letterSpacing: "1px", fontSize: "24px" }}
+                  className="px-3 py-1 bg-transparent text-crt-green border border-crt-green/40 font-code outline-none w-[220px]"
+                  style={{ letterSpacing: "1px", fontSize: "22px" }}
                 />
               ) : (
                 <button
@@ -3214,23 +3769,44 @@ export default function Home() {
                     if (!moduleList.length) fetchModules("");
                   }}
                   className="flex items-center gap-2 font-bold text-crt-green font-code cursor-pointer hover:text-crt-green/80 transition-colors group"
-                  style={{ letterSpacing: "1px", fontSize: "24px" }}
+                  style={{ letterSpacing: "1px", fontSize: "22px" }}
                   title="Click to switch module"
                 >
                   {selectedModule || "claude"}
-                  <span style={{ color: "var(--crt-green)", opacity: 0.3, fontSize: "14px", transition: "opacity 0.2s" }} className="group-hover:!opacity-60">▼</span>
+                  <span style={{ color: "var(--crt-green)", opacity: 0.25, fontSize: "11px", transition: "opacity 0.2s" }} className="group-hover:!opacity-50">▾</span>
                 </button>
               )}
-              {showHeaderModuleDropdown && moduleList.length > 0 && (
+              {showHeaderModuleDropdown && moduleList.length > 0 && (() => {
+                const owners = [...new Set(moduleList.map(m => m.owner).filter(Boolean))] as string[];
+                const filtered = ownerFilter ? moduleList.filter(m => m.owner === ownerFilter) : moduleList;
+                return (
                 <div
-                  className="absolute left-0 top-full mt-1 border border-crt-green/30 max-h-[300px] overflow-y-auto z-50 rounded-sm min-w-[280px]"
-                  style={{ background: "var(--bg-primary)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
+                  className="absolute left-0 top-full mt-1 border border-crt-green/20 max-h-[400px] overflow-y-auto z-50 rounded min-w-[340px]"
+                  style={{ background: "var(--bg-primary)", boxShadow: "0 12px 48px rgba(0,0,0,0.7)", backdropFilter: "blur(12px)" }}
                 >
-                  {moduleList.map((m) => (
+                  {owners.length > 1 && (
+                    <div className="px-3 py-2 border-b border-crt-green/20 flex flex-wrap gap-1.5 items-center sticky top-0 z-10" style={{ background: "var(--bg-primary)" }}>
+                      <span className="text-[11px] text-crt-green/30 uppercase mr-1">owner:</span>
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); setOwnerFilter(null); }}
+                        className={`text-[11px] px-2 py-0.5 border font-code transition-colors ${!ownerFilter ? "border-crt-green/50 text-crt-green bg-crt-green/10" : "border-crt-green/15 text-crt-green/30 hover:border-crt-green/30"}`}
+                      >all</button>
+                      {owners.map(o => (
+                        <button
+                          key={o}
+                          onMouseDown={(e) => { e.preventDefault(); setOwnerFilter(ownerFilter === o ? null : o); }}
+                          className={`text-[11px] px-2 py-0.5 border font-mono transition-colors ${ownerFilter === o ? "border-crt-blue/50 text-crt-blue bg-crt-blue/10" : "border-crt-green/15 text-crt-green/30 hover:border-crt-green/30"}`}
+                          title={o}
+                        >{o.slice(0, 6)}..{o.slice(-4)}</button>
+                      ))}
+                    </div>
+                  )}
+                  {filtered.map((m) => (
                     <div
                       key={m.name}
                       onMouseDown={(e) => {
                         e.preventDefault();
+                        resetModuleState(m);
                         setSelectedModule(m.name);
                         setSelectedModuleInfo(m);
                         setWorkDir(m.path);
@@ -3239,35 +3815,41 @@ export default function Home() {
                         setShowModuleDropdown(false);
                         fetchModuleConfig(m.name);
                       }}
-                      className={`px-3 py-2 cursor-pointer hover:bg-crt-green/10 transition-colors border-b border-crt-green/5 ${m.name === selectedModule ? 'bg-crt-green/8' : ''}`}
+                      className={`px-3 py-2 cursor-pointer hover:bg-crt-green/8 transition-colors border-b border-crt-green/5 ${m.name === selectedModule ? 'bg-crt-green/6' : ''}`}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-crt-green font-code">{m.name}</span>
-                          <span className={`text-[13px] px-1.5 py-0.5 border font-code ${m.category === "core" ? "border-crt-red/30 text-crt-red/50" : "border-crt-green/15 text-crt-green/25"}`}>
-                            {m.category}
-                          </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {m.name === selectedModule && (
+                            <span className="text-[10px] text-crt-green shrink-0">▸</span>
+                          )}
+                          <span className={`text-[13px] font-code truncate ${m.name === selectedModule ? 'text-crt-green font-bold' : 'text-crt-green/80'}`}>{m.name}</span>
+                          {m.cid && (
+                            <span className="text-[10px] px-1 py-0.5 border font-code shrink-0 border-crt-green/12 text-crt-green/20" title={m.cid}>
+                              {m.cid.slice(0, 6)}..{m.cid.slice(-4)}
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
                           {m.app_url && (
-                            <span className="text-[13px] px-1.5 py-0.5 border border-crt-blue/40 text-crt-blue bg-crt-blue/10">APP</span>
+                            <span className="text-[9px] px-1 py-0.5 border border-crt-blue/30 text-crt-blue/60 rounded-sm">APP</span>
                           )}
                           {m.api_url && (
-                            <span className="text-[13px] px-1.5 py-0.5 border border-crt-amber/40 text-crt-amber bg-crt-amber/10">API</span>
+                            <span className="text-[9px] px-1 py-0.5 border border-crt-amber/30 text-crt-amber/60 rounded-sm">API</span>
                           )}
                         </div>
                       </div>
                       {m.description && (
-                        <div className="text-[13px] text-crt-green/30 mt-0.5 truncate">{m.description}</div>
+                        <div className="text-[11px] text-crt-green/25 mt-0.5 truncate">{m.description}</div>
                       )}
                     </div>
                   ))}
                 </div>
-              )}
+                );
+              })()}
             </div>
             {selectedModule && effectiveConfig?.owner && (
               <span
-                className="text-sm px-2 py-1 border border-crt-green/20 text-crt-green/50 truncate max-w-[160px] font-mono"
+                className="text-[13px] px-1.5 py-0.5 text-crt-green/35 truncate max-w-[140px] font-mono"
                 title={effectiveConfig.owner}
                 style={{ letterSpacing: "0.5px" }}
               >
@@ -3277,168 +3859,202 @@ export default function Home() {
 
           </div>
 
-          {/* Network + Wallet Widget */}
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
-            {/* Network Switcher */}
-            {address && address !== "local" && (
-              <div className="relative" ref={networkDropdownRef}>
-                <button
-                  onClick={() => setShowNetworkDropdown(!showNetworkDropdown)}
-                  className="flex items-center gap-2 px-3 py-1.5 transition-all group"
-                  style={{
-                    border: showNetworkDropdown ? "1px solid var(--accent-color)" : "1px solid rgba(51,255,51,0.2)",
-                    borderRadius: "3px",
-                    background: showNetworkDropdown ? "rgba(51,255,51,0.06)" : "transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!showNetworkDropdown) {
-                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(51,255,51,0.35)";
-                      (e.currentTarget as HTMLElement).style.background = "rgba(51,255,51,0.04)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!showNetworkDropdown) {
-                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(51,255,51,0.2)";
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }
-                  }}
-                  title="Switch network"
-                >
-                  <span
-                    className="w-[18px] h-[18px] flex items-center justify-center"
-                    style={{ color: NETWORK_LOGOS[currentChainId]?.color || "var(--crt-green)" }}
-                    dangerouslySetInnerHTML={{
-                      __html: `<svg viewBox="0 0 24 24" width="18" height="18">${NETWORK_LOGOS[currentChainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
-                    }}
-                  />
-                  <span className="text-[13px] font-bold tracking-wide" style={{ color: "var(--crt-green)" }}>
-                    {getNetworkName(currentChainId)}
-                  </span>
-                  <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-                    {showNetworkDropdown ? "▴" : "▾"}
-                  </span>
-                </button>
+          {/* Navigation Tabs — inline with module selector */}
+          <div className="flex items-center gap-0 ml-4">
+          <button
+            onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
+            className="text-[15px] font-bold transition-all px-3 py-2 font-code flex items-center gap-1.5"
+            style={{
+              letterSpacing: "1.5px",
+              color: leftSidebarOpen ? "var(--crt-blue)" : "var(--text-tertiary)",
+              opacity: leftSidebarOpen ? 0.9 : 0.4,
+              borderBottom: leftSidebarOpen ? "2px solid var(--crt-blue)" : "2px solid transparent",
+              marginBottom: "-1px",
+            }}
+            title={leftSidebarOpen ? "Hide agent" : "Show agent"}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            AGENT
+          </button>
+          <div className="w-px h-4 mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
+          {([
+            { key: "overview" as const, label: "OVERVIEW", icon: "◆", color: "var(--crt-amber)" },
+            ...(selectedModuleInfo?.app_url || selectedModuleInfo?.has_app_dir ? [{ key: "app" as const, label: "APP", icon: "◈", color: "var(--crt-green)" }] : []),
+            ...(selectedModuleInfo?.api_url || selectedModuleInfo?.has_api_dir || moduleConfig?.config?.endpoints ? [{ key: "api" as const, label: "API", icon: "⚡", color: "var(--crt-red)" }] : []),
+            { key: "files" as const, label: "FILES", icon: "◇", color: "var(--text-primary)" },
+          ]).map((tab) => {
+            const isActive = sidebarView === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setSidebarView(tab.key)}
+                className="text-[15px] font-bold transition-all px-3 py-2 font-code flex items-center gap-1.5 relative"
+                style={{
+                  letterSpacing: "1.5px",
+                  color: isActive ? tab.color : "var(--text-tertiary)",
+                  opacity: isActive ? 1 : 0.4,
+                  borderBottom: isActive ? `2px solid ${tab.color}` : "2px solid transparent",
+                  background: isActive ? `color-mix(in srgb, ${tab.color} 6%, transparent)` : "transparent",
+                  marginBottom: "-1px",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.opacity = "0.7";
+                    e.currentTarget.style.color = tab.color;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.opacity = "0.4";
+                    e.currentTarget.style.color = "var(--text-tertiary)";
+                  }
+                }}
+              >
+                <span className="text-[13px]">{tab.icon}</span>
+                {tab.label}
+              </button>
+            );
+          })}
+          </div>
 
-                {/* Network Dropdown - Grid Layout */}
-                {showNetworkDropdown && (
-                  <div
-                    className="absolute top-full right-0 mt-1 z-50 p-3 network-dropdown"
-                    style={{
-                      background: "var(--bg-primary)",
-                      border: "1px solid rgba(255,176,0,0.2)",
-                      borderRadius: "6px",
-                      boxShadow: "0 12px 48px rgba(0,0,0,0.7), 0 0 20px rgba(255,176,0,0.05)",
-                      minWidth: "380px",
-                    }}
+          {/* Wallet Widget — compressed: network + type + address + expand */}
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto relative">
+
+            {/* Network chip */}
+            <button
+              onClick={() => setShowHeaderNetworkDropdown(!showHeaderNetworkDropdown)}
+              className="flex items-center gap-1.5 px-2 py-1.5 transition-all"
+              style={{
+                border: showHeaderNetworkDropdown ? "1px solid rgba(255,176,0,0.4)" : "1px solid rgba(255,176,0,0.15)",
+                background: showHeaderNetworkDropdown ? "rgba(255,176,0,0.08)" : "transparent",
+                borderRadius: "3px",
+              }}
+              onMouseEnter={(e) => {
+                if (!showHeaderNetworkDropdown) {
+                  e.currentTarget.style.borderColor = "rgba(255,176,0,0.3)";
+                  e.currentTarget.style.background = "rgba(255,176,0,0.04)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!showHeaderNetworkDropdown) {
+                  e.currentTarget.style.borderColor = "rgba(255,176,0,0.15)";
+                  e.currentTarget.style.background = "transparent";
+                }
+              }}
+              title={`${getNetworkName(currentChainId)} (Chain ${currentChainId})`}
+            >
+              <span
+                className="w-[14px] h-[14px] flex items-center justify-center shrink-0"
+                style={{ color: NETWORK_LOGOS[currentChainId]?.color || "var(--crt-amber)" }}
+                dangerouslySetInnerHTML={{
+                  __html: `<svg viewBox="0 0 24 24" width="14" height="14">${NETWORK_LOGOS[currentChainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
+                }}
+              />
+              <span className="text-[13px] font-bold tracking-wide" style={{ color: "var(--crt-amber)" }}>
+                {getNetworkName(currentChainId).length > 8 ? getNetworkName(currentChainId).slice(0, 8) : getNetworkName(currentChainId)}
+              </span>
+              <span className="text-[10px]" style={{ color: "var(--crt-amber)", opacity: 0.5 }}>▾</span>
+            </button>
+
+            {/* Header network dropdown */}
+            {showHeaderNetworkDropdown && (
+              <div
+                className="absolute right-0 top-full mt-1 z-50 p-3 space-y-2 min-w-[240px]"
+                style={{
+                  background: "var(--bg-primary)",
+                  border: "1px solid rgba(255,176,0,0.2)",
+                  borderRadius: "4px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                }}
+              >
+                <div className="text-[9px] tracking-[2px] flex items-center justify-between mb-2" style={{ color: "var(--text-tertiary)" }}>
+                  <span>SELECT NETWORK</span>
+                  <button
+                    onClick={() => setShowHeaderNetworkDropdown(false)}
+                    className="text-[9px] px-1.5 py-0.5 transition-all"
+                    style={{ color: "var(--crt-amber)", border: "1px solid rgba(255,176,0,0.15)", borderRadius: "2px" }}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[10px] tracking-[2px] font-bold" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>SELECT NETWORK</span>
-                      <button
-                        onClick={() => setShowNetworkDropdown(false)}
-                        className="text-[9px] px-2 py-0.5 transition-all"
-                        style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
-                        onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "var(--crt-red)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.4"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
-                      >
-                        ESC
-                      </button>
-                    </div>
-
-                    {/* Mainnets */}
-                    <div className="mb-2">
-                      <div className="text-[9px] tracking-[2px] mb-2 px-1" style={{ color: "var(--crt-amber)", opacity: 0.6 }}>MAINNET</div>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {EVM_NETWORKS.filter(n => !n.testnet).map(n => (
-                          <button
-                            key={n.chainId}
-                            onClick={() => handleHeaderNetworkSwitch(n.chainId)}
-                            disabled={switchingNetwork}
-                            className="flex flex-col items-center gap-1.5 p-2.5 transition-all rounded"
-                            style={{
-                              border: n.chainId === currentChainId ? `1px solid ${NETWORK_LOGOS[n.chainId]?.color || "var(--crt-amber)"}60` : "1px solid rgba(255,255,255,0.04)",
-                              background: n.chainId === currentChainId ? `${NETWORK_LOGOS[n.chainId]?.color || "var(--crt-amber)"}10` : "rgba(0,0,0,0.15)",
-                              opacity: switchingNetwork ? 0.5 : 1,
-                            }}
-                            onMouseEnter={(e) => {
-                              if (n.chainId !== currentChainId) {
-                                e.currentTarget.style.borderColor = `${NETWORK_LOGOS[n.chainId]?.color || "#ffb000"}40`;
-                                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (n.chainId !== currentChainId) {
-                                e.currentTarget.style.borderColor = "rgba(255,255,255,0.04)";
-                                e.currentTarget.style.background = "rgba(0,0,0,0.15)";
-                              }
-                            }}
-                          >
-                            <span
-                              className="w-[24px] h-[24px] flex items-center justify-center"
-                              style={{ color: NETWORK_LOGOS[n.chainId]?.color || "#888" }}
-                              dangerouslySetInnerHTML={{
-                                __html: `<svg viewBox="0 0 24 24" width="24" height="24">${NETWORK_LOGOS[n.chainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
-                              }}
-                            />
-                            <span className="text-[9px] font-bold tracking-wide text-center" style={{ color: n.chainId === currentChainId ? NETWORK_LOGOS[n.chainId]?.color || "var(--crt-amber)" : "var(--text-secondary)" }}>
-                              {n.name}
-                            </span>
-                            {n.chainId === currentChainId && (
-                              <span className="w-[4px] h-[4px] rounded-full led-pulse" style={{ background: "var(--crt-green)", boxShadow: "0 0 6px var(--crt-green)" }} />
-                            )}
-                          </button>
-                        ))}
+                    ✕
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {EVM_NETWORKS.map(n => (
+                    <button
+                      key={n.chainId}
+                      onClick={async () => {
+                        if (n.chainId === currentChainId) {
+                          setShowHeaderNetworkDropdown(false);
+                          return;
+                        }
+                        setHeaderSwitchingNetwork(true);
+                        const ok = await switchNetwork(n.chainId);
+                        setHeaderSwitchingNetwork(false);
+                        if (ok) setShowHeaderNetworkDropdown(false);
+                      }}
+                      disabled={headerSwitchingNetwork}
+                      className="flex items-center gap-2 px-2 py-2 transition-all text-left"
+                      style={{
+                        border: n.chainId === currentChainId
+                          ? `1px solid ${NETWORK_LOGOS[n.chainId]?.color || "rgba(255,176,0,0.3)"}40`
+                          : "1px solid rgba(255,255,255,0.06)",
+                        background: n.chainId === currentChainId
+                          ? `${NETWORK_LOGOS[n.chainId]?.color || "rgba(255,176,0,"}10`
+                          : "rgba(0,0,0,0.15)",
+                        borderRadius: "3px",
+                        opacity: headerSwitchingNetwork ? 0.5 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (n.chainId !== currentChainId) {
+                          e.currentTarget.style.borderColor = `${NETWORK_LOGOS[n.chainId]?.color || "#ffb000"}40`;
+                          e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (n.chainId !== currentChainId) {
+                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                          e.currentTarget.style.background = "rgba(0,0,0,0.15)";
+                        }
+                      }}
+                    >
+                      <span
+                        className="w-[16px] h-[16px] flex items-center justify-center shrink-0"
+                        style={{ color: NETWORK_LOGOS[n.chainId]?.color || "#888" }}
+                        dangerouslySetInnerHTML={{
+                          __html: `<svg viewBox="0 0 24 24" width="16" height="16">${NETWORK_LOGOS[n.chainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
+                        }}
+                      />
+                      <div>
+                        <div className="text-[10px] font-bold" style={{ color: n.chainId === currentChainId ? NETWORK_LOGOS[n.chainId]?.color || "var(--crt-amber)" : "var(--text-secondary)" }}>
+                          {n.name}
+                        </div>
+                        <div className="text-[8px] font-mono" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+                          {n.symbol} {n.testnet ? "· testnet" : ""}
+                        </div>
                       </div>
-                    </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                    <div className="my-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }} />
-
-                    {/* Testnets */}
-                    <div>
-                      <div className="text-[9px] tracking-[2px] mb-2 px-1" style={{ color: "var(--crt-blue)", opacity: 0.6 }}>TESTNET</div>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {EVM_NETWORKS.filter(n => n.testnet).map(n => (
-                          <button
-                            key={n.chainId}
-                            onClick={() => handleHeaderNetworkSwitch(n.chainId)}
-                            disabled={switchingNetwork}
-                            className="flex flex-col items-center gap-1.5 p-2.5 transition-all rounded"
-                            style={{
-                              border: n.chainId === currentChainId ? `1px solid ${NETWORK_LOGOS[n.chainId]?.color || "var(--crt-blue)"}60` : "1px solid rgba(255,255,255,0.04)",
-                              background: n.chainId === currentChainId ? `${NETWORK_LOGOS[n.chainId]?.color || "var(--crt-blue)"}10` : "rgba(0,0,0,0.15)",
-                              opacity: switchingNetwork ? 0.5 : 1,
-                            }}
-                            onMouseEnter={(e) => {
-                              if (n.chainId !== currentChainId) {
-                                e.currentTarget.style.borderColor = `${NETWORK_LOGOS[n.chainId]?.color || "#00aaff"}40`;
-                                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (n.chainId !== currentChainId) {
-                                e.currentTarget.style.borderColor = "rgba(255,255,255,0.04)";
-                                e.currentTarget.style.background = "rgba(0,0,0,0.15)";
-                              }
-                            }}
-                          >
-                            <span
-                              className="w-[24px] h-[24px] flex items-center justify-center"
-                              style={{ color: NETWORK_LOGOS[n.chainId]?.color || "#888" }}
-                              dangerouslySetInnerHTML={{
-                                __html: `<svg viewBox="0 0 24 24" width="24" height="24">${NETWORK_LOGOS[n.chainId]?.svg || '<circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>'}</svg>`
-                              }}
-                            />
-                            <span className="text-[9px] font-bold tracking-wide text-center" style={{ color: n.chainId === currentChainId ? NETWORK_LOGOS[n.chainId]?.color || "var(--crt-blue)" : "var(--text-secondary)" }}>
-                              {n.name}
-                            </span>
-                            {n.chainId === currentChainId && (
-                              <span className="w-[4px] h-[4px] rounded-full led-pulse" style={{ background: "var(--crt-green)", boxShadow: "0 0 6px var(--crt-green)" }} />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+            {/* Wallet type chip */}
+            {walletType && (
+              <div
+                className="flex items-center gap-1 px-2 py-1.5"
+                style={{
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "3px",
+                }}
+                title={`Wallet: ${walletType}`}
+              >
+                <span className="text-[14px]">
+                  {walletType === "metamask" ? "🦊" : walletType === "subwallet" ? "◆" : walletType === "password" ? "🔑" : "💾"}
+                </span>
+                <span className="text-[12px] font-bold tracking-wide" style={{ color: "var(--text-tertiary)" }}>
+                  {walletType === "metamask" ? "MM" : walletType === "subwallet" ? "SW" : walletType === "password" ? "PW" : "LC"}
+                </span>
               </div>
             )}
 
@@ -3452,7 +4068,7 @@ export default function Home() {
                   setTimeout(() => setCopiedAddress(false), 1500);
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 transition-all"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 transition-all"
               style={{
                 border: copiedAddress ? "1px solid var(--crt-green)" : "1px solid rgba(51,255,51,0.2)",
                 background: copiedAddress ? "rgba(51,255,51,0.08)" : "transparent",
@@ -3472,10 +4088,10 @@ export default function Home() {
               }}
               title={copiedAddress ? "Copied!" : `Copy: ${address}`}
             >
-              <span className="text-[13px] font-bold font-mono" style={{ color: copiedAddress ? "var(--crt-green)" : "var(--crt-green)", letterSpacing: "0.5px", opacity: copiedAddress ? 1 : 0.7 }}>
+              <span className="text-[14px] font-bold font-mono" style={{ color: "var(--crt-green)", letterSpacing: "0.5px", opacity: copiedAddress ? 1 : 0.8 }}>
                 {copiedAddress ? "COPIED" : address === "local" ? "LOCAL" : `${address?.slice(0, 6)}··${address?.slice(-4)}`}
               </span>
-              <svg className="w-3.5 h-3.5" style={{ color: copiedAddress ? "var(--crt-green)" : "var(--crt-green)", opacity: copiedAddress ? 1 : 0.5 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-3 h-3" style={{ color: "var(--crt-green)", opacity: copiedAddress ? 1 : 0.5 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 {copiedAddress ? (
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 ) : (
@@ -3488,7 +4104,7 @@ export default function Home() {
             {address && address !== "local" && walletType && (
               <button
                 onClick={() => setShowWalletSidebar(!showWalletSidebar)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 transition-all"
+                className="flex items-center gap-1 px-2 py-1.5 transition-all"
                 style={{
                   border: showWalletSidebar ? "1px solid var(--crt-blue)" : "1px solid rgba(0,170,255,0.2)",
                   background: showWalletSidebar ? "rgba(0,170,255,0.08)" : "transparent",
@@ -3511,287 +4127,16 @@ export default function Home() {
                 }}
                 title={showWalletSidebar ? "Close wallet" : "Open wallet"}
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
                 </svg>
-                <span className="text-[11px] font-bold tracking-wide">
+                <span className="text-[13px] font-bold">
                   {showWalletSidebar ? "▸" : "◂"}
                 </span>
               </button>
             )}
           </div>
           </div>
-
-        {/* Second row - Navigation Tabs */}
-        <div className="flex items-center gap-1 px-4 py-1" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-          {/* Create / Fork buttons */}
-          <div className="relative" ref={headerCreateRef}>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  setShowHeaderCreateForm(showHeaderCreateForm === "create" ? null : "create");
-                  setHeaderNewName("");
-                  setHeaderGithubUrl("");
-                }}
-                className="text-[13px] px-1.5 py-0.5 border transition-all hover:brightness-125"
-                style={{
-                  borderColor: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.2)",
-                  color: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.5)",
-                  background: showHeaderCreateForm === "create" ? "rgba(51,255,51,0.08)" : "transparent",
-                  letterSpacing: "1px",
-                }}
-                title="Create new module"
-              >
-                + NEW
-              </button>
-              <button
-                onClick={() => {
-                  setShowHeaderCreateForm(showHeaderCreateForm === "fork" ? null : "fork");
-                  setHeaderNewName(selectedModule ? selectedModule + "-fork" : "");
-                  setHeaderGithubUrl("");
-                }}
-                className="text-[13px] px-1.5 py-0.5 border transition-all hover:brightness-125"
-                style={{
-                  borderColor: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.2)",
-                  color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.5)",
-                  background: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.08)" : "transparent",
-                  letterSpacing: "1px",
-                }}
-                title={`Fork ${selectedModule || "module"}`}
-              >
-                ⑂ FORK
-              </button>
-            </div>
-
-            {/* Create/Fork dropdown form */}
-            {showHeaderCreateForm && (
-              <div
-                className="absolute left-0 top-full mt-1 border z-50 p-3 flex flex-col gap-2 min-w-[300px]"
-                style={{
-                  background: "var(--bg-primary)",
-                  borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                }}
-              >
-                <div className="text-[13px] font-bold uppercase" style={{
-                  letterSpacing: "1.5px",
-                  color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "var(--crt-green)",
-                }}>
-                  {showHeaderCreateForm === "fork" ? `⑂ FORK FROM ${selectedModule?.toUpperCase() || "?"}` : "+ CREATE MODULE"}
-                </div>
-                <input
-                  type="text"
-                  autoFocus
-                  value={headerNewName}
-                  onChange={(e) => setHeaderNewName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") headerCreateOrFork();
-                    if (e.key === "Escape") setShowHeaderCreateForm(null);
-                  }}
-                  placeholder="module name..."
-                  className="px-2 py-1.5 text-[14px] bg-transparent border font-code outline-none"
-                  style={{
-                    borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
-                    color: "var(--text-primary)",
-                  }}
-                />
-                {showHeaderCreateForm === "create" && (
-                  <input
-                    type="text"
-                    value={headerGithubUrl}
-                    onChange={(e) => setHeaderGithubUrl(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") headerCreateOrFork();
-                      if (e.key === "Escape") setShowHeaderCreateForm(null);
-                    }}
-                    placeholder="github url (optional)..."
-                    className="px-2 py-1.5 text-[14px] bg-transparent border border-crt-green/20 font-code outline-none"
-                    style={{ color: "var(--text-primary)" }}
-                  />
-                )}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={headerCreateOrFork}
-                    disabled={!headerNewName.trim() || submitting}
-                    className="pixel-btn text-[14px] py-1 px-4 uppercase flex-1"
-                    style={{ letterSpacing: "1px", opacity: headerNewName.trim() ? 1 : 0.4 }}
-                  >
-                    {submitting ? "..." : showHeaderCreateForm === "fork" ? "FORK" : "CREATE"}
-                  </button>
-                  <button
-                    onClick={() => setShowHeaderCreateForm(null)}
-                    className="text-[14px] px-2 py-1 border border-crt-red/20 text-crt-red/50 hover:text-crt-red hover:border-crt-red/40 transition-all"
-                  >
-                    ESC
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <span className="mx-1" style={{ borderLeft: "1px solid rgba(255,255,255,0.08)", height: "14px" }} />
-
-          <button
-            onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-            className="text-[13px] transition-all px-1.5 py-0.5 mr-1"
-            style={{
-              letterSpacing: "1.5px",
-              color: leftSidebarOpen ? "var(--crt-blue)" : "var(--text-tertiary)",
-              opacity: leftSidebarOpen ? 1 : 0.5,
-              border: leftSidebarOpen ? "1px solid rgba(0,170,255,0.3)" : "1px solid rgba(255,255,255,0.1)",
-              background: leftSidebarOpen ? "rgba(0,170,255,0.08)" : "transparent",
-            }}
-            title={leftSidebarOpen ? "Hide agent" : "Show agent"}
-          >
-            {leftSidebarOpen ? "◂" : "▸"} AGENT
-          </button>
-          <button
-            onClick={() => setSidebarView("config")}
-            className="text-[13px] transition-all px-1.5 py-0.5"
-            style={{
-              letterSpacing: "1.5px",
-              color: sidebarView === "config" ? "var(--crt-amber)" : "var(--text-tertiary)",
-              borderBottom: sidebarView === "config" ? "1px solid var(--crt-amber)" : "1px solid transparent",
-              opacity: sidebarView === "config" ? 1 : 0.5,
-            }}
-          >
-            CONFIG
-          </button>
-          <button
-            onClick={() => setSidebarView("api")}
-            className="text-[13px] transition-all px-1.5 py-0.5"
-            style={{
-              letterSpacing: "1.5px",
-              color: sidebarView === "api" ? "var(--crt-red)" : "var(--text-tertiary)",
-              borderBottom: sidebarView === "api" ? "1px solid var(--crt-red)" : "1px solid transparent",
-              opacity: sidebarView === "api" ? 1 : 0.5,
-            }}
-          >
-            API
-          </button>
-          {selectedModuleInfo?.app_url && (
-            <button
-              onClick={() => setSidebarView("app")}
-              className="text-[13px] transition-all px-1.5 py-0.5"
-              style={{
-                letterSpacing: "1.5px",
-                color: sidebarView === "app" ? "var(--crt-green)" : "var(--text-tertiary)",
-                borderBottom: sidebarView === "app" ? "1px solid var(--crt-green)" : "1px solid transparent",
-                opacity: sidebarView === "app" ? 1 : 0.5,
-              }}
-            >
-              APP
-            </button>
-          )}
-          <button
-            onClick={() => setSidebarView("files")}
-            className="text-[13px] transition-all px-1.5 py-0.5"
-            style={{
-              letterSpacing: "1.5px",
-              color: sidebarView === "files" ? "var(--crt-green)" : "var(--text-tertiary)",
-              borderBottom: sidebarView === "files" ? "1px solid var(--crt-green)" : "1px solid transparent",
-              opacity: sidebarView === "files" ? 1 : 0.5,
-            }}
-          >
-            FILES
-          </button>
-          <button
-            onClick={() => { setSidebarView("changelog"); if (changelogEntries.length === 0) fetchChangelog(); }}
-            className="text-[13px] transition-all px-1.5 py-0.5"
-            style={{
-              letterSpacing: "1.5px",
-              color: sidebarView === "changelog" ? "#cc5de8" : "var(--text-tertiary)",
-              borderBottom: sidebarView === "changelog" ? "1px solid #cc5de8" : "1px solid transparent",
-              opacity: sidebarView === "changelog" ? 1 : 0.5,
-            }}
-          >
-            LOG
-          </button>
-          {/* ON/OFF toggle */}
-          {selectedModuleInfo?.api_url && moduleRunning !== null && (
-            <button
-              onClick={toggleModule}
-              disabled={togglingModule}
-              className="flex items-center gap-1 px-1.5 py-0.5 border text-[14px] transition-all hover:brightness-125 ml-1"
-              style={{
-                borderColor: togglingModule
-                  ? `${walletAmber}0.4)`
-                  : moduleRunning
-                    ? `${walletGreen}0.4)`
-                    : `${isLight ? "rgba(204,34,34," : "rgba(255,50,50,"}0.3)`,
-                color: togglingModule
-                  ? "var(--crt-amber)"
-                  : moduleRunning
-                    ? "var(--crt-green)"
-                    : "var(--crt-red)",
-                cursor: togglingModule ? "wait" : "pointer",
-                letterSpacing: "0.5px",
-              }}
-              title={togglingModule ? "Toggling..." : moduleRunning ? "Stop module" : "Start module"}
-            >
-              <span
-                className={`inline-block w-1.5 h-1.5 rounded-full ${togglingModule ? "led-pulse" : ""}`}
-                style={{
-                  background: togglingModule
-                    ? "var(--crt-amber)"
-                    : moduleRunning
-                      ? "var(--crt-green)"
-                      : "var(--crt-red)",
-                  boxShadow: `0 0 4px ${togglingModule ? "var(--crt-amber)" : moduleRunning ? "var(--crt-green)" : "var(--crt-red)"}`,
-                }}
-              />
-              {togglingModule ? "..." : moduleRunning ? "ON" : "OFF"}
-            </button>
-          )}
-
-        </div>
-
-        {/* ── Third row: My Mods ─────────────────────────────── */}
-        {address && moduleList.length > 0 && (() => {
-          const myMods = moduleList.filter(
-            (m) => m.owner && address && m.owner.toLowerCase() === address.toLowerCase()
-          );
-          if (myMods.length === 0) return null;
-          return (
-            <div
-              className="flex items-center gap-1 px-4 py-1.5 overflow-x-auto"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
-            >
-              <span
-                className="text-[14px] uppercase shrink-0 mr-1"
-                style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "1.5px" }}
-              >
-                MY MODS
-              </span>
-              {myMods.map((m) => (
-                <button
-                  key={m.name}
-                  onClick={() => {
-                    setSelectedModule(m.name);
-                    setSelectedModuleInfo(m);
-                    setWorkDir(m.path);
-                    fetchModuleConfig(m.name);
-                  }}
-                  className="text-[13px] px-2 py-0.5 border transition-all hover:brightness-125 shrink-0"
-                  style={{
-                    letterSpacing: "0.5px",
-                    borderColor: m.name === selectedModule
-                      ? "var(--crt-green)"
-                      : "rgba(51,255,51,0.15)",
-                    color: m.name === selectedModule
-                      ? "var(--crt-green)"
-                      : "rgba(51,255,51,0.5)",
-                    background: m.name === selectedModule
-                      ? "rgba(51,255,51,0.1)"
-                      : "transparent",
-                  }}
-                >
-                  {m.name}
-                </button>
-              ))}
-            </div>
-          );
-        })()}
 
       </header>
 
@@ -3806,12 +4151,12 @@ export default function Home() {
       <div className="flex-1 flex flex-row overflow-hidden">
         {/* ── Left Sidebar: Agent ──────────────────────── */}
         <div
-          className="flex flex-col overflow-hidden shrink-0 border-r-2"
+          className="flex flex-col overflow-hidden shrink-0"
           style={{
             width: leftSidebarOpen ? `${leftSidebarWidth}px` : "0px",
             minWidth: leftSidebarOpen ? "280px" : "0px",
             maxWidth: "50vw",
-            borderColor: leftSidebarOpen ? "var(--accent-color)" : "transparent",
+            borderRight: leftSidebarOpen ? "1px solid rgba(255,255,255,0.08)" : "none",
             background: "var(--bg-secondary)",
             transition: isLeftDragging ? "none" : "width 0.2s ease, min-width 0.2s ease",
           }}
@@ -3821,39 +4166,6 @@ export default function Home() {
               {/* Left sidebar header */}
               <div className="flex items-center justify-between border-b-2 px-3 py-2 shrink-0" style={{ borderColor: subtleBorderStrong, background: tintBgStrong }}>
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-bold" style={{ letterSpacing: "1.5px", color: "var(--crt-blue)" }}>AGENT</span>
-
-                  {/* Agent type selector */}
-                  <select
-                    value={agentType}
-                    onChange={(e) => {
-                      setAgentType(e.target.value);
-                      localStorage.setItem("claude_agent_type", e.target.value);
-                    }}
-                    className="px-1.5 py-0.5 text-[13px] bg-transparent border border-crt-amber/20 font-pixel uppercase cursor-pointer hover:border-crt-amber/40 transition-colors"
-                    style={{ color: "var(--crt-amber)", letterSpacing: "0.5px" }}
-                    title="Select agent type"
-                  >
-                    <option value="general">GENERAL</option>
-                    <option value="bash">BASH</option>
-                    <option value="explore">EXPLORE</option>
-                    <option value="plan">PLAN</option>
-                  </select>
-
-                  {jobs.filter(j => j.status === "running").length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <span className="text-[14px] px-1.5 py-0.5 border border-crt-blue/30 text-crt-blue led-pulse" style={{ letterSpacing: "0.5px" }}>
-                        {jobs.filter(j => j.status === "running").length} RUNNING
-                      </span>
-                      <button
-                        onClick={() => { jobs.filter(j => j.status === "running").forEach(j => cancelJob(j.id)); }}
-                        className="text-[13px] px-1.5 py-0.5 border border-red-500/40 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all"
-                        title="Cancel all running tasks"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  )}
                 </div>
                 <button
                   onClick={() => setLeftSidebarOpen(false)}
@@ -4085,13 +4397,13 @@ export default function Home() {
         {/* ── Center: Main Content ──────────────────────── */}
         <div
           className="flex-1 flex flex-col overflow-hidden min-w-0"
-          style={{ background: "var(--bg-secondary)" }}
+          style={{ background: "var(--bg-primary)" }}
         >
               {/* Main Content */}
               <div className="flex-1 flex flex-col overflow-hidden">
-                {sidebarView === "config" ? (
+                {sidebarView === "overview" ? (
                   <div className="flex-1 flex flex-col overflow-hidden">
-                    {renderConfigTab()}
+                    {renderProfileTab()}
                   </div>
                 ) : sidebarView === "api" ? (
                   <div className="flex-1 flex flex-col overflow-hidden">
@@ -4105,13 +4417,9 @@ export default function Home() {
                   <div className="flex-1 flex flex-col overflow-hidden">
                     {renderDirectoryTab()}
                   </div>
-                ) : sidebarView === "changelog" ? (
-                  <div className="flex-1 flex flex-col overflow-hidden">
-                    {renderChangelogTab()}
-                  </div>
                 ) : (
                   <div className="flex-1 flex flex-col overflow-hidden">
-                    {renderConfigTab()}
+                    {renderProfileTab()}
                   </div>
                 )}
               </div>
@@ -4123,15 +4431,11 @@ export default function Home() {
             <div
               className="shrink-0"
               style={{
-                width: "6px",
-                cursor: "col-resize",
-                background: "transparent",
-                transition: "background 0.15s ease",
+                width: "1px",
                 flexShrink: 0,
-                borderLeft: "1px solid var(--accent-color)",
+                background: "rgba(0,170,255,0.2)",
+                boxShadow: "0 0 8px rgba(0,170,255,0.1), 0 0 2px rgba(0,170,255,0.15)",
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--accent-color)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             />
             <div
               className="flex flex-col overflow-hidden shrink-0"
@@ -4142,30 +4446,6 @@ export default function Home() {
                 background: "var(--bg-primary)",
               }}
             >
-              {/* Wallet sidebar header */}
-              <div
-                className="flex items-center justify-between px-4 py-2 shrink-0"
-                style={{
-                  borderBottom: "1px solid rgba(0,170,255,0.12)",
-                  background: "linear-gradient(180deg, rgba(0,170,255,0.04) 0%, transparent 100%)",
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4" style={{ color: "var(--crt-blue)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
-                  </svg>
-                  <span className="text-[11px] font-bold tracking-[2px]" style={{ color: "var(--crt-blue)" }}>WALLET</span>
-                </div>
-                <button
-                  onClick={() => setShowWalletSidebar(false)}
-                  className="text-[11px] px-1.5 py-0.5 transition-all"
-                  style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "var(--crt-red)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.4"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
-                >
-                  ✕
-                </button>
-              </div>
               {/* Inline WalletModal */}
               <WalletModal
                 address={address}
@@ -4195,33 +4475,112 @@ export default function Home() {
 
       {/* ── Status Bar ───────────────────────────────────────────── */}
       <footer
-        className="flex items-center justify-between px-5 py-1.5 border-t-4"
+        className="flex items-center justify-between px-5 py-1"
         style={{
           background: "var(--bg-secondary)",
-          borderColor: "var(--accent-color)",
-          boxShadow: "0 -4px 12px rgba(0,0,0,0.3)",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        <div className="flex items-center gap-3">
-          <span
-            className="text-[13px]"
-            style={{
-              color: "var(--text-tertiary)",
-              letterSpacing: "1px",
-              opacity: 0.5,
+        <div className="flex items-center gap-2 relative" ref={headerCreateRef}>
+          <button
+            onClick={() => {
+              setShowHeaderCreateForm(showHeaderCreateForm === "create" ? null : "create");
+              setHeaderNewName("");
+              setHeaderGithubUrl("");
             }}
+            className="text-[11px] font-bold px-2.5 py-1 border transition-all hover:brightness-125 font-code rounded-sm"
+            style={{
+              borderColor: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.2)",
+              color: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.5)",
+              background: showHeaderCreateForm === "create" ? "rgba(51,255,51,0.08)" : "transparent",
+              letterSpacing: "1px",
+            }}
+            title="Create new module"
           >
-            MOD AI v1.0
-          </span>
-          <span style={{ color: "var(--text-tertiary)", opacity: 0.2 }}>
-            ░
-          </span>
-          <span
-            className="text-[13px]"
-            style={{ color: "var(--text-tertiary)", opacity: 0.4 }}
+            + NEW
+          </button>
+          <button
+            onClick={() => {
+              setShowHeaderCreateForm(showHeaderCreateForm === "fork" ? null : "fork");
+              setHeaderNewName(selectedModule ? selectedModule + "-fork" : "");
+              setHeaderGithubUrl("");
+            }}
+            className="text-[11px] font-bold px-2.5 py-1 border transition-all hover:brightness-125 font-code rounded-sm"
+            style={{
+              borderColor: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.2)",
+              color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.5)",
+              background: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.08)" : "transparent",
+              letterSpacing: "1px",
+            }}
+            title={`Fork ${selectedModule || "module"}`}
           >
-            BISMILLAH
-          </span>
+            ⑂ FORK
+          </button>
+
+          {/* Create/Fork dropdown form */}
+          {showHeaderCreateForm && (
+            <div
+              className="absolute left-0 bottom-full mb-1 border z-50 p-3 flex flex-col gap-2 min-w-[300px]"
+              style={{
+                background: "var(--bg-primary)",
+                borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+              }}
+            >
+              <div className="text-[13px] font-bold uppercase" style={{
+                letterSpacing: "1.5px",
+                color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "var(--crt-green)",
+              }}>
+                {showHeaderCreateForm === "fork" ? `⑂ FORK FROM ${selectedModule?.toUpperCase() || "?"}` : "+ CREATE MODULE"}
+              </div>
+              <input
+                type="text"
+                autoFocus
+                value={headerNewName}
+                onChange={(e) => setHeaderNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") headerCreateOrFork();
+                  if (e.key === "Escape") setShowHeaderCreateForm(null);
+                }}
+                placeholder="module name..."
+                className="px-2 py-1.5 text-[14px] bg-transparent border font-code outline-none"
+                style={{
+                  borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
+                  color: "var(--text-primary)",
+                }}
+              />
+              {showHeaderCreateForm === "create" && (
+                <input
+                  type="text"
+                  value={headerGithubUrl}
+                  onChange={(e) => setHeaderGithubUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") headerCreateOrFork();
+                    if (e.key === "Escape") setShowHeaderCreateForm(null);
+                  }}
+                  placeholder="github url (optional)..."
+                  className="px-2 py-1.5 text-[14px] bg-transparent border border-crt-green/20 font-code outline-none"
+                  style={{ color: "var(--text-primary)" }}
+                />
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={headerCreateOrFork}
+                  disabled={!headerNewName.trim() || submitting}
+                  className="pixel-btn text-[14px] py-1 px-4 uppercase flex-1"
+                  style={{ letterSpacing: "1px", opacity: headerNewName.trim() ? 1 : 0.4 }}
+                >
+                  {submitting ? "..." : showHeaderCreateForm === "fork" ? "FORK" : "CREATE"}
+                </button>
+                <button
+                  onClick={() => setShowHeaderCreateForm(null)}
+                  className="text-[14px] px-2 py-1 border border-crt-red/20 text-crt-red/50 hover:text-crt-red hover:border-crt-red/40 transition-all"
+                >
+                  ESC
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {showBackendEditor ? (
@@ -4268,7 +4627,7 @@ export default function Home() {
               }}
               title="Click to change backend URL"
             >
-              BACKEND: {apiUrl.replace(/^https?:\/\//, "")}
+              BACKEND: {moduleApiUrl.replace(/^https?:\/\//, "")}
             </span>
           )}
           <span style={{ color: "var(--text-tertiary)", opacity: 0.2 }}>

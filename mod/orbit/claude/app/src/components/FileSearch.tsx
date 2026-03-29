@@ -13,9 +13,10 @@ interface FileSearchProps {
   onFileSelect: (path: string) => void;
   isOpen: boolean;
   onClose: () => void;
+  apiUrl?: string;
 }
 
-export default function FileSearch({ workDir, onFileSelect, isOpen, onClose }: FileSearchProps) {
+export default function FileSearch({ workDir, onFileSelect, isOpen, onClose, apiUrl }: FileSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,7 +50,7 @@ export default function FileSearch({ workDir, onFileSelect, isOpen, onClose }: F
     setLoading(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/search?path=${encodeURIComponent(workDir)}&query=${encodeURIComponent(query)}`
+        `${apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/search?path=${encodeURIComponent(workDir)}&query=${encodeURIComponent(query)}`
       );
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();

@@ -7,6 +7,7 @@ import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 interface CodeViewerProps {
   filePath: string | null;
   workDir: string;
+  apiUrl?: string;
 }
 
 const LANGUAGE_MAP: Record<string, string> = {
@@ -44,7 +45,7 @@ function getLanguageFromFilename(filename: string): string {
   return LANGUAGE_MAP[ext] || "text";
 }
 
-export default function CodeViewer({ filePath, workDir }: CodeViewerProps) {
+export default function CodeViewer({ filePath, workDir, apiUrl }: CodeViewerProps) {
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +66,7 @@ export default function CodeViewer({ filePath, workDir }: CodeViewerProps) {
     setError(null);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/content?path=${encodeURIComponent(filePath)}`
+        `${apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/content?path=${encodeURIComponent(filePath)}`
       );
       if (!res.ok) throw new Error("Failed to load file content");
       const data = await res.json();

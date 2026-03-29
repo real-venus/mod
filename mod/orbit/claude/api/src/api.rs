@@ -10,7 +10,7 @@ use axum::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse,
     },
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use serde::Deserialize;
@@ -41,7 +41,9 @@ pub async fn serve(manager: AppState, port: u16) {
             .route("/jobs/{id}", get(get_job))
             .route("/jobs/{id}", delete(delete_job))
             .route("/jobs/{id}/cancel", post(cancel_job))
-            .route("/jobs/{id}/stream", get(stream_job));
+            .route("/jobs/{id}/stream", get(stream_job))
+            .route("/modules/{name}", delete(delete_module))
+            .route("/modules/{name}/rename", put(rename_module));
 
         if local_mode {
             println!("⚡ Local mode — auth disabled");
@@ -61,6 +63,7 @@ pub async fn serve(manager: AppState, port: u16) {
         .route("/modules/{name}/config", get(get_module_config))
         .route("/files/tree", get(file_tree))
         .route("/files/content", get(file_content))
+        .route("/files/raw", get(file_raw))
         .route("/files/search", get(file_search))
         .route("/files/grep", get(file_grep))
         .route("/changelog", get(get_changelog))
@@ -746,6 +749,245 @@ async fn get_module_config(
         .into_response()
 }
 
+/// Delete a module directory (only module owner or system owner can delete)
+async fn delete_module(
+    headers: axum::http::HeaderMap,
+    State(_mgr): State<AppState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    // Extract user address from auth token
+    let auth_header = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let user_addr = match auth::extract_address_from_header(auth_header) {
+        Ok(addr) => addr,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "error": "Authentication required" })),
+            )
+                .into_response();
+        }
+    };
+
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+
+    // Search orbit/ and core/ for the module
+    let search_dirs = vec![
+        format!("{}/mod/mod/orbit/{}", home, name),
+        format!("{}/mod/mod/core/{}", home, name),
+    ];
+
+    let mut found_path: Option<String> = None;
+    let mut module_owner: Option<String> = None;
+
+    for module_dir in &search_dirs {
+        let base = std::path::Path::new(module_dir);
+        if !base.is_dir() {
+            continue;
+        }
+        found_path = Some(module_dir.clone());
+
+        // Read owner from config.json
+        let config_paths = vec![
+            base.join("config.json"),
+            base.join(&name).join("config.json"),
+        ];
+        for config_path in &config_paths {
+            if config_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(config_path) {
+                    if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(v) = config.get("owner").and_then(|v| v.as_str()) {
+                            module_owner = Some(v.to_lowercase());
+                        }
+                    }
+                }
+            }
+        }
+        break;
+    }
+
+    let module_path = match found_path {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "error": format!("Module '{}' not found", name) })),
+            )
+                .into_response();
+        }
+    };
+
+    // Authorization: must be system owner, module owner, or module has no owner
+    let is_sys_owner = auth::is_owner(&user_addr);
+    let is_mod_owner = module_owner
+        .as_ref()
+        .map(|o| o == &user_addr.to_lowercase())
+        .unwrap_or(false);
+    let is_unowned = module_owner.is_none();
+
+    if !is_sys_owner && !is_mod_owner && !is_unowned {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": "You can only delete modules you own" })),
+        )
+            .into_response();
+    }
+
+    // Delete the module directory
+    match std::fs::remove_dir_all(&module_path) {
+        Ok(_) => Json(json!({ "success": true, "deleted": name })).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("Failed to delete module: {}", e) })),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct RenameRequest {
+    new_name: String,
+}
+
+/// Rename a module directory (only module owner or system owner can rename)
+async fn rename_module(
+    headers: axum::http::HeaderMap,
+    State(_mgr): State<AppState>,
+    Path(name): Path<String>,
+    Json(body): Json<RenameRequest>,
+) -> impl IntoResponse {
+    let new_name = body.new_name.trim().to_string();
+    if new_name.is_empty() || new_name.contains('/') || new_name.contains('\\') || new_name.starts_with('.') {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "Invalid module name" })),
+        )
+            .into_response();
+    }
+
+    // Extract user address from auth token
+    let auth_header = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let user_addr = match auth::extract_address_from_header(auth_header) {
+        Ok(addr) => addr,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "error": "Authentication required" })),
+            )
+                .into_response();
+        }
+    };
+
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+
+    // Search orbit/ and core/ for the module
+    let search_dirs = vec![
+        ("orbit", format!("{}/mod/mod/orbit/{}", home, name)),
+        ("core", format!("{}/mod/mod/core/{}", home, name)),
+    ];
+
+    let mut found_path: Option<String> = None;
+    let mut found_category: Option<String> = None;
+    let mut module_owner: Option<String> = None;
+
+    for (category, module_dir) in &search_dirs {
+        let base = std::path::Path::new(module_dir);
+        if !base.is_dir() {
+            continue;
+        }
+        found_path = Some(module_dir.clone());
+        found_category = Some(category.to_string());
+
+        // Read owner from config.json
+        let config_paths = vec![
+            base.join("config.json"),
+            base.join(&name).join("config.json"),
+        ];
+        for config_path in &config_paths {
+            if config_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(config_path) {
+                    if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(v) = config.get("owner").and_then(|v| v.as_str()) {
+                            module_owner = Some(v.to_lowercase());
+                        }
+                    }
+                }
+            }
+        }
+        break;
+    }
+
+    let module_path = match found_path {
+        Some(p) => p,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "error": format!("Module '{}' not found", name) })),
+            )
+                .into_response();
+        }
+    };
+
+    // Authorization: must be system owner or module owner
+    let is_sys_owner = auth::is_owner(&user_addr);
+    let is_mod_owner = module_owner
+        .as_ref()
+        .map(|o| o == &user_addr.to_lowercase())
+        .unwrap_or(false);
+
+    if !is_sys_owner && !is_mod_owner {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": "You can only rename modules you own" })),
+        )
+            .into_response();
+    }
+
+    // Build new path in the same category directory
+    let category = found_category.unwrap_or_else(|| "orbit".to_string());
+    let new_path = format!("{}/mod/mod/{}/{}", home, category, new_name);
+
+    // Check that the target doesn't already exist
+    if std::path::Path::new(&new_path).exists() {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "error": format!("Module '{}' already exists", new_name) })),
+        )
+            .into_response();
+    }
+
+    // Rename (move) the directory
+    match std::fs::rename(&module_path, &new_path) {
+        Ok(_) => {
+            // Update config.json name field if it exists
+            let config_path = std::path::Path::new(&new_path).join("config.json");
+            if config_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(&config_path) {
+                    if let Ok(mut config) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(obj) = config.as_object_mut() {
+                            obj.insert("name".to_string(), serde_json::Value::String(new_name.clone()));
+                            if let Ok(updated) = serde_json::to_string_pretty(&config) {
+                                let _ = std::fs::write(&config_path, updated);
+                            }
+                        }
+                    }
+                }
+            }
+            Json(json!({ "success": true, "old_name": name, "new_name": new_name })).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("Failed to rename module: {}", e) })),
+        )
+            .into_response(),
+    }
+}
+
 async fn stream_job(
     State(mgr): State<AppState>,
     Path(id): Path<String>,
@@ -806,6 +1048,35 @@ async fn file_content(Query(params): Query<ContentQuery>) -> impl IntoResponse {
             Json(json!({ "error": format!("Failed to read file: {}", e) })),
         )
             .into_response(),
+    }
+}
+
+async fn file_raw(Query(params): Query<ContentQuery>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let resolved = params.path.replacen("~", &home, 1);
+    let file_path = std::path::Path::new(&resolved);
+
+    if !file_path.exists() || !file_path.is_file() {
+        return (StatusCode::NOT_FOUND, "Not found").into_response();
+    }
+
+    let content_type = match file_path.extension().and_then(|e| e.to_str()) {
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("webp") => "image/webp",
+        Some("svg") => "image/svg+xml",
+        _ => "application/octet-stream",
+    };
+
+    match std::fs::read(file_path) {
+        Ok(bytes) => (
+            StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, content_type)],
+            bytes,
+        )
+            .into_response(),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read file").into_response(),
     }
 }
 

@@ -169,11 +169,36 @@ export function getNativeSymbol(chainId: number): string {
 }
 
 /**
- * Switch the wallet to a different EVM network
+ * Store the selected chain ID locally (for non-MetaMask wallets)
+ */
+export function getStoredChainId(): number {
+  try {
+    const stored = localStorage.getItem("claude_jobs_chain_id");
+    return stored ? parseInt(stored, 10) : 84532; // default Base Sepolia
+  } catch {
+    return 84532;
+  }
+}
+
+export function setStoredChainId(chainId: number): void {
+  localStorage.setItem("claude_jobs_chain_id", chainId.toString());
+}
+
+/**
+ * Switch the wallet to a different EVM network.
+ * For MetaMask: uses wallet_switchEthereumChain.
+ * For other wallet types: stores the chain selection locally.
  */
 export async function switchNetwork(chainId: number): Promise<boolean> {
   const ethereum = (window as any).ethereum;
-  if (!ethereum) return false;
+
+  // No browser wallet — store chain selection locally
+  if (!ethereum) {
+    const net = EVM_NETWORKS.find(n => n.chainId === chainId);
+    if (!net) return false;
+    setStoredChainId(chainId);
+    return true;
+  }
 
   const hexChainId = "0x" + chainId.toString(16);
 
@@ -182,6 +207,7 @@ export async function switchNetwork(chainId: number): Promise<boolean> {
       method: "wallet_switchEthereumChain",
       params: [{ chainId: hexChainId }],
     });
+    setStoredChainId(chainId);
     return true;
   } catch (switchError: any) {
     // 4902 = chain not added yet
@@ -199,6 +225,7 @@ export async function switchNetwork(chainId: number): Promise<boolean> {
             blockExplorerUrls: [net.explorer],
           }],
         });
+        setStoredChainId(chainId);
         return true;
       } catch {
         return false;
@@ -206,6 +233,21 @@ export async function switchNetwork(chainId: number): Promise<boolean> {
     }
     return false;
   }
+}
+
+/**
+ * Get an ethers provider for a given chain ID.
+ * Uses BrowserProvider if available, otherwise falls back to JsonRpcProvider.
+ */
+export function getProvider(chainId?: number): ethers.BrowserProvider | ethers.JsonRpcProvider {
+  const ethereum = (window as any).ethereum;
+  if (ethereum) {
+    return new ethers.BrowserProvider(ethereum);
+  }
+  const cid = chainId ?? getStoredChainId();
+  const net = EVM_NETWORKS.find(n => n.chainId === cid);
+  const rpcUrl = net?.rpcUrl || "https://sepolia.base.org";
+  return new ethers.JsonRpcProvider(rpcUrl);
 }
 
 /**
@@ -340,12 +382,14 @@ export async function getTokenBalance(
 /**
  * Common token addresses by chain
  */
-export const COMMON_TOKENS: Record<number, Array<{
+export interface TokenInfo {
   address: string;
   symbol: string;
   decimals: number;
   name: string;
-}>> = {
+}
+
+export const COMMON_TOKENS: Record<number, TokenInfo[]> = {
   1: [
     { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", decimals: 6, name: "USD Coin" },
     { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", decimals: 6, name: "Tether USD" },
@@ -363,3 +407,63 @@ export const COMMON_TOKENS: Record<number, Array<{
     { address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", symbol: "USDT", decimals: 6, name: "Tether USD" },
   ],
 };
+
+const CUSTOM_TOKENS_KEY = "claude_custom_tokens";
+
+/**
+ * Get user-added custom tokens for a chain from localStorage
+ */
+export function getCustomTokens(chainId: number): TokenInfo[] {
+  try {
+    const stored = localStorage.getItem(`${CUSTOM_TOKENS_KEY}_${chainId}`);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Save a custom token for a chain
+ */
+export function saveCustomToken(chainId: number, token: TokenInfo): void {
+  const tokens = getCustomTokens(chainId);
+  if (tokens.some(t => t.address.toLowerCase() === token.address.toLowerCase())) return;
+  tokens.push(token);
+  localStorage.setItem(`${CUSTOM_TOKENS_KEY}_${chainId}`, JSON.stringify(tokens));
+}
+
+/**
+ * Remove a custom token for a chain
+ */
+export function removeCustomToken(chainId: number, address: string): void {
+  const tokens = getCustomTokens(chainId).filter(
+    t => t.address.toLowerCase() !== address.toLowerCase()
+  );
+  localStorage.setItem(`${CUSTOM_TOKENS_KEY}_${chainId}`, JSON.stringify(tokens));
+}
+
+/**
+ * Fetch ERC20 token metadata (name, symbol, decimals) from the contract on-chain
+ */
+export async function fetchTokenMetadata(
+  provider: ethers.BrowserProvider | ethers.JsonRpcProvider,
+  tokenAddress: string
+): Promise<TokenInfo | null> {
+  const erc20MetadataAbi = [
+    "function name() view returns (string)",
+    "function symbol() view returns (string)",
+    "function decimals() view returns (uint8)",
+  ];
+  try {
+    const contract = new ethers.Contract(tokenAddress, erc20MetadataAbi, provider);
+    const [name, symbol, decimals] = await Promise.all([
+      contract.name(),
+      contract.symbol(),
+      contract.decimals(),
+    ]);
+    return { address: tokenAddress, name, symbol, decimals: Number(decimals) };
+  } catch (e) {
+    console.error("Failed to fetch token metadata:", e);
+    return null;
+  }
+}

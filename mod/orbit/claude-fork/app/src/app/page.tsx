@@ -7,7 +7,7 @@ const WalletModal = dynamic(() => import("../components/WalletModal"), { ssr: fa
 
 import { EVM_NETWORKS, NETWORK_LOGOS, switchNetwork, getNetworkName, getNativeSymbol } from "../utils/wallet";
 
-const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820";
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8830";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -129,7 +129,7 @@ export default function Home() {
   const [showModuleOptions, setShowModuleOptions] = useState(false);
   const [moduleName, setModuleName] = useState("");
   const [creationMode, setCreationMode] = useState<"edit" | "new">("edit");
-  const [selectedModule, setSelectedModule] = useState("claude");
+  const [selectedModule, setSelectedModule] = useState("claude-fork");
   const [githubUrl, setGithubUrl] = useState("");
   const [anchorDir, setAnchorDir] = useState("~/mod");
   const [modules, setModules] = useState<string[]>([]);
@@ -160,7 +160,7 @@ export default function Home() {
   const [viewingFileContent, setViewingFileContent] = useState<string>("");
   const [viewingFileLoading, setViewingFileLoading] = useState(false);
   // Inline search state
-  const [inlineSearchMode, setInlineSearchMode] = useState<"off" | "files" | "grep">("off");
+  const [inlineSearchMode, setInlineSearchMode] = useState<"off" | "files" | "grep">("files");
   const [inlineSearchQuery, setInlineSearchQuery] = useState("");
   const [inlineSearchResults, setInlineSearchResults] = useState<any[]>([]);
   const [inlineSearchLoading, setInlineSearchLoading] = useState(false);
@@ -368,7 +368,7 @@ export default function Home() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "p") {
         e.preventDefault();
-        setInlineSearchMode((prev) => prev === "files" ? "off" : "files");
+        setInlineSearchMode("files");
         setInlineSearchQuery("");
         setInlineSearchResults([]);
         setInlineSelectedIndex(0);
@@ -376,7 +376,7 @@ export default function Home() {
       }
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "f") {
         e.preventDefault();
-        setInlineSearchMode((prev) => prev === "grep" ? "off" : "grep");
+        setInlineSearchMode("grep");
         setInlineSearchQuery("");
         setInlineSearchResults([]);
         setInlineSelectedIndex(0);
@@ -1038,10 +1038,7 @@ export default function Home() {
       if (mod) {
         const moduleInfo = moduleList.find(m => m.name === mod);
         if (moduleInfo) {
-          setSelectedModule(mod);
-          setSelectedModuleInfo(moduleInfo);
-          setWorkDir(moduleInfo.path);
-          fetchModuleConfig(mod);
+          selectModule(moduleInfo);
         }
       }
     }
@@ -1186,6 +1183,30 @@ export default function Home() {
     finally { setLoadingConfig(false); }
   }, [anchorDir, apiUrl]);
 
+  // ── Select a module: update all state, reset stale views ───────────
+  const selectModule = useCallback((m: typeof moduleList[0]) => {
+    setSelectedModule(m.name);
+    setSelectedModuleInfo(m);
+    setWorkDir(m.path);
+    fetchModuleConfig(m.name);
+    // Reset API explorer state
+    setApiSelectedEndpoint(null);
+    setApiParams({});
+    setApiResponse(null);
+    setApiResponseStatus(null);
+    // Reset file viewer
+    setViewingFile(null);
+    setViewingFileContent("");
+    // Reset changelog
+    setChangelogEntries([]);
+    setSelectedVersion(null);
+    setVersionDetail(null);
+    // Reset config tab
+    setConfigSelectedFn(null);
+    setConfigFnParams({});
+    setConfigFnResponse(null);
+  }, [fetchModuleConfig]);
+
   // Fetch direct config from /config endpoint on mount
   const fetchDirectConfig = useCallback(async () => {
     try {
@@ -1205,17 +1226,15 @@ export default function Home() {
     fetchModules();
   }, [fetchModules]);
 
-  // Auto-select default module ("claude") once module list loads
+  // Auto-select default module ("claude-fork") once module list loads
   useEffect(() => {
     if (selectedModule && moduleList.length > 0 && !selectedModuleInfo) {
       const match = moduleList.find((m) => m.name === selectedModule);
       if (match) {
-        setSelectedModuleInfo(match);
-        setWorkDir(match.path);
-        fetchModuleConfig(match.name);
+        selectModule(match);
       }
     }
-  }, [moduleList, selectedModule, selectedModuleInfo]);
+  }, [moduleList, selectedModule, selectedModuleInfo, selectModule]);
 
   // ── Module health check ────────────────────────────────────────────
   const checkModuleHealth = useCallback(async () => {
@@ -1973,6 +1992,7 @@ export default function Home() {
             background: tintBg,
           }}
         >
+          {/* Top row: FILES label + toggle buttons */}
           <div className="px-3 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-[14px] text-crt-green/70" style={{ letterSpacing: "1.5px" }}>
@@ -1982,7 +2002,7 @@ export default function Home() {
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => {
-                  setInlineSearchMode((prev) => prev === "files" ? "off" : "files");
+                  setInlineSearchMode((prev) => prev === "files" ? "grep" : "files");
                   setInlineSearchQuery("");
                   setInlineSearchResults([]);
                   setTimeout(() => inlineSearchRef.current?.focus(), 50);
@@ -1999,7 +2019,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => {
-                  setInlineSearchMode((prev) => prev === "grep" ? "off" : "grep");
+                  setInlineSearchMode((prev) => prev === "grep" ? "files" : "grep");
                   setInlineSearchQuery("");
                   setInlineSearchResults([]);
                   setTimeout(() => inlineSearchRef.current?.focus(), 50);
@@ -2024,93 +2044,88 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Inline Search Bar */}
-          {inlineSearchMode !== "off" && (
-            <div className="px-3 pb-2">
-              <div className="flex items-center gap-2 px-2 py-1.5 border border-crt-blue/30 bg-black/40"
-                style={{ borderRadius: "2px" }}
-              >
-                <span className="text-[14px] text-crt-blue/60">
-                  {inlineSearchMode === "files" ? "🔍" : "🔎"}
-                </span>
-                <input
-                  ref={inlineSearchRef}
-                  type="text"
-                  value={inlineSearchQuery}
-                  onChange={(e) => setInlineSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setInlineSearchMode("off");
-                      setInlineSearchQuery("");
-                      setInlineSearchResults([]);
-                    } else if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      setInlineSelectedIndex((p) => Math.min(p + 1, inlineSearchResults.length - 1));
-                    } else if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      setInlineSelectedIndex((p) => Math.max(p - 1, 0));
-                    } else if (e.key === "Enter" && inlineSearchResults[inlineSelectedIndex]) {
-                      const r = inlineSearchResults[inlineSelectedIndex];
-                      loadFileContent(r.path);
-                      setModuleTab("app");
-                      setInlineSearchMode("off");
-                      setInlineSearchQuery("");
-                      setInlineSearchResults([]);
-                    }
-                  }}
-                  placeholder={inlineSearchMode === "files" ? "Search files by name..." : "Search file contents..."}
-                  className="flex-1 bg-transparent border-none outline-none text-[13px] text-white font-code"
-                  autoFocus
-                />
-                {inlineSearchLoading && (
-                  <span className="text-[14px] text-crt-green/40 animate-pulse">...</span>
-                )}
-                <span className="text-[13px] text-white/20">ESC</span>
-              </div>
-
-              {/* Inline Results */}
-              {inlineSearchResults.length > 0 && (
-                <div className="mt-1 max-h-[240px] overflow-y-auto border border-white/5 bg-black/60" style={{ borderRadius: "2px" }}>
-                  {inlineSearchResults.map((result, idx) => (
-                    <div
-                      key={inlineSearchMode === "files" ? result.path : `${result.path}-${result.line}-${idx}`}
-                      onClick={() => {
-                        loadFileContent(result.path);
-                        setModuleTab("app");
-                        setInlineSearchMode("off");
-                        setInlineSearchQuery("");
-                        setInlineSearchResults([]);
-                      }}
-                      onMouseEnter={() => setInlineSelectedIndex(idx)}
-                      className="px-2 py-1.5 cursor-pointer transition-colors"
-                      style={{
-                        backgroundColor: idx === inlineSelectedIndex ? "rgba(0,170,255,0.15)" : "transparent",
-                        borderLeft: idx === inlineSelectedIndex ? "2px solid #00aaff" : "2px solid transparent",
-                      }}
-                    >
-                      {inlineSearchMode === "files" ? (
-                        <>
-                          <div className="text-[14px] text-white font-code">{result.filename}</div>
-                          <div className="text-[14px] text-white/30 font-code truncate">{result.path}</div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[14px] text-crt-blue font-code">{result.filename}</span>
-                            <span className="text-[14px] text-white/30 font-code">:{result.line}</span>
-                          </div>
-                          <div className="text-[14px] text-white/50 font-code truncate whitespace-pre">{result.content}</div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
+          {/* Always-visible Search Bar */}
+          <div className="px-3 pb-2">
+            <div className="flex items-center gap-2 px-2 py-1.5 border border-crt-green/40 bg-black/40"
+              style={{ borderRadius: "2px" }}
+            >
+              <span className="text-[14px] text-crt-blue/60">
+                {inlineSearchMode === "grep" ? "🔎" : "🔍"}
+              </span>
+              <input
+                ref={inlineSearchRef}
+                type="text"
+                value={inlineSearchQuery}
+                onChange={(e) => setInlineSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setInlineSearchQuery("");
+                    setInlineSearchResults([]);
+                  } else if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setInlineSelectedIndex((p) => Math.min(p + 1, inlineSearchResults.length - 1));
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setInlineSelectedIndex((p) => Math.max(p - 1, 0));
+                  } else if (e.key === "Enter" && inlineSearchResults[inlineSelectedIndex]) {
+                    const r = inlineSearchResults[inlineSelectedIndex];
+                    loadFileContent(r.path);
+                    setModuleTab("app");
+                    setInlineSearchQuery("");
+                    setInlineSearchResults([]);
+                  }
+                }}
+                placeholder={inlineSearchMode === "grep" ? "Search file contents..." : "Search files by name..."}
+                className="flex-1 bg-transparent border-none outline-none text-[13px] text-white font-code"
+                autoFocus
+              />
+              {inlineSearchLoading && (
+                <span className="text-[14px] text-crt-green/40 animate-pulse">...</span>
               )}
-              {inlineSearchQuery && !inlineSearchLoading && inlineSearchResults.length === 0 && (
-                <div className="mt-1 text-center text-[14px] text-white/20 py-2 font-code">No results</div>
-              )}
+              <span className="text-[13px] text-white/20">ESC</span>
             </div>
-          )}
+
+            {/* Inline Results */}
+            {inlineSearchResults.length > 0 && (
+              <div className="mt-1 max-h-[240px] overflow-y-auto border border-white/5 bg-black/60" style={{ borderRadius: "2px" }}>
+                {inlineSearchResults.map((result, idx) => (
+                  <div
+                    key={inlineSearchMode === "files" ? result.path : `${result.path}-${result.line}-${idx}`}
+                    onClick={() => {
+                      loadFileContent(result.path);
+                      setModuleTab("app");
+                      setInlineSearchQuery("");
+                      setInlineSearchResults([]);
+                    }}
+                    onMouseEnter={() => setInlineSelectedIndex(idx)}
+                    className="px-2 py-1.5 cursor-pointer transition-colors"
+                    style={{
+                      backgroundColor: idx === inlineSelectedIndex ? "rgba(0,170,255,0.15)" : "transparent",
+                      borderLeft: idx === inlineSelectedIndex ? "2px solid #00aaff" : "2px solid transparent",
+                    }}
+                  >
+                    {inlineSearchMode === "files" ? (
+                      <>
+                        <div className="text-[14px] text-white font-code">{result.filename}</div>
+                        <div className="text-[14px] text-white/30 font-code truncate">{result.path}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[14px] text-crt-blue font-code">{result.filename}</span>
+                          <span className="text-[14px] text-white/30 font-code">:{result.line}</span>
+                        </div>
+                        <div className="text-[14px] text-white/50 font-code truncate whitespace-pre">{result.content}</div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {inlineSearchQuery && !inlineSearchLoading && inlineSearchResults.length === 0 && (
+              <div className="mt-1 text-center text-[14px] text-white/20 py-2 font-code">No results</div>
+            )}
+          </div>
         </div>
 
         {/* Path display */}
@@ -2223,7 +2238,7 @@ export default function Home() {
         (j.work_dir && j.work_dir.toLowerCase().includes(q));
       const matchesStatus = !statusFilter || j.status === statusFilter;
       // Filter by selected module - match on orbit path suffix (work_dir may have expanded ~ to /Users/...)
-      const matchesModule = !selectedModule || (j.work_dir && (j.work_dir.includes(`/orbit/${selectedModule}`) || j.work_dir.includes("/orbit/claude")));
+      const matchesModule = !selectedModule || (j.work_dir && (j.work_dir.includes(`/orbit/${selectedModule}`) || j.work_dir.includes("/orbit/claude-fork")));
       return matchesSearch && matchesStatus && matchesModule;
     });
 
@@ -2311,13 +2326,10 @@ export default function Home() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && moduleList.length > 0) {
                         const firstModule = moduleList[0];
-                        setSelectedModule(firstModule.name);
-                        setSelectedModuleInfo(firstModule);
-                        setWorkDir(firstModule.path);
+                        selectModule(firstModule);
                         setModuleSearch("");
                         setShowInlineModuleDropdown(false);
                         setShowModuleDropdown(false);
-                        fetchModuleConfig(firstModule.name);
                       }
                       if (e.key === "Escape") {
                         setShowInlineModuleDropdown(false);
@@ -2340,7 +2352,7 @@ export default function Home() {
                     title="Click to change module"
                   >
                     <span style={{ color: "var(--crt-green)", opacity: 0.5 }}>/</span>
-                    {selectedModule || "claude"}
+                    {selectedModule || "claude-fork"}
                     <span style={{ color: "var(--crt-green)", opacity: 0.3, fontSize: "13px" }}>▼</span>
                   </button>
                 )}
@@ -2354,13 +2366,10 @@ export default function Home() {
                         key={m.name}
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          setSelectedModule(m.name);
-                          setSelectedModuleInfo(m);
-                          setWorkDir(m.path);
+                          selectModule(m);
                           setModuleSearch("");
                           setShowInlineModuleDropdown(false);
                           setShowModuleDropdown(false);
-                          fetchModuleConfig(m.name);
                         }}
                         className={`px-3 py-2 cursor-pointer hover:bg-crt-green/10 transition-colors border-b border-crt-green/5 ${m.name === selectedModule ? 'bg-crt-green/8' : ''}`}
                       >
@@ -2441,7 +2450,7 @@ export default function Home() {
           />
           <div className="flex gap-2 shrink-0 items-center">
             {["running", "pending", "completed", "failed", "cancelled"].map((status) => {
-              const count = jobs.filter(j => j.status === status && (!selectedModule || (j.work_dir && (j.work_dir.includes(`/orbit/${selectedModule}`) || j.work_dir.includes("/orbit/claude"))))).length;
+              const count = jobs.filter(j => j.status === status && (!selectedModule || (j.work_dir && (j.work_dir.includes(`/orbit/${selectedModule}`) || j.work_dir.includes("/orbit/claude-fork"))))).length;
               if (count === 0) return null;
               const isActive = statusFilter === status;
               return (
@@ -3169,7 +3178,231 @@ export default function Home() {
           boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
         }}
       >
-        {/* Top row - Module selector, tabs, and controls */}
+        {/* Navigation Tabs - Top Bar */}
+        <div className="flex items-center gap-1 px-4 py-1" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+          {/* Create / Fork buttons */}
+          <div className="relative" ref={headerCreateRef}>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  setShowHeaderCreateForm(showHeaderCreateForm === "create" ? null : "create");
+                  setHeaderNewName("");
+                  setHeaderGithubUrl("");
+                }}
+                className="text-[13px] px-1.5 py-0.5 border transition-all hover:brightness-125"
+                style={{
+                  borderColor: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.2)",
+                  color: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.5)",
+                  background: showHeaderCreateForm === "create" ? "rgba(51,255,51,0.08)" : "transparent",
+                  letterSpacing: "1px",
+                }}
+                title="Create new module"
+              >
+                + NEW
+              </button>
+              <button
+                onClick={() => {
+                  setShowHeaderCreateForm(showHeaderCreateForm === "fork" ? null : "fork");
+                  setHeaderNewName(selectedModule ? selectedModule + "-fork" : "");
+                  setHeaderGithubUrl("");
+                }}
+                className="text-[13px] px-1.5 py-0.5 border transition-all hover:brightness-125"
+                style={{
+                  borderColor: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.2)",
+                  color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.5)",
+                  background: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.08)" : "transparent",
+                  letterSpacing: "1px",
+                }}
+                title={`Fork ${selectedModule || "module"}`}
+              >
+                ⑂ FORK
+              </button>
+            </div>
+
+            {/* Create/Fork dropdown form */}
+            {showHeaderCreateForm && (
+              <div
+                className="absolute left-0 top-full mt-1 border z-50 p-3 flex flex-col gap-2 min-w-[300px]"
+                style={{
+                  background: "var(--bg-primary)",
+                  borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                }}
+              >
+                <div className="text-[13px] font-bold uppercase" style={{
+                  letterSpacing: "1.5px",
+                  color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "var(--crt-green)",
+                }}>
+                  {showHeaderCreateForm === "fork" ? `⑂ FORK FROM ${selectedModule?.toUpperCase() || "?"}` : "+ CREATE MODULE"}
+                </div>
+                <input
+                  type="text"
+                  autoFocus
+                  value={headerNewName}
+                  onChange={(e) => setHeaderNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") headerCreateOrFork();
+                    if (e.key === "Escape") setShowHeaderCreateForm(null);
+                  }}
+                  placeholder="module name..."
+                  className="px-2 py-1.5 text-[14px] bg-transparent border font-code outline-none"
+                  style={{
+                    borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                {showHeaderCreateForm === "create" && (
+                  <input
+                    type="text"
+                    value={headerGithubUrl}
+                    onChange={(e) => setHeaderGithubUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") headerCreateOrFork();
+                      if (e.key === "Escape") setShowHeaderCreateForm(null);
+                    }}
+                    placeholder="github url (optional)..."
+                    className="px-2 py-1.5 text-[14px] bg-transparent border border-crt-green/20 font-code outline-none"
+                    style={{ color: "var(--text-primary)" }}
+                  />
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={headerCreateOrFork}
+                    disabled={!headerNewName.trim() || submitting}
+                    className="pixel-btn text-[14px] py-1 px-4 uppercase flex-1"
+                    style={{ letterSpacing: "1px", opacity: headerNewName.trim() ? 1 : 0.4 }}
+                  >
+                    {submitting ? "..." : showHeaderCreateForm === "fork" ? "FORK" : "CREATE"}
+                  </button>
+                  <button
+                    onClick={() => setShowHeaderCreateForm(null)}
+                    className="text-[14px] px-2 py-1 border border-crt-red/20 text-crt-red/50 hover:text-crt-red hover:border-crt-red/40 transition-all"
+                  >
+                    ESC
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <span className="mx-1" style={{ borderLeft: "1px solid rgba(255,255,255,0.08)", height: "14px" }} />
+
+          <button
+            onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
+            className="text-[13px] transition-all px-1.5 py-0.5 mr-1"
+            style={{
+              letterSpacing: "1.5px",
+              color: leftSidebarOpen ? "var(--crt-blue)" : "var(--text-tertiary)",
+              opacity: leftSidebarOpen ? 1 : 0.5,
+              border: leftSidebarOpen ? "1px solid rgba(0,170,255,0.3)" : "1px solid rgba(255,255,255,0.1)",
+              background: leftSidebarOpen ? "rgba(0,170,255,0.08)" : "transparent",
+            }}
+            title={leftSidebarOpen ? "Hide agent" : "Show agent"}
+          >
+            {leftSidebarOpen ? "◂" : "▸"} AGENT
+          </button>
+          <button
+            onClick={() => setSidebarView("config")}
+            className="text-[13px] transition-all px-1.5 py-0.5"
+            style={{
+              letterSpacing: "1.5px",
+              color: sidebarView === "config" ? "var(--crt-amber)" : "var(--text-tertiary)",
+              borderBottom: sidebarView === "config" ? "1px solid var(--crt-amber)" : "1px solid transparent",
+              opacity: sidebarView === "config" ? 1 : 0.5,
+            }}
+          >
+            CONFIG
+          </button>
+          <button
+            onClick={() => setSidebarView("api")}
+            className="text-[13px] transition-all px-1.5 py-0.5"
+            style={{
+              letterSpacing: "1.5px",
+              color: sidebarView === "api" ? "var(--crt-red)" : "var(--text-tertiary)",
+              borderBottom: sidebarView === "api" ? "1px solid var(--crt-red)" : "1px solid transparent",
+              opacity: sidebarView === "api" ? 1 : 0.5,
+            }}
+          >
+            API
+          </button>
+          {selectedModuleInfo?.app_url && (
+            <button
+              onClick={() => setSidebarView("app")}
+              className="text-[13px] transition-all px-1.5 py-0.5"
+              style={{
+                letterSpacing: "1.5px",
+                color: sidebarView === "app" ? "var(--crt-green)" : "var(--text-tertiary)",
+                borderBottom: sidebarView === "app" ? "1px solid var(--crt-green)" : "1px solid transparent",
+                opacity: sidebarView === "app" ? 1 : 0.5,
+              }}
+            >
+              APP
+            </button>
+          )}
+          <button
+            onClick={() => setSidebarView("files")}
+            className="text-[13px] transition-all px-1.5 py-0.5"
+            style={{
+              letterSpacing: "1.5px",
+              color: sidebarView === "files" ? "var(--crt-green)" : "var(--text-tertiary)",
+              borderBottom: sidebarView === "files" ? "1px solid var(--crt-green)" : "1px solid transparent",
+              opacity: sidebarView === "files" ? 1 : 0.5,
+            }}
+          >
+            FILES
+          </button>
+          <button
+            onClick={() => { setSidebarView("changelog"); if (changelogEntries.length === 0) fetchChangelog(); }}
+            className="text-[13px] transition-all px-1.5 py-0.5"
+            style={{
+              letterSpacing: "1.5px",
+              color: sidebarView === "changelog" ? "#cc5de8" : "var(--text-tertiary)",
+              borderBottom: sidebarView === "changelog" ? "1px solid #cc5de8" : "1px solid transparent",
+              opacity: sidebarView === "changelog" ? 1 : 0.5,
+            }}
+          >
+            LOG
+          </button>
+          {/* ON/OFF toggle */}
+          {selectedModuleInfo?.api_url && moduleRunning !== null && (
+            <button
+              onClick={toggleModule}
+              disabled={togglingModule}
+              className="flex items-center gap-1 px-1.5 py-0.5 border text-[14px] transition-all hover:brightness-125 ml-1"
+              style={{
+                borderColor: togglingModule
+                  ? `${walletAmber}0.4)`
+                  : moduleRunning
+                    ? `${walletGreen}0.4)`
+                    : `${isLight ? "rgba(204,34,34," : "rgba(255,50,50,"}0.3)`,
+                color: togglingModule
+                  ? "var(--crt-amber)"
+                  : moduleRunning
+                    ? "var(--crt-green)"
+                    : "var(--crt-red)",
+                cursor: togglingModule ? "wait" : "pointer",
+                letterSpacing: "0.5px",
+              }}
+              title={togglingModule ? "Toggling..." : moduleRunning ? "Stop module" : "Start module"}
+            >
+              <span
+                className={`inline-block w-1.5 h-1.5 rounded-full ${togglingModule ? "led-pulse" : ""}`}
+                style={{
+                  background: togglingModule
+                    ? "var(--crt-amber)"
+                    : moduleRunning
+                      ? "var(--crt-green)"
+                      : "var(--crt-red)",
+                  boxShadow: `0 0 4px ${togglingModule ? "var(--crt-amber)" : moduleRunning ? "var(--crt-green)" : "var(--crt-red)"}`,
+                }}
+              />
+              {togglingModule ? "..." : moduleRunning ? "ON" : "OFF"}
+            </button>
+          )}
+
+        </div>
+
+        {/* Module selector row */}
         <div className="flex items-center px-4 py-2">
           <div className="flex items-center gap-3">
             {/* Module selector dropdown */}
@@ -3190,12 +3423,9 @@ export default function Home() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && moduleList.length > 0) {
                       const firstModule = moduleList[0];
-                      setSelectedModule(firstModule.name);
-                      setSelectedModuleInfo(firstModule);
-                      setWorkDir(firstModule.path);
+                      selectModule(firstModule);
                       setHeaderModuleSearch("");
                       setShowHeaderModuleDropdown(false);
-                      fetchModuleConfig(firstModule.name);
                     }
                     if (e.key === "Escape") {
                       setShowHeaderModuleDropdown(false);
@@ -3217,7 +3447,7 @@ export default function Home() {
                   style={{ letterSpacing: "1px", fontSize: "24px" }}
                   title="Click to switch module"
                 >
-                  {selectedModule || "claude"}
+                  {selectedModule || "claude-fork"}
                   <span style={{ color: "var(--crt-green)", opacity: 0.3, fontSize: "14px", transition: "opacity 0.2s" }} className="group-hover:!opacity-60">▼</span>
                 </button>
               )}
@@ -3231,13 +3461,10 @@ export default function Home() {
                       key={m.name}
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        setSelectedModule(m.name);
-                        setSelectedModuleInfo(m);
-                        setWorkDir(m.path);
+                        selectModule(m);
                         setHeaderModuleSearch("");
                         setShowHeaderModuleDropdown(false);
                         setShowModuleDropdown(false);
-                        fetchModuleConfig(m.name);
                       }}
                       className={`px-3 py-2 cursor-pointer hover:bg-crt-green/10 transition-colors border-b border-crt-green/5 ${m.name === selectedModule ? 'bg-crt-green/8' : ''}`}
                     >
@@ -3522,277 +3749,6 @@ export default function Home() {
           </div>
           </div>
 
-        {/* Second row - Navigation Tabs */}
-        <div className="flex items-center gap-1 px-4 py-1" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-          {/* Create / Fork buttons */}
-          <div className="relative" ref={headerCreateRef}>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  setShowHeaderCreateForm(showHeaderCreateForm === "create" ? null : "create");
-                  setHeaderNewName("");
-                  setHeaderGithubUrl("");
-                }}
-                className="text-[13px] px-1.5 py-0.5 border transition-all hover:brightness-125"
-                style={{
-                  borderColor: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.2)",
-                  color: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.5)",
-                  background: showHeaderCreateForm === "create" ? "rgba(51,255,51,0.08)" : "transparent",
-                  letterSpacing: "1px",
-                }}
-                title="Create new module"
-              >
-                + NEW
-              </button>
-              <button
-                onClick={() => {
-                  setShowHeaderCreateForm(showHeaderCreateForm === "fork" ? null : "fork");
-                  setHeaderNewName(selectedModule ? selectedModule + "-fork" : "");
-                  setHeaderGithubUrl("");
-                }}
-                className="text-[13px] px-1.5 py-0.5 border transition-all hover:brightness-125"
-                style={{
-                  borderColor: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.2)",
-                  color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.5)",
-                  background: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.08)" : "transparent",
-                  letterSpacing: "1px",
-                }}
-                title={`Fork ${selectedModule || "module"}`}
-              >
-                ⑂ FORK
-              </button>
-            </div>
-
-            {/* Create/Fork dropdown form */}
-            {showHeaderCreateForm && (
-              <div
-                className="absolute left-0 top-full mt-1 border z-50 p-3 flex flex-col gap-2 min-w-[300px]"
-                style={{
-                  background: "var(--bg-primary)",
-                  borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                }}
-              >
-                <div className="text-[13px] font-bold uppercase" style={{
-                  letterSpacing: "1.5px",
-                  color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "var(--crt-green)",
-                }}>
-                  {showHeaderCreateForm === "fork" ? `⑂ FORK FROM ${selectedModule?.toUpperCase() || "?"}` : "+ CREATE MODULE"}
-                </div>
-                <input
-                  type="text"
-                  autoFocus
-                  value={headerNewName}
-                  onChange={(e) => setHeaderNewName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") headerCreateOrFork();
-                    if (e.key === "Escape") setShowHeaderCreateForm(null);
-                  }}
-                  placeholder="module name..."
-                  className="px-2 py-1.5 text-[14px] bg-transparent border font-code outline-none"
-                  style={{
-                    borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
-                    color: "var(--text-primary)",
-                  }}
-                />
-                {showHeaderCreateForm === "create" && (
-                  <input
-                    type="text"
-                    value={headerGithubUrl}
-                    onChange={(e) => setHeaderGithubUrl(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") headerCreateOrFork();
-                      if (e.key === "Escape") setShowHeaderCreateForm(null);
-                    }}
-                    placeholder="github url (optional)..."
-                    className="px-2 py-1.5 text-[14px] bg-transparent border border-crt-green/20 font-code outline-none"
-                    style={{ color: "var(--text-primary)" }}
-                  />
-                )}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={headerCreateOrFork}
-                    disabled={!headerNewName.trim() || submitting}
-                    className="pixel-btn text-[14px] py-1 px-4 uppercase flex-1"
-                    style={{ letterSpacing: "1px", opacity: headerNewName.trim() ? 1 : 0.4 }}
-                  >
-                    {submitting ? "..." : showHeaderCreateForm === "fork" ? "FORK" : "CREATE"}
-                  </button>
-                  <button
-                    onClick={() => setShowHeaderCreateForm(null)}
-                    className="text-[14px] px-2 py-1 border border-crt-red/20 text-crt-red/50 hover:text-crt-red hover:border-crt-red/40 transition-all"
-                  >
-                    ESC
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <span className="mx-1" style={{ borderLeft: "1px solid rgba(255,255,255,0.08)", height: "14px" }} />
-
-          <button
-            onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-            className="text-[13px] transition-all px-1.5 py-0.5 mr-1"
-            style={{
-              letterSpacing: "1.5px",
-              color: leftSidebarOpen ? "var(--crt-blue)" : "var(--text-tertiary)",
-              opacity: leftSidebarOpen ? 1 : 0.5,
-              border: leftSidebarOpen ? "1px solid rgba(0,170,255,0.3)" : "1px solid rgba(255,255,255,0.1)",
-              background: leftSidebarOpen ? "rgba(0,170,255,0.08)" : "transparent",
-            }}
-            title={leftSidebarOpen ? "Hide agent" : "Show agent"}
-          >
-            {leftSidebarOpen ? "◂" : "▸"} AGENT
-          </button>
-          <button
-            onClick={() => setSidebarView("config")}
-            className="text-[13px] transition-all px-1.5 py-0.5"
-            style={{
-              letterSpacing: "1.5px",
-              color: sidebarView === "config" ? "var(--crt-amber)" : "var(--text-tertiary)",
-              borderBottom: sidebarView === "config" ? "1px solid var(--crt-amber)" : "1px solid transparent",
-              opacity: sidebarView === "config" ? 1 : 0.5,
-            }}
-          >
-            CONFIG
-          </button>
-          <button
-            onClick={() => setSidebarView("api")}
-            className="text-[13px] transition-all px-1.5 py-0.5"
-            style={{
-              letterSpacing: "1.5px",
-              color: sidebarView === "api" ? "var(--crt-red)" : "var(--text-tertiary)",
-              borderBottom: sidebarView === "api" ? "1px solid var(--crt-red)" : "1px solid transparent",
-              opacity: sidebarView === "api" ? 1 : 0.5,
-            }}
-          >
-            API
-          </button>
-          {selectedModuleInfo?.app_url && (
-            <button
-              onClick={() => setSidebarView("app")}
-              className="text-[13px] transition-all px-1.5 py-0.5"
-              style={{
-                letterSpacing: "1.5px",
-                color: sidebarView === "app" ? "var(--crt-green)" : "var(--text-tertiary)",
-                borderBottom: sidebarView === "app" ? "1px solid var(--crt-green)" : "1px solid transparent",
-                opacity: sidebarView === "app" ? 1 : 0.5,
-              }}
-            >
-              APP
-            </button>
-          )}
-          <button
-            onClick={() => setSidebarView("files")}
-            className="text-[13px] transition-all px-1.5 py-0.5"
-            style={{
-              letterSpacing: "1.5px",
-              color: sidebarView === "files" ? "var(--crt-green)" : "var(--text-tertiary)",
-              borderBottom: sidebarView === "files" ? "1px solid var(--crt-green)" : "1px solid transparent",
-              opacity: sidebarView === "files" ? 1 : 0.5,
-            }}
-          >
-            FILES
-          </button>
-          <button
-            onClick={() => { setSidebarView("changelog"); if (changelogEntries.length === 0) fetchChangelog(); }}
-            className="text-[13px] transition-all px-1.5 py-0.5"
-            style={{
-              letterSpacing: "1.5px",
-              color: sidebarView === "changelog" ? "#cc5de8" : "var(--text-tertiary)",
-              borderBottom: sidebarView === "changelog" ? "1px solid #cc5de8" : "1px solid transparent",
-              opacity: sidebarView === "changelog" ? 1 : 0.5,
-            }}
-          >
-            LOG
-          </button>
-          {/* ON/OFF toggle */}
-          {selectedModuleInfo?.api_url && moduleRunning !== null && (
-            <button
-              onClick={toggleModule}
-              disabled={togglingModule}
-              className="flex items-center gap-1 px-1.5 py-0.5 border text-[14px] transition-all hover:brightness-125 ml-1"
-              style={{
-                borderColor: togglingModule
-                  ? `${walletAmber}0.4)`
-                  : moduleRunning
-                    ? `${walletGreen}0.4)`
-                    : `${isLight ? "rgba(204,34,34," : "rgba(255,50,50,"}0.3)`,
-                color: togglingModule
-                  ? "var(--crt-amber)"
-                  : moduleRunning
-                    ? "var(--crt-green)"
-                    : "var(--crt-red)",
-                cursor: togglingModule ? "wait" : "pointer",
-                letterSpacing: "0.5px",
-              }}
-              title={togglingModule ? "Toggling..." : moduleRunning ? "Stop module" : "Start module"}
-            >
-              <span
-                className={`inline-block w-1.5 h-1.5 rounded-full ${togglingModule ? "led-pulse" : ""}`}
-                style={{
-                  background: togglingModule
-                    ? "var(--crt-amber)"
-                    : moduleRunning
-                      ? "var(--crt-green)"
-                      : "var(--crt-red)",
-                  boxShadow: `0 0 4px ${togglingModule ? "var(--crt-amber)" : moduleRunning ? "var(--crt-green)" : "var(--crt-red)"}`,
-                }}
-              />
-              {togglingModule ? "..." : moduleRunning ? "ON" : "OFF"}
-            </button>
-          )}
-
-        </div>
-
-        {/* ── Third row: My Mods ─────────────────────────────── */}
-        {address && moduleList.length > 0 && (() => {
-          const myMods = moduleList.filter(
-            (m) => m.owner && address && m.owner.toLowerCase() === address.toLowerCase()
-          );
-          if (myMods.length === 0) return null;
-          return (
-            <div
-              className="flex items-center gap-1 px-4 py-1.5 overflow-x-auto"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
-            >
-              <span
-                className="text-[14px] uppercase shrink-0 mr-1"
-                style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "1.5px" }}
-              >
-                MY MODS
-              </span>
-              {myMods.map((m) => (
-                <button
-                  key={m.name}
-                  onClick={() => {
-                    setSelectedModule(m.name);
-                    setSelectedModuleInfo(m);
-                    setWorkDir(m.path);
-                    fetchModuleConfig(m.name);
-                  }}
-                  className="text-[13px] px-2 py-0.5 border transition-all hover:brightness-125 shrink-0"
-                  style={{
-                    letterSpacing: "0.5px",
-                    borderColor: m.name === selectedModule
-                      ? "var(--crt-green)"
-                      : "rgba(51,255,51,0.15)",
-                    color: m.name === selectedModule
-                      ? "var(--crt-green)"
-                      : "rgba(51,255,51,0.5)",
-                    background: m.name === selectedModule
-                      ? "rgba(51,255,51,0.1)"
-                      : "transparent",
-                  }}
-                >
-                  {m.name}
-                </button>
-              ))}
-            </div>
-          );
-        })()}
-
       </header>
 
       {error && (
@@ -3822,23 +3778,6 @@ export default function Home() {
               <div className="flex items-center justify-between border-b-2 px-3 py-2 shrink-0" style={{ borderColor: subtleBorderStrong, background: tintBgStrong }}>
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-bold" style={{ letterSpacing: "1.5px", color: "var(--crt-blue)" }}>AGENT</span>
-
-                  {/* Agent type selector */}
-                  <select
-                    value={agentType}
-                    onChange={(e) => {
-                      setAgentType(e.target.value);
-                      localStorage.setItem("claude_agent_type", e.target.value);
-                    }}
-                    className="px-1.5 py-0.5 text-[13px] bg-transparent border border-crt-amber/20 font-pixel uppercase cursor-pointer hover:border-crt-amber/40 transition-colors"
-                    style={{ color: "var(--crt-amber)", letterSpacing: "0.5px" }}
-                    title="Select agent type"
-                  >
-                    <option value="general">GENERAL</option>
-                    <option value="bash">BASH</option>
-                    <option value="explore">EXPLORE</option>
-                    <option value="plan">PLAN</option>
-                  </select>
 
                   {jobs.filter(j => j.status === "running").length > 0 && (
                     <span className="text-[14px] px-1.5 py-0.5 border border-crt-blue/30 text-crt-blue led-pulse" style={{ letterSpacing: "0.5px" }}>

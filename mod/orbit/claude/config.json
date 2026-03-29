@@ -32,7 +32,14 @@
     "changelog",
     "get_version",
     "restore_version",
-    "show_changelog"
+    "show_changelog",
+    "dev_fork",
+    "dev_deploy",
+    "dev_sync",
+    "dev_stop",
+    "dev_status",
+    "dev_diff",
+    "dev_snapshot"
   ],
   "schema": {
     "forward": {
@@ -256,6 +263,50 @@
       ],
       "output": {"type": "None", "value": null},
       "docs": "Display the version changelog in a readable terminal format.",
+      "cost": 0
+    },
+    "dev_fork": {
+      "input": [],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Create a claude-dev fork. Copies source, patches ports (API:8830, App:8831), generates dev config, inits git, creates IPFS tracking.",
+      "cost": 0
+    },
+    "dev_deploy": {
+      "input": [],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Deploy (start) the claude-dev fork on dev ports.",
+      "cost": 0
+    },
+    "dev_sync": {
+      "input": [],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Sync claude → claude-dev. Copies source, re-patches dev ports, IPFS snapshot of sync state, git commit.",
+      "cost": 0
+    },
+    "dev_stop": {
+      "input": [],
+      "output": {"type": "str", "value": null},
+      "docs": "Stop the running claude-dev instance.",
+      "cost": 0
+    },
+    "dev_status": {
+      "input": [],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Get claude-dev status: running state, sync history, IPFS CIDs, metadata.",
+      "cost": 0
+    },
+    "dev_diff": {
+      "input": [],
+      "output": {"type": "str", "value": null},
+      "docs": "Show diff between claude and claude-dev source files.",
+      "cost": 0
+    },
+    "dev_snapshot": {
+      "input": [
+        {"name": "description", "type": "str", "value": null}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Take an IPFS snapshot of the current claude-dev state. Returns CID and gateway URL.",
       "cost": 0
     }
   },

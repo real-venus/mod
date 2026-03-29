@@ -35,7 +35,7 @@ NC='\033[0m'
 print_banner() {
     echo -e "${GREEN}"
     echo "  ╔══════════════════════════════════════╗"
-    echo "  ║   CLAUDE JOBS // 8BIT TERMINAL       ║"
+    echo "  ║   CLAUDE JOBS // 8BIT TERMINAL          ║"
     echo "  ║   ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   ║"
     echo "  ╚══════════════════════════════════════╝"
     echo -e "${NC}"
