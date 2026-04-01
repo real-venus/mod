@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mod"
+version = "0.1.0"
+description = "Global toolbox that allows you to connect and share any tool (module)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8,<=3.15"
+authors = [
+    { name = "developers", email = "bloc@proton.me" },
+]
+keywords = ["modular", "sdk", "ai", "crypto"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dynamic = ["dependencies"]
+
+[project.urls]
+Homepage = "https://app.modc2.ai/"
+Repository = "https://github.com/modc2/mod"
+
+[project.scripts]
+m = "mod:main"
+c = "mod:main"
+
+[project.optional-dependencies]
+quality = [
+    "black==22.3",
+    "click==8.0.4",
+    "isort>=5.5.4",
+    "flake8>=3.8.3",
+]
+testing = [
+    "pytest>=7.2.0",
+]
+all = [
+    "black==22.3",
+    "click==8.0.4",
+    "isort>=5.5.4",
+    "flake8>=3.8.3",
+    "pytest>=7.2.0",
+]
+
+[tool.setuptools]
+packages = { find = { exclude = ["tests*", "docs*"] } }
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }

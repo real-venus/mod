@@ -49,10 +49,10 @@ class Mod:
         self.path = m.dp('chain')
         self.set_key(key)
         self.contracts_path = self.path + '/artifacts/contracts'
-        self.config = m.config('chain')
-        self.load_all_contracts()
         if not os.path.exists(self.contracts_path):
             os.makedirs(self.contracts_path, exist_ok=True)
+        self.config = m.config('chain')
+        self.load_all_contracts()
         
     def env_dict(self) -> Dict[str, str]:
         env_path = os.path.join(self.path, '.env')
