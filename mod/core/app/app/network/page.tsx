@@ -258,7 +258,7 @@ export default function NetworkPage() {
   )
 
   return (
-    <div className="min-h-screen bg-black text-white p-6">
+    <div className="min-h-screen text-white p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-7xl mx-auto">
         <div className="mb-4">
           <h1 className="text-6xl font-black uppercase tracking-wider mb-2 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">

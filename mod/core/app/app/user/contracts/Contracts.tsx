@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { userContext } from '@/context'
 import { ethers } from 'ethers'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CopyButton } from '@/ui/CopyButton'
 import RegistryABI from '@/contracts//registry/Registry.sol/Registry.json'

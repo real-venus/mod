@@ -5,26 +5,27 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Palette, Globe, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getAllNavItems, getNavHref } from '@/config/navigation'
+import { useModuleApps } from '@/hooks/useModuleApps'
 import { ThemeSelectorCompact } from '@/themes/ThemeSelectorCompact'
 import {
   Blocks, Landmark, FileCode2, ArrowLeftRight,
-  BookOpen, MessageSquare, Shield, Waypoints
+  BookOpen, MessageSquare, Waypoints
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { NetworkSelector } from '@/network/NetworkSelector'
+import { useLayoutContext } from '@/context/LayoutContext'
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
-  'MODS': <Blocks size={36} strokeWidth={1.8} />,
-  'TREASURY': <Landmark size={36} strokeWidth={1.8} />,
-  'CONTRACTS': <FileCode2 size={36} strokeWidth={1.8} />,
-  'TRANSACTIONS': <ArrowLeftRight size={36} strokeWidth={1.8} />,
-  'DOCS': <BookOpen size={36} strokeWidth={1.8} />,
-  'CHAT': <MessageSquare size={36} strokeWidth={1.8} />,
-  'SAFE': <Shield size={36} strokeWidth={1.8} />,
-  'BRIDGE': <Waypoints size={36} strokeWidth={1.8} />,
+  'MODS': <Blocks size={22} strokeWidth={1.5} />,
+  'TREASURY': <Landmark size={22} strokeWidth={1.5} />,
+  'CONTRACTS': <FileCode2 size={22} strokeWidth={1.5} />,
+  'TRANSACTIONS': <ArrowLeftRight size={22} strokeWidth={1.5} />,
+  'DOCS': <BookOpen size={22} strokeWidth={1.5} />,
+  'CHAT': <MessageSquare size={22} strokeWidth={1.5} />,
+  'BRIDGE': <Waypoints size={22} strokeWidth={1.5} />,
 }
 
-export const SIDEBAR_WIDTH = 56
+export const SIDEBAR_WIDTH = 64
 const COLLAPSED_WIDTH = 16
 
 const PIXEL_FONT = "var(--font-pixel), 'Press Start 2P', monospace"
@@ -32,7 +33,9 @@ const PIXEL_FONT = "var(--font-pixel), 'Press Start 2P', monospace"
 export function NavSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const navItems = getAllNavItems()
+  const moduleApps = useModuleApps()
+  const navItems = getAllNavItems(moduleApps)
+  const { isHeaderCollapsed } = useLayoutContext()
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
   const [tooltipInfo, setTooltipInfo] = useState<{ label: string; y: number; color: string } | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -64,7 +67,12 @@ export function NavSidebar() {
   }
 
   const getIcon = (label: string) => {
-    return NAV_ICONS[label] || <span style={{ fontSize: '16px', fontFamily: PIXEL_FONT }}>{label.slice(0, 3)}</span>
+    return NAV_ICONS[label] || <span style={{ fontSize: '10px', fontFamily: PIXEL_FONT }}>{label.slice(0, 3)}</span>
+  }
+
+  const getShortestLabel = (label: string) => {
+    const map: Record<string, string> = { 'TRANSACTIONS': 'TXS', 'CONTRACTS': 'CNTR', 'TREASURY': 'TRSY' }
+    return map[label] || label
   }
 
   const currentWidth = collapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH
@@ -84,6 +92,11 @@ export function NavSidebar() {
     setTooltipInfo(null)
   }
 
+  // Hide sidebar when header is collapsed (module page full-screen mode)
+  if (isHeaderCollapsed) {
+    return null
+  }
+
   return (
     <>
       <div
@@ -93,7 +106,7 @@ export function NavSidebar() {
           bottom: 0,
           width: `${currentWidth}px`,
           background: 'var(--bg-header)',
-          borderRight: '2px solid var(--border-strong)',
+          borderRight: '1px solid var(--border-default)',
           fontFamily: PIXEL_FONT,
           overflow: 'hidden',
         }}
@@ -115,21 +128,21 @@ export function NavSidebar() {
         {/* Expanded content */}
         {!collapsed && <>
         {/* Collapse toggle */}
-        <div className="shrink-0 flex justify-center" style={{ borderBottom: '2px solid var(--border-strong)' }}>
+        <div className="shrink-0 flex justify-center" style={{ borderBottom: '1px solid var(--border-default)' }}>
           <button
             onClick={toggleCollapsed}
-            className="w-full flex items-center justify-center transition-all duration-150"
-            style={{ height: '28px', color: 'var(--text-secondary)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-primary)'; e.currentTarget.style.background = 'var(--hover-bg)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'transparent' }}
+            className="w-full flex items-center justify-center transition-all duration-200"
+            style={{ height: '24px', color: 'var(--text-tertiary)', opacity: 0.5 }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-primary)'; e.currentTarget.style.opacity = '1' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.opacity = '0.5' }}
             title="Collapse sidebar"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={14} />
           </button>
         </div>
 
         {/* Nav items */}
-        <div className="flex-1 overflow-y-auto hide-scrollbar py-1" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex-1 overflow-y-auto hide-scrollbar py-2 px-1.5 flex flex-col gap-1" style={{ scrollbarWidth: 'none' }}>
           {navItems.map(item => {
             const isActive = pathname?.startsWith(item.href)
             const isHovered = hoveredItem === item.href
@@ -140,57 +153,68 @@ export function NavSidebar() {
               <Link
                 key={item.href}
                 href={finalHref}
-                className="group relative flex items-center transition-all duration-150"
+                className="group relative flex flex-col items-center justify-center transition-all duration-200 rounded-lg"
                 style={{
-                  height: '42px',
-                  padding: '0',
-                  justifyContent: 'center',
+                  height: '52px',
+                  padding: '4px 0',
                   fontFamily: PIXEL_FONT,
                   color: isActive ? color : isHovered ? 'var(--text-primary)' : 'var(--text-secondary)',
                   background: isActive
-                    ? `linear-gradient(90deg, ${color}18 0%, transparent 100%)`
-                    : 'transparent',
-                  borderLeft: isActive ? `3px solid ${color}` : '3px solid transparent',
+                    ? `${color}15`
+                    : isHovered ? 'var(--hover-bg)' : 'transparent',
                 }}
                 onMouseEnter={(e) => handleHover(item.href, item.label, color, e)}
                 onMouseLeave={clearHover}
               >
-                {/* Hover background */}
-                {!isActive && (
+                {/* Active indicator dot */}
+                {isActive && (
                   <div
-                    className="absolute inset-0 transition-opacity duration-150"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
                     style={{
-                      opacity: isHovered ? 1 : 0,
-                      background: 'var(--hover-bg)',
+                      width: '3px',
+                      height: '20px',
+                      background: color,
+                      boxShadow: `0 0 8px ${color}`,
                     }}
                   />
                 )}
 
                 <span
-                  className="relative transition-all duration-150"
+                  className="relative transition-all duration-200"
                   style={{
-                    filter: isActive ? `drop-shadow(0 0 6px ${color})` : isHovered ? `drop-shadow(0 0 3px var(--text-primary))` : 'none',
+                    filter: isActive ? `drop-shadow(0 0 4px ${color})` : 'none',
+                    transform: isHovered && !isActive ? 'scale(1.1)' : 'scale(1)',
                   }}
                 >
                   {getIcon(item.label)}
+                </span>
+                <span
+                  className="transition-all duration-200"
+                  style={{
+                    fontSize: '7px',
+                    marginTop: '3px',
+                    letterSpacing: '0.05em',
+                    opacity: isActive ? 1 : isHovered ? 0.8 : 0.45,
+                    color: isActive ? color : 'var(--text-secondary)',
+                  }}
+                >
+                  {getShortestLabel(item.label)}
                 </span>
               </Link>
             )
           })}
         </div>
 
-        {/* New + button */}
-        <div className="shrink-0" style={{ borderTop: '2px solid var(--border-strong)' }}>
+        {/* Bottom actions */}
+        <div className="shrink-0 flex flex-col gap-1 px-1.5 py-2" style={{ borderTop: '1px solid var(--border-default)' }}>
+          {/* New + button */}
           <button
             onClick={() => router.push('/create')}
-            className="group relative w-full flex items-center transition-all duration-150"
+            className="group relative w-full flex flex-col items-center justify-center transition-all duration-200 rounded-lg"
             style={{
-              height: '42px',
+              height: '48px',
               color: 'var(--accent-primary)',
-              justifyContent: 'center',
-              padding: '0',
               fontFamily: PIXEL_FONT,
-              fontSize: '18px',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'var(--hover-bg)'
@@ -201,14 +225,13 @@ export function NavSidebar() {
               clearHover()
             }}
           >
-            <Plus size={36} className="transition-all duration-150" style={{
+            <Plus size={20} className="transition-all duration-200" style={{
               filter: hoveredItem === '__new' ? 'drop-shadow(0 0 4px var(--accent-primary))' : 'none',
             }} />
+            <span style={{ fontSize: '7px', marginTop: '3px', opacity: 0.6 }}>NEW</span>
           </button>
-        </div>
 
-        {/* Network selector icon */}
-        <div className="shrink-0" style={{ borderTop: '2px solid var(--border-strong)' }}>
+          {/* Network selector icon */}
           <button
             ref={networkBtnRef}
             onClick={() => {
@@ -217,9 +240,9 @@ export function NavSidebar() {
               }
               setNetworkOpen(!networkOpen)
             }}
-            className="w-full flex items-center justify-center transition-all duration-150"
+            className="w-full flex flex-col items-center justify-center transition-all duration-200 rounded-lg"
             style={{
-              height: '42px',
+              height: '48px',
               color: networkOpen ? 'var(--text-primary)' : 'var(--text-secondary)',
               fontFamily: PIXEL_FONT,
             }}
@@ -235,14 +258,13 @@ export function NavSidebar() {
               clearHover()
             }}
           >
-            <Globe size={36} className="transition-all duration-150" style={{
+            <Globe size={20} className="transition-all duration-200" style={{
               filter: hoveredItem === '__network' || networkOpen ? 'drop-shadow(0 0 4px var(--accent-primary))' : 'none',
             }} />
+            <span style={{ fontSize: '7px', marginTop: '3px', opacity: 0.5 }}>NET</span>
           </button>
-        </div>
 
-        {/* Theme selector icon */}
-        <div className="shrink-0" style={{ borderTop: '2px solid var(--border-strong)' }}>
+          {/* Theme selector icon */}
           <button
             ref={themeBtnRef}
             onClick={() => {
@@ -251,9 +273,9 @@ export function NavSidebar() {
               }
               setThemeOpen(!themeOpen)
             }}
-            className="w-full flex items-center justify-center transition-all duration-150"
+            className="w-full flex flex-col items-center justify-center transition-all duration-200 rounded-lg"
             style={{
-              height: '42px',
+              height: '48px',
               color: themeOpen ? 'var(--text-primary)' : 'var(--text-secondary)',
               fontFamily: PIXEL_FONT,
             }}
@@ -269,9 +291,10 @@ export function NavSidebar() {
               clearHover()
             }}
           >
-            <Palette size={36} className="transition-all duration-150" style={{
+            <Palette size={20} className="transition-all duration-200" style={{
               filter: hoveredItem === '__theme' || themeOpen ? 'drop-shadow(0 0 4px var(--accent-primary))' : 'none',
             }} />
+            <span style={{ fontSize: '7px', marginTop: '3px', opacity: 0.5 }}>THEME</span>
           </button>
         </div>
         </>}
@@ -327,29 +350,29 @@ export function NavSidebar() {
           className="pointer-events-none"
           style={{
             position: 'fixed',
-            left: `${SIDEBAR_WIDTH}px`,
+            left: `${SIDEBAR_WIDTH + 4}px`,
             top: `${tooltipInfo.y}px`,
             transform: 'translateY(-50%)',
             zIndex: 9999,
           }}
         >
           <div
-            className="flex items-center gap-2 px-3 py-1.5"
+            className="flex items-center px-3 py-1"
             style={{
               background: 'var(--bg-header)',
-              border: `2px solid ${tooltipInfo.color}`,
-              borderLeft: 'none',
+              border: `1px solid ${tooltipInfo.color}40`,
+              borderRadius: '6px',
               whiteSpace: 'nowrap',
-              boxShadow: '4px 2px 12px rgba(0,0,0,0.4)',
+              boxShadow: `0 4px 16px rgba(0,0,0,0.3), 0 0 8px ${tooltipInfo.color}15`,
             }}
           >
             <span
               style={{
-                fontSize: '18px',
+                fontSize: '11px',
                 fontFamily: PIXEL_FONT,
                 color: tooltipInfo.color,
-                letterSpacing: '0.08em',
-                textShadow: `0 0 8px ${tooltipInfo.color}`,
+                letterSpacing: '0.06em',
+                textShadow: `0 0 6px ${tooltipInfo.color}80`,
               }}
             >
               {tooltipInfo.label}

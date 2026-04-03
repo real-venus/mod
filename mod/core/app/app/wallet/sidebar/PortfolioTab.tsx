@@ -3,7 +3,7 @@
 import { ArrowPathIcon, ArrowsRightLeftIcon, PlusCircleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CopyButton } from '@/ui/CopyButton'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 type TransferTokenType = 'MARKET' | 'USDC' | 'USDT'
 
@@ -105,7 +105,7 @@ export function PortfolioTab({
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
           className="mt-3 pt-3 overflow-hidden"
           style={{ borderTop: '1px solid var(--border-color)' }}
         >

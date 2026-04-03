@@ -15,7 +15,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMetaMask } from '@/wallet/MetaMaskProvider'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { userContext } from '@/context/UserContext'
 
 // Types

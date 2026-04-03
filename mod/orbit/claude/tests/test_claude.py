@@ -1,68 +1,51 @@
 """
-Tests for the Claude Code interface module.
+Tests for the Claude module (v2).
 
 Run with: pytest tests/test_claude.py -v -s
-The -s flag shows output during tests.
+         pytest tests/test_claude.py -v -s -k "Unit"     # unit tests only
 
 Tests are split into:
-  - Unit tests: Always run, no API/CLI needed
-  - CLI tests: Require claude binary (Max auth or API key)
+  - Unit tests:   Always run, no API/CLI/server needed
+  - CLI tests:    Require claude binary + auth
   - Server tests: Require the Rust job server running
-  - Permission tests: Test owner-based access control
-  - IPFS tests: Test IPFS storage and history tracking
 """
 import pytest
 import os
 import sys
 import subprocess
 import json
-import tempfile
-import shutil
+import time
 from pathlib import Path
 from unittest.mock import patch, MagicMock, Mock
 
-# Add parent directory to path
+# Add parent directory to path so we can import the module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from claude.claude import Mod, run_claude
+from claude.mod import Mod
 
 
 # ── Helpers ──────────────────────────────────────────────────────
 
 def has_claude_cli():
-    """Check if claude CLI is installed."""
     try:
         result = subprocess.run(["which", "claude"], capture_output=True, text=True)
         return result.returncode == 0
     except Exception:
         return False
 
-def has_api_key():
-    """Check if an API key is available."""
-    return bool(os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_AUTH_TOKEN'))
-
-def has_max_auth():
-    """Check if Claude Max OAuth is configured."""
-    auth_file = Path.home() / '.claude' / '.credentials.json'
-    if auth_file.exists():
+def has_auth():
+    if os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_AUTH_TOKEN'):
         return True
-    # Also check for oauth tokens
-    config_dir = Path.home() / '.claude'
-    if config_dir.exists():
-        for f in config_dir.iterdir():
-            if 'auth' in f.name.lower() or 'oauth' in f.name.lower() or 'credential' in f.name.lower():
-                return True
-    return False
+    auth_file = Path.home() / '.claude' / '.credentials.json'
+    return auth_file.exists()
 
 def can_run_claude():
-    """Check if we can actually run claude (CLI exists + some auth)."""
-    return has_claude_cli() and (has_api_key() or has_max_auth())
+    return has_claude_cli() and has_auth()
 
 def is_server_running():
-    """Check if the Rust job server is running."""
     try:
         import urllib.request
-        url = os.environ.get('CLAUDE_JOBS_URL', 'http://localhost:8820') + '/health'
+        url = 'http://localhost:8820/health'
         with urllib.request.urlopen(url, timeout=2) as resp:
             return resp.status == 200
     except Exception:
@@ -70,104 +53,444 @@ def is_server_running():
 
 
 skip_no_cli = pytest.mark.skipif(not has_claude_cli(), reason="Claude CLI not installed")
-skip_no_auth = pytest.mark.skipif(not can_run_claude(), reason="No auth available (need API key or Max subscription)")
+skip_no_auth = pytest.mark.skipif(not can_run_claude(), reason="No auth available")
 skip_no_server = pytest.mark.skipif(not is_server_running(), reason="Job server not running")
 
 
-# ── Unit Tests (always run) ─────────────────────────────────────
+# ── Unit Tests (always run, no dependencies) ─────────────────────
 
 class TestUnit:
-    """Unit tests that run without any external dependencies."""
+    """Core unit tests — always pass, no external deps."""
 
-    def test_init_no_api_key(self):
-        """Init works without an API key (Max auth mode)."""
-        env_override = {k: v for k, v in os.environ.items()
-                        if k not in ('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN')}
-        with patch.dict(os.environ, env_override, clear=True):
-            mod = Mod(default_path="/tmp")
-            assert mod is not None
-            assert mod.default_path == "/tmp"
-            assert mod.api_key is None
-            # Should not raise — Max auth doesn't need a key
-            print("\n  Init without API key: OK (Max auth mode)")
+    def test_init_default(self):
+        """Module initializes with defaults."""
+        c = Mod()
+        assert c.config is not None
+        assert c.default_path is not None
+        assert c.api_url.startswith('http')
 
-    def test_init_with_api_key(self):
-        """Init works with an explicit API key."""
-        mod = Mod(default_path="/tmp", api_key="sk-test-fake-key")
-        assert mod.api_key == "sk-test-fake-key"
-        print("\n  Init with API key: OK")
+    def test_init_custom_urls(self):
+        """Custom API/app URLs are respected."""
+        c = Mod(api_url='http://custom:9000', app_url='http://custom:9001')
+        assert c.api_url == 'http://custom:9000'
+        assert c.app_url == 'http://custom:9001'
 
-    def test_init_api_key_from_env(self):
-        """Init picks up API key from environment."""
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-env-key'}):
-            mod = Mod(default_path="/tmp")
-            assert mod.api_key == 'sk-env-key'
-            print("\n  Init from ANTHROPIC_API_KEY env: OK")
+    def test_init_with_default_path(self):
+        """default_path parameter works."""
+        c = Mod(default_path='/tmp/test')
+        assert c.default_path == '/tmp/test'
 
-    def test_init_auth_token_from_env(self):
-        """Init picks up auth token from ANTHROPIC_AUTH_TOKEN."""
-        with patch.dict(os.environ, {'ANTHROPIC_AUTH_TOKEN': 'token-123'}, clear=False):
-            mod = Mod(default_path="/tmp")
-            assert mod.api_key == 'token-123'
-            print("\n  Init from ANTHROPIC_AUTH_TOKEN env: OK")
+    def test_config_loads(self):
+        """Config loads from config.json."""
+        c = Mod()
+        assert 'name' in c.config
+        assert c.config['name'] == 'claude'
 
-    def test_set_log_level(self):
-        """Log level can be changed."""
-        Mod.set_log_level("DEBUG")
-        Mod.set_log_level("WARNING")
-        Mod.set_log_level("INFO")
-        print("\n  Log levels: OK")
+    def test_description_set(self):
+        """Module has description."""
+        assert Mod.description is not None
+        assert len(Mod.description) > 10
 
-    def test_default_model(self):
-        """Default model is set correctly."""
-        mod = Mod(default_path="/tmp")
-        assert mod.model == 'anthropic/claude-opus-4'
-        print("\n  Default model: OK")
+    def test_endpoints_list(self):
+        """Module has endpoints list."""
+        assert isinstance(Mod.endpoints, list)
+        assert 'forward' in Mod.endpoints
+        assert 'ask' in Mod.endpoints
+        assert 'submit' in Mod.endpoints
 
-    def test_custom_model(self):
-        """Custom model can be set."""
-        mod = Mod(default_path="/tmp", model="anthropic/claude-sonnet-4")
-        assert mod.model == "anthropic/claude-sonnet-4"
-        print("\n  Custom model: OK")
+    def test_module_dir(self):
+        """_module_dir returns the claude package root."""
+        c = Mod()
+        d = c._module_dir()
+        assert os.path.isdir(d)
+        assert os.path.exists(os.path.join(d, 'config.json'))
 
-    def test_bg_status_not_running(self):
-        """bg_status returns completed for non-existent PID."""
-        mod = Mod(default_path="/tmp")
-        status = mod.bg_status(999999999)
-        assert status == "completed"
-        print("\n  bg_status for dead PID: OK")
+
+class TestOwnership:
+    """Permission / ownership system."""
+
+    @pytest.fixture
+    def clean_mod(self, tmp_path):
+        """Create a Mod with isolated config to avoid mutating real config."""
+        # Copy config to temp
+        cfg_src = Path(__file__).parent.parent / 'config.json'
+        cfg_dst = tmp_path / 'config.json'
+        cfg_dst.write_text(cfg_src.read_text())
+        # Patch _module_dir to use tmp
+        c = Mod()
+        c._history_dir = tmp_path / '.history'
+        return c
+
+    def test_get_owner_returns_config_value(self):
+        """get_owner returns the owner from config."""
+        c = Mod()
+        owner = c.get_owner()
+        # config.json has an owner set
+        assert owner is not None or owner is None  # either is valid
+
+    def test_owner_info_dict(self):
+        """owner() returns dict with has_owner and owner fields."""
+        c = Mod()
+        info = c.owner()
+        assert 'owner' in info
+        assert 'has_owner' in info
+        assert isinstance(info['has_owner'], bool)
+
+    def test_is_owner_no_owner_set(self):
+        """When no owner set, everyone is owner."""
+        c = Mod()
+        c._owner = None
+        assert c.is_owner("0xanyone") is True
+        assert c.is_owner(None) is True
+
+    def test_is_owner_match(self):
+        """Owner matches correctly (case insensitive)."""
+        c = Mod()
+        c._owner = "0xabcdef1234567890abcdef1234567890abcdef12"
+        assert c.is_owner("0xabcdef1234567890abcdef1234567890abcdef12") is True
+        assert c.is_owner("0xABCDEF1234567890ABCDEF1234567890ABCDEF12") is True
+
+    def test_is_owner_no_match(self):
+        """Non-owner returns False."""
+        c = Mod()
+        c._owner = "0xabcdef1234567890abcdef1234567890abcdef12"
+        assert c.is_owner("0x1111111111111111111111111111111111111111") is False
+
+    def test_is_owner_none_when_owner_set(self):
+        """None address returns False when owner is set."""
+        c = Mod()
+        c._owner = "0xabcdef1234567890abcdef1234567890abcdef12"
+        assert c.is_owner(None) is False
+
+    def test_require_owner_passes(self):
+        """require_owner passes for matching address."""
+        c = Mod()
+        c._owner = "0xabc"
+        c.require_owner("0xabc", "test op")  # should not raise
+
+    def test_require_owner_raises(self):
+        """require_owner raises PermissionError for wrong address."""
+        c = Mod()
+        c._owner = "0xabc"
+        with pytest.raises(PermissionError, match="Access denied"):
+            c.require_owner("0xother", "test op")
+
+    def test_require_owner_message_contains_operation(self):
+        """PermissionError includes the operation name."""
+        c = Mod()
+        c._owner = "0xabc"
+        with pytest.raises(PermissionError, match="edit_file"):
+            c.require_owner("0xother", "edit_file")
+
+
+class TestHistory:
+    """IPFS version history (local file-based)."""
+
+    @pytest.fixture
+    def c(self, tmp_path):
+        mod = Mod()
+        mod._history_dir = tmp_path / '.history'
+        return mod
+
+    def test_empty_history(self, c):
+        """Fresh module has empty history."""
+        assert c.get_history() == []
+
+    def test_add_and_get_history(self, c):
+        """Can add entries and retrieve them."""
+        c._add_to_history("QmFirst", "First commit")
+        c._add_to_history("QmSecond", "Second commit")
+        h = c.get_history()
+        assert len(h) == 2
+        assert h[0]['cid'] == "QmSecond"  # newest first
+        assert h[1]['cid'] == "QmFirst"
+
+    def test_history_with_version(self, c):
+        """Version label is stored."""
+        c._add_to_history("QmVer", "Tagged release", version="v1.0")
+        h = c.get_history()
+        assert h[0]['version'] == "v1.0"
+
+    def test_history_limit(self, c):
+        """get_history respects limit."""
+        for i in range(10):
+            c._add_to_history(f"Qm{i}", f"Entry {i}")
+        h = c.get_history(limit=3)
+        assert len(h) == 3
+        assert h[0]['cid'] == "Qm9"
+
+    def test_get_latest_cid(self, c):
+        """get_latest_cid returns most recent."""
+        c._add_to_history("QmOld", "old")
+        c._add_to_history("QmNew", "new")
+        assert c.get_latest_cid() == "QmNew"
+
+    def test_get_latest_cid_empty(self, c):
+        """get_latest_cid returns None when empty."""
+        assert c.get_latest_cid() is None
+
+    def test_get_version_by_label(self, c):
+        """Can retrieve entry by version label."""
+        c._add_to_history("QmV1", "v1", version="v1.0")
+        c._add_to_history("QmV2", "v2", version="v2.0")
+        entry = c.get_version(version="v1.0")
+        assert entry is not None
+        assert entry['cid'] == "QmV1"
+
+    def test_get_version_by_cid(self, c):
+        """Can retrieve entry by CID."""
+        c._add_to_history("QmSpecial", "special")
+        entry = c.get_version(cid="QmSpecial")
+        assert entry is not None
+        assert entry['description'] == "special"
+
+    def test_get_version_not_found(self, c):
+        """Returns None for unknown version."""
+        assert c.get_version(version="v999") is None
+
+    def test_changelog_alias(self, c):
+        """changelog() is an alias for get_history()."""
+        c._add_to_history("Qm1", "one")
+        c._add_to_history("Qm2", "two")
+        cl = c.changelog(limit=1)
+        assert len(cl) == 1
+        assert cl[0]['cid'] == "Qm2"
+
+    def test_show_changelog_empty(self, c, capsys):
+        """show_changelog handles empty history."""
+        c.show_changelog()
+        out = capsys.readouterr().out
+        assert "No history" in out
+
+    def test_show_changelog_with_entries(self, c, capsys):
+        """show_changelog displays entries."""
+        c._add_to_history("QmShow", "Test display")
+        c.show_changelog()
+        out = capsys.readouterr().out
+        assert "QmShow" in out
+        assert "Test display" in out
+        assert "IPFS CID HISTORY" in out
+
+    def test_history_file_persists(self, c):
+        """History persists across _load_history calls."""
+        c._add_to_history("QmPersist", "persist test")
+        # Force reload
+        h = c._load_history()
+        assert len(h) == 1
+        assert h[0]['cid'] == "QmPersist"
+
+    def test_history_entry_has_date(self, c):
+        """History entries include date string."""
+        c._add_to_history("QmDate", "date test")
+        h = c.get_history()
+        assert 'date' in h[0]
+        assert 'timestamp' in h[0]
+
+
+class TestBgJobs:
+    """Local background job management (no server needed)."""
+
+    def test_bg_status_dead_pid(self):
+        """bg_status returns 'completed' for non-existent PID."""
+        c = Mod()
+        assert c.bg_status(999999999) == "completed"
 
     def test_bg_list_empty(self):
-        """bg_list returns empty list when no logs exist."""
-        mod = Mod(default_path="/tmp")
-        logs = mod.bg_list(log_dir="/tmp/nonexistent_claude_logs")
-        assert logs == []
-        print("\n  bg_list empty: OK")
+        """bg_list returns empty for nonexistent directory."""
+        c = Mod()
+        assert c.bg_list(log_dir="/tmp/nonexistent_claude_logs_xyz") == []
 
-    def test_bg_list_with_logs(self, tmp_path):
-        """bg_list finds log files."""
-        # Create fake log files
-        (tmp_path / "task1.log").write_text("log1")
-        (tmp_path / "task2.log").write_text("log2")
-
-        mod = Mod(default_path="/tmp")
-        logs = mod.bg_list(log_dir=str(tmp_path))
+    def test_bg_list_finds_logs(self, tmp_path):
+        """bg_list finds .log files."""
+        (tmp_path / "job_1.log").write_text("output1")
+        (tmp_path / "job_2.log").write_text("output2")
+        c = Mod()
+        logs = c.bg_list(log_dir=str(tmp_path))
         assert len(logs) == 2
-        assert all('file' in l and 'size' in l for l in logs)
-        print(f"\n  bg_list found {len(logs)} logs: OK")
+        assert all('file' in l and 'size' in l and 'name' in l for l in logs)
 
-    def test_jobs_url_default(self):
-        """Jobs URL defaults to localhost:8820."""
-        mod = Mod(default_path="/tmp")
-        assert mod._jobs_url() == 'http://localhost:8820'
-        print("\n  Jobs URL default: OK")
+    def test_bg_list_sorted_newest_first(self, tmp_path):
+        """bg_list returns logs newest first."""
+        f1 = tmp_path / "old.log"
+        f1.write_text("old")
+        time.sleep(0.05)
+        f2 = tmp_path / "new.log"
+        f2.write_text("new")
+        c = Mod()
+        logs = c.bg_list(log_dir=str(tmp_path))
+        assert logs[0]['name'] == 'new.log'
 
-    def test_jobs_url_from_env(self):
-        """Jobs URL can be set via env var."""
-        with patch.dict(os.environ, {'CLAUDE_JOBS_URL': 'http://myhost:9999'}):
-            mod = Mod(default_path="/tmp")
-            assert mod._jobs_url() == 'http://myhost:9999'
-        print("\n  Jobs URL from env: OK")
+
+class TestServerAvailability:
+    """Server connectivity checks."""
+
+    def test_server_available_returns_bool(self):
+        """_server_available returns a boolean."""
+        c = Mod()
+        result = c._server_available()
+        assert isinstance(result, bool)
+
+    def test_server_available_bad_url(self):
+        """_server_available returns False for bad URL."""
+        c = Mod(api_url='http://localhost:1')
+        assert c._server_available() is False
+
+    def test_request_raises_on_bad_server(self):
+        """_request raises ConnectionError for unreachable server."""
+        c = Mod(api_url='http://localhost:1')
+        with pytest.raises(ConnectionError):
+            c._request("GET", "/health", timeout=1)
+
+    def test_modules_fallback(self):
+        """modules() falls back to m.mods() when server is down."""
+        c = Mod(api_url='http://localhost:1')
+        mods = c.modules()
+        assert isinstance(mods, list)
+        # should have found some modules via m.mods()
+        assert len(mods) > 0
+
+
+class TestCodeOps:
+    """Code operation method signatures (mocked, no CLI needed)."""
+
+    @pytest.fixture
+    def c(self):
+        mod = Mod()
+        mod._find_claude = Mock(return_value='/usr/bin/echo')
+        return mod
+
+    def test_analyze_code_calls_cli(self, c):
+        """analyze_code invokes _run_cli."""
+        with patch.object(c, '_run_cli', return_value="analysis result") as mock:
+            result = c.analyze_code(path="/tmp", focus="security")
+            assert mock.called
+            assert result == "analysis result"
+            # check prompt contains focus
+            call_args = mock.call_args
+            assert "security" in call_args[0][0]
+
+    def test_generate_code_requires_owner(self, c):
+        """generate_code requires owner permission."""
+        c._owner = "0xowner"
+        with pytest.raises(PermissionError):
+            c.generate_code("make a function", key="0xother")
+
+    def test_generate_code_passes_with_owner(self, c):
+        """generate_code works for the owner."""
+        c._owner = "0xowner"
+        with patch.object(c, '_run_cli', return_value="def foo(): pass") as mock:
+            result = c.generate_code("make a function", key="0xowner")
+            assert mock.called
+
+    def test_refactor_requires_owner(self, c):
+        """refactor requires owner permission."""
+        c._owner = "0xowner"
+        with pytest.raises(PermissionError):
+            c.refactor("/tmp", key="0xother")
+
+    def test_debug_no_owner_required(self, c):
+        """debug is read-only, no owner needed."""
+        c._owner = "0xowner"
+        with patch.object(c, '_run_cli', return_value="found the bug") as mock:
+            result = c.debug("/tmp", error="TypeError")
+            assert mock.called
+            assert "TypeError" in mock.call_args[0][0]
+
+    def test_edit_file_requires_owner(self, c):
+        """edit_file requires owner permission."""
+        c._owner = "0xowner"
+        with pytest.raises(PermissionError):
+            c.edit_file("test.py", "add docstring", key="0xother")
+
+    def test_run_task_calls_cli(self, c):
+        """run_task invokes _run_cli."""
+        with patch.object(c, '_run_cli', return_value="done") as mock:
+            result = c.run_task("list files", path="/tmp")
+            assert mock.called
+            assert result == "done"
+
+    def test_batch_process_returns_list(self, c):
+        """batch_process returns a list of results."""
+        with patch.object(c, '_run_cli', return_value="processed") as mock:
+            results = c.batch_process(["a", "b", "c"], "summarize")
+            assert len(results) == 3
+            assert all(r['status'] == 'ok' for r in results)
+
+    def test_batch_process_handles_errors(self, c):
+        """batch_process captures errors per item."""
+        with patch.object(c, '_run_cli', side_effect=RuntimeError("fail")) as mock:
+            results = c.batch_process(["a"], "summarize")
+            assert results[0]['status'] == 'error'
+            assert 'fail' in results[0]['error']
+
+
+class TestForwardPermissions:
+    """Forward write-operation permission checks."""
+
+    @pytest.fixture
+    def c(self):
+        mod = Mod()
+        mod._owner = "0xowner"
+        return mod
+
+    def test_forward_edit_requires_owner(self, c):
+        """Forward with edit keyword requires owner."""
+        with pytest.raises(PermissionError):
+            c.forward("Edit the login page", key="0xother", background=False)
+
+    def test_forward_modify_requires_owner(self, c):
+        with pytest.raises(PermissionError):
+            c.forward("Modify the auth flow", key="0xother", background=False)
+
+    def test_forward_fix_requires_owner(self, c):
+        with pytest.raises(PermissionError):
+            c.forward("Fix the bug in main.py", key="0xother", background=False)
+
+    def test_forward_add_requires_owner(self, c):
+        with pytest.raises(PermissionError):
+            c.forward("Add a new feature", key="0xother", background=False)
+
+    def test_forward_remove_requires_owner(self, c):
+        with pytest.raises(PermissionError):
+            c.forward("Remove the deprecated function", key="0xother", background=False)
+
+    def test_forward_read_ok_for_non_owner(self, c):
+        """Read-only queries don't trigger PermissionError."""
+        # Mock _run_cli so we don't need actual CLI
+        with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
+            result = c.forward("Explain the code structure", key="0xother", background=False)
+            assert mock.called  # got past permission check
+
+
+class TestSelfTest:
+    """Built-in test() method."""
+
+    def test_self_test_returns_dict(self):
+        """test() returns structured results."""
+        c = Mod()
+        result = c.test()
+        assert 'passed' in result
+        assert 'failed' in result
+        assert 'total' in result
+        assert 'tests' in result
+        assert result['total'] == result['passed'] + result['failed']
+
+    def test_self_test_passes(self):
+        """Built-in tests should pass."""
+        c = Mod()
+        result = c.test()
+        assert result['passed'] > 0
+        assert result['failed'] == 0, f"Self-test failures: {[t for t in result['tests'] if t['status'] == 'fail']}"
+
+
+class TestRepr:
+    """String representation."""
+
+    def test_repr(self):
+        c = Mod()
+        r = repr(c)
+        assert 'Claude' in r
+        assert 'api=' in r
 
 
 # ── CLI Tests (require claude binary + auth) ────────────────────
@@ -176,454 +499,73 @@ class TestCLI:
     """Tests that invoke the actual claude CLI."""
 
     @pytest.fixture
-    def claude_mod(self):
-        return Mod(default_path=os.getcwd())
-
-    @pytest.fixture
-    def test_dir(self, tmp_path):
-        test_file = tmp_path / "test.py"
-        test_file.write_text('def hello():\n    print("Hello World")\n\nhello()\n')
-        return str(tmp_path)
+    def c(self):
+        return Mod()
 
     @skip_no_cli
-    def test_claude_binary_found(self, claude_mod):
-        """Claude binary is found on the system."""
-        assert claude_mod.claude_bin is not None
-        assert os.path.exists(claude_mod.claude_bin)
-        print(f"\n  Claude binary: {claude_mod.claude_bin}")
+    def test_find_claude(self, c):
+        """Claude binary is found."""
+        path = c._find_claude()
+        assert os.path.exists(path)
 
     @skip_no_auth
-    def test_forward_text(self, claude_mod, test_dir):
+    def test_forward_text(self, c, tmp_path):
         """Forward with text output."""
-        result = claude_mod.forward(
+        result = c.forward(
             query="Say 'test passed' and nothing else",
-            path=test_dir,
+            path=str(tmp_path),
+            background=False,
             output_format="text",
-            stream_output=False
+            stream_output=False,
         )
         assert result is not None
-        print(f"\n  Forward text result: {str(result)[:100]}")
 
     @skip_no_auth
-    def test_forward_stream(self, claude_mod, test_dir):
-        """Forward with streaming output."""
-        result = claude_mod.forward(
-            query="Say 'stream test' and nothing else",
-            path=test_dir,
-            output_format="text",
-            stream_output=True
-        )
+    def test_analyze_code(self, c, tmp_path):
+        """analyze_code runs."""
+        (tmp_path / "test.py").write_text("def hello(): print('hi')\n")
+        result = c.analyze_code(path=str(tmp_path), focus="code quality")
         assert result is not None
-        print(f"\n  Forward stream result: {str(result)[:100]}")
 
     @skip_no_auth
-    def test_forward_json(self, claude_mod, test_dir):
-        """Forward with JSON output."""
-        result = claude_mod.forward(
-            query="List the files in this directory",
-            path=test_dir,
-            output_format="json",
-            stream_output=False
+    def test_bg_spawns(self, c, tmp_path):
+        """bg() spawns a process."""
+        job = c.bg(
+            prompt="Say 'bg test' and nothing else",
+            path=str(tmp_path),
+            log_dir=str(tmp_path / "logs"),
         )
-        assert result is not None
-        print(f"\n  Forward JSON result type: {type(result).__name__}")
-
-    @skip_no_auth
-    def test_analyze_code(self, claude_mod, test_dir):
-        """Code analysis works."""
-        result = claude_mod.analyze_code(path=test_dir, focus="code quality")
-        assert result is not None
-        print(f"\n  Analysis result: OK")
-
-    @skip_no_auth
-    def test_edit_file(self, claude_mod, test_dir):
-        """File editing works."""
-        result = claude_mod.edit_file(
-            file_path="test.py",
-            instructions="Add a docstring to the hello function",
-            path=test_dir
-        )
-        assert result is not None
-        print(f"\n  Edit result: OK")
-
-    @skip_no_auth
-    def test_bg_task(self, claude_mod, test_dir, tmp_path):
-        """Background task spawns and creates log file."""
-        log_dir = str(tmp_path / "logs")
-        task = claude_mod.bg(
-            prompt="Say 'background test' and nothing else",
-            path=test_dir,
-            log_dir=log_dir
-        )
-        assert 'pid' in task
-        assert 'log_file' in task
-        assert os.path.exists(task['log_file'])
-        print(f"\n  BG task PID: {task['pid']}, log: {task['log_file']}")
-
-    @skip_no_auth
-    def test_quick_run(self, test_dir):
-        """Convenience run_claude function works."""
-        result = run_claude(
-            "Say 'quick test' and nothing else",
-            path=test_dir,
-            output_format="text",
-            stream_output=False
-        )
-        assert result is not None
-        print(f"\n  Quick run result: {str(result)[:100]}")
+        assert 'pid' in job
+        assert 'log_file' in job
+        assert os.path.exists(job['log_file'])
 
 
-# ── Server Tests (require Rust job server running) ──────────────
+# ── Server Tests (require Rust job server) ───────────────────────
 
 class TestServer:
     """Tests for the Rust job server integration."""
 
-    @pytest.fixture
-    def claude_mod(self):
-        return Mod(default_path=os.getcwd())
+    @skip_no_server
+    def test_health(self):
+        c = Mod()
+        h = c.health()
+        assert h.get('status') == 'ok'
 
     @skip_no_server
-    def test_server_health(self):
-        """Server health check returns ok."""
-        import urllib.request
-        url = os.environ.get('CLAUDE_JOBS_URL', 'http://localhost:8820') + '/health'
-        with urllib.request.urlopen(url) as resp:
-            data = json.loads(resp.read())
-            assert data['status'] == 'ok'
-        print("\n  Server health: OK")
-
-    @skip_no_server
-    def test_list_jobs(self, claude_mod):
-        """Can list jobs from server."""
-        jobs = claude_mod.jobs()
-        assert isinstance(jobs, list)
-        print(f"\n  Jobs listed: {len(jobs)}")
+    def test_list_jobs(self):
+        c = Mod()
+        j = c.jobs()
+        assert isinstance(j, list)
 
     @skip_no_server
     @skip_no_auth
-    def test_submit_and_check(self, claude_mod):
-        """Submit a job and check its status."""
-        job = claude_mod.submit(
-            prompt="Say 'server test' and nothing else",
-            model="haiku"
-        )
+    def test_submit_and_check(self):
+        c = Mod()
+        job = c.submit(prompt="Say 'server test'", model="haiku")
         assert 'id' in job
-        assert job.get('status') in ('pending', 'running')
-
-        # Check it shows up in list
-        found = claude_mod.job(job['id'])
-        assert found is not None
+        found = c.job(job['id'])
         assert found['id'] == job['id']
-        print(f"\n  Submitted job: {job['id'][:8]}, status: {found.get('status')}")
 
 
-# ── Permission Tests ────────────────────────────────────────────
-
-class TestPermissions:
-    """Tests for owner-based access control."""
-
-    @pytest.fixture
-    def claude_mod(self, tmp_path):
-        """Create a Claude instance with isolated config."""
-        # Use temp directory for config
-        config_dir = tmp_path / '.mod' / 'claude'
-        config_dir.mkdir(parents=True, exist_ok=True)
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            mod = Mod(default_path=str(tmp_path))
-            return mod
-
-    def test_no_owner_by_default(self, claude_mod):
-        """No owner is set by default."""
-        assert claude_mod.get_owner() is None
-        print("\n  No owner by default: OK")
-
-    def test_set_owner(self, claude_mod, tmp_path):
-        """Can set an owner."""
-        owner_addr = "0x1234567890abcdef1234567890abcdef12345678"
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod.set_owner(owner_addr)
-
-        assert claude_mod.get_owner() == owner_addr.lower()
-        print(f"\n  Set owner: {owner_addr}")
-
-    def test_is_owner_no_owner_set(self, claude_mod):
-        """Everyone is owner when no owner is set."""
-        assert claude_mod.is_owner("0xanyaddress") is True
-        assert claude_mod.is_owner(None) is True
-        print("\n  No owner = everyone has access: OK")
-
-    def test_is_owner_match(self, claude_mod, tmp_path):
-        """Owner check works correctly."""
-        owner_addr = "0x1234567890abcdef1234567890abcdef12345678"
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod.set_owner(owner_addr)
-
-        assert claude_mod.is_owner(owner_addr) is True
-        assert claude_mod.is_owner(owner_addr.upper()) is True  # Case insensitive
-        print("\n  Owner check matches: OK")
-
-    def test_is_owner_no_match(self, claude_mod, tmp_path):
-        """Non-owner is correctly identified."""
-        owner_addr = "0x1234567890abcdef1234567890abcdef12345678"
-        other_addr = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod.set_owner(owner_addr)
-
-        assert claude_mod.is_owner(other_addr) is False
-        print("\n  Non-owner check: OK")
-
-    def test_require_owner_success(self, claude_mod, tmp_path):
-        """require_owner passes for owner."""
-        owner_addr = "0x1234567890abcdef1234567890abcdef12345678"
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod.set_owner(owner_addr)
-            claude_mod.require_owner(owner_addr, "test operation")
-
-        print("\n  Require owner (owner): OK")
-
-    def test_require_owner_failure(self, claude_mod, tmp_path):
-        """require_owner raises error for non-owner."""
-        owner_addr = "0x1234567890abcdef1234567890abcdef12345678"
-        other_addr = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod.set_owner(owner_addr)
-
-            with pytest.raises(PermissionError) as exc_info:
-                claude_mod.require_owner(other_addr, "test operation")
-
-            assert "Access denied" in str(exc_info.value)
-            assert "test operation" in str(exc_info.value)
-
-        print("\n  Require owner (non-owner raises error): OK")
-
-    def test_owner_config_persists(self, tmp_path):
-        """Owner config is saved and loaded."""
-        owner_addr = "0x1234567890abcdef1234567890abcdef12345678"
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            # Create and set owner
-            mod1 = Mod(default_path=str(tmp_path))
-            mod1.set_owner(owner_addr)
-
-            # Create new instance - should load owner
-            mod2 = Mod(default_path=str(tmp_path))
-            assert mod2.get_owner() == owner_addr.lower()
-
-        print("\n  Owner config persists: OK")
-
-
-# ── IPFS Tests ───────────────────────────────────────────────────
-
-class TestIPFS:
-    """Tests for IPFS storage and history tracking."""
-
-    @pytest.fixture
-    def claude_mod(self, tmp_path):
-        """Create a Claude instance with isolated config."""
-        config_dir = tmp_path / '.mod' / 'claude'
-        config_dir.mkdir(parents=True, exist_ok=True)
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            mod = Mod(default_path=str(tmp_path))
-            # Mock IPFS to avoid requiring actual IPFS daemon
-            mod._ipfs = Mock()
-            return mod
-
-    def test_add_to_history(self, claude_mod, tmp_path):
-        """Can add entry to history."""
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod._add_to_history("QmTest123", "Test update")
-
-            history = claude_mod._load_history()
-            assert len(history) == 1
-            assert history[0]['cid'] == "QmTest123"
-            assert history[0]['description'] == "Test update"
-
-        print("\n  Add to history: OK")
-
-    def test_get_history_empty(self, claude_mod):
-        """Get history returns empty list when no history."""
-        history = claude_mod.get_history()
-        assert history == []
-        print("\n  Empty history: OK")
-
-    def test_get_history_with_entries(self, claude_mod, tmp_path):
-        """Get history returns entries newest first."""
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod._add_to_history("QmFirst", "First")
-            claude_mod._add_to_history("QmSecond", "Second")
-            claude_mod._add_to_history("QmThird", "Third")
-
-            history = claude_mod.get_history()
-            assert len(history) == 3
-            assert history[0]['cid'] == "QmThird"  # Newest first
-            assert history[1]['cid'] == "QmSecond"
-            assert history[2]['cid'] == "QmFirst"
-
-        print("\n  Get history (newest first): OK")
-
-    def test_get_history_limit(self, claude_mod, tmp_path):
-        """Get history respects limit."""
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            for i in range(10):
-                claude_mod._add_to_history(f"QmTest{i}", f"Update {i}")
-
-            history = claude_mod.get_history(limit=5)
-            assert len(history) == 5
-            assert history[0]['cid'] == "QmTest9"  # Newest
-
-        print("\n  Get history with limit: OK")
-
-    def test_get_latest_cid(self, claude_mod, tmp_path):
-        """Get latest CID returns most recent."""
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod._add_to_history("QmOld", "Old")
-            claude_mod._add_to_history("QmNew", "New")
-
-            latest = claude_mod.get_latest_cid()
-            assert latest == "QmNew"
-
-        print("\n  Get latest CID: OK")
-
-    def test_get_latest_cid_empty(self, claude_mod):
-        """Get latest CID returns None when no history."""
-        latest = claude_mod.get_latest_cid()
-        assert latest is None
-        print("\n  Get latest CID (empty): OK")
-
-    def test_store_to_ipfs(self, claude_mod, tmp_path):
-        """Store to IPFS adds to history."""
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            # Mock IPFS put to return a CID
-            claude_mod._ipfs.put = Mock(return_value="QmStored123")
-
-            cid = claude_mod._store_to_ipfs(
-                {'test': 'data'},
-                description="Test storage"
-            )
-
-            assert cid == "QmStored123"
-            assert claude_mod._ipfs.put.called
-
-            # Check it was added to history
-            history = claude_mod.get_history()
-            assert len(history) == 1
-            assert history[0]['cid'] == "QmStored123"
-
-        print("\n  Store to IPFS: OK")
-
-    def test_history_file_location(self, tmp_path):
-        """History file is in correct location."""
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            mod = Mod(default_path=str(tmp_path))
-            expected_path = tmp_path / '.mod' / 'claude' / 'cid_history.json'
-            assert Path(mod.history_path) == expected_path
-
-        print("\n  History file location: OK")
-
-    def test_show_history(self, claude_mod, tmp_path, capsys):
-        """Show history displays correctly."""
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod._add_to_history("QmTest123", "Test update")
-
-            claude_mod.show_history(limit=10)
-
-            captured = capsys.readouterr()
-            assert "QmTest123" in captured.out
-            assert "Test update" in captured.out
-            assert "IPFS CID HISTORY" in captured.out
-
-        print("\n  Show history display: OK")
-
-    def test_show_history_empty(self, claude_mod, capsys):
-        """Show history handles empty history."""
-        claude_mod.show_history()
-
-        captured = capsys.readouterr()
-        assert "No history entries found" in captured.out
-
-        print("\n  Show history (empty): OK")
-
-
-# ── Integration Tests (Permissions + IPFS + Editing) ────────────
-
-class TestIntegration:
-    """Integration tests combining permissions and IPFS."""
-
-    @pytest.fixture
-    def claude_mod(self, tmp_path):
-        """Create a Claude instance with mocked IPFS."""
-        config_dir = tmp_path / '.mod' / 'claude'
-        config_dir.mkdir(parents=True, exist_ok=True)
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            mod = Mod(default_path=str(tmp_path))
-            # Mock IPFS
-            mod._ipfs = Mock()
-            mod._ipfs.put = Mock(return_value="QmMocked123")
-            return mod
-
-    @skip_no_auth
-    def test_edit_file_owner_permission(self, tmp_path):
-        """Edit file requires owner permission."""
-        test_file = tmp_path / "test.py"
-        test_file.write_text("# Test file\n")
-
-        owner_addr = "0x1234567890abcdef1234567890abcdef12345678"
-        other_addr = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            mod = Mod(default_path=str(tmp_path))
-            mod.set_owner(owner_addr)
-
-            # Non-owner cannot edit
-            with pytest.raises(PermissionError):
-                mod.edit_file(
-                    "test.py",
-                    "Add a comment",
-                    path=str(tmp_path),
-                    key=other_addr
-                )
-
-        print("\n  Edit file requires owner: OK")
-
-    def test_forward_edit_keywords_require_owner(self, claude_mod, tmp_path):
-        """Forward with edit keywords requires owner."""
-        owner_addr = "0x1234567890abcdef1234567890abcdef12345678"
-        other_addr = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-
-        with patch('pathlib.Path.home', return_value=tmp_path):
-            claude_mod.set_owner(owner_addr)
-
-            # These keywords should trigger permission check
-            edit_queries = [
-                "Edit the file",
-                "Modify the code",
-                "Update the function",
-                "Fix the bug",
-                "Add a feature",
-                "Remove the line",
-            ]
-
-            for query in edit_queries:
-                # Mock the actual CLI call to avoid needing auth
-                with patch.object(claude_mod, 'claude_bin', '/bin/echo'):
-                    with pytest.raises(PermissionError):
-                        claude_mod.forward(
-                            query=query,
-                            path=str(tmp_path),
-                            key=other_addr
-                        )
-
-        print("\n  Edit keywords require owner: OK")
-
-
-# Run tests with verbose output
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])

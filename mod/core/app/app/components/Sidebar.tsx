@@ -19,7 +19,7 @@ import { CSS } from '@dnd-kit/utilities'
 const defaultNavigation = [
   { id: 'search', name: 'Search', component: 'SearchBar', color: '#d8cc1b' },
   // { id: 'chat', name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon, color: '#ef4444' },
-  { id: 'mods', name: 'Mods', href: '/mod/explore', icon: CubeIcon, color: '#3b82f6' },
+  { id: 'mods', name: 'Mods', href: '/mods', icon: CubeIcon, color: '#3b82f6' },
   { id: 'transactions', name: 'Transactions', href: '/transactions', icon: TableCellsIcon, color: '#f59e0b' },
   { id: 'split', name: 'Split Screen', component: 'SplitScreen', color: '#a855f7' },
   { id: 'treasury', name: 'Treasury', component: 'TreasuryHeader', color: '#10b981' },
@@ -131,7 +131,7 @@ export function Sidebar() {
 
   const mainNavItems = [
     { id: 'chat', name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon, color: '#a855f7' },
-    { id: 'mods', name: 'Mods', href: '/mod/explore', icon: CubeIcon, color: '#10b981' },
+    { id: 'mods', name: 'Mods', href: '/mods', icon: CubeIcon, color: '#10b981' },
     { id: 'users', name: 'Users', href: '/user/explore', icon: GlobeAltIcon, color: '#3b82f6' },
     { id: 'transactions', name: 'Transactions', href: '/transactions', icon: TableCellsIcon, color: '#f59e0b' },
   ]

@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 
 export function LoginHeader() {
   const pathname = usePathname()
-  const isModsPage = pathname === '/mod/explore'
+  const isModsPage = pathname === '/mods'
   const isUsersPage = pathname === '/user/explore'
   const [showMenu, setShowMenu] = useState(false)
   const [isNarrow, setIsNarrow] = useState(false)
@@ -47,7 +47,7 @@ export function LoginHeader() {
       e.preventDefault()
       const trimmed = inputValue.trim()
       handleSearch(trimmed)
-      router.push('/mod/explore')
+      router.push('/mods')
     }
     if (e.key === 'Escape') {
       setInputValue('')
@@ -56,7 +56,7 @@ export function LoginHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-black" style={{ borderColor: '#00ff0040' }}>
+    <header className="sticky top-0 z-50 w-full" style={{ backgroundColor: 'var(--bg-primary)', borderColor: '#00ff0040' }}>
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-4">
           <div className="relative flex items-center gap-3">
@@ -127,7 +127,7 @@ export function LoginHeader() {
                 >
                   <nav className="flex flex-col p-3 gap-2">
                     <Link
-                      href="/mod/explore"
+                      href="/mods"
                       className={`flex items-center gap-3 px-4 border-4 transition-all duration-200 backdrop-blur-md uppercase ${
                         isModsPage ? 'shadow-xl active:scale-95' : 'hover:shadow-lg active:scale-95'
                       }`}

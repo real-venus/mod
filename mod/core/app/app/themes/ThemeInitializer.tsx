@@ -1,17 +1,17 @@
 "use client"
 
 import { useEffect } from 'react'
-import { themes, getTheme, applyTheme } from './themeConfig'
+import { themes, defaultTheme, getTheme, applyTheme } from './themeConfig'
 
 /**
  * Global theme initializer that mounts once and loads the saved theme.
- * This component should be placed outside any conditionally rendered areas
- * to prevent theme resets when components mount/unmount.
+ * This is the PRIMARY theme system. It manages named themes (classic, light,
+ * glass, etc.) and syncs the light/dark class on <html> accordingly.
  */
 export function ThemeInitializer() {
   useEffect(() => {
-    // Load saved theme from localStorage
-    const savedTheme = localStorage.getItem('app_theme') || 'classic'
+    // Load saved named theme from localStorage
+    const savedTheme = localStorage.getItem('app_theme') || defaultTheme
     const savedCustomThemes = localStorage.getItem('custom_themes')
 
     let allThemes = { ...themes }
@@ -26,7 +26,7 @@ export function ThemeInitializer() {
       }
     }
 
-    // Apply the saved theme
+    // Apply the saved theme (this also sets light/dark class on <html>)
     applyTheme(allThemes[savedTheme] || getTheme(savedTheme))
   }, []) // Only run once on mount
 

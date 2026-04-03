@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { userContext } from '@/context'
 import { ethers } from 'ethers'
 import { Wallet, TrendingUp, DollarSign } from 'lucide-react'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { PortfolioControlBar } from './PortfolioControlBar'
 
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)']

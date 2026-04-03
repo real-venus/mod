@@ -16,7 +16,7 @@ class PM2:
                 mod='mod',
                 path='~/.mod/pm2',
                 scripts_path='~/.mod/scripts/serve',
-                registry = 'server.registry',
+                registry = 'server.namespace',
                 **kwargs):
         self.mod = mod
         self.store = m.mod('store')(path)

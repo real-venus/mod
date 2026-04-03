@@ -6,7 +6,7 @@ import { ArrowPathIcon, ArrowRightStartOnRectangleIcon, XMarkIcon, CheckIcon } f
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-toastify'
 import DebitABI from '@/contracts/market/debit/Debit.sol/Debit.json'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { Auth } from '@/client/auth'
 
 const WalletModeLogo = ({ mode, size = 16 }: { mode: string; size?: number }) => {
@@ -263,7 +263,13 @@ export function SidebarHeader({
 
   return (
     <>
-      <div className="sticky top-0 z-10 backdrop-blur-md" style={{ backgroundColor: 'var(--bg-sidebar)' }}>
+      <motion.div
+        className="sticky top-0 z-10 backdrop-blur-md"
+        style={{ backgroundColor: 'var(--bg-sidebar)' }}
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08, duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+      >
         <div className="px-3 pt-3 pb-2">
           {/* Single unified bar */}
           <div
@@ -771,7 +777,7 @@ export function SidebarHeader({
         )}
 
         <div className="mx-3" style={{ borderBottom: '2px solid var(--border-strong)' }} />
-      </div>
+      </motion.div>
     </>
   )
 }

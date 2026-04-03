@@ -2,7 +2,7 @@
 
 import {Auth} from './auth';
 import {Key} from '@/key';
-
+import modConfig from '@config';
 
 export class Client {
   public url: string;
@@ -12,7 +12,7 @@ export class Client {
   private keyRotationCallback?: () => void;
 
   constructor(url?: string, token?: string) {
-    this.url = url || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    this.url = url || process.env.NEXT_PUBLIC_API_URL || modConfig.url.api || 'http://localhost:8000';
     console.log('Client initialized with URL:', this.url);
     this.auth = new Auth(undefined);
     this.token = token;

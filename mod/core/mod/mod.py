@@ -650,9 +650,12 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
     # ── Storage (get/put) ────────────────────────────────────────────────
 
     def get(self, k: str, default: Any = None, max_age: str = None,
+            fs = 'localfs',
             update: bool = False, password: str = None, verbose=False, **kwargs) -> Any:
         if self.iscid(k):
-            return self.fn('ipfs/get')(k)
+            if '/' in k:
+                fs = k.split('/')[0]
+            return self.fn(f'{fs}/get')(k)
         k = self.get_path(k)
         data = self.get_json(k, default=default, **kwargs)
         if password is not None:
@@ -723,8 +726,11 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
         with open(path, 'r') as f:
             return f.read()
 
+    fs = 'localfs'
     def iscid(self, text: str) -> bool:
-        return isinstance(text, str) and text.startswith('Qm') and len(text) == 46
+        if not isinstance(text, str):
+            return False
+        return (text.startswith('Qm') and len(text) == 46) or (text.startswith(self.fs) and len(text) == 59) or text.startswith(self.fs)
 
     def env(self, key: str = None) -> Union[str, dict, None]:
         if key is not None:

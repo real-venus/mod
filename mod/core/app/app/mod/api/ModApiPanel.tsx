@@ -58,14 +58,14 @@ export default function ModApiPanel({
 
   if (!mod) {
     return (
-      <div className="h-full flex items-center justify-center p-4 bg-black font-mono" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+      <div className="h-full flex items-center justify-center p-4 font-mono" style={{ backgroundColor: 'var(--bg-primary)', fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
         <p className="text-[12px] text-white/40 font-bold uppercase tracking-wider">Select a module to view API</p>
       </div>
     )
   }
 
   return (
-    <div className="h-full flex flex-col p-4 bg-black font-mono" style={{ fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
+    <div className="h-full flex flex-col p-4 font-mono" style={{ backgroundColor: 'var(--bg-primary)', fontFamily: 'IBM Plex Mono, Courier New, monospace' }}>
       {/* Header */}
       <div className="mb-4 overflow-hidden border border-white/[0.12] bg-[#0d0d0d]">
         <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.08]">

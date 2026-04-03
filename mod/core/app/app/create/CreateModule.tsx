@@ -678,7 +678,7 @@ export default function CreateModule() {
             </div>
             {result.name && registerToKey && (
               <div className="px-5 pt-4">
-                <Link href={`/mod/${result.name}/${registerToKey}`}>
+                <Link href={`/${result.name}`}>
                   <div className="py-3 text-center font-bold text-base uppercase tracking-wider border-4 text-green-500 hover:bg-green-500/10 transition-all group" style={{ borderColor: 'var(--border-strong)', fontFamily: 'var(--font-digital)' }}>
                     <span className="flex items-center justify-center gap-2">
                       VIEW MODULE <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>

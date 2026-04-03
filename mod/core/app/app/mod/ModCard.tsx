@@ -4,9 +4,10 @@ import { KeyIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import { ModuleType } from '@/types'
 import Link from 'next/link'
 import { CopyButton } from '@/ui/CopyButton'
-import { Clock, Zap, Box, Globe, Lock, ChevronDown, Users, GitBranch } from 'lucide-react'
+import { Lock, ChevronDown } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { QRCode } from '@/ui/QRCode'
+import { userContext } from '@/context'
 
 interface ModCardProps {
   mod: ModuleType
@@ -39,11 +40,9 @@ export default function ModCard({
   const versionDropdownRef = useRef<HTMLDivElement>(null)
 
   const modColor = text2color(mod.name || mod.key)
-  const keyColor = text2color(mod.key)
-  const cidColor = text2color(mod.cid || '')
   const updatedTimeStr = mod.updated ? time2str(mod.updated * 1000) : time2str(Date.now())
   const agoStr = mod.updated ? timeAgo(mod.updated * 1000) : ''
-  const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/mod/${mod.name}/${mod.key}` : ''
+  const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/${mod.name}` : ''
   const fnCount = mod.schema ? Object.keys(mod.schema).length : 0
 
   const isExpanded = !card_enabled && !compact
@@ -222,151 +221,179 @@ export default function ModCard({
 
   const cardContent = (
     <div
-      className={`relative overflow-visible group h-full ${card_enabled ? 'cursor-pointer' : ''}`}
+      className={`relative overflow-hidden group h-full ${card_enabled ? 'cursor-pointer' : ''}`}
       style={{
         fontFamily: TERM_FONT,
         ...(card_enabled ? {
-          background: `linear-gradient(135deg, var(--bg-secondary) 0%, ${colorWithOpacity(modColor, 0.04)} 100%)`,
-          border: `1px solid ${isHovered ? colorWithOpacity(modColor, 0.6) : 'var(--border-color)'}`,
-          borderLeft: `3px solid ${isHovered ? modColor : colorWithOpacity(modColor, 0.35)}`,
-          borderRadius: '8px',
+          background: 'var(--bg-secondary)',
+          border: `1px solid ${isHovered ? colorWithOpacity(modColor, 0.25) : 'var(--border-color)'}`,
+          borderRadius: '14px',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           boxShadow: isHovered
-            ? `0 8px 32px ${colorWithOpacity(modColor, 0.2)}, 0 0 0 1px ${colorWithOpacity(modColor, 0.1)}`
-            : `0 2px 8px rgba(0,0,0,0.2)`,
-          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+            ? `0 8px 32px rgba(0,0,0,0.15), 0 0 0 1px ${colorWithOpacity(modColor, 0.08)}`
+            : '0 2px 8px rgba(0,0,0,0.06)',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
         } : {}),
       }}
       onMouseEnter={() => card_enabled && setIsHovered(true)}
       onMouseLeave={() => card_enabled && setIsHovered(false)}
     >
-      <div className={`relative ${card_enabled ? 'px-5 pt-5 pb-4' : ''}`}>
+      {/* Subtle accent gradient overlay */}
+      {card_enabled && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            borderRadius: '14px',
+            background: `linear-gradient(135deg, ${colorWithOpacity(modColor, isHovered ? 0.06 : 0.02)} 0%, transparent 70%)`,
+            transition: 'background 0.3s ease',
+          }}
+        />
+      )}
+
+      {/* Left accent line */}
+      {card_enabled && (
+        <div
+          className="absolute left-0 top-3 bottom-3"
+          style={{
+            width: '2px',
+            borderRadius: '0 2px 2px 0',
+            background: isHovered
+              ? modColor
+              : colorWithOpacity(modColor, 0.2),
+            transition: 'all 0.3s ease',
+            boxShadow: isHovered ? `0 0 8px ${colorWithOpacity(modColor, 0.4)}` : 'none',
+          }}
+        />
+      )}
+
+      <div className={`relative ${card_enabled ? 'pl-5 pr-4 pt-4 pb-3.5' : ''}`}>
         {/* Header */}
-        <div className={`${isExpanded ? 'mb-5' : 'mb-4'}`}>
-          <div className="flex items-center gap-2.5">
-            <span style={{
-              color: modColor,
-              fontSize: '20px',
-              fontWeight: 800,
+        <div className="flex items-center gap-2.5 mb-2.5">
+          <code
+            className="truncate"
+            style={{
+              color: 'var(--text-primary)',
               fontFamily: TERM_FONT,
-              textShadow: `0 0 12px ${colorWithOpacity(modColor, 0.5)}`,
-              opacity: isHovered ? 1 : 0.7,
-              transition: 'opacity 0.2s ease',
-            }}>$</span>
-            <code
-              className={`tracking-wider truncate ${isExpanded ? 'text-3xl' : 'text-xl'}`}
+              fontSize: isExpanded ? '22px' : '18px',
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            {mod.name}
+          </code>
+          {fnCount > 0 && (
+            <span
+              className="flex-shrink-0 px-1.5 py-0.5 rounded-md"
               style={{
-                color: 'var(--text-primary)',
+                color: colorWithOpacity(modColor, 0.7),
+                fontSize: '12px',
                 fontFamily: TERM_FONT,
-                fontWeight: 700,
-                textShadow: isHovered
-                  ? `0 0 20px ${colorWithOpacity(modColor, 0.5)}`
-                  : 'none',
-                transition: 'text-shadow 0.2s ease',
-                letterSpacing: '0.04em',
+                fontWeight: 500,
+                background: colorWithOpacity(modColor, 0.06),
+                border: `1px solid ${colorWithOpacity(modColor, 0.1)}`,
               }}
             >
-              {mod.name}
-            </code>
-            {fnCount > 0 && (
-              <span
-                className="flex-shrink-0 px-1.5 py-0.5 rounded"
-                style={{
-                  color: colorWithOpacity(modColor, 0.8),
-                  fontSize: '12px',
-                  fontFamily: TERM_FONT,
-                  background: colorWithOpacity(modColor, 0.1),
-                  border: `1px solid ${colorWithOpacity(modColor, 0.15)}`,
-                }}
-              >
-                {fnCount} fn
-              </span>
-            )}
-            {mod.public === false && (
-              <Lock size={13} className="flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-            )}
+              {fnCount} fn
+            </span>
+          )}
+          {mod.public === false && (
+            <Lock size={12} className="flex-shrink-0" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }} />
+          )}
 
-            <div className="flex-1" />
+          <div className="flex-1" />
 
-            {mod.url && (
-              <span className="flex items-center gap-1.5" style={{
-                color: 'var(--accent-success, #22c55e)',
-                fontWeight: 700,
-                fontSize: '11px',
-                fontFamily: TERM_FONT,
-                letterSpacing: '0.12em',
-              }}>
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--accent-success, #22c55e)', boxShadow: '0 0 6px var(--accent-success, #22c55e)' }} />
-                LIVE
-              </span>
-            )}
+          {mod.url && (
+            <span className="flex items-center gap-1.5" style={{
+              color: 'var(--accent-success, #34d399)',
+              fontSize: '12px',
+              fontFamily: TERM_FONT,
+              fontWeight: 500,
+              letterSpacing: '0.05em',
+            }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{
+                background: 'var(--accent-success, #34d399)',
+                boxShadow: '0 0 6px var(--accent-success, #34d399)',
+              }} />
+              LIVE
+            </span>
+          )}
 
-            {/* QR on hover */}
-            <div className="flex items-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <div
-                className="relative"
-                onMouseEnter={() => setIsNameQrHovered(true)}
-                onMouseLeave={() => setIsNameQrHovered(false)}
-              >
-                <div className="w-6 h-6 flex items-center justify-center rounded" style={{ color: 'var(--text-tertiary)' }}>
-                  <QrCodeIcon className="h-3.5 w-3.5 cursor-pointer" />
-                </div>
-                {isNameQrHovered && (
-                  <div
-                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 z-[9999] rounded-lg"
-                    style={{
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--bg-sidebar)',
-                    }}
-                  >
-                    <QRCode value={websiteUrl} size={120} color={modColor} />
-                  </div>
-                )}
+          {/* QR on hover */}
+          <div className="flex items-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div
+              className="relative"
+              onMouseEnter={() => setIsNameQrHovered(true)}
+              onMouseLeave={() => setIsNameQrHovered(false)}
+            >
+              <div className="w-6 h-6 flex items-center justify-center" style={{ color: 'var(--text-tertiary)' }}>
+                <QrCodeIcon className="h-3.5 w-3.5 cursor-pointer hover:opacity-80 transition-opacity" />
               </div>
+              {isNameQrHovered && (
+                <div
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 z-[9999]"
+                  style={{
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    background: 'var(--bg-sidebar)',
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                  }}
+                >
+                  <QRCode value={websiteUrl} size={120} color={modColor} />
+                </div>
+              )}
             </div>
           </div>
-
-          {mod.desc && (
-            <p
-              className={`mt-2.5 ${isExpanded ? 'text-base' : 'text-sm line-clamp-2'}`}
-              style={{
-                color: 'var(--text-tertiary)',
-                fontFamily: TERM_FONT,
-                lineHeight: '1.5',
-                opacity: 0.75,
-              }}
-            >
-              {mod.desc}
-            </p>
-          )}
         </div>
 
+        {mod.desc && (
+          <p
+            className={`mb-2.5 ${isExpanded ? '' : 'line-clamp-2'}`}
+            style={{
+              color: 'var(--text-tertiary)',
+              fontFamily: TERM_FONT,
+              fontSize: '13px',
+              lineHeight: '1.5',
+            }}
+          >
+            {mod.desc}
+          </p>
+        )}
+
         {/* Metadata row */}
-        <div className="flex items-center gap-4" style={{ fontSize: '12px', fontFamily: TERM_FONT, color: 'var(--text-tertiary)', opacity: 0.65 }}>
+        <div className="flex items-center gap-3" style={{ fontSize: '13px', fontFamily: TERM_FONT, color: 'var(--text-tertiary)', opacity: 0.7 }}>
           <span title={updatedTimeStr}>{agoStr || updatedTimeStr}</span>
 
+          <span className="opacity-30">|</span>
+
           <span
-            className="cursor-default"
+            className="cursor-default flex items-center gap-1"
             title={mod.key}
             onClick={(e) => e.preventDefault()}
           >
             <Link href={`/user/${mod.key}`} onClick={(e) => e.stopPropagation()}>
               <KeyIcon
-                className={`inline hover:scale-110 transition-transform ${isExpanded ? 'w-3.5 h-3.5' : 'w-3 h-3'}`}
-                style={{ color: 'var(--text-tertiary)', strokeWidth: 2.5 }}
+                className="inline w-3 h-3 hover:scale-110 transition-transform"
+                style={{ color: 'var(--text-tertiary)', strokeWidth: 2 }}
               />
             </Link>
-            {' '}<code style={{ fontFamily: TERM_FONT }}>{shorten(mod.key, 4, 4)}</code>
+            <code style={{ fontFamily: TERM_FONT }}>{shorten(mod.key, 4, 4)}</code>
           </span>
 
           {mod.cid && (
-            <span
-              className="cursor-default"
-              title={mod.cid}
-              onClick={(e) => e.preventDefault()}
-            >
-              <code style={{ fontFamily: TERM_FONT }}>{shorten(mod.cid || '', 4, 4)}</code>
-            </span>
+            <>
+              <span className="opacity-30">|</span>
+              <span
+                className="cursor-default"
+                title={mod.cid}
+                onClick={(e) => e.preventDefault()}
+              >
+                <code style={{ fontFamily: TERM_FONT }}>{shorten(mod.cid || '', 4, 4)}</code>
+              </span>
+            </>
           )}
         </div>
       </div>
@@ -376,7 +403,7 @@ export default function ModCard({
   if (!card_enabled) return cardContent
 
   return (
-    <Link href={`/mod/${mod.name}/${mod.key}`}>
+    <Link href={`/${mod.name}`}>
       {cardContent}
     </Link>
   )

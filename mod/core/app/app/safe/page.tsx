@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ethers } from 'ethers'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { userContext } from '@/context'
 import {
   getSafeInfo,

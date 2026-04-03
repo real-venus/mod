@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 import TokenABI from '@/contracts//token/Token.sol/Token.json'
 import TreasuryABI from '@/contracts//treasury/Treasury.sol/Treasury.json'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 export class TreasuryAllowanceManager {
   private config: any

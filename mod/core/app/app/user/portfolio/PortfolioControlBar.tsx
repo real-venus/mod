@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { userContext } from '@/context'
 import { MagnifyingGlassIcon, CreditCardIcon, ArrowsRightLeftIcon, ArrowPathIcon, BanknotesIcon, FolderIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
 import { ethers } from 'ethers'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)']
 

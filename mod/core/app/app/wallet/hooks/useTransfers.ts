@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ethers } from 'ethers'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 type TransferTokenType = 'MARKET' | 'USDC' | 'USDT'
 type TokenType = 'USDC' | 'USDT'

@@ -9,6 +9,7 @@ import { TransactionsTab } from './TransactionsTab'
 import { AccountsTab } from './AccountsTab'
 import { PortfolioTab } from './PortfolioTab'
 import { ContractsTab } from './ContractsTab'
+import { ModsTab } from './ModsTab'
 
 function TabButton({ active, onClick, icon, label, colorActive, colorInactive }: {
   active: boolean
@@ -19,9 +20,13 @@ function TabButton({ active, onClick, icon, label, colorActive, colorInactive }:
   colorInactive: string
 }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 transition-all duration-300 text-base font-digital uppercase shadow-lg hover:scale-105 ${
+      whileHover={{ scale: 1.06, y: -2 }}
+      whileTap={{ scale: 0.95 }}
+      animate={active ? { scale: 1.02 } : { scale: 1 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+      className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 transition-colors duration-300 text-base font-digital uppercase shadow-lg ${
         active
           ? `bg-gradient-to-br ${colorActive}`
           : `bg-gradient-to-br ${colorInactive}`
@@ -39,7 +44,7 @@ function TabButton({ active, onClick, icon, label, colorActive, colorInactive }:
     >
       {icon}
       <span>{label}</span>
-    </button>
+    </motion.button>
   )
 }
 
@@ -139,6 +144,7 @@ export function WalletSidebar(props: WalletSidebarProps) {
   const showTxs = activeTab === 'txs'
   const showWallets = activeTab === 'wallets'
   const showContracts = activeTab === 'contracts'
+  const showMods = activeTab === 'mods'
 
   return (
     <div>
@@ -147,17 +153,17 @@ export function WalletSidebar(props: WalletSidebarProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80]"
         onClick={onClose}
       />
 
       {/* Side Panel */}
       <motion.div
-        initial={{ x: 400, opacity: 0 }}
+        initial={{ x: '100%', opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        exit={{ x: 400, opacity: 0 }}
-        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+        exit={{ x: '100%', opacity: 0 }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
         className={`fixed top-0 right-0 h-screen shadow-2xl z-[90] overflow-y-auto custom-scrollbar font-mono ${isResizing ? 'select-none' : ''}`}
         style={{
           width: `${sidebarWidth}px`,
@@ -199,7 +205,12 @@ export function WalletSidebar(props: WalletSidebarProps) {
         />
 
         {/* Action Tabs */}
-        <div className="px-5 py-3">
+        <motion.div
+          className="px-5 py-3"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+        >
           <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#404040 transparent' }}>
             <TabButton
               active={showPortfolio}
@@ -244,6 +255,18 @@ export function WalletSidebar(props: WalletSidebarProps) {
               label="CHAIN"
               colorActive="from-cyan-500/30 to-blue-500/30 border-cyan-400 text-cyan-300 shadow-cyan-500/50"
               colorInactive="from-cyan-950/40 to-blue-950/40 border-cyan-900/60 text-cyan-600 hover:text-cyan-300 hover:border-cyan-400/60 hover:shadow-cyan-500/30"
+            />
+            <TabButton
+              active={showMods}
+              onClick={() => openTab('mods')}
+              icon={
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+              }
+              label="MODS"
+              colorActive="from-teal-500/30 to-emerald-500/30 border-teal-400 text-teal-300 shadow-teal-500/50"
+              colorInactive="from-teal-950/40 to-emerald-950/40 border-teal-900/60 text-teal-600 hover:text-teal-300 hover:border-teal-400/60 hover:shadow-teal-500/30"
             />
           </div>
 
@@ -311,7 +334,9 @@ export function WalletSidebar(props: WalletSidebarProps) {
 
           <ContractsTab show={showContracts} />
 
-        </div>
+          <ModsTab show={showMods} />
+
+        </motion.div>
       </motion.div>
     </div>
   )

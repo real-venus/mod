@@ -61,24 +61,19 @@ export function getNavHref(item: NavItem, userAddress?: string): string {
   // Otherwise, go to module page
   const moduleName = item.moduleName || item.href.replace(/^\//, '')
 
-  // If we have a user address, link to their module version
-  // Otherwise, link to search/explore with the module name
-  if (userAddress) {
-    return `/mod/${moduleName}/${userAddress}`
-  } else {
-    return `/mod/explore?search=${moduleName}`
-  }
+  return `/${moduleName}`
 }
 
 /**
  * Get all navigation items including additional modules from config
+ * and optionally from running module app servers (auto-discovery).
  */
-export function getAllNavItems(): NavItem[] {
+export function getAllNavItems(moduleApps?: Record<string, unknown>): NavItem[] {
   const items = [...NAV_ITEMS]
 
-  // Add additional modules from config
   const existingHrefs = new Set(items.map(item => item.href))
 
+  // Add additional modules from config
   for (const moduleName of ADDITIONAL_MODULES) {
     const href = `/${moduleName}`
     if (!existingHrefs.has(href)) {
@@ -89,6 +84,24 @@ export function getAllNavItems(): NavItem[] {
         type: 'module',
         moduleName,
       })
+      existingHrefs.add(href)
+    }
+  }
+
+  // Auto-add running module app servers
+  if (moduleApps) {
+    for (const moduleName of Object.keys(moduleApps)) {
+      const href = `/${moduleName}`
+      if (!existingHrefs.has(href)) {
+        items.push({
+          href,
+          label: moduleName.toUpperCase(),
+          color: getModuleColor(moduleName),
+          type: 'module',
+          moduleName,
+        })
+        existingHrefs.add(href)
+      }
     }
   }
 

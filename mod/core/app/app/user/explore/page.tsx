@@ -87,7 +87,7 @@ export default function UsersPage() {
     }[columns] || 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className="min-h-screen bg-black text-white transition-all duration-300 pl-20">
+    <div className="min-h-screen text-white transition-all duration-300 pl-20" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <main className="flex-1 px-2 pt-0 pb-0" role="main">
         <div className="mx-auto mb-6" style={{ width: '90%', maxWidth: 'none' }}>
           <div className="flex items-center gap-4 mb-4">

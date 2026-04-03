@@ -1,0 +1,380 @@
+{
+  "name": "claude-fork",
+  "version": "1.0.0",
+  "description": "Programmable AI developer interface with Python SDK, Rust Job Server, and Next.js Terminal UI (fork)",
+  "owner": "0xeb0631ce3ec62ceed053c66eb6481753d0c812a8",
+  "port": 8830,
+  "default_path": "~/mod",
+  "urls": {
+    "app": "http://localhost:8831",
+    "api": "http://localhost:8830"
+  },
+  "fns": [
+    "forward",
+    "ask",
+    "analyze_code",
+    "generate_code",
+    "refactor",
+    "debug",
+    "edit_file",
+    "run_task",
+    "batch_process",
+    "bg",
+    "submit",
+    "create_module",
+    "edit_module",
+    "jobs",
+    "job",
+    "cancel",
+    "delete_job",
+    "tail",
+    "snapshot",
+    "changelog",
+    "get_version",
+    "restore_version",
+    "show_changelog"
+  ],
+  "schema": {
+    "forward": {
+      "input": [
+        {"name": "query", "type": "str", "value": "_empty"},
+        {"name": "path", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": null},
+        {"name": "stream", "type": "bool", "value": false},
+        {"name": "store_ipfs", "type": "bool", "value": false},
+        {"name": "requires_owner", "type": "bool", "value": null}
+      ],
+      "output": {"type": "Union[str, Dict]", "value": null},
+      "docs": "Core unified operation handler — queries Claude, streams output, optionally stores to IPFS.",
+      "cost": 0
+    },
+    "ask": {
+      "input": [
+        {"name": "message", "type": "str", "value": "_empty"},
+        {"name": "model", "type": "str", "value": null},
+        {"name": "stream", "type": "bool", "value": false}
+      ],
+      "output": {"type": "str", "value": null},
+      "docs": "Conversational interface — ask a question, get a response.",
+      "cost": 0
+    },
+    "submit": {
+      "input": [
+        {"name": "prompt", "type": "str", "value": "_empty"},
+        {"name": "model", "type": "str", "value": "sonnet"},
+        {"name": "work_dir", "type": "str", "value": null},
+        {"name": "module_name", "type": "str", "value": null},
+        {"name": "creation_mode", "type": "str", "value": null},
+        {"name": "fork_source", "type": "str", "value": null},
+        {"name": "anchor_dir", "type": "str", "value": null},
+        {"name": "images", "type": "list", "value": null}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Submit a background job to the Rust job server. Returns job with id and status.",
+      "cost": 0
+    },
+    "create_module": {
+      "input": [
+        {"name": "module_name", "type": "str", "value": "_empty"},
+        {"name": "prompt", "type": "str", "value": "_empty"},
+        {"name": "model", "type": "str", "value": "sonnet"},
+        {"name": "anchor_dir", "type": "str", "value": null}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Create a new orbit module via background job.",
+      "cost": 0
+    },
+    "edit_module": {
+      "input": [
+        {"name": "module_name", "type": "str", "value": "_empty"},
+        {"name": "prompt", "type": "str", "value": "_empty"},
+        {"name": "model", "type": "str", "value": "sonnet"}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Edit an existing module via background job.",
+      "cost": 0
+    },
+    "analyze_code": {
+      "input": [
+        {"name": "path", "type": "str", "value": "_empty"},
+        {"name": "query", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": null}
+      ],
+      "output": {"type": "str", "value": null},
+      "docs": "Analyze code at a path. Read-only, no owner required.",
+      "cost": 0
+    },
+    "generate_code": {
+      "input": [
+        {"name": "description", "type": "str", "value": "_empty"},
+        {"name": "language", "type": "str", "value": "python"},
+        {"name": "path", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": null}
+      ],
+      "output": {"type": "str", "value": null},
+      "docs": "Generate code from description. Write operation, requires owner.",
+      "cost": 0
+    },
+    "refactor": {
+      "input": [
+        {"name": "path", "type": "str", "value": "_empty"},
+        {"name": "instructions", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": null}
+      ],
+      "output": {"type": "str", "value": null},
+      "docs": "Refactor code at path. Write operation, requires owner.",
+      "cost": 0
+    },
+    "debug": {
+      "input": [
+        {"name": "path", "type": "str", "value": "_empty"},
+        {"name": "error", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": null}
+      ],
+      "output": {"type": "str", "value": null},
+      "docs": "Debug code at path. Read-only, no owner required.",
+      "cost": 0
+    },
+    "edit_file": {
+      "input": [
+        {"name": "path", "type": "str", "value": "_empty"},
+        {"name": "instructions", "type": "str", "value": "_empty"},
+        {"name": "model", "type": "str", "value": null}
+      ],
+      "output": {"type": "str", "value": null},
+      "docs": "Edit a file with instructions. Write operation, requires owner.",
+      "cost": 0
+    },
+    "bg": {
+      "input": [
+        {"name": "prompt", "type": "str", "value": "_empty"},
+        {"name": "path", "type": "str", "value": null},
+        {"name": "mod", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": null}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Run a background job locally with nohup.",
+      "cost": 0
+    },
+    "jobs": {
+      "input": [],
+      "output": {"type": "list", "value": null},
+      "docs": "List all jobs from the Rust job server.",
+      "cost": 0
+    },
+    "job": {
+      "input": [
+        {"name": "job_id", "type": "str", "value": "_empty"}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Get details of a specific job.",
+      "cost": 0
+    },
+    "cancel": {
+      "input": [
+        {"name": "job_id", "type": "str", "value": "_empty"}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Cancel a running job.",
+      "cost": 0
+    },
+    "delete_job": {
+      "input": [
+        {"name": "job_id", "type": "str", "value": "_empty"}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Delete a job from the server.",
+      "cost": 0
+    },
+    "tail": {
+      "input": [
+        {"name": "job_id", "type": "str", "value": "_empty"}
+      ],
+      "output": {"type": "None", "value": null},
+      "docs": "Live stream job output via SSE.",
+      "cost": 0
+    },
+    "run_task": {
+      "input": [
+        {"name": "task", "type": "str", "value": "_empty"},
+        {"name": "path", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": null}
+      ],
+      "output": {"type": "str", "value": null},
+      "docs": "Run an arbitrary task with Claude CLI.",
+      "cost": 0
+    },
+    "batch_process": {
+      "input": [
+        {"name": "items", "type": "list", "value": "_empty"},
+        {"name": "instruction", "type": "str", "value": "_empty"},
+        {"name": "model", "type": "str", "value": null}
+      ],
+      "output": {"type": "list", "value": null},
+      "docs": "Process a batch of items with the same instruction.",
+      "cost": 0
+    },
+    "snapshot": {
+      "input": [
+        {"name": "description", "type": "str", "value": null},
+        {"name": "version", "type": "str", "value": null}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Take a snapshot of the current module state, store all source files to IPFS, and add to changelog.",
+      "cost": 0
+    },
+    "changelog": {
+      "input": [
+        {"name": "limit", "type": "int", "value": null}
+      ],
+      "output": {"type": "list", "value": null},
+      "docs": "Get the version changelog (newest first) with version, CID, date, and description.",
+      "cost": 0
+    },
+    "get_version": {
+      "input": [
+        {"name": "version", "type": "str", "value": null},
+        {"name": "cid", "type": "str", "value": null}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Retrieve a specific version snapshot from IPFS by version label or CID.",
+      "cost": 0
+    },
+    "restore_version": {
+      "input": [
+        {"name": "version", "type": "str", "value": null},
+        {"name": "cid", "type": "str", "value": null},
+        {"name": "dry_run", "type": "bool", "value": true}
+      ],
+      "output": {"type": "Dict", "value": null},
+      "docs": "Restore the module to a previous version from IPFS. Defaults to dry_run=True.",
+      "cost": 0
+    },
+    "show_changelog": {
+      "input": [
+        {"name": "limit", "type": "int", "value": 20}
+      ],
+      "output": {"type": "None", "value": null},
+      "docs": "Display the version changelog in a readable terminal format.",
+      "cost": 0
+    }
+  },
+  "endpoints": {
+    "/health": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Health check",
+      "output": {"status": "str"}
+    },
+    "/config": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Get this module's config.json",
+      "output": {"name": "str", "version": "str", "description": "str", "port": "int", "urls": "dict", "fns": "list", "schema": "dict", "endpoints": "dict"}
+    },
+    "/owner": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Get owner address and status",
+      "output": {"has_owner": "bool", "owner": "str"}
+    },
+    "/repos": {
+      "method": "GET",
+      "auth": false,
+      "docs": "List git repositories",
+      "input": [{"name": "q", "type": "str", "value": null}],
+      "output": {"repos": "list"}
+    },
+    "/modules": {
+      "method": "GET",
+      "auth": false,
+      "docs": "List orbit and core modules with config data",
+      "input": [
+        {"name": "q", "type": "str", "value": null},
+        {"name": "anchor", "type": "str", "value": "~/mod"}
+      ],
+      "output": {"modules": "list", "count": "int"}
+    },
+    "/modules/{name}/config": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Get raw config.json for a specific module",
+      "output": {"name": "str", "path": "str", "config": "dict"}
+    },
+    "/files/tree": {
+      "method": "GET",
+      "auth": false,
+      "docs": "File tree browser",
+      "input": [
+        {"name": "path", "type": "str", "value": "~/mod"},
+        {"name": "depth", "type": "int", "value": 3}
+      ],
+      "output": {"tree": "list", "path": "str"}
+    },
+    "/auth/challenge": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Get MetaMask signature challenge nonce",
+      "input": [{"name": "address", "type": "str", "value": "_empty"}],
+      "output": {"message": "str"}
+    },
+    "/auth/verify": {
+      "method": "POST",
+      "auth": false,
+      "docs": "Verify MetaMask signature and get bearer token",
+      "input": [
+        {"name": "address", "type": "str", "value": "_empty"},
+        {"name": "signature", "type": "str", "value": "_empty"},
+        {"name": "message", "type": "str", "value": "_empty"}
+      ],
+      "output": {"token": "str"}
+    },
+    "/jobs": {
+      "method": ["POST", "GET"],
+      "auth": true,
+      "docs": "Submit new job (POST) or list all jobs (GET)",
+      "input": [
+        {"name": "prompt", "type": "str", "value": "_empty"},
+        {"name": "model", "type": "str", "value": "sonnet"},
+        {"name": "work_dir", "type": "str", "value": null},
+        {"name": "module_name", "type": "str", "value": null},
+        {"name": "creation_mode", "type": "str", "value": null},
+        {"name": "fork_source", "type": "str", "value": null},
+        {"name": "anchor_dir", "type": "str", "value": null},
+        {"name": "images", "type": "list", "value": null}
+      ],
+      "output": {"id": "str", "status": "str", "prompt": "str"}
+    },
+    "/jobs/{id}": {
+      "method": ["GET", "DELETE"],
+      "auth": true,
+      "docs": "Get job details (GET) or delete job (DELETE)",
+      "output": {"id": "str", "prompt": "str", "model": "str", "work_dir": "str", "status": "str", "output": "str", "error": "str", "pid": "int", "created_at": "int", "updated_at": "int"}
+    },
+    "/jobs/{id}/cancel": {
+      "method": "POST",
+      "auth": true,
+      "docs": "Cancel a running job",
+      "output": {"success": "bool"}
+    },
+    "/jobs/{id}/stream": {
+      "method": "GET",
+      "auth": true,
+      "docs": "SSE live stream of job output",
+      "output": "text/event-stream"
+    },
+    "/changelog": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Get version changelog (newest first) with IPFS CIDs",
+      "input": [{"name": "limit", "type": "int", "value": null}],
+      "output": {"changelog": "list", "count": "int"}
+    },
+    "/versions/{version}": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Get a specific version entry from the changelog",
+      "output": {"version": "dict", "gateway": "str"}
+    }
+  }
+}

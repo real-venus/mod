@@ -7,7 +7,7 @@ export default function UserPageWrapper() {
   const transactionsPanelRef = useRef<{ handleSync: () => void } | null>(null)
 
   return (
-    <div className="bg-black h-full p-4">
+    <div className="h-full p-4" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-7xl mx-auto">
         <UserPage />
       </div>

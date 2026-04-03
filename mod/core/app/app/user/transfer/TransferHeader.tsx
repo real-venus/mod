@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { ethers } from 'ethers'
 import { toast } from 'react-toastify'
 

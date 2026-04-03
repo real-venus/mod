@@ -6,23 +6,25 @@ import { Loading } from '@/ui/Loading'
 import { ModuleType } from '@/types'
 import { userContext } from '@/context'
 import { useRouter } from 'next/navigation'
-import { text2color, colorWithOpacity, shorten } from '@/utils'
+import { text2color, colorWithOpacity, getModAppUrl } from '@/utils'
 import UpdateMod from '@/user/UpdateMod'
 import ModEdit from '@/mod/edit/ModEdit'
 import ModVersions from '@/mod/versions/ModVersions'
 import ModTask from '@/mod/task/ModTask'
-import ModCode from '@/mod/code/ModCode'
 import ModContent from '@/mod/content/ModContent'
-import Link from 'next/link'
+import ModTerminal from '@/mod/terminal/ModTerminal'
+import ModConfig from '@/mod/config/ModConfig'
+import ModApp from '@/mod/app/ModApp'
+import ModApiTab from '@/mod/api/ModApiTab'
+import ModManage from '@/mod/manage/ModManage'
 
-const defaultTab = 'task'
-const availableTabs = ['task', 'content', 'versions', 'edit']
+const defaultTab = 'content'
 export default function ModulePage() {
   const params = useParams()
   const router = useRouter()
   const { client, user } = userContext()
   const modName = params.mod as string
-  const modKey = params.key as string
+  const modKey = (params.key as string) || ''
   const [mod, setMod] = useState<ModuleType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -38,7 +40,7 @@ export default function ModulePage() {
 
   useEffect(() => {
     const fetchMod = async () => {
-      if (!modName || !modKey) return
+      if (!modName) return
       setLoading(true)
       setError(null)
       try {
@@ -46,9 +48,34 @@ export default function ModulePage() {
           setError('Client not initialized')
           return
         }
-        console.log('Fetching mod:', modName, modKey)
-        const data = await client.call('mod', { mod: modName, key: modKey, expand: true , schema: true })
-        console.log('Fetched mod data:', data)
+
+        let resolvedKey = modKey
+        let data: any = null
+
+        if (resolvedKey) {
+          // Key provided — fetch directly
+          data = await client.call('mod', { mod: modName, key: resolvedKey, expand: true, schema: true })
+        } else {
+          // No key — resolve by searching for the module name
+          const allVersions = await client.call('mods', { search: modName })
+          const sameNameMods = (Array.isArray(allVersions) ? allVersions : [])
+            .filter((m: any) => m.name === modName)
+          if (sameNameMods.length > 0) {
+            resolvedKey = sameNameMods[0].key
+            data = await client.call('mod', { mod: modName, key: resolvedKey, expand: true, schema: true })
+            setAllModVersions(sameNameMods)
+            setSelectedOwnerIndex(0)
+          }
+        }
+
+        if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+          setError(`Module '${modName}' not found`)
+          return
+        }
+        if (data.error) {
+          setError(data.error)
+          return
+        }
         if (user?.key && data.key === user.key) {
           setMyMod(true)
         } else {
@@ -56,39 +83,63 @@ export default function ModulePage() {
         }
         setMod(data as ModuleType)
 
-        // Fetch all versions of this module by different owners
-        try {
-          const allVersions = await client.call('mods', { search: modName })
-          const sameNameMods = (Array.isArray(allVersions) ? allVersions : [])
-            .filter((m: any) => m.name === modName)
-          setAllModVersions(sameNameMods)
+        // Fetch all versions of this module by different owners (if not already fetched above)
+        if (modKey) {
+          try {
+            const allVersions = await client.call('mods', { search: modName })
+            const sameNameMods = (Array.isArray(allVersions) ? allVersions : [])
+              .filter((m: any) => m.name === modName)
+            setAllModVersions(sameNameMods)
 
-          // Set selected owner index based on current mod key
-          const currentIndex = sameNameMods.findIndex((m: any) => m.key === modKey)
-          setSelectedOwnerIndex(currentIndex >= 0 ? currentIndex : 0)
-        } catch (err) {
-          console.error('Failed to fetch all mod versions:', err)
-          setAllModVersions([data as ModuleType])
+            const currentIndex = sameNameMods.findIndex((m: any) => m.key === resolvedKey)
+            setSelectedOwnerIndex(currentIndex >= 0 ? currentIndex : 0)
+          } catch (err) {
+            console.error('Failed to fetch all mod versions:', err)
+            setAllModVersions([data as ModuleType])
+          }
         }
 
         // Fetch historical versions of this specific module
         try {
-          const vers = await client.call('versions', { key: modKey, mod: modName })
+          const vers = await client.call('versions', { key: resolvedKey, mod: modName })
           const versionsList = Array.isArray(vers) ? vers : []
           setVersions(versionsList)
-          setSelectedVersionIndex(0) // Default to latest version
+          setSelectedVersionIndex(0)
         } catch (err) {
           console.error('Failed to fetch versions:', err)
           setVersions([])
         }
       } catch (err: any) {
         console.error('Failed to fetch mod:', err)
+        setError(err?.message || 'Failed to load module')
       } finally {
         setLoading(false)
       }
     }
     fetchMod()
   }, [modName, modKey, client, user])
+
+  const fnCount = mod?.schema ? Object.keys(mod.schema).length : 0
+
+  // Broadcast module info to TopBar
+  useEffect(() => {
+    if (!mod) return
+    window.dispatchEvent(new CustomEvent('mod:info', {
+      detail: { fnCount, key: mod.key, cid: mod.cid || '', url_app: getModAppUrl(mod) || '' }
+    }))
+    window.dispatchEvent(new CustomEvent('mod:tab-change', {
+      detail: { tab: activeTab }
+    }))
+  }, [mod, fnCount, activeTab])
+
+  // Listen for tab changes from TopBar
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      setActiveTab(e.detail.tab)
+    }
+    window.addEventListener('mod:tab-set' as any, handler)
+    return () => window.removeEventListener('mod:tab-set' as any, handler)
+  }, [])
 
   if (loading) {
     return (
@@ -134,7 +185,7 @@ export default function ModulePage() {
   }
 
   const handleOwnerChange = (newOwnerKey: string) => {
-    router.push(`/mod/${modName}/${newOwnerKey}`)
+    router.push(`/${modName}`)
   }
 
   const handleVersionChange = async (versionIndex: number) => {
@@ -142,8 +193,6 @@ export default function ModulePage() {
     // Optionally, you can load the version's content here
     // For now, this just updates the selection
   }
-
-  const fnCount = mod.schema ? Object.keys(mod.schema).length : 0
 
   return (
     <div
@@ -154,77 +203,28 @@ export default function ModulePage() {
         color: 'var(--text-primary)',
       }}
     >
-      <main className="relative flex-1 px-5 pt-3 pb-4">
+      <main className="relative flex-1 px-4 pt-2 pb-4">
         <div className="w-full">
-          {/* Single top bar: name + owner + cid + tabs all inline */}
-          <div
-            className="flex items-center gap-5 pb-3 mb-3"
-            style={{ borderBottom: '1px solid var(--border-color)', fontFamily: 'var(--font-digital)' }}
-          >
-            {/* Name */}
-            <code
-              className="font-bold tracking-wide"
-              style={{ color: 'var(--text-primary)', fontSize: '18px', textShadow: `0 0 12px ${colorWithOpacity(moduleColor, 0.4)}` }}
-            >
-              {mod.name?.toLowerCase()}
-            </code>
-
-            {fnCount > 0 && (
-              <span style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>[{fnCount} fn]</span>
-            )}
-
-            {/* Owner */}
-            <Link href={`/user/${mod.key}`} className="hover:underline" style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-              {shorten(mod.key, 4, 4)}
-            </Link>
-
-            {/* CID */}
-            {mod.cid && (
-              <span style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>
-                {shorten(mod.cid, 4, 4)}
-              </span>
-            )}
-
-            {/* Tabs right beside */}
-            {availableTabs.map((tab) => {
-              const isActive = activeTab === tab
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab as any)}
-                  className="px-3 py-1 font-bold uppercase tracking-wider transition-all"
-                  style={{
-                    fontSize: '13px',
-                    ...(isActive
-                      ? {
-                          color: 'var(--bg-primary)',
-                          backgroundColor: 'var(--text-primary)',
-                        }
-                      : {
-                          color: 'var(--text-tertiary)',
-                          backgroundColor: 'transparent',
-                        }),
-                  }}
-                >
-                  {tab}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Tab content - full width */}
-          <div>
-            {activeTab === 'task' && <ModTask mod={mod} moduleColor={moduleColor} />}
-            {activeTab === 'content' && <ModContent mod={mod} />}
-            {activeTab === 'versions' && <ModVersions mod={mod} selectedVersionIndex={selectedVersionIndex} onVersionChange={handleVersionChange} />}
-            {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
-            {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}
-            {activeTab === 'edit' && !myMod && (
-              <div className="flex items-center justify-center py-16">
-                <p className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ ONLY THE MODULE OWNER CAN EDIT THIS MODULE</p>
-              </div>
-            )}
-          </div>
+          {activeTab === 'task' && <ModTask mod={mod} moduleColor={moduleColor} />}
+          {activeTab === 'content' && <ModContent mod={mod} />}
+          {activeTab === 'config' && <ModConfig mod={mod} />}
+          {activeTab === 'terminal' && <ModTerminal mod={mod} moduleColor={moduleColor} />}
+          {activeTab === 'app' && getModAppUrl(mod) && <ModApp mod={mod} moduleColor={moduleColor} />}
+          {activeTab === 'api' && mod.url && <ModApiTab mod={mod} moduleColor={moduleColor} />}
+          {activeTab === 'versions' && <ModVersions mod={mod} selectedVersionIndex={selectedVersionIndex} onVersionChange={handleVersionChange} />}
+          {activeTab === 'manage' && myMod && <ModManage mod={mod} moduleColor={moduleColor} />}
+          {activeTab === 'manage' && !myMod && (
+            <div className="flex items-center justify-center py-16">
+              <p className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ ONLY THE MODULE OWNER CAN MANAGE THIS MODULE</p>
+            </div>
+          )}
+          {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
+          {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}
+          {activeTab === 'edit' && !myMod && (
+            <div className="flex items-center justify-center py-16">
+              <p className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ ONLY THE MODULE OWNER CAN EDIT THIS MODULE</p>
+            </div>
+          )}
         </div>
       </main>
     </div>

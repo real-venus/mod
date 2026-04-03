@@ -22,7 +22,7 @@ const SplitScreenContext = createContext<SplitScreenContextType | undefined>(und
 export function SplitScreenProvider({ children }: { children: ReactNode }) {
   const [isSplitScreen, setIsSplitScreen] = useState(false)
   const [leftPanelUrl, setLeftPanelUrl] = useState('/')
-  const [rightPanelUrl, setRightPanelUrl] = useState('/mod/explore')
+  const [rightPanelUrl, setRightPanelUrl] = useState('/mods')
   const [orientation, setOrientation] = useState<Orientation>('vertical')
   const [isCollapsed, setIsCollapsed] = useState(false)
 

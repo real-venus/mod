@@ -1,234 +1,199 @@
 "use client"
 
 import { motion } from 'framer-motion'
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-const ASCII_PATTERNS = [
-  '░▒▓█▓▒░',
-  '▀▄▀▄▀▄',
-  '◢◣◥◤',
-  '▓▒░▒▓',
-  '█▓▒░▒▓█',
-  '╔═╗╚═╝',
-  '┌─┐└─┘',
-  '▲▼◄►',
+const ORBS = [
+  { size: 300, color: 'rgba(167, 139, 250, 0.15)', x: '15%', y: '20%', delay: 0 },
+  { size: 200, color: 'rgba(103, 232, 249, 0.12)', x: '75%', y: '60%', delay: 5 },
+  { size: 250, color: 'rgba(52, 211, 153, 0.08)', x: '60%', y: '15%', delay: 10 },
+  { size: 180, color: 'rgba(251, 191, 36, 0.06)', x: '25%', y: '75%', delay: 3 },
+  { size: 150, color: 'rgba(167, 139, 250, 0.08)', x: '85%', y: '25%', delay: 7 },
 ]
 
-const MATRIX_CHARS =
-  '01ΞΨΩαβγδεζηθικλμνξοπρστυφχψω░▒▓█<>{}[]|/\\'
+const FEATURES = [
+  { title: 'PUBLISH', desc: 'Deploy modules on-chain. Immutable, permissionless, zero middlemen.' },
+  { title: 'VERIFY', desc: 'Cryptographically signed. Tamper-proof. Code is law.' },
+  { title: 'INSTALL', desc: 'Users verify and install trustlessly. Decentralized distribution.' },
+]
+
+const STATS = [
+  { label: 'ON-CHAIN', value: 'MODULES' },
+  { label: 'VERIFIED', value: 'CRYPTO' },
+  { label: 'ZERO', value: 'MIDDLEMEN' },
+]
 
 export default function Home() {
-  const [matrixRain, setMatrixRain] = useState<string[][]>([])
-  const [pattern, setPattern] = useState(0)
-  const [glitchText, setGlitchText] = useState('MODCHAIN')
-
-  useEffect(() => {
-    const cols = Math.floor(window.innerWidth / 20)
-    const rows = 30
-
-    const rain = Array(cols)
-      .fill(0)
-      .map(() =>
-        Array(rows)
-          .fill(0)
-          .map(
-            () =>
-              MATRIX_CHARS[
-                Math.floor(Math.random() * MATRIX_CHARS.length)
-              ]
-          )
-      )
-
-    setMatrixRain(rain)
-
-    const interval = setInterval(() => {
-      setMatrixRain(prev =>
-        prev.map(col => {
-          const newCol = [...col]
-          newCol.shift()
-          newCol.push(
-            MATRIX_CHARS[
-              Math.floor(Math.random() * MATRIX_CHARS.length)
-            ]
-          )
-          return newCol
-        })
-      )
-    }, 100)
-
-    const patternInterval = setInterval(() => {
-      setPattern(p => (p + 1) % ASCII_PATTERNS.length)
-    }, 2000)
-
-    const glitchInterval = setInterval(() => {
-      const glitchChars =
-        'MODCHAIN!@#$%^&*()_+-=[]{}|;:,.<>?/~`'
-
-      setGlitchText(prev =>
-        Math.random() > 0.7
-          ? prev
-              .split('')
-              .map(
-                () =>
-                  glitchChars[
-                    Math.floor(Math.random() * glitchChars.length)
-                  ]
-              )
-              .join('')
-          : 'MODCHAIN'
-      )
-    }, 150)
-
-    return () => {
-      clearInterval(interval)
-      clearInterval(patternInterval)
-      clearInterval(glitchInterval)
-    }
-  }, [])
-
   return (
-    <div className="min-h-screen relative overflow-hidden font-mono" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      {/* Matrix Background */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none">
-        <div className="flex gap-1 text-emerald-500 dark:text-green-500 text-xs">
-          {matrixRain.map((col, i) => (
-            <div key={i} className="flex flex-col">
-              {col.map((char, j) => (
-                <span key={j} className={j === col.length - 1 ? 'text-emerald-600 dark:text-white' : ''}>
-                  {char}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
+    <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      {/* Floating Orbs Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {ORBS.map((orb, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full"
+            style={{
+              width: orb.size,
+              height: orb.size,
+              background: `radial-gradient(circle, ${orb.color}, transparent 70%)`,
+              left: orb.x,
+              top: orb.y,
+              filter: 'blur(40px)',
+            }}
+            animate={{
+              x: [0, 30, -20, 0],
+              y: [0, -25, 15, 0],
+              scale: [1, 1.1, 0.95, 1],
+            }}
+            transition={{
+              duration: 15,
+              repeat: Infinity,
+              delay: orb.delay,
+              ease: 'easeInOut',
+            }}
+          />
+        ))}
       </div>
 
-      {/* Scanlines */}
+      {/* Subtle dot grid */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16,185,129,0.03) 2px, rgba(16,185,129,0.03) 4px)'
+        backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)`,
+        backgroundSize: '40px 40px',
       }} />
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
 
-        {/* ASCII Pattern Border */}
+        {/* Title */}
         <motion.div
-          animate={{ opacity: [0.3, 0.7, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="text-emerald-500 dark:text-green-500 text-2xl mb-8 tracking-widest"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+          className="mb-6 text-center"
         >
-          {ASCII_PATTERNS[pattern].repeat(10)}
+          <h1 className="text-8xl font-bold tracking-wider" style={{
+            color: 'var(--text-primary)',
+            textShadow: '0 0 60px rgba(167, 139, 250, 0.2), 0 0 120px rgba(103, 232, 249, 0.08)',
+            fontFamily: "var(--font-orbitron), var(--font-digital), monospace",
+          }}>
+            MODCHAIN
+          </h1>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.8 }}
+            className="text-lg mt-4 tracking-[0.3em]"
+            style={{ color: 'var(--text-secondary)', fontWeight: 400 }}
+          >
+            DECENTRALIZED MODULE REGISTRY
+          </motion.div>
         </motion.div>
 
-        {/* Glitch Title */}
+        {/* Stats row */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mb-8 relative"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.6 }}
+          className="flex gap-8 mb-12"
         >
-          <div className="text-7xl font-bold tracking-wider relative" style={{ color: 'var(--text-primary)' }}>
-            <span className="absolute inset-0 text-cyan-500 dark:text-cyan-400" style={{ clipPath: 'inset(0 0 50% 0)', transform: 'translateX(-3px)' }}>
-              {glitchText}
-            </span>
-            <span className="absolute inset-0 text-purple-600 dark:text-purple-500" style={{ clipPath: 'inset(50% 0 0 0)', transform: 'translateX(3px)' }}>
-              {glitchText}
-            </span>
-            <span className="relative">
-              MODCHAIN
-            </span>
-          </div>
-          <div className="text-center text-lg mt-3 tracking-[0.5em]" style={{ color: 'var(--text-primary)' }}>
-            ▓▒░ DECENTRALIZED MODULE REGISTRY ░▒▓
-          </div>
+          {STATS.map((stat, i) => (
+            <div key={i} className="text-center">
+              <div className="text-xs tracking-[0.2em]" style={{ color: 'var(--text-tertiary)' }}>{stat.label}</div>
+              <div className="text-sm font-semibold mt-1" style={{ color: 'var(--accent-primary, #a78bfa)' }}>{stat.value}</div>
+            </div>
+          ))}
         </motion.div>
 
-        {/* Core Info Box */}
+        {/* Feature cards - glass panel */}
         <motion.div
-          animate={{
-            boxShadow: ['0 0 20px rgba(6,182,212,0.3)', '0 0 40px rgba(139,92,246,0.6)', '0 0 20px rgba(6,182,212,0.3)']
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+          className="mb-12 max-w-3xl w-full"
+          style={{
+            background: 'rgba(15, 20, 40, 0.4)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '20px',
+            padding: '44px',
+            boxShadow: '0 8px 40px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
           }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="border-2 border-cyan-500 dark:border-cyan-400 p-8 backdrop-blur-sm mb-8 max-w-4xl rounded-lg"
-          style={{ backgroundColor: 'var(--bg-secondary)' }}
         >
-          <pre className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-{`╔═══════════════════════════════════════════════════════════╗
-║  MODCHAIN: BLOCKCHAIN MODULE REGISTRY                     ║
-╠═══════════════════════════════════════════════════════════╣
-║                                                           ║
-║  WHAT:                                                    ║
-║  • Decentralized app store - NO gatekeepers               ║
-║  • Software modules on-chain (immutable)                  ║
-║  • Cryptographically verified & tamper-proof              ║
-║  • Permissionless publishing                              ║
-║                                                           ║
-║  HOW:                                                     ║
-║  1. Create MOD                                            ║
-║  2. Sign cryptographically                                ║
-║  3. Publish to blockchain                                 ║
-║  4. Users verify & install trustlessly                    ║
-║  5. Zero middlemen                                        ║
-║                                                           ║
-║  WHY:                                                     ║
-║  • Code is law                                            ║
-║  • Cryptography = freedom                                 ║
-║  • Decentralization prevents control                      ║
-║  • Build without permission                               ║
-║                                                           ║
-║  TL;DR: npm + blockchain = unstoppable distribution       ║
-╚═══════════════════════════════════════════════════════════╝`}
-          </pre>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {FEATURES.map((item, i) => (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 + i * 0.15 }}
+              >
+                <h3 className="text-sm font-semibold tracking-[0.2em] mb-3" style={{ color: 'var(--accent-primary, #a78bfa)' }}>
+                  {item.title}
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)', fontFamily: "var(--font-digital), monospace" }}>
+                  {item.desc}
+                </p>
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
 
         {/* CTA Buttons */}
-        <div className="flex gap-6">
-          <motion.div
-            whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(6,182,212,0.6)' }}
-            whileTap={{ scale: 0.95 }}
-          >
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8, duration: 0.6 }}
+          className="flex gap-5"
+        >
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             <Link
               href="/chat"
-              className="px-8 py-4 border-2 border-cyan-500 dark:border-cyan-400 bg-cyan-500/10 dark:bg-cyan-400/10 font-bold hover:bg-cyan-500 dark:hover:bg-cyan-400 hover:text-white dark:hover:text-black transition-all rounded-lg"
-              style={{ color: 'var(--text-primary)' }}
+              className="px-8 py-4 font-semibold transition-all rounded-xl inline-block"
+              style={{
+                background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(103, 232, 249, 0.1))',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(167, 139, 250, 0.3)',
+                color: 'var(--text-primary)',
+                boxShadow: '0 4px 20px rgba(167, 139, 250, 0.15)',
+                fontFamily: "var(--font-digital), monospace",
+              }}
             >
-              <span className="relative z-10">CHAT_INTERFACE</span>
+              ENTER APP
             </Link>
           </motion.div>
 
-          <motion.div
-            whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(139,92,246,0.6)' }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             <Link
               href="/user/explore"
-              className="px-8 py-4 border-2 border-purple-600 dark:border-purple-500 bg-purple-600/10 dark:bg-purple-500/10 font-bold hover:bg-purple-600 dark:hover:bg-purple-500 hover:text-white dark:hover:text-black transition-all rounded-lg"
-              style={{ color: 'var(--text-primary)' }}
+              className="px-8 py-4 font-semibold transition-all rounded-xl inline-block"
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: 'var(--text-primary)',
+                fontFamily: "var(--font-digital), monospace",
+              }}
             >
-              JOIN_NETWORK
+              EXPLORE NETWORK
             </Link>
           </motion.div>
-        </div>
-
-        {/* Bottom Pattern */}
-        <motion.div
-          animate={{ opacity: [0.3, 0.7, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-          className="text-cyan-500 dark:text-cyan-400 text-2xl mt-8 tracking-widest"
-        >
-          {ASCII_PATTERNS[(pattern + 4) % ASCII_PATTERNS.length].repeat(10)}
         </motion.div>
 
-        {/* Terminal Cursor */}
+        {/* Subtle bottom accent line */}
         <motion.div
-          animate={{ opacity: [1, 0] }}
-          transition={{ duration: 0.8, repeat: Infinity }}
-          className="text-cyan-500 dark:text-cyan-400 text-3xl mt-3"
-        >
-          █
-        </motion.div>
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ delay: 1.2, duration: 1, ease: [0.4, 0, 0.2, 1] }}
+          className="mt-16 h-px w-48"
+          style={{
+            background: 'linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.3), rgba(103, 232, 249, 0.2), transparent)',
+          }}
+        />
       </div>
     </div>
   )

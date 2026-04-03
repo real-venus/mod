@@ -108,6 +108,99 @@ class LocalFS:
 
             return base58.b58encode(multihash).decode('ascii')
 
+    def _compute_cidv1(self, data: bytes, codec: int = 0x70) -> str:
+        """
+        Compute a CIDv1 for the given data (base32lower multibase).
+
+        Args:
+            data: Raw bytes to hash
+            codec: Multicodec code (0x70=dag-pb, 0x55=raw, 0x71=dag-cbor)
+
+        Returns:
+            CIDv1 string (bafy... format for dag-pb)
+        """
+        import base64
+        # For dag-pb, wrap in UnixFS first
+        if codec == 0x70:
+            unixfs_data = self._encode_unixfs_data(data)
+            dag_pb_node = self._encode_dagpb_node(unixfs_data)
+            hash_bytes = hashlib.sha256(dag_pb_node).digest()
+        else:
+            hash_bytes = hashlib.sha256(data).digest()
+
+        # CIDv1 = version(1) + codec + multihash
+        # multihash = hash_fn(0x12) + digest_size(0x20) + digest
+        multihash = b'\x12\x20' + hash_bytes
+        cid_bytes = self._encode_varint(1) + self._encode_varint(codec) + multihash
+
+        # base32lower encoding (multibase prefix 'b')
+        return 'b' + base64.b32encode(cid_bytes).decode('ascii').lower().rstrip('=')
+
+    def to_cidv1(self, cidv0: str) -> str:
+        """
+        Convert a CIDv0 (Qm...) to CIDv1 (base32lower).
+
+        Args:
+            cidv0: CIDv0 string
+
+        Returns:
+            CIDv1 string
+        """
+        import base64
+        if not cidv0.startswith('Qm'):
+            return cidv0  # already v1 or unknown
+        multihash = base58.b58decode(cidv0)
+        # CIDv1 = version(1) + codec(dag-pb=0x70) + multihash
+        cid_bytes = self._encode_varint(1) + self._encode_varint(0x70) + multihash
+        return 'b' + base64.b32encode(cid_bytes).decode('ascii').lower().rstrip('=')
+
+    def to_cidv0(self, cidv1: str) -> str:
+        """
+        Convert a CIDv1 (base32lower, dag-pb) back to CIDv0 (Qm...).
+
+        Args:
+            cidv1: CIDv1 string
+
+        Returns:
+            CIDv0 string or original if not convertible
+        """
+        import base64
+        if cidv1.startswith('Qm'):
+            return cidv1  # already v0
+        if not cidv1.startswith('b'):
+            return cidv1  # unknown format
+        # Remove multibase prefix and decode base32
+        b32 = cidv1[1:].upper()
+        # Add padding
+        padding = (8 - len(b32) % 8) % 8
+        b32 += '=' * padding
+        try:
+            cid_bytes = base64.b32decode(b32)
+        except Exception:
+            return cidv1
+        # Parse: version(varint) + codec(varint) + multihash
+        version, offset = self._decode_varint(cid_bytes, 0)
+        if version != 1:
+            return cidv1
+        codec, offset = self._decode_varint(cid_bytes, offset)
+        if codec != 0x70:  # only dag-pb can convert to v0
+            return cidv1
+        multihash = cid_bytes[offset:]
+        return base58.b58encode(multihash).decode('ascii')
+
+    def _decode_varint(self, data: bytes, offset: int) -> tuple:
+        """Decode a varint from bytes at given offset."""
+        result = 0
+        shift = 0
+        while offset < len(data):
+            byte = data[offset]
+            result |= (byte & 0x7F) << shift
+            offset += 1
+            if not (byte & 0x80):
+                break
+            shift += 7
+        return result, offset
+
     def _encode_unixfs_data(self, data: bytes) -> bytes:
         """
         Encode data in UnixFS protobuf format.
@@ -251,10 +344,10 @@ class LocalFS:
 
     def get(self, cid: str) -> Any:
         """
-        Retrieve data by CID.
+        Retrieve data by CID. Supports CIDv0 (Qm...) and CIDv1 (bafy...).
 
         Args:
-            cid: Content identifier
+            cid: Content identifier (v0 or v1)
 
         Returns:
             Parsed data (dict if JSON, bytes otherwise)
@@ -263,10 +356,21 @@ class LocalFS:
         if cid.startswith(f'{self.prefix}/'):
             cid = cid[len(self.prefix) + 1:]
 
+        # If CIDv1, try to convert to v0 for lookup
+        lookup_cid = cid
+        if not cid.startswith('Qm') and self.iscid(cid):
+            converted = self.to_cidv0(cid)
+            if converted != cid:
+                lookup_cid = converted
+
         # Read block
-        block_path = self._block_path(cid)
+        block_path = self._block_path(lookup_cid)
         if not block_path.exists():
-            raise FileNotFoundError(f"Block not found: {cid}")
+            # Try original CID if conversion didn't help
+            if lookup_cid != cid:
+                block_path = self._block_path(cid)
+            if not block_path.exists():
+                raise FileNotFoundError(f"Block not found: {cid}")
 
         if self.use_rust and self.rust is not None:
             data_bytes = self.rust.read_block(str(block_path))
@@ -464,11 +568,14 @@ class LocalFS:
         """
         if path.startswith(f'{self.prefix}/'):
             return path[len(self.prefix) + 1:]
+        if path.startswith('local/'):
+            return path[6:]
         return path
 
     def iscid(self, text: str) -> bool:
         """
-        Check if text looks like a valid CID.
+        Check if text looks like a valid CID (multiformat).
+        Supports CIDv0 (Qm...) and CIDv1 (bafy..., bafk..., etc).
 
         Args:
             text: String to check
@@ -476,7 +583,24 @@ class LocalFS:
         Returns:
             True if it looks like a CID
         """
-        return isinstance(text, str) and text.startswith('Qm') and len(text) == 46
+        if not isinstance(text, str) or len(text) < 10:
+            return False
+        # CIDv0: base58btc-encoded multihash (Qm prefix, 46 chars)
+        if text.startswith('Qm') and len(text) == 46:
+            return True
+        # CIDv1: multibase prefix + multicodec + multihash
+        # Common base32lower CIDv1 prefixes: bafy (dag-pb), bafk (raw), bafyr (dag-cbor)
+        cidv1_prefixes = ('bafy', 'bafk', 'bafyr', 'bafyb', 'bafzb')
+        if any(text.startswith(p) for p in cidv1_prefixes):
+            return True
+        # base58btc CIDv1: starts with 'z'
+        if text.startswith('z') and len(text) >= 40:
+            try:
+                base58.b58decode(text[1:])
+                return True
+            except Exception:
+                return False
+        return False
 
     def valid_cid(self, cid: str) -> bool:
         """
@@ -488,6 +612,10 @@ class LocalFS:
         Returns:
             True if the block exists
         """
+        if cid.startswith(f'{self.prefix}/'):
+            cid = cid[len(self.prefix) + 1:]
+        if not self.iscid(cid):
+            return False
         return self._block_path(cid).exists()
 
     def gc(self, aggressive: bool = False) -> Dict[str, Any]:

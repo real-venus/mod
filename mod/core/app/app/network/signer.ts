@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
 import { blake2AsHex } from '@polkadot/util-crypto'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 const TESTNET_RPC = (modConfig.chain as any)?.testnet?.url || 'https://sepolia.base.org'
 

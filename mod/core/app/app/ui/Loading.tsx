@@ -2,7 +2,7 @@ import React from 'react'
 
 export function Loading() {
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black">
+    <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* subtle matrix scanlines */}
       <div className="pointer-events-none absolute inset-0 opacity-20 mix-blend-screen [background-image:repeating-linear-gradient(0deg,rgba(0,255,0,0.08)_0px,rgba(0,255,0,0.08)_1px,transparent_1px,transparent_3px)]" />
 

@@ -5,7 +5,7 @@ import { CopyButton } from '@/ui/CopyButton'
 import { TerminalCard } from './GlowCard'
 import type { SafeInfo } from '@/network/safe'
 import { ethers } from 'ethers'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 const TERM_FONT = "var(--font-digital), 'JetBrains Mono', 'Courier New', monospace"
 

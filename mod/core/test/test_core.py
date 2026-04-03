@@ -121,7 +121,7 @@ class TestTokenIdentity:
 class TestTxSaving:
     @pytest.fixture
     def tx_store(self, tmp_path):
-        from mod.core.mod.tx import Tx
+        from mod.core.tx import Tx
         return Tx(storage_path=str(tmp_path / 'txs'))
 
     def test_save_tx(self, tx_store):
@@ -179,6 +179,53 @@ class TestTxSaving:
         )
         tx = tx_store.get(result['hash'])
         assert isinstance(tx['result'], str)
+
+
+# ─── Store Config ───────────────────────────────────────────────────
+
+class TestStoreConfig:
+    """Verify registry, API, and router read store from config."""
+
+    def test_config_has_store_field(self):
+        config = m.config('api')
+        assert 'store' in config, "api config should have a 'store' field"
+        assert config['store'] == 'localfs'
+
+    def test_registry_defaults_to_config_store(self):
+        from mod.core.registry.registry import Registry
+        reg = Registry()
+        # store should be a localfs instance
+        assert hasattr(reg.store, 'put')
+        assert hasattr(reg.store, 'get')
+        assert reg.store.__class__.__name__ == 'LocalFS'
+
+    def test_registry_accepts_store_override(self):
+        from mod.core.registry.registry import Registry
+        reg = Registry(store='localfs')
+        assert reg.store.__class__.__name__ == 'LocalFS'
+
+    def test_localfs_put_get_roundtrip(self):
+        store = m.mod('localfs')()
+        data = {'test': 'store_config', 'ts': m.time()}
+        cid = store.put(data)
+        assert cid.startswith('Qm') or cid.startswith('bafy')
+        retrieved = store.get(cid)
+        assert retrieved['test'] == 'store_config'
+        store.rm(cid)
+
+    def test_localfs_content_map(self):
+        """Content should be storable as a path->CID map."""
+        store = m.mod('localfs')()
+        file_a = store.put('print("hello")')
+        file_b = store.put('{"name": "test"}')
+        content_map = {'mod.py': file_a, 'config.json': file_b}
+        map_cid = store.put(content_map)
+        retrieved = store.get(map_cid)
+        assert retrieved['mod.py'] == file_a
+        assert retrieved['config.json'] == file_b
+        # cleanup
+        for cid in [file_a, file_b, map_cid]:
+            store.rm(cid)
 
 
 # ─── Mixin Structure ────────────────────────────────────────────────

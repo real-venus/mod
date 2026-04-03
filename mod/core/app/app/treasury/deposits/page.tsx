@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { BuildingLibraryIcon, ArrowDownTrayIcon, ClockIcon, UserIcon } from '@heroicons/react/24/outline'
 import { ethers, EventLog } from 'ethers'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { CopyButton } from '@/ui/CopyButton'
 import { motion } from 'framer-motion'
 
@@ -113,14 +113,14 @@ export default function TreasuryDepositsPage() {
 
   if (!treasuryAddress) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="text-purple-400 text-xl">Treasury not configured</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black p-8">
+    <div className="min-h-screen p-8" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-7xl mx-auto space-y-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}

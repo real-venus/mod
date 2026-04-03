@@ -195,6 +195,8 @@ export default function Home() {
 
   // Token stats modal
   const [showTokenStats, setShowTokenStats] = useState(false);
+  const [inputHeight, setInputHeight] = useState(160);
+  const isDragging = useRef(false);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [loadingTokenStats, setLoadingTokenStats] = useState(false);
 
@@ -2387,9 +2389,9 @@ export default function Home() {
     return (
       <div className={`flex flex-col overflow-hidden ${selectedJob ? '' : 'flex-1'}`} style={selectedJob ? { maxHeight: '50%' } : {}}>
         {/* NEW TASK FORM - Sleek unified input */}
-        <div className="border-b-2 p-4 flex flex-col" style={{ borderColor: subtleBorder, background: tintBg, minHeight: "50%" }}>
+        <div className="border-b-2 p-4 flex flex-col" style={{ borderColor: subtleBorder, background: tintBg, height: inputHeight }}>
           <div
-            className="border-2 border-crt-amber/40 relative flex-1 flex flex-col"
+            className="border-2 border-crt-amber/40 relative flex-1 flex flex-col overflow-hidden"
             style={{ background: darkOverlay }}
           >
             {/* Textarea */}
@@ -2398,7 +2400,7 @@ export default function Home() {
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Describe what Claude should do... (paste images here)  [Enter=submit, Shift+Enter=newline]"
               className="w-full p-4 pb-10 text-[16px] resize-none rounded-none bg-transparent border-0 outline-none flex-1"
-              style={{ lineHeight: "1.6", color: "var(--text-primary)", minHeight: "120px" }}
+              style={{ lineHeight: "1.6", color: "var(--text-primary)", minHeight: "60px" }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -2483,6 +2485,32 @@ export default function Home() {
           </div>
 
 
+        </div>
+
+        {/* Draggable divider */}
+        <div
+          className="h-[6px] cursor-row-resize flex items-center justify-center shrink-0 group hover:bg-crt-green/10 active:bg-crt-green/20 transition-colors"
+          style={{ borderTop: `1px solid ${subtleBorder}`, borderBottom: `1px solid ${subtleBorder}` }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            isDragging.current = true;
+            const startY = e.clientY;
+            const startH = inputHeight;
+            const onMove = (ev: MouseEvent) => {
+              if (!isDragging.current) return;
+              const delta = ev.clientY - startY;
+              setInputHeight(Math.max(80, Math.min(window.innerHeight * 0.7, startH + delta)));
+            };
+            const onUp = () => {
+              isDragging.current = false;
+              document.removeEventListener("mousemove", onMove);
+              document.removeEventListener("mouseup", onUp);
+            };
+            document.addEventListener("mousemove", onMove);
+            document.addEventListener("mouseup", onUp);
+          }}
+        >
+          <div className="w-12 h-[2px] rounded-full bg-crt-green/20 group-hover:bg-crt-green/50 transition-colors" />
         </div>
 
         {/* Search & Filter Bar */}

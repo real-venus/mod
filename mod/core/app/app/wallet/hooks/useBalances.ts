@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import { toast } from 'react-toastify'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',

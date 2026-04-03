@@ -8,7 +8,7 @@ import RegistryABI from '@/contracts/registry/Registry.sol/Registry.json'
 import MarketABI from '@/contracts/market/Market.sol/Market.json'
 import TreasuryABI from '@/contracts/treasury/Treasury.sol/Treasury.json'
 import BlocTimeABI from '@/contracts/bloctime/BlocTime.sol/BlocTime.json'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 const chainConfig = (modConfig.chain as any)?.testnet
 const CONTRACTS = chainConfig?.contracts || {}

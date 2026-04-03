@@ -16,7 +16,7 @@ import {
 import { ethers, EventLog } from 'ethers'
 import TokenABI from '@/contracts/token/Token.sol/Token.json'
 import MarketABI from '@/contracts/market/Market.sol/Market.json'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { CopyButton } from '@/ui/CopyButton'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'

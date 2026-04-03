@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ethers } from 'ethers'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { CopyButton } from '@/ui/CopyButton'
 import { toast } from 'react-toastify'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 // ABI imports
 import TreasuryABI from '@/contracts/treasury/Treasury.sol/Treasury.json'
@@ -200,13 +201,19 @@ export function ContractsTab({ show }: ContractsTabProps) {
     }
   }
 
-  if (!show) return null
-
   const isRead = mode === 'read'
   const accentColor = isRead ? 'emerald' : 'amber'
 
   return (
-    <div className="mt-5">
+    <AnimatePresence>
+    {show && (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+      className="mt-5 overflow-hidden"
+    >
       <div className="border-t border-cyan-500/10 pt-5">
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
@@ -480,7 +487,9 @@ export function ContractsTab({ show }: ContractsTabProps) {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   )
 }
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { userContext } from '@/context'
 import { AlertCircle } from 'lucide-react'
 import { Market } from '@/network/Market'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { ethers } from 'ethers'
 
 type TokenType = 'USDC' | 'USDT'

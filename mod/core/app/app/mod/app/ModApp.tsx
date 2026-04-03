@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { GlobeAltIcon, ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { ModuleType } from '@/types'
+import { getModAppUrl } from '@/utils'
 
 interface ModAppProps {
   mod: ModuleType
@@ -14,25 +15,23 @@ interface ModAppProps {
 export default function ModApp({ mod, moduleColor= 'white' }: ModAppProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const appUrl = getModAppUrl(mod)
 
   useEffect(() => {
-    // Check if the URL is valid
-    if (!mod.url_app) {
+    if (!appUrl) {
       setError('No application URL provided')
       setLoading(false)
       return
     }
 
-    // Validate URL format
     try {
-      const url = new URL(mod.url_app)
-      // URL is valid, iframe will handle loading
+      new URL(appUrl)
       setLoading(false)
     } catch (e) {
       setError('Invalid application URL')
       setLoading(false)
     }
-  }, [mod.url_app])
+  }, [appUrl])
 
   if (error) {
     return (
@@ -46,9 +45,9 @@ export default function ModApp({ mod, moduleColor= 'white' }: ModAppProps) {
           <h3 className='text-xl font-semibold text-red-500 mb-2'>Application Error</h3>
           <p className='text-gray-400 mb-6'>{error}</p>
           <Link
-            href={`/mod/${mod.name}`}
+            href={`/${mod.name}`}
             className='inline-flex items-center gap-2 rounded-lg border px-4 py-2 transition-all'
-            style={{ 
+            style={{
               borderColor: `${moduleColor}4D`,
               color: moduleColor
             }}
@@ -61,12 +60,12 @@ export default function ModApp({ mod, moduleColor= 'white' }: ModAppProps) {
     )
   }
 
-  if (!mod.url_app) {
+  if (!appUrl) {
     return null
   }
 
   return (
-    <div className='relative w-full h-full min-h-[600px]'>
+    <div className='relative w-full' style={{ height: 'calc(100vh - 64px)' }}>
       {loading && (
         <div className='absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10'>
           <motion.div
@@ -77,9 +76,9 @@ export default function ModApp({ mod, moduleColor= 'white' }: ModAppProps) {
           />
         </div>
       )}
-      
+
       <iframe
-        src={mod.url_app}
+        src={appUrl}
         className='w-full h-full border-0'
         title={`${mod.name} Application`}
         onLoad={() => setLoading(false)}
@@ -90,14 +89,14 @@ export default function ModApp({ mod, moduleColor= 'white' }: ModAppProps) {
         allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
         allowFullScreen
       />
-      
+
       {/* External link indicator */}
       <motion.a
-        href={mod.url_app}
+        href={appUrl}
         target='_blank'
         rel='noopener noreferrer'
         className='absolute top-4 right-4 flex items-center gap-2 rounded-full bg-black/80 px-4 py-2 text-sm backdrop-blur-sm transition-all hover:scale-105'
-        style={{ 
+        style={{
           borderColor: `${moduleColor}4D`,
           color: moduleColor,
           border: '1px solid'

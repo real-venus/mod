@@ -1,7 +1,7 @@
 {
   "navigation": [
     {
-      "href": "/mod/explore",
+      "href": "/mods",
       "label": "MODS",
       "color": "#0bf58c",
       "type": "direct"
@@ -37,21 +37,9 @@
       "type": "direct"
     },
     {
-      "href": "/safe",
-      "label": "SAFE",
-      "color": "#f59e0b",
-      "type": "direct"
-    },
-    {
       "href": "/bridge",
       "label": "BRIDGE",
       "color": "#06b6d4",
-      "type": "direct"
-    },
-    {
-      "href": "/jobs",
-      "label": "JOBS",
-      "color": "#8b5cf6",
       "type": "direct"
     }
   ],
@@ -65,12 +53,11 @@
     "transactions",
     "docs",
     "chat",
-    "safe",
     "bridge",
     "network",
     "buidl",
     "create",
     "home",
-    "jobs"
+    "apps"
   ]
 }

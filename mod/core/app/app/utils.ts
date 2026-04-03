@@ -1,3 +1,19 @@
+import { ModuleType } from '@/types'
+
+/** Extract the app URL from mod.url_app or mod.url.app */
+export function getModAppUrl(mod: ModuleType): string | undefined {
+  if (mod.url_app) return mod.url_app
+  if (mod.url && typeof mod.url === 'object' && mod.url.app) return mod.url.app
+  return undefined
+}
+
+/** Extract the api URL from mod.url (string) or mod.url.api */
+export function getModApiUrl(mod: ModuleType): string | undefined {
+  if (typeof mod.url === 'string') return mod.url
+  if (mod.url && typeof mod.url === 'object' && mod.url.api) return mod.url.api
+  return undefined
+}
+
 export const time2str = (timestamp: number): string => {
   const date = new Date(timestamp)
   const year = date.getFullYear()

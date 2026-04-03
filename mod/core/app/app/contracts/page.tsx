@@ -5,7 +5,7 @@ import { ethers } from 'ethers'
 import { ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { CopyButton } from '@/ui/CopyButton'
 import { toast } from 'react-toastify'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { text2color, colorWithOpacity } from '@/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 

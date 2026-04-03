@@ -6,7 +6,7 @@ import { DollarSign, CreditCard, AlertCircle, CheckCircle, Zap, RefreshCw, Arrow
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 import { MarketAllowanceManager } from '@/network/marketAllowance'
 import { Market } from '@/network/Market'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import { ethers } from 'ethers'
 import MarketABI from '@/contracts//market/Market.sol/Market.json'
 import WithdrawalPanel from './WithdrawalPanel'

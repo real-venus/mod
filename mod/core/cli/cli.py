@@ -41,7 +41,7 @@ class Cli:
 
         # Save transaction
         try:
-            from mod.core.mod.tx import Tx
+            from mod.core.tx import Tx
             tx = Tx()
             tx.save(
                 fn=self._fn_name or 'unknown',

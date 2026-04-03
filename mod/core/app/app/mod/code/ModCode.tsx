@@ -85,9 +85,20 @@ function formatSize(bytes: number): string {
   return bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`
 }
 
+// Detect if content is an error response instead of real file mappings
+function isErrorContent(content: Record<string, string>): boolean {
+  const errorKeys = new Set(['error', 'file_name', 'line_no', 'line_text', 'success', 'traceback'])
+  const keys = Object.keys(content)
+  if (keys.length === 0) return false
+  const matchCount = keys.filter(k => errorKeys.has(k)).length
+  return matchCount >= 3 // if 3+ keys match error pattern, it's an error
+}
+
 export default function ModCode({ mod, moduleColor = '#ffffff' }: ModCodeProps) {
   const { client } = userContext()
-  const files = typeof mod.content === 'object' && mod.content !== null ? mod.content : {}
+  const rawContent = typeof mod.content === 'object' && mod.content !== null ? mod.content : {}
+  const contentIsError = isErrorContent(rawContent as Record<string, string>)
+  const files = contentIsError ? {} : rawContent
 
   // File tree state
   const [fileTree, setFileTree] = useState<FileNode[]>([])
@@ -346,6 +357,19 @@ export default function ModCode({ mod, moduleColor = '#ffffff' }: ModCodeProps) 
               )}
             </div>
           </>
+        ) : contentIsError ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6" style={{ backgroundColor: 'var(--bg-input)' }}>
+            <span className="text-[14px] font-mono font-bold" style={{ color: '#ef4444' }}>Content Error</span>
+            <span className="text-[11px] font-mono text-center" style={{ color: 'var(--text-tertiary)' }}>
+              This module's stored content is an error response, not source files.
+            </span>
+            <pre className="text-[11px] font-mono p-3 max-w-lg overflow-x-auto" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+              {JSON.stringify(rawContent, null, 2)}
+            </pre>
+            <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+              Re-register the module to fix this.
+            </span>
+          </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--bg-input)' }}>
             <FileCode className="w-6 h-6 mb-3" style={{ color: 'var(--text-tertiary)' }} />

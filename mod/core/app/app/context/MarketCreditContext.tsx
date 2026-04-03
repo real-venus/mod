@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { userContext } from './UserContext'
 import { MarketAllowanceManager } from '@/network/marketAllowance'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 interface MarketCreditContextType {
   marketCredit: number

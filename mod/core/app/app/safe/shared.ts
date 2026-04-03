@@ -1,4 +1,4 @@
-import modConfig from '@/config.json'
+import modConfig from '@config'
 
 // ABI imports
 import TreasuryABI from '@/contracts/treasury/Treasury.sol/Treasury.json'

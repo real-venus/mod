@@ -20,7 +20,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    href: '/mod/explore',
+    href: '/mods',
     label: 'Modules',
     icon: CubeIcon,
     color: '#10b981',

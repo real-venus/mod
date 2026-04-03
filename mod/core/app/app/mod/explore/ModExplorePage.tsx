@@ -189,8 +189,8 @@ export default function ModExplorePage() {
     >
       <div className="relative max-w-7xl mx-auto px-6 pt-4 pb-12 z-20">
 
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8 pb-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
+        {/* Header row: tabs + create */}
+        <div className="flex items-center gap-3 mb-4 pb-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
           {/* Tabs */}
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
             {TABS.map(tab => (
@@ -201,9 +201,10 @@ export default function ModExplorePage() {
                 style={
                   activeTab === tab.key
                     ? {
-                        backgroundColor: 'var(--text-primary)',
-                        color: 'var(--bg-primary)',
+                        background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))',
+                        color: 'var(--text-primary)',
                         fontFamily: 'var(--font-digital)',
+                        border: '1px solid rgba(167, 139, 250, 0.2)',
                       }
                     : {
                         backgroundColor: 'transparent',
@@ -235,6 +236,24 @@ export default function ModExplorePage() {
 
           <div className="flex-1" />
 
+          <Link
+            href="/create"
+            className="shrink-0 px-5 py-2.5 text-sm font-bold uppercase tracking-wider transition-all hover:opacity-80 flex items-center rounded-md"
+            style={{
+              background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(103, 232, 249, 0.1))',
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-digital)',
+              border: '1px solid rgba(167, 139, 250, 0.2)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+            }}
+          >
+            + CREATE MOD
+          </Link>
+        </div>
+
+        {/* Filters bar */}
+        <div className="flex items-center gap-3 mb-6 pb-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
           <ModCardSettings
             sort={sort}
             onSortChange={setSort}
@@ -245,14 +264,6 @@ export default function ModExplorePage() {
             onToggleOwner={toggleOwner}
             onClearFilters={clearOwnerFilters}
           />
-
-          <Link
-            href="/create"
-            className="shrink-0 px-5 py-2.5 text-sm font-bold uppercase tracking-wider transition-all hover:opacity-80 flex items-center rounded-md"
-            style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-primary)', fontFamily: 'var(--font-digital)' }}
-          >
-            + CREATE MOD
-          </Link>
         </div>
 
         {error && (
@@ -319,7 +330,7 @@ export default function ModExplorePage() {
           </div>
         )}
 
-        <div className={`grid ${gridColsClass} gap-4`}>
+        <div className={`grid ${gridColsClass} gap-5`}>
           {paginatedMods.map((mod, index) => (
             <div
               key={`${mod.name}-${mod.key}`}
@@ -365,7 +376,12 @@ export default function ModExplorePage() {
                     className="w-9 h-9 text-sm font-bold transition-all rounded-md"
                     style={
                       currentPage === pageIndex
-                        ? { color: 'var(--bg-primary)', backgroundColor: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }
+                        ? {
+                            color: 'var(--text-primary)',
+                            background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(103, 232, 249, 0.1))',
+                            border: '1px solid rgba(167, 139, 250, 0.3)',
+                            fontFamily: 'var(--font-digital)',
+                          }
                         : { color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontFamily: 'var(--font-digital)' }
                     }
                   >

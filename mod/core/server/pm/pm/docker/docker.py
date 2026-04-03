@@ -19,7 +19,7 @@ class PM:
                 mod='mod',
                 path='~/.mod/server', 
                 network='modnet',
-                registry = 'server.registry',
+                registry = 'server.namespace',
                 store = 'store',
                 image = None,
                 **kwargs):

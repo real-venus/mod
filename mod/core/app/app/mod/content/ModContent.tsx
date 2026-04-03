@@ -252,7 +252,8 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
     if (node.cid && client && !fileContents[node.path]) {
       try {
         const res = await client.call('get', { cid: node.cid });
-        setFileContents(prev => ({ ...prev, [node.path]: res }));
+        const text = typeof res === 'string' ? res : JSON.stringify(res, null, 2);
+        setFileContents(prev => ({ ...prev, [node.path]: text }));
       } catch (err) {
         console.error('Failed to fetch content for', node.path, err);
       }
@@ -264,16 +265,26 @@ export default function ModContent({ mod }: { mod: ModuleType }) {
   useEffect(() => {
     const tree = buildFileTree(files);
     setFileTree(tree);
-    if (!selectedFile) {
-       for (let n of tree) {
-          handleFileSelect(n).then(() => {});
-          break;
-       }
-      }
-
     setExpandedFolders(new Set());
-    if (tree.length > 0 && tree[0].type === 'file') setSelectedFile(tree[0].path);
-  }, [files, selectedFile]);
+
+    // Find the first file node to auto-select
+    const findFirstFile = (nodes: FileNode[]): FileNode | null => {
+      for (const n of nodes) {
+        if (n.type === 'file') return n;
+        if (n.children) {
+          const found = findFirstFile(n.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const firstFile = findFirstFile(tree);
+    if (firstFile) {
+      setSelectedFile(firstFile.path);
+      handleFileSelect(firstFile);
+    }
+  }, [files, client]);
 
   useEffect(() => {
     if (!searchTerm) return;

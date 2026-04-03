@@ -54,7 +54,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     isCollapsed,
   } = useSplitScreenContext()
 
-  const { isHeaderMode } = useLayoutContext()
+  const { isHeaderMode, isHeaderCollapsed } = useLayoutContext()
   const pathname = usePathname()
 
   useEffect(() => {
@@ -71,7 +71,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     : 'border-b-2 border-green-500/30'
 
   return (
-    <div className="flex h-screen transition-all duration-200" style={{ paddingTop: '64px', paddingLeft: 'var(--sidebar-width, 220px)', backgroundColor: 'var(--bg-primary)' }}>
+    <div className="flex h-screen transition-all duration-200" style={{ paddingTop: isHeaderCollapsed ? '6px' : '64px', paddingLeft: isHeaderCollapsed ? '0px' : 'var(--sidebar-width, 220px)', backgroundColor: 'var(--bg-primary)', transition: 'padding-top 0.2s ease, padding-left 0.2s ease' }}>
       {/* Navigation sidebar */}
       <NavSidebar />
       {/* Top bar */}

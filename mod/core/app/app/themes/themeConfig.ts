@@ -246,6 +246,37 @@ export const themes: Record<string, Theme> = {
     },
   },
 
+  // Futuristic Glassmorphism - deep space + frosted glass
+  glass: {
+    id: 'glass',
+    name: 'Glass',
+    colors: {
+      background: '#080b16',
+      surface: 'rgba(15, 20, 40, 0.6)',
+      input: 'rgba(255, 255, 255, 0.04)',
+      border: 'rgba(255, 255, 255, 0.08)',
+      borderStrong: 'rgba(255, 255, 255, 0.15)',
+      text: {
+        primary: 'rgba(255, 255, 255, 0.95)',
+        secondary: 'rgba(255, 255, 255, 0.55)',
+        tertiary: 'rgba(255, 255, 255, 0.3)',
+        accent: '#a78bfa',
+      },
+      accent: {
+        primary: '#a78bfa',
+        secondary: '#67e8f9',
+        success: '#34d399',
+        warning: '#fbbf24',
+        error: '#f87171',
+      },
+    },
+    effects: {
+      glow: false,
+      scanlines: false,
+      textShadow: false,
+    },
+  },
+
   // Dracula
   dracula: {
     id: 'dracula',
@@ -278,14 +309,31 @@ export const themes: Record<string, Theme> = {
   },
 }
 
-export const defaultTheme = 'classic'
+export const defaultTheme = 'glass'
 
 export function getTheme(themeId: string): Theme {
   return themes[themeId] || themes[defaultTheme]
 }
 
+// Light themes use light color scheme, everything else is dark
+const lightThemeIds = new Set(['light'])
+
+export function isLightTheme(theme: Theme): boolean {
+  return lightThemeIds.has(theme.id)
+}
+
 export function applyTheme(theme: Theme) {
   const root = document.documentElement
+  const isLight = isLightTheme(theme)
+
+  // Sync light/dark class with the named theme
+  root.classList.remove('light', 'dark')
+  root.classList.add(isLight ? 'light' : 'dark')
+  root.setAttribute('data-theme', isLight ? 'light' : 'dark')
+  root.style.colorScheme = isLight ? 'light' : 'dark'
+
+  // Also sync the ThemeContext localStorage so they stay in agreement
+  localStorage.setItem('theme', isLight ? 'light' : 'dark')
 
   // Apply color variables
   root.style.setProperty('--bg-primary', theme.colors.background)
@@ -310,6 +358,31 @@ export function applyTheme(theme: Theme) {
   root.style.setProperty('--accent-warning', theme.colors.accent.warning)
   root.style.setProperty('--accent-error', theme.colors.accent.error)
 
+  // Light theme needs its own hover/shadow/scrollbar values
+  if (isLight) {
+    root.style.setProperty('--hover-bg', 'rgba(0, 0, 0, 0.06)')
+    root.style.setProperty('--card-shadow', '0 2px 12px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.15)')
+    root.style.setProperty('--card-shadow-hover', '0 8px 28px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.2)')
+    root.style.setProperty('--scrollbar-track', 'rgba(0, 0, 0, 0.05)')
+    root.style.setProperty('--scrollbar-thumb', 'rgba(0, 0, 0, 0.15)')
+    root.style.setProperty('--scrollbar-thumb-hover', 'rgba(0, 0, 0, 0.25)')
+    root.style.setProperty('--text-placeholder', 'rgba(0, 0, 0, 0.3)')
+    root.style.setProperty('--bg-header', 'rgba(245, 245, 245, 0.95)')
+    root.style.setProperty('--bg-sidebar', 'rgba(240, 240, 244, 0.98)')
+    root.style.setProperty('--bg-input-hover', 'rgba(0, 0, 0, 0.12)')
+  } else {
+    root.style.setProperty('--hover-bg', 'rgba(255, 255, 255, 0.04)')
+    root.style.setProperty('--card-shadow', '0 2px 16px rgba(0, 0, 0, 0.4)')
+    root.style.setProperty('--card-shadow-hover', '0 20px 50px rgba(0, 0, 0, 0.5)')
+    root.style.setProperty('--scrollbar-track', 'rgba(0, 0, 0, 0.3)')
+    root.style.setProperty('--scrollbar-thumb', 'rgba(255, 255, 255, 0.3)')
+    root.style.setProperty('--scrollbar-thumb-hover', 'rgba(255, 255, 255, 0.5)')
+    root.style.setProperty('--text-placeholder', 'rgba(255, 255, 255, 0.25)')
+    root.style.setProperty('--bg-header', 'rgba(0, 0, 0, 0.98)')
+    root.style.setProperty('--bg-sidebar', 'rgba(8, 8, 12, 0.98)')
+    root.style.setProperty('--bg-input-hover', 'rgba(255, 255, 255, 0.1)')
+  }
+
   // Apply effects
   root.style.setProperty('--effect-glow', theme.effects.glow ? '1' : '0')
   root.style.setProperty('--effect-scanlines', theme.effects.scanlines ? '1' : '0')
@@ -320,5 +393,12 @@ export function applyTheme(theme: Theme) {
     root.classList.add('has-scanlines')
   } else {
     root.classList.remove('has-scanlines')
+  }
+
+  // Glass theme class toggle
+  if (theme.id === 'glass') {
+    root.classList.add('has-glass')
+  } else {
+    root.classList.remove('has-glass')
   }
 }

@@ -24,7 +24,7 @@
   padding: 0.5rem 1rem;
   border-radius: 0.75rem; /* rounded-xl */
   border-width: 2px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-input);
   font-size: 0.875rem;
   font-weight: 600;
 }
@@ -91,7 +91,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(to bottom right, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.5));
+  background: var(--bg-input);
   backdrop-filter: blur(4px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease-in-out;
@@ -148,4 +148,65 @@
 .card-gradient-yellow {
   background: linear-gradient(to bottom right, rgba(234, 179, 8, 0.3), rgba(245, 158, 11, 0.3));
   border-color: rgba(234, 179, 8, 0.5);
+}
+
+/* ============================================
+   GLASSMORPHISM CARD OVERRIDES
+   ============================================ */
+
+html.has-glass .card-base {
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 20, 40, 0.35);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html.has-glass .card-base:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(167, 139, 250, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+html.has-glass .card-element {
+  border-width: 1px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+html.has-glass .card-badge {
+  border-width: 1px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+html.has-glass .card-glow::before {
+  filter: blur(40px);
+  opacity: 0.2;
+}
+
+html.has-glass .card-gradient-cyan {
+  background: rgba(6, 182, 212, 0.08);
+  border-color: rgba(6, 182, 212, 0.15);
+}
+
+html.has-glass .card-gradient-green {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.15);
+}
+
+html.has-glass .card-gradient-purple {
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.15);
 }

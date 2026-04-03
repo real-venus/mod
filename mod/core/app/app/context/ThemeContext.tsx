@@ -32,31 +32,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return userTheme
   }
 
-  // Apply theme to document
-  const applyTheme = (effective: EffectiveTheme) => {
-    const root = document.documentElement
-
-    // Remove existing theme
-    root.removeAttribute('data-theme')
-    root.classList.remove('light', 'dark')
-
-    // Apply new theme
-    root.setAttribute('data-theme', effective)
-    root.classList.add(effective)
-
-    setEffectiveTheme(effective)
-  }
-
-  // Initialize theme on mount
+  // Initialize theme on mount - just read state, don't apply DOM changes
+  // The named theme system (ThemeInitializer + themeConfig.applyTheme) handles DOM
   useEffect(() => {
     setMounted(true)
 
-    // Load saved theme from localStorage
+    // Read the light/dark preference (may have been set by ThemeInitializer)
     const savedTheme = localStorage.getItem('theme') as Theme | null
     const initialTheme = savedTheme || 'system'
 
     setThemeState(initialTheme)
-    applyTheme(resolveEffectiveTheme(initialTheme))
+    setEffectiveTheme(resolveEffectiveTheme(initialTheme))
   }, [])
 
   // Listen for system theme changes
@@ -67,27 +53,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const handleChange = () => {
       if (theme === 'system') {
-        applyTheme(getSystemTheme())
+        setEffectiveTheme(getSystemTheme())
       }
     }
 
-    // Modern browsers
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleChange)
       return () => mediaQuery.removeEventListener('change', handleChange)
     }
-    // Legacy browsers
-    else if (mediaQuery.addListener) {
-      mediaQuery.addListener(handleChange)
-      return () => mediaQuery.removeListener(handleChange)
-    }
   }, [theme, mounted])
 
-  // Update theme
+  // Update theme - just update React state, the named theme system handles DOM
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme)
     localStorage.setItem('theme', newTheme)
-    applyTheme(resolveEffectiveTheme(newTheme))
+    setEffectiveTheme(resolveEffectiveTheme(newTheme))
   }
 
   const value: ThemeContextType = {

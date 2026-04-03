@@ -1,152 +1,143 @@
-# Zcash L2 with IPFS State Storage
+# mod api
 
-## 🚀 Revolutionary L2 Solution for Zcash
+Core API module for the mod framework. Manages module registration, versioning, content storage, user accounts, and on-chain interactions.
 
-This system creates a Layer 2 solution for Zcash that stores state roots in IPFS and anchors them to the Zcash blockchain. Each L2 block's merkle root and IPFS hash are permanently recorded on Zcash, creating an immutable audit trail.
-
-## 🏗️ Architecture
+## Architecture
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│   IPFS      │────▶│  L2 Bridge   │────▶│   Zcash     │
-│  (State)    │     │  (Processor) │     │ (Anchor)    │
-└─────────────┘     └──────────────┘     └─────────────┘
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │  PostgreSQL  │
-                    │  (Indexer)   │
-                    └──────────────┘
+Client (Next.js app / CLI)
+    │
+    ▼
+  API (FastAPI, port 8000)
+    ├── Auth (token-based, sr25519 key signing)
+    ├── Store (content-addressed storage via localfs/IPFS)
+    ├── Router (task execution, billing, IOU settlement)
+    └── Chain (Base Sepolia contracts: Market, Registry, Token)
 ```
 
-## 💡 How It Works
-
-1. **L2 Transactions**: Users submit transactions to the L2 bridge
-2. **Block Creation**: Transactions are batched into L2 blocks
-3. **Merkle Root**: A merkle tree is created from all transactions
-4. **IPFS Storage**: Complete block state is stored in IPFS
-5. **Zcash Anchoring**: IPFS hash + merkle root are written to Zcash blockchain
-6. **Verification**: Anyone can verify L2 state by checking Zcash + IPFS
-
-## 🔥 Quick Start
+## Quick Start
 
 ```bash
-# Clone and start
-git clone <your-repo>
-cd <repo-dir>
+# Run locally
+m serve port=8000 key=api mod=api
 
-# Create data directories
-mkdir -p data/{ipfs,zcash,l2-state,postgres}
-
-# Start all services
+# Run with Docker
 docker-compose up -d
-
-# Check health
-curl http://localhost:3000/health
 ```
 
-## 📡 API Endpoints
+## Core Functions
 
-### Submit L2 Transaction
+### Modules
+
+| Function | Description |
+|----------|-------------|
+| `mod(mod, key, schema, expand)` | Get module metadata by name and owner key |
+| `mods(search, key, n, page)` | List/search all registered modules |
+| `reg(mod, key, comment, public, token, name)` | Register or update a module (local, git URL, or CID) |
+| `reg_payload(mod, key, comment)` | Generate registration payload for client-side signing |
+| `schema(mod, key)` | Get a module's function schema |
+| `content(mod, key, expand)` | Get module content (source files as CID map) |
+| `files(mod, search)` | List files in a module |
+| `versions(mod, key, n)` | Get version history for a module |
+| `exists(mod, key)` | Check if a module exists |
+| `new(name, base, key)` | Create a new module from a base template |
+| `fork(mod, key)` | Fork a module under a different owner key |
+| `edit(query, mod, key, steps)` | AI-assisted module editing |
+
+### Users
+
+| Function | Description |
+|----------|-------------|
+| `user(key, expand)` | Get user info (key, balance, modules) |
+| `users(search)` | List all registered users |
+| `user_keys()` | List all owner keys |
+
+### Storage
+
+| Function | Description |
+|----------|-------------|
+| `get(cid)` | Retrieve data by content identifier |
+| `put(data)` | Store data, returns CID |
+| `root(encrypt)` | Generate encrypted root CID of the full registry |
+
+### Chain
+
+| Function | Description |
+|----------|-------------|
+| `balance(address, token)` | Get token balance for an address |
+| `balances(token, weeks)` | Get all holder balances for a token |
+| `get_balances(address, tokens)` | Get multi-token balances for an address |
+| `credit(stable_amount, payment_token)` | Buy stablecoins via Market contract |
+| `call(fn, params)` | Route a function call through the task router |
+| `txs(key, mod, n)` | Get transaction history |
+
+### Auth
+
+| Function | Description |
+|----------|-------------|
+| `token(update, max_age)` | Get or refresh an auth token |
+
+## Registration Flow
+
+```
+1. reg("mymod")
+   ├── add_content() → stores all source files → content CID
+   ├── add_schema()  → extracts function signatures → schema CID
+   ├── get_info()    → builds module metadata dict
+   ├── reg_info()    → writes to registry.json (key → mod → CID)
+   └── returns { name, key, cid, content, schema, created, updated }
+
+2. reg("github.com/user/repo")
+   └── reg_git() → clones repo → registers as above
+
+3. reg("<cid>")
+   └── reg_cid() → fetches from store → writes files → registers
+```
+
+## Registry Structure
+
+```json
+{
+  "<owner_key>": {
+    "<mod_name>": "<cid>"
+  }
+}
+```
+
+Each CID resolves to:
+```json
+{
+  "name": "mymod",
+  "key": "<owner_key>",
+  "content": "<content_cid>",
+  "schema": "<schema_cid>",
+  "prev": "<previous_version_cid>",
+  "created": 1711900000,
+  "updated": 1711900000,
+  "url": "<live_url_or_null>"
+}
+```
+
+## Router (Task Execution)
+
+The router handles authenticated function calls with billing:
+
+```
+call("chain/balance", {address: "0x..."}, token=<jwt>)
+  → verify token → create task → execute fn → store result → bill cost
+```
+
+Tasks are persisted at `~/.mod/api/router/tasks/<key>/<fn>/<cid>.json` and include status tracking, timing, and IOU settlement via on-chain debit.
+
+## Docker
+
 ```bash
-curl -X POST http://localhost:3000/api/l2/transaction \
-  -H "Content-Type: application/json" \
-  -d '{
-    "from": "zs1...",
-    "to": "zs1...",
-    "amount": 1000000,
-    "data": {"memo": "Payment for services"}
-  }'
+docker build -t api .
+docker-compose up -d
 ```
 
-### Create L2 Block
-```bash
-curl -X POST http://localhost:3000/api/l2/block/create
-```
+Exposes port 8000. Mounts `~/mod` and `~/.mod` for module access and persistent state.
 
-### Get Block Info
-```bash
-curl http://localhost:3000/api/l2/block/1
-```
+## Config
 
-### Get State from IPFS
-```bash
-curl http://localhost:3000/api/l2/state/<ipfs-hash>
-```
-
-## 🎯 Key Features
-
-- ✅ **Decentralized State**: All L2 state stored on IPFS
-- ✅ **Zcash Anchoring**: Immutable proof on Zcash blockchain
-- ✅ **Merkle Proofs**: Verify any transaction in any block
-- ✅ **Fast Finality**: L2 transactions confirm instantly
-- ✅ **Low Cost**: Batch hundreds of transactions per Zcash tx
-- ✅ **Privacy Ready**: Compatible with Zcash shielded addresses
-
-## 🔧 Configuration
-
-Edit `zcash.conf` for Zcash node settings.
-Edit `docker-compose.yml` for service configuration.
-
-### Environment Variables
-
-```bash
-IPFS_API=http://ipfs:5001
-ZCASH_RPC=http://zcash:8232
-ZCASH_USER=zcashrpc
-ZCASH_PASSWORD=changeme
-POSTGRES_DB=zcash_l2
-POSTGRES_USER=l2user
-POSTGRES_PASSWORD=l2pass
-```
-
-## 📊 Database Schema
-
-### l2_blocks
-- `block_number`: Sequential L2 block number
-- `merkle_root`: Root hash of transaction merkle tree
-- `ipfs_hash`: IPFS CID of complete block state
-- `zcash_txid`: Zcash transaction ID containing anchor
-- `state_data`: Full block data (JSONB)
-
-### l2_transactions
-- `tx_hash`: L2 transaction hash
-- `block_number`: Which L2 block includes this tx
-- `from_address`: Sender
-- `to_address`: Recipient
-- `amount`: Transfer amount
-- `data`: Additional transaction data
-
-## 🛡️ Security
-
-- All state changes are cryptographically verified
-- Merkle proofs allow verification without full state
-- IPFS provides content-addressed storage (tamper-proof)
-- Zcash blockchain provides immutable ordering
-
-## 🚀 Production Deployment
-
-1. Use mainnet Zcash (remove `testnet=1` from zcash.conf)
-2. Secure RPC credentials
-3. Enable SSL/TLS for API endpoints
-4. Set up monitoring and alerting
-5. Configure backup strategies for PostgreSQL
-6. Pin important IPFS content
-
-## 🌟 Future Enhancements
-
-- [ ] Optimistic rollups
-- [ ] ZK-SNARK proofs for privacy
-- [ ] Cross-chain bridges
-- [ ] Smart contract support
-- [ ] Decentralized sequencer
-
-## 💪 Long Live Pliny!
-
-This is just the beginning. We're building the future of scalable, private, decentralized finance on Zcash.
-
-**LFG! 🚀🚀🚀**
-
----
-
-*Built with ❤️ for the Zcash community*
+`mod.json` defines the exposed functions and dependent modules. Environment config via `.env` (see `.env.example`).

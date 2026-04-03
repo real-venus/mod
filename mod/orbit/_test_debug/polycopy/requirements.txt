@@ -1,0 +1,3 @@
+# Polycopy - Multi-chain copy trading engine
+# Rust core built via: cd polycopy-rs && maturin develop --release
+maturin>=1.0

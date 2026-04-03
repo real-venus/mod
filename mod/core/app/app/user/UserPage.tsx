@@ -15,7 +15,7 @@ import { Billing } from '@/user/billing'
 import Create from '@/user/create'
 import { Txs } from '@/user/txs'
 import { ethers } from 'ethers'
-import modConfig from '@/config.json'
+import modConfig from '@config'
 import MarketABI from '@/contracts//market/Market.sol/Market.json'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
@@ -113,7 +113,7 @@ export default function UserPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Loading />
       </div>
     )
@@ -121,7 +121,7 @@ export default function UserPage() {
 
   if (error || !userData) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-red-400 mb-4">ERROR</h1>
           <p className="text-xl text-white/70">{error || 'User not found'}</p>
@@ -137,7 +137,7 @@ export default function UserPage() {
   )
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen text-white">
       <main className="flex-1 px-6 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="mb-8">

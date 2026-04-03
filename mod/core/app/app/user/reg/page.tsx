@@ -95,7 +95,7 @@ export default function CreateModPage() {
 
       const response = await client.call('reg', {mod: previewData})
       
-      router.push(`/mod/${response.name}/${signerAddress}`)
+      router.push(`/${response.name}`)
     } catch (err: any) {
       console.error('Module creation error:', err)
       setError(err.message || 'Failed to create module')
@@ -105,7 +105,7 @@ export default function CreateModPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black p-8">
+    <div className="min-h-screen p-8" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-2xl mx-auto space-y-6">
         <h1 className="text-4xl font-black text-cyan-400 font-mono uppercase tracking-wide">Create New Module</h1>
         

@@ -5,8 +5,9 @@ import { CheckCircleIcon, StarIcon as CrownIcon, PlusIcon, ServerIcon, TrashIcon
 import { useState, useEffect } from 'react'
 import { userContext } from '@/context/UserContext'
 import Client from '@/client'
+import modConfig from '@config'
 
-const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || modConfig.url.api || 'http://localhost:8000'
 
 interface HostInfo {
   url: string

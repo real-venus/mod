@@ -21,7 +21,7 @@ class Server:
         self,
         path = '~/.mod/server', # the path to store the server data
         pm = 'pm.pm2', # the process manager to use
-        registry = 'server.registry',
+        registry = 'server.namespace',
         timeout = 300):
         self.store = m.mod('store')(path)
         self.pm = self.set_pm(pm)

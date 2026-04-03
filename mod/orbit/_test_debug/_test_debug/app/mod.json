@@ -1,0 +1,6 @@
+{
+  "name": "appbase",
+  "port": 3100,
+  "basePath": "/appbase",
+  "owner": ""
+}
