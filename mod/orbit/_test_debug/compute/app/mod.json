@@ -1,5 +1,0 @@
-{
-  "name": "compute",
-  "port": 3100,
-  "basePath": "/compute"
-}

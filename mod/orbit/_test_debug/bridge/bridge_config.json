@@ -1,8 +1,0 @@
-{
-  "rpc_url": "https://sepolia.base.org",
-  "bridge_contract": "0x9fcfBE20986DD4F00A63Cd27149f2E3C5E6e15CE",
-  "token_contract": "0x511fC29DEb622EAB25c67859f70A60e16CD6bb88",
-  "operator_key": "YOUR_PRIVATE_KEY_HERE",
-  "snapshot_path": "bridge/total_balances.json",
-  "signature_timeout": 300
-}
