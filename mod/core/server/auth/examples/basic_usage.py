@@ -100,9 +100,9 @@ def example_4_check_permissions(user_address, owner_address):
     pm = PermissionManager(owner_address=owner_address)
 
     # Test paths
-    user_module = f"/Users/broski/mod/mod/orbit/_outer/{user_address}/my_module"
+    user_module = f"/Users/broski/mod/mod/orbit/portal/{user_address}/my_module"
     other_user = "0x6478255b80b561b4d8d96c02ce86ffcebbb9d09e"
-    other_module = f"/Users/broski/mod/mod/orbit/_outer/{other_user}/other_module"
+    other_module = f"/Users/broski/mod/mod/orbit/portal/{other_user}/other_module"
 
     # Check user's own module
     print(f"\n1. User accessing their own module:")
@@ -174,7 +174,7 @@ def example_6_access_control_helper():
     auth = Auth(key='test.api.user', crypto_type='ecdsa')
     token = auth.token(data={'action': 'execute'})
 
-    module_path = "/Users/broski/mod/mod/orbit/_outer/0x7f46ae9b5a5e25110900a418376e021454c90f4a/my_module"
+    module_path = "/Users/broski/mod/mod/orbit/portal/0x7f46ae9b5a5e25110900a418376e021454c90f4a/my_module"
 
     print(f"API Request:")
     print(f"  Token: {token[:50]}...")
@@ -220,7 +220,7 @@ def example_7_full_workflow():
     # Step 3: Check permissions
     print("\n3. Server checks permissions")
     pm = PermissionManager()
-    module_path = f"/Users/broski/mod/mod/orbit/_outer/{user_address}/my_app"
+    module_path = f"/Users/broski/mod/mod/orbit/portal/{user_address}/my_app"
 
     if pm.can_access(user_address, module_path, 'execute'):
         print(f"   ✓ Permission granted")

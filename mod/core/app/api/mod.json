@@ -29,6 +29,7 @@
         "credit",
         "token",
         "root",
-        "registry"
+        "registry",
+        "rm_mod"
     ]
 }

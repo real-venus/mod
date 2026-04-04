@@ -979,8 +979,8 @@ export default function Home() {
         // If a module is selected, use that as work_dir
         if (selectedModule.trim()) {
           // Enforce _outer restriction for non-owners
-          if (!isOwner && !selectedModule.includes("_outer/") && !selectedModule.startsWith("_outer.")) {
-            setError("NON-OWNERS CAN ONLY EDIT MODULES IN _outer FOLDER");
+          if (!isOwner && !selectedModule.includes("peers/") && !selectedModule.startsWith("peers.")) {
+            setError("NON-OWNERS CAN ONLY EDIT MODULES IN PEERS FOLDER");
             setSubmitting(false);
             return;
           }
@@ -1001,8 +1001,8 @@ export default function Home() {
 
         // For non-owners, enforce _outer folder for new modules
         let finalModuleName = moduleName.trim();
-        if (!isOwner && !finalModuleName.startsWith("_outer/")) {
-          finalModuleName = `_outer/${finalModuleName}`;
+        if (!isOwner && !finalModuleName.startsWith("peers/")) {
+          finalModuleName = `peers/${finalModuleName}`;
         }
 
         body.module_name = finalModuleName;
@@ -1182,8 +1182,8 @@ export default function Home() {
     setSubmitting(true);
     try {
       let finalName = headerNewName.trim();
-      if (!isOwner && !finalName.startsWith("_outer/")) {
-        finalName = `_outer/${finalName}`;
+      if (!isOwner && !finalName.startsWith("peers/")) {
+        finalName = `peers/${finalName}`;
       }
 
       const defaultPrompt = showHeaderCreateForm === "fork"

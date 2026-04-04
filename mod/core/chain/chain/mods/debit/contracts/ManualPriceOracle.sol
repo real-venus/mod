@@ -1,0 +1,1 @@
+../../mods/oracle/contracts/ManualPriceOracle.sol

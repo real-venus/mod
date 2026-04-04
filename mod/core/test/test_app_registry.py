@@ -38,7 +38,7 @@ def cleanup_test_app_mods():
     """Remove test app modules after each test."""
     yield
     for name in ['_test_newapp']:
-        path = os.path.join(m.paths['orbit']['inner'], name)
+        path = os.path.join(m.paths['orbit']['orbit'], name)
         if os.path.exists(path):
             shutil.rmtree(path)
 

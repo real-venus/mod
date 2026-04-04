@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import ModCard from '../ModCard'
 import { ModCardSettings } from '../ModCardSettings'
@@ -11,18 +11,22 @@ import { X, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
 import { CubeIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
-type ModTab = 'mods' | 'myMods'
 
-const TABS: { key: ModTab; label: string }[] = [
-  { key: 'mods', label: 'MODS' },
-  { key: 'myMods', label: 'MY MODS' },
-]
+// Simple in-memory cache for mod listings
+const modsCache: Record<string, { data: ModuleType[], time: number }> = {}
+const CACHE_TTL = 30_000 // 30 seconds
+
+export function clearModsCache() {
+  Object.keys(modsCache).forEach(k => delete modsCache[k])
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('mods-cache-cleared'))
+  }
+}
 
 export default function ModExplorePage() {
-  const { client, user } = userContext()
+  const { client } = userContext()
   const { searchFilters, handleSearch } = useSearchContext()
 
-  const [activeTab, setActiveTab] = useState<ModTab>('mods')
   const [mods, setMods] = useState<ModuleType[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,8 +47,24 @@ export default function ModExplorePage() {
   const [currentPage, setCurrentPage] = useState(0) // API uses 0-based pagination
   const [itemsPerPage] = useState(20)
   const [totalMods, setTotalMods] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const searchTermToUse = searchFilters.searchTerm?.trim() || ''
+
+  // Listen for cache-clear events (fired after create/fork/build) and tx events
+  useEffect(() => {
+    const handleCacheClear = () => setRefreshKey(k => k + 1)
+    const handleTx = () => {
+      Object.keys(modsCache).forEach(k => delete modsCache[k])
+      setRefreshKey(k => k + 1)
+    }
+    window.addEventListener('mods-cache-cleared', handleCacheClear)
+    window.addEventListener('mod:tx', handleTx)
+    return () => {
+      window.removeEventListener('mods-cache-cleared', handleCacheClear)
+      window.removeEventListener('mod:tx', handleTx)
+    }
+  }, [])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -87,38 +107,66 @@ export default function ModExplorePage() {
   }, [sort])
 
   const fetchAll = useCallback(async () => {
-    setLoading(true)
+    if (!client) {
+      setError('Client not initialized')
+      return
+    }
     setError(null)
-    try {
-      if (!client) {
-        setError('Client not initialized')
-        return
-      }
 
-      const params: any = {
-        page: currentPage,
-        page_size: itemsPerPage
-      }
+    const params: any = {
+      page: currentPage,
+      page_size: itemsPerPage
+    }
+    if (searchTermToUse) {
+      params.search = searchTermToUse
+    }
+    if (selectedOwners.length === 1) {
+      params.key = selectedOwners[0]
+    }
 
-      if (searchTermToUse) {
-        params.search = searchTermToUse
-      }
+    const cacheKey = JSON.stringify(params)
+    const cached = modsCache[cacheKey]
 
-      if (selectedOwners.length === 1) {
-        params.key = selectedOwners[0]
-      }
-      console.log('Fetching modules with params:', params)
-
-      const raw = (await client.call('mods', params)) as ModuleType[]
-      const pageMods = Array.isArray(raw) ? raw : []
-      console.log('Fetched modules:', pageMods)
-      // If we got fewer mods than requested, we're on the last page
+    // Show cached data immediately if available
+    if (cached && Date.now() - cached.time < CACHE_TTL) {
+      const sorted = sortModules(cached.data)
+      setMods(sorted)
+      const pageMods = cached.data
       if (pageMods.length < itemsPerPage && currentPage === 0) {
         setTotalMods(pageMods.length)
       } else if (pageMods.length < itemsPerPage) {
         setTotalMods(currentPage * itemsPerPage + pageMods.length)
       } else {
-        // Estimate total based on page size - we'll refine as we paginate
+        setTotalMods((currentPage + 2) * itemsPerPage)
+      }
+      return
+    }
+
+    // Show stale cache while loading if available
+    if (cached) {
+      setMods(sortModules(cached.data))
+    }
+
+    setLoading(true)
+    try {
+      const raw = (await client.call('mods', params)) as ModuleType[]
+      // Deduplicate by name+key (backend may return dupes from registry casing issues)
+      const seen = new Set<string>()
+      const pageMods = (Array.isArray(raw) ? raw : []).filter(mod => {
+        const k = `${(mod.name || '').toLowerCase()}:${(mod.key || '').toLowerCase()}`
+        if (seen.has(k)) return false
+        seen.add(k)
+        return true
+      })
+
+      // Update cache
+      modsCache[cacheKey] = { data: pageMods, time: Date.now() }
+
+      if (pageMods.length < itemsPerPage && currentPage === 0) {
+        setTotalMods(pageMods.length)
+      } else if (pageMods.length < itemsPerPage) {
+        setTotalMods(currentPage * itemsPerPage + pageMods.length)
+      } else {
         setTotalMods((currentPage + 2) * itemsPerPage)
       }
 
@@ -130,36 +178,19 @@ export default function ModExplorePage() {
     } finally {
       setLoading(false)
     }
-  }, [client, searchTermToUse, selectedOwners, sortModules, currentPage, itemsPerPage])
+  }, [client, searchTermToUse, selectedOwners, sortModules, currentPage, itemsPerPage, refreshKey])
 
   useEffect(() => {
     fetchAll()
   }, [fetchAll])
 
-  const uniqueOwners = useMemo(() => {
-    const owners = new Set<string>()
-    mods.forEach(mod => {
-      if (mod.key) owners.add(mod.key)
-    })
-    return Array.from(owners).sort()
-  }, [mods])
-
-  const filteredMods = useMemo(() => {
-    let result = mods
-    if (activeTab === 'myMods' && user?.key) {
-      result = result.filter(mod => mod.key === user.key)
-    }
-    return result
-  }, [mods, activeTab, user?.key])
+  const uniqueOwners = Array.from(new Set(mods.map(m => m.key).filter(Boolean) as string[])).sort()
 
   const totalPages = Math.ceil(totalMods / itemsPerPage)
 
-  // Mods are already paginated from the API
-  const paginatedMods = filteredMods
-
   useEffect(() => {
     setCurrentPage(0) // Reset to first page (0-based)
-  }, [searchTermToUse, selectedOwners, sort, activeTab])
+  }, [searchTermToUse, selectedOwners, sort])
 
   const toggleOwner = (owner: string) => {
     setSelectedOwners(prev =>
@@ -189,50 +220,40 @@ export default function ModExplorePage() {
     >
       <div className="relative max-w-7xl mx-auto px-6 pt-4 pb-12 z-20">
 
-        {/* Header row: tabs + create */}
-        <div className="flex items-center gap-3 mb-4 pb-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
-          {/* Tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-            {TABS.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className="px-4 py-2.5 text-sm font-bold tracking-wider transition-all whitespace-nowrap shrink-0 uppercase rounded-md"
-                style={
-                  activeTab === tab.key
-                    ? {
-                        background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))',
-                        color: 'var(--text-primary)',
-                        fontFamily: 'var(--font-digital)',
-                        border: '1px solid rgba(167, 139, 250, 0.2)',
-                      }
-                    : {
-                        backgroundColor: 'transparent',
-                        color: 'var(--text-secondary)',
-                        fontFamily: 'var(--font-digital)',
-                      }
-                }
-              >
-                {tab.label}
-                {tab.key === 'mods' && (
-                  <span className="ml-2 text-xs font-bold" style={{ opacity: 0.6 }}>
-                    {totalMods}
-                  </span>
-                )}
-                {tab.key === 'myMods' && user?.key && (
-                  <span className="ml-2 text-xs font-bold" style={{ opacity: 0.6 }}>
-                    {filteredMods.length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+        {/* Header row: search + filters + create */}
+        <div className="flex items-center gap-3 mb-6 pb-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
+          {/* Title + count */}
+          <span className="text-sm font-bold uppercase tracking-wider shrink-0" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-digital)' }}>
+            MODS
+            <span className="ml-2 text-xs font-bold" style={{ opacity: 0.6 }}>
+              {totalMods}
+            </span>
+          </span>
 
           {searchTermToUse && (
-            <span className="text-xs font-bold font-mono px-3 py-1.5 rounded-md" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-input)', fontFamily: 'var(--font-digital)' }}>
-              &quot;{searchTermToUse}&quot;
-            </span>
+            <>
+              <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)' }} />
+              <span className="text-xs font-bold font-mono px-3 py-1.5 rounded-md flex items-center gap-2" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-input)', fontFamily: 'var(--font-digital)' }}>
+                &quot;{searchTermToUse}&quot;
+                <button onClick={() => handleSearch('')} className="opacity-60 hover:opacity-100 transition-opacity">
+                  <X size={12} />
+                </button>
+              </span>
+            </>
           )}
+
+          <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)' }} />
+
+          <ModCardSettings
+            sort={sort}
+            onSortChange={setSort}
+            columns={columns}
+            onColumnsChange={setColumns}
+            owners={uniqueOwners}
+            selectedOwners={selectedOwners}
+            onToggleOwner={toggleOwner}
+            onClearFilters={clearOwnerFilters}
+          />
 
           <div className="flex-1" />
 
@@ -250,20 +271,6 @@ export default function ModExplorePage() {
           >
             + CREATE MOD
           </Link>
-        </div>
-
-        {/* Filters bar */}
-        <div className="flex items-center gap-3 mb-6 pb-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
-          <ModCardSettings
-            sort={sort}
-            onSortChange={setSort}
-            columns={columns}
-            onColumnsChange={setColumns}
-            owners={uniqueOwners}
-            selectedOwners={selectedOwners}
-            onToggleOwner={toggleOwner}
-            onClearFilters={clearOwnerFilters}
-          />
         </div>
 
         {error && (
@@ -297,15 +304,13 @@ export default function ModExplorePage() {
           </div>
         )}
 
-        {!loading && filteredMods.length === 0 && !error && (
+        {!loading && mods.length === 0 && !error && (
           <div className="flex flex-col items-center justify-center py-24 font-mono border-4" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-strong)' }}>
             <div className="w-16 h-16 flex items-center justify-center mb-6 border-4" style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-strong)' }}>
               <CubeIcon className="w-8 h-8" style={{ color: 'var(--text-primary)' }} />
             </div>
             <p className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital)' }}>
-              {activeTab === 'myMods'
-                ? (user?.key ? '▸ NO MODULES CREATED YET' : '▸ SIGN IN TO VIEW YOUR MODULES')
-                : (searchTermToUse || selectedOwners.length > 0 ? '▸ NO MODULES MATCH YOUR FILTERS' : '▸ NO MODULES YET')}
+              {searchTermToUse || selectedOwners.length > 0 ? '▸ NO MODULES MATCH YOUR FILTERS' : '▸ NO MODULES YET'}
             </p>
             {(searchTermToUse || selectedOwners.length > 0) && (
               <button
@@ -319,7 +324,7 @@ export default function ModExplorePage() {
           </div>
         )}
 
-        {loading && (
+        {loading && mods.length === 0 && (
           <div className="flex items-center justify-center py-24 font-mono">
             <div className="flex flex-col items-center gap-5">
               <div className="w-16 h-16 border-4 flex items-center justify-center" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
@@ -331,7 +336,7 @@ export default function ModExplorePage() {
         )}
 
         <div className={`grid ${gridColsClass} gap-5`}>
-          {paginatedMods.map((mod, index) => (
+          {mods.map((mod, index) => (
             <div
               key={`${mod.name}-${mod.key}`}
               className="animate-fade-in"

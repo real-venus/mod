@@ -311,7 +311,7 @@ export const Reg = ( ) => {
         walletAddress,
         selectedMod.name + '/' + walletAddress,
         selectedMod.cid || '',
-        selectedMod.url || '0.0.0.0:8888',
+        (typeof selectedMod.url === 'string' ? selectedMod.url : '') || '0.0.0.0:8888',
         collateral,
       )
 

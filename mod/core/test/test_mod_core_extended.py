@@ -37,8 +37,7 @@ class MockMod:
             'mod': os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/mod',
             'lib': os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             'orbit': {
-                'inner': '/tmp/mod_test_orbit_inner',
-                'outer': '/tmp/mod_test_orbit_outer',
+                'orbit': '/tmp/mod_test_orbit',
                 'core': os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/mod/core',
                 'local': os.getcwd(),
             },

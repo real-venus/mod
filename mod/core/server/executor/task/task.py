@@ -44,8 +44,11 @@ class Task:
 
     def run(self):
         """Run the given work item"""
-        if (not self.future.set_running_or_notify_cancel()) or (time.time() - self.start_time) > self.timeout:
+        if not self.future.set_running_or_notify_cancel():
+            return
+        if (time.time() - self.start_time) > self.timeout:
             self.future.set_exception(TimeoutError('Task timed out'))
+            return
         try:
             result = self.fn(**self.params)
             self.status = 'complete'

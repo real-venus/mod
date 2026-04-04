@@ -237,12 +237,12 @@ class DeployMixin:
         self.print(f'Created {script_path}')
         return script_path
 
-    def off_mods(self, search=None, orbit='inner'):
+    def off_mods(self, search=None, orbit='orbit'):
         """List modules not currently running in PM2."""
         running = self._pm2_running()
         return [m for m in self.mods(search=search, orbit=orbit) if m not in running]
 
-    def deploy(self, mod=None, search=None, orbit='inner', create=True):
+    def deploy(self, mod=None, search=None, orbit='orbit', create=True):
         """Deploy modules by running their start scripts."""
         if mod:
             mods_to_deploy = [mod]

@@ -19,7 +19,7 @@ def cleanup_test_mods():
     """Remove test mods after each test."""
     yield
     for name in ['_test_core_new', '_test_core_fork', '_test_core_overwrite']:
-        path = os.path.join(m.paths['orbit']['inner'], name)
+        path = os.path.join(m.paths['orbit']['orbit'], name)
         if os.path.exists(path):
             shutil.rmtree(path)
 

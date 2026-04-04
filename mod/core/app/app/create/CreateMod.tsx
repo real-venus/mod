@@ -186,7 +186,7 @@ export default function CreateModule() {
     try {
       if (!client?.token) throw new Error('Authentication required. Please connect your wallet.')
       const expandedUrl = expandGitUrl(url)
-      const response = await client.call('api/reg', {
+      const response = await client.call('reg', {
         mod: expandedUrl,
         key: registerToKey.trim(),
         public: false,

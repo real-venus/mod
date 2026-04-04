@@ -3,7 +3,6 @@ from flask import Flask, request, Response
 from flask_cors import CORS
 import os
 import hashlib
-import os
 import pandas as pd
 import json
 import inspect
@@ -128,7 +127,7 @@ class Server:
                 except Exception as e:
                     print(f'Error calling server {name} at {namespace[name]}: {m.detailed_error(e)}', color='red')
             m.sleep(trial_backoff)
-        raise Exception(f'Failed to start {name} after {trials} trials')
+        raise Exception(f'Failed to start {name} after {max_time}s')
 
     def prepare_server(self, mod, fn_options = ['ensure_env']):
         mod_obj = m.mod(mod)
@@ -204,6 +203,11 @@ class Server:
             except Exception as e:
                 result = m.detailed_error(e)
                 m.print(f'Error in server function {fn}: {result} {e}', color='red')
+            # Ensure result is JSON-serializable
+            try:
+                json.dumps(result)
+            except (TypeError, ValueError):
+                result = json.loads(json.dumps(result, default=str))
             return  {'result': result}
 
         self.registry.reg(name, f'http://0.0.0.0:{port}')

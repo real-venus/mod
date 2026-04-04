@@ -54,7 +54,7 @@ export const Create: React.FC = () => {
   const populateFields = (mod: ModuleType) => {
     setModName(mod.name || '')
     setModData(mod.cid || '')
-    setModUrl(mod.url || '')
+    setModUrl(typeof mod.url === 'string' ? mod.url : '')
     setTake(String(mod.take || 0))
     setSelectedModId(mod.id || 0)
   }

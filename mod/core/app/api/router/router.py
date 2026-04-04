@@ -9,22 +9,29 @@ import datetime
 import inspect
 import shutil
 import mod as m
+from mod.core.server.executor.worker import SandboxWorker, WorkerPool
 
 class Router:
     threads = {}
     cid2future = {}
+    cid2worker = {}  # cid -> True for sandbox-executed tasks
     folder_path = m.abspath('~/.mod/api/router')
     intervals = {
         'sync_tasks': 10,
         # 'sync_ious': 60,
     }
 
-    def __init__(self, store=None, key=None, auth='auth', chain='chain',):
+    def __init__(self, store=None, key=None, auth='auth', chain='chain',
+                 min_workers: int = 1, max_workers: int = 10):
         self.store = store or m.config('api').get('store', 'localfs')
         self.key = m.key(key )
         self.tasks_path = self.path('tasks')
         self.chain = m.mod(chain)()
         self.auth = m.mod(auth)()
+        self.pool = WorkerPool(min_workers=min_workers, max_workers=max_workers)
+        self.pool.start()
+        # Legacy alias
+        self.sandbox = self.pool
         self.threads['sync'] = m.thread(self.sync_loop)
 
     def get(self, cid: str) -> Dict[str, Any]:
@@ -300,14 +307,21 @@ class Router:
     def kill_task(self, cid: str) -> bool:
         """
         Kill a running task by its CID.
+        Kills both the future and any worker pool subprocess.
         """
+        killed = False
+        # Kill worker pool subprocess if running
+        if self.pool.kill(cid):
+            print(f'KillWorker({cid})', )
+            killed = True
+        # Cancel the future
         future = self.cid2future.get(cid, None)
         if future is not None:
-            print(f'Kill({cid})')    
+            print(f'KillFuture({cid})', )
             future.cancel()
             del self.cid2future[cid]
-            return True
-        return False
+            killed = True
+        return killed
 
     def tasks(self) -> bool:
         return list(self.cid2future.keys())
@@ -322,6 +336,7 @@ class Router:
     def run_task(self, **task:dict) -> Any:
         """
         Send the function task request to the appropriate mod Mod and function.
+        Uses SandboxWorker for local execution to isolate module code.
         """
         task['status'] = 'running'
         assert '/' in task['fn'], "Function name must be in the format 'mod/fn'"
@@ -333,12 +348,21 @@ class Router:
         m.put(path, task)
         client = m.mod('client')()
         try:
-            url = self.namespace.get(mod, None) 
-            if url != None  :
+            url = self.namespace.get(mod, None)
+            if url != None:
+                # Remote call - no sandbox needed, goes over HTTP
                 result = client.call(url + '/' + fn, params=params, timeout=task['timeout'])
             else:
-                result = m.fn(task['fn'])
-                result = result(**params) if callable(result) else result
+                # Local execution - use worker pool
+                cid = task.get('cid')
+                timeout = min(task.get('timeout', 120), 300)  # Cap at 5 min
+                print(f'WorkerPool: executing {task["fn"]} (cid={cid})', )
+                result = self.pool.run(
+                    fn_path=task['fn'],
+                    params=params,
+                    timeout=timeout,
+                    cid=cid,
+                )
             task['status'] = 'success'
         except Exception as e:
             result = m.detailed_error(e)

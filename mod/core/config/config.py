@@ -2,13 +2,14 @@
 Config — drop-in Munch replacement with clean repr.
 
     >>> c = Config(mod='/Users/broski/mod/mod', lib='/Users/broski/mod',
-    ...           orbit=dict(inner='/mod/orbit', outer='/mod/orbit/_outer'))
+    ...           orbit=dict(orbit='/mod/orbit', core='/mod/core', local='.'))
     >>> print(c)
     mod   : /Users/broski/mod/mod
     lib   : /Users/broski/mod
     orbit
-      inner : /mod/orbit
-      outer : /mod/orbit/_outer
+      orbit : /mod/orbit
+      core  : /mod/core
+      local : .
 """
 
 

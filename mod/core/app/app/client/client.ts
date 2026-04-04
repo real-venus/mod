@@ -12,7 +12,8 @@ export class Client {
   private keyRotationCallback?: () => void;
 
   constructor(url?: string, token?: string) {
-    this.url = url || process.env.NEXT_PUBLIC_API_URL || modConfig.url.api || 'http://localhost:8000';
+    const customUrl = typeof window !== 'undefined' ? localStorage.getItem('custom_node_url') : null;
+    this.url = url || customUrl || process.env.NEXT_PUBLIC_API_URL || modConfig.url.api || 'http://localhost:8000';
     console.log('Client initialized with URL:', this.url);
     this.auth = new Auth(undefined);
     this.token = token;

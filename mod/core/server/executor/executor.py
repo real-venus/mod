@@ -126,7 +126,7 @@ class Executor:
             self.threads.append(t)
             self.threads_queues[t] = self.task_queue
 
-    def shutdown(self, wait=True):
+    def do_shutdown(self, wait=True):
         with self.shutdown_lock:
             self.shutdown = True
             self.task_queue.put(Task.null())

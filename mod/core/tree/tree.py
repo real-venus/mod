@@ -5,8 +5,8 @@ from typing import Dict, List, Optional
 class Tree:
     """Module tree discovery, caching, and search."""
 
-    orbits = ['core', 'inner', 'outer']
-    orbit2depth = {'inner': 2, 'outer': 2, 'core': 10}
+    orbits = ['core', 'orbit', 'portal']
+    orbit2depth = { 'orbit': 2, 'core': 10, 'portal': 3}
     ignore_suffixes = ['/src', '/core']
     tree_cache = {}
 
@@ -28,7 +28,7 @@ class Tree:
         """Get the tree of mods in a path."""
         if key is not None:
             key_address = self.mod.key_address(key)
-            path = self.mod.paths['orbit']['outer'] + '/' + key_address
+            path = self.mod.paths['orbit']['orbit'] + '/' + key_address
         else:
             path = path or self.mod.paths.orbit.core
 
@@ -63,7 +63,7 @@ class Tree:
             tree = {k.replace(key_address.lower() + '.', ''): v for k, v in tree.items()}
         return tree
 
-    def core_tree(self, search=None, depth=2, **kwargs):
+    def core_tree(self, search=None, depth=4, **kwargs):
         return self.get_tree(self.mod.paths.orbit.core, search=search, depth=depth, **kwargs)
 
     def orbit(self, orbit='core', search=None, depth=None, **kwargs):

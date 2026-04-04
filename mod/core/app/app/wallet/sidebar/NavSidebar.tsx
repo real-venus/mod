@@ -3,17 +3,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Palette, Globe, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Palette, Globe, Server, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getAllNavItems, getNavHref } from '@/config/navigation'
 import { useModuleApps } from '@/hooks/useModuleApps'
 import { ThemeSelectorCompact } from '@/themes/ThemeSelectorCompact'
 import {
   Blocks, Landmark, FileCode2, ArrowLeftRight,
-  BookOpen, MessageSquare, Waypoints
+  BookOpen, MessageSquare, Waypoints, Shield
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { NetworkSelector } from '@/network/NetworkSelector'
 import { useLayoutContext } from '@/context/LayoutContext'
+import modConfig from '@config'
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
   'MODS': <Blocks size={22} strokeWidth={1.5} />,
@@ -23,6 +24,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   'DOCS': <BookOpen size={22} strokeWidth={1.5} />,
   'CHAT': <MessageSquare size={22} strokeWidth={1.5} />,
   'BRIDGE': <Waypoints size={22} strokeWidth={1.5} />,
+  'WORKERS': <Shield size={22} strokeWidth={1.5} />,
 }
 
 export const SIDEBAR_WIDTH = 64
@@ -45,6 +47,9 @@ export function NavSidebar() {
   const [networkOpen, setNetworkOpen] = useState(false)
   const networkBtnRef = useRef<HTMLButtonElement>(null)
   const [networkBtnRect, setNetworkBtnRect] = useState<DOMRect | null>(null)
+  const [apiOpen, setApiOpen] = useState(false)
+  const apiBtnRef = useRef<HTMLButtonElement>(null)
+  const [apiBtnRect, setApiBtnRect] = useState<DOMRect | null>(null)
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
@@ -264,6 +269,39 @@ export function NavSidebar() {
             <span style={{ fontSize: '7px', marginTop: '3px', opacity: 0.5 }}>NET</span>
           </button>
 
+          {/* API host selector icon */}
+          <button
+            ref={apiBtnRef}
+            onClick={() => {
+              if (apiBtnRef.current) {
+                setApiBtnRect(apiBtnRef.current.getBoundingClientRect())
+              }
+              setApiOpen(!apiOpen)
+            }}
+            className="w-full flex flex-col items-center justify-center transition-all duration-200 rounded-lg"
+            style={{
+              height: '48px',
+              color: apiOpen ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontFamily: PIXEL_FONT,
+            }}
+            title="API Host"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--text-primary)'
+              e.currentTarget.style.background = 'var(--hover-bg)'
+              handleHover('__api', 'API', 'var(--accent-primary)', e)
+            }}
+            onMouseLeave={(e) => {
+              if (!apiOpen) e.currentTarget.style.color = 'var(--text-secondary)'
+              e.currentTarget.style.background = 'transparent'
+              clearHover()
+            }}
+          >
+            <Server size={20} className="transition-all duration-200" style={{
+              filter: hoveredItem === '__api' || apiOpen ? 'drop-shadow(0 0 4px var(--accent-primary))' : 'none',
+            }} />
+            <span style={{ fontSize: '7px', marginTop: '3px', opacity: 0.5 }}>API</span>
+          </button>
+
           {/* Theme selector icon */}
           <button
             ref={themeBtnRef}
@@ -316,6 +354,28 @@ export function NavSidebar() {
             }}
           >
             <NetworkSelector onClose={() => setNetworkOpen(false)} sidebar />
+          </div>
+        </>,
+        document.body
+      )}
+
+      {/* API host selector portal */}
+      {mounted && apiOpen && apiBtnRect && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={() => setApiOpen(false)}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              left: `${currentWidth}px`,
+              bottom: `${window.innerHeight - apiBtnRect.bottom}px`,
+              zIndex: 9999,
+              width: '320px',
+            }}
+          >
+            <ApiHostSelector onClose={() => setApiOpen(false)} />
           </div>
         </>,
         document.body
@@ -382,5 +442,140 @@ export function NavSidebar() {
         document.body
       )}
     </>
+  )
+}
+
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || modConfig.url.api || 'http://localhost:8000'
+
+function ApiHostSelector({ onClose }: { onClose: () => void }) {
+  const [hosts, setHosts] = useState<{ url: string; status: 'active' | 'inactive' | 'checking' }[]>([])
+  const [currentHost, setCurrentHost] = useState('')
+  const [newUrl, setNewUrl] = useState('')
+
+  useEffect(() => {
+    const current = localStorage.getItem('custom_node_url') || DEFAULT_API_URL
+    setCurrentHost(current)
+    const saved = localStorage.getItem('custom_hosts')
+    const urls: string[] = saved ? JSON.parse(saved) : [DEFAULT_API_URL]
+    if (!urls.includes(DEFAULT_API_URL)) urls.unshift(DEFAULT_API_URL)
+    setHosts(urls.map(url => ({ url, status: 'checking' })))
+    urls.forEach((url, i) => {
+      fetch(`${url}/info`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then(r => r.ok ? 'active' as const : 'inactive' as const)
+        .catch(() => 'inactive' as const)
+        .then(status => setHosts(prev => prev.map((h, j) => j === i ? { ...h, status } : h)))
+    })
+  }, [])
+
+  const selectHost = (url: string) => {
+    localStorage.setItem('custom_node_url', url)
+    window.location.reload()
+  }
+
+  const addHost = () => {
+    if (!newUrl.trim()) return
+    const url = newUrl.trim()
+    const updated = [...hosts, { url, status: 'checking' as const }]
+    setHosts(updated)
+    localStorage.setItem('custom_hosts', JSON.stringify(updated.map(h => h.url)))
+    setNewUrl('')
+    fetch(`${url}/info`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      .then(r => r.ok ? 'active' as const : 'inactive' as const)
+      .catch(() => 'inactive' as const)
+      .then(status => setHosts(prev => prev.map(h => h.url === url ? { ...h, status } : h)))
+  }
+
+  const removeHost = (url: string) => {
+    const updated = hosts.filter(h => h.url !== url)
+    setHosts(updated)
+    localStorage.setItem('custom_hosts', JSON.stringify(updated.map(h => h.url)))
+    if (currentHost === url) selectHost(DEFAULT_API_URL)
+  }
+
+  return (
+    <div
+      className="flex flex-col gap-1 p-3"
+      style={{
+        background: 'var(--bg-header)',
+        border: '1px solid var(--border-default)',
+        borderRadius: '8px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        fontFamily: PIXEL_FONT,
+        maxHeight: '360px',
+        overflowY: 'auto',
+      }}
+    >
+      <div className="text-[9px] font-bold uppercase tracking-wider mb-1 px-1" style={{ color: 'var(--text-tertiary)' }}>
+        API HOST
+      </div>
+      {hosts.map(host => {
+        const isCurrent = host.url === currentHost
+        return (
+          <div
+            key={host.url}
+            className="flex items-center gap-2 px-2 py-2 rounded transition-all cursor-pointer"
+            style={{
+              background: isCurrent ? 'var(--accent-primary)15' : 'transparent',
+              border: isCurrent ? '1px solid var(--accent-primary)' : '1px solid transparent',
+            }}
+            onClick={() => !isCurrent && selectHost(host.url)}
+          >
+            <div
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{
+                background: host.status === 'active' ? '#10b981' : host.status === 'inactive' ? '#ef4444' : '#f59e0b',
+                boxShadow: host.status === 'active' ? '0 0 6px #10b981' : 'none',
+              }}
+            />
+            <span
+              className="flex-1 text-[9px] truncate"
+              style={{ color: isCurrent ? 'var(--accent-primary)' : 'var(--text-primary)' }}
+            >
+              {host.url.replace(/^https?:\/\//, '')}
+            </span>
+            {isCurrent && (
+              <span className="text-[7px] uppercase tracking-wider shrink-0" style={{ color: 'var(--accent-primary)' }}>active</span>
+            )}
+            {!isCurrent && host.url !== DEFAULT_API_URL && (
+              <button
+                onClick={(e) => { e.stopPropagation(); removeHost(host.url) }}
+                className="text-[9px] shrink-0 px-1 rounded transition-all"
+                style={{ color: '#ef4444' }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )
+      })}
+      <div className="flex gap-1 mt-1">
+        <input
+          type="text"
+          value={newUrl}
+          onChange={e => setNewUrl(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addHost()}
+          placeholder="http://host:port"
+          className="flex-1 px-2 py-1 text-[9px] rounded"
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-default)',
+            color: 'var(--text-primary)',
+            outline: 'none',
+            fontFamily: PIXEL_FONT,
+          }}
+        />
+        <button
+          onClick={addHost}
+          className="px-2 py-1 text-[9px] rounded font-bold"
+          style={{
+            background: 'var(--accent-primary)20',
+            color: 'var(--accent-primary)',
+            border: '1px solid var(--accent-primary)',
+          }}
+        >
+          +
+        </button>
+      </div>
+    </div>
   )
 }

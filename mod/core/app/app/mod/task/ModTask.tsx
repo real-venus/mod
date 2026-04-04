@@ -712,6 +712,7 @@ export default function ModTask({ mod, moduleColor = '#ffffff' }: ModTaskProps) 
               const hasResult = task.result !== undefined && task.result !== null
               const isRunning = task.status === 'pending' || task.status === 'running'
               const isCancelling = cancellingCid === task.cid
+              const resultStr = hasResult ? JSON.stringify(task.result, null, 2) : ''
               return (
                 <div key={task.cid || task.hash || idx}
                   style={{ border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-surface)' }}>
@@ -722,14 +723,22 @@ export default function ModTask({ mod, moduleColor = '#ffffff' }: ModTaskProps) 
                     style={{ backgroundColor: isExpanded ? 'var(--bg-input)' : 'transparent' }}
                   >
                     {/* Status */}
-                    <span className="text-[12px] font-bold" style={{ color: getStatusColor(task.status) }}>
+                    <span className="text-[12px] font-bold shrink-0" style={{ color: getStatusColor(task.status) }}>
                       {getStatusLabel(task.status)}
                     </span>
 
                     {/* Function name */}
-                    <span className="text-[12px] font-mono font-semibold flex-1 truncate" style={{ color: 'var(--text-primary)' }}>
+                    <span className="text-[12px] font-mono font-semibold shrink-0" style={{ color: 'var(--text-primary)' }}>
                       {fnName}
                     </span>
+
+                    {/* Result preview */}
+                    {hasResult && (
+                      <span className="text-[11px] font-mono truncate flex-1 min-w-0" style={{ color: 'var(--text-secondary)' }}>
+                        {typeof task.result === 'string' ? task.result : JSON.stringify(task.result)}
+                      </span>
+                    )}
+                    {!hasResult && <span className="flex-1" />}
 
                     {/* Cancel button for running/pending tasks */}
                     {isRunning && task.cid && (
@@ -786,10 +795,10 @@ export default function ModTask({ mod, moduleColor = '#ffffff' }: ModTaskProps) 
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Result</span>
-                            <CopyButton text={JSON.stringify(task.result, null, 2)} />
+                            <CopyButton text={resultStr} />
                           </div>
                           <pre className="text-[11px] font-mono p-3 overflow-x-auto max-h-64 overflow-y-auto" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)' }}>
-                            <code>{JSON.stringify(task.result, null, 2)}</code>
+                            <code>{resultStr}</code>
                           </pre>
                         </div>
                       )}

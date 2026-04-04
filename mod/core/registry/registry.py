@@ -82,21 +82,34 @@ class Registry:
     def mods(self, search: str = None, key='all', n: int = None, page: int = None, page_size=10, **kwargs) -> List[Dict[str, Any]]:
         """List all registered mods."""
         registry = self.registry()
-        mods = []
+        # Build list of (mod_name, user_key) pairs first (cheap), dedup by lowered key
+        entries = []
+        seen = set()
         if key != 'all':
             registry = {key.lower(): registry.get(key.lower(), {})}
         for user_key, user_mods in registry.items():
             for mod_name in user_mods.keys():
-                mods.append(self.mod(mod_name, key=user_key, **kwargs))
-            mods = [item for item in mods if isinstance(item, dict) and 'name' in item]
+                dedup_key = (mod_name.lower(), user_key.lower())
+                if dedup_key not in seen:
+                    seen.add(dedup_key)
+                    entries.append((mod_name, user_key))
+        # Filter by search BEFORE loading full mod info (expensive)
         if search is not None:
-            mods = [item for item in mods if search.lower() in item['name'].lower()]
+            search_lower = search.lower()
+            entries = [(name, k) for name, k in entries if search_lower in name.lower()]
+        # Paginate BEFORE loading full mod info
         if page is not None and page_size is not None:
             start = page * page_size
             end = start + page_size
-            mods = mods[start:end]
+            entries = entries[start:end]
         if n is not None:
-            mods = mods[:n]
+            entries = entries[:n]
+        # Now load full mod info only for the slice we need
+        mods = []
+        for mod_name, user_key in entries:
+            info = self.mod(mod_name, key=user_key, **kwargs)
+            if isinstance(info, dict) and 'name' in info:
+                mods.append(info)
         return mods
 
     def n(self, *args, **kwargs):
@@ -201,10 +214,15 @@ class Registry:
         mod = self.get(mod) if isinstance(mod, str) else mod
         cid = mod['cid'] if 'cid' in mod else self.put(mod)
         registry = m.get(self.registry_path, {})
-        registry[mod['key']] = registry.get(mod['key'], {})
-        registry[mod['key']][mod['name']] = cid
+        key = mod['key'].lower()
+        # Deduplicate: remove any differently-cased versions of this key
+        for existing_key in list(registry.keys()):
+            if existing_key.lower() == key and existing_key != key:
+                registry[key] = {**registry.pop(existing_key), **registry.get(key, {})}
+        registry[key] = registry.get(key, {})
+        registry[key][mod['name']] = cid
         m.put(self.registry_path, registry)
-        print('Registered({key}, {mod}) -> {cid}'.format(key=mod['key'], mod=mod['name'], cid=cid))
+        print('Registered({key}, {mod}) -> {cid}'.format(key=key, mod=mod['name'], cid=cid))
         return cid
 
     def get_info(self, mod='store', key=None, name=None, comment=None, public=False) -> Dict[str, Any]:
@@ -260,9 +278,9 @@ class Registry:
         name = name or url.split('/')[-1].split('.git')[0]
         name = name.lower()
         if self.is_owner(key):
-            orbit = 'inner'
+            orbit = 'orbit'
         else:
-            orbit = 'outer'
+            orbit = 'portal'
         dirpath = m.paths.orbit[orbit]
         modpath = os.path.join(dirpath, key, name)
         if os.path.exists(modpath):
@@ -278,7 +296,8 @@ class Registry:
         mod_info = self.get(cid)
         name = mod_info['name']
         content = self.get(mod_info['content'])
-        modpath = m.paths['orbit']['outer'] + '/' + mod_info['key'] + '/' + mod_info['name']
+        orbit = 'orbit' if self.is_owner(mod_info['key']) else 'portal'
+        modpath = m.paths['orbit'][orbit] + '/' + mod_info['key'] + '/' + mod_info['name']
         for file, file_cid in content['data'].items():
             file_content = self.get(file_cid)
             filepath = os.path.join(modpath, file)

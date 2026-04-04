@@ -8,6 +8,7 @@ import { userContext } from '@/context'
 import { useLayoutContext } from '@/context/LayoutContext'
 import Link from 'next/link'
 import { text2color, colorWithOpacity, shorten } from '@/utils'
+import { clearModsCache } from '@/mod/explore/ModExplorePage'
 
 const COMMANDS = ['/search', '/ask', '/run'] as const
 
@@ -81,17 +82,21 @@ export function TopBar() {
   const [runError, setRunError] = useState<string | null>(null)
   const activeCommand = COMMANDS[commandIndex]
 
-  // Create dropdown state
-  const [showCreate, setShowCreate] = useState(false)
-  const [createMode, setCreateMode] = useState<'local' | 'github' | 'cid'>('local')
-  const [createName, setCreateName] = useState('')
-  const [createUrl, setCreateUrl] = useState('')
-  const [createSubmitting, setCreateSubmitting] = useState(false)
-  const [createResult, setCreateResult] = useState<any>(null)
-  const [createError, setCreateError] = useState<string | null>(null)
-  const createRef = useRef<HTMLDivElement>(null)
+  // Build dropdown state
+  const [showBuild, setShowBuild] = useState(false)
+  const [buildName, setBuildName] = useState('')
+  const [buildBase, setBuildBase] = useState('base')
+  const [buildSubmitting, setBuildSubmitting] = useState(false)
+  const [buildResult, setBuildResult] = useState<any>(null)
+  const [buildError, setBuildError] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<any[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [templateSearch, setTemplateSearch] = useState('')
+  const [buildMode, setBuildMode] = useState<'build' | 'fork'>('build')
+  const buildRef = useRef<HTMLDivElement>(null)
+  const templateSearchRef = useRef<HTMLInputElement>(null)
 
-  // Fork dropdown state
+  // Fork dropdown state (module page only)
   const [showFork, setShowFork] = useState(false)
   const [forkName, setForkName] = useState('')
   const [forkSubmitting, setForkSubmitting] = useState(false)
@@ -153,11 +158,11 @@ export function TopBar() {
     return () => window.removeEventListener('keydown', handler)
   }, [activeModule])
 
-  // Click-outside for create/fork dropdowns
+  // Click-outside for build/fork dropdowns
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (showCreate && createRef.current && !createRef.current.contains(e.target as Node)) {
-        setShowCreate(false)
+      if (showBuild && buildRef.current && !buildRef.current.contains(e.target as Node)) {
+        setShowBuild(false)
       }
       if (showFork && forkRef.current && !forkRef.current.contains(e.target as Node)) {
         setShowFork(false)
@@ -165,7 +170,7 @@ export function TopBar() {
     }
     const escHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setShowCreate(false)
+        setShowBuild(false)
         setShowFork(false)
       }
     }
@@ -175,54 +180,82 @@ export function TopBar() {
       document.removeEventListener('mousedown', handler)
       document.removeEventListener('keydown', escHandler)
     }
-  }, [showCreate, showFork])
+  }, [showBuild, showFork])
+
+  // Fetch templates when build dropdown opens
+  useEffect(() => {
+    if (showBuild && client && templates.length === 0) {
+      setTemplatesLoading(true)
+      client.call('mods', { page: 0, page_size: 100 })
+        .then((res: any) => {
+          setTemplates(Array.isArray(res) ? res : [])
+        })
+        .catch(() => {})
+        .finally(() => setTemplatesLoading(false))
+    }
+    if (showBuild) {
+      setBuildError(null)
+      setBuildResult(null)
+      setTemplateSearch('')
+    }
+  }, [showBuild, client])
 
   // Reset fork name when module changes
   useEffect(() => {
     if (activeModule) setForkName(activeModule)
   }, [activeModule])
 
-  const handleCreateSubmit = async () => {
-    if (!client?.token || !user?.key || !createName.trim()) return
-    setCreateSubmitting(true)
-    setCreateError(null)
-    setCreateResult(null)
+  const handleBuildSubmit = async () => {
+    if (!client?.token || !user?.key || !buildName.trim()) return
+    setBuildSubmitting(true)
+    setBuildError(null)
+    setBuildResult(null)
     try {
-      const modValue = createMode === 'local' ? createName.trim() : createUrl.trim()
-      if (!modValue) throw new Error('Module source required')
-      const response = await client.call('api/reg', {
-        mod: modValue,
-        name: createName.trim(),
+      const response = await client.call('new', {
+        name: buildName.trim(),
+        base: buildBase,
         key: user.key,
-        public: false,
-        token: client.token,
       })
-      setCreateResult(response)
+      if (response?.error) throw new Error(response.error)
+      setBuildResult(response)
+      clearModsCache()
+      setTimeout(() => {
+        setShowBuild(false)
+        router.push('/mods')
+      }, 1000)
     } catch (err: any) {
-      setCreateError(err?.message || 'Failed to create module')
+      setBuildError(err?.message || 'Failed to build module')
     } finally {
-      setCreateSubmitting(false)
+      setBuildSubmitting(false)
     }
   }
 
-  const handleForkSubmit = async () => {
-    if (!client?.token || !user?.key || !activeModule) return
+  const handleForkSubmit = async (modName?: string) => {
+    const target = modName || activeModule
+    if (!client?.token || !user?.key || !target) return
     setForkSubmitting(true)
     setForkError(null)
     setForkResult(null)
+    setBuildError(null)
+    setBuildResult(null)
     try {
-      const response = await client.call('api/fork', {
-        mod: activeModule,
+      const response = await client.call('fork', {
+        mod: target,
         key: user.key,
       })
+      if (response?.error) throw new Error(response.error)
       setForkResult(response)
-      const forkModName = response?.name || activeModule
+      setBuildResult(response)
+      clearModsCache()
       setTimeout(() => {
         setShowFork(false)
-        router.push(`/${forkModName}`)
+        setShowBuild(false)
+        router.push('/mods')
       }, 1000)
     } catch (err: any) {
-      setForkError(err?.message || 'Failed to fork module')
+      const msg = err?.message || 'Failed to fork module'
+      setForkError(msg)
+      setBuildError(msg)
     } finally {
       setForkSubmitting(false)
     }
@@ -356,6 +389,26 @@ export function TopBar() {
         {showModuleBar ? (
           /* Module bar: name + meta + tabs */
           <div className="flex items-center gap-4 flex-1 min-w-0" style={{ fontFamily: 'var(--font-digital), monospace' }}>
+            {/* Search icon to expand (far left) */}
+            <button
+              onClick={() => {
+                setSearchExpanded(true)
+                setTimeout(() => inputRef.current?.focus(), 50)
+              }}
+              className="flex-shrink-0 flex items-center justify-center"
+              style={{
+                width: '32px',
+                height: '32px',
+                color: 'var(--text-tertiary)',
+                transition: 'color 0.15s ease',
+              }}
+              title="Search (⌘K)"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+            </button>
+
             {/* Module name */}
             <code
               className="font-bold tracking-wide flex-shrink-0"
@@ -418,7 +471,7 @@ export function TopBar() {
             {/* Fork button */}
             {user && (
               <button
-                onClick={() => { setShowFork(!showFork); setShowCreate(false) }}
+                onClick={() => { setShowFork(!showFork); setShowBuild(false) }}
                 className="flex-shrink-0 flex items-center justify-center"
                 style={{
                   width: '32px',
@@ -434,26 +487,6 @@ export function TopBar() {
                 </svg>
               </button>
             )}
-
-            {/* Search icon to expand */}
-            <button
-              onClick={() => {
-                setSearchExpanded(true)
-                setTimeout(() => inputRef.current?.focus(), 50)
-              }}
-              className="flex-shrink-0 flex items-center justify-center"
-              style={{
-                width: '32px',
-                height: '32px',
-                color: 'var(--text-tertiary)',
-                transition: 'color 0.15s ease',
-              }}
-              title="Search (⌘K)"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-              </svg>
-            </button>
           </div>
         ) : (
           /* Search bar (default or expanded on module page) */
@@ -462,7 +495,7 @@ export function TopBar() {
             style={{
               maxWidth: '560px',
               height: '36px',
-              backgroundColor: searchFocused ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
+              backgroundColor: searchFocused ? 'var(--bg-input)' : 'transparent',
               border: searchFocused ? '1px solid rgba(167, 139, 250, 0.3)' : '1px solid transparent',
               borderRadius: '8px',
               backdropFilter: searchFocused ? 'blur(12px)' : 'none',
@@ -601,160 +634,231 @@ export function TopBar() {
 
       {/* Right section */}
       <div className="flex items-center pr-3 gap-1">
-        {/* Create module button */}
+        {/* Build module button */}
         {user && (
           <button
-            onClick={() => { setShowCreate(!showCreate); setShowFork(false) }}
+            onClick={() => { setShowBuild(!showBuild); setShowFork(false) }}
             className="flex items-center justify-center flex-shrink-0 mr-1"
             style={{
               width: '28px',
               height: '28px',
-              background: showCreate ? 'var(--text-primary)' : 'transparent',
+              background: showBuild ? 'var(--text-primary)' : 'transparent',
               border: '1px solid var(--border-color)',
               borderRadius: '4px',
               cursor: 'pointer',
-              color: showCreate ? 'var(--bg-primary)' : 'var(--text-tertiary)',
+              color: showBuild ? 'var(--bg-primary)' : 'var(--text-tertiary)',
               transition: 'all 0.15s ease',
-              fontFamily: 'var(--font-digital), monospace',
-              fontSize: '18px',
-              fontWeight: 'bold',
-              lineHeight: 1,
             }}
-            title="Create module"
+            title="Build new module"
           >
-            +
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
           </button>
         )}
         <WalletHeader />
       </div>
 
-      {/* Create module dropdown */}
-      {showCreate && (
+      {/* Build module dropdown */}
+      {showBuild && (
         <div
-          ref={createRef}
+          ref={buildRef}
           className="fixed z-[80]"
           style={{
             top: '52px',
             right: '12px',
-            width: '380px',
+            width: '400px',
           }}
         >
           <div
             style={{
-              background: 'rgba(15, 20, 40, 0.95)',
+              background: 'var(--bg-secondary)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '8px',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '10px',
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.25)',
               fontFamily: 'var(--font-digital), monospace',
             }}
           >
             <div className="p-4 space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-                NEW MODULE
-              </div>
-
-              {/* Mode tabs */}
-              <div className="flex gap-0">
-                {(['local', 'github', 'cid'] as const).map((m) => (
+              {/* Mode toggle: Build / Fork */}
+              <div className="flex items-center gap-1 p-0.5 rounded-md" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+                {(['build', 'fork'] as const).map((mode) => (
                   <button
-                    key={m}
-                    onClick={() => { setCreateMode(m); setCreateUrl(''); setCreateResult(null); setCreateError(null) }}
-                    className="flex-1 py-1.5 text-xs font-bold uppercase tracking-wider transition-all"
+                    key={mode}
+                    onClick={() => { setBuildMode(mode); setBuildError(null); setBuildResult(null) }}
+                    className="flex-1 py-1.5 text-xs font-bold uppercase tracking-wider transition-all rounded-md"
                     style={{
-                      background: createMode === m ? 'var(--text-primary)' : 'transparent',
-                      color: createMode === m ? 'var(--bg-primary)' : 'var(--text-tertiary)',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: buildMode === mode ? 'var(--bg-secondary)' : 'transparent',
+                      color: buildMode === mode ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                      border: buildMode === mode ? '1px solid var(--border-color)' : '1px solid transparent',
                     }}
                   >
-                    {m}
+                    {mode === 'build' ? 'NEW MOD' : 'FORK MOD'}
                   </button>
                 ))}
               </div>
 
-              {/* Name input */}
-              <input
-                type="text"
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                placeholder="MODULE NAME"
-                className="w-full px-3 py-2.5 text-sm font-bold focus:outline-none uppercase"
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: createName.trim() ? '1px solid rgba(34,197,94,0.5)' : '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '4px',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-digital), monospace',
-                }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && createName.trim()) handleCreateSubmit() }}
-                autoFocus
-              />
-
-              {/* URL/CID input for non-local modes */}
-              {createMode !== 'local' && (
+              {/* Search modules */}
+              <div className="relative">
+                <svg
+                  width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="var(--text-tertiary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2"
+                >
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                </svg>
                 <input
+                  ref={templateSearchRef}
                   type="text"
-                  value={createUrl}
-                  onChange={(e) => setCreateUrl(e.target.value)}
-                  placeholder={createMode === 'github' ? 'GITHUB URL OR USER/REPO' : 'Qm... OR bafy...'}
-                  className="w-full px-3 py-2.5 text-sm font-bold focus:outline-none"
+                  value={templateSearch}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  placeholder={buildMode === 'build' ? 'SEARCH TEMPLATE...' : 'SEARCH MODULE TO FORK...'}
+                  className="w-full pl-8 pr-3 py-2 text-xs font-bold focus:outline-none uppercase"
                   style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: createUrl.trim() ? '1px solid rgba(34,197,94,0.5)' : '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '4px',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
                     color: 'var(--text-primary)',
                     fontFamily: 'var(--font-digital), monospace',
                   }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleCreateSubmit() }}
+                  autoFocus
+                />
+              </div>
+
+              {/* Module list */}
+              <div
+                className="overflow-y-auto scrollbar-none"
+                style={{
+                  maxHeight: '200px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                }}
+              >
+                {templatesLoading ? (
+                  <div className="px-3 py-6 text-xs text-center" style={{ color: 'var(--text-tertiary)' }}>
+                    LOADING MODULES...
+                  </div>
+                ) : (() => {
+                  const filtered = templates.filter((t: any) =>
+                    !templateSearch || t.name?.toLowerCase().includes(templateSearch.toLowerCase())
+                  )
+                  if (filtered.length === 0) return (
+                    <div className="px-3 py-6 text-xs text-center" style={{ color: 'var(--text-tertiary)' }}>
+                      {templateSearch ? 'NO MATCHES' : 'NO MODULES FOUND'}
+                    </div>
+                  )
+                  return filtered.map((t: any) => {
+                    const isSelected = buildBase === t.name
+                    const tColor = text2color(t.name)
+                    const fnCount = t.schema ? Object.keys(t.schema).length : 0
+                    return (
+                      <button
+                        key={`${t.name}-${t.key}`}
+                        onClick={() => setBuildBase(t.name)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all"
+                        style={{
+                          background: isSelected ? colorWithOpacity(tColor, 0.08) : 'transparent',
+                          borderBottom: '1px solid var(--border-color)',
+                        }}
+                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--hover-bg)' }}
+                        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: isSelected ? tColor : 'var(--text-tertiary)', boxShadow: isSelected ? `0 0 6px ${tColor}` : 'none' }}
+                        />
+                        <span
+                          className="text-xs font-bold uppercase tracking-wide truncate"
+                          style={{ color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                        >
+                          {t.name}
+                        </span>
+                        {fnCount > 0 && (
+                          <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                            {fnCount} fn
+                          </span>
+                        )}
+                        {t.url && (
+                          <span className="flex items-center gap-1 flex-shrink-0" style={{ fontSize: '10px', color: 'var(--accent-success, #34d399)' }}>
+                            <span className="w-1 h-1 rounded-full" style={{ background: 'var(--accent-success, #34d399)' }} />
+                            LIVE
+                          </span>
+                        )}
+                        <span className="flex-1" />
+                        {isSelected && (
+                          <span className="text-xs" style={{ color: tColor }}>&#10003;</span>
+                        )}
+                      </button>
+                    )
+                  })
+                })()}
+              </div>
+
+              {/* Name input (build mode only) */}
+              {buildMode === 'build' && (
+                <input
+                  type="text"
+                  value={buildName}
+                  onChange={(e) => setBuildName(e.target.value)}
+                  placeholder="YOUR MOD NAME"
+                  className="w-full px-3 py-2.5 text-sm font-bold focus:outline-none uppercase"
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: buildName.trim() ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-digital), monospace',
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && buildName.trim()) handleBuildSubmit() }}
                 />
               )}
 
-              {/* Submit */}
-              <button
-                onClick={handleCreateSubmit}
-                disabled={createSubmitting || !createName.trim() || (createMode !== 'local' && !createUrl.trim())}
-                className="w-full py-2.5 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-30"
-                style={{
-                  background: 'rgba(34,197,94,0.15)',
-                  border: '1px solid rgba(34,197,94,0.4)',
-                  borderRadius: '4px',
-                  color: 'rgb(34,197,94)',
-                  fontFamily: 'var(--font-digital), monospace',
-                }}
-              >
-                {createSubmitting ? 'CREATING...' : 'CREATE'}
-              </button>
+              {/* Action button */}
+              {buildMode === 'build' ? (
+                <button
+                  onClick={handleBuildSubmit}
+                  disabled={buildSubmitting || !buildName.trim()}
+                  className="w-full py-2.5 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-30"
+                  style={{
+                    background: 'var(--hover-bg)',
+                    border: '1px solid var(--accent-primary)',
+                    borderRadius: '6px',
+                    color: 'var(--accent-primary)',
+                    fontFamily: 'var(--font-digital), monospace',
+                  }}
+                >
+                  {buildSubmitting ? 'BUILDING...' : `BUILD FROM ${buildBase.toUpperCase()}`}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleForkSubmit(buildBase)}
+                  disabled={forkSubmitting || !buildBase}
+                  className="w-full py-2.5 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-30"
+                  style={{
+                    background: colorWithOpacity(text2color(buildBase), 0.12),
+                    border: `1px solid ${colorWithOpacity(text2color(buildBase), 0.4)}`,
+                    borderRadius: '6px',
+                    color: text2color(buildBase),
+                    fontFamily: 'var(--font-digital), monospace',
+                  }}
+                >
+                  {forkSubmitting ? 'FORKING...' : `FORK ${buildBase.toUpperCase()}`}
+                </button>
+              )}
 
               {/* Result */}
-              {createResult && (
-                <div className="space-y-2">
-                  <div className="text-xs font-bold text-green-500 uppercase">MODULE CREATED</div>
-                  <button
-                    onClick={() => {
-                      router.push(`/${createResult.name || createName}`)
-                      setShowCreate(false)
-                      setCreateName('')
-                      setCreateUrl('')
-                      setCreateResult(null)
-                    }}
-                    className="w-full py-2 text-sm font-bold uppercase tracking-wider transition-all hover:bg-green-500/20"
-                    style={{
-                      border: '1px solid rgba(34,197,94,0.4)',
-                      borderRadius: '4px',
-                      color: 'rgb(34,197,94)',
-                      fontFamily: 'var(--font-digital), monospace',
-                    }}
-                  >
-                    VIEW {createResult.name || createName} &rarr;
-                  </button>
+              {buildResult && (
+                <div className="text-xs font-bold text-green-500 uppercase px-1">
+                  {buildMode === 'fork' ? 'FORKED' : 'BUILT'} &mdash; {buildResult.name || buildName}
                 </div>
               )}
 
               {/* Error */}
-              {createError && (
-                <div className="text-xs font-bold text-red-500 uppercase py-1">
-                  {createError}
+              {buildError && (
+                <div className="text-xs font-bold text-red-500 uppercase px-1 py-1">
+                  {buildError}
                 </div>
               )}
             </div>
@@ -775,12 +879,12 @@ export function TopBar() {
         >
           <div
             style={{
-              background: 'rgba(15, 20, 40, 0.95)',
+              background: 'var(--bg-secondary)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)',
               fontFamily: 'var(--font-digital), monospace',
             }}
           >
@@ -797,8 +901,8 @@ export function TopBar() {
                 placeholder="FORK NAME"
                 className="w-full px-3 py-2.5 text-sm font-bold focus:outline-none uppercase"
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '4px',
                   color: 'var(--text-primary)',
                   fontFamily: 'var(--font-digital), monospace',
@@ -809,7 +913,7 @@ export function TopBar() {
 
               {/* Fork button */}
               <button
-                onClick={handleForkSubmit}
+                onClick={() => handleForkSubmit()}
                 disabled={forkSubmitting || !forkName.trim()}
                 className="w-full py-2.5 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-30"
                 style={{
@@ -853,14 +957,14 @@ export function TopBar() {
         >
           <div
             style={{
-              background: 'rgba(15, 20, 40, 0.8)',
+              background: 'var(--bg-secondary)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              border: '1px solid var(--border-color)',
               borderRadius: '8px',
               maxHeight: '400px',
               overflow: 'auto',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)',
             }}
           >
             {runLoading && (

@@ -41,6 +41,12 @@
       "label": "BRIDGE",
       "color": "#06b6d4",
       "type": "direct"
+    },
+    {
+      "href": "/workers",
+      "label": "WORKERS",
+      "color": "#f59e0b",
+      "type": "direct"
     }
   ],
   "additionalModules": [],
@@ -58,6 +64,7 @@
     "buidl",
     "create",
     "home",
-    "apps"
+    "apps",
+    "workers"
   ]
 }

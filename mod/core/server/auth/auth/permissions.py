@@ -2,7 +2,7 @@
 Permission system for user-based module access control.
 
 Owner has full root access to everything.
-Other users can only access modules in mod/orbit/_outer/{their_address}/{mod}
+Other users can only access modules in orbit/portal/{their_address}/{mod}
 """
 
 import os
@@ -17,7 +17,7 @@ class PermissionManager:
 
     Rules:
     - Owner (computer owner) has full root access
-    - Other users can only access modules in mod/orbit/_outer/{user_address}/{mod}
+    - Other users can only access modules in mod/peers/{user_address}/{mod}
     - Users can read/write/execute their own modules
     - Users cannot access modules owned by other users
     """
@@ -32,7 +32,7 @@ class PermissionManager:
         """
         self.owner_address = owner_address or self._get_owner_address()
         self.mod_root = Path(mod_root) if mod_root else self._find_mod_root()
-        self.outer_path = self.mod_root / "mod" / "orbit" / "_outer"
+        self.outer_path = self.mod_root / "mod" / "orbit" / "portal"
 
     def _get_owner_address(self) -> str:
         """

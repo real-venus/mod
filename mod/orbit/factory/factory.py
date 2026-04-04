@@ -67,14 +67,14 @@ class Factory:
         assert os.path.exists(path), f'Path {path} does not exist'
         path = m.abspath(path)
         name = name or path.split('/')[-1]
-        dirpath = m.paths["orbit"]["inner"] + '/' + name.replace('.', '/')
+        dirpath = m.paths["orbit"]["orbit"] + '/' + name.replace('.', '/')
         m.cmd(f'cp -r {path} {dirpath}')
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created from path'}
 
     def addcid(self, name='churn',  cid='QmXUjBQRFa8DbY2GhD1Aq6a44EBYzgejmtwwnYYTfvnFW4', exp=True):
         api = c.mod('api')()
         file2text =  api.content(cid, expand=True)
-        path = self.paths["orbit"]["inner"](exp) + '/' + name.replace('.', '/')
+        path = self.paths["orbit"]["orbit"](exp) + '/' + name.replace('.', '/')
         for k,v in file2text.items():
             new_path = path + '/' + k
             print(f'Creating {new_path} for mod {name}')
@@ -89,7 +89,7 @@ class Factory:
         make a new mod from a git repo
         """
         name = name or repo.split('/')[-1].replace('.git', '')
-        mods_path = self.paths["orbit"]["inner"](exp)
+        mods_path = self.paths["orbit"]["orbit"](exp)
         dirpath = mods_path + '/' + name.replace('.', '/')
         mod_name = dirpath.split('/')[-1]
         m.cmd(f'git clone {repo} {dirpath}')
@@ -105,7 +105,7 @@ class Factory:
         make a new mod
         """
         name = name or path.split('/')[-1]
-        mods_path = self.paths["orbit"]["inner"](exp)
+        mods_path = self.paths["orbit"]["orbit"](exp)
         dirpath = mods_path + '/' + name.replace('.', '/')
         mod_name = dirpath.split('/')[-1]
         for k,v in m.content(base).items():
@@ -117,4 +117,4 @@ class Factory:
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': m.cid(name)}
 
     def mods_path(self, exp=True):
-        return self.paths["orbit"]["inner"](exp)
+        return self.paths["orbit"]["orbit"](exp)

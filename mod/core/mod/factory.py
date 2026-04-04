@@ -10,7 +10,7 @@ from functools import partial
 
 class FactoryMixin:
 
-    def new(self, name='test_base', base='base', orbit='inner'):
+    def new(self, name='test_base', base='base', orbit='orbit'):
         """Create a new mod from a base template."""
         dirpath = self.paths['orbit'][orbit] + '/' + name.replace('.', '/')
         if os.path.exists(dirpath):
@@ -26,14 +26,14 @@ class FactoryMixin:
         assert os.path.exists(path), f'Path {path} does not exist'
         path = self.abspath(path)
         name = name or path.split('/')[-1]
-        dirpath = self.paths['orbit']['inner'] + '/' + name.replace('.', '/')
+        dirpath = self.paths['orbit']['orbit'] + '/' + name.replace('.', '/')
         self.cmd(f'cp -r {path} {dirpath}')
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created from path'}
 
     def addcid(self, name='churn', cid='QmXUjBQRFa8DbY2GhD1Aq6a44EBYzgejmtwwnYYTfvnFW4'):
         api = self.mod('api')()
         file2text = api.content(cid, expand=True)
-        path = self.paths['orbit']['inner'] + '/' + name.replace('.', '/')
+        path = self.paths['orbit']['orbit'] + '/' + name.replace('.', '/')
         for k, v in file2text.items():
             print(f'Creating {path}/{k} for mod {name}')
             self.put_text(f'{path}/{k}', v)
@@ -70,9 +70,9 @@ class FactoryMixin:
         return obj
 
     def get_mods_path(self, exp=True):
-        return self.paths['orbit']['outer'] if exp else self.paths['orbit']['inner']
+        return self.paths['orbit']['orbit']
 
-    def new_app(self, name='myapp', port=None, orbit='inner', install=True, serve=True):
+    def new_app(self, name='myapp', port=None, orbit='orbit', install=True, serve=True):
         """One-step: create a module app, configure, install, and serve.
 
         Usage:

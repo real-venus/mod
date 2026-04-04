@@ -76,7 +76,7 @@ class Git:
         return m.cmd('git rev-parse HEAD', cwd=lib_path, verbose=False).split('\n')[0].strip()
     
     def forward(self, path:str = None, name:str = None, n=10):
-        path = path or m.paths["orbit"]["inner"]
+        path = path or m.paths["orbit"]["orbit"]
         git_path = path + '/.git'
         git_url = m.cmd('git config --get remote.origin.url', cwd=path).strip().split('\n')[0].strip().split(' ')[0].strip()
         git_branch = m.cmd('git rev-parse --abbrev-ref HEAD', cwd=path).strip().split('\n')[0].strip().split(' ')[0].strip()

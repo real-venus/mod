@@ -45,6 +45,19 @@ interface PortfolioTabProps {
   onAddCustomToken: () => void
 }
 
+const TOKEN_THEME: Record<string, { color: string; icon: string }> = {
+  ETH: { color: '#627eea', icon: 'E' },
+  MARKET: { color: '#a855f7', icon: 'M' },
+  USDC: { color: '#2775ca', icon: '$' },
+  USDT: { color: '#26a17b', icon: '$' },
+  NativeToken: { color: '#f59e0b', icon: 'N' },
+  BridgeToken: { color: '#06b6d4', icon: 'B' },
+}
+
+function getTokenTheme(symbol: string) {
+  return TOKEN_THEME[symbol] || { color: '#8b5cf6', icon: symbol[0]?.toUpperCase() || '?' }
+}
+
 export function PortfolioTab({
   show, tokenBalances, customTokens, customTokenBalances, marketCredit,
   sendFromPortfolio, setSendFromPortfolio,
@@ -65,16 +78,10 @@ export function PortfolioTab({
     BridgeToken: (modConfig.chain as any)?.testnet?.contracts?.BridgeToken?.address,
   }
 
-  // Build unified token list: built-in + custom
   const allTokens: { key: string; symbol: string; balance: number; address?: string; decimals?: number; isCustom?: boolean; isETH?: boolean }[] = []
 
   for (const [token, balance] of Object.entries(tokenBalances)) {
-    // Get token info for native token
-    let decimals = 18 // default
-    if (token === 'NativeToken' || token === 'BridgeToken') {
-      decimals = 18 // NativeToken and BridgeToken use 18 decimals
-    }
-
+    let decimals = 18
     allTokens.push({
       key: token,
       symbol: token,
@@ -98,6 +105,13 @@ export function PortfolioTab({
     }
   }
 
+  // Compute total USD value (ETH excluded from dollar sum, stablecoins are 1:1)
+  const totalValue = allTokens.reduce((sum, t) => {
+    if (t.isETH) return sum
+    if (t.symbol === 'USDC' || t.symbol === 'USDT' || t.symbol === 'MARKET') return sum + t.balance
+    return sum
+  }, 0)
+
   return (
     <AnimatePresence>
       {show && (
@@ -106,34 +120,41 @@ export function PortfolioTab({
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-          className="mt-3 pt-3 overflow-hidden"
-          style={{ borderTop: '1px solid var(--border-color)' }}
+          className="mt-4 overflow-hidden"
         >
-          <div className="space-y-1.5">
+          <div className="space-y-2">
+            {/* Header */}
             <div className="flex items-center justify-between px-1 mb-3">
-              <span className="text-sm uppercase tracking-widest font-bold" style={{
-                fontFamily: 'var(--font-digital)',
-                color: 'var(--text-primary)',
-                textShadow: 'var(--effect-text-shadow, 0) 0px 10px var(--text-primary)',
-                letterSpacing: '0.2em'
-              }}>
-                TOKEN BALANCES
-              </span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs uppercase tracking-widest font-bold" style={{
+                  fontFamily: 'var(--font-digital)',
+                  color: 'var(--text-tertiary)',
+                  letterSpacing: '0.15em',
+                  fontSize: '10px',
+                }}>
+                  Portfolio
+                </span>
+                <span className="text-xs font-bold tabular-nums" style={{
+                  fontFamily: 'var(--font-digital)',
+                  color: totalValue > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                  fontSize: '10px',
+                }}>
+                  ${totalValue.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-center gap-0.5">
                 <button
                   onClick={() => { setShowAddToken(!showAddToken); setSendFromPortfolio(null) }}
-                  className="p-1 transition-all rounded"
+                  className="p-1.5 rounded-md transition-all hover:bg-white/5"
                   title="Add custom token"
-                  style={{ borderRadius: 0 }}
                 >
-                  <PlusCircleIcon className={`w-3.5 h-3.5 ${showAddToken ? 'text-purple-400' : ''}`} style={!showAddToken ? { color: 'var(--text-tertiary)' } : {}} />
+                  <PlusCircleIcon className="w-3.5 h-3.5" style={{ color: showAddToken ? '#a855f7' : 'var(--text-tertiary)' }} />
                 </button>
                 <button
                   onClick={onRefreshBalances}
                   disabled={isRefreshing}
-                  className="p-1 transition-all disabled:opacity-50 rounded"
+                  className="p-1.5 rounded-md transition-all hover:bg-white/5 disabled:opacity-50"
                   title="Refresh balances"
-                  style={{ borderRadius: 0 }}
                 >
                   <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} style={{ color: 'var(--text-tertiary)' }} />
                 </button>
@@ -156,14 +177,14 @@ export function PortfolioTab({
                       value={newTokenAddress}
                       onChange={(e) => setNewTokenAddress(e.target.value)}
                       placeholder="Token address 0x..."
-                      className="flex-1 px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none focus:border-purple-500/50 transition-colors"
-                      style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+                      className="flex-1 px-3 py-2 text-xs font-mono placeholder-neutral-600 focus:outline-none transition-colors"
+                      style={{ borderRadius: '8px', fontFamily: 'var(--font-digital)', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
                     />
                     <button
                       onClick={onAddCustomToken}
                       disabled={isAddingToken}
-                      className="px-3 py-2 bg-purple-500/15 border border-purple-500/30 text-purple-400 text-xs font-bold hover:bg-purple-500/25 transition-all disabled:opacity-50"
-                      style={{ borderRadius: '8px', fontFamily: 'IBM Plex Mono, monospace' }}
+                      className="px-3 py-2 text-xs font-bold transition-all disabled:opacity-50"
+                      style={{ borderRadius: '8px', fontFamily: 'var(--font-digital)', backgroundColor: '#a855f715', border: '1px solid #a855f730', color: '#a855f7' }}
                     >
                       {isAddingToken ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : 'ADD'}
                     </button>
@@ -184,173 +205,197 @@ export function PortfolioTab({
                 )}
               </div>
             ) : (
-              allTokens.map((token) => {
-                const isSelected = sendFromPortfolio === token.key
-                const isBridge = token.symbol === 'BridgeToken'
-                return (
-                  <div key={token.key}>
-                    <button
-                      onClick={() => {
-                        setSendFromPortfolio(isSelected ? null : token.key)
-                        setTransferRecipient('')
-                        setTransferAmount('')
-                        setTopUpError(null)
-                        setTopUpSuccess(null)
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-3 text-sm transition-all border-2`}
-                      style={{
-                        borderRadius: '0px',
-                        fontFamily: 'var(--font-digital)',
-                        backgroundColor: isSelected ? 'var(--bg-input-hover)' : 'var(--bg-input)',
-                        borderColor: isSelected ? 'var(--border-strong)' : 'var(--border-color)',
-                        boxShadow: isSelected ? 'var(--card-shadow)' : 'none',
-                      }}
-                    >
-                      <span className={`flex items-center gap-1.5 font-bold uppercase tracking-widest text-sm`} style={{
-                        color: 'var(--text-primary)',
-                        fontFamily: 'var(--font-digital)'
-                      }}>
-                        {token.symbol === 'BridgeToken' ? 'BRIDGE' : token.symbol}
-                        {token.address && (
-                          <span onClick={(e) => e.stopPropagation()}>
-                            <CopyButton text={token.address} size="sm" />
-                          </span>
-                        )}
-                        {token.isCustom && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onRemoveCustomToken(token.address!) }}
-                            className="text-red-500/40 hover:text-red-400 transition-colors"
-                            title="Remove token"
-                          >
-                            <XMarkIcon className="w-3 h-3" />
-                          </button>
-                        )}
-                      </span>
-                      <span className={`font-mono font-bold tabular-nums text-sm`} style={{
-                        color: token.balance > 0 ? 'var(--accent-success)' : 'var(--text-secondary)',
-                        fontFamily: 'var(--font-digital)',
-                      }}>
-                        {token.isETH
-                          ? `${token.balance.toFixed(4)} ETH`
-                          : token.symbol === 'BridgeToken'
-                          ? `${token.balance.toFixed(4)} BT`
-                          : token.isCustom || token.symbol === 'NativeToken'
-                          ? `${token.balance.toFixed(4)} ${token.symbol}`
-                          : `$${token.balance.toFixed(2)}`}
-                      </span>
-                    </button>
+              <div className="space-y-1">
+                {allTokens.map((token, idx) => {
+                  const isSelected = sendFromPortfolio === token.key
+                  const theme = getTokenTheme(token.symbol)
+                  const displaySymbol = token.symbol === 'BridgeToken' ? 'BRIDGE' : token.symbol === 'NativeToken' ? 'NATIVE' : token.symbol
 
-                    {/* Inline Send Form */}
-                    <AnimatePresence>
-                      {isSelected && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.15 }}
-                          className={`overflow-hidden px-3 py-3 space-y-2 ${
-                            isBridge
-                              ? 'border-4 border-t-0 border-cyan-500/30'
-                              : 'border border-t-0 border-blue-500/20'
-                          }`}
+                  return (
+                    <motion.div
+                      key={token.key}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.03, duration: 0.2 }}
+                    >
+                      <button
+                        onClick={() => {
+                          setSendFromPortfolio(isSelected ? null : token.key)
+                          setTransferRecipient('')
+                          setTransferAmount('')
+                          setTopUpError(null)
+                          setTopUpSuccess(null)
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 transition-all group"
+                        style={{
+                          borderRadius: isSelected ? '10px 10px 0 0' : '10px',
+                          backgroundColor: isSelected ? `${theme.color}12` : 'transparent',
+                          border: isSelected ? `1px solid ${theme.color}30` : '1px solid transparent',
+                          borderBottom: isSelected ? 'none' : undefined,
+                        }}
+                      >
+                        {/* Token Icon */}
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0"
                           style={{
-                            borderRadius: isBridge ? '0' : '0 0 8px 8px',
-                            fontFamily: isBridge ? 'var(--font-digital)' : 'IBM Plex Mono, monospace',
-                            backgroundColor: 'var(--bg-input)',
-                            ...(isBridge ? {
-                              background: `repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 2px), var(--bg-input)`
-                            } : {})
+                            background: `${theme.color}20`,
+                            color: theme.color,
+                            fontFamily: 'var(--font-digital)',
+                            border: `1px solid ${theme.color}25`,
                           }}
                         >
-                          <input
-                            type="text"
-                            value={transferRecipient}
-                            onChange={(e) => setTransferRecipient(e.target.value)}
-                            disabled={isTransferring}
-                            placeholder="Recipient address..."
-                            className="w-full px-3 py-2 text-xs font-mono focus:outline-none transition-colors"
-                            style={{
-                              borderRadius: '0px',
-                              backgroundColor: 'var(--bg-primary)',
-                              border: '1px solid var(--border-color)',
+                          {theme.icon}
+                        </div>
+
+                        {/* Token Info */}
+                        <div className="flex-1 flex items-center justify-between min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold uppercase tracking-wider" style={{
                               color: 'var(--text-primary)',
                               fontFamily: 'var(--font-digital)',
-                            }}
-                          />
-                          <input
-                            type="number"
-                            value={transferAmount}
-                            onChange={(e) => setTransferAmount(e.target.value)}
-                            disabled={isTransferring}
-                            min="0"
-                            step="0.01"
-                            placeholder="Amount..."
-                            className="w-full px-3 py-2 text-xs font-mono focus:outline-none transition-colors"
+                              fontSize: '11px',
+                            }}>
+                              {displaySymbol}
+                            </span>
+                            {token.address && (
+                              <span onClick={(e) => e.stopPropagation()}>
+                                <CopyButton text={token.address} size="sm" />
+                              </span>
+                            )}
+                            {token.isCustom && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onRemoveCustomToken(token.address!) }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Remove token"
+                              >
+                                <XMarkIcon className="w-3 h-3 text-red-500/50 hover:text-red-400" />
+                              </button>
+                            )}
+                          </div>
+
+                          <span className="text-xs font-bold tabular-nums" style={{
+                            color: token.balance > 0 ? theme.color : 'var(--text-tertiary)',
+                            fontFamily: 'var(--font-digital)',
+                            fontSize: '11px',
+                          }}>
+                            {token.isETH
+                              ? `${token.balance.toFixed(4)} ETH`
+                              : token.symbol === 'BridgeToken'
+                              ? `${token.balance.toFixed(4)} BT`
+                              : token.isCustom || token.symbol === 'NativeToken'
+                              ? `${token.balance.toFixed(4)} ${token.symbol}`
+                              : `$${token.balance.toFixed(2)}`}
+                          </span>
+                        </div>
+                      </button>
+
+                      {/* Inline Send Form */}
+                      <AnimatePresence>
+                        {isSelected && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="overflow-hidden px-3 pb-3 pt-2 space-y-2"
                             style={{
-                              borderRadius: '0px',
-                              backgroundColor: 'var(--bg-primary)',
-                              border: '1px solid var(--border-color)',
-                              color: 'var(--text-primary)',
+                              borderRadius: '0 0 10px 10px',
                               fontFamily: 'var(--font-digital)',
-                            }}
-                          />
-                          <button
-                            onClick={() => {
-                              if (token.isETH) {
-                                onSendETH()
-                              } else if (token.symbol === 'BridgeToken' && token.address && token.decimals != null) {
-                                onSendCustomToken(token.address, token.symbol, token.decimals)
-                              } else if (token.isCustom && token.address && token.decimals != null) {
-                                onSendCustomToken(token.address, token.symbol, token.decimals)
-                              } else if (token.symbol === 'NativeToken' && token.address && token.decimals != null) {
-                                onSendCustomToken(token.address, token.symbol, token.decimals)
-                              } else if (token.symbol === 'MARKET') {
-                                setTransferTokenType('MARKET')
-                                onTransfer()
-                              } else if (token.symbol === 'USDC') {
-                                setTransferTokenType('USDC')
-                                onTransfer()
-                              } else if (token.symbol === 'USDT') {
-                                setTransferTokenType('USDT')
-                                onTransfer()
-                              }
-                            }}
-                            disabled={!transferAmount || !transferRecipient || isTransferring}
-                            className={`w-full py-2 text-xs font-bold uppercase transition-all disabled:opacity-40 flex items-center justify-center gap-2 border-2`}
-                            style={{
-                              borderRadius: '0px',
-                              fontFamily: 'var(--font-digital)',
-                              backgroundColor: 'var(--accent-primary)',
-                              borderColor: 'var(--accent-primary)',
-                              color: 'var(--bg-primary)',
+                              backgroundColor: `${theme.color}08`,
+                              border: `1px solid ${theme.color}30`,
+                              borderTop: 'none',
                             }}
                           >
-                            {isTransferring ? (
-                              <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <>
-                                <ArrowsRightLeftIcon className="w-3.5 h-3.5" />
-                                {isBridge ? '▸ ' : ''}SEND {token.symbol === 'BridgeToken' ? 'BT' : token.symbol}
-                              </>
-                            )}
-                          </button>
+                            <input
+                              type="text"
+                              value={transferRecipient}
+                              onChange={(e) => setTransferRecipient(e.target.value)}
+                              disabled={isTransferring}
+                              placeholder="Recipient address..."
+                              className="w-full px-3 py-2 text-xs focus:outline-none transition-colors"
+                              style={{
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--bg-primary)',
+                                border: '1px solid var(--border-color)',
+                                color: 'var(--text-primary)',
+                                fontFamily: 'var(--font-digital)',
+                              }}
+                            />
+                            <input
+                              type="number"
+                              value={transferAmount}
+                              onChange={(e) => setTransferAmount(e.target.value)}
+                              disabled={isTransferring}
+                              min="0"
+                              step="0.01"
+                              placeholder="Amount..."
+                              className="w-full px-3 py-2 text-xs focus:outline-none transition-colors"
+                              style={{
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--bg-primary)',
+                                border: '1px solid var(--border-color)',
+                                color: 'var(--text-primary)',
+                                fontFamily: 'var(--font-digital)',
+                              }}
+                            />
+                            <button
+                              onClick={() => {
+                                if (token.isETH) {
+                                  onSendETH()
+                                } else if (token.symbol === 'BridgeToken' && token.address && token.decimals != null) {
+                                  onSendCustomToken(token.address, token.symbol, token.decimals)
+                                } else if (token.isCustom && token.address && token.decimals != null) {
+                                  onSendCustomToken(token.address, token.symbol, token.decimals)
+                                } else if (token.symbol === 'NativeToken' && token.address && token.decimals != null) {
+                                  onSendCustomToken(token.address, token.symbol, token.decimals)
+                                } else if (token.symbol === 'MARKET') {
+                                  setTransferTokenType('MARKET')
+                                  onTransfer()
+                                } else if (token.symbol === 'USDC') {
+                                  setTransferTokenType('USDC')
+                                  onTransfer()
+                                } else if (token.symbol === 'USDT') {
+                                  setTransferTokenType('USDT')
+                                  onTransfer()
+                                }
+                              }}
+                              disabled={!transferAmount || !transferRecipient || isTransferring}
+                              className="w-full py-2 text-xs font-bold uppercase transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                              style={{
+                                borderRadius: '8px',
+                                fontFamily: 'var(--font-digital)',
+                                backgroundColor: theme.color,
+                                color: '#fff',
+                                letterSpacing: '0.05em',
+                              }}
+                            >
+                              {isTransferring ? (
+                                <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <ArrowsRightLeftIcon className="w-3.5 h-3.5" />
+                                  SEND {displaySymbol}
+                                </>
+                              )}
+                            </button>
 
-                          {topUpError && (
-                            <div className="text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-1.5 font-mono" style={{ borderRadius: '6px' }}>
-                              {topUpError}
-                            </div>
-                          )}
-                          {topUpSuccess && (
-                            <div className="text-[10px] text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1.5 font-mono" style={{ borderRadius: '6px' }}>
-                              {topUpSuccess}
-                            </div>
-                          )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )
-              })
+                            {topUpError && (
+                              <div className="text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-1.5 font-mono" style={{ borderRadius: '6px' }}>
+                                {topUpError}
+                              </div>
+                            )}
+                            {topUpSuccess && (
+                              <div className="text-[10px] text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1.5 font-mono" style={{ borderRadius: '6px' }}>
+                                {topUpSuccess}
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )
+                })}
+              </div>
             )}
           </div>
         </motion.div>

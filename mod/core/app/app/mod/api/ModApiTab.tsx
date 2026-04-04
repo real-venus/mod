@@ -15,7 +15,7 @@ interface ModApiTabProps {
 export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
   const { client } = userContext()
   const modColor = moduleColor || text2color(mod.name || mod.key)
-  const schema = mod.schema && typeof mod.schema === 'object' ? mod.schema : {}
+  const schema: Record<string, any> = mod.schema && typeof mod.schema === 'object' ? mod.schema as Record<string, any> : {}
   const functions = Object.keys(schema)
 
   const [selectedFn, setSelectedFn] = useState<string>(functions[0] || '')
@@ -106,7 +106,7 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
           </div>
           {functions.map((fn) => {
             const isActive = selectedFn === fn
-            const fnSchema = schema[fn]
+            const fnSchema = (schema as Record<string, any>)[fn]
             const inputCount = Array.isArray(fnSchema?.input) ? fnSchema.input.filter((p: any) => p.name !== 'kwargs' && p.name !== 'self').length : 0
             return (
               <button

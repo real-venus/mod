@@ -26,7 +26,7 @@ export const UpdateMod: React.FC<UpdateModProps> = ({ mod }) => {
   const { network, user } = userContext()
   const [modName, setModName] = useState(mod.name || '')
   const [modData, setModData] = useState(mod.cid || '')
-  const [modUrl, setModUrl] = useState(mod.url || '')
+  const [modUrl, setModUrl] = useState(typeof mod.url === 'string' ? mod.url : '')
   const [take, setTake] = useState(String(mod.take || 0))
   const [response, setResponse] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -47,7 +47,7 @@ export const UpdateMod: React.FC<UpdateModProps> = ({ mod }) => {
   useEffect(() => {
     setModName(mod.name || '')
     setModData(mod.cid || '')
-    setModUrl(mod.url || '')
+    setModUrl(typeof mod.url === 'string' ? mod.url : '')
     setTake(String(mod.take || 0))
   }, [mod])
 

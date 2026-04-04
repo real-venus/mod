@@ -64,9 +64,9 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
         self.paths['mod'] = self.mod_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.paths['lib'] = self.lib_path = os.path.dirname(self.paths['mod'])
         self.paths['orbit'] = {
-            'inner': f'{self.mod_path}/orbit',
-            'outer': f'{self.mod_path}/orbit/_outer',
+            'orbit': f'{self.mod_path}/orbit',
             'core': f'{self.mod_path}/core',
+            'portal': f'{self.mod_path}/portal',
             'local': os.getcwd(),
         }
 
@@ -215,7 +215,7 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
                 return True
         except Exception:
             pass
-        mod_path = os.path.join(self.paths['orbit']['inner'], mod)
+        mod_path = os.path.join(self.paths['orbit']['orbit'], mod)
         return os.path.exists(mod_path) and os.path.isdir(mod_path)
 
     def get_name(self, name: Optional[str] = None,
@@ -224,8 +224,7 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
         if any(name.startswith(p) for p in ['.', '~', '/']):
             name = self.path2name(name)
         avoid_terms = avoid_terms + [
-            self.paths['orbit']['inner'].split('/')[-1],
-            self.paths['orbit']['outer'].split('/')[-1],
+            self.paths['orbit']['orbit'].split('/')[-1],
         ]
         name = name.replace('/', '.')
         new_name = [c for c in name.split('.') if c not in avoid_terms]

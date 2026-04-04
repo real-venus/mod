@@ -181,13 +181,28 @@ class Api:
         return self._reg.user(key=key, update=update, expand=expand)
 
     def fork(self, mod: str, key=None, comment=None, public=False) -> Dict[str, Any]:
-        oriignal_path = m.dp(mod)
-        key_address = self._reg.key_address(key)
-        new_path = m.paths.orbit['outer'] + '/' + key_address + '/' + mod
-        if os.path.exists(new_path):
-            shutil.rmtree(new_path)
-        shutil.copytree(oriignal_path, new_path)
-        return self.reg(mod=key_address + '.' + mod, key=key, comment=comment, public=public)
+        try:
+            original_path = m.dp(mod)
+            if not original_path or not os.path.exists(original_path):
+                return {'error': f'Module {mod} not found'}
+            key_address = self._reg.key_address(key)
+            new_path = os.path.join(m.paths['orbit']['portal'], key_address, mod.replace('.', '/'))
+            os.makedirs(os.path.dirname(new_path), exist_ok=True)
+            if os.path.exists(new_path):
+                shutil.rmtree(new_path)
+            shutil.copytree(original_path, new_path)
+            m._tree.orbit('portal', update=True)
+            reg_result = self._reg.reg(mod=mod, key=key, comment=comment or f'forked from {mod}', public=public)
+            return {
+                'status': 'forked',
+                'mod': mod,
+                'name': mod,
+                'key': key_address,
+                'path': new_path,
+                'reg': reg_result,
+            }
+        except Exception as e:
+            return {'error': str(e)}
 
     def edit(self, query: str = 'make the readme better', mod='app', key=None, steps=20, **kwargs) -> Dict[str, Any]:
         m.fn('dev/forward')(query=query, mod=mod, safety=False, key=key, steps=steps, **kwargs)
@@ -304,22 +319,53 @@ class Api:
             return {'error': f'No logs found for {name}'}
         return logs
 
+    def workers(self, **kwargs):
+        """Get worker pool status with per-worker details."""
+        return self.router.pool.status()
+
+    def deploy_workers(self, min_workers: int = 1, max_workers: int = 10, **kwargs):
+        """Deploy/reconfigure the worker pool with min/max scaling limits.
+
+        Args:
+            min_workers: Minimum workers always running (floor=1)
+            max_workers: Maximum workers to scale up to
+        """
+        return self.router.pool.set_limits(min_workers=min_workers, max_workers=max_workers)
+
+    def scale_workers(self, n: int = 1, **kwargs):
+        """Manually scale the worker pool to n workers (clamped to min/max)."""
+        return self.router.pool.scale(n)
+
+    def kill_worker(self, cid: str = '', **kwargs):
+        """Kill the worker running a specific task CID."""
+        if not cid:
+            return {'error': 'CID required'}
+        killed = self.router.pool.kill(cid)
+        return {'killed': killed, 'cid': cid}
+
+    def kill_all_workers(self, **kwargs):
+        """Kill all workers and reset the pool."""
+        self.router.pool.kill_all()
+        return {'status': 'all workers killed'}
+
     def n(self, *args, **kwargs):
         return len(self.mods(*args, **kwargs))
 
-    def new(self, name='base2', base='base', key=None, orbit='outer', update=True):
+    def new(self, name='base2', base='base', key=None, update=True):
         key = self._reg.key_address(key)
-        if key == self.key.address:
-            orbit = 'inner'
+        if key == self.key.address.lower():
+            orbit = 'orbit'
+        else:
+            orbit = 'portal'
         name = name or base.split('/')[-1]
         dirpath = m.paths["orbit"][orbit] + '/' + key + '/' + name.replace('.', '/')
         print(f'Creating new mod {name} at {dirpath} from base {base}')
         for k, v in m.content(base).items():
             new_path = dirpath + '/' + k.replace(base, name)
             m.put_text(new_path, v)
-        print(m.orbit())
-        m.orbit(orbit, update=True)
-        return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self._reg.cid(name)}
+        m._tree.orbit(orbit, update=True)
+        info = self._reg.reg(mod=name, key=key)
+        return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': info.get('cid')}
 
     def dp(self, path: str, key=None) -> str:
         return self._reg.dp(path, key=key)

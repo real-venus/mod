@@ -7,6 +7,7 @@ import json
 import inspect
 import time
 import mod as m
+from mod.core.server.executor.worker import SandboxWorker
 
 
 print = m.print
@@ -25,15 +26,26 @@ class Gate:
         self.auth = m.mod(auth)()
         self.paywall = paywall
         self.serializer = m.mod(serializer)()
+        self.sandbox = SandboxWorker(max_workers=10)
         self.roles_path = self.store.get_path('roles')
         if len(self.roles()) < 2:
             self.ensure_role_map()
         self.set_mod(mod=mod)
     
 
+    # Functions that run in-process (API-level, not user module code)
+    UNSANDBOXED_FNS = {
+        'mods', 'mod', 'info', 'txs', 'h', 'tasks', 'kill_task', 'reset_tasks',
+        'users', 'call', 'schema', 'content', 'config', 'versions', 'edit',
+        'reg', 'update', 'fork', 'new', 'rm', 'n', 'transfer', 'set_public',
+        'token', 'logs', 'namespace', 'serve', 'stop',
+    }
+
     def forward(self, fn:str, headers:dict, params:dict, mod:Any=None) -> dict:
         """
         process the request
+        Routes module function calls through SandboxWorker for isolation.
+        API-level functions (mods, txs, etc.) run in-process.
         """
         mod = mod or self.mod
         assert not isinstance(fn, str) or fn != '', "Function name cannot be empty"
@@ -42,11 +54,14 @@ class Gate:
         headers = self.auth.verify(headers)
         print(f'Headers after auth verification: {headers}', color='green')
         role = self.get_role(headers['key'])
-        # assert role, f"Role for key {headers['key']} not found"
         if  bool(role == 'owner'):
             print(f'ATTENTION: owner({headers["key"]}) is calling {fn}', color='green')
         else:
             assert fn in info['fns'], f"Function {fn} not in fns={info['fns']}"
+            role_data = self.role_data(role) if role else self.role_data('public')
+            role_fns = role_data.get('fns', [])
+            if role_fns and '*' not in role_fns:
+                assert fn in role_fns, f"Function {fn} not permitted for role={role or 'public'}, allowed={role_fns}"
         params = json.loads(params) if isinstance(params, str) else params
         self.print_request({'fn': fn, 'params': params, 'client': headers.get('key', ''), 'time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())})
         # Payment gate check (x402 paywall)
@@ -55,8 +70,19 @@ class Gate:
             if paywall_result is not None:
                 print(f'Payment required for {fn}: {paywall_result}', color='red')
                 return paywall_result
-        fn_obj = self.get_fn_obj(fn, mod=mod)
-        result = fn_obj(**params) if callable(fn_obj) else fn_obj
+
+        # Determine if this is a module function call that should be sandboxed
+        # Module calls have '/' (e.g., 'ssh/keys') and aren't in the unsandboxed set
+        is_module_call = '/' in fn and fn.split('/')[0] not in self.UNSANDBOXED_FNS
+
+        if is_module_call and fn not in self.UNSANDBOXED_FNS:
+            # Execute in sandboxed subprocess
+            print(f'Gate: sandboxed execution for {fn}', color='yellow')
+            result = self.sandbox.run(fn_path=fn, params=params, timeout=120)
+        else:
+            # In-process execution for API-level functions
+            fn_obj = self.get_fn_obj(fn, mod=mod)
+            result = fn_obj(**params) if callable(fn_obj) else fn_obj
         if isinstance(result, bytes):
             result = result.decode('utf-8')
         return result
@@ -98,7 +124,7 @@ class Gate:
         """
         fn = request.get('fn', '')
         params = request['params'] if 'params' in request else {}
-        client = request['client']['key'] if 'client' in request and 'key' in request['client'] else ''
+        client = request.get('client', '')
         right_buffer = '>'*64
         left_buffer = '<'*64
         print(right_buffer, color='blue')
@@ -325,6 +351,13 @@ class Gate:
  
 
     ensure_roles = ['owner', 'public']
+    # public users can read + edit in their peer space only
+    PUBLIC_FNS = [
+        'mod', 'mods', 'schema', 'content', 'files', 'exists',
+        'user', 'users', 'user_keys', 'versions', 'registry',
+        'edit', 'reg', 'reg_payload', 'token', 'fork', 'new',
+        'balance', 'balances', 'get_balances',
+    ]
     def ensure_role_map(self):
         """
         ensure that the owner role exists
@@ -332,4 +365,13 @@ class Gate:
         role2data = self.role2data()
         for role in self.ensure_roles:
             if role not in role2data:
-                self.add_role(role=role)
+                if role == 'public':
+                    self.add_role(role=role, fns=self.PUBLIC_FNS)
+                else:
+                    self.add_role(role=role)
+            elif role == 'public':
+                # always sync public fns
+                rd = self.role_data('public')
+                if rd.get('fns', []) != self.PUBLIC_FNS:
+                    rd['fns'] = self.PUBLIC_FNS
+                    self.save_role_data('public', rd)

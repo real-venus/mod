@@ -147,7 +147,7 @@ def setup_owner():
             return
 
     print("\nThe owner address has full root access to all modules.")
-    print("Other users can only access modules in mod/orbit/_outer/{their_address}/\n")
+    print("Other users can only access modules in orbit/portal/{their_address}/\n")
 
     # Try to get current user's address
     try:

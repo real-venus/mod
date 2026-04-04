@@ -161,7 +161,7 @@ settings = config.get_all_settings()
 | User | Can Access |
 |------|------------|
 | Owner | All modules |
-| User | Only `mod/orbit/_outer/{their_address}/*` |
+| User | Only `orbit/portal/{their_address}/*` |
 
 ## Operations
 

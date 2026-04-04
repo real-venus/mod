@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircleIcon, ExclamationCircleIcon, MagnifyingGlassIcon, ArrowPathIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
 import Link from 'next/link'
+import { clearModsCache } from '@/mod/explore/ModExplorePage'
 
 type SourceMode = 'github' | 'cid' | 'local'
 
@@ -238,7 +239,7 @@ export default function CreateModule() {
       if (!client?.token) throw new Error('Authentication required. Please connect your wallet.')
 
       if (mode === 'local') {
-        const response = await client.call('api/reg', {
+        const response = await client.call('reg', {
           mod: localPath.trim() || name.trim(),
           name: name.trim(),
           key: registerToKey.trim(),
@@ -248,12 +249,13 @@ export default function CreateModule() {
           token: client.token,
         }, waitForCompletion)
         setResult(response)
+        clearModsCache()
         setLocalPath('')
         setLocalDescription('')
         setName('')
       } else {
         const modValue = mode === 'github' ? expandGitUrl(url) : url.trim()
-        const response = await client.call('api/reg', {
+        const response = await client.call('reg', {
           mod: modValue,
           name: name.trim() || undefined,
           key: registerToKey.trim(),
@@ -261,6 +263,7 @@ export default function CreateModule() {
           token: client.token,
         }, waitForCompletion)
         setResult(response)
+        clearModsCache()
         setUrl('')
         setName('')
         setSelectedRepo(null)

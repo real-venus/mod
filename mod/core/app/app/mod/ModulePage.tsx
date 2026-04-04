@@ -212,12 +212,7 @@ export default function ModulePage() {
           {activeTab === 'app' && getModAppUrl(mod) && <ModApp mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'api' && mod.url && <ModApiTab mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'versions' && <ModVersions mod={mod} selectedVersionIndex={selectedVersionIndex} onVersionChange={handleVersionChange} />}
-          {activeTab === 'manage' && myMod && <ModManage mod={mod} moduleColor={moduleColor} />}
-          {activeTab === 'manage' && !myMod && (
-            <div className="flex items-center justify-center py-16">
-              <p className="text-lg font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital)' }}>▸ ONLY THE MODULE OWNER CAN MANAGE THIS MODULE</p>
-            </div>
-          )}
+          {activeTab === 'manage' && <ModManage mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
           {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}
           {activeTab === 'edit' && !myMod && (
