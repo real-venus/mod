@@ -1,7 +1,7 @@
 "use client";
 
 import { text2color, shorten, colorWithOpacity } from '@/utils'
-import { KeyIcon, CubeIcon, ClockIcon, QrCodeIcon } from '@heroicons/react/24/outline'
+import { KeyIcon, CubeIcon, ClockIcon, QrCodeIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline'
 import { UserType } from '@/types'
 import Link from 'next/link'
 import { CopyButton } from '@/ui/CopyButton'
@@ -14,125 +14,114 @@ interface UserCardProps {
 }
 
 export const UserCard = ({ user, mode = 'explore' }: UserCardProps) => {
-  const [isHovered, setIsHovered] = useState(false)
-  const [isKeyHovered, setIsKeyHovered] = useState(false)
   const [isQrHovered, setIsQrHovered] = useState(false)
-  const [isKeyQrHovered, setIsKeyQrHovered] = useState(false)
   const userKey = user.key || ''
   const userColor = text2color(userKey)
+  const shortAddress = userKey ? `${userKey.slice(0, 6)}...${userKey.slice(-4)}` : ''
   const websiteUrl = typeof window !== 'undefined' ? `${window.location.origin}/user/${userKey}` : ''
 
-  const CardContent = () => (
+  return (
     <div
-      className="relative border-2 rounded-2xl font-mono transition-all cursor-pointer backdrop-blur-sm hover:shadow-2xl hover:scale-[1.02] overflow-visible group"
-      style={{
-        fontFamily: 'IBM Plex Mono, Courier New, monospace',
-        backgroundColor: colorWithOpacity(userColor, 0.05),
-        borderColor: userColor,
-        boxShadow: isHovered
-          ? `0 0 50px ${colorWithOpacity(userColor, 0.35)}, 0 0 100px ${colorWithOpacity(userColor, 0.15)}`
-          : `0 0 25px ${colorWithOpacity(userColor, 0.2)}`
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className="relative flex items-center gap-0"
+      style={{ fontFamily: 'var(--font-digital), monospace' }}
     >
       <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-15 transition-opacity duration-500 rounded-2xl"
+        className="flex items-center"
         style={{
-          background: `radial-gradient(circle at 50% 50%, ${colorWithOpacity(userColor, 0.3)}, transparent 70%)`
+          height: '46px',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          border: `1px solid ${colorWithOpacity(userColor, 0.4)}`,
+          borderRadius: '12px',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: `0 0 20px ${colorWithOpacity(userColor, 0.1)}, inset 0 1px 0 ${colorWithOpacity(userColor, 0.05)}`,
+          transition: 'all 0.2s ease',
         }}
-      />
+      >
+        {/* Key icon */}
+        <div className="flex items-center justify-center h-[46px] px-3 flex-shrink-0">
+          <KeyIcon className="w-5 h-5" style={{ color: userColor, filter: `drop-shadow(0 0 6px ${colorWithOpacity(userColor, 0.5)})` }} />
+        </div>
 
-      <div className="relative p-6">
-        <div className="flex items-start gap-5">
-          <div className="flex-1">
-            <div className="flex items-center gap-4 mb-5">
-              <div className="relative">
-                <KeyIcon className="w-12 h-12 transition-all duration-300 group-hover:rotate-12" style={{ color: userColor }} />
-                <div
-                  className="absolute inset-0 blur-xl opacity-50 group-hover:opacity-70 transition-opacity"
-                  style={{ backgroundColor: userColor }}
-                />
-              </div>
+        {/* Separator */}
+        <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: colorWithOpacity(userColor, 0.2) }} />
 
-              <div className="flex items-center gap-3 bg-gradient-to-r from-black/60 to-black/40 rounded-xl px-5 py-3 flex-1 shadow-xl border border-white/10">
-                <code className="text-xl font-bold font-mono tracking-wide" style={{ color: userColor }}>
-                  {shorten(userKey, 8, 6)}
-                </code>
-                <CopyButton text={userKey} size="sm" showValueOnHover={true} />
-                <div
-                  className="relative ml-2"
-                  onMouseEnter={() => setIsQrHovered(true)}
-                  onMouseLeave={() => setIsQrHovered(false)}
-                >
-                  <QrCodeIcon className="h-5 w-5 cursor-pointer hover:scale-110 transition-transform" style={{ color: userColor }} />
-                  {isQrHovered && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 bg-black/95 rounded-xl border-2 z-[9999] shadow-2xl" style={{ borderColor: userColor }}>
-                      <QRCode value={websiteUrl} size={120} color={userColor} />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
+        {/* Address */}
+        <div className="flex items-center gap-2 px-3 h-[46px]">
+          <code className="text-base font-bold tracking-wide tabular-nums" style={{ color: userColor }}>
+            {shortAddress}
+          </code>
+          <CopyButton text={userKey} size="sm" showValueOnHover={true} />
+          <div
+            className="relative"
+            onMouseEnter={() => setIsQrHovered(true)}
+            onMouseLeave={() => setIsQrHovered(false)}
+          >
+            <QrCodeIcon className="h-4 w-4 cursor-pointer hover:scale-110 transition-transform" style={{ color: colorWithOpacity(userColor, 0.6) }} />
+            {isQrHovered && (
               <div
-                className="flex items-center gap-2 bg-gradient-to-r from-black/60 to-black/40 rounded-xl px-4 py-2.5 transition-all relative shadow-lg hover:scale-105 border border-white/10"
-                onMouseEnter={() => setIsKeyHovered(true)}
-                onMouseLeave={() => setIsKeyHovered(false)}
-                title={(user.crypto_type || 'sr25519').toLowerCase()}
+                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 rounded-xl border-2 z-[9999] shadow-2xl"
+                style={{ backgroundColor: 'rgba(0,0,0,0.95)', borderColor: userColor }}
               >
-                <code className="text-base font-mono font-bold" style={{ color: userColor }}>
-                  {(user.crypto_type || 'sr25519').toLowerCase()}
-                </code>
-                <CopyButton text={user.crypto_type || 'sr25519'} size="sm" showValueOnHover={true} />
-                <div
-                  className="relative ml-1"
-                  onMouseEnter={() => setIsKeyQrHovered(true)}
-                  onMouseLeave={() => setIsKeyQrHovered(false)}
-                >
-                  <QrCodeIcon className="h-5 w-5 cursor-pointer hover:scale-110 transition-transform" style={{ color: userColor }} />
-                  {isKeyQrHovered && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 bg-black/95 rounded-xl border-2 z-[9999] shadow-2xl" style={{ borderColor: userColor }}>
-                      <QRCode value={user.crypto_type || 'sr25519'} size={120} color={userColor} />
-                    </div>
-                  )}
-                </div>
+                <QRCode value={websiteUrl} size={120} color={userColor} />
               </div>
-
-              {user.mods && user.mods.length > 0 && (
-                <div className="flex items-center gap-2 bg-gradient-to-r from-purple-900/40 to-pink-900/40 rounded-xl px-4 py-2.5 shadow-lg transition-all hover:scale-105 border border-purple-500/30">
-                  <CubeIcon className="w-5 h-5" style={{ color: '#c084fc' }} />
-                  <code className="text-base font-mono font-bold" style={{ color: '#c084fc' }}>
-                    {user.mods.length} mods
-                  </code>
-                </div>
-              )}
-
-              {user.balance !== undefined && (
-                <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-900/40 to-teal-900/40 rounded-xl px-4 py-2.5 shadow-lg transition-all hover:scale-105 border border-emerald-500/30">
-                  <ClockIcon className="w-5 h-5" style={{ color: '#34d399' }} />
-                  <code className="text-base font-mono font-bold" style={{ color: '#34d399' }} suppressHydrationWarning>
-                    {user.balance.toLocaleString('en-US')}
-                  </code>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
+
+        {/* Separator */}
+        <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: colorWithOpacity(userColor, 0.2) }} />
+
+        {/* Crypto type badge */}
+        <div className="flex items-center gap-1.5 px-3 h-[46px]">
+          <code className="text-xs font-bold uppercase tracking-wider" style={{ color: '#06b6d4' }}>
+            {(user.crypto_type || 'sr25519').toLowerCase()}
+          </code>
+        </div>
+
+        {/* Separator */}
+        <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: colorWithOpacity(userColor, 0.2) }} />
+
+        {/* Mods count */}
+        {user.mods && user.mods.length > 0 && (
+          <>
+            <div className="flex items-center gap-1.5 px-3 h-[46px]">
+              <CubeIcon className="w-4 h-4" style={{ color: '#c084fc' }} />
+              <code className="text-xs font-bold tabular-nums" style={{ color: '#c084fc' }}>
+                {user.mods.length} mods
+              </code>
+            </div>
+            <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: colorWithOpacity(userColor, 0.2) }} />
+          </>
+        )}
+
+        {/* Balance */}
+        {user.balance !== undefined && (
+          <>
+            <div className="flex items-center gap-1.5 px-3 h-[46px]">
+              <ClockIcon className="w-4 h-4" style={{ color: '#34d399' }} />
+              <code className="text-xs font-bold tabular-nums" style={{ color: '#34d399' }} suppressHydrationWarning>
+                {user.balance.toLocaleString('en-US')}
+              </code>
+            </div>
+            <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: colorWithOpacity(userColor, 0.2) }} />
+          </>
+        )}
+
+        {/* Go to page button */}
+        {mode === 'explore' && (
+          <Link
+            href={`/user/${userKey}`}
+            className="flex items-center gap-1.5 px-3 h-[46px] transition-all hover:opacity-80"
+            style={{ color: userColor, borderRadius: '0 12px 12px 0' }}
+          >
+            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase tracking-wider">PAGE</span>
+          </Link>
+        )}
       </div>
     </div>
   )
-
-  if (mode === 'explore') {
-    return (
-      <Link href={`/user/${userKey}`} className="block">
-        <CardContent />
-      </Link>
-    )
-  }
-
-  return <CardContent />
 }
 
 export default UserCard

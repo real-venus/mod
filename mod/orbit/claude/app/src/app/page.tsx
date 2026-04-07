@@ -53,35 +53,35 @@ function formatDate(ts: number): string {
 }
 
 const STATUS_ICON: Record<string, string> = {
-  pending: "◇",
-  running: "▶",
-  completed: "✦",
+  pending: "○",
+  running: "●",
+  completed: "✓",
   failed: "✕",
-  cancelled: "■",
+  cancelled: "◼",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "QUEUED",
-  running: "RUNNING",
-  completed: "COMPLETE",
-  failed: "FAILED",
-  cancelled: "KILLED",
+  pending: "Queued",
+  running: "Running",
+  completed: "Complete",
+  failed: "Failed",
+  cancelled: "Cancelled",
 };
 
 const STATUS_COLOR_DARK: Record<string, string> = {
-  pending: "#ffb000",
-  running: "#00aaff",
-  completed: "#33ff33",
-  failed: "#ff3333",
-  cancelled: "#666666",
+  pending: "#fbbf24",
+  running: "#60a5fa",
+  completed: "#34d399",
+  failed: "#f87171",
+  cancelled: "#64748b",
 };
 
 const STATUS_COLOR_LIGHT: Record<string, string> = {
-  pending: "#b47800",
-  running: "#1a6eb5",
-  completed: "#1a7a3a",
-  failed: "#cc2222",
-  cancelled: "#888888",
+  pending: "#f59e0b",
+  running: "#3b82f6",
+  completed: "#10b981",
+  failed: "#ef4444",
+  cancelled: "#94a3b8",
 };
 
 // ── File Type Colors ─────────────────────────────────────────────────
@@ -107,22 +107,15 @@ function getFileTypeColor(filename: string): string {
 // ── ASCII Art ────────────────────────────────────────────────────────
 
 const BOOT_ART = `
-╔══════════════════════════════════════════════════════════╗
-║                                                          ║
-║     ███╗░░░███╗░█████╗░██████╗░░░░░░░█████╗░██╗        ║
-║     ████╗░████║██╔══██╗██╔══██╗░░░░░██╔══██╗██║        ║
-║     ██╔████╔██║██║░░██║██║░░██║░░░░░███████║██║        ║
-║     ██║╚██╔╝██║██║░░██║██║░░██║░░░░░██╔══██║██║        ║
-║     ██║░╚═╝░██║╚█████╔╝██████╔╝░░░░░██║░░██║██║        ║
-║     ╚═╝░░░░░╚═╝░╚════╝░╚═════╝░░░░░╚═╝░░╚═╝╚═╝        ║
-║                                                          ║
-║              ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄              ║
-║              █  A G E N T   R U N N E R  v1  █            ║
-║              ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀              ║
-║                                                          ║
-║         « Background AI Agent • 8-Bit Terminal »         ║
-║                                                          ║
-╚══════════════════════════════════════════════════════════╝`;
+  ┌──────────────────────────────────────┐
+  │                                      │
+  │          M O D   A I                 │
+  │                                      │
+  │       Agent Runner  v1               │
+  │                                      │
+  │    Background AI Agent Platform      │
+  │                                      │
+  └──────────────────────────────────────┘`;
 
 // ── Main Component ───────────────────────────────────────────────────
 
@@ -291,22 +284,22 @@ export default function Home() {
   const tokenStatsRef = useRef<HTMLDivElement>(null);
 
   // Theme-aware helpers
-  const isLight = theme === "light";
+  const isLight = theme === "light" || (!["dark", "matrix", "cyberpunk", "amber", "ocean", "ibm"].includes(theme) && theme !== "win95");
   const STATUS_COLOR = isLight ? STATUS_COLOR_LIGHT : STATUS_COLOR_DARK;
-  const tintBg = isLight ? "rgba(0,0,0,0.02)" : "rgba(51,255,51,0.02)";
-  const tintBgStrong = isLight ? "rgba(0,0,0,0.04)" : "rgba(51,255,51,0.03)";
-  const subtleBorder = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
-  const subtleBorderStrong = isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.1)";
-  const faintGreen = isLight ? "rgba(26,122,58,0.06)" : "rgba(51,255,51,0.06)";
-  const faintGreenText = isLight ? "rgba(26,122,58,0.25)" : "rgba(51,255,51,0.2)";
-  const walletGreen = isLight ? "rgba(26,122,58," : "rgba(51,255,51,";
-  const walletAmber = isLight ? "rgba(180,120,0," : "rgba(255,176,0,";
-  const apiGreenBorder = isLight ? "rgba(26,122,58,0.3)" : "rgba(51,255,51,0.3)";
-  const apiGreenBg = isLight ? "rgba(26,122,58,0.06)" : "rgba(51,255,51,0.05)";
-  const apiBlueBorder = isLight ? "rgba(26,110,181,0.3)" : "rgba(0,170,255,0.3)";
-  const apiBlueBg = isLight ? "rgba(26,110,181,0.06)" : "rgba(0,170,255,0.05)";
-  const apiRedBorder = isLight ? "rgba(204,34,34,0.3)" : "rgba(255,51,51,0.3)";
-  const apiRedBg = isLight ? "rgba(204,34,34,0.06)" : "rgba(255,51,51,0.05)";
+  const tintBg = isLight ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.02)";
+  const tintBgStrong = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
+  const subtleBorder = isLight ? "rgba(0,0,0,0.08)" : "var(--border-color)";
+  const subtleBorderStrong = isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)";
+  const faintGreen = isLight ? "rgba(16,185,129,0.06)" : "rgba(52,211,153,0.08)";
+  const faintGreenText = isLight ? "rgba(16,185,129,0.25)" : "rgba(52,211,153,0.25)";
+  const walletGreen = isLight ? "rgba(16,185,129," : "rgba(52,211,153,";
+  const walletAmber = isLight ? "rgba(245,158,11," : "rgba(251,191,36,";
+  const apiGreenBorder = isLight ? "rgba(16,185,129,0.25)" : "rgba(52,211,153,0.3)";
+  const apiGreenBg = isLight ? "rgba(16,185,129,0.05)" : "rgba(52,211,153,0.06)";
+  const apiBlueBorder = isLight ? "rgba(59,130,246,0.25)" : "rgba(96,165,250,0.3)";
+  const apiBlueBg = isLight ? "rgba(59,130,246,0.05)" : "rgba(96,165,250,0.06)";
+  const apiRedBorder = isLight ? "rgba(239,68,68,0.25)" : "rgba(248,113,113,0.3)";
+  const apiRedBg = isLight ? "rgba(239,68,68,0.05)" : "rgba(248,113,113,0.06)";
   const darkOverlay = isLight ? "rgba(0,0,0,0.03)" : "rgba(0,0,0,0.3)";
   const darkOverlayStrong = isLight ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.4)";
 
@@ -1709,7 +1702,7 @@ export default function Home() {
           style={{
             background: isLight
               ? "radial-gradient(ellipse at center, rgba(0,0,0,0.02) 0%, transparent 70%)"
-              : "radial-gradient(ellipse at center, rgba(51,255,51,0.03) 0%, transparent 70%)",
+              : "radial-gradient(ellipse at center, rgba(16,185,129,0.03) 0%, transparent 70%)",
           }}
         />
 
@@ -1719,7 +1712,7 @@ export default function Home() {
             className="text-crt-green leading-none select-none whitespace-pre transition-opacity duration-700"
             style={{
               fontSize: "9px",
-              textShadow: isLight ? "none" : "0 0 10px rgba(51,255,51,0.4), 0 0 3px rgba(51,255,51,0.2)",
+              textShadow: "none",
               opacity: bootPhase >= 1 ? 1 : 0,
             }}
           >
@@ -1731,17 +1724,17 @@ export default function Home() {
             className="w-full max-w-lg transition-opacity duration-500"
             style={{ opacity: bootPhase >= 2 ? 1 : 0 }}
           >
-            <div className="border-2 border-crt-green/30 p-4 space-y-1" style={{ background: tintBg }}>
-              <div className="text-[14px] text-crt-green/60">SYSTEM CHECK ............ OK</div>
-              <div className="text-[14px] text-crt-green/60">CLAUDE ENGINE ........... READY</div>
-              <div className="text-[14px] text-crt-green/60">JOB SCHEDULER ........... ACTIVE</div>
-              <div className="text-[14px] text-crt-green/60">SSE STREAM .............. ENABLED</div>
-              <div className="text-[14px] text-crt-amber/80 mt-2">
-                ⚠ WALLET SIGNATURE REQUIRED FOR ACCESS
+            <div className="rounded-xl p-4 space-y-2" style={{ background: tintBg, border: `1px solid ${subtleBorder}` }}>
+              <div className="text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>System Check — OK</div>
+              <div className="text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>Claude Engine — Ready</div>
+              <div className="text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>Job Scheduler — Active</div>
+              <div className="text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>SSE Stream — Enabled</div>
+              <div className="text-[13px] font-medium mt-2" style={{ color: "var(--crt-amber)" }}>
+                Wallet signature required for access
               </div>
               {!hasMetaMask && !hasSubWallet && (
-                <div className="text-[14px] text-crt-green/40">
-                  ◇ NO WEB3 WALLET — LOCAL KEY MODE AVAILABLE
+                <div className="text-[13px]" style={{ color: "var(--text-tertiary)" }}>
+                  No web3 wallet detected — local key mode available
                 </div>
               )}
             </div>
@@ -1756,23 +1749,26 @@ export default function Home() {
             }}
           >
             <div
-              className="border-2 border-crt-amber p-6"
+              className="rounded-2xl p-6"
               style={{
-                background: "rgba(255,176,0,0.03)",
-                boxShadow: "0 0 30px rgba(255,176,0,0.05), inset 0 0 30px rgba(255,176,0,0.02)",
+                background: "var(--bg-secondary)",
+                border: `1px solid ${subtleBorder}`,
+                boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
               }}
             >
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-crt-amber text-[13px]">⬡</span>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(245,158,11,0.1)" }}>
+                  <span className="text-crt-amber text-[16px]">🔐</span>
+                </div>
                 <h2
-                  className="text-[14px] text-crt-amber"
-                  style={{ textShadow: "0 0 8px rgba(255,176,0,0.4)" }}
+                  className="text-[16px] font-semibold"
+                  style={{ color: "var(--text-primary)" }}
                 >
-                  WALLET AUTHENTICATION
+                  Connect Wallet
                 </h2>
               </div>
 
-              <div className="text-[14px] text-crt-green/50 mb-4 leading-relaxed">
+              <div className="text-[13px] mb-5 leading-relaxed" style={{ color: "var(--text-tertiary)" }}>
                 Sign a cryptographic challenge to authenticate.
                 Your signature is verified server-side via ecrecover and
                 becomes a 24-hour bearer token for all API requests.
@@ -1787,12 +1783,12 @@ export default function Home() {
                           onClick={() => connectWallet("metamask")}
                           disabled={authLoading}
                           className="pixel-btn pixel-btn-amber flex-1 text-[13px] py-3"
-                          style={{ letterSpacing: "2px" }}
+                          style={{ letterSpacing: "0.04em" }}
                         >
                           {authLoading ? (
                             <span className="animate-pulse">SIGNING...</span>
                           ) : (
-                            "METAMASK"
+                            "MetaMask"
                           )}
                         </button>
                       )}
@@ -1801,12 +1797,12 @@ export default function Home() {
                           onClick={() => connectWallet("subwallet")}
                           disabled={authLoading}
                           className="pixel-btn pixel-btn-blue flex-1 text-[13px] py-3"
-                          style={{ letterSpacing: "2px" }}
+                          style={{ letterSpacing: "0.04em" }}
                         >
                           {authLoading ? (
                             <span className="animate-pulse">SIGNING...</span>
                           ) : (
-                            "SUBWALLET"
+                            "SubWallet"
                           )}
                         </button>
                       )}
@@ -1824,12 +1820,12 @@ export default function Home() {
                   onClick={connectLocal}
                   disabled={authLoading}
                   className="pixel-btn w-full max-w-xs text-[13px] py-3"
-                  style={{ letterSpacing: "2px" }}
+                  style={{ letterSpacing: "0.04em" }}
                 >
                   {authLoading && !hasMetaMask && !hasSubWallet ? (
                     <span className="animate-pulse">GENERATING KEY...</span>
                   ) : (
-                    "USE  LOCAL  KEY"
+                    "Use Local Key"
                   )}
                 </button>
 
@@ -1843,9 +1839,9 @@ export default function Home() {
                   <button
                     onClick={() => setShowPasswordInput(true)}
                     className="pixel-btn w-full max-w-xs text-[13px] py-3"
-                    style={{ letterSpacing: "2px" }}
+                    style={{ letterSpacing: "0.04em" }}
                   >
-                    USE  PASSWORD  KEY
+                    Use Password Key
                   </button>
                 ) : (
                   <div className="w-full max-w-xs space-y-2">
@@ -1855,7 +1851,7 @@ export default function Home() {
                       onChange={(e) => setPasswordInput(e.target.value)}
                       placeholder="Enter password..."
                       className="w-full px-3 py-2 text-[13px] bg-crt-dark text-crt-green border-2 border-crt-amber/40 font-pixel"
-                      style={{ letterSpacing: "1px" }}
+                      style={{ letterSpacing: "0.01em" }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && passwordInput.trim()) connectWithPassword(passwordInput.trim());
                       }}
@@ -1864,12 +1860,12 @@ export default function Home() {
                       onClick={() => passwordInput.trim() && connectWithPassword(passwordInput.trim())}
                       disabled={authLoading || !passwordInput.trim()}
                       className="pixel-btn pixel-btn-amber w-full text-[13px] py-3"
-                      style={{ letterSpacing: "2px" }}
+                      style={{ letterSpacing: "0.04em" }}
                     >
                       {authLoading ? (
                         <span className="animate-pulse">DERIVING KEY...</span>
                       ) : (
-                        "CONNECT  WITH  PASSWORD"
+                        "Connect with Password"
                       )}
                     </button>
                   </div>
@@ -1881,7 +1877,7 @@ export default function Home() {
               </div>
 
               {authError && (
-                <div className="mt-4 border-2 border-crt-red/60 p-3" style={{ background: "rgba(255,51,51,0.05)" }}>
+                <div className="mt-4 border-2 border-crt-red/60 p-3" style={{ background: "rgba(239,68,68,0.05)" }}>
                   <div className="text-[14px] text-crt-red text-center">{authError}</div>
                 </div>
               )}
@@ -1889,8 +1885,8 @@ export default function Home() {
           </div>
 
           {/* Footer */}
-          <div className="text-[13px] text-crt-green/20 mt-4">
-            BISMILLAH ░ MOD AI v1.0 ░ POWERED BY RUST + NEXT.JS
+          <div className="text-[12px] mt-4" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+            Bismillah — Mod AI v1.0 — Powered by Rust + Next.js
           </div>
         </div>
       </div>
@@ -1954,7 +1950,7 @@ export default function Home() {
     if (changelogLoading) {
       return (
         <div className="flex-1 flex items-center justify-center h-full">
-          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "0.01em" }}>
             Loading changelog...
           </span>
         </div>
@@ -1965,7 +1961,7 @@ export default function Home() {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 h-full p-6">
           <span className="text-[48px] text-crt-green/10">v0</span>
-          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "0.01em" }}>
             No versions yet
           </span>
           <p className="text-[14px] text-crt-green/20 text-center max-w-xs">
@@ -1988,10 +1984,10 @@ export default function Home() {
         {/* Changelog Header */}
         <div
           className="px-4 py-2 border-b flex items-center justify-between"
-          style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,170,255,0.02)" }}
+          style={{ borderColor: "var(--border-color)", background: "rgba(59,130,246,0.02)" }}
         >
           <div>
-            <span className="text-[14px] text-crt-blue/70 uppercase" style={{ letterSpacing: "1.5px" }}>
+            <span className="text-[14px] text-crt-blue/70 uppercase" style={{ letterSpacing: "0.02em" }}>
               VERSION HISTORY
             </span>
             <div className="text-[14px] text-crt-green/40 mt-0.5">
@@ -2019,7 +2015,7 @@ export default function Home() {
                   className={`px-4 py-3 cursor-pointer border-b transition-all ${
                     isSelected ? "bg-crt-blue/10" : "hover:bg-white/[0.02]"
                   }`}
-                  style={{ borderColor: "rgba(255,255,255,0.05)" }}
+                  style={{ borderColor: "var(--border-color)" }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -2027,7 +2023,7 @@ export default function Home() {
                         v{entry.version}
                       </span>
                       {isLatest && (
-                        <span className="text-[13px] px-1.5 py-0.5 bg-crt-green/20 text-crt-green rounded" style={{ letterSpacing: "1px" }}>
+                        <span className="text-[13px] px-1.5 py-0.5 bg-crt-green/20 text-crt-green rounded" style={{ letterSpacing: "0.01em" }}>
                           LATEST
                         </span>
                       )}
@@ -2052,12 +2048,12 @@ export default function Home() {
 
           {/* Version Detail Panel */}
           {selectedVersion && (
-            <div className="flex-1 border-t overflow-y-auto" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+            <div className="flex-1 border-t overflow-y-auto" style={{ borderColor: "var(--border-color-strong)" }}>
               <div
                 className="px-4 py-2 border-b flex items-center justify-between sticky top-0 z-10"
-                style={{ borderColor: "rgba(255,255,255,0.08)", background: "var(--bg-secondary)" }}
+                style={{ borderColor: "var(--border-color)", background: "var(--bg-secondary)" }}
               >
-                <span className="text-[14px] text-crt-blue uppercase" style={{ letterSpacing: "1px" }}>
+                <span className="text-[14px] text-crt-blue uppercase" style={{ letterSpacing: "0.01em" }}>
                   v{selectedVersion}
                 </span>
                 <button
@@ -2078,7 +2074,7 @@ export default function Home() {
 
                   {/* CID with link */}
                   <div className="mb-3">
-                    <div className="text-[14px] text-crt-green/30 mb-1" style={{ letterSpacing: "1px" }}>IPFS CID</div>
+                    <div className="text-[14px] text-crt-green/30 mb-1" style={{ letterSpacing: "0.01em" }}>IPFS CID</div>
                     <a
                       href={versionDetail.gateway}
                       target="_blank"
@@ -2104,7 +2100,7 @@ export default function Home() {
                   </div>
 
                   {/* Restore hint */}
-                  <div className="mt-4 p-2 border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
+                  <div className="mt-4 p-2 border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
                     <div className="text-[14px] text-crt-amber/50 mb-1">RESTORE THIS VERSION</div>
                     <code className="text-[14px] text-crt-green/40 block">
                       c.restore_version(&quot;{selectedVersion}&quot;, dry_run=False)
@@ -2135,11 +2131,11 @@ export default function Home() {
         >
           <div className="px-3 py-2 flex items-center gap-2">
             {inlineSearchMode === "off" ? (
-              <span className="text-[14px] text-crt-green/70 flex-1" style={{ letterSpacing: "1.5px" }}>
+              <span className="text-[14px] text-crt-green/70 flex-1" style={{ letterSpacing: "0.02em" }}>
                 📁 FILES
               </span>
             ) : (
-              <div className="flex items-center gap-2 flex-1 px-2 py-0.5 border border-crt-blue/30 bg-black/40" style={{ borderRadius: "2px" }}>
+              <div className="flex items-center gap-2 flex-1 px-2 py-0.5 border border-crt-blue/30 bg-black/40" style={{ borderRadius: "8px" }}>
                 <span className="text-[13px] text-crt-blue/60">
                   {inlineSearchMode === "files" ? "🔍" : "🔎"}
                 </span>
@@ -2192,7 +2188,7 @@ export default function Home() {
                     : "border-crt-blue/30 text-crt-blue/60 hover:text-crt-blue hover:border-crt-blue"
                 }`}
                 title="Search files by name (Ctrl+P)"
-                style={{ letterSpacing: "0.5px" }}
+                style={{ letterSpacing: "0" }}
               >
                 🔍 FILES
               </button>
@@ -2209,7 +2205,7 @@ export default function Home() {
                     : "border-crt-blue/30 text-crt-blue/60 hover:text-crt-blue hover:border-crt-blue"
                 }`}
                 title="Search file contents (Ctrl+Shift+F)"
-                style={{ letterSpacing: "0.5px" }}
+                style={{ letterSpacing: "0" }}
               >
                 🔎 GREP
               </button>
@@ -2229,7 +2225,7 @@ export default function Home() {
 
               {/* Inline Results */}
               {inlineSearchResults.length > 0 && (
-                <div className="mt-1 max-h-[240px] overflow-y-auto border border-white/5 bg-black/60" style={{ borderRadius: "2px" }}>
+                <div className="mt-1 max-h-[240px] overflow-y-auto border border-white/5 bg-black/60" style={{ borderRadius: "8px" }}>
                   {inlineSearchResults.map((result, idx) => (
                     <div
                       key={inlineSearchMode === "files" ? result.path : `${result.path}-${result.line}-${idx}`}
@@ -2243,7 +2239,7 @@ export default function Home() {
                       onMouseEnter={() => setInlineSelectedIndex(idx)}
                       className="px-2 py-1.5 cursor-pointer transition-colors"
                       style={{
-                        backgroundColor: idx === inlineSelectedIndex ? "rgba(0,170,255,0.15)" : "transparent",
+                        backgroundColor: idx === inlineSelectedIndex ? "rgba(59,130,246,0.15)" : "transparent",
                         borderLeft: idx === inlineSelectedIndex ? "2px solid #00aaff" : "2px solid transparent",
                       }}
                     >
@@ -2274,7 +2270,7 @@ export default function Home() {
 
         {/* Path display */}
         {(selectedJob || workDir) && (
-          <div className="px-3 py-1 border-b text-[14px] text-crt-green/30 truncate font-code" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+          <div className="px-3 py-1 border-b text-[14px] text-crt-green/30 truncate font-code" style={{ borderColor: "var(--border-color)" }}>
             {fileWorkDir}
           </div>
         )}
@@ -2286,7 +2282,7 @@ export default function Home() {
             className="overflow-y-auto p-2 shrink-0 border-r"
             style={{
               width: viewingFile ? "200px" : "100%",
-              borderColor: "rgba(255,255,255,0.08)",
+              borderColor: "var(--border-color)",
             }}
           >
             {directoryTree.length > 0 ? (
@@ -2311,7 +2307,7 @@ export default function Home() {
               {/* File header */}
               <div
                 className="px-3 py-1.5 border-b flex items-center justify-between shrink-0"
-                style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,170,255,0.03)" }}
+                style={{ borderColor: "var(--border-color)", background: "rgba(59,130,246,0.03)" }}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-[13px] text-crt-blue font-bold truncate font-code">
@@ -2335,7 +2331,7 @@ export default function Home() {
                 </div>
               </div>
               {/* File path */}
-              <div className="px-3 py-0.5 text-[14px] text-crt-green/20 truncate border-b shrink-0 font-code" style={{ borderColor: "rgba(255,255,255,0.03)" }}>
+              <div className="px-3 py-0.5 text-[14px] text-crt-green/20 truncate border-b shrink-0 font-code" style={{ borderColor: "var(--bg-tint)" }}>
                 {viewingFile}
               </div>
               {/* File content */}
@@ -2389,10 +2385,10 @@ export default function Home() {
     return (
       <div className={`flex flex-col overflow-hidden ${selectedJob ? '' : 'flex-1'}`} style={selectedJob ? { maxHeight: '50%' } : {}}>
         {/* NEW TASK FORM - Sleek unified input */}
-        <div className="border-b-2 p-4 flex flex-col" style={{ borderColor: subtleBorder, background: tintBg, height: inputHeight }}>
+        <div className="border-b p-4 flex flex-col" style={{ borderColor: subtleBorder, background: tintBg, height: inputHeight }}>
           <div
-            className="border-2 border-crt-amber/40 relative flex-1 flex flex-col overflow-hidden"
-            style={{ background: darkOverlay }}
+            className="border relative flex-1 flex flex-col overflow-hidden rounded-xl"
+            style={{ background: darkOverlay, borderColor: subtleBorder }}
           >
             {/* Textarea */}
             <textarea
@@ -2441,9 +2437,9 @@ export default function Home() {
                 className="px-2 py-1 text-[13px] bg-transparent text-crt-green border border-crt-green/20 font-pixel uppercase cursor-pointer hover:border-crt-green/40 transition-colors"
                 style={{ maxWidth: "160px" }}
               >
-                <option value="opus">OPUS 4.6</option>
-                <option value="sonnet">SONNET 4.5</option>
-                <option value="haiku">HAIKU 4.5</option>
+                <option value="opus">Opus 4.6</option>
+                <option value="sonnet">Sonnet 4.5</option>
+                <option value="haiku">Haiku 4.5</option>
               </select>
 
               {/* Image count badge */}
@@ -2451,7 +2447,7 @@ export default function Home() {
                 <div className="relative group flex items-center">
                   <span
                     className="text-[14px] px-2 py-1 border border-crt-blue/30 text-crt-blue/70 uppercase cursor-default"
-                    style={{ letterSpacing: "0.5px" }}
+                    style={{ letterSpacing: "0" }}
                   >
                     {images.length} IMG{images.length > 1 ? "S" : ""}
                   </span>
@@ -2473,12 +2469,12 @@ export default function Home() {
                 onClick={submitJob}
                 disabled={submitting || !prompt.trim()}
                 className="pixel-btn text-[13px] py-1.5 px-6 uppercase"
-                style={{ letterSpacing: "1.5px" }}
+                style={{ letterSpacing: "0.02em" }}
               >
                 {submitting ? (
                   <span className="animate-pulse">...</span>
                 ) : (
-                  "EXEC"
+                  "Run"
                 )}
               </button>
             </div>
@@ -2582,11 +2578,11 @@ export default function Home() {
                         <span className={`text-[11px] ${job.status === "running" ? "led-pulse" : ""}`} style={{ color }}>
                           {STATUS_ICON[job.status]}
                         </span>
-                        <span className="text-[11px] font-pixel" style={{ color, letterSpacing: "0.5px" }}>
+                        <span className="text-[11px] font-pixel" style={{ color, letterSpacing: "0" }}>
                           {STATUS_LABEL[job.status]}
                         </span>
-                        <span className="text-[10px] font-pixel" style={{ color: "var(--crt-amber)", opacity: 0.4, letterSpacing: "0.5px" }}>
-                          {job.model === "opus" ? "OPUS 4.6" : job.model === "sonnet" ? "SONNET 4.5" : job.model === "haiku" ? "HAIKU 4.5" : job.model.toUpperCase()}
+                        <span className="text-[10px] font-medium" style={{ color: "var(--text-tertiary)", opacity: 0.6 }}>
+                          {job.model === "opus" ? "Opus 4.6" : job.model === "sonnet" ? "Sonnet 4.5" : job.model === "haiku" ? "Haiku 4.5" : job.model}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2594,7 +2590,7 @@ export default function Home() {
                           <button
                             onClick={(e) => { e.stopPropagation(); cancelJob(job.id); }}
                             className="text-[10px] px-2 py-0.5 border border-red-500/40 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all uppercase"
-                            style={{ letterSpacing: "0.5px" }}
+                            style={{ letterSpacing: "0" }}
                             title="Cancel task"
                           >
                             CANCEL
@@ -2604,7 +2600,7 @@ export default function Home() {
                           <button
                             onClick={(e) => { e.stopPropagation(); deleteJob(job.id); }}
                             className="text-[10px] px-2 py-0.5 border border-red-500/30 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500 transition-all uppercase"
-                            style={{ letterSpacing: "0.5px" }}
+                            style={{ letterSpacing: "0" }}
                             title="Delete task"
                           >
                             DEL
@@ -2631,7 +2627,7 @@ export default function Home() {
                             </p>
                             {cleanPrompt.length > 80 && (
                               <span className="text-[10px]" style={{ color: "var(--crt-blue)", opacity: 0.5 }}>
-                                {isPromptExpanded ? "▲ COLLAPSE" : "▼ EXPAND"}
+                                {isPromptExpanded ? "Show less" : "Show more"}
                               </span>
                             )}
                           </div>
@@ -2682,7 +2678,7 @@ export default function Home() {
                       <button
                         onClick={(e) => copyTaskToInput(job, e)}
                         className="text-[10px] px-1.5 py-0.5 border border-crt-blue/30 text-crt-blue/70 hover:bg-crt-blue/15 hover:border-crt-blue/60 hover:text-crt-blue transition-all uppercase"
-                        style={{ letterSpacing: "0.5px" }}
+                        style={{ letterSpacing: "0" }}
                         title="Copy prompt & module into input"
                       >
                         ⧉ COPY
@@ -2712,7 +2708,7 @@ export default function Home() {
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4 p-6">
               <span className="text-[48px] text-crt-green/10">🎨</span>
-              <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+              <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "0.01em" }}>
                 No app available
               </span>
               <p className="text-[14px] text-crt-green/20 text-center max-w-xs">
@@ -2780,14 +2776,14 @@ export default function Home() {
     // Render value portion with enhanced colors
     const renderVal = () => {
       if (value === null) return <span style={{ color: "#6272a4", fontStyle: "italic" }}>null</span>;
-      if (typeof value === "boolean") return <span style={{ color: "#ff79c6", fontWeight: "bold", textShadow: "0 0 6px rgba(255,121,198,0.3)" }}>{String(value)}</span>;
-      if (typeof value === "number") return <span style={{ color: "#bd93f9", textShadow: "0 0 6px rgba(189,147,249,0.3)" }}>{value}</span>;
+      if (typeof value === "boolean") return <span style={{ color: "#ff79c6", fontWeight: "bold", textShadow: "none" }}>{String(value)}</span>;
+      if (typeof value === "number") return <span style={{ color: "#bd93f9", textShadow: "none" }}>{value}</span>;
       if (typeof value === "string") {
         const isUrl = value.startsWith("http");
         const isAddr = value.startsWith("0x");
         const color = isUrl ? "#8be9fd" : isAddr ? "#50fa7b" : "#f1fa8c";
         const glow = isUrl ? "rgba(139,233,253,0.2)" : isAddr ? "rgba(80,250,123,0.2)" : "rgba(241,250,140,0.15)";
-        return <span style={{ color, textShadow: `0 0 4px ${glow}` }}>&quot;{value}&quot;</span>;
+        return <span style={{ color, textShadow: "none" }}>&quot;{value}&quot;</span>;
       }
       return null;
     };
@@ -2872,7 +2868,7 @@ export default function Home() {
             {isArrayItem && key !== null && (
               <span className="text-[14px] mr-1.5 inline-flex items-center justify-center w-4 text-center" style={{ color: "var(--text-tertiary)", opacity: 0.35 }}>{key}</span>
             )}
-            <span style={{ color: bracketColor, fontWeight: "bold", textShadow: `0 0 8px ${bracketColor}44` }}>{openBracket}</span>
+            <span style={{ color: bracketColor, fontWeight: "bold", textShadow: "none" }}>{openBracket}</span>
             {isCollapsed && (
               <>
                 <span className="text-[14px] px-1.5 mx-1 rounded-sm inline-flex items-center gap-1" style={{
@@ -2883,7 +2879,7 @@ export default function Home() {
                   <span style={{ opacity: 0.7 }}>{isArray ? "▤" : "◈"}</span>
                   {count} {isArray ? (count === 1 ? "item" : "items") : (count === 1 ? "key" : "keys")}
                 </span>
-                <span style={{ color: bracketColor, fontWeight: "bold", textShadow: `0 0 8px ${bracketColor}44` }}>{closeBracket}</span>
+                <span style={{ color: bracketColor, fontWeight: "bold", textShadow: "none" }}>{closeBracket}</span>
                 {!isLast && <span style={{ color: "var(--text-tertiary)", opacity: 0.25 }}>,</span>}
               </>
             )}
@@ -2907,7 +2903,7 @@ export default function Home() {
             <div className="flex items-stretch">
               {renderGuides(depth)}
               <span className="w-4 inline-block shrink-0" />
-              <span style={{ color: bracketColor, fontWeight: "bold", textShadow: `0 0 8px ${bracketColor}44` }}>{closeBracket}</span>
+              <span style={{ color: bracketColor, fontWeight: "bold", textShadow: "none" }}>{closeBracket}</span>
               {!isLast && <span style={{ color: "var(--text-tertiary)", opacity: 0.25 }}>,</span>}
             </div>
           </>
@@ -2929,12 +2925,12 @@ export default function Home() {
         <div
           className="px-4 py-3 border-b shrink-0"
           style={{
-            borderColor: "rgba(0,170,255,0.15)",
-            background: "linear-gradient(180deg, rgba(0,170,255,0.06) 0%, rgba(0,170,255,0.01) 100%)",
+            borderColor: "rgba(59,130,246,0.15)",
+            background: "linear-gradient(180deg, rgba(59,130,246,0.06) 0%, rgba(59,130,246,0.01) 100%)",
           }}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[13px] font-bold" style={{ color: "var(--crt-blue)", letterSpacing: "2px", textShadow: "0 0 10px rgba(0,170,255,0.4)" }}>
+            <span className="text-[13px] font-bold" style={{ color: "var(--crt-blue)", letterSpacing: "0.04em", textShadow: "none" }}>
               MODULES
             </span>
             <span className="text-[12px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
@@ -2948,7 +2944,7 @@ export default function Home() {
             placeholder="filter modules..."
             className="w-full px-2 py-1.5 text-[13px] bg-transparent border font-code outline-none"
             style={{
-              borderColor: "rgba(0,170,255,0.2)",
+              borderColor: "rgba(59,130,246,0.2)",
               color: "var(--text-primary)",
             }}
           />
@@ -2968,14 +2964,14 @@ export default function Home() {
                 key={m.name}
                 className="border-b transition-colors"
                 style={{
-                  borderColor: "rgba(255,255,255,0.05)",
-                  background: m.name === selectedModule ? "rgba(0,170,255,0.06)" : "transparent",
+                  borderColor: "var(--border-color)",
+                  background: m.name === selectedModule ? "rgba(59,130,246,0.06)" : "transparent",
                 }}
               >
                 {renamingModule === m.name ? (
                   /* Rename mode */
                   <div className="px-4 py-3 flex flex-col gap-2">
-                    <div className="text-[11px] uppercase" style={{ color: "var(--crt-amber)", letterSpacing: "1px" }}>
+                    <div className="text-[11px] uppercase" style={{ color: "var(--crt-amber)", letterSpacing: "0.01em" }}>
                       RENAME MODULE
                     </div>
                     <input
@@ -2989,7 +2985,7 @@ export default function Home() {
                       }}
                       className="px-2 py-1.5 text-[13px] bg-transparent border font-code outline-none"
                       style={{
-                        borderColor: "rgba(255,176,0,0.4)",
+                        borderColor: "rgba(245,158,11,0.4)",
                         color: "var(--text-primary)",
                       }}
                     />
@@ -2999,10 +2995,10 @@ export default function Home() {
                         disabled={!renameInput.trim() || renameInput.trim() === m.name}
                         className="text-[12px] px-3 py-1 border transition-all hover:brightness-125 uppercase"
                         style={{
-                          borderColor: "rgba(255,176,0,0.4)",
+                          borderColor: "rgba(245,158,11,0.4)",
                           color: "var(--crt-amber)",
                           opacity: renameInput.trim() && renameInput.trim() !== m.name ? 1 : 0.3,
-                          letterSpacing: "0.5px",
+                          letterSpacing: "0",
                         }}
                       >
                         Rename
@@ -3010,7 +3006,7 @@ export default function Home() {
                       <button
                         onClick={() => { setRenamingModule(null); setRenameInput(""); }}
                         className="text-[12px] px-3 py-1 border border-crt-green/20 text-crt-green/50 hover:text-crt-green hover:border-crt-green/40 transition-all uppercase"
-                        style={{ letterSpacing: "0.5px" }}
+                        style={{ letterSpacing: "0" }}
                       >
                         Cancel
                       </button>
@@ -3068,12 +3064,12 @@ export default function Home() {
                           }}
                           className="text-[11px] px-2 py-0.5 border transition-all hover:brightness-125 uppercase"
                           style={{
-                            borderColor: "rgba(255,176,0,0.25)",
-                            color: "rgba(255,176,0,0.6)",
-                            letterSpacing: "0.5px",
+                            borderColor: "rgba(245,158,11,0.25)",
+                            color: "rgba(245,158,11,0.6)",
+                            letterSpacing: "0",
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,176,0,0.5)"; e.currentTarget.style.color = "var(--crt-amber)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,176,0,0.25)"; e.currentTarget.style.color = "rgba(255,176,0,0.6)"; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.5)"; e.currentTarget.style.color = "var(--crt-amber)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.25)"; e.currentTarget.style.color = "rgba(245,158,11,0.6)"; }}
                         >
                           Rename
                         </button>
@@ -3084,14 +3080,14 @@ export default function Home() {
                               <button
                                 onClick={() => deleteModule(m.name)}
                                 className="text-[11px] px-2 py-0.5 border border-crt-red/50 text-crt-red bg-crt-red/10 hover:bg-crt-red/20 transition-all uppercase"
-                                style={{ letterSpacing: "0.5px" }}
+                                style={{ letterSpacing: "0" }}
                               >
                                 Yes
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteModule(null)}
                                 className="text-[11px] px-2 py-0.5 border border-crt-green/20 text-crt-green/50 hover:text-crt-green transition-all uppercase"
-                                style={{ letterSpacing: "0.5px" }}
+                                style={{ letterSpacing: "0" }}
                               >
                                 No
                               </button>
@@ -3101,12 +3097,12 @@ export default function Home() {
                               onClick={() => setConfirmDeleteModule(m.name)}
                               className="text-[11px] px-2 py-0.5 border transition-all uppercase"
                               style={{
-                                borderColor: "rgba(255,51,51,0.2)",
-                                color: "rgba(255,51,51,0.4)",
-                                letterSpacing: "0.5px",
+                                borderColor: "rgba(239,68,68,0.2)",
+                                color: "rgba(239,68,68,0.4)",
+                                letterSpacing: "0",
                               }}
-                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,51,51,0.5)"; e.currentTarget.style.color = "var(--crt-red)"; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,51,51,0.2)"; e.currentTarget.style.color = "rgba(255,51,51,0.4)"; }}
+                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(239,68,68,0.5)"; e.currentTarget.style.color = "var(--crt-red)"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(239,68,68,0.2)"; e.currentTarget.style.color = "rgba(239,68,68,0.4)"; }}
                             >
                               Delete
                             </button>
@@ -3138,14 +3134,14 @@ export default function Home() {
               {(info?.api_url || info?.app_url) && (
               <div className={`grid gap-3 ${info?.api_url && info?.app_url ? "grid-cols-2" : "grid-cols-1"}`}>
                 {info?.api_url && (
-                <div className="p-3 border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
-                  <div className="text-[11px] uppercase mb-2" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>API</div>
+                <div className="p-3 border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
+                  <div className="text-[11px] uppercase mb-2" style={{ color: "var(--text-tertiary)", letterSpacing: "0.02em" }}>API</div>
                     <div className="flex items-center gap-2">
                       <span
                         className="inline-block w-2 h-2 rounded-full"
                         style={{
                           background: moduleRunning ? "var(--crt-green)" : "var(--crt-red)",
-                          boxShadow: `0 0 6px ${moduleRunning ? "var(--crt-green)" : "var(--crt-red)"}`,
+                          boxShadow: "none",
                         }}
                       />
                       <span className="text-[13px]" style={{ color: moduleRunning ? "var(--crt-green)" : "var(--crt-red)" }}>
@@ -3156,10 +3152,10 @@ export default function Home() {
                 </div>
                 )}
                 {info?.app_url && (
-                <div className="p-3 border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
-                  <div className="text-[11px] uppercase mb-2" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>APP</div>
+                <div className="p-3 border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
+                  <div className="text-[11px] uppercase mb-2" style={{ color: "var(--text-tertiary)", letterSpacing: "0.02em" }}>APP</div>
                     <div className="flex items-center gap-2">
-                      <span className="inline-block w-2 h-2 rounded-full" style={{ background: "var(--crt-green)", boxShadow: "0 0 6px var(--crt-green)" }} />
+                      <span className="inline-block w-2 h-2 rounded-full" style={{ background: "var(--crt-green)", boxShadow: "none" }} />
                       <span className="text-[13px] text-crt-green">Available</span>
                       <span className="text-[12px] text-crt-green/30 ml-auto font-mono">{info.app_url}</span>
                     </div>
@@ -3169,9 +3165,9 @@ export default function Home() {
               )}
 
               {/* Module Info */}
-              <div className="border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
-                <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>MODULE INFO</span>
+              <div className="border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
+                <div className="px-3 py-2 border-b" style={{ borderColor: "var(--border-color)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "0.02em" }}>MODULE INFO</span>
                 </div>
                 <div className="p-3 grid grid-cols-2 gap-y-2 gap-x-4 text-[13px]">
                   {info?.path && (
@@ -3226,9 +3222,9 @@ export default function Home() {
               </div>
 
               {/* Quick Actions */}
-              <div className="border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
-                <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>QUICK ACTIONS</span>
+              <div className="border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
+                <div className="px-3 py-2 border-b" style={{ borderColor: "var(--border-color)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "0.02em" }}>QUICK ACTIONS</span>
                 </div>
                 <div className="p-3 flex flex-wrap gap-2">
                   {info?.api_url && (
@@ -3237,8 +3233,8 @@ export default function Home() {
                       disabled={togglingModule}
                       className="text-[12px] px-3 py-1.5 border transition-all hover:brightness-125 uppercase"
                       style={{
-                        letterSpacing: "0.5px",
-                        borderColor: moduleRunning ? "rgba(255,50,50,0.3)" : "rgba(51,255,51,0.3)",
+                        letterSpacing: "0",
+                        borderColor: moduleRunning ? "rgba(255,50,50,0.3)" : "rgba(16,185,129,0.3)",
                         color: moduleRunning ? "var(--crt-red)" : "var(--crt-green)",
                       }}
                     >
@@ -3248,14 +3244,14 @@ export default function Home() {
                   <button
                     onClick={fetchDirectConfig}
                     className="text-[12px] px-3 py-1.5 border border-crt-amber/20 text-crt-amber/60 hover:text-crt-amber hover:border-crt-amber/40 transition-all uppercase"
-                    style={{ letterSpacing: "0.5px" }}
+                    style={{ letterSpacing: "0" }}
                   >
                     Reload Config
                   </button>
                   <button
                     onClick={() => checkModuleHealth()}
                     className="text-[12px] px-3 py-1.5 border border-crt-blue/20 text-crt-blue/60 hover:text-crt-blue hover:border-crt-blue/40 transition-all uppercase"
-                    style={{ letterSpacing: "0.5px" }}
+                    style={{ letterSpacing: "0" }}
                   >
                     Check Health
                   </button>
@@ -3266,14 +3262,14 @@ export default function Home() {
                         <button
                           onClick={() => deleteModule(selectedModule)}
                           className="text-[12px] px-2 py-1 border border-crt-red/50 text-crt-red bg-crt-red/10 hover:bg-crt-red/20 transition-all uppercase"
-                          style={{ letterSpacing: "0.5px" }}
+                          style={{ letterSpacing: "0" }}
                         >
                           Confirm
                         </button>
                         <button
                           onClick={() => setConfirmDeleteModule(null)}
                           className="text-[12px] px-2 py-1 border border-crt-green/20 text-crt-green/50 hover:text-crt-green hover:border-crt-green/40 transition-all uppercase"
-                          style={{ letterSpacing: "0.5px" }}
+                          style={{ letterSpacing: "0" }}
                         >
                           Cancel
                         </button>
@@ -3282,7 +3278,7 @@ export default function Home() {
                       <button
                         onClick={() => setConfirmDeleteModule(selectedModule)}
                         className="text-[12px] px-3 py-1.5 border border-crt-red/20 text-crt-red/40 hover:text-crt-red hover:border-crt-red/40 transition-all uppercase"
-                        style={{ letterSpacing: "0.5px" }}
+                        style={{ letterSpacing: "0" }}
                       >
                         Delete Module
                       </button>
@@ -3292,9 +3288,9 @@ export default function Home() {
               </div>
 
               {/* Scripts Info */}
-              <div className="border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
-                <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>SCRIPTS & PORTS</span>
+              <div className="border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
+                <div className="px-3 py-2 border-b" style={{ borderColor: "var(--border-color)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "0.02em" }}>SCRIPTS & PORTS</span>
                 </div>
                 <div className="p-3 flex flex-col gap-2 text-[12px] font-mono">
                   <div className="flex items-center gap-2">
@@ -3319,9 +3315,9 @@ export default function Home() {
               </div>
 
               {/* Config */}
-              <div className="border rounded" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
-                <div className="px-3 py-2 border-b flex items-center gap-1.5" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "1.5px" }}>CONFIG</span>
+              <div className="border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
+                <div className="px-3 py-2 border-b flex items-center gap-1.5" style={{ borderColor: "var(--border-color)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "0.02em" }}>CONFIG</span>
                   <div className="ml-auto flex items-center gap-1">
                     <button
                       onClick={() => collapseAll(cfg)}
@@ -3378,13 +3374,13 @@ export default function Home() {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 h-full p-6">
           <span className="text-[48px] opacity-10">⚙️</span>
-          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "0.01em" }}>
             {loadingConfig ? "Loading config..." : "No config loaded"}
           </span>
           <button
             onClick={fetchDirectConfig}
             className="text-[14px] px-3 py-1 border border-crt-green/30 text-crt-green/60 hover:bg-crt-green/10 transition-all uppercase"
-            style={{ letterSpacing: "1px" }}
+            style={{ letterSpacing: "0.01em" }}
           >
             Retry
           </button>
@@ -3401,19 +3397,19 @@ export default function Home() {
         <div
           className="px-4 py-3 border-b shrink-0"
           style={{
-            borderColor: "rgba(255,176,0,0.15)",
-            background: "linear-gradient(180deg, rgba(255,176,0,0.06) 0%, rgba(255,176,0,0.01) 100%)",
+            borderColor: "rgba(245,158,11,0.15)",
+            background: "linear-gradient(180deg, rgba(245,158,11,0.06) 0%, rgba(245,158,11,0.01) 100%)",
           }}
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-bold" style={{ color: "var(--crt-amber)", letterSpacing: "2px", textShadow: "0 0 10px rgba(255,176,0,0.4)" }}>
+              <span className="text-[13px] font-bold" style={{ color: "var(--crt-amber)", letterSpacing: "0.04em", textShadow: "none" }}>
                 {cfg.name?.toUpperCase() || "MODULE"}
               </span>
               <span className="text-[14px] px-1.5 py-0.5 rounded-sm" style={{ color: "#50fa7b", background: "rgba(80,250,123,0.1)", border: "1px solid rgba(80,250,123,0.2)" }}>
                 v{cfg.version || "?"}
               </span>
-              <span className="text-[14px] px-1.5 py-0.5 rounded-sm" style={{ color: "var(--crt-blue)", background: "rgba(0,170,255,0.08)", border: "1px solid rgba(0,170,255,0.15)" }}>
+              <span className="text-[14px] px-1.5 py-0.5 rounded-sm" style={{ color: "var(--crt-blue)", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.15)" }}>
                 :{cfg.port || "?"}
               </span>
             </div>
@@ -3425,7 +3421,7 @@ export default function Home() {
                   color: "#ffa502",
                   background: "rgba(255,165,2,0.08)",
                   border: "1px solid rgba(255,165,2,0.2)",
-                  letterSpacing: "0.5px",
+                  letterSpacing: "0",
                 }}
                 title="Collapse all nested objects"
               >
@@ -3438,7 +3434,7 @@ export default function Home() {
                   color: "#51cf66",
                   background: "rgba(81,207,102,0.08)",
                   border: "1px solid rgba(81,207,102,0.2)",
-                  letterSpacing: "0.5px",
+                  letterSpacing: "0",
                 }}
                 title="Expand all nested objects"
               >
@@ -3451,7 +3447,7 @@ export default function Home() {
                   color: copiedPath === "$root" ? "#50fa7b" : "#748ffc",
                   background: copiedPath === "$root" ? "rgba(80,250,123,0.12)" : "rgba(116,143,252,0.08)",
                   border: `1px solid ${copiedPath === "$root" ? "rgba(80,250,123,0.3)" : "rgba(116,143,252,0.2)"}`,
-                  letterSpacing: "0.5px",
+                  letterSpacing: "0",
                 }}
                 title="Copy entire config JSON"
               >
@@ -3505,7 +3501,7 @@ export default function Home() {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 h-full p-6">
           <span className="text-[48px] text-crt-green/10">⚙️</span>
-          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "1px" }}>
+          <span className="text-[14px] text-crt-green/30 uppercase" style={{ letterSpacing: "0.01em" }}>
             {loadingConfig ? "Loading config..." : "No API endpoints"}
           </span>
           <p className="text-[13px] text-crt-green/20 text-center max-w-xs">
@@ -3527,11 +3523,11 @@ export default function Home() {
         {/* API Header */}
         <div
           className="px-4 py-2 border-b"
-          style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,51,51,0.02)" }}
+          style={{ borderColor: "var(--border-color)", background: "rgba(239,68,68,0.02)" }}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-[14px] text-crt-red/70 uppercase" style={{ letterSpacing: "1.5px" }}>
+              <span className="text-[14px] text-crt-red/70 uppercase" style={{ letterSpacing: "0.02em" }}>
                 API EXPLORER
               </span>
               <span className="text-[13px] text-crt-amber/50">{baseUrl}</span>
@@ -3542,7 +3538,7 @@ export default function Home() {
 
         <div className="flex-1 flex flex-row overflow-hidden">
           {/* Endpoint List (left side) */}
-          <div className="overflow-y-auto border-r" style={{ borderColor: "rgba(255,255,255,0.08)", width: "260px", minWidth: "200px", flexShrink: 0 }}>
+          <div className="overflow-y-auto border-r" style={{ borderColor: "var(--border-color)", width: "260px", minWidth: "200px", flexShrink: 0 }}>
             {endpointKeys.map((ep) => {
               const info = endpoints[ep];
               const methods = Array.isArray(info.method) ? info.method : [info.method];
@@ -3560,7 +3556,7 @@ export default function Home() {
                   className="px-3 py-1.5 cursor-pointer border-b transition-all"
                   style={{
                     borderColor: "rgba(255,255,255,0.04)",
-                    background: isSelected ? "rgba(255,51,51,0.08)" : "transparent",
+                    background: isSelected ? "rgba(239,68,68,0.08)" : "transparent",
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -3596,7 +3592,7 @@ export default function Home() {
           {apiSelectedEndpoint && currentEndpoint ? (
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Method + Path + Send */}
-              <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+              <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: "var(--border-color)" }}>
                 {Array.isArray(currentEndpoint.method) ? (
                   <select
                     value={apiMethod}
@@ -3633,7 +3629,7 @@ export default function Home() {
                     color: apiLoading ? "var(--text-tertiary)" : "#000",
                     background: apiLoading ? "transparent" : "var(--crt-green)",
                     borderColor: "var(--crt-green)",
-                    letterSpacing: "1px",
+                    letterSpacing: "0.01em",
                     opacity: apiLoading ? 0.5 : 1,
                   }}
                 >
@@ -3643,8 +3639,8 @@ export default function Home() {
 
               {/* Params */}
               {(currentInputs.length > 0 || pathParams.length > 0) && (
-                <div className="px-3 py-2 border-b space-y-1.5" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                  <span className="text-[13px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "1px" }}>
+                <div className="px-3 py-2 border-b space-y-1.5" style={{ borderColor: "var(--border-color)" }}>
+                  <span className="text-[13px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "0.01em" }}>
                     Parameters
                   </span>
                   {pathParams.map((p: string) => (
@@ -3655,7 +3651,7 @@ export default function Home() {
                         value={apiParams[p] || ""}
                         onChange={(e) => setApiParams({ ...apiParams, [p]: e.target.value })}
                         className="flex-1 text-[13px] font-mono px-2 py-1 border bg-transparent"
-                        style={{ color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.1)" }}
+                        style={{ color: "var(--text-primary)", borderColor: "var(--border-color-strong)" }}
                         placeholder={`path param: ${p}`}
                         onKeyDown={(e) => { if (e.key === "Enter") fireApiRequest(apiSelectedEndpoint!, apiMethod, apiParams); }}
                       />
@@ -3671,7 +3667,7 @@ export default function Home() {
                           value={apiParams[input.name] || ""}
                           onChange={(e) => setApiParams({ ...apiParams, [input.name]: e.target.value })}
                           className="flex-1 text-[13px] font-mono px-2 py-1 border bg-transparent"
-                          style={{ color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.1)" }}
+                          style={{ color: "var(--text-primary)", borderColor: "var(--border-color-strong)" }}
                         >
                           <option value="" style={{ background: "#111" }}>—</option>
                           <option value="true" style={{ background: "#111" }}>true</option>
@@ -3683,7 +3679,7 @@ export default function Home() {
                           value={apiParams[input.name] || ""}
                           onChange={(e) => setApiParams({ ...apiParams, [input.name]: e.target.value })}
                           className="flex-1 text-[13px] font-mono px-2 py-1 border bg-transparent"
-                          style={{ color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.1)" }}
+                          style={{ color: "var(--text-primary)", borderColor: "var(--border-color-strong)" }}
                           placeholder={input.value === "_empty" ? `required (${input.type})` : `${input.type}${input.value != null ? ` = ${input.value}` : ""}`}
                           onKeyDown={(e) => { if (e.key === "Enter") fireApiRequest(apiSelectedEndpoint!, apiMethod, apiParams); }}
                         />
@@ -3695,8 +3691,8 @@ export default function Home() {
 
               {/* Response */}
               <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="px-3 py-1 flex items-center justify-between" style={{ background: "rgba(0,0,0,0.2)" }}>
-                  <span className="text-[13px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "1px" }}>
+                <div className="px-3 py-1 flex items-center justify-between" style={{ background: "var(--bg-tint)" }}>
+                  <span className="text-[13px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.4, letterSpacing: "0.01em" }}>
                     Response
                   </span>
                   {apiResponseStatus !== null && (
@@ -3718,7 +3714,7 @@ export default function Home() {
           ) : (
             /* No endpoint selected */
             <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
-              <span className="text-[14px] text-crt-green/20 uppercase" style={{ letterSpacing: "1px" }}>
+              <span className="text-[14px] text-crt-green/20 uppercase" style={{ letterSpacing: "0.01em" }}>
                 Select an endpoint
               </span>
             </div>
@@ -3745,8 +3741,8 @@ export default function Home() {
         className="flex flex-col shrink-0"
         style={{
           background: "var(--bg-secondary)",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+          borderBottom: `1px solid ${subtleBorder}`,
         }}
       >
         {/* Top row - Brand + Module selector and controls */}
@@ -3787,7 +3783,7 @@ export default function Home() {
                   }}
                   placeholder="search modules..."
                   className="px-3 py-1 bg-transparent text-crt-green border border-crt-green/40 font-code outline-none w-[220px]"
-                  style={{ letterSpacing: "1px", fontSize: "22px" }}
+                  style={{ letterSpacing: "0.01em", fontSize: "20px" }}
                 />
               ) : (
                 <button
@@ -3797,7 +3793,7 @@ export default function Home() {
                     if (!moduleList.length) fetchModules("");
                   }}
                   className="flex items-center gap-2 font-bold text-crt-green font-code cursor-pointer hover:text-crt-green/80 transition-colors group"
-                  style={{ letterSpacing: "1px", fontSize: "22px" }}
+                  style={{ letterSpacing: "0.01em", fontSize: "20px" }}
                   title="Click to switch module"
                 >
                   {selectedModule || "claude"}
@@ -3810,7 +3806,7 @@ export default function Home() {
                 return (
                 <div
                   className="absolute left-0 top-full mt-1 border border-crt-green/20 max-h-[400px] overflow-y-auto z-50 rounded min-w-[340px]"
-                  style={{ background: "var(--bg-primary)", boxShadow: "0 12px 48px rgba(0,0,0,0.7)", backdropFilter: "blur(12px)" }}
+                  style={{ background: "var(--bg-primary)", boxShadow: "0 12px 48px rgba(0,0,0,0.15)", backdropFilter: "blur(12px)" }}
                 >
                   {owners.length > 1 && (
                     <div className="px-3 py-2 border-b border-crt-green/20 flex flex-wrap gap-1.5 items-center sticky top-0 z-10" style={{ background: "var(--bg-primary)" }}>
@@ -3879,7 +3875,7 @@ export default function Home() {
               <span
                 className="text-[13px] px-1.5 py-0.5 text-crt-green/35 truncate max-w-[140px] font-mono"
                 title={effectiveConfig.owner}
-                style={{ letterSpacing: "0.5px" }}
+                style={{ letterSpacing: "0" }}
               >
                 {effectiveConfig.owner.slice(0, 6)}··{effectiveConfig.owner.slice(-4)}
               </span>
@@ -3893,7 +3889,7 @@ export default function Home() {
             onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
             className="text-[15px] font-bold transition-all px-3 py-2 font-code flex items-center gap-1.5"
             style={{
-              letterSpacing: "1.5px",
+              letterSpacing: "0.02em",
               color: leftSidebarOpen ? "var(--crt-blue)" : "var(--text-tertiary)",
               opacity: leftSidebarOpen ? 0.9 : 0.4,
               borderBottom: leftSidebarOpen ? "2px solid var(--crt-blue)" : "2px solid transparent",
@@ -3906,7 +3902,7 @@ export default function Home() {
             </svg>
             AGENT
           </button>
-          <div className="w-px h-4 mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
+          <div className="w-px h-4 mx-1" style={{ background: "var(--border-color)" }} />
           {([
             { key: "overview" as const, label: "OVERVIEW", icon: "◆", color: "var(--crt-amber)" },
             ...(selectedModuleInfo?.app_url || selectedModuleInfo?.has_app_dir ? [{ key: "app" as const, label: "APP", icon: "◈", color: "var(--crt-green)" }] : []),
@@ -3920,7 +3916,7 @@ export default function Home() {
                 onClick={() => setSidebarView(tab.key)}
                 className="text-[15px] font-bold transition-all px-3 py-2 font-code flex items-center gap-1.5 relative"
                 style={{
-                  letterSpacing: "1.5px",
+                  letterSpacing: "0.02em",
                   color: isActive ? tab.color : "var(--text-tertiary)",
                   opacity: isActive ? 1 : 0.4,
                   borderBottom: isActive ? `2px solid ${tab.color}` : "2px solid transparent",
@@ -3955,19 +3951,19 @@ export default function Home() {
               onClick={() => setShowHeaderNetworkDropdown(!showHeaderNetworkDropdown)}
               className="flex items-center gap-1.5 px-2 py-1.5 transition-all"
               style={{
-                border: showHeaderNetworkDropdown ? "1px solid rgba(255,176,0,0.4)" : "1px solid rgba(255,176,0,0.15)",
-                background: showHeaderNetworkDropdown ? "rgba(255,176,0,0.08)" : "transparent",
-                borderRadius: "3px",
+                border: showHeaderNetworkDropdown ? "1px solid rgba(245,158,11,0.4)" : "1px solid rgba(245,158,11,0.15)",
+                background: showHeaderNetworkDropdown ? "rgba(245,158,11,0.08)" : "transparent",
+                borderRadius: "10px",
               }}
               onMouseEnter={(e) => {
                 if (!showHeaderNetworkDropdown) {
-                  e.currentTarget.style.borderColor = "rgba(255,176,0,0.3)";
-                  e.currentTarget.style.background = "rgba(255,176,0,0.04)";
+                  e.currentTarget.style.borderColor = "rgba(245,158,11,0.3)";
+                  e.currentTarget.style.background = "rgba(245,158,11,0.04)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!showHeaderNetworkDropdown) {
-                  e.currentTarget.style.borderColor = "rgba(255,176,0,0.15)";
+                  e.currentTarget.style.borderColor = "rgba(245,158,11,0.15)";
                   e.currentTarget.style.background = "transparent";
                 }
               }}
@@ -3992,9 +3988,9 @@ export default function Home() {
                 className="absolute right-0 top-full mt-1 z-50 p-3 space-y-2 min-w-[240px]"
                 style={{
                   background: "var(--bg-primary)",
-                  border: "1px solid rgba(255,176,0,0.2)",
-                  borderRadius: "4px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                  border: "1px solid rgba(245,158,11,0.2)",
+                  borderRadius: "10px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
                 }}
               >
                 <div className="text-[9px] tracking-[2px] flex items-center justify-between mb-2" style={{ color: "var(--text-tertiary)" }}>
@@ -4002,7 +3998,7 @@ export default function Home() {
                   <button
                     onClick={() => setShowHeaderNetworkDropdown(false)}
                     className="text-[9px] px-1.5 py-0.5 transition-all"
-                    style={{ color: "var(--crt-amber)", border: "1px solid rgba(255,176,0,0.15)", borderRadius: "2px" }}
+                    style={{ color: "var(--crt-amber)", border: "1px solid rgba(245,158,11,0.15)", borderRadius: "8px" }}
                   >
                     ✕
                   </button>
@@ -4025,23 +4021,23 @@ export default function Home() {
                       className="flex items-center gap-2 px-2 py-2 transition-all text-left"
                       style={{
                         border: n.chainId === currentChainId
-                          ? `1px solid ${NETWORK_LOGOS[n.chainId]?.color || "rgba(255,176,0,0.3)"}40`
-                          : "1px solid rgba(255,255,255,0.06)",
+                          ? `1px solid ${NETWORK_LOGOS[n.chainId]?.color || "rgba(245,158,11,0.3)"}40`
+                          : "1px solid var(--border-color)",
                         background: n.chainId === currentChainId
-                          ? `${NETWORK_LOGOS[n.chainId]?.color || "rgba(255,176,0,"}10`
+                          ? `${NETWORK_LOGOS[n.chainId]?.color || "rgba(245,158,11,"}10`
                           : "rgba(0,0,0,0.15)",
-                        borderRadius: "3px",
+                        borderRadius: "10px",
                         opacity: headerSwitchingNetwork ? 0.5 : 1,
                       }}
                       onMouseEnter={(e) => {
                         if (n.chainId !== currentChainId) {
                           e.currentTarget.style.borderColor = `${NETWORK_LOGOS[n.chainId]?.color || "#ffb000"}40`;
-                          e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                          e.currentTarget.style.background = "var(--bg-tint)";
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (n.chainId !== currentChainId) {
-                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                          e.currentTarget.style.borderColor = "var(--border-color)";
                           e.currentTarget.style.background = "rgba(0,0,0,0.15)";
                         }
                       }}
@@ -4072,8 +4068,8 @@ export default function Home() {
               <div
                 className="flex items-center gap-1 px-2 py-1.5"
                 style={{
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: "3px",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "10px",
                 }}
                 title={`Wallet: ${walletType}`}
               >
@@ -4098,25 +4094,25 @@ export default function Home() {
               }}
               className="flex items-center gap-1.5 px-2.5 py-1.5 transition-all"
               style={{
-                border: copiedAddress ? "1px solid var(--crt-green)" : "1px solid rgba(51,255,51,0.2)",
-                background: copiedAddress ? "rgba(51,255,51,0.08)" : "transparent",
-                borderRadius: "3px",
+                border: copiedAddress ? "1px solid var(--crt-green)" : "1px solid rgba(16,185,129,0.2)",
+                background: copiedAddress ? "rgba(16,185,129,0.08)" : "transparent",
+                borderRadius: "10px",
               }}
               onMouseEnter={(e) => {
                 if (!copiedAddress) {
-                  e.currentTarget.style.borderColor = "rgba(51,255,51,0.35)";
-                  e.currentTarget.style.background = "rgba(51,255,51,0.04)";
+                  e.currentTarget.style.borderColor = "rgba(16,185,129,0.35)";
+                  e.currentTarget.style.background = "rgba(16,185,129,0.04)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!copiedAddress) {
-                  e.currentTarget.style.borderColor = "rgba(51,255,51,0.2)";
+                  e.currentTarget.style.borderColor = "rgba(16,185,129,0.2)";
                   e.currentTarget.style.background = "transparent";
                 }
               }}
               title={copiedAddress ? "Copied!" : `Copy: ${address}`}
             >
-              <span className="text-[14px] font-bold font-mono" style={{ color: "var(--crt-green)", letterSpacing: "0.5px", opacity: copiedAddress ? 1 : 0.8 }}>
+              <span className="text-[14px] font-bold font-mono" style={{ color: "var(--crt-green)", letterSpacing: "0", opacity: copiedAddress ? 1 : 0.8 }}>
                 {copiedAddress ? "COPIED" : address === "local" ? "LOCAL" : `${address?.slice(0, 6)}··${address?.slice(-4)}`}
               </span>
               <svg className="w-3 h-3" style={{ color: "var(--crt-green)", opacity: copiedAddress ? 1 : 0.5 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -4134,23 +4130,23 @@ export default function Home() {
                 onClick={() => setShowWalletSidebar(!showWalletSidebar)}
                 className="flex items-center gap-1 px-2 py-1.5 transition-all"
                 style={{
-                  border: showWalletSidebar ? "1px solid var(--crt-blue)" : "1px solid rgba(0,170,255,0.2)",
-                  background: showWalletSidebar ? "rgba(0,170,255,0.08)" : "transparent",
-                  borderRadius: "3px",
-                  color: showWalletSidebar ? "var(--crt-blue)" : "rgba(0,170,255,0.6)",
+                  border: showWalletSidebar ? "1px solid var(--crt-blue)" : "1px solid rgba(59,130,246,0.2)",
+                  background: showWalletSidebar ? "rgba(59,130,246,0.08)" : "transparent",
+                  borderRadius: "10px",
+                  color: showWalletSidebar ? "var(--crt-blue)" : "rgba(59,130,246,0.6)",
                 }}
                 onMouseEnter={(e) => {
                   if (!showWalletSidebar) {
-                    e.currentTarget.style.borderColor = "rgba(0,170,255,0.4)";
-                    e.currentTarget.style.background = "rgba(0,170,255,0.04)";
+                    e.currentTarget.style.borderColor = "rgba(59,130,246,0.4)";
+                    e.currentTarget.style.background = "rgba(59,130,246,0.04)";
                     e.currentTarget.style.color = "var(--crt-blue)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!showWalletSidebar) {
-                    e.currentTarget.style.borderColor = "rgba(0,170,255,0.2)";
+                    e.currentTarget.style.borderColor = "rgba(59,130,246,0.2)";
                     e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "rgba(0,170,255,0.6)";
+                    e.currentTarget.style.color = "rgba(59,130,246,0.6)";
                   }
                 }}
                 title={showWalletSidebar ? "Close wallet" : "Open wallet"}
@@ -4169,7 +4165,7 @@ export default function Home() {
       </header>
 
       {error && (
-        <div className="mx-4 mt-2 p-3 border-2 border-crt-red/50" style={{ background: "rgba(255,51,51,0.05)" }}>
+        <div className="mx-4 mt-2 p-3 border-2 border-crt-red/50" style={{ background: "rgba(239,68,68,0.05)" }}>
           <div className="text-[14px] text-crt-red flex items-center gap-2">
             <span>⚠</span> {error}
           </div>
@@ -4184,7 +4180,7 @@ export default function Home() {
             width: leftSidebarOpen ? `${leftSidebarWidth}px` : "0px",
             minWidth: leftSidebarOpen ? "280px" : "0px",
             maxWidth: "50vw",
-            borderRight: leftSidebarOpen ? "1px solid rgba(255,255,255,0.08)" : "none",
+            borderRight: leftSidebarOpen ? "1px solid var(--border-color)" : "none",
             background: "var(--bg-secondary)",
             transition: isLeftDragging ? "none" : "width 0.2s ease, min-width 0.2s ease",
           }}
@@ -4210,8 +4206,8 @@ export default function Home() {
 
                 {/* Agent Output/Deltas */}
                 {selectedJobData && (
-                  <div className="flex-1 flex flex-col overflow-hidden border-t-2" style={{ borderColor: "rgba(255,255,255,0.1)", minHeight: "40%" }}>
-                    <div className="flex border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.08)", background: "var(--bg-primary)" }}>
+                  <div className="flex-1 flex flex-col overflow-hidden border-t-2" style={{ borderColor: "var(--border-color-strong)", minHeight: "40%" }}>
+                    <div className="flex border-b shrink-0" style={{ borderColor: "var(--border-color)", background: "var(--bg-primary)" }}>
                       <button
                         onClick={() => setTaskSubTab("output")}
                         className={`px-5 py-1.5 text-[13px] transition-all ${
@@ -4220,7 +4216,7 @@ export default function Home() {
                         style={{
                           color: taskSubTab === "output" ? "var(--text-primary)" : "var(--text-tertiary)",
                           borderColor: taskSubTab === "output" ? "var(--accent-color)" : "transparent",
-                          letterSpacing: "1.5px",
+                          letterSpacing: "0.02em",
                         }}
                       >
                         OUTPUT
@@ -4233,13 +4229,13 @@ export default function Home() {
                         style={{
                           color: taskSubTab === "deltas" ? "var(--crt-amber)" : "var(--text-tertiary)",
                           borderColor: taskSubTab === "deltas" ? "var(--crt-amber)" : "transparent",
-                          letterSpacing: "1.5px",
+                          letterSpacing: "0.02em",
                         }}
                       >
                         DELTAS
                       </button>
                       <div className="ml-auto flex items-center gap-2 pr-3">
-                        <span className="text-[14px]" style={{ color: STATUS_COLOR[selectedJobData.status], letterSpacing: "0.5px" }}>
+                        <span className="text-[14px]" style={{ color: STATUS_COLOR[selectedJobData.status], letterSpacing: "0" }}>
                           {STATUS_ICON[selectedJobData.status]} {STATUS_LABEL[selectedJobData.status]}
                         </span>
                         <button
@@ -4263,12 +4259,12 @@ export default function Home() {
                             ? renderOutput(streamOutput || selectedJobData.output)
                             : (selectedJobData.status === "pending" ? (
                               <span style={{ color: "var(--crt-amber)", opacity: 0.7 }}>
-                                {"░░░ QUEUED — WAITING FOR WORKER ░░░\n\n"}
-                                {"The task will begin shortly..."}
+                                {"Queued — waiting for worker...\n\n"}
+                                {"The task will begin shortly."}
                               </span>
                             ) : selectedJobData.status === "running" ? (
                               <span className="cursor-blink" style={{ color: "var(--crt-blue)" }}>
-                                {"CONNECTING TO LIVE STREAM"}
+                                {"Connecting to live stream"}
                               </span>
                             ) : (
                               <span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
@@ -4276,10 +4272,8 @@ export default function Home() {
                               </span>
                             ))}
                           {selectedJobData.error && (
-                            <span className="text-crt-red block mt-6 pt-3 border-t-2 border-crt-red/20">
-                              {"╔══ ERROR ══════════════════════════\n"}
-                              {"║ " + selectedJobData.error + "\n"}
-                              {"╚══════════════════════════════════"}
+                            <span className="text-crt-red block mt-6 pt-3 border-t border-crt-red/20">
+                              {"Error: " + selectedJobData.error}
                             </span>
                           )}
                         </pre>
@@ -4314,7 +4308,7 @@ export default function Home() {
                             return (
                               <div className="h-full flex flex-col items-center justify-center gap-3">
                                 <span className="text-[24px] opacity-10">◇</span>
-                                <span className="text-[13px] text-crt-green/20" style={{ letterSpacing: "2px" }}>
+                                <span className="text-[13px] text-crt-green/20" style={{ letterSpacing: "0.04em" }}>
                                   NO FILE CHANGES
                                 </span>
                               </div>
@@ -4325,18 +4319,18 @@ export default function Home() {
                             <div className="h-full overflow-y-auto">
                               <div
                                 className="px-5 py-2 flex items-center gap-4 border-b sticky top-0 z-10"
-                                style={{ borderColor: "rgba(255,255,255,0.08)", background: "var(--bg-primary)" }}
+                                style={{ borderColor: "var(--border-color)", background: "var(--bg-primary)" }}
                               >
-                                <span className="text-[13px]" style={{ color: "var(--text-tertiary)", opacity: 0.6, letterSpacing: "1px" }}>
+                                <span className="text-[13px]" style={{ color: "var(--text-tertiary)", opacity: 0.6, letterSpacing: "0.01em" }}>
                                   {uniqueFiles} {uniqueFiles === 1 ? "FILE" : "FILES"}
                                 </span>
-                                <span className="text-[13px]" style={{ color: "var(--crt-amber)", opacity: 0.6, letterSpacing: "1px" }}>
+                                <span className="text-[13px]" style={{ color: "var(--crt-amber)", opacity: 0.6, letterSpacing: "0.01em" }}>
                                   {blocks.length} {blocks.length === 1 ? "BLOCK" : "BLOCKS"}
                                 </span>
-                                <span className="text-[13px] font-bold" style={{ color: "var(--accent-color)", letterSpacing: "1px" }}>
+                                <span className="text-[13px] font-bold" style={{ color: "var(--accent-color)", letterSpacing: "0.01em" }}>
                                   +{totalAdded}
                                 </span>
-                                <span className="text-[13px] font-bold" style={{ color: "var(--crt-red)", letterSpacing: "1px" }}>
+                                <span className="text-[13px] font-bold" style={{ color: "var(--crt-red)", letterSpacing: "0.01em" }}>
                                   -{totalRemoved}
                                 </span>
                               </div>
@@ -4357,9 +4351,9 @@ export default function Home() {
                                         className="px-3 py-1.5 text-[14px] font-bold flex items-center gap-2 border-b"
                                         style={{
                                           color: block.type === "WRITE" ? "var(--crt-blue)" : "var(--crt-amber)",
-                                          borderColor: "rgba(255,255,255,0.06)",
-                                          background: block.type === "WRITE" ? "rgba(0,100,255,0.05)" : "rgba(255,176,0,0.05)",
-                                          letterSpacing: "1px",
+                                          borderColor: "var(--border-color)",
+                                          background: block.type === "WRITE" ? "rgba(0,100,255,0.05)" : "rgba(245,158,11,0.05)",
+                                          letterSpacing: "0.01em",
                                         }}
                                       >
                                         <span>{block.type === "WRITE" ? "✚" : "✎"}</span>
@@ -4461,8 +4455,8 @@ export default function Home() {
               style={{
                 width: "1px",
                 flexShrink: 0,
-                background: "rgba(0,170,255,0.2)",
-                boxShadow: "0 0 8px rgba(0,170,255,0.1), 0 0 2px rgba(0,170,255,0.15)",
+                background: "rgba(59,130,246,0.2)",
+                boxShadow: "0 0 8px rgba(59,130,246,0.1), 0 0 2px rgba(59,130,246,0.15)",
               }}
             />
             <div
@@ -4506,7 +4500,7 @@ export default function Home() {
         className="flex items-center justify-between px-5 py-1"
         style={{
           background: "var(--bg-secondary)",
-          borderTop: "1px solid rgba(255,255,255,0.06)",
+          borderTop: "1px solid var(--border-color)",
         }}
       >
         <div className="flex items-center gap-2 relative" ref={headerCreateRef}>
@@ -4518,10 +4512,10 @@ export default function Home() {
             }}
             className="text-[11px] font-bold px-2.5 py-1 border transition-all hover:brightness-125 font-code rounded-sm"
             style={{
-              borderColor: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.2)",
-              color: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(51,255,51,0.5)",
-              background: showHeaderCreateForm === "create" ? "rgba(51,255,51,0.08)" : "transparent",
-              letterSpacing: "1px",
+              borderColor: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(16,185,129,0.2)",
+              color: showHeaderCreateForm === "create" ? "var(--crt-green)" : "rgba(16,185,129,0.5)",
+              background: showHeaderCreateForm === "create" ? "rgba(16,185,129,0.08)" : "transparent",
+              letterSpacing: "0.01em",
             }}
             title="Create new module"
           >
@@ -4535,10 +4529,10 @@ export default function Home() {
             }}
             className="text-[11px] font-bold px-2.5 py-1 border transition-all hover:brightness-125 font-code rounded-sm"
             style={{
-              borderColor: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.2)",
-              color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(255,176,0,0.5)",
-              background: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.08)" : "transparent",
-              letterSpacing: "1px",
+              borderColor: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(245,158,11,0.2)",
+              color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "rgba(245,158,11,0.5)",
+              background: showHeaderCreateForm === "fork" ? "rgba(245,158,11,0.08)" : "transparent",
+              letterSpacing: "0.01em",
             }}
             title={`Fork ${selectedModule || "module"}`}
           >
@@ -4551,12 +4545,12 @@ export default function Home() {
               className="absolute left-0 bottom-full mb-1 border z-50 p-3 flex flex-col gap-2 min-w-[300px]"
               style={{
                 background: "var(--bg-primary)",
-                borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                borderColor: showHeaderCreateForm === "fork" ? "rgba(245,158,11,0.3)" : "rgba(16,185,129,0.3)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
               }}
             >
               <div className="text-[13px] font-bold uppercase" style={{
-                letterSpacing: "1.5px",
+                letterSpacing: "0.02em",
                 color: showHeaderCreateForm === "fork" ? "var(--crt-amber)" : "var(--crt-green)",
               }}>
                 {showHeaderCreateForm === "fork" ? `⑂ FORK FROM ${selectedModule?.toUpperCase() || "?"}` : "+ CREATE MODULE"}
@@ -4573,7 +4567,7 @@ export default function Home() {
                 placeholder="module name..."
                 className="px-2 py-1.5 text-[14px] bg-transparent border font-code outline-none"
                 style={{
-                  borderColor: showHeaderCreateForm === "fork" ? "rgba(255,176,0,0.3)" : "rgba(51,255,51,0.3)",
+                  borderColor: showHeaderCreateForm === "fork" ? "rgba(245,158,11,0.3)" : "rgba(16,185,129,0.3)",
                   color: "var(--text-primary)",
                 }}
               />
@@ -4596,7 +4590,7 @@ export default function Home() {
                   onClick={headerCreateOrFork}
                   disabled={!headerNewName.trim() || submitting}
                   className="pixel-btn text-[14px] py-1 px-4 uppercase flex-1"
-                  style={{ letterSpacing: "1px", opacity: headerNewName.trim() ? 1 : 0.4 }}
+                  style={{ letterSpacing: "0.01em", opacity: headerNewName.trim() ? 1 : 0.4 }}
                 >
                   {submitting ? "..." : showHeaderCreateForm === "fork" ? "FORK" : "CREATE"}
                 </button>
@@ -4680,7 +4674,7 @@ export default function Home() {
                 style={{
                   background: "var(--bg-primary)",
                   borderColor: "var(--accent-color)",
-                  boxShadow: "0 0 20px rgba(0,0,0,0.5)",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
                 }}
               >
                 {(["dark", "light", "matrix", "cyberpunk", "amber", "ocean", "ibm", "win95"] as const).map((t) => (
@@ -4695,7 +4689,7 @@ export default function Home() {
                       color: "var(--text-primary)",
                       opacity: theme === t ? 1 : 0.6,
                       background: theme === t ? "rgba(255,255,255,0.05)" : "transparent",
-                      borderColor: "rgba(255,255,255,0.05)",
+                      borderColor: "var(--border-color)",
                     }}
                   >
                     {theme === t && "▸ "}{t.toUpperCase()}

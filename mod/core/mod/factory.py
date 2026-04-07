@@ -10,6 +10,37 @@ from functools import partial
 
 class FactoryMixin:
 
+    # ── Branch Management ─────────────────────────────────────────────
+
+    def init_mod_meta(self, dirpath, branch='main'):
+        """Ensure {dirpath}/.mod/ exists with a default branch file."""
+        mod_dir = os.path.join(dirpath, '.mod')
+        os.makedirs(mod_dir, exist_ok=True)
+        branch_file = os.path.join(mod_dir, 'branch')
+        if not os.path.exists(branch_file):
+            with open(branch_file, 'w') as f:
+                f.write(branch)
+
+    def branch(self, mod=None):
+        """Read the current branch for a module. Defaults to 'main'."""
+        dirpath = self.dirpath(mod) if mod else self.paths['lib']
+        branch_file = os.path.join(dirpath, '.mod', 'branch')
+        if os.path.exists(branch_file):
+            with open(branch_file, 'r') as f:
+                return f.read().strip()
+        return 'main'
+
+    def set_branch(self, mod=None, branch='main'):
+        """Set the branch for a module."""
+        dirpath = self.dirpath(mod) if mod else self.paths['lib']
+        self.init_mod_meta(dirpath, branch=branch)
+        branch_file = os.path.join(dirpath, '.mod', 'branch')
+        with open(branch_file, 'w') as f:
+            f.write(branch)
+        return {'mod': mod or self.name, 'branch': branch}
+
+    # ── Module Creation ───────────────────────────────────────────────
+
     def new(self, name='test_base', base='base', orbit='orbit'):
         """Create a new mod from a base template."""
         dirpath = self.paths['orbit'][orbit] + '/' + name.replace('.', '/')
@@ -18,6 +49,7 @@ class FactoryMixin:
         for k, v in self.content(base).items():
             new_path = dirpath + '/' + k.replace(f'{base}/', f'/{name}/')
             self.put_text(new_path, v)
+        self.init_mod_meta(dirpath)
         self.update()
         assert self.mod_exists(name), f'Mod {name} not found after creation'
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self.cid(name)}
@@ -28,6 +60,7 @@ class FactoryMixin:
         name = name or path.split('/')[-1]
         dirpath = self.paths['orbit']['orbit'] + '/' + name.replace('.', '/')
         self.cmd(f'cp -r {path} {dirpath}')
+        self.init_mod_meta(dirpath)
         return {'name': name, 'path': dirpath, 'msg': 'Mod Created from path'}
 
     def addcid(self, name='churn', cid='QmXUjBQRFa8DbY2GhD1Aq6a44EBYzgejmtwwnYYTfvnFW4'):
@@ -37,6 +70,7 @@ class FactoryMixin:
         for k, v in file2text.items():
             print(f'Creating {path}/{k} for mod {name}')
             self.put_text(f'{path}/{k}', v)
+        self.init_mod_meta(path)
         self.tree(update=True)
         assert self.mod_exists(name), f'Mod {name} not found after creation from cid {cid}'
         return {'name': name, 'path': path, 'msg': 'Mod Created from cid', 'cid': cid}
@@ -143,7 +177,10 @@ class FactoryMixin:
                 with open(fpath, 'w') as f:
                     f.write(txt)
 
-        # 7. Refresh the module tree so the new mod is discoverable
+        # 7. Init .mod/branch metadata
+        self.init_mod_meta(target)
+
+        # 8. Refresh the module tree so the new mod is discoverable
         self.update()
 
         # 8. Install npm deps

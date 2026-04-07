@@ -1,6 +1,6 @@
 """Registry contract module - mod registration on-chain."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 from web3 import Web3
 import mod as m
 
@@ -14,8 +14,9 @@ class Mod(ContractModule):
     name = 'registry'
     contracts = ['Registry']
     dependencies = []
+    deploy_count = 1
 
-    def deploy(self, network='testnet', key=None, **deps):
+    def deploy(self, network='testnet', key=None, nonce=None, **deps):
         """Deploy Registry.
 
         Returns:
@@ -26,7 +27,7 @@ class Mod(ContractModule):
         if network:
             self.network = network
 
-        address = self.deploy_contract('Registry', [], contract_key='Registry')
+        address = self.deploy_contract('Registry', [], contract_key='Registry', nonce=nonce)
         return address
 
     # ==================== INTERACTION ====================

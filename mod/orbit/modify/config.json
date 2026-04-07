@@ -1,0 +1,55 @@
+{
+  "name": "modify",
+  "version": "1.0.0",
+  "description": "Agent-powered module modifier. Applies suggestions from the suggest module or freeform instructions.",
+  "fns": [
+    "forward",
+    "apply_suggestions",
+    "suggest_and_apply",
+    "test"
+  ],
+  "schema": {
+    "forward": {
+      "input": [
+        {"name": "mod", "type": "str", "value": null},
+        {"name": "path", "type": "str", "value": null},
+        {"name": "suggestion", "type": "dict", "value": null},
+        {"name": "query", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": "anthropic/claude-sonnet-4-5-20250929"},
+        {"name": "steps", "type": "int", "value": 5},
+        {"name": "safety", "type": "bool", "value": true}
+      ],
+      "output": {"type": "dict", "value": null},
+      "docs": "Apply a single modification to a module from a suggestion or freeform query."
+    },
+    "apply_suggestions": {
+      "input": [
+        {"name": "mod", "type": "str", "value": null},
+        {"name": "path", "type": "str", "value": null},
+        {"name": "suggestions", "type": "list", "value": null},
+        {"name": "model", "type": "str", "value": "anthropic/claude-sonnet-4-5-20250929"},
+        {"name": "safety", "type": "bool", "value": true},
+        {"name": "max_apply", "type": "int", "value": 5}
+      ],
+      "output": {"type": "list", "value": null},
+      "docs": "Apply multiple suggestions from the suggest module."
+    },
+    "suggest_and_apply": {
+      "input": [
+        {"name": "mod", "type": "str", "value": null},
+        {"name": "path", "type": "str", "value": null},
+        {"name": "focus", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": "anthropic/claude-sonnet-4-5-20250929"},
+        {"name": "safety", "type": "bool", "value": true},
+        {"name": "max_apply", "type": "int", "value": 3}
+      ],
+      "output": {"type": "dict", "value": null},
+      "docs": "Run suggest on a module, then apply the top suggestions automatically."
+    },
+    "test": {
+      "input": [],
+      "output": {"type": "dict", "value": null},
+      "docs": "Test with a dry modification."
+    }
+  }
+}

@@ -594,6 +594,36 @@ export function WalletHeader() {
           </>
         )}
 
+        {/* User page link */}
+        <button
+          onClick={() => {
+            if (address) window.location.href = `/user/${address}`
+          }}
+          className="flex items-center justify-center h-[44px] px-2 transition-all hover:opacity-70 flex-shrink-0"
+          style={{ color: 'var(--text-tertiary)' }}
+          title="Go to page"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+          </svg>
+        </button>
+
+        {/* Separator */}
+        <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)' }} />
+
+        {/* Sign out */}
+        <button
+          onClick={handleSignOut}
+          className="flex items-center justify-center h-[44px] px-2 transition-all hover:opacity-70 flex-shrink-0"
+          style={{ color: '#ef4444' }}
+          title="Sign out"
+        >
+          <ArrowRightStartOnRectangleIcon className="w-4 h-4" />
+        </button>
+
+        {/* Separator */}
+        <div className="w-px h-5 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)' }} />
+
         {/* Wallet icon / open sidebar */}
         <button
           onClick={() => setIsOpen(!isOpen)}

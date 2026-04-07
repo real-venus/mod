@@ -1,6 +1,6 @@
 """Debit contract module - EIP-712 signature-based debit system."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 from web3 import Web3
 import mod as m
 
@@ -14,8 +14,9 @@ class Mod(ContractModule):
     name = 'debit'
     contracts = ['Debit']
     dependencies = ['market']
+    deploy_count = 1
 
-    def deploy(self, network='testnet', key=None, **deps):
+    def deploy(self, network='testnet', key=None, nonce=None, **deps):
         """Deploy Debit.
 
         Args:
@@ -38,7 +39,7 @@ class Mod(ContractModule):
 
         address = self.deploy_contract('Debit',
                                        [Web3.to_checksum_address(market_address)],
-                                       contract_key='Debit')
+                                       contract_key='Debit', nonce=nonce)
         return address
 
     # ==================== INTERACTION ====================

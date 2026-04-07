@@ -1,0 +1,41 @@
+{
+  "name": "agent",
+  "version": "2.0.0",
+  "description": "Simplest agentic framework. Skills-based autonomous agent with LLM tool-calling loop.",
+  "fns": [
+    "forward",
+    "plan",
+    "parse_steps",
+    "run_plan",
+    "skill_schema",
+    "run_skill",
+    "serve",
+    "kill",
+    "status"
+  ],
+  "schema": {
+    "forward": {
+      "input": [
+        {"name": "query", "type": "str", "value": "_empty"},
+        {"name": "model", "type": "str", "value": "anthropic/claude-sonnet-4-5-20250929"},
+        {"name": "path", "type": "str", "value": null},
+        {"name": "mod", "type": "str", "value": null},
+        {"name": "steps", "type": "int", "value": 10},
+        {"name": "skills", "type": "list", "value": null},
+        {"name": "safety", "type": "bool", "value": false},
+        {"name": "temperature", "type": "float", "value": 0.0}
+      ],
+      "output": {"type": "list", "value": null},
+      "docs": "Run the agent loop: query -> LLM -> parse step -> execute skill -> repeat."
+    }
+  },
+  "skills": ["bash", "read", "write", "edit", "glob", "grep", "search", "task"],
+  "api": {
+    "port": 50117,
+    "entrypoint": "uvicorn api.api:app --host 0.0.0.0 --port 50117"
+  },
+  "app": {
+    "port": 3117,
+    "framework": "nextjs"
+  }
+}

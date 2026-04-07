@@ -281,13 +281,18 @@ class Registry:
             orbit = 'orbit'
         else:
             orbit = 'portal'
-        dirpath = m.paths.orbit[orbit]
+        dirpath = m.paths['orbit'][orbit]
         modpath = os.path.join(dirpath, key, name)
         if os.path.exists(modpath):
             shutil.rmtree(modpath)
         git_cmd = f'git clone --single-branch {url} {modpath}'
         os.makedirs(dirpath, exist_ok=True)
         os.system(git_cmd)
+        # Init .mod/branch metadata
+        mod_meta = os.path.join(modpath, '.mod')
+        os.makedirs(mod_meta, exist_ok=True)
+        with open(os.path.join(mod_meta, 'branch'), 'w') as f:
+            f.write('main')
         info = self.get_info(mod=name, key=key, comment=comment)
         return self.reg_info(info)
 
@@ -302,6 +307,11 @@ class Registry:
             file_content = self.get(file_cid)
             filepath = os.path.join(modpath, file)
             m.put_text(filepath, file_content)
+        # Init .mod/branch metadata
+        mod_meta = os.path.join(modpath, '.mod')
+        os.makedirs(mod_meta, exist_ok=True)
+        with open(os.path.join(mod_meta, 'branch'), 'w') as f:
+            f.write('main')
         return self.reg_info(mod_info)
 
     def reg(self, mod: Union[str, dict] = 'store', key=None, comment=None, public=True, token=None, name=None) -> Dict[str, Any]:

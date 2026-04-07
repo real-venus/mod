@@ -1,6 +1,6 @@
 """Oracle contract module - price oracle deployment and interaction."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 import mod as m
 
 

@@ -50,6 +50,33 @@ class TestRegistryHelpers:
         assert result == {'data': 1}
 
 
+class TestRegGitBranch:
+    def test_reg_git_creates_branch_file(self, tmp_path):
+        """reg_git should create .mod/branch with 'main' after cloning."""
+        reg = Registry.__new__(Registry)
+        reg.key = MagicMock()
+        reg.key.valid_ss58_address.return_value = False
+        mock_key = MagicMock()
+        mock_key.address = '0xowner'
+
+        modpath = str(tmp_path / 'testmod')
+        os.makedirs(modpath)
+
+        with patch('mod.core.registry.registry.m.key', return_value=mock_key), \
+             patch('mod.core.registry.registry.m.paths', {'orbit': {'orbit': str(tmp_path)}}), \
+             patch.object(reg, 'is_git_url', return_value=True), \
+             patch.object(reg, 'is_owner', return_value=True), \
+             patch.object(reg, 'get_info', return_value={'name': 'testmod'}), \
+             patch.object(reg, 'reg_info', return_value='cid'), \
+             patch('os.system'):
+            reg.reg_git('https://github.com/test/testmod', key='owner')
+
+        branch_file = os.path.join(str(tmp_path), '0xowner', 'testmod', '.mod', 'branch')
+        assert os.path.exists(branch_file)
+        with open(branch_file) as f:
+            assert f.read() == 'main'
+
+
 class TestRegistryExists:
     def test_exists_true(self):
         reg = Registry.__new__(Registry)

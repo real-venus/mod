@@ -498,6 +498,236 @@ class SandboxWorker:
         }
 
 
+class DockerWorker:
+    """Executes module functions inside Docker containers for full OS-level isolation.
+
+    Each task runs in an ephemeral container (--rm) with:
+    - ~/mod mounted READ-ONLY so modules can't modify the codebase
+    - ~/.mod mounted read-write for module state/data
+    - Docker-enforced memory and CPU limits (kernel-level, not bypassable)
+    - Network isolation via modnet
+
+    If the module has its own Dockerfile (mod/orbit/<mod>/Dockerfile),
+    that image is used. Otherwise falls back to the base 'mod' image.
+    """
+
+    def __init__(self, max_workers: int = 10, image: str = 'mod',
+                 timeout: int = DEFAULT_TIMEOUT, memory: str = '512m',
+                 cpus: float = 1.0, network: str = 'modnet'):
+        self.max_workers = max_workers
+        self.image = image
+        self.timeout = timeout
+        self.memory = memory
+        self.cpus = cpus
+        self.network = network
+        self._active: Dict[str, subprocess.Popen] = {}
+        self._lock = threading.Lock()
+        self.total_tasks = 0
+        self._mod_path = os.path.realpath(os.path.expanduser('~/mod'))
+        self._storage_path = os.path.realpath(os.path.expanduser('~/.mod'))
+
+    @property
+    def active_count(self) -> int:
+        with self._lock:
+            dead = [k for k, p in self._active.items() if p.poll() is not None]
+            for k in dead:
+                del self._active[k]
+            return len(self._active)
+
+    def _resolve_image(self, fn_path: str) -> str:
+        """Determine which Docker image to use for the given function.
+
+        Checks if the module has its own Dockerfile and image built.
+        Falls back to the base image.
+        """
+        mod_name = fn_path.split('/')[0] if '/' in fn_path else fn_path
+        # Check for module-specific Dockerfile
+        orbit_path = os.path.join(self._mod_path, 'mod', 'orbit', mod_name)
+        dockerfile = os.path.join(orbit_path, 'Dockerfile')
+        if os.path.exists(dockerfile):
+            # Check if image exists
+            try:
+                result = subprocess.run(
+                    ['docker', 'image', 'inspect', mod_name],
+                    capture_output=True, timeout=10
+                )
+                if result.returncode == 0:
+                    return mod_name
+                # Image doesn't exist, build it
+                subprocess.run(
+                    ['docker', 'build', '-t', mod_name, '.'],
+                    cwd=orbit_path, capture_output=True, timeout=300
+                )
+                return mod_name
+            except Exception:
+                pass
+        return self.image
+
+    def run(self, fn_path: str, params: dict, timeout: int = None,
+            cid: str = None) -> Any:
+        """Execute a module function inside a Docker container."""
+        if self.active_count >= self.max_workers:
+            raise PermissionError(f"Max docker workers ({self.max_workers}) exceeded")
+
+        timeout = timeout or self.timeout
+        image = self._resolve_image(fn_path)
+        container_name = f"mod-worker-{cid or id(threading.current_thread())}-{int(time.time())}"
+
+        # Build the Python command to run inside the container
+        task_payload = json.dumps({'fn': fn_path, 'params': params})
+        py_script = (
+            "import sys, json; "
+            "task = json.loads(sys.stdin.read()); "
+            "sys.stdout = sys.stderr; "
+            "import mod as m; "
+            "fn = m.fn(task['fn']); "
+            "r = fn(**task.get('params', {})) if callable(fn) else fn; "
+            "r = list(r) if hasattr(r, '__next__') else r; "
+            "sys.stdout = sys.__stdout__; "
+            "print(json.dumps({'result': r}))"
+        )
+
+        cmd = [
+            'docker', 'run', '--rm', '-i',
+            '--name', container_name,
+            '--network', self.network,
+            '--memory', self.memory,
+            f'--cpus={self.cpus}',
+            '-v', f'{self._mod_path}:/root/mod:ro',
+            '-v', f'{self._storage_path}:/root/.mod',
+            '-w', '/root/mod',
+            image,
+            'python3', '-u', '-c', py_script,
+        ]
+
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        task_key = cid or container_name
+        with self._lock:
+            self._active[task_key] = proc
+
+        try:
+            self.total_tasks += 1
+            stdout_data, stderr_data = proc.communicate(
+                input=task_payload.encode('utf-8'),
+                timeout=timeout,
+            )
+
+            result_str = stdout_data.decode('utf-8').strip()
+            if result_str:
+                try:
+                    result_data = json.loads(result_str)
+                    if result_data.get('error'):
+                        raise RuntimeError(result_data['error'])
+                    return result_data.get('result')
+                except json.JSONDecodeError:
+                    pass
+
+            if proc.returncode != 0:
+                stderr_str = stderr_data.decode('utf-8', errors='replace').strip()
+                raise RuntimeError(
+                    f"Docker worker failed (exit {proc.returncode}): "
+                    f"{stderr_str or result_str or 'Unknown error'}"
+                )
+            return None
+
+        except subprocess.TimeoutExpired:
+            # Kill the container on timeout
+            try:
+                subprocess.run(['docker', 'kill', container_name],
+                               capture_output=True, timeout=10)
+            except Exception:
+                pass
+            proc.kill()
+            raise TimeoutError(f"Docker worker timed out after {timeout}s")
+
+        finally:
+            with self._lock:
+                self._active.pop(task_key, None)
+            if proc.poll() is None:
+                try:
+                    proc.kill()
+                except (ProcessLookupError, PermissionError):
+                    pass
+
+    def kill(self, cid: str) -> bool:
+        """Kill the container running a specific task."""
+        with self._lock:
+            proc = self._active.pop(cid, None)
+        if proc is None:
+            return False
+        try:
+            # Find and kill the container by CID pattern
+            subprocess.run(['docker', 'kill', f'mod-worker-{cid}'],
+                           capture_output=True, timeout=10)
+        except Exception:
+            pass
+        try:
+            proc.kill()
+        except (ProcessLookupError, PermissionError):
+            pass
+        return True
+
+    def kill_all(self):
+        """Kill all active docker worker containers."""
+        with self._lock:
+            procs = list(self._active.values())
+            keys = list(self._active.keys())
+            self._active.clear()
+        for proc in procs:
+            try:
+                proc.kill()
+            except (ProcessLookupError, PermissionError):
+                pass
+        # Also cleanup any lingering mod-worker containers
+        try:
+            result = subprocess.run(
+                ['docker', 'ps', '-q', '--filter', 'name=mod-worker-'],
+                capture_output=True, text=True, timeout=10
+            )
+            for cid in result.stdout.strip().split('\n'):
+                if cid:
+                    subprocess.run(['docker', 'kill', cid],
+                                   capture_output=True, timeout=10)
+        except Exception:
+            pass
+
+    def shutdown(self):
+        """Stop all workers."""
+        self.kill_all()
+
+    def scale(self, n: int) -> dict:
+        """Update max workers limit."""
+        self.max_workers = max(1, n)
+        return self.status()
+
+    def set_limits(self, min_workers: int = None, max_workers: int = None) -> dict:
+        """Update worker limits."""
+        if max_workers is not None:
+            self.max_workers = max(1, max_workers)
+        return self.status()
+
+    def status(self) -> dict:
+        return {
+            'mode': 'docker',
+            'image': self.image,
+            'max_workers': self.max_workers,
+            'active_workers': self.active_count,
+            'active_cids': list(self._active.keys()),
+            'total_tasks': self.total_tasks,
+            'memory_limit': self.memory,
+            'cpus': self.cpus,
+            'network': self.network,
+            'mod_path': f'{self._mod_path} (ro)',
+            'storage_path': self._storage_path,
+        }
+
+
 # ============================================================
 # Worker child process entry point (runs in subprocess)
 # ============================================================

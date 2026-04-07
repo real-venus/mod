@@ -6,9 +6,81 @@ class Test:
     i test stuff
     """
     _mods = [ 'server', 'store','key', 'ipfs', 'auth', 'executor']
+
+    def _detect_in_path(self, path):
+        """Detect test framework in a single directory path."""
+        if not os.path.isdir(path):
+            return None, path
+        # Check for Cargo.toml -> cargo test
+        if os.path.exists(os.path.join(path, 'Cargo.toml')):
+            return 'cargo', path
+        # Check for package.json -> npm test
+        if os.path.exists(os.path.join(path, 'package.json')):
+            return 'npm', path
+        # Check for python test files (test/ or tests/ with test_*.py, pytest.ini, conftest.py)
+        for test_dir in ['test', 'tests']:
+            td = os.path.join(path, test_dir)
+            if os.path.isdir(td):
+                for f in os.listdir(td):
+                    if f.startswith('test_') and f.endswith('.py'):
+                        return 'pytest', path
+                if os.path.exists(os.path.join(td, 'pytest.ini')) or os.path.exists(os.path.join(td, 'conftest.py')):
+                    return 'pytest', path
+        # Check for pytest.ini or conftest.py in root
+        if os.path.exists(os.path.join(path, 'pytest.ini')) or os.path.exists(os.path.join(path, 'conftest.py')):
+            return 'pytest', path
+        return None, path
+
+    def detect_test_framework(self, mod):
+        """
+        Detect the test framework for a module by checking for
+        Cargo.toml (cargo test), package.json (npm test), or python test files (pytest).
+        Checks both the module dirpath and the orbit path.
+        Returns: ('cargo' | 'npm' | 'pytest' | None, resolved_path)
+        """
+        # Check primary path (m.dp)
+        path = m.dp(mod)
+        framework, resolved = self._detect_in_path(path)
+        if framework:
+            return framework, resolved
+        # Check orbit path as fallback
+        orbit_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), mod)
+        if orbit_path != path:
+            framework, resolved = self._detect_in_path(orbit_path)
+            if framework:
+                return framework, resolved
+        return None, path
+
+    def run_framework_test(self, mod, framework=None, path=None):
+        """
+        Run tests using the detected framework (cargo test, npm test, or pytest).
+        """
+        if framework is None or path is None:
+            framework, path = self.detect_test_framework(mod)
+        if framework is None:
+            print(f'No test framework detected for {mod}, falling back to mod test fns')
+            return None
+        print(f'Detected test framework: {framework} for {mod} ({path})')
+        if framework == 'cargo':
+            cmd = f'cd {path} && cargo test'
+        elif framework == 'npm':
+            cmd = f'cd {path} && npm test'
+        elif framework == 'pytest':
+            test_dir = path
+            for td in ['test', 'tests']:
+                candidate = os.path.join(path, td)
+                if os.path.isdir(candidate):
+                    test_dir = candidate
+                    break
+            cmd = f'pytest {test_dir} --maxfail=1 --disable-warnings -q'
+        else:
+            print(f'Unknown framework: {framework}')
+            return None
+        return self.cmd(cmd)
+
     def forward(self, mod=None, timeout=50):
         """
-        Test the mod 
+        Test the mod. Auto-detects test framework (pytest, cargo test, npm test).
         """
         if mod == None:
             test_results ={}
@@ -18,6 +90,11 @@ class Test:
                 test_results[mod] = self.forward(mod=mod, timeout=timeout)
             return test_results
         else:
+            # Try framework auto-detection first
+            framework, path = self.detect_test_framework(mod)
+            if framework:
+                return self.run_framework_test(mod, framework=framework, path=path)
+            # Fallback to mod test fns
             fn2result = {}
             fns = self.test_fns(mod)
             for fn in fns:

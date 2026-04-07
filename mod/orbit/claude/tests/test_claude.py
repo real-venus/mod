@@ -21,6 +21,7 @@ from unittest.mock import patch, MagicMock, Mock
 # Add parent directory to path so we can import the module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import mod as m
 from claude.mod import Mod
 
 
@@ -112,21 +113,31 @@ class TestOwnership:
     @pytest.fixture
     def clean_mod(self, tmp_path):
         """Create a Mod with isolated config to avoid mutating real config."""
-        # Copy config to temp
         cfg_src = Path(__file__).parent.parent / 'config.json'
         cfg_dst = tmp_path / 'config.json'
         cfg_dst.write_text(cfg_src.read_text())
-        # Patch _module_dir to use tmp
         c = Mod()
         c._history_dir = tmp_path / '.history'
         return c
+
+    def test_owner_always_set(self):
+        """Owner is always set — from config or defaulting to key address."""
+        c = Mod()
+        assert c._owner is not None
+
+    def test_owner_defaults_to_key_when_no_config(self):
+        """When config has no owner, owner defaults to the module's key address."""
+        c = Mod()
+        # Simulate no owner in config
+        c._owner = None
+        c._owner = c._owner or c.key.address.lower()
+        assert c._owner == c.key.address.lower()
 
     def test_get_owner_returns_config_value(self):
         """get_owner returns the owner from config."""
         c = Mod()
         owner = c.get_owner()
-        # config.json has an owner set
-        assert owner is not None or owner is None  # either is valid
+        assert owner is not None
 
     def test_owner_info_dict(self):
         """owner() returns dict with has_owner and owner fields."""
@@ -134,14 +145,20 @@ class TestOwnership:
         info = c.owner()
         assert 'owner' in info
         assert 'has_owner' in info
-        assert isinstance(info['has_owner'], bool)
+        assert info['has_owner'] is True
 
     def test_is_owner_no_owner_set(self):
         """When no owner set, everyone is owner."""
         c = Mod()
         c._owner = None
         assert c.is_owner("0xanyone") is True
+
+    def test_is_owner_none_defaults_to_self_key(self):
+        """is_owner(None) resolves to self.key. If self.key IS the owner, returns True."""
+        c = Mod()
+        c._owner = c.key.address.lower()  # align owner with default key
         assert c.is_owner(None) is True
+        assert c.is_owner() is True
 
     def test_is_owner_match(self):
         """Owner matches correctly (case insensitive)."""
@@ -156,11 +173,11 @@ class TestOwnership:
         c._owner = "0xabcdef1234567890abcdef1234567890abcdef12"
         assert c.is_owner("0x1111111111111111111111111111111111111111") is False
 
-    def test_is_owner_none_when_owner_set(self):
-        """None address returns False when owner is set."""
+    def test_require_owner_no_key_defaults_to_owner(self):
+        """require_owner() with no key defaults to self.key (the owner)."""
         c = Mod()
-        c._owner = "0xabcdef1234567890abcdef1234567890abcdef12"
-        assert c.is_owner(None) is False
+        c._owner = c.key.address.lower()  # align owner with default key
+        c.require_owner(operation="test op")  # should not raise
 
     def test_require_owner_passes(self):
         """require_owner passes for matching address."""
@@ -172,7 +189,7 @@ class TestOwnership:
         """require_owner raises PermissionError for wrong address."""
         c = Mod()
         c._owner = "0xabc"
-        with pytest.raises(PermissionError, match="Access denied"):
+        with pytest.raises(PermissionError, match="Permission denied"):
             c.require_owner("0xother", "test op")
 
     def test_require_owner_message_contains_operation(self):
@@ -181,6 +198,172 @@ class TestOwnership:
         c._owner = "0xabc"
         with pytest.raises(PermissionError, match="edit_file"):
             c.require_owner("0xother", "edit_file")
+
+    def test_require_owner_message_readable(self):
+        """Error message is human-readable with truncated addresses."""
+        c = Mod()
+        c._owner = "0xeb0631ce3ec62ceed053c66eb6481753d0c812a8"
+        try:
+            c.require_owner("0xaF3e0796042aF79eA1642c919ac0ea6d165Bc6dB", "forward(test query...)")
+            assert False, "Should have raised"
+        except PermissionError as e:
+            msg = str(e)
+            assert "Permission denied" in msg
+            assert "owner-only" in msg
+            assert "caller:" in msg
+            assert "owner:" in msg
+            assert "0xaF3e0796..." in msg or "0xaf3e0796..." in msg.lower()
+
+    def test_require_owner_handles_key_object(self):
+        """require_owner handles Key objects with .address attribute."""
+        c = Mod()
+        c._owner = "0xeb0631ce3ec62ceed053c66eb6481753d0c812a8"
+        key = MagicMock()
+        key.address = "0xaF3e0796042aF79eA1642c919ac0ea6d165Bc6dB"
+        key.__str__ = lambda self: f"Key({self.address}, type=ecdsa)"
+        try:
+            c.require_owner(key, "forward(test...)")
+            assert False, "Should have raised"
+        except PermissionError as e:
+            msg = str(e)
+            assert "Key(" not in msg
+            assert "type=ecdsa" not in msg
+            assert "caller:" in msg
+
+    def test_is_owner_handles_key_object(self):
+        """is_owner handles Key objects with .address attribute."""
+        c = Mod()
+        c._owner = "0xabc123"
+        key = MagicMock()
+        key.address = "0xabc123"
+        assert c.is_owner(key) is True
+
+    def test_is_owner_handles_key_object_no_match(self):
+        """is_owner returns False for non-matching Key object."""
+        c = Mod()
+        c._owner = "0xabc123"
+        key = MagicMock()
+        key.address = "0xother"
+        assert c.is_owner(key) is False
+
+    def test_format_address_plain_hex(self):
+        """_format_address truncates long hex addresses."""
+        c = Mod()
+        result = c._format_address("0xeb0631ce3ec62ceed053c66eb6481753d0c812a8")
+        assert result == "0xeb0631ce...12a8"
+
+    def test_format_address_key_repr(self):
+        """_format_address parses Key(...) repr strings."""
+        c = Mod()
+        result = c._format_address("Key(0xaF3e0796042aF79eA1642c919ac0ea6d165Bc6dB, type=ecdsa)")
+        assert "Key(" not in result
+        assert "type=" not in result
+        assert result.startswith("0xaF3e0796")
+
+    def test_format_address_key_object(self):
+        """_format_address uses .address from Key objects."""
+        c = Mod()
+        key = MagicMock()
+        key.address = "0xaF3e0796042aF79eA1642c919ac0ea6d165Bc6dB"
+        result = c._format_address(key)
+        assert "Key(" not in result
+        assert result.startswith("0xaF3e0796")
+
+    def test_format_address_short(self):
+        """_format_address doesn't truncate short addresses."""
+        c = Mod()
+        result = c._format_address("0xabc")
+        assert result == "0xabc"
+
+
+class TestTokenAuth:
+    """Token-based authentication."""
+
+    def test_has_auth_module(self):
+        """Module initializes with auth module."""
+        c = Mod()
+        assert c.auth is not None
+        assert hasattr(c.auth, 'token')
+        assert hasattr(c.auth, 'verify')
+
+    def test_generate_token(self):
+        """token() generates a signed token string."""
+        c = Mod()
+        tok = c.token()
+        assert isinstance(tok, str)
+        assert len(tok) > 0
+
+    def test_verify_token(self):
+        """verify() decodes and validates a token."""
+        c = Mod()
+        tok = c.token()
+        verified = c.verify(tok)
+        assert 'key' in verified
+        assert verified['key'] == c.key.address
+
+    def test_token_with_custom_data(self):
+        """token() can include custom data."""
+        c = Mod()
+        tok = c.token(data={'fn': 'forward', 'scope': 'write'})
+        verified = c.verify(tok)
+        assert verified['data']['fn'] == 'forward'
+
+    def test_is_owner_with_token(self):
+        """is_owner() accepts a signed token and verifies the caller."""
+        c = Mod()
+        c._owner = c.key.address.lower()
+        tok = c.token()
+        assert c.is_owner(tok) is True
+
+    def test_is_owner_with_non_owner_token(self):
+        """is_owner() rejects token from a non-owner key."""
+        c = Mod()
+        other_key = m.key('test.claude.nonowner')
+        c._owner = c.key.address.lower()
+        tok = c.token(key=other_key)
+        assert c.is_owner(tok) is False
+
+    def test_require_owner_with_token(self):
+        """require_owner() passes with a valid owner token."""
+        c = Mod()
+        c._owner = c.key.address.lower()
+        tok = c.token()
+        c.require_owner(tok, "test op")  # should not raise
+
+    def test_require_owner_rejects_non_owner_token(self):
+        """require_owner() rejects token from non-owner."""
+        c = Mod()
+        other_key = m.key('test.claude.nonowner2')
+        c._owner = c.key.address.lower()
+        tok = c.token(key=other_key)
+        with pytest.raises(PermissionError, match="Permission denied"):
+            c.require_owner(tok, "edit_file")
+
+    def test_resolve_address_none_returns_owner(self):
+        """_resolve_address(None) returns self.key.address (the owner)."""
+        c = Mod()
+        addr = c._resolve_address(None)
+        assert addr == c.key.address
+
+    def test_resolve_address_key_object(self):
+        """_resolve_address extracts .address from Key objects."""
+        c = Mod()
+        key = MagicMock()
+        key.address = "0xdeadbeef"
+        assert c._resolve_address(key) == "0xdeadbeef"
+
+    def test_resolve_address_hex_string(self):
+        """_resolve_address passes through hex addresses."""
+        c = Mod()
+        addr = "0xaF3e0796042aF79eA1642c919ac0ea6d165Bc6dB"
+        assert c._resolve_address(addr) == addr
+
+    def test_resolve_address_token(self):
+        """_resolve_address decodes a valid token to get the address."""
+        c = Mod()
+        tok = c.token()
+        addr = c._resolve_address(tok)
+        assert addr == c.key.address
 
 
 class TestHistory:
@@ -382,6 +565,15 @@ class TestCodeOps:
             result = c.generate_code("make a function", key="0xowner")
             assert mock.called
 
+    def test_generate_code_passes_default_owner(self):
+        """generate_code works when no key passed (defaults to owner)."""
+        c = Mod()
+        c._find_claude = Mock(return_value='/usr/bin/echo')
+        c._owner = c.key.address.lower()
+        with patch.object(c, '_run_cli', return_value="def foo(): pass") as mock:
+            result = c.generate_code("make a function")
+            assert mock.called
+
     def test_refactor_requires_owner(self, c):
         """refactor requires owner permission."""
         c._owner = "0xowner"
@@ -456,10 +648,26 @@ class TestForwardPermissions:
 
     def test_forward_read_ok_for_non_owner(self, c):
         """Read-only queries don't trigger PermissionError."""
-        # Mock _run_cli so we don't need actual CLI
         with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
             result = c.forward("Explain the code structure", key="0xother", background=False)
-            assert mock.called  # got past permission check
+            assert mock.called
+
+    def test_forward_write_ok_for_owner_default(self):
+        """Owner can call write operations without passing key (default)."""
+        c = Mod()
+        c._owner = c.key.address.lower()  # align owner with default key
+        with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
+            result = c.forward("Edit the login page", background=False)
+            assert mock.called
+
+    def test_forward_write_ok_with_owner_token(self):
+        """Owner can call write operations by passing a signed token."""
+        c = Mod()
+        c._owner = c.key.address.lower()
+        tok = c.token()
+        with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
+            result = c.forward("Edit the login page", key=tok, background=False)
+            assert mock.called
 
 
 class TestSelfTest:

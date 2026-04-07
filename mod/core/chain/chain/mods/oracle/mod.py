@@ -1,6 +1,6 @@
 """Oracle contract module - price oracle deployment and interaction."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 import mod as m
 
 
@@ -13,6 +13,7 @@ class Mod(ContractModule):
     name = 'oracle'
     contracts = ['ManualPriceOracle', 'ChainlinkAdapter', 'PythAdapter']
     dependencies = []
+    deploy_count = 1
 
     ETH_SENTINEL = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 
@@ -25,7 +26,7 @@ class Mod(ContractModule):
 
     MAINNET_NETWORKS = ['ethereum', 'base', 'arbitrum', 'polygon']
 
-    def deploy(self, network='testnet', key=None, **deps):
+    def deploy(self, network='testnet', key=None, nonce=None, **deps):
         """Deploy oracle contracts.
 
         On testnet/ganache: deploys ManualPriceOracle with $1 stablecoin prices.
@@ -43,7 +44,7 @@ class Mod(ContractModule):
 
         if is_mainnet and self.CHAINLINK_ETH_USD.get(network):
             address = self.deploy_contract('ChainlinkAdapter', [],
-                                           contract_key='Oracle')
+                                           contract_key='Oracle', nonce=nonce)
             # Set ETH/USD feed
             eth_feed = self.CHAINLINK_ETH_USD[network]
             self.send_tx('setPriceFeed', [self.ETH_SENTINEL, eth_feed],
@@ -51,7 +52,7 @@ class Mod(ContractModule):
             return address
         else:
             address = self.deploy_contract('ManualPriceOracle', [],
-                                           contract_key='ManualPriceOracle')
+                                           contract_key='ManualPriceOracle', nonce=nonce)
             return address
 
     def setup(self, network='testnet', **deps):

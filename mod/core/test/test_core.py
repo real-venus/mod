@@ -52,6 +52,34 @@ class TestNew:
         assert 'base' in result
         assert 'msg' in result
 
+    def test_new_creates_mod_branch(self):
+        result = m.new('_test_core_new', base='base')
+        branch_file = os.path.join(result['path'], '.mod', 'branch')
+        assert os.path.exists(branch_file)
+        with open(branch_file) as f:
+            assert f.read().strip() == 'main'
+
+
+# ─── Branch Management ──────────────────────────────────────────────
+
+class TestBranch:
+    def test_branch_default_main(self):
+        m.new('_test_core_new', base='base')
+        assert m.branch('_test_core_new') == 'main'
+
+    def test_set_branch(self):
+        m.new('_test_core_new', base='base')
+        result = m.set_branch('_test_core_new', branch='dev')
+        assert result['branch'] == 'dev'
+        assert m.branch('_test_core_new') == 'dev'
+
+    def test_branch_missing_file_returns_main(self):
+        """If .mod/branch doesn't exist, defaults to 'main'."""
+        m.new('_test_core_new', base='base')
+        branch_file = os.path.join(m.dirpath('_test_core_new'), '.mod', 'branch')
+        os.remove(branch_file)
+        assert m.branch('_test_core_new') == 'main'
+
 
 # ─── Forking ─────────────────────────────────────────────────────────
 

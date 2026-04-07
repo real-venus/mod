@@ -1,159 +1,169 @@
-# BaseMod 🚀
+# Polymarket
 
-> *"Simplicity is the ultimate sophistication."* - Leonardo da Vinci
+Prediction market interface with Rust-powered trading, data, scraping, and backtesting.
 
-## Overview
-
-BaseMod is a foundational Python module providing core functionality and utilities for building elegant, modular systems. Engineered with simplicity and extensibility at its core, it serves as a battle-tested template for creating production-ready applications.
-
-## ✨ Features
-
-- **🔢 Mathematical Operations**: Efficient utilities for calculations and data processing
-- **💰 Cryptocurrency Integration**: Real-time price fetching from CoinGecko API with robust error handling
-- **🏛️ Clean Architecture**: Modular, extensible design following SOLID principles
-- **🛡️ Production Ready**: Battle-tested, reliable, and optimized for performance
-- **🐳 Docker Support**: Containerized deployment for consistency across environments
-- **📦 Lightweight**: Minimal dependencies, maximum efficiency
-
-## 🚀 Quick Start
-
-### Installation
-
-```bash
-# Clone or navigate to the base module directory
-cd /Users/broski/mod/mod/_orbit/base
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Basic Usage
+## Quick Start
 
 ```python
-from base.mod import BaseMod
+import mod as m
+p = m.mod('polymarket')()
 
-# Initialize the module
-mod = BaseMod()
+# read-only (no key needed)
+p.search("election")
+p.trending()
+p.markets(limit=10)
 
-# Perform mathematical operations
-result = mod.multiply(5, 10)
-print(f"Result: {result}")  # Output: Result: 50
-
-# Fetch real-time cryptocurrency prices
-price = mod.get_bittenso_price()
-print(f"Current Bittenso price: ${price:,.2f}")
+# with trading
+p = m.mod('polymarket')(private_key="0x...")
+p.auth()
+p.buy(token_id, price=0.5, size=10)
 ```
 
-## 📚 Documentation
+## Server
 
-For comprehensive documentation, advanced examples, and complete API reference, see **[TUTORIAL.md](TUTORIAL.md)**.
-
-## 🏗️ Project Structure
-
-```
-base/
-├── base/
-│   └── mod.py          # Core BaseMod implementation
-├── Dockerfile          # Docker configuration for containerization
-├── docker-compose.yml  # Multi-container orchestration
-├── requirements.txt    # Python dependencies
-├── TUTORIAL.md         # Comprehensive tutorial and examples
-└── README.md           # Project overview (this file)
-```
-
-## 🐳 Docker Deployment
-
-Run BaseMod in a containerized environment for consistency and portability:
-
-```bash
-# Build and launch with Docker Compose
-docker-compose up --build
-
-# Run in detached mode
-docker-compose up -d
-
-# Stop containers
-docker-compose down
-```
-
-## 🔧 Extending BaseMod
-
-BaseMod is architected for extensibility. Create custom modules by inheriting from the base class:
+The API server and Rust engine both live inside `polymarket/` alongside `mod.py`. The `serve()` method deploys both the FastAPI backend and the Next.js frontend.
 
 ```python
-from base.mod import BaseMod
+# start API (port 50091) + Next.js app (port 3091)
+p.serve()
 
-class MyCustomMod(BaseMod):
-    """Extended module with custom functionality"""
-    
-    def custom_method(self, data):
-        """Your custom business logic"""
-        processed = self.multiply(data, 2)
-        return processed
-    
-    def advanced_crypto_analysis(self):
-        """Combine base features for advanced use cases"""
-        price = self.get_bittenso_price()
-        # Add your analysis logic
-        return analysis_result
+# API only
+p.serve(api_only=True)
+
+# app only
+p.serve(app_only=True)
+
+# stop
+p.kill()
+
+# check status
+p.status()
 ```
 
-## 💡 Use Cases
+Or run the server directly:
 
-- **🏢 Enterprise Applications**: Foundation for scalable, modular systems
-- **📊 Cryptocurrency Monitoring**: Real-time price tracking and analysis
-- **🎓 Educational Projects**: Learn modular design patterns and best practices
-- **🔌 API Integration**: Template for building API-driven applications
-- **⚙️ Microservices**: Base component for distributed architectures
+```bash
+cd polymarket
+POLYMARKET_PRIVATE_KEY=0x... uvicorn server:app --port 50091 --reload
+```
 
-## 🤝 Contributing
+## API Endpoints
 
-Contributions are welcome and appreciated! Here's how you can help:
+### Market Data (no auth)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/markets` | List markets (limit, active, order) |
+| GET | `/markets/{condition_id}` | Single market |
+| GET | `/search?q=...` | Search markets |
+| GET | `/trending` | Trending by volume |
+| GET | `/by-liquidity` | Sorted by liquidity |
+| GET | `/ending-soon` | Markets ending soon |
+| GET | `/tags` | All market tags |
+| GET | `/events` | List events |
+| GET | `/events/{event_id}` | Single event |
+| GET | `/orderbook/{token_id}` | Order book |
+| GET | `/midpoint/{token_id}` | Midpoint price |
+| GET | `/last-trade-price/{token_id}` | Last trade price |
+| GET | `/price-history/{condition_id}` | Price history |
 
-- 🐛 **Report bugs** via GitHub issues
-- 💡 **Suggest features** and improvements
-- 🔀 **Submit pull requests** with enhancements
-- 📖 **Improve documentation** and examples
-- ⭐ **Star the project** if you find it useful
+### Trading (requires POLYMARKET_PRIVATE_KEY)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/order` | Place limit order |
+| POST | `/market-order` | Place market order |
+| DELETE | `/order/{order_id}` | Cancel order |
+| DELETE | `/orders` | Cancel all orders |
+| GET | `/orders` | Open orders |
+| GET | `/positions` | Current positions |
+| GET | `/position-value` | Total position value |
+| GET | `/trades` | Trade history |
 
-## 📝 License
+### User Data
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/users/{address}/positions` | User positions |
+| GET | `/users/{address}/trades` | User trade history |
 
-This project is open source and available for use under permissive licensing.
+### Scraping
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/scraper/discover?count=50` | Auto-discover markets |
+| POST | `/scraper/start?interval=60` | Start scraper |
+| POST | `/scraper/stop` | Stop scraper |
+| GET | `/scraper/status` | Scraper status |
 
-## 🌟 Philosophy
+### History
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/history/prices/{condition_id}` | Stored prices |
+| GET | `/history/trades/{condition_id}` | Stored trades |
+| GET | `/history/markets` | All tracked markets |
+| GET | `/history/stats` | Store stats |
 
-BaseMod is built on foundational principles:
+### Backtesting
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/backtest` | Run backtest on stored data |
 
-- **SOLID Principles** → Maintainable, scalable code architecture
-- **Simplicity First** → Elegant solutions over complex implementations
-- **Modular Design** → Composable, reusable components
-- **Production Quality** → Enterprise-grade reliability and performance
-- **Developer Experience** → Intuitive APIs and comprehensive documentation
+## Architecture
 
-## 🎯 Performance
+```
+polymarket/
+├── polymarket/                 # anchor dir (mod + engine + server)
+│   ├── mod.py                  # Mod protocol class
+│   ├── server.py               # FastAPI server (wraps mod.py)
+│   ├── Cargo.toml              # Rust crate config
+│   └── src/                    # Rust engine (polymarket-rs)
+│       ├── lib.rs              # PyO3 module + PolymarketEngine
+│       ├── auth.rs             # CLOB auth / signing
+│       ├── signing.rs          # EIP-712 order signing
+│       ├── clob.rs             # CLOB REST client
+│       ├── gamma.rs            # Gamma API client
+│       ├── ws.rs               # WebSocket streams
+│       ├── history.rs          # SQLite history store + scraper
+│       ├── backtest.rs         # Backtesting engine
+│       └── types.rs            # Shared types
+├── app/                        # Next.js frontend
+├── config.json                 # Mod protocol config
+├── docker-compose.yml
+└── Dockerfile
+```
 
-- ⚡ **Fast**: Optimized for low-latency operations
-- 🪶 **Lightweight**: Minimal resource footprint
-- 🔄 **Scalable**: Designed to handle growth
-- 🛡️ **Reliable**: Robust error handling and validation
+## Build Rust Engine
 
-## 🔗 Quick Links
+```bash
+pip install maturin
 
-- 📘 [Complete Tutorial](TUTORIAL.md)
-- 🐳 [Docker Hub](#) (if applicable)
-- 📦 [PyPI Package](#) (if applicable)
-- 💬 [Community Forum](#) (if applicable)
+# via mod protocol
+python -c "import mod as m; m.mod('polymarket')().build()"
 
----
+# or manually (from polymarket/polymarket/)
+cd polymarket && maturin develop --release
+```
 
-**🚀 Ready to build something extraordinary?**
+## Environment Variables
 
-👉 **Start with the [TUTORIAL.md](TUTORIAL.md) for hands-on examples and advanced patterns!**
+| Variable | Description |
+|----------|-------------|
+| `POLYMARKET_PRIVATE_KEY` | Private key for trading (optional for read-only) |
+| `POLYMARKET_DB_PATH` | SQLite path for history (default: `polymarket_history.db`) |
+| `PORT` | API server port (default: `50091`) |
 
-*Crafted with precision, purpose, and passion.* ⚡
+## Mod Protocol
 
----
+```python
+import mod as m
+p = m.mod('polymarket')()
 
-<div align="center">
-  <sub>Built by developers, for developers. Made with ❤️ and ☕</sub>
-</div>
+p.search("bitcoin")         # market search
+p.trending(20)              # trending markets
+p.markets(limit=50)         # list markets
+p.serve()                   # start API + app
+p.kill()                    # stop services
+p.status()                  # check running
+p.test()                    # self-test
+p.build()                   # compile rust engine
+```
+
+Port: `50091` (API) / `3091` (App)

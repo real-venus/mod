@@ -1,0 +1,7 @@
+__pycache__
+.claude
+.mod
+app/.next
+app/node_modules
+*.pyc
+.git

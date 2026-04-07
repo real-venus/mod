@@ -76,7 +76,7 @@ class Mod:
         """
         if name not in self._mods:
             from importlib import import_module
-            mod_path = f'mod.core.chain.mods.{name}.mod'
+            mod_path = f'mod.core.chain.chain.mods.{name}.mod'
             mod_module = import_module(mod_path)
             self._mods[name] = mod_module.Mod(
                 network=self.network,
@@ -140,30 +140,36 @@ class Mod:
         for group_idx, group in enumerate(deploy_groups):
             m.print(f'\n--- Group {group_idx + 1}: {group} ---', color='yellow')
 
-            if len(proxy_key_names) > 1 and len(group) > 1:
-                # Parallel deployment with proxy keys
-                futures = {}
-                for i, mod_name in enumerate(group):
-                    key_name = proxy_key_names[i % len(proxy_key_names)]
-                    deps = self._resolve_deps(mod_name, deployed)
-                    future = m.submit(
-                        self._deploy_mod,
-                        dict(mod_name=mod_name, network=network,
-                             key=key_name, deps=deps),
-                    )
-                    futures[future] = mod_name
+            if len(group) > 1:
+                if len(proxy_key_names) > 1:
+                    # Parallel deployment with multiple proxy keys
+                    futures = {}
+                    for i, mod_name in enumerate(group):
+                        key_name = proxy_key_names[i % len(proxy_key_names)]
+                        deps = self._resolve_deps(mod_name, deployed)
+                        future = m.submit(
+                            self._deploy_mod,
+                            dict(mod_name=mod_name, network=network,
+                                 key=key_name, deps=deps),
+                        )
+                        futures[future] = mod_name
 
-                for future in m.as_completed(futures.keys()):
-                    name = futures[future]
-                    try:
-                        result = future.result()
-                        deployed[name] = result
-                        m.print(f'{name}: deployed -> {result}', color='green')
-                    except Exception as e:
-                        m.print(f'{name}: FAILED -> {e}', color='red')
-                        raise
+                    for future in m.as_completed(futures.keys()):
+                        name = futures[future]
+                        try:
+                            result = future.result()
+                            deployed[name] = result
+                            m.print(f'{name}: deployed -> {result}', color='green')
+                        except Exception as e:
+                            m.print(f'{name}: FAILED -> {e}', color='red')
+                            raise
+                else:
+                    # Parallel deployment with single key via nonce pre-assignment
+                    results = self._deploy_group_parallel(
+                        group, network, proxy_key_names[0], deployed)
+                    deployed.update(results)
             else:
-                # Sequential deployment
+                # Sequential deployment (single mod in group)
                 for mod_name in group:
                     key_name = proxy_key_names[0]
                     deps = self._resolve_deps(mod_name, deployed)
@@ -223,11 +229,60 @@ class Mod:
         self.load_all_contracts()
         return result
 
-    def _deploy_mod(self, mod_name, network, key, deps):
+    def _deploy_mod(self, mod_name, network, key, deps, nonce=None):
         """Internal: deploy a single mod."""
         mod_instance = self.mod(mod_name)
         mod_instance.set_key(key)
-        return mod_instance.deploy(network=network, key=key, **deps)
+        return mod_instance.deploy(network=network, key=key, nonce=nonce, **deps)
+
+    def _deploy_group_parallel(self, group, network, key_name, deployed):
+        """Deploy a group of mods in parallel using nonce pre-assignment.
+
+        Pre-assigns nonces from a single wallet so all deploys can fire
+        concurrently without nonce conflicts.
+        """
+        # Get base nonce
+        deployer = m.key(key_name)
+        deployer_address = self.w3.eth.account.from_key(deployer.private_key).address
+        base_nonce = self.w3.eth.get_transaction_count(deployer_address, 'pending')
+
+        # Assign nonce ranges
+        nonce_assignments = {}
+        current_nonce = base_nonce
+        for mod_name in group:
+            mod_instance = self.mod(mod_name)
+            count = getattr(mod_instance, 'deploy_count', 1)
+            nonce_assignments[mod_name] = current_nonce
+            current_nonce += count
+
+        m.print(f'Nonce pre-assignment: base={base_nonce}, '
+                f'assignments={nonce_assignments}', color='cyan')
+
+        # Fire all deploys in parallel
+        futures = {}
+        for mod_name in group:
+            deps = self._resolve_deps(mod_name, deployed)
+            nonce = nonce_assignments[mod_name]
+            future = m.submit(
+                self._deploy_mod,
+                dict(mod_name=mod_name, network=network,
+                     key=key_name, deps=deps, nonce=nonce),
+            )
+            futures[future] = mod_name
+
+        # Collect results
+        results = {}
+        for future in m.as_completed(futures.keys()):
+            name = futures[future]
+            try:
+                result = future.result()
+                results[name] = result
+                m.print(f'{name}: deployed -> {result}', color='green')
+            except Exception as e:
+                m.print(f'{name}: FAILED -> {e}', color='red')
+                raise
+
+        return results
 
     def _resolve_deps(self, mod_name, deployed):
         """Resolve dependency addresses from already-deployed mods."""
@@ -979,10 +1034,24 @@ class Mod:
         """Default action."""
         return x + y
 
-    def test(self):
-        """Run contract tests."""
+    def test(self, mod_name=None, network=None):
+        """Run contract tests.
+
+        Args:
+            mod_name: Specific mod to test (e.g. 'market', 'token').
+                      If None, runs all tests.
+            network: Network for test context (default: testnet).
+                     Used for ganache/fork tests.
+        """
+        network = network or self.network
+        if mod_name:
+            mod_instance = self.mod(mod_name)
+            if hasattr(mod_instance, 'test'):
+                return mod_instance.test()
+            raise ValueError(f'{mod_name} has no test() method')
+        # Run all tests
         dp = m.dp('chain')
-        return os.system(f'cd {dp} && npm test')
+        return os.system(f'cd {dp} && npx hardhat test')
 
     def compile(self, mod_name=None):
         """Compile contracts.

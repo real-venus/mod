@@ -1,6 +1,6 @@
 """Perms contract module - permission system with parent key control."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 import mod as m
 
 

@@ -22,12 +22,32 @@ class Api:
         self.key = m.key(key)
         self.auth = m.mod(auth)()
         self._reg = m.mod('registry')(key=key, store=store)
+        try:
+            self._meter = m.mod('meter')()
+        except Exception:
+            self._meter = None
+
+    def _record(self, user: str, fn: str, duration: float, status: str = 'success', **kw):
+        """Record usage in the meter if available."""
+        if self._meter:
+            try:
+                self._meter.record(user=user or '', fn=fn, duration=duration, status=status, **kw)
+            except Exception:
+                pass
 
     @property
     def router(self):
         if not hasattr(self, '_router'):
             self._router = m.mod('router')()
         return self._router
+
+    def forward(self, **kwargs):
+        return {
+            'name': 'api',
+            'address': self.key.address,
+            'mods': self.n(),
+            'namespace': self.namespace(),
+        }
 
     def call(self, fn='chain/balances', params={}, **kwargs):
         return self.router.call(fn, params, **kwargs)
@@ -113,10 +133,31 @@ class Api:
     def is_mod_url(self, url: str) -> bool:
         return self._reg.is_git_url(url) or self._reg.is_cid_url(url)
 
-    def reg(self, mod: Union[str, dict] = 'store', key=None, comment=None, public=True, token=None, name=None) -> Dict[str, Any]:
+    def reg(self, mod: Union[str, dict] = 'store', key=None, comment=None, public=True, token=None, name=None, suggest=False, auto_modify=False, focus=None) -> Dict[str, Any]:
+        t0 = time.time()
         if token:
             key = self.auth.verify(token)['key']
-        return self._reg.reg(mod=mod, key=key, comment=comment, public=public, token=None, name=name)
+        result = self._reg.reg(mod=mod, key=key, comment=comment, public=public, token=None, name=name)
+        if suggest and isinstance(mod, str):
+            try:
+                suggestions = m.fn('suggest/forward')(mod=mod, focus=focus)
+                result['suggestions'] = suggestions.get('suggestions', [])
+            except Exception as e:
+                result['suggestions'] = []
+                result['suggest_error'] = str(e)
+        if auto_modify and isinstance(mod, str) and result.get('suggestions'):
+            try:
+                applied = m.fn('modify/apply_suggestions')(
+                    mod=mod, suggestions=result['suggestions'][:3], safety=False
+                )
+                result['applied'] = applied
+                result = self._reg.reg(mod=mod, key=key, comment=f'{comment or ""} [auto-modified]', public=public)
+                result['applied'] = applied
+            except Exception as e:
+                result['modify_error'] = str(e)
+        mod_name = mod if isinstance(mod, str) else (mod.get('name', '') if isinstance(mod, dict) else '')
+        self._record(user=key or '', fn=f'reg/{mod_name}', duration=time.time() - t0)
+        return result
 
     def update(self):
         self._reg.update()
@@ -181,6 +222,7 @@ class Api:
         return self._reg.user(key=key, update=update, expand=expand)
 
     def fork(self, mod: str, key=None, comment=None, public=False) -> Dict[str, Any]:
+        t0 = time.time()
         try:
             original_path = m.dp(mod)
             if not original_path or not os.path.exists(original_path):
@@ -193,6 +235,7 @@ class Api:
             shutil.copytree(original_path, new_path)
             m._tree.orbit('portal', update=True)
             reg_result = self._reg.reg(mod=mod, key=key, comment=comment or f'forked from {mod}', public=public)
+            self._record(user=key or key_address or '', fn=f'fork/{mod}', duration=time.time() - t0)
             return {
                 'status': 'forked',
                 'mod': mod,
@@ -205,8 +248,42 @@ class Api:
             return {'error': str(e)}
 
     def edit(self, query: str = 'make the readme better', mod='app', key=None, steps=20, **kwargs) -> Dict[str, Any]:
-        m.fn('dev/forward')(query=query, mod=mod, safety=False, key=key, steps=steps, **kwargs)
-        return self.reg(mod=mod, key=key, comment=query)
+        t0 = time.time()
+        status = 'success'
+        try:
+            m.fn('dev/forward')(query=query, mod=mod, safety=False, key=key, steps=steps, **kwargs)
+        except Exception as e:
+            status = 'error'
+            self._record(user=key or '', fn=f'edit/{mod}', duration=time.time() - t0, status=status)
+            raise
+        result = self.reg(mod=mod, key=key, comment=query)
+        self._record(user=key or '', fn=f'edit/{mod}', duration=time.time() - t0, status=status)
+        return result
+
+    def modify(self, mod: str = 'base', query: str = None, focus: str = None, key=None,
+               model: str = 'anthropic/claude-sonnet-4-5-20250929', max_apply: int = 3,
+               safety: bool = False, **kwargs) -> Dict[str, Any]:
+        """
+        Suggest improvements and apply them to a module, then register.
+        Full pipeline: suggest -> modify -> reg.
+        """
+        t0 = time.time()
+        status = 'success'
+        try:
+            result = m.fn('modify/suggest_and_apply')(
+                mod=mod, focus=focus, model=model,
+                max_apply=max_apply, safety=safety, **kwargs
+            )
+            if query:
+                m.fn('modify/forward')(mod=mod, query=query, model=model, safety=safety)
+            reg_result = self.reg(mod=mod, key=key, comment=f'modified: {focus or query or "auto"}')
+            result['reg'] = reg_result
+        except Exception as e:
+            status = 'error'
+            self._record(user=key or '', fn=f'modify/{mod}', duration=time.time() - t0, status=status)
+            raise
+        self._record(user=key or '', fn=f'modify/{mod}', duration=time.time() - t0, status=status)
+        return result
 
     def files(self, mod='store', search=None, **kwargs):
         return self._reg.files(mod=mod, search=search, **kwargs)

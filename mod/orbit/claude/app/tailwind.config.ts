@@ -5,36 +5,31 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        pixel: ['"Press Start 2P"', "monospace"],
+        pixel: ['"Inter"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         code: ['"JetBrains Mono"', '"SF Mono"', 'Monaco', '"Cascadia Code"', '"Fira Code"', '"Courier New"', "monospace"],
       },
       colors: {
         crt: {
-          green: "#33ff33",
-          amber: "#ffb000",
-          blue: "#00aaff",
-          red: "#ff3333",
-          dark: "#0a0a0a",
-          darker: "#050505",
-          gray: "#1a1a1a",
+          green: "#10b981",
+          amber: "#f59e0b",
+          blue: "#3b82f6",
+          red: "#ef4444",
+          dark: "#f8fafc",
+          darker: "#f1f5f9",
+          gray: "#e2e8f0",
         },
+      },
+      borderRadius: {
+        'sm': '8px',
+        'md': '12px',
+        'lg': '16px',
       },
       animation: {
         blink: "blink 1s step-end infinite",
-        scanline: "scanline 8s linear infinite",
-        flicker: "flicker 0.15s infinite",
       },
       keyframes: {
         blink: {
           "50%": { opacity: "0" },
-        },
-        scanline: {
-          "0%": { transform: "translateY(-100%)" },
-          "100%": { transform: "translateY(100%)" },
-        },
-        flicker: {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.98" },
         },
       },
     },

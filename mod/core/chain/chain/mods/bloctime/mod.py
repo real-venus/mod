@@ -1,6 +1,6 @@
 """BlocTime contract module - staking token deployment and interaction."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 from web3 import Web3
 import mod as m
 
@@ -15,6 +15,7 @@ class Mod(ContractModule):
     name = 'bloctime'
     contracts = ['BlocTime']
     dependencies = ['token']
+    deploy_count = 1
 
     DEFAULT_POINTS = [
         {'blocks': 0, 'multiplier': 10000},
@@ -23,7 +24,7 @@ class Mod(ContractModule):
         {'blocks': 100000, 'multiplier': 30000},
     ]
 
-    def deploy(self, network='testnet', key=None, **deps):
+    def deploy(self, network='testnet', key=None, nonce=None, **deps):
         """Deploy BlocTime.
 
         Args:
@@ -53,7 +54,7 @@ class Mod(ContractModule):
             'BLOC',
             100000,  # maxLockBlocks
             5000,    # distributionPercentage
-        ], contract_key='BlocTime')
+        ], contract_key='BlocTime', nonce=nonce)
 
         return address
 

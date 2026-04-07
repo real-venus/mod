@@ -1,12 +1,7 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+module.exports = {
   output: 'standalone',
-  reactStrictMode: true,
-  webpack: (config) => {
-    config.resolve.fallback = { fs: false, net: false, tls: false };
-    config.externals.push('pino-pretty', 'lokijs', 'encoding');
-    return config;
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:50088',
   },
-};
-
-module.exports = nextConfig;
+}

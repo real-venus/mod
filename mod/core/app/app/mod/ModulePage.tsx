@@ -17,8 +17,9 @@ import ModConfig from '@/mod/config/ModConfig'
 import ModApp from '@/mod/app/ModApp'
 import ModApiTab from '@/mod/api/ModApiTab'
 import ModManage from '@/mod/manage/ModManage'
+import ModServer from '@/mod/server/ModServer'
 
-const defaultTab = 'content'
+const defaultTab = 'app'
 export default function ModulePage() {
   const params = useParams()
   const router = useRouter()
@@ -213,6 +214,7 @@ export default function ModulePage() {
           {activeTab === 'api' && mod.url && <ModApiTab mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'versions' && <ModVersions mod={mod} selectedVersionIndex={selectedVersionIndex} onVersionChange={handleVersionChange} />}
           {activeTab === 'manage' && <ModManage mod={mod} moduleColor={moduleColor} />}
+          {activeTab === 'server' && <ModServer mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
           {activeTab === 'edit' && myMod && <ModEdit mod={mod} />}
           {activeTab === 'edit' && !myMod && (

@@ -1,6 +1,6 @@
 """Treasury contract module - proportional withdrawal treasury."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 from web3 import Web3
 import mod as m
 
@@ -14,8 +14,9 @@ class Mod(ContractModule):
     name = 'treasury'
     contracts = ['Treasury']
     dependencies = ['tokengate', 'bloctime']
+    deploy_count = 1
 
-    def deploy(self, network='testnet', key=None, **deps):
+    def deploy(self, network='testnet', key=None, nonce=None, **deps):
         """Deploy Treasury.
 
         Args:
@@ -40,7 +41,7 @@ class Mod(ContractModule):
         owner_percentage = 2000  # 20% in basis points
         address = self.deploy_contract('Treasury',
                                        [owner_percentage, Web3.to_checksum_address(tokengate_address)],
-                                       contract_key='Treasury')
+                                       contract_key='Treasury', nonce=nonce)
         return address
 
     def setup(self, network='testnet', **deps):

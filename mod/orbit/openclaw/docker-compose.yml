@@ -1,0 +1,31 @@
+version: '3.8'
+
+networks:
+  default:
+    external: true
+    name: modnet
+
+services:
+  openclaw:
+    container_name: openclaw
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "18789:18789"
+      - "50120:50120"
+      - "3120:3120"
+    volumes:
+      - ~/mod:/root/mod
+      - ~/.mod:/root/.mod
+      - openclaw-data:/root/.openclaw
+    working_dir: /root/mod/mod/orbit/openclaw
+    restart: unless-stopped
+    shm_size: 100g
+    environment:
+      - OPENCLAW_GATEWAY_PORT=18789
+      - PYTHONPATH=/root/mod
+      - NEXT_PUBLIC_API_URL=http://localhost:50120
+
+volumes:
+  openclaw-data:

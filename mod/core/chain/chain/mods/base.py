@@ -212,7 +212,7 @@ class ContractModule:
             m.print(f'Compiling all contracts at chain level...', color='yellow')
             os.system(f'cd {self.chain_path} && npx hardhat compile')
 
-    def deploy_contract(self, contract_name, constructor_args=None, key=None, network=None, contract_key=None):
+    def deploy_contract(self, contract_name, constructor_args=None, key=None, network=None, contract_key=None, nonce=None):
         """Deploy a single contract.
 
         Args:
@@ -221,6 +221,7 @@ class ContractModule:
             key: Key name for signing (uses self.account if None)
             network: Network to deploy to
             contract_key: Config key to save under (defaults to contract_name)
+            nonce: Pre-assigned nonce (fetches pending if None)
 
         Returns:
             Deployed contract address
@@ -247,10 +248,13 @@ class ContractModule:
 
         contract = self.w3.eth.contract(abi=abi, bytecode=bytecode)
 
+        if nonce is None:
+            nonce = self.w3.eth.get_transaction_count(self.account.address, 'pending')
+
         args = constructor_args or []
         tx = contract.constructor(*args).build_transaction({
             'from': self.account.address,
-            'nonce': self.w3.eth.get_transaction_count(self.account.address, 'pending'),
+            'nonce': nonce,
             'gasPrice': self.w3.eth.gas_price,
             'chainId': self.chain_id,
         })
@@ -340,7 +344,9 @@ class ContractModule:
 
     # ==================== DEPLOY INTERFACE ====================
 
-    def deploy(self, network='testnet', key=None, **deps):
+    deploy_count = 1
+
+    def deploy(self, network='testnet', key=None, nonce=None, **deps):
         """Deploy this module's contracts. Override in subclass."""
         raise NotImplementedError(f'{self.name}.deploy() not implemented')
 

@@ -1,58 +1,114 @@
 {
-  "engine": {
-    "port": 8080,
-    "data_path": "data",
-    "log_level": "uniswap_engine=info"
+  "name": "uniswap",
+  "version": "1.0.0",
+  "description": "Uniswap V3 multi-chain connector — pools, swaps, tokens, history via The Graph",
+  "port": 50088,
+  "urls": {
+    "api": "http://localhost:50088",
+    "app": "http://localhost:3088"
   },
-  "app": {
-    "port": 3000
-  },
-  "chains": {
-    "base": {
-      "chain_id": 8453,
-      "name": "BASE",
-      "explorer": "https://basescan.org",
-      "rpc_url": "https://base.gateway.tenderly.co",
-      "contracts": {
-        "router": "0x2626664c2603336E57B271c5C0b26F421741e481",
-        "quoter": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
-        "position_manager": "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1"
-      },
-      "tokens": {
-        "WETH": { "address": "0x4200000000000000000000000000000000000006", "decimals": 18 },
-        "USDC": { "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "decimals": 6 },
-        "DAI":  { "address": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", "decimals": 18 },
-        "USDT": { "address": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", "decimals": 6 }
-      },
-      "pools": [
-        { "name": "WETH/USDC", "address": "0xd0b53D9277642d899DF5C87A3966A349A798F224", "token0": "WETH", "token1": "USDC", "fee": 3000 },
-        { "name": "WETH/DAI",  "address": "0x6c6Bc977E13Df9b0de53b251522280BB72383700", "token0": "WETH", "token1": "DAI",  "fee": 3000 }
+  "fns": [
+    "get_pools",
+    "get_pool",
+    "get_swaps",
+    "get_swaps_by_pool",
+    "get_tokens",
+    "get_pool_day_data",
+    "chains",
+    "serve",
+    "kill",
+    "clear_cache",
+    "save_data",
+    "load_data",
+    "delete_data",
+    "list_saved",
+    "health",
+    "test"
+  ],
+  "schema": {
+    "get_pools": {
+      "input": [
+        {"name": "chain", "type": "str", "value": "ethereum"},
+        {"name": "limit", "type": "int", "value": 20},
+        {"name": "orderBy", "type": "str", "value": "totalValueLockedUSD"},
+        {"name": "update", "type": "bool", "value": false}
       ],
-      "wrapped_native": { "address": "0x4200000000000000000000000000000000000006", "symbol": "WETH", "native_symbol": "ETH" }
+      "output": {"type": "list"},
+      "docs": "Get top pools by TVL for a chain. Pass update=true to bypass cache."
     },
-    "polygon": {
-      "chain_id": 137,
-      "name": "POLYGON",
-      "explorer": "https://polygonscan.com",
-      "rpc_url": "https://polygon-bor-rpc.publicnode.com",
-      "contracts": {
-        "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-        "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
-        "position_manager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"
-      },
-      "tokens": {
-        "WMATIC": { "address": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", "decimals": 18 },
-        "WETH":   { "address": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", "decimals": 18 },
-        "USDC":   { "address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", "decimals": 6 },
-        "USDT":   { "address": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", "decimals": 6 },
-        "DAI":    { "address": "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", "decimals": 18 }
-      },
-      "pools": [
-        { "name": "WETH/USDC",   "address": "0x45dDa9cb7c25131DF268515131580e8DAf2e3aF7", "token0": "WETH",   "token1": "USDC", "fee": 3000 },
-        { "name": "WMATIC/USDC", "address": "0xA374094527e1673A86dE625aa59517c5dE346d32", "token0": "WMATIC", "token1": "USDC", "fee": 3000 },
-        { "name": "WMATIC/WETH", "address": "0x167384319B41F7094e62f7506409Eb38079AbfF8", "token0": "WMATIC", "token1": "WETH", "fee": 3000 }
+    "get_pool": {
+      "input": [
+        {"name": "chain", "type": "str", "value": "ethereum"},
+        {"name": "pool_id", "type": "str", "value": ""},
+        {"name": "update", "type": "bool", "value": false}
       ],
-      "wrapped_native": { "address": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", "symbol": "WMATIC", "native_symbol": "MATIC" }
+      "output": {"type": "dict"},
+      "docs": "Get details for a specific pool"
+    },
+    "get_swaps": {
+      "input": [
+        {"name": "chain", "type": "str", "value": "ethereum"},
+        {"name": "days", "type": "int", "value": 30},
+        {"name": "limit", "type": "int", "value": 1000},
+        {"name": "source", "type": "str", "value": "auto"},
+        {"name": "update", "type": "bool", "value": false}
+      ],
+      "output": {"type": "list"},
+      "docs": "Get recent swaps. source: auto|hypersync|graph|rpc"
+    },
+    "get_swaps_by_pool": {
+      "input": [
+        {"name": "chain", "type": "str", "value": "ethereum"},
+        {"name": "pool_id", "type": "str", "value": ""},
+        {"name": "days", "type": "int", "value": 30},
+        {"name": "limit", "type": "int", "value": 1000},
+        {"name": "source", "type": "str", "value": "auto"},
+        {"name": "update", "type": "bool", "value": false}
+      ],
+      "output": {"type": "list"},
+      "docs": "Get swaps for a specific pool"
+    },
+    "get_tokens": {
+      "input": [
+        {"name": "chain", "type": "str", "value": "ethereum"},
+        {"name": "limit", "type": "int", "value": 20},
+        {"name": "update", "type": "bool", "value": false}
+      ],
+      "output": {"type": "list"},
+      "docs": "Get top tokens by TVL"
+    },
+    "get_pool_day_data": {
+      "input": [
+        {"name": "chain", "type": "str", "value": "ethereum"},
+        {"name": "pool_id", "type": "str", "value": ""},
+        {"name": "days", "type": "int", "value": 30},
+        {"name": "update", "type": "bool", "value": false}
+      ],
+      "output": {"type": "list"},
+      "docs": "Get daily OHLCV data for a pool"
+    },
+    "clear_cache": {
+      "input": [
+        {"name": "method", "type": "str", "value": null}
+      ],
+      "output": {"type": "dict"},
+      "docs": "Clear disk cache. Optional method filter (pools, swaps, tokens, etc.)"
+    },
+    "save_data": {
+      "input": [
+        {"name": "data", "type": "any", "value": null},
+        {"name": "name", "type": "str", "value": ""},
+        {"name": "chain", "type": "str", "value": "ethereum"}
+      ],
+      "output": {"type": "dict"},
+      "docs": "Save data to local JSON file"
+    },
+    "list_saved": {
+      "input": [
+        {"name": "chain", "type": "str", "value": null}
+      ],
+      "output": {"type": "list"},
+      "docs": "List saved data files"
     }
   }
 }

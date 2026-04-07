@@ -1,6 +1,6 @@
 """TokenGate contract module - token whitelist and oracle management."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 from web3 import Web3
 import mod as m
 
@@ -14,10 +14,11 @@ class Mod(ContractModule):
     name = 'tokengate'
     contracts = ['TokenGate']
     dependencies = ['oracle']
+    deploy_count = 1
 
     ETH_SENTINEL = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 
-    def deploy(self, network='testnet', key=None, **deps):
+    def deploy(self, network='testnet', key=None, nonce=None, **deps):
         """Deploy TokenGate.
 
         Args:
@@ -41,7 +42,7 @@ class Mod(ContractModule):
 
         address = self.deploy_contract('TokenGate',
                                        [Web3.to_checksum_address(oracle_address)],
-                                       contract_key='TokenGate')
+                                       contract_key='TokenGate', nonce=nonce)
         return address
 
     def setup(self, network='testnet', **deps):

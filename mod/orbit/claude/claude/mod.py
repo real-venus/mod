@@ -34,12 +34,13 @@ class Mod:
     def __init__(self, api_url: str = None, app_url: str = None,
                  key=None, default_path: str = None, **kwargs):
         self.key = m.key(key)
+        self.auth = m.mod('auth.base')()
         cfg = self._load_config()
         self.api_url = api_url or cfg.get('urls', {}).get('api', 'http://localhost:8820')
         self.app_url = app_url or cfg.get('urls', {}).get('app', 'http://localhost:8821')
         self.config = cfg
         self.default_path = default_path or cfg.get('default_path', os.path.expanduser('~/mod'))
-        self._owner = cfg.get('owner')
+        self._owner = cfg.get('owner') or self.key.address.lower()
         self._history_dir = Path(self._module_dir()) / '.history'
 
     # ── config ────────────────────────────────────────────────────
@@ -74,20 +75,70 @@ class Mod:
         cfg['owner'] = addr
         self._save_config(cfg)
 
-    def is_owner(self, address: str = None) -> bool:
-        """Check if address is the owner. Everyone is owner if no owner set."""
+    def _resolve_address(self, key=None) -> str:
+        """Resolve a key/address/token to a verified address string.
+
+        Accepts:
+          - None           → uses self.key (the owner by default)
+          - Key object     → extracts .address
+          - str (0x...)    → used directly
+          - str (token)    → decoded & verified via auth, returns token's key address
+        """
+        if key is None:
+            return self.key.address
+        if hasattr(key, 'address'):
+            return key.address
+        key_str = str(key)
+        # Looks like a hex address
+        if key_str.startswith('0x') and len(key_str) in (42, 66):
+            return key_str
+        # Otherwise treat as a signed token — verify it
+        try:
+            verified = self.auth.verify(key_str)
+            return verified['key']
+        except Exception:
+            return key_str
+
+    def token(self, data: dict = None, key=None) -> str:
+        """Generate a signed auth token for the given key (default: owner)."""
+        key = key or self.key
+        return self.auth.token(data=data or {}, key=key)
+
+    def verify(self, token: str) -> dict:
+        """Verify a signed auth token. Returns decoded headers with 'key' address."""
+        return self.auth.verify(token)
+
+    def is_owner(self, key=None) -> bool:
+        """Check if key/address/token belongs to the owner."""
         if not self._owner:
             return True
-        if not address:
+        addr = self._resolve_address(key)
+        if not addr:
             return False
-        return address.lower() == self._owner.lower()
+        return addr.lower() == self._owner.lower()
 
-    def require_owner(self, address: str, operation: str = "this operation"):
-        """Raise PermissionError if address is not the owner."""
-        if not self.is_owner(address):
+    def _format_address(self, address) -> str:
+        """Extract a clean hex address from a string, Key object, or repr."""
+        addr = str(address)
+        if hasattr(address, 'address'):
+            addr = str(address.address)
+        elif addr.startswith('Key('):
+            inner = addr[4:].rstrip(')')
+            addr = inner.split(',')[0].strip()
+        return addr[:10] + '...' + addr[-4:] if len(addr) > 16 else addr
+
+    def require_owner(self, key=None, operation: str = "this operation"):
+        """Raise PermissionError if key/address/token is not the owner.
+
+        Accepts None (defaults to self.key), Key objects, hex addresses, or signed tokens.
+        """
+        if not self.is_owner(key):
+            caller = self._format_address(self._resolve_address(key))
+            owner = self._format_address(self._owner) if self._owner else 'none'
             raise PermissionError(
-                f"Access denied: {operation} requires owner. "
-                f"Owner: {self._owner}, caller: {address}"
+                f"Permission denied: '{operation}' is owner-only.\n"
+                f"  caller: {caller}\n"
+                f"  owner:  {owner}"
             )
 
     # ── HTTP helpers ──────────────────────────────────────────────
@@ -133,8 +184,8 @@ class Mod:
 
     # ── core: forward ─────────────────────────────────────────────
 
-    def forward(self, query: str, path: str = None, mod: str = None,
-                model: str = "sonnet", background: bool = True,
+    def forward(self, query: str, *extra_query, path: str = None, mod: str = None,
+                model: str = "anthropic/claude-sonnet-4.6", background: bool = True,
                 stream: bool = False, key: str = None, **kwargs) -> Dict[str, Any]:
         """
         Run a Claude task.
@@ -148,16 +199,17 @@ class Mod:
             query:      prompt / task description
             path:       working directory (resolves from mod if given)
             mod:        orbit module name — auto-resolves path via m.dp()
-            model:      sonnet | opus | haiku
+            model:      anthropic/claude-sonnet-4.6 | anthropic/claude-opus-4.6 | anthropic/claude-haiku-4.6
             background: if True submit to job server (default)
             stream:     if True and background, auto-tail the job
             key:        caller address for permission check
         """
         # permission check for write operations
+        query = query + " " + " ".join(extra_query)
         write_keywords = ('edit', 'modify', 'update', 'fix', 'add', 'remove',
                           'delete', 'create', 'write', 'refactor', 'change')
         if any(kw in query.lower() for kw in write_keywords):
-            self.require_owner(key or str(self.key), f"forward({query[:40]}...)")
+            self.require_owner(key, f"forward({query[:40]}...)")
 
         if mod is not None:
             path = m.dp(mod)
@@ -166,6 +218,7 @@ class Mod:
             data = {"prompt": query, "model": model}
             if path:
                 data["work_dir"] = path
+            data["user_address"] = self._resolve_address(key)
             for k in ('module_name', 'creation_mode', 'github_url', 'anchor_dir', 'images'):
                 if k in kwargs:
                     data[k] = kwargs[k]
@@ -242,7 +295,7 @@ class Mod:
                       path: str = None, model: str = "sonnet",
                       key: str = None, **kwargs) -> str:
         """Generate code from description. Write operation, requires owner."""
-        self.require_owner(key or str(self.key), "generate_code")
+        self.require_owner(key, "generate_code")
         work_dir = path or self.default_path
         prompt = f"Generate {language} code: {description}"
         return self._run_cli(prompt, path=work_dir, model=model,
@@ -251,7 +304,7 @@ class Mod:
     def refactor(self, path: str, instructions: str = None,
                  model: str = "sonnet", key: str = None, **kwargs) -> str:
         """Refactor code at path. Write operation, requires owner."""
-        self.require_owner(key or str(self.key), "refactor")
+        self.require_owner(key, "refactor")
         prompt = f"Refactor the code. {instructions or 'Improve structure and readability.'}"
         return self._run_cli(prompt, path=path, model=model,
                              output_format="text", stream_output=False)
@@ -269,7 +322,7 @@ class Mod:
                   path: str = None, model: str = "sonnet",
                   key: str = None, **kwargs) -> str:
         """Edit a file with instructions. Write operation, requires owner."""
-        self.require_owner(key or str(self.key), "edit_file")
+        self.require_owner(key, "edit_file")
         work_dir = path or self.default_path
         prompt = f"Edit the file {file_path}: {instructions}"
         return self._run_cli(prompt, path=work_dir, model=model,
@@ -300,9 +353,11 @@ class Mod:
 
     def submit(self, prompt: str, model: str = "sonnet", work_dir: str = None,
                module_name: str = None, creation_mode: str = None,
-               github_url: str = None, anchor_dir: str = None, **kwargs) -> dict:
+               github_url: str = None, anchor_dir: str = None,
+               key: str = None, **kwargs) -> dict:
         """Submit a background job to the Rust server."""
         data = {"prompt": prompt, "model": model}
+        data["user_address"] = self._resolve_address(key)
         if work_dir:
             data["work_dir"] = work_dir
         if module_name:
@@ -633,15 +688,18 @@ class Mod:
             results["failed"] += 1
             results["tests"].append({"name": "init", "status": "fail", "error": str(e)})
 
-        # test 2: owner system
+        # test 2: owner system + token auth
         try:
-            orig = self._owner
-            assert self.is_owner("0xanyone") is True or self._owner is not None
+            assert self._owner is not None, "owner should always be set"
+            tok = self.token()
+            assert isinstance(tok, str) and len(tok) > 0, "token should be a string"
+            verified = self.verify(tok)
+            assert verified['key'] == self.key.address, "token should contain key address"
             results["passed"] += 1
-            results["tests"].append({"name": "owner_system", "status": "ok"})
+            results["tests"].append({"name": "owner_auth", "status": "ok"})
         except Exception as e:
             results["failed"] += 1
-            results["tests"].append({"name": "owner_system", "status": "fail", "error": str(e)})
+            results["tests"].append({"name": "owner_auth", "status": "fail", "error": str(e)})
 
         # test 3: history
         try:

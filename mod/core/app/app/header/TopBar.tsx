@@ -9,6 +9,8 @@ import { useLayoutContext } from '@/context/LayoutContext'
 import Link from 'next/link'
 import { text2color, colorWithOpacity, shorten } from '@/utils'
 import { clearModsCache } from '@/mod/explore/ModExplorePage'
+import { ModCardSettings } from '@/mod/ModCardSettings'
+import { X } from 'lucide-react'
 
 const COMMANDS = ['/search', '/ask', '/run'] as const
 
@@ -60,7 +62,7 @@ function getModuleFromPath(pathname: string): string | null {
   const modMatch = pathname.match(/^\/mod\/([^/]+)/)
   if (modMatch) return modMatch[1]
   // /[name] (single segment, not a known route)
-  const knownRoutes = ['mod', 'user', 'cid', 'chat', 'docs', 'quests', 'create', 'safe', 'bridge', 'contracts', 'treasury', 'jobs', 'traders', 'network', 'home', 'transactions', 'buidl']
+  const knownRoutes = ['mod', 'mods', 'user', 'cid', 'chat', 'docs', 'quests', 'create', 'safe', 'bridge', 'contracts', 'treasury', 'jobs', 'traders', 'network', 'home', 'transactions', 'buidl']
   const singleMatch = pathname.match(/^\/([^/]+)$/)
   if (singleMatch && !knownRoutes.includes(singleMatch[1])) return singleMatch[1]
   return null
@@ -109,7 +111,7 @@ export function TopBar() {
   const moduleColor = activeModule ? text2color(activeModule) : '#ffffff'
 
   // Module tab state (shared with ModulePage via custom event)
-  const [moduleTab, setModuleTab] = useState<string>('content')
+  const [moduleTab, setModuleTab] = useState<string>('app')
 
   // Listen for module tab changes from ModulePage
   useEffect(() => {
@@ -137,6 +139,22 @@ export function TopBar() {
       setSearchExpanded(false)
     }
   }, [activeModule])
+
+  // Mods toolbar state (synced from ModExplorePage via events)
+  const isModsPage = pathname === '/mods'
+  const [modsState, setModsState] = useState<{
+    sort: string; columns: number; owners: string[]; selectedOwners: string[]; totalMods: number
+  } | null>(null)
+
+  useEffect(() => {
+    const handler = (e: CustomEvent) => setModsState(e.detail)
+    window.addEventListener('mods:state' as any, handler)
+    return () => window.removeEventListener('mods:state' as any, handler)
+  }, [])
+
+  useEffect(() => {
+    if (!isModsPage) setModsState(null)
+  }, [isModsPage])
 
   useEffect(() => {
     setInputValue(searchFilters.searchTerm || '')
@@ -300,6 +318,25 @@ export function TopBar() {
       return
     }
 
+    // Navigate to the most relevant module
+    if (client) {
+      try {
+        const results = await client.call('mods', { search: trimmed, page: 0, page_size: 10 })
+        const list = Array.isArray(results) ? results : []
+        // Exact name match first, then first result
+        const exact = list.find((m: any) => m.name?.toLowerCase() === trimmed.toLowerCase())
+        const best = exact || list[0]
+        if (best?.name) {
+          setInputValue('')
+          handleSearch('')
+          setSearchExpanded(false)
+          router.push(`/${best.name}`)
+          return
+        }
+      } catch {}
+    }
+
+    // Fallback: show search results on /mods
     handleSearch(trimmed)
     setSearchExpanded(false)
     if (pathname !== '/mods') {
@@ -365,13 +402,14 @@ export function TopBar() {
   }
 
   const availableTabs = [
-    'task', 'content', 'api', 'config', 'terminal',
+    'api',
     ...(moduleInfo?.url_app ? ['app'] : []),
-    'versions', 'manage', 'edit',
+    'config', 'content', 'edit', 'manage', 'server', 'task', 'terminal', 'versions',
   ]
 
   // On a module page: show module info + tabs, search collapses to icon
   const showModuleBar = activeModule && !searchExpanded
+  const showModsToolbar = isModsPage && modsState && !activeModule
 
   return (
     <div
@@ -386,7 +424,103 @@ export function TopBar() {
       }}
     >
       <div className="flex items-center flex-1 pl-3 pr-2 gap-3 min-w-0">
-        {showModuleBar ? (
+        {showModsToolbar ? (
+          /* Mods toolbar: count + search pill + collapsible settings */
+          <div className="flex items-center gap-2.5 flex-1 min-w-0" style={{ fontFamily: 'var(--font-digital), monospace' }}>
+            {/* Title + count pill */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
+                MODS
+              </span>
+              <span
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{
+                  color: 'var(--text-tertiary)',
+                  backgroundColor: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
+                  minWidth: '24px',
+                  textAlign: 'center',
+                }}
+              >
+                {modsState.totalMods}
+              </span>
+            </div>
+
+            {/* Search term snap pill */}
+            {searchFilters.searchTerm && (
+              <>
+                <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
+                <div
+                  className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold shrink-0"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.12), rgba(103, 232, 249, 0.06))',
+                    border: '1px solid rgba(167, 139, 250, 0.2)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-digital)',
+                    animation: 'fadeSlideIn 0.2s ease-out',
+                  }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                  </svg>
+                  <span style={{ opacity: 0.9 }}>{searchFilters.searchTerm}</span>
+                  <button
+                    onClick={() => handleSearch('')}
+                    className="p-0.5 rounded-full transition-all"
+                    style={{ opacity: 0.4 }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              </>
+            )}
+
+            <div className="flex-1" />
+
+            {/* Collapsible sort/cols/filter - slides in when searching */}
+            <div
+              className="flex items-center overflow-hidden transition-all duration-300 ease-out"
+              style={{
+                maxWidth: searchFilters.searchTerm ? '500px' : '0px',
+                opacity: searchFilters.searchTerm ? 1 : 0,
+                transform: searchFilters.searchTerm ? 'translateX(0)' : 'translateX(8px)',
+              }}
+            >
+              <div className="flex items-center gap-2.5 pr-2">
+                <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
+                <ModCardSettings
+                  sort={modsState.sort as any}
+                  onSortChange={(s) => window.dispatchEvent(new CustomEvent('mods:sort-change', { detail: s }))}
+                  columns={modsState.columns}
+                  onColumnsChange={(c) => window.dispatchEvent(new CustomEvent('mods:columns-change', { detail: c }))}
+                  owners={modsState.owners}
+                  selectedOwners={modsState.selectedOwners}
+                  onToggleOwner={(o) => window.dispatchEvent(new CustomEvent('mods:toggle-owner', { detail: o }))}
+                  onClearFilters={() => window.dispatchEvent(new Event('mods:clear-filters'))}
+                />
+              </div>
+            </div>
+
+            {/* Always-visible settings when NOT searching */}
+            {!searchFilters.searchTerm && (
+              <>
+                <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
+                <ModCardSettings
+                  sort={modsState.sort as any}
+                  onSortChange={(s) => window.dispatchEvent(new CustomEvent('mods:sort-change', { detail: s }))}
+                  columns={modsState.columns}
+                  onColumnsChange={(c) => window.dispatchEvent(new CustomEvent('mods:columns-change', { detail: c }))}
+                  owners={modsState.owners}
+                  selectedOwners={modsState.selectedOwners}
+                  onToggleOwner={(o) => window.dispatchEvent(new CustomEvent('mods:toggle-owner', { detail: o }))}
+                  onClearFilters={() => window.dispatchEvent(new Event('mods:clear-filters'))}
+                />
+              </>
+            )}
+          </div>
+        ) : showModuleBar ? (
           /* Module bar: name + meta + tabs */
           <div className="flex items-center gap-4 flex-1 min-w-0" style={{ fontFamily: 'var(--font-digital), monospace' }}>
             {/* Search icon to expand (far left) */}
@@ -633,7 +767,24 @@ export function TopBar() {
       </button>
 
       {/* Right section */}
-      <div className="flex items-center pr-3 gap-1">
+      <div className="flex items-center pr-3 gap-2">
+        {/* + CREATE MOD button on mods page */}
+        {showModsToolbar && (
+          <Link
+            href="/create"
+            className="shrink-0 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all flex items-center rounded-full"
+            style={{
+              background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))',
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-digital)',
+              border: '1px solid rgba(167, 139, 250, 0.2)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(167, 139, 250, 0.25), rgba(103, 232, 249, 0.12))' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.2)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))' }}
+          >
+            + CREATE
+          </Link>
+        )}
         {/* Build module button */}
         {user && (
           <button

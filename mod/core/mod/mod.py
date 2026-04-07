@@ -37,7 +37,7 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
 
     _avoid_folders = frozenset([
         '__pycache__', '.git', '.ipynb_checkpoints', 'node_modules',
-        'egg-info', 'private', '.venv', 'venv', '.env'
+        'egg-info', 'private', '.venv', 'venv', '.env', '.mod'
     ])
     _default_file_types = ('py', 'json', 'sol')
     _default_anchor_names = ('agent', 'mod', 'block')
@@ -770,11 +770,12 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
         fn_obj = getattr(self, fn) if hasattr(self, fn) else self.fn(fn)
         return fn_obj(**params)
 
-    def call(self, _fn: str = 'api/edit', params: Dict[str, Any] = {},
+    def call(self, _fn: str = 'api/forward', params: Dict[str, Any] = {},
              timeout=30, wait=True, **_kwargs):
-        params = {'fn': _fn, 'params': {**params, **_kwargs}}
-        token = self.fn('api/token')()
-        return self.fn('client/call')('api/call', params=params, timeout=timeout, wait=wait, token=token)
+        if '/' not in _fn:
+            _fn = _fn + '/forward'
+        fn_obj = self.fn(_fn)
+        return fn_obj(**{**params, **_kwargs})
 
     def ask(self, *args, **kwargs):
         return self.fn('agent/')(*args, **kwargs)

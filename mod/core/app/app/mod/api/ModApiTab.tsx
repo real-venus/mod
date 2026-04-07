@@ -23,6 +23,8 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
   const [result, setResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCode, setShowCode] = useState(false)
+  const [codeLang, setCodeLang] = useState<'python' | 'javascript' | 'curl'>('python')
 
   const apiUrl = getModApiUrl(mod)
 
@@ -55,6 +57,40 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
     setParams({})
     setResult(null)
     setError(null)
+  }
+
+  const generateCode = (fn: string, lang: 'python' | 'javascript' | 'curl'): string => {
+    const fnSchema = schema[fn]
+    if (!fnSchema) return ''
+    const inputs: { name: string; type: string; value: any }[] = Array.isArray(fnSchema.input)
+      ? fnSchema.input.filter((p: any) => p.name !== 'kwargs' && p.name !== 'self')
+      : []
+    const output = fnSchema.output || 'any'
+    const endpoint = `${mod.name}/${fn}`
+    const url = apiUrl || 'http://localhost:8000'
+
+    if (lang === 'python') {
+      const paramLines = inputs.map((p) => {
+        const defVal = p.value !== undefined && p.value !== null ? JSON.stringify(p.value) : 'None'
+        return `    ${p.name}: ${p.type || 'any'} = ${defVal === 'undefined' ? 'None' : defVal}`
+      }).join(',\n')
+      const paramDict = inputs.map((p) => `        "${p.name}": ${p.name}`).join(',\n')
+      const doc = fnSchema.docs ? `    """${fnSchema.docs.split('\n')[0].trim()}"""\n` : ''
+      return `from mod import Client\n\nclient = Client()\n\ndef ${fn}(\n${paramLines}\n) -> ${output}:\n${doc}    return client.call("${endpoint}", {\n${paramDict}\n    })\n\nresult = ${fn}(${inputs.map(p => p.value !== undefined && p.value !== null ? JSON.stringify(p.value) : '').filter(Boolean).join(', ')})\nprint(result)`
+    }
+
+    if (lang === 'javascript') {
+      const paramObj = inputs.map((p) => {
+        const val = p.value !== undefined && p.value !== null ? JSON.stringify(p.value) : 'null'
+        return `  ${p.name}: ${val}`
+      }).join(',\n')
+      return `import { Client } from 'mod'\n\nconst client = new Client()\n\nconst result = await client.call("${endpoint}", {\n${paramObj}\n})\n\nconsole.log(result)`
+    }
+
+    // curl
+    const paramObj: Record<string, any> = {}
+    inputs.forEach(p => { paramObj[p.name] = p.value !== undefined ? p.value : null })
+    return `curl -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify({ fn: endpoint, params: paramObj }, null, 2)}'`
   }
 
   return (
@@ -160,7 +196,58 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
                     </span>
                   )}
                 </div>
+                <button
+                  onClick={() => setShowCode(!showCode)}
+                  className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 transition-all"
+                  style={{
+                    color: showCode ? modColor : 'var(--text-tertiary)',
+                    border: `1px solid ${showCode ? colorWithOpacity(modColor, 0.4) : 'var(--border-color)'}`,
+                    backgroundColor: showCode ? colorWithOpacity(modColor, 0.08) : 'transparent',
+                  }}
+                >
+                  {'</>'}  CODE
+                </button>
               </div>
+
+              {/* Code snippet panel */}
+              {showCode && (
+                <div style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center gap-0" style={{ backgroundColor: 'var(--bg-surface)' }}>
+                    {(['python', 'javascript', 'curl'] as const).map((lang) => (
+                      <button
+                        key={lang}
+                        onClick={() => setCodeLang(lang)}
+                        className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all"
+                        style={{
+                          color: codeLang === lang ? modColor : 'var(--text-tertiary)',
+                          borderBottom: codeLang === lang ? `2px solid ${modColor}` : '2px solid transparent',
+                          backgroundColor: codeLang === lang ? colorWithOpacity(modColor, 0.04) : 'transparent',
+                        }}
+                      >
+                        {lang}
+                      </button>
+                    ))}
+                    <div className="flex-1" />
+                    <div className="pr-2">
+                      <CopyButton content={generateCode(selectedFn, codeLang)} />
+                    </div>
+                  </div>
+                  <pre
+                    className="px-4 py-3 text-[11px] leading-relaxed overflow-x-auto"
+                    style={{
+                      backgroundColor: 'var(--bg-primary)',
+                      color: 'var(--text-secondary)',
+                      fontFamily: 'var(--font-digital), monospace',
+                      maxHeight: '280px',
+                      overflowY: 'auto',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'var(--scrollbar-thumb) transparent',
+                    }}
+                  >
+                    {generateCode(selectedFn, codeLang)}
+                  </pre>
+                </div>
+              )}
 
               {/* Params */}
               <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-primary)' }}>

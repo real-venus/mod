@@ -381,7 +381,7 @@ export default function WalletModal({
             className={`${inline ? "text-[22px]" : "text-[28px]"} font-bold font-mono tabular-nums`}
             style={{
               color: "var(--crt-green)",
-              textShadow: "0 0 30px rgba(51,255,51,0.2), 0 0 8px rgba(51,255,51,0.1)",
+              textShadow: "0 0 30px rgba(16,185,129,0.2), 0 0 8px rgba(16,185,129,0.1)",
               letterSpacing: "-1px",
             }}
           >
@@ -398,9 +398,9 @@ export default function WalletModal({
             onClick={() => handleCopy(address, "address")}
             className="flex items-center gap-2 px-3 py-2 transition-all"
             style={{
-              border: copied === "address" ? "1px solid var(--crt-green)" : "1px solid rgba(255,255,255,0.08)",
-              background: copied === "address" ? "rgba(51,255,51,0.08)" : "transparent",
-              borderRadius: "2px",
+              border: copied === "address" ? "1px solid var(--crt-green)" : "1px solid var(--border-color)",
+              background: copied === "address" ? "rgba(16,185,129,0.08)" : "transparent",
+              borderRadius: "8px",
             }}
             onMouseEnter={(e) => {
               if (copied !== "address") {
@@ -410,7 +410,7 @@ export default function WalletModal({
             }}
             onMouseLeave={(e) => {
               if (copied !== "address") {
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+                (e.currentTarget as HTMLElement).style.borderColor = "var(--border-color)";
                 (e.currentTarget as HTMLElement).style.background = "transparent";
               }
             }}
@@ -432,16 +432,16 @@ export default function WalletModal({
             className="w-7 h-7 flex items-center justify-center text-[12px] transition-all"
             style={{
               color: "var(--text-tertiary)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: "2px",
+              border: "1px solid var(--border-color)",
+              borderRadius: "8px",
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,51,51,0.4)";
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.4)";
               (e.currentTarget as HTMLElement).style.color = "var(--crt-red)";
-              (e.currentTarget as HTMLElement).style.background = "rgba(255,51,51,0.08)";
+              (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)";
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--border-color)";
               (e.currentTarget as HTMLElement).style.color = "var(--text-tertiary)";
               (e.currentTarget as HTMLElement).style.background = "transparent";
             }}
@@ -474,7 +474,7 @@ export default function WalletModal({
                 style={{
                   background: tabColors[tab],
                   boxShadow: `0 0 8px ${tabColors[tab]}`,
-                  borderRadius: "1px",
+                  borderRadius: "6px",
                 }}
               />
             )}
@@ -505,7 +505,7 @@ export default function WalletModal({
               style={{
                 border: "1px solid rgba(255,255,255,0.06)",
                 background: "rgba(255,255,255,0.015)",
-                borderRadius: "3px",
+                borderRadius: "10px",
               }}
             >
               <div className="text-[9px] flex items-center gap-2 tracking-[2px]" style={{ color: "var(--text-tertiary)" }}>
@@ -519,7 +519,7 @@ export default function WalletModal({
                     border: "1px solid rgba(255,255,255,0.04)",
                     color: "var(--text-primary)",
                     letterSpacing: "0.3px",
-                    borderRadius: "2px",
+                    borderRadius: "8px",
                   }}
                 >
                   {address}
@@ -528,10 +528,10 @@ export default function WalletModal({
                   onClick={() => handleCopy(address, "address")}
                   className="shrink-0 px-3 py-2.5 text-[9px] transition-all tracking-wider"
                   style={{
-                    border: copied === "address" ? "1px solid var(--crt-green)" : "1px solid rgba(255,255,255,0.08)",
+                    border: copied === "address" ? "1px solid var(--crt-green)" : "1px solid var(--border-color)",
                     color: copied === "address" ? "var(--crt-green)" : "var(--text-tertiary)",
-                    background: copied === "address" ? "rgba(51,255,51,0.08)" : "transparent",
-                    borderRadius: "2px",
+                    background: copied === "address" ? "rgba(16,185,129,0.08)" : "transparent",
+                    borderRadius: "8px",
                   }}
                 >
                   {copied === "address" ? "COPIED" : "COPY"}
@@ -547,9 +547,9 @@ export default function WalletModal({
                 style={{
                   border: "1px solid rgba(255,255,255,0.06)",
                   background: "rgba(255,255,255,0.015)",
-                  borderRadius: "3px",
+                  borderRadius: "10px",
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,176,0,0.2)"; }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.2)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
               >
                 <div className="text-[9px] mb-2.5 tracking-[2px] flex items-center justify-between" style={{ color: "var(--text-tertiary)" }}>
@@ -573,9 +573,9 @@ export default function WalletModal({
                 style={{
                   border: "1px solid rgba(255,255,255,0.06)",
                   background: "rgba(255,255,255,0.015)",
-                  borderRadius: "3px",
+                  borderRadius: "10px",
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(51,255,51,0.2)"; }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(16,185,129,0.2)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
               >
                 <div className="text-[9px] mb-2.5 tracking-[2px]" style={{ color: "var(--text-tertiary)" }}>WALLET TYPE</div>
@@ -589,9 +589,9 @@ export default function WalletModal({
               <div
                 className="p-4 space-y-3"
                 style={{
-                  border: "1px solid rgba(255,176,0,0.15)",
-                  background: "rgba(255,176,0,0.02)",
-                  borderRadius: "3px",
+                  border: "1px solid rgba(245,158,11,0.15)",
+                  background: "rgba(245,158,11,0.02)",
+                  borderRadius: "10px",
                 }}
               >
                 <div className="text-[9px] tracking-[2px] flex items-center justify-between" style={{ color: "var(--text-tertiary)" }}>
@@ -599,21 +599,21 @@ export default function WalletModal({
                   <button
                     onClick={() => setShowNetworkSelector(false)}
                     className="text-[9px] px-2 py-0.5 transition-all"
-                    style={{ color: "var(--crt-amber)", border: "1px solid rgba(255,176,0,0.15)", borderRadius: "2px" }}
+                    style={{ color: "var(--crt-amber)", border: "1px solid rgba(245,158,11,0.15)", borderRadius: "8px" }}
                   >
                     CLOSE
                   </button>
                 </div>
 
                 {/* Mainnet / Testnet Toggle */}
-                <div className="flex" style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "2px" }}>
+                <div className="flex" style={{ border: "1px solid var(--border-color)", borderRadius: "8px" }}>
                   <button
                     onClick={() => setShowTestnets(false)}
                     className="flex-1 py-2 text-[9px] tracking-[2px] transition-all"
                     style={{
                       color: !showTestnets ? "var(--crt-amber)" : "var(--text-tertiary)",
-                      background: !showTestnets ? "rgba(255,176,0,0.1)" : "transparent",
-                      borderRight: "1px solid rgba(255,255,255,0.08)",
+                      background: !showTestnets ? "rgba(245,158,11,0.1)" : "transparent",
+                      borderRight: "1px solid var(--border-color)",
                       fontWeight: !showTestnets ? "bold" : "normal",
                       opacity: !showTestnets ? 1 : 0.5,
                     }}
@@ -625,7 +625,7 @@ export default function WalletModal({
                     className="flex-1 py-2 text-[9px] tracking-[2px] transition-all"
                     style={{
                       color: showTestnets ? "var(--crt-amber)" : "var(--text-tertiary)",
-                      background: showTestnets ? "rgba(255,176,0,0.1)" : "transparent",
+                      background: showTestnets ? "rgba(245,158,11,0.1)" : "transparent",
                       fontWeight: showTestnets ? "bold" : "normal",
                       opacity: showTestnets ? 1 : 0.5,
                     }}
@@ -642,9 +642,9 @@ export default function WalletModal({
                       disabled={switchingNetwork}
                       className="p-3 text-center transition-all flex flex-col items-center gap-2"
                       style={{
-                        border: n.chainId === chainId ? `1px solid ${NETWORK_LOGOS[n.chainId]?.color || "rgba(255,176,0,0.3)"}40` : "1px solid rgba(255,255,255,0.06)",
-                        background: n.chainId === chainId ? `${NETWORK_LOGOS[n.chainId]?.color || "rgba(255,176,0,"}10` : "rgba(0,0,0,0.15)",
-                        borderRadius: "4px",
+                        border: n.chainId === chainId ? `1px solid ${NETWORK_LOGOS[n.chainId]?.color || "rgba(245,158,11,0.3)"}40` : "1px solid rgba(255,255,255,0.06)",
+                        background: n.chainId === chainId ? `${NETWORK_LOGOS[n.chainId]?.color || "rgba(245,158,11,"}10` : "rgba(0,0,0,0.15)",
+                        borderRadius: "10px",
                         opacity: switchingNetwork ? 0.5 : 1,
                       }}
                       onMouseEnter={(e) => {
@@ -678,7 +678,7 @@ export default function WalletModal({
                 {networkError && (
                   <div
                     className="text-[10px] text-center py-2 tracking-wider"
-                    style={{ color: "var(--crt-red)", border: "1px solid rgba(255,51,51,0.2)", background: "rgba(255,51,51,0.06)", borderRadius: "2px" }}
+                    style={{ color: "var(--crt-red)", border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.06)", borderRadius: "8px" }}
                   >
                     {networkError}
                   </div>
@@ -691,9 +691,9 @@ export default function WalletModal({
               <div
                 className="p-4"
                 style={{
-                  border: "1px solid rgba(255,176,0,0.12)",
-                  background: "rgba(255,176,0,0.02)",
-                  borderRadius: "3px",
+                  border: "1px solid rgba(245,158,11,0.12)",
+                  background: "rgba(245,158,11,0.02)",
+                  borderRadius: "10px",
                 }}
               >
                 <button
@@ -711,10 +711,10 @@ export default function WalletModal({
                     <div
                       className="px-3 py-2 text-[10px] tracking-wider"
                       style={{
-                        background: "rgba(255,51,51,0.06)",
-                        border: "1px solid rgba(255,51,51,0.2)",
+                        background: "rgba(239,68,68,0.06)",
+                        border: "1px solid rgba(239,68,68,0.2)",
                         color: "var(--crt-red)",
-                        borderRadius: "2px",
+                        borderRadius: "8px",
                       }}
                     >
                       KEEP THIS SECRET — NEVER SHARE
@@ -723,9 +723,9 @@ export default function WalletModal({
                       className="p-3 font-mono text-[11px] break-all leading-relaxed"
                       style={{
                         background: "rgba(0,0,0,0.3)",
-                        border: "1px solid rgba(255,51,51,0.1)",
+                        border: "1px solid rgba(239,68,68,0.1)",
                         color: "var(--text-primary)",
-                        borderRadius: "2px",
+                        borderRadius: "8px",
                       }}
                     >
                       {getSeedPhrase()}
@@ -734,9 +734,9 @@ export default function WalletModal({
                       onClick={() => handleCopy(getSeedPhrase(), "seed")}
                       className="text-[9px] px-3 py-1.5 transition-all tracking-wider"
                       style={{
-                        border: copied === "seed" ? "1px solid var(--crt-green)" : "1px solid rgba(255,51,51,0.25)",
+                        border: copied === "seed" ? "1px solid var(--crt-green)" : "1px solid rgba(239,68,68,0.25)",
                         color: copied === "seed" ? "var(--crt-green)" : "var(--crt-red)",
-                        borderRadius: "2px",
+                        borderRadius: "8px",
                       }}
                     >
                       {copied === "seed" ? "COPIED" : "COPY SEED"}
@@ -755,7 +755,7 @@ export default function WalletModal({
                   background: "var(--crt-blue)",
                   color: "#000",
                   fontWeight: "bold",
-                  borderRadius: "2px",
+                  borderRadius: "8px",
                   boxShadow: "0 2px 12px rgba(0,170,255,0.2)",
                   border: "none",
                 }}
@@ -770,17 +770,17 @@ export default function WalletModal({
                 style={{
                   background: "transparent",
                   color: "var(--crt-red)",
-                  border: "1px solid rgba(255,51,51,0.25)",
+                  border: "1px solid rgba(239,68,68,0.25)",
                   fontWeight: "bold",
-                  borderRadius: "2px",
+                  borderRadius: "8px",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,51,51,0.1)";
-                  e.currentTarget.style.borderColor = "rgba(255,51,51,0.4)";
+                  e.currentTarget.style.background = "rgba(239,68,68,0.1)";
+                  e.currentTarget.style.borderColor = "rgba(239,68,68,0.4)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.borderColor = "rgba(255,51,51,0.25)";
+                  e.currentTarget.style.borderColor = "rgba(239,68,68,0.25)";
                 }}
               >
                 DISCONNECT
@@ -804,7 +804,7 @@ export default function WalletModal({
                       border: txFilter === filter ? "1px solid var(--crt-blue)" : "1px solid rgba(255,255,255,0.06)",
                       color: txFilter === filter ? "var(--crt-blue)" : "var(--text-tertiary)",
                       background: txFilter === filter ? "rgba(0,170,255,0.08)" : "transparent",
-                      borderRadius: "2px",
+                      borderRadius: "8px",
                     }}
                   >
                     {filter.toUpperCase()}
@@ -816,12 +816,12 @@ export default function WalletModal({
                   onClick={handleExport}
                   className="text-[9px] px-3 py-1.5 transition-all tracking-wider"
                   style={{
-                    border: "1px solid rgba(255,176,0,0.15)",
+                    border: "1px solid rgba(245,158,11,0.15)",
                     color: "var(--crt-amber)",
-                    borderRadius: "2px",
+                    borderRadius: "8px",
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,176,0,0.35)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,176,0,0.15)"; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.35)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.15)"; }}
                 >
                   EXPORT CSV
                 </button>
@@ -845,10 +845,10 @@ export default function WalletModal({
                     style={{
                       border: "1px solid rgba(255,255,255,0.05)",
                       background: "rgba(255,255,255,0.015)",
-                      borderRadius: "3px",
+                      borderRadius: "10px",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = tx.type === "send" ? "rgba(255,51,51,0.15)" : "rgba(51,255,51,0.15)";
+                      e.currentTarget.style.borderColor = tx.type === "send" ? "rgba(239,68,68,0.15)" : "rgba(16,185,129,0.15)";
                       e.currentTarget.style.background = "rgba(255,255,255,0.025)";
                     }}
                     onMouseLeave={(e) => {
@@ -861,10 +861,10 @@ export default function WalletModal({
                         <span
                           className="w-8 h-8 flex items-center justify-center text-[13px] font-bold"
                           style={{
-                            background: tx.type === "send" ? "rgba(255,51,51,0.08)" : "rgba(51,255,51,0.08)",
-                            border: `1px solid ${tx.type === "send" ? "rgba(255,51,51,0.2)" : "rgba(51,255,51,0.2)"}`,
+                            background: tx.type === "send" ? "rgba(239,68,68,0.08)" : "rgba(16,185,129,0.08)",
+                            border: `1px solid ${tx.type === "send" ? "rgba(239,68,68,0.2)" : "rgba(16,185,129,0.2)"}`,
                             color: tx.type === "send" ? "var(--crt-red)" : "var(--crt-green)",
-                            borderRadius: "2px",
+                            borderRadius: "8px",
                           }}
                         >
                           {tx.type === "send" ? "↑" : "↓"}
@@ -919,10 +919,10 @@ export default function WalletModal({
                           className="px-2 py-0.5"
                           style={{
                             color: tx.status === "success" ? "var(--crt-green)" : "var(--crt-red)",
-                            border: `1px solid ${tx.status === "success" ? "rgba(51,255,51,0.15)" : "rgba(255,51,51,0.15)"}`,
+                            border: `1px solid ${tx.status === "success" ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)"}`,
                             fontSize: "8px",
                             letterSpacing: "1px",
-                            borderRadius: "2px",
+                            borderRadius: "8px",
                           }}
                         >
                           {tx.status.toUpperCase()}
@@ -945,7 +945,7 @@ export default function WalletModal({
               style={{
                 border: "1px solid rgba(0,170,255,0.15)",
                 background: "rgba(0,170,255,0.03)",
-                borderRadius: "3px",
+                borderRadius: "10px",
               }}
             >
               <div className="flex items-center justify-between">
@@ -979,13 +979,13 @@ export default function WalletModal({
               onClick={() => { setShowAddToken(!showAddToken); setAddTokenError(null); setAddTokenPreview(null); setAddTokenAddress(""); }}
               className="w-full py-2.5 text-[9px] tracking-[2px] transition-all"
               style={{
-                border: showAddToken ? "1px solid var(--crt-green)" : "1px dashed rgba(51,255,51,0.2)",
+                border: showAddToken ? "1px solid var(--crt-green)" : "1px dashed rgba(16,185,129,0.2)",
                 color: "var(--crt-green)",
-                background: showAddToken ? "rgba(51,255,51,0.06)" : "transparent",
-                borderRadius: "3px",
+                background: showAddToken ? "rgba(16,185,129,0.06)" : "transparent",
+                borderRadius: "10px",
               }}
-              onMouseEnter={(e) => { if (!showAddToken) e.currentTarget.style.borderColor = "rgba(51,255,51,0.4)"; }}
-              onMouseLeave={(e) => { if (!showAddToken) e.currentTarget.style.borderColor = "rgba(51,255,51,0.2)"; }}
+              onMouseEnter={(e) => { if (!showAddToken) e.currentTarget.style.borderColor = "rgba(16,185,129,0.4)"; }}
+              onMouseLeave={(e) => { if (!showAddToken) e.currentTarget.style.borderColor = "rgba(16,185,129,0.2)"; }}
             >
               {showAddToken ? "CANCEL" : "+ IMPORT TOKEN"}
             </button>
@@ -995,9 +995,9 @@ export default function WalletModal({
               <div
                 className="p-4 space-y-3"
                 style={{
-                  border: "1px solid rgba(51,255,51,0.15)",
-                  background: "rgba(51,255,51,0.02)",
-                  borderRadius: "3px",
+                  border: "1px solid rgba(16,185,129,0.15)",
+                  background: "rgba(16,185,129,0.02)",
+                  borderRadius: "10px",
                 }}
               >
                 <div className="text-[9px] tracking-[2px]" style={{ color: "var(--text-tertiary)" }}>
@@ -1012,12 +1012,12 @@ export default function WalletModal({
                     className="flex-1 px-3 py-2 text-[11px] font-mono outline-none"
                     style={{
                       background: "rgba(0,0,0,0.3)",
-                      border: "1px solid rgba(255,255,255,0.08)",
+                      border: "1px solid var(--border-color)",
                       color: "var(--text-primary)",
-                      borderRadius: "2px",
+                      borderRadius: "8px",
                     }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(51,255,51,0.3)"; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(16,185,129,0.3)"; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border-color)"; }}
                     onKeyDown={(e) => { if (e.key === "Enter") handleFetchTokenPreview(); }}
                   />
                   <button
@@ -1027,8 +1027,8 @@ export default function WalletModal({
                     style={{
                       background: addTokenLoading ? "transparent" : "var(--crt-green)",
                       color: addTokenLoading ? "var(--crt-green)" : "#000",
-                      border: addTokenLoading ? "1px solid rgba(51,255,51,0.3)" : "none",
-                      borderRadius: "2px",
+                      border: addTokenLoading ? "1px solid rgba(16,185,129,0.3)" : "none",
+                      borderRadius: "8px",
                       fontWeight: "bold",
                       opacity: !addTokenAddress.trim() ? 0.4 : 1,
                     }}
@@ -1040,9 +1040,9 @@ export default function WalletModal({
                 {addTokenError && (
                   <div className="text-[10px] tracking-wider py-1.5 px-3" style={{
                     color: "var(--crt-red)",
-                    border: "1px solid rgba(255,51,51,0.2)",
-                    background: "rgba(255,51,51,0.06)",
-                    borderRadius: "2px",
+                    border: "1px solid rgba(239,68,68,0.2)",
+                    background: "rgba(239,68,68,0.06)",
+                    borderRadius: "8px",
                   }}>
                     {addTokenError}
                   </div>
@@ -1053,9 +1053,9 @@ export default function WalletModal({
                   <div
                     className="p-3 space-y-2"
                     style={{
-                      border: "1px solid rgba(51,255,51,0.2)",
-                      background: "rgba(51,255,51,0.04)",
-                      borderRadius: "3px",
+                      border: "1px solid rgba(16,185,129,0.2)",
+                      background: "rgba(16,185,129,0.04)",
+                      borderRadius: "10px",
                     }}
                   >
                     <div className="flex items-center justify-between">
@@ -1063,10 +1063,10 @@ export default function WalletModal({
                         <span
                           className="w-9 h-9 flex items-center justify-center text-[11px] font-bold"
                           style={{
-                            background: "rgba(51,255,51,0.08)",
-                            border: "1px solid rgba(51,255,51,0.25)",
+                            background: "rgba(16,185,129,0.08)",
+                            border: "1px solid rgba(16,185,129,0.25)",
                             color: "var(--crt-green)",
-                            borderRadius: "2px",
+                            borderRadius: "8px",
                           }}
                         >
                           {addTokenPreview.symbol.slice(0, 3)}
@@ -1092,11 +1092,11 @@ export default function WalletModal({
                         color: "#000",
                         fontWeight: "bold",
                         border: "none",
-                        borderRadius: "2px",
-                        boxShadow: "0 2px 12px rgba(51,255,51,0.2)",
+                        borderRadius: "8px",
+                        boxShadow: "0 2px 12px rgba(16,185,129,0.2)",
                       }}
-                      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 2px 20px rgba(51,255,51,0.35)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 2px 12px rgba(51,255,51,0.2)"; }}
+                      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 2px 20px rgba(16,185,129,0.35)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 2px 12px rgba(16,185,129,0.2)"; }}
                     >
                       ADD {addTokenPreview.symbol} TO WALLET
                     </button>
@@ -1125,10 +1125,10 @@ export default function WalletModal({
                     style={{
                       border: "1px solid rgba(255,255,255,0.05)",
                       background: "rgba(255,255,255,0.015)",
-                      borderRadius: "3px",
+                      borderRadius: "10px",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(51,255,51,0.15)";
+                      e.currentTarget.style.borderColor = "rgba(16,185,129,0.15)";
                       e.currentTarget.style.background = "rgba(255,255,255,0.025)";
                     }}
                     onMouseLeave={(e) => {
@@ -1141,10 +1141,10 @@ export default function WalletModal({
                         <span
                           className="w-9 h-9 flex items-center justify-center text-[11px] font-bold"
                           style={{
-                            background: "rgba(51,255,51,0.06)",
-                            border: "1px solid rgba(51,255,51,0.18)",
+                            background: "rgba(16,185,129,0.06)",
+                            border: "1px solid rgba(16,185,129,0.18)",
                             color: "var(--crt-green)",
-                            borderRadius: "2px",
+                            borderRadius: "8px",
                           }}
                         >
                           {token.symbol.slice(0, 3)}
@@ -1157,8 +1157,8 @@ export default function WalletModal({
                             {token.isCustom && (
                               <span className="text-[7px] px-1.5 py-0.5 tracking-wider" style={{
                                 color: "var(--crt-amber)",
-                                border: "1px solid rgba(255,176,0,0.2)",
-                                borderRadius: "2px",
+                                border: "1px solid rgba(245,158,11,0.2)",
+                                borderRadius: "8px",
                               }}>
                                 IMPORTED
                               </span>
@@ -1190,11 +1190,11 @@ export default function WalletModal({
                             style={{
                               color: "var(--text-tertiary)",
                               border: "1px solid rgba(255,255,255,0.06)",
-                              borderRadius: "2px",
+                              borderRadius: "8px",
                               opacity: 0.5,
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.borderColor = "rgba(255,51,51,0.3)";
+                              e.currentTarget.style.borderColor = "rgba(239,68,68,0.3)";
                               e.currentTarget.style.color = "var(--crt-red)";
                               e.currentTarget.style.opacity = "1";
                             }}

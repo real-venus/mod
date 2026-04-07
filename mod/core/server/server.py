@@ -161,6 +161,7 @@ class Server:
               pm = None,
               run_mode:str='flask',
               paywall = None, # optional x402 payment gate instance
+              sandbox:str = 'subprocess', # 'subprocess' or 'docker' for container isolation
               **extra_params
 
               ):
@@ -190,7 +191,7 @@ class Server:
             return info
         
         self.mod.info = get_info(mod)
-        self.gate = m.mod('gate')(mod=self.mod, paywall=paywall)
+        self.gate = m.mod('gate')(mod=self.mod, paywall=paywall, sandbox=sandbox)
         self.app = Flask(__name__)
         CORS(self.app)
 

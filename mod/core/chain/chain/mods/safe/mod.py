@@ -1,6 +1,6 @@
 """Safe contract module - multi-signature wallet deployment."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 from web3 import Web3
 import mod as m
 

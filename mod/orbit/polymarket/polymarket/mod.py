@@ -1,9 +1,22 @@
-import mod as c
-import json
+"""
+polymarket - prediction market interface with trading, data, scraping & backtesting
+
+Usage:
+    import mod as m
+    p = m.mod('polymarket')()
+    p.search("election")
+    p.trending()
+    p.serve()                         # start API + app
+    p.serve(api_only=True)            # API only
+"""
 import os
+import json
 import subprocess
 import requests
 from typing import Any, Dict, List, Optional, Union
+
+import mod as c
+
 
 class Polymarket(c.Mod):
     """
@@ -21,34 +34,35 @@ class Polymarket(c.Mod):
         p.orderbook(token_id)
 
         # Trading (requires private_key)
-        p.auth()                                   # derive API credentials
+        p.auth()
         p.buy(token_id, price=0.5, size=10)
         p.sell(token_id, price=0.7, size=10)
-        p.cancel(order_id)
-        p.cancel_all()
         p.positions()
-        p.trades()
 
-        # History scraping (background jobs)
-        p.discover(50)                             # auto-discover top 50 markets
-        p.track(condition_id, token_ids, question)
-        p.scrape(interval=60)                      # start scraping every 60s
-        p.scrape_stop()
-        p.scrape_status()
-
-        # Backtesting
-        p.backtest(start, end, strategy="threshold", buy_threshold=0.3, sell_threshold=0.7)
+        # Server
+        p.serve()                                  # start API + Next.js app
+        p.kill()                                   # stop services
+        p.status()                                 # check services
     """
+
+    name = 'polymarket'
+    description = 'Polymarket prediction market — trading, data, scraping, backtesting'
 
     base_url = "https://clob.polymarket.com"
     gamma_url = "https://gamma-api.polymarket.com"
     data_url = "https://data-api.polymarket.com"
 
-    def __init__(self, private_key: str = None, db_path: str = None):
+    api_port = 50091
+    app_port = 3091
+
+    def __init__(self, private_key: str = None, db_path: str = None, **kwargs):
         self.private_key = private_key
         self.session = requests.Session()
         self._engine = None
         self._db_path = db_path
+        self._dir = os.path.dirname(os.path.dirname(__file__))    # polymarket/ (project root)
+        self._mod_dir = os.path.dirname(__file__)                  # polymarket/polymarket/ (anchor)
+        self._app_dir = os.path.join(self._dir, 'app')
 
     @property
     def engine(self):
@@ -61,25 +75,129 @@ class Polymarket(c.Mod):
                     db_path=self._db_path,
                 )
             except ImportError:
-                print("polymarket_rs not built. Run: Polymarket().build()")
-                print("Falling back to Python-only mode.")
                 return None
         return self._engine
+
+    # ═══════════════════════════════════
+    #  SERVE
+    # ═══════════════════════════════════
+
+    def serve(self, api_port=None, app_port=None, dev=True, api_only=False, app_only=False):
+        """
+        Start the Polymarket server (FastAPI) and/or the Next.js app.
+
+        Args:
+            api_port:  API server port (default 50091)
+            app_port:  Next.js app port (default 3091)
+            dev:       run in dev mode (default True)
+            api_only:  only start the API server
+            app_only:  only start the Next.js app
+        """
+        api_port = api_port or self.api_port
+        app_port = app_port or self.app_port
+        results = {}
+
+        if not app_only:
+            results['api'] = self._serve_api(api_port, dev=dev)
+
+        if not api_only:
+            results['app'] = self._serve_app(app_port, dev=dev)
+
+        return results
+
+    def _serve_api(self, port=None, dev=True):
+        """Start the FastAPI server (server.py lives in polymarket/polymarket/)"""
+        port = port or self.api_port
+        cwd = self._mod_dir
+
+        if dev:
+            cmd = f'uvicorn server:app --host 0.0.0.0 --port {port} --reload'
+        else:
+            cmd = f'uvicorn server:app --host 0.0.0.0 --port {port}'
+
+        script = os.path.join(cwd, '_serve.sh')
+        with open(script, 'w') as f:
+            f.write(f'#!/bin/bash\ncd {cwd}\n{cmd}\n')
+        os.chmod(script, 0o755)
+
+        try:
+            pm2 = c.mod('pm.pm2')()
+            name = 'polymarket-api'
+            if pm2.exists(name):
+                pm2.kill(name, remove_script=False)
+            pm2.start_script(name=name, script_path=script, cwd=cwd, interpreter='bash')
+            return {'status': 'running', 'port': port, 'manager': 'pm2', 'name': name}
+        except Exception:
+            proc = subprocess.Popen(['bash', script], cwd=cwd)
+            return {'status': 'running', 'port': port, 'manager': 'subprocess', 'pid': proc.pid}
+
+    def _serve_app(self, port=None, dev=True):
+        """Start the Next.js app (app/ lives at project root)"""
+        port = port or self.app_port
+        cwd = self._app_dir
+
+        if not os.path.exists(os.path.join(cwd, 'node_modules')):
+            subprocess.run(['npm', 'install'], cwd=cwd, capture_output=True)
+
+        cmd = f'npm run {"dev" if dev else "start"} -- -p {port}'
+
+        script = os.path.join(cwd, '_serve.sh')
+        with open(script, 'w') as f:
+            f.write(f'#!/bin/bash\ncd {cwd}\nexport NEXT_PUBLIC_API_URL=http://localhost:{self.api_port}\n{cmd}\n')
+        os.chmod(script, 0o755)
+
+        try:
+            pm2 = c.mod('pm.pm2')()
+            name = 'polymarket-app'
+            if pm2.exists(name):
+                pm2.kill(name, remove_script=False)
+            pm2.start_script(name=name, script_path=script, cwd=cwd, interpreter='bash')
+            return {'status': 'running', 'port': port, 'manager': 'pm2', 'name': name}
+        except Exception:
+            proc = subprocess.Popen(['bash', script], cwd=cwd)
+            return {'status': 'running', 'port': port, 'manager': 'subprocess', 'pid': proc.pid}
+
+    def kill(self, service=None):
+        """
+        Stop running services.
+
+        Args:
+            service: 'api', 'app', or None (both)
+        """
+        results = {}
+        try:
+            pm2 = c.mod('pm.pm2')()
+            if service in (None, 'api') and pm2.exists('polymarket-api'):
+                pm2.kill('polymarket-api')
+                results['api'] = 'killed'
+            if service in (None, 'app') and pm2.exists('polymarket-app'):
+                pm2.kill('polymarket-app')
+                results['app'] = 'killed'
+        except Exception as e:
+            results['error'] = str(e)
+        return results
+
+    def status(self):
+        """Check if services are running"""
+        results = {'api_port': self.api_port, 'app_port': self.app_port}
+        try:
+            pm2 = c.mod('pm.pm2')()
+            results['api'] = 'running' if pm2.exists('polymarket-api') else 'stopped'
+            results['app'] = 'running' if pm2.exists('polymarket-app') else 'stopped'
+        except Exception:
+            results['api'] = 'unknown'
+            results['app'] = 'unknown'
+        return results
 
     # ═══════════════════════════════════
     #  BUILD
     # ═══════════════════════════════════
 
     def build(self):
-        """Build the Rust bindings"""
-        rs_dir = os.path.join(os.path.dirname(__file__), '..', 'polymarket-rs')
-        rs_dir = os.path.abspath(rs_dir)
+        """Build the Rust bindings (Cargo.toml + src/ live in polymarket/polymarket/)"""
+        rs_dir = self._mod_dir
         print(f"Building polymarket-rs from {rs_dir}...")
-        subprocess.run(
-            ['maturin', 'develop', '--release'],
-            cwd=rs_dir,
-            check=True,
-        )
+        subprocess.run(['maturin', 'develop', '--release'], cwd=rs_dir, check=True)
         print("Build complete.")
 
     # ═══════════════════════════════════
@@ -199,7 +317,6 @@ class Polymarket(c.Mod):
         e = self.engine
         if e:
             return json.loads(e.markets(limit, None, active, not active, order))
-        # Fallback to Python
         params = {"limit": limit, "active": str(active).lower()}
         return self.session.get(f"{self.gamma_url}/markets", params=params).json()
 
@@ -465,6 +582,24 @@ class Polymarket(c.Mod):
 
     def _calculate_total_value(self, positions: list) -> str:
         return str(sum(float(p.get("currentValue", 0) or 0) for p in positions))
+
+    # ═══════════════════════════════════
+    #  TEST
+    # ═══════════════════════════════════
+
+    def test(self):
+        """Test the polymarket module"""
+        results = {}
+        s = self.search("test")
+        results['search'] = type(s) in (list, dict)
+        t = self.trending(5)
+        results['trending'] = type(t) in (list, dict)
+        m = self.markets(5)
+        results['markets'] = type(m) in (list, dict)
+        st = self.server_time()
+        results['server_time'] = st is not None
+        results['engine'] = self.engine is not None
+        return results
 
     # Aliases
     m = markets

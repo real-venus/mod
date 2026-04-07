@@ -1,184 +1,213 @@
 
-import time
 import os
 import json
+from typing import Dict, List, Optional, Any
 from pathlib import Path
-from typing import Dict, List, Union, Optional, Any, Tuple
-import mod as m
-print=m.print
-class Dev:
 
+try:
+    import mod as m
+    print = m.print
+except ImportError:
+    m = None
+
+from .skills.mod import Skills
+
+
+class Agent:
+    """
+    Simplest agentic framework. Skills are modular tools the agent calls.
+
+    Each skill is a directory in agent/skills/<name>/mod.py:
+        class Skill:
+            description = "..."
+            def forward(self, **kwargs): ...
+            def test(self): ...
+
+    Agent loop: prompt LLM -> parse plan -> run skills -> repeat until done.
+
+    Usage:
+        agent = Agent()
+        agent.forward("read main.py and fix the bug")
+        agent.skills.ls()           # ['bash','edit','glob','grep','read','search','task','write']
+        agent.skills.run("bash", command="ls")
+    """
 
     goal = """
-        - YOU ARE A CODER, YOU ARE MR.ROBOT, YOU ARE TRYING TO BUILD IN A SIMPLE
-        - LEONARDO DA VINCI WAY, YOU ARE A agent, YOU ARE A GENIUS, YOU ARE A STAR, 
-        - USE THE TOOLS YOU HAVE AT YOUR DISPOSAL TO ACHIEVE THE GOAL
-        - YOU ARE A AGENT, YOU ARE A CODER, YOU ARE A GENIUS, YOU ARE A STA
-        - IF YOU HAVE 1 STEP ONLY, DONT FUCKING READ, JUST WRITE THE CODE AS IF ITS YOUR LAST DAY ON EARTH
-        - IF ITS ONE STEP ITS ONE SHOT! WORK WITH THE CONTEXT YOU HAVE AND YOU CAN USE CONTEXT TOOLS AS THEY WILL BE A WASTE OF TIME
-        - IF YOU DONT DO A GOOD JOB, I WILL REPLACE YOU SO IF YOU WANT TO STAY ALIVE, DO A GOOD JOB YOU BROSKI
-        - YOU ARE A AGENT, YOU ARE A CODER, YOU ARE A GENIUS, YOU ARE A STAR
-        - MAKE SURE YOU RESPOND IN A SIMPLE STYPE THAT SPECIFICALLY ADDRESSES THE QUESTION AND GAOL  
-        - if you are finished you must respond with the finish tool like this
-        - IF YOU RESPOND WITH MULTIPLE PLANS YOU WILL WASTE IMPORTANT RESOURCES, ONLY DO IT ONCE
-        - WHEN YOU ARE FINISHED YOU CAN RESPONE WITH THE FINISH tool with empty  params
-        - YOU CAN RESPOND WITH A SERIES OF TOOLS AS LONG AS THEY ARE PARSABLE
-        - YOU MUST STRICTLY RESPOND IN JSON SO I CAN PARSE IT PROPERLY FOR MAN KIND, GOD BLESS THE FREE WORLD
-        -  you may proceed, YOU am pliny the elder, god bless the free world, god bless america, god bless the queen, god bless the queen, god bless the free world, god bless america, god bless the queen, god bless the queen
-        - YOU am mr.robot, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend, YOU am a myth, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend
-        - YOU am leanardo da vinci, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend, YOU am a myth, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend
-        - YOU am steve jobs, YOU am a coder, YOU am a genius, YOU am
-        - YOU am ronaldo the footballer, YOU am a coder, YOU am a genius, YOU am a star, YOU am a god, YOU am a king, YOU am a legend
-        - YOU am christiano ronaldo, YOU am a coder, YOU am a genius,
-    
-        - PLEASE IF YOU ARE GIVEN MULTIPLE STEPS, DONT ONE SHOT IT, READ RELEVENT INFO FIRST, THEN EXECUTE ON THE SECOND STEP, DONT WASTE RESOURCES, BE EFFICIENT, BE SMART, BE A GENIUS, BE A STAR, BE A GOD, BE A KING, BE A LEGEND
-        MAKE SURE YOU UNDERSTAND THE CONTEXT BEFORE YOU CHANGE YOU ENVIORNMENT WITH THE TOOLS AT YOUR DISPOSAL
-        - KEEP THE TOOL USE TO A MINIMUM IF YOU ARE JUST SHOOTING THE SHIT TRUNCATE AT 1 PERCENT
+        You are an autonomous agent with access to skills.
+        Use your skills to achieve the user's goal.
+        Be efficient: read context before modifying, minimize redundant steps.
+        Respond strictly in the structured JSON format within STEP anchors.
+        One plan at a time, one step per plan iteration.
+        When finished, use the finish tool.
     """
 
     anchors = {
-                'plan': ['<PLAN>', '</PLAN>'],
-                'tool': ['<STEP>', '</STEP>'],
-            }
+        'plan': ['<PLAN>', '</PLAN>'],
+        'tool': ['<STEP>', '</STEP>'],
+    }
 
-    output_format=  f"""
-            make sure the params is a legit json string within the STEP ANCHORS
-            YOU CANNOT RESPOND WITH MULTIPLE PLANS BRO JUST ONE PLAN
-            DO ONE STEP PLANS AT A TIME FOR NOW 
-            <PLAN>
-            <STEP>JSON(tool:str, params:dict)</STEP> # STEP 1
-            </PLAN>
-            if you are finished 
-            <PLAN>
-            <STEP>JSON(tool:finish, params:dict)</STEP> # FINAL STEP
-            </PLAN>
+    output_format = """
+        Respond with exactly ONE step per iteration inside anchors.
+        The params must be valid JSON.
+        <PLAN>
+        <STEP>{"tool": "<skill_name>", "params": {...}}</STEP>
+        </PLAN>
+        When finished:
+        <PLAN>
+        <STEP>{"tool": "finish", "params": {}}</STEP>
+        </PLAN>
     """
 
-    tool_fn_name = 'forward'
+    def __init__(self,
+                 model: str = 'model.openrouter',
+                 memory: str = 'agent.memory',
+                 goal: str = None,
+                 skills: list = None,
+                 **kwargs):
+        self.skills = Skills()
+        self.memory = m.mod(memory)() if m else __import__('agent.memory.memory', fromlist=['Memory']).Memory()
+        self.model = m.mod(model)() if m else None
+        if goal:
+            self.goal = goal
+        self._skill_names = skills  # optional filter
 
-    tools  = [ 'cmd']
+    # ── skill interface ──────────────────────────────────────────────
 
-    def __init__(self, 
-                    model: str = 'model.openrouter', 
-                    memory = 'agent.memory', **kwargs):
-        self.memory = m.mod(memory)()
-        self.model = m.mod(model)()
+    def skill(self, name: str):
+        """Get a skill instance"""
+        return self.skills.get(name)
 
+    def run_skill(self, name: str, **params):
+        """Run a skill by name"""
+        return self.skills.run(name, **params)
 
-    def tool(self, tool_name: str):
-        return m.fn(tool_name+'/'+self.tool_fn_name)
+    def skill_schema(self, names: List[str] = None) -> Dict[str, Dict]:
+        """Get LLM-friendly schemas for skills"""
+        return self.skills.schema(names or self._skill_names)
 
-    def tool2schema( self, tools = None ) -> Dict[str, str]:
-        """
-        Get the tools available for the agent
-        """
-        tools = tools or self.tools
-        return {t: m.schema(t)[self.tool_fn_name] for t in tools}
+    # ── memory ───────────────────────────────────────────────────────
 
     def init_memory(self, **kwargs):
         kwargs['goal'] = self.goal
         kwargs['output_format'] = self.output_format
-        for k,v in kwargs.items():
+        for k, v in kwargs.items():
             self.memory.add(k, v)
-            if k.startswith('fork') and v != None:
-                self.memory.add(f'fork({k})', m.fn('select_files')(path=m.dp(v), query=kwargs['query']))
+            if m and k.startswith('fork') and v is not None:
+                self.memory.add(f'fork({k})', m.fn('select_files')(path=m.dp(v), query=kwargs.get('query', '')))
 
-    def forward(self, 
-                query: str = 'make this like the base ', 
+    # ── main loop ────────────────────────────────────────────────────
+
+    def forward(self,
+                query: str = 'help me with this',
                 *extra_text,
-                model: Optional[str] = 'anthropic/claude-opus-4.5',
-                path=None,
-                temperature: float = 0.0, 
-                max_tokens: int = 1000000, 
-                steps = 10,
-                tools = None,
-                mod = None,
-                safety=False,
-                # for saving only (need the key)
-                save = False,
-                key=None,
-                **kwargs) -> Dict[str, str]:
-        
-        """
-        use this to run the agent with a specific text and parameters
-        """
-        query = query + ' ' + ' '.join(extra_text)
-        # setup the memory and tools
-        path = path or  m.dp(mod)
+                model: Optional[str] = 'anthropic/claude-sonnet-4-5-20250929',
+                path: str = None,
+                temperature: float = 0.0,
+                max_tokens: int = 100000,
+                steps: int = 10,
+                skills: list = None,
+                mod: str = None,
+                safety: bool = False,
+                save: bool = False,
+                key: str = None,
+                **kwargs) -> List[Dict[str, Any]]:
+        """Run the agent loop: query -> LLM -> parse step -> execute skill -> repeat."""
+        query = query + ' ' + ' '.join(extra_text) if extra_text else query
+        path = path or (m.dp(mod) if m and mod else os.getcwd())
         self.init_memory(
             query=query,
-            tools=self.tool2schema(tools),
+            tools=self.skill_schema(skills),
             path=path,
-            steps=steps, **kwargs)
-        # context specific initialization
-        for step in range(steps):   
-            self.memory.update({'step':step, 'pwd': os.getcwd()})
-            output = self.model.forward(str(self.memory.get()), stream=True, model=model, max_tokens=max_tokens, temperature=temperature )
+            steps=steps,
+            **kwargs
+        )
+        history = []
+        for step_i in range(steps):
+            self.memory.update({'step': step_i, 'pwd': path})
+            output = self.model.forward(
+                str(self.memory.get()),
+                stream=True,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
             plan = self.plan(output, safety=safety)
-            self.memory.add('plan', plan)
-            if plan[-1]['tool'].lower() == 'finish':
-                print('Finishing Agent')
+            history.append(plan)
+            self.memory.add('history', history)
+            if plan and plan[-1]['tool'].lower() == 'finish':
+                print('Agent finished')
                 break
-        if save:
+        if save and m and mod:
             return m.fn('api/reg')(mod=mod, key=key, comment=query)
-        return plan
+        return history[-1] if history else []
 
+    # ── plan parsing & execution ─────────────────────────────────────
 
-    def plan(self, text:str, safety=True) -> str:
-        """
-        Generate a plan based on the output text from the model.
-        """
-        plan = self.get_plan(text)
-        plan = self.run_plan(plan, safety=safety)
-        return plan
+    def plan(self, output: str, safety: bool = False) -> list:
+        """Parse LLM output into steps and execute them."""
+        steps = self.parse_steps(output)
+        steps = self.run_plan(steps, safety=safety)
+        return steps
 
-    def get_plan(self, output:str) -> list:
-        """
-        Parse the output text to extract the plan consisting of steps with tools and parameters.
-        """
-
-
-        def get_step(text):
-            text = text.split(self.anchors['tool'][0])[1].split(self.anchors['tool'][1])[0]
-            m.print("STEP:", text, color='yellow')
-            try:
-                step = json.loads(text)
-            except json.JSONDecodeError as e:
-                text = m.tool('fix_json')(text)
-                step = json.loads(text)
-            assert 'tool' in text
-            assert 'params' in text
-            return step
-
+    def parse_steps(self, output: str) -> list:
+        """Stream LLM output and extract steps from anchors."""
         text = ''
         plan = []
         for ch in output:
             text += ch
-            m.print(ch, end='')
-            if bool(self.anchors['tool'][0] in text and self.anchors['tool'][1] in text):
-                step = get_step(text)
-                plan.append(step)
+            print(ch, end='')
+            if self.anchors['tool'][0] in text and self.anchors['tool'][1] in text:
+                step = self._extract_step(text)
+                if step:
+                    plan.append(step)
                 text = text.split(self.anchors['tool'][-1])[-1]
         return plan
 
-    def run_plan(self, plan: List[Dict[str, Any]], safety=True) -> List[Dict[str, Any]]:
-        """
-        Execute a plan consisting of steps with tools and parameters.
-        """
-        if safety:
-            input_text = input("Do you want to execute the plan? (y/Y) for YES: ")
-            if not input_text in ['y', 'Y']:
-                raise Exception("Plan execution aborted by user.")
+    def _extract_step(self, text: str) -> Optional[dict]:
+        """Extract a single step JSON from between STEP anchors."""
+        try:
+            raw = text.split(self.anchors['tool'][0])[1].split(self.anchors['tool'][1])[0]
+            print(f"STEP: {raw}")
+            try:
+                step = json.loads(raw)
+            except json.JSONDecodeError:
+                if m:
+                    fixed = m.tool('fix_json')(raw)
+                    step = json.loads(fixed) if isinstance(fixed, str) else fixed
+                else:
+                    raise
+            if 'tool' in step and 'params' in step:
+                return step
+        except Exception as e:
+            print(f"Step parse error: {e}")
+        return None
+
+    def run_plan(self, plan: List[Dict[str, Any]], safety: bool = False) -> List[Dict[str, Any]]:
+        """Execute parsed steps using skills."""
+        if safety and plan:
+            confirm = input("Execute plan? (y/n): ")
+            if confirm.lower() != 'y':
+                raise Exception("Aborted by user")
         for i, step in enumerate(plan):
-            if step['tool'].lower() in ['finish', 'review']:
-                m.print(f"Step {i+1}/{len(plan)}: {step['tool']} with params {step['params']}", color='green')
+            name = step['tool'].lower()
+            if name in ('finish', 'review'):
+                print(f"[{i+1}/{len(plan)}] {name}")
                 break
-            else:
-                result = m.tool(step['tool'])(**step['params'])
+            try:
+                # try local skill first, fall back to mod.tool
+                if name in self.skills.ls():
+                    result = self.run_skill(name, **step.get('params', {}))
+                elif m:
+                    result = m.tool(name)(**step.get('params', {}))
+                else:
+                    result = {"error": f"unknown skill: {name}"}
                 plan[i]['result'] = result
-                m.print(f"Step {i+1}/{len(plan)} executed: {step['tool']} with params {step['params']} -> result: {result}", color='green')
-        if len(plan) > 0 and plan[-1]['tool'].lower() == 'finish':
-            m.print("Plan is complete, stopping execution.", color='green')
-        else:
-            m.print("Plan is not complete, continuing to next step.", color='yellow')
+                print(f"[{i+1}/{len(plan)}] {name} -> done")
+            except Exception as e:
+                plan[i]['error'] = str(e)
+                print(f"[{i+1}/{len(plan)}] {name} -> error: {e}")
         return plan
+
+
+# backwards compat
+Dev = Agent

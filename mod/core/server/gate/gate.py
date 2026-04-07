@@ -7,26 +7,40 @@ import json
 import inspect
 import time
 import mod as m
-from mod.core.server.executor.worker import SandboxWorker
+from mod.core.server.executor.worker import SandboxWorker, DockerWorker
 
 
 print = m.print
 
 class Gate:
 
-    def __init__(self, path = '~/.mod/server', auth='auth.base',mod='api', paywall=None, serializer='serializer', **_kwargs):
+    def __init__(self, path = '~/.mod/server', auth='auth.base',mod='api', paywall=None, serializer='serializer', sandbox='subprocess', meter=True, **_kwargs):
         """
         Initialize the Gate class
         params:
             path: the path to store the gate data
             auth: the auth module to use
             paywall: optional x402 payment gate instance (has gate_check(fn, headers) method)
+            sandbox: 'subprocess' (default) or 'docker' for container-level isolation
+            meter: enable usage metering (default True)
         """
         self.store = m.mod('store')(path)
         self.auth = m.mod(auth)()
         self.paywall = paywall
         self.serializer = m.mod(serializer)()
-        self.sandbox = SandboxWorker(max_workers=10)
+        if sandbox == 'docker':
+            self.sandbox = DockerWorker(max_workers=10)
+            print('Gate: using Docker sandbox (container isolation)', color='green')
+        else:
+            self.sandbox = SandboxWorker(max_workers=10)
+        # Usage metering
+        self.meter = None
+        if meter:
+            try:
+                self.meter = m.mod('meter')()
+                print('Gate: usage metering enabled', color='green')
+            except Exception:
+                print('Gate: meter module not found, metering disabled', color='yellow')
         self.roles_path = self.store.get_path('roles')
         if len(self.roles()) < 2:
             self.ensure_role_map()
@@ -39,6 +53,8 @@ class Gate:
         'users', 'call', 'schema', 'content', 'config', 'versions', 'edit',
         'reg', 'update', 'fork', 'new', 'rm', 'n', 'transfer', 'set_public',
         'token', 'logs', 'namespace', 'serve', 'stop',
+        # Metering, billing, load balancing, paywall (mod paths)
+        'meter', 'balancer', 'paywall',
     }
 
     def forward(self, fn:str, headers:dict, params:dict, mod:Any=None) -> dict:
@@ -75,16 +91,52 @@ class Gate:
         # Module calls have '/' (e.g., 'ssh/keys') and aren't in the unsandboxed set
         is_module_call = '/' in fn and fn.split('/')[0] not in self.UNSANDBOXED_FNS
 
-        if is_module_call and fn not in self.UNSANDBOXED_FNS:
-            # Execute in sandboxed subprocess
-            print(f'Gate: sandboxed execution for {fn}', color='yellow')
-            result = self.sandbox.run(fn_path=fn, params=params, timeout=120)
-        else:
-            # In-process execution for API-level functions
-            fn_obj = self.get_fn_obj(fn, mod=mod)
-            result = fn_obj(**params) if callable(fn_obj) else fn_obj
-        if isinstance(result, bytes):
-            result = result.decode('utf-8')
+        t0 = time.time()
+        status = 'success'
+        try:
+            if is_module_call and fn not in self.UNSANDBOXED_FNS:
+                # Execute in sandboxed subprocess
+                print(f'Gate: sandboxed execution for {fn}', color='yellow')
+                result = self.sandbox.run(fn_path=fn, params=params, timeout=120)
+            else:
+                # In-process execution for API-level functions
+                fn_obj = self.get_fn_obj(fn, mod=mod)
+                result = fn_obj(**params) if callable(fn_obj) else fn_obj
+            if isinstance(result, bytes):
+                result = result.decode('utf-8')
+        except Exception as e:
+            status = 'error'
+            duration = time.time() - t0
+            if self.meter:
+                try:
+                    self.meter.record(
+                        user=headers.get('key', ''),
+                        fn=fn,
+                        duration=duration,
+                        status=status,
+                        params_size=len(json.dumps(params)) if params else 0,
+                    )
+                except Exception:
+                    pass
+            raise
+
+        # Record usage
+        duration = time.time() - t0
+        if self.meter:
+            try:
+                import sys
+                result_size = sys.getsizeof(result) if result is not None else 0
+                self.meter.record(
+                    user=headers.get('key', ''),
+                    fn=fn,
+                    duration=duration,
+                    status=status,
+                    params_size=len(json.dumps(params)) if params else 0,
+                    result_size=result_size,
+                )
+            except Exception:
+                pass
+
         return result
 
 

@@ -1,6 +1,6 @@
 """Token contract module - ERC20 token deployment and interaction."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 from web3 import Web3
 
 
@@ -14,6 +14,7 @@ class Mod(ContractModule):
     name = 'token'
     contracts = ['Token']
     dependencies = []
+    deploy_count = 4
 
     # Real mainnet token addresses
     MAINNET_TOKENS = {
@@ -41,7 +42,7 @@ class Mod(ContractModule):
 
     MAINNET_NETWORKS = ['ethereum', 'base', 'arbitrum', 'polygon']
 
-    def deploy(self, network='testnet', key=None, **deps):
+    def deploy(self, network='testnet', key=None, nonce=None, **deps):
         """Deploy token contracts.
 
         On testnet/ganache: deploys mock USDC, USDT, DAI, NativeToken.
@@ -65,17 +66,19 @@ class Mod(ContractModule):
                 addresses[name] = addr
         else:
             supply = Web3.to_wei(1_000_000, 'ether')
-            for name, symbol in [('USDC', 'USDC'), ('USDT', 'USDT'), ('DAI', 'DAI')]:
+            for i, (name, symbol) in enumerate([('USDC', 'USDC'), ('USDT', 'USDT'), ('DAI', 'DAI')]):
+                n = nonce + i if nonce is not None else None
                 addr = self.deploy_contract(
                     'Token', [f'{name} Token', symbol, supply],
-                    contract_key=name,
+                    contract_key=name, nonce=n,
                 )
                 addresses[name] = addr
 
             # Native token
+            n = nonce + 3 if nonce is not None else None
             addr = self.deploy_contract(
                 'Token', ['Native Token', 'NAT', supply],
-                contract_key='NativeToken',
+                contract_key='NativeToken', nonce=n,
             )
             addresses['NativeToken'] = addr
 

@@ -22,13 +22,13 @@ import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 type TabType = 'mods' | 'sign' | 'transfer' | 'admin' | 'contracts' | 'billing' | 'portfolio' | 'create' | 'txs'
 
 const DEFAULT_TABS: { id: TabType; label: string; color: string }[] = [
-  { id: 'transfer', label: 'transfer', color: '#3b82f6' },
+  { id: 'admin', label: 'admin', color: '#ef4444' },
+  { id: 'billing', label: 'billing', color: '#eab308' },
+  { id: 'contracts', label: 'contracts', color: '#14b8a6' },
   { id: 'mods', label: 'mods', color: '#a855f7' },
   { id: 'portfolio', label: 'portfolio', color: '#6366f1' },
+  { id: 'transfer', label: 'transfer', color: '#3b82f6' },
   { id: 'txs', label: 'txs', color: '#06b6d4' },
-  { id: 'admin', label: 'admin', color: '#ef4444' },
-  { id: 'contracts', label: 'contracts', color: '#14b8a6' },
-  { id: 'billing', label: 'billing', color: '#eab308' },
 ]
 
 export default function UserPage() {
@@ -141,7 +141,7 @@ export default function UserPage() {
       <main className="flex-1 px-6 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="mb-8">
-            <UserCard user={userData}/>
+            <UserCard user={userData} mode="page" />
           </div>
 
           {myMod && displayTabs.length > 3 && (

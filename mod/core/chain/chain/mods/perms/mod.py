@@ -1,6 +1,6 @@
 """Perms contract module - permission system with parent key control."""
 
-from mod.core.chain.mods.base import ContractModule
+from mod.core.chain.chain.mods.base import ContractModule
 import mod as m
 
 
@@ -13,8 +13,9 @@ class Mod(ContractModule):
     name = 'perms'
     contracts = ['Perms']
     dependencies = []
+    deploy_count = 1
 
-    def deploy(self, network='testnet', key=None, **deps):
+    def deploy(self, network='testnet', key=None, nonce=None, **deps):
         """Deploy Perms.
 
         Returns:
@@ -25,7 +26,7 @@ class Mod(ContractModule):
         if network:
             self.network = network
 
-        address = self.deploy_contract('Perms', [], contract_key='Perms')
+        address = self.deploy_contract('Perms', [], contract_key='Perms', nonce=nonce)
         return address
 
     # ==================== INTERACTION ====================
