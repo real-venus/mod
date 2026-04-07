@@ -105,8 +105,14 @@ export async function POST(req: NextRequest) {
 
       let cmd: string;
       if (type === "api") {
-        // Python FastAPI module
-        cmd = `cd "${workDir}" && nohup python -m uvicorn mod:app --host 0.0.0.0 --port ${targetPort} > /tmp/mod-api-${moduleName || "service"}.log 2>&1 &`;
+        // Check if this is a Rust API (has start.sh or Cargo.toml)
+        const isRust = await execAsync(`test -f "${workDir}/start.sh" && echo rust || echo python`).then(r => r.stdout.trim() === "rust").catch(() => false);
+        if (isRust) {
+          cmd = `cd "${workDir}" && nohup bash start.sh ${targetPort} > /tmp/mod-api-${moduleName || "service"}.log 2>&1 &`;
+        } else {
+          // Python FastAPI module
+          cmd = `cd "${workDir}" && nohup python -m uvicorn mod:app --host 0.0.0.0 --port ${targetPort} > /tmp/mod-api-${moduleName || "service"}.log 2>&1 &`;
+        }
       } else {
         // Next.js app
         cmd = `cd "${workDir}" && nohup npx next dev -p ${targetPort} > /tmp/mod-app-${moduleName || "service"}.log 2>&1 &`;

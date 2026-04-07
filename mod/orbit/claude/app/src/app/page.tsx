@@ -178,6 +178,9 @@ export default function Home() {
   const [viewingFile, setViewingFile] = useState<string | null>(null);
   const [viewingFileContent, setViewingFileContent] = useState<string>("");
   const [viewingFileLoading, setViewingFileLoading] = useState(false);
+  const [editingFile, setEditingFile] = useState(false);
+  const [editBuffer, setEditBuffer] = useState("");
+  const [savingFile, setSavingFile] = useState(false);
   // Inline search state
   const [inlineSearchMode, setInlineSearchMode] = useState<"off" | "files" | "grep">("files");
   const [inlineSearchQuery, setInlineSearchQuery] = useState("");
@@ -212,6 +215,12 @@ export default function Home() {
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [showBackendEditor, setShowBackendEditor] = useState(false);
   const [backendInput, setBackendInput] = useState("");
+
+  // Dynamic API lifecycle
+  const [apiStatus, setApiStatus] = useState<"on" | "off" | "starting">("off");
+  const apiIdleTimeout = useRef(300); // seconds before auto-shutdown
+  const apiLastActivity = useRef(0);
+  const apiIdleTimer = useRef<NodeJS.Timeout | null>(null);
 
   // API explorer state
   const [apiSelectedEndpoint, setApiSelectedEndpoint] = useState<string | null>(null);
@@ -300,8 +309,23 @@ export default function Home() {
   const apiBlueBg = isLight ? "rgba(59,130,246,0.05)" : "rgba(96,165,250,0.06)";
   const apiRedBorder = isLight ? "rgba(239,68,68,0.25)" : "rgba(248,113,113,0.3)";
   const apiRedBg = isLight ? "rgba(239,68,68,0.05)" : "rgba(248,113,113,0.06)";
-  const darkOverlay = isLight ? "rgba(0,0,0,0.03)" : "rgba(0,0,0,0.3)";
-  const darkOverlayStrong = isLight ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.4)";
+  const darkOverlay = isLight ? "rgba(0,0,0,0.02)" : "rgba(0,0,0,0.3)";
+  const darkOverlayStrong = isLight ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.4)";
+  const cardHoverBg = isLight ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.02)";
+  const networkBtnBg = isLight ? "rgba(0,0,0,0.03)" : "rgba(0,0,0,0.15)";
+  const selectedHighlight = isLight ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.05)";
+  const copyBtnBg = isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.04)";
+  // JSON viewer colors (light-aware)
+  const jsonKeyColor = isLight ? "#0369a1" : "#8be9fd";
+  const jsonNullColor = isLight ? "#6b7280" : "#6272a4";
+  const jsonBoolColor = isLight ? "#be185d" : "#ff79c6";
+  const jsonNumColor = isLight ? "#7c3aed" : "#bd93f9";
+  const jsonAddrColor = isLight ? "#059669" : "#50fa7b";
+  const jsonUrlColor = isLight ? "#0284c7" : "#8be9fd";
+  const jsonStrColor = isLight ? "#b45309" : "#f1fa8c";
+  const jsonRowHover = isLight ? "rgba(0,0,0,0.02)" : "rgba(139,233,253,0.03)";
+  const jsonCopiedColor = isLight ? "#059669" : "#50fa7b";
+  const jsonCopiedBg = isLight ? "rgba(5,150,105,0.1)" : "rgba(80,250,123,0.1)";
 
   // Pick the best default tab for a module based on its capabilities
   const getBestTab = useCallback((info: typeof moduleList[0] | null): "overview" | "app" | "api" | "files" => {
@@ -387,11 +411,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (theme === "dark") {
-      document.documentElement.removeAttribute('data-theme');
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
+    document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem("claude_jobs_theme", theme);
   }, [theme]);
 
@@ -799,6 +819,109 @@ export default function Home() {
     [token, apiUrl]
   );
 
+  // ── Dynamic API Lifecycle ───────────────────────────────────────────
+
+  const touchApiActivity = useCallback(() => {
+    apiLastActivity.current = Date.now();
+  }, []);
+
+  const checkApiHealth = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch(`${apiUrl}/health`, { signal: AbortSignal.timeout(2000) });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }, [apiUrl]);
+
+  const startApiServer = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/service", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "start",
+          type: "api",
+          port: parseInt(apiUrl.split(":").pop() || "8820"),
+          workDir: `${anchorDir.replace("~", process.env.HOME || "/Users/broski")}/mod/orbit/claude/api`,
+        }),
+      });
+      const data = await res.json();
+      return data.ok && data.running;
+    } catch {
+      return false;
+    }
+  }, [apiUrl, anchorDir]);
+
+  const stopApiServer = useCallback(async () => {
+    try {
+      const port = parseInt(apiUrl.split(":").pop() || "8820");
+      await fetch("/api/service", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "stop", port }),
+      });
+      setApiStatus("off");
+    } catch { /* ignore */ }
+  }, [apiUrl]);
+
+  const ensureApi = useCallback(async (): Promise<boolean> => {
+    touchApiActivity();
+    if (await checkApiHealth()) {
+      setApiStatus("on");
+      return true;
+    }
+    setApiStatus("starting");
+    // Try starting via start.sh (the Rust binary)
+    const apiDir = `${anchorDir.replace("~", process.env.HOME || "/Users/broski")}/mod/orbit/claude/api`;
+    try {
+      const res = await fetch("/api/service", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "start",
+          type: "api",
+          port: parseInt(apiUrl.split(":").pop() || "8820"),
+          workDir: apiDir,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.running) {
+        // Wait a bit more for the Rust server to be fully ready
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 500));
+          if (await checkApiHealth()) {
+            setApiStatus("on");
+            return true;
+          }
+        }
+      }
+    } catch { /* fall through */ }
+    setApiStatus("off");
+    return false;
+  }, [apiUrl, anchorDir, checkApiHealth, touchApiActivity]);
+
+  // Idle monitor: check every 30s, shut down if no activity for idleTimeout
+  useEffect(() => {
+    if (apiStatus !== "on") return;
+    const iv = setInterval(async () => {
+      const idle = (Date.now() - apiLastActivity.current) / 1000;
+      if (idle >= apiIdleTimeout.current && apiLastActivity.current > 0) {
+        console.log(`[mod] API idle for ${Math.floor(idle)}s — shutting down`);
+        await stopApiServer();
+      }
+    }, 30000);
+    return () => clearInterval(iv);
+  }, [apiStatus, stopApiServer]);
+
+  // Check API status on mount
+  useEffect(() => {
+    checkApiHealth().then(ok => {
+      setApiStatus(ok ? "on" : "off");
+      if (ok) touchApiActivity();
+    });
+  }, []);
+
   // ── Directory Tree ────────────────────────────────────────────────
 
   const collectDirPaths = (tree: any[]): string[] => {
@@ -816,6 +939,7 @@ export default function Home() {
   const loadFileContent = useCallback(async (filePath: string) => {
     setViewingFile(filePath);
     setViewingFileLoading(true);
+    setEditingFile(false);
     try {
       const res = await fetch(`${apiUrl}/files/content?path=${encodeURIComponent(filePath)}`);
       if (res.ok) {
@@ -830,6 +954,28 @@ export default function Home() {
       setViewingFileLoading(false);
     }
   }, [apiUrl]);
+
+  const saveFile = useCallback(async () => {
+    if (!viewingFile || !token) return;
+    setSavingFile(true);
+    try {
+      const res = await authFetch("/files/write", {
+        method: "POST",
+        body: JSON.stringify({ path: viewingFile, content: editBuffer }),
+      });
+      if (res.ok) {
+        setViewingFileContent(editBuffer);
+        setEditingFile(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to save file");
+      }
+    } catch {
+      setError("Error saving file");
+    } finally {
+      setSavingFile(false);
+    }
+  }, [viewingFile, editBuffer, token, authFetch]);
 
   // Navigate file tree to show the parent folder of a file and expand all ancestor dirs
   const navigateToFile = useCallback(async (filePath: string) => {
@@ -939,12 +1085,15 @@ export default function Home() {
       const data = await res.json();
       setJobs(data.jobs || []);
       setError(null);
+      setApiStatus("on");
+      touchApiActivity();
     } catch {
-      setError("API OFFLINE — run: cd api && cargo run");
+      setApiStatus("off");
+      setError("API OFFLINE — will auto-start on next job submit");
     } finally {
       setLoading(false);
     }
-  }, [token, authFetch]);
+  }, [token, authFetch, touchApiActivity]);
 
   useEffect(() => {
     if (!token) return;
@@ -963,6 +1112,14 @@ export default function Home() {
     if (!prompt.trim() || !token) return;
     setSubmitting(true);
     try {
+      // Ensure API is running before submitting
+      const apiReady = await ensureApi();
+      if (!apiReady) {
+        setError("API SERVER COULD NOT BE STARTED — check api/start.sh");
+        setSubmitting(false);
+        return;
+      }
+      touchApiActivity();
       const body: any = { prompt: prompt.trim(), model };
 
       if (images.length > 0) body.images = images;
@@ -1030,7 +1187,9 @@ export default function Home() {
 
   const startStream = (jobId: string) => {
     if (esRef.current) esRef.current.close();
-    setStreamOutput("");
+    // Pre-fill with any existing output so late subscribers see accumulated logs
+    const existing = jobs.find(j => j.id === jobId);
+    setStreamOutput(existing?.output || "");
     const es = new EventSource(`${apiUrl}/jobs/${jobId}/stream`);
     esRef.current = es;
     es.onmessage = (event) => {
@@ -1695,7 +1854,7 @@ export default function Home() {
 
   if (!token) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-crt-darker relative overflow-hidden">
+      <div className="h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden" style={{ background: "var(--bg-primary)" }}>
         {/* Ambient glow */}
         <div
           className="absolute inset-0 pointer-events-none"
@@ -1925,7 +2084,7 @@ export default function Home() {
             ) : (
               <span className="text-crt-blue/50">📄</span>
             )}
-            <span className="truncate font-code" style={{ fontSize: "14px", color: isDir ? "#33ff33" : getFileTypeColor(item.name) }}>
+            <span className="truncate font-code" style={{ fontSize: "14px", color: isDir ? "var(--crt-green)" : getFileTypeColor(item.name) }}>
               {item.name}
             </span>
           </div>
@@ -1971,7 +2130,7 @@ export default function Home() {
           <button
             onClick={fetchChangelog}
             className="pixel-btn text-[14px] px-3 py-1.5 mt-2"
-            style={{ background: "var(--accent-color)", color: "#000" }}
+            style={{ background: "var(--accent-color)", color: "#fff" }}
           >
             REFRESH
           </button>
@@ -2319,10 +2478,37 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[14px] text-crt-green/20 font-code">
-                    {viewingFileContent.split("\n").length} lines
+                    {(editingFile ? editBuffer : viewingFileContent).split("\n").length} lines
                   </span>
+                  {editingFile ? (
+                    <>
+                      <button
+                        onClick={saveFile}
+                        disabled={savingFile}
+                        className="text-[13px] px-2 py-0.5 border border-crt-green/40 text-crt-green/70 hover:text-crt-green hover:border-crt-green transition-all disabled:opacity-40"
+                        title="Save file"
+                      >
+                        {savingFile ? "..." : "SAVE"}
+                      </button>
+                      <button
+                        onClick={() => setEditingFile(false)}
+                        className="text-[13px] px-1.5 py-0.5 border border-crt-yellow/30 text-crt-yellow/50 hover:text-crt-yellow hover:border-crt-yellow transition-all"
+                        title="Cancel editing"
+                      >
+                        ESC
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => { setEditBuffer(viewingFileContent); setEditingFile(true); }}
+                      className="text-[13px] px-2 py-0.5 border border-crt-blue/30 text-crt-blue/50 hover:text-crt-blue hover:border-crt-blue transition-all"
+                      title="Edit file"
+                    >
+                      EDIT
+                    </button>
+                  )}
                   <button
-                    onClick={() => { setViewingFile(null); setViewingFileContent(""); }}
+                    onClick={() => { setViewingFile(null); setViewingFileContent(""); setEditingFile(false); }}
                     className="text-[13px] px-1.5 py-0.5 border border-crt-red/30 text-crt-red/50 hover:text-crt-red hover:border-crt-red transition-all"
                     title="Close file"
                   >
@@ -2340,6 +2526,26 @@ export default function Home() {
                   <div className="flex items-center justify-center h-full">
                     <span className="text-[14px] text-crt-blue animate-pulse">Loading file...</span>
                   </div>
+                ) : editingFile ? (
+                  <textarea
+                    value={editBuffer}
+                    onChange={(e) => setEditBuffer(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "s" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveFile(); }
+                      if (e.key === "Escape") { setEditingFile(false); }
+                      if (e.key === "Tab") {
+                        e.preventDefault();
+                        const start = e.currentTarget.selectionStart;
+                        const end = e.currentTarget.selectionEnd;
+                        setEditBuffer(editBuffer.substring(0, start) + "  " + editBuffer.substring(end));
+                        setTimeout(() => { e.currentTarget.selectionStart = e.currentTarget.selectionEnd = start + 2; }, 0);
+                      }
+                    }}
+                    className="w-full h-full m-0 p-3 text-[13px] leading-relaxed font-code whitespace-pre resize-none bg-transparent border-0 outline-none"
+                    style={{ color: "var(--text-primary)", tabSize: 2 }}
+                    spellCheck={false}
+                    autoFocus
+                  />
                 ) : (
                   <pre
                     className="m-0 p-3 text-[13px] leading-relaxed font-code whitespace-pre"
@@ -2765,24 +2971,23 @@ export default function Home() {
 
     // Type badge for values
     const typeBadge = (val: any) => {
-      if (val === null) return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#888", background: "rgba(136,136,136,0.1)", border: "1px solid rgba(136,136,136,0.15)" }}>null</span>;
-      if (typeof val === "boolean") return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#ff79c6", background: "rgba(255,121,198,0.08)", border: "1px solid rgba(255,121,198,0.15)" }}>bool</span>;
-      if (typeof val === "number") return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#bd93f9", background: "rgba(189,147,249,0.08)", border: "1px solid rgba(189,147,249,0.15)" }}>num</span>;
-      if (typeof val === "string" && val.startsWith("0x")) return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#50fa7b", background: "rgba(80,250,123,0.08)", border: "1px solid rgba(80,250,123,0.15)" }}>addr</span>;
-      if (typeof val === "string" && val.startsWith("http")) return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: "#8be9fd", background: "rgba(139,233,253,0.08)", border: "1px solid rgba(139,233,253,0.15)" }}>url</span>;
+      if (val === null) return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: jsonNullColor, background: `${jsonNullColor}15`, border: `1px solid ${jsonNullColor}25` }}>null</span>;
+      if (typeof val === "boolean") return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: jsonBoolColor, background: `${jsonBoolColor}15`, border: `1px solid ${jsonBoolColor}25` }}>bool</span>;
+      if (typeof val === "number") return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: jsonNumColor, background: `${jsonNumColor}15`, border: `1px solid ${jsonNumColor}25` }}>num</span>;
+      if (typeof val === "string" && val.startsWith("0x")) return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: jsonAddrColor, background: `${jsonAddrColor}15`, border: `1px solid ${jsonAddrColor}25` }}>addr</span>;
+      if (typeof val === "string" && val.startsWith("http")) return <span className="text-[13px] px-1 py-px rounded ml-1" style={{ color: jsonUrlColor, background: `${jsonUrlColor}15`, border: `1px solid ${jsonUrlColor}25` }}>url</span>;
       return null;
     };
 
     // Render value portion with enhanced colors
     const renderVal = () => {
-      if (value === null) return <span style={{ color: "#6272a4", fontStyle: "italic" }}>null</span>;
-      if (typeof value === "boolean") return <span style={{ color: "#ff79c6", fontWeight: "bold", textShadow: "none" }}>{String(value)}</span>;
-      if (typeof value === "number") return <span style={{ color: "#bd93f9", textShadow: "none" }}>{value}</span>;
+      if (value === null) return <span style={{ color: jsonNullColor, fontStyle: "italic" }}>null</span>;
+      if (typeof value === "boolean") return <span style={{ color: jsonBoolColor, fontWeight: "bold", textShadow: "none" }}>{String(value)}</span>;
+      if (typeof value === "number") return <span style={{ color: jsonNumColor, textShadow: "none" }}>{value}</span>;
       if (typeof value === "string") {
         const isUrl = value.startsWith("http");
         const isAddr = value.startsWith("0x");
-        const color = isUrl ? "#8be9fd" : isAddr ? "#50fa7b" : "#f1fa8c";
-        const glow = isUrl ? "rgba(139,233,253,0.2)" : isAddr ? "rgba(80,250,123,0.2)" : "rgba(241,250,140,0.15)";
+        const color = isUrl ? jsonUrlColor : isAddr ? jsonAddrColor : jsonStrColor;
         return <span style={{ color, textShadow: "none" }}>&quot;{value}&quot;</span>;
       }
       return null;
@@ -2797,13 +3002,13 @@ export default function Home() {
           style={{
             background: "transparent",
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `rgba(${depth % 2 === 0 ? "255,255,255" : "139,233,253"},0.03)`; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = jsonRowHover; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
         >
           {renderGuides(depth)}
           <div className="flex-1 flex items-center py-[2px] pl-1">
             {key !== null && !isArrayItem && (
-              <><span style={{ color: "#8be9fd", fontWeight: "bold" }}>&quot;{key}&quot;</span><span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>: </span></>
+              <><span style={{ color: jsonKeyColor, fontWeight: "bold" }}>&quot;{key}&quot;</span><span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>: </span></>
             )}
             {isArrayItem && key !== null && (
               <span className="text-[14px] mr-1.5 inline-flex items-center justify-center w-4 text-center" style={{ color: "var(--text-tertiary)", opacity: 0.35 }}>{key}</span>
@@ -2815,7 +3020,7 @@ export default function Home() {
           <span
             onClick={() => copyValue(path, value)}
             className="cursor-pointer opacity-0 group-hover/jrow:opacity-60 hover:!opacity-100 text-[14px] px-2 py-0 mr-2 rounded transition-all select-none shrink-0 flex items-center"
-            style={{ color: isCopied ? "#50fa7b" : "var(--text-tertiary)", background: isCopied ? "rgba(80,250,123,0.1)" : "rgba(255,255,255,0.04)" }}
+            style={{ color: isCopied ? jsonCopiedColor : "var(--text-tertiary)", background: isCopied ? jsonCopiedBg : copyBtnBg }}
             title="Copy value"
           >
             {isCopied ? "✓ copied" : "⧉"}
@@ -2838,7 +3043,7 @@ export default function Home() {
           {renderGuides(depth)}
           <div className="flex items-center py-[2px] pl-1">
             {key !== null && !isArrayItem && (
-              <><span style={{ color: "#8be9fd", fontWeight: "bold" }}>&quot;{key}&quot;</span><span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>: </span></>
+              <><span style={{ color: jsonKeyColor, fontWeight: "bold" }}>&quot;{key}&quot;</span><span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>: </span></>
             )}
             <span style={{ color: bracketColor, opacity: 0.5 }}>{openBracket}{closeBracket}</span>
             {!isLast && <span style={{ color: "var(--text-tertiary)", opacity: 0.25 }}>,</span>}
@@ -2853,7 +3058,7 @@ export default function Home() {
         <div
           className="group/jrow flex items-stretch cursor-pointer transition-colors"
           style={{ background: "transparent" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `rgba(${depth % 2 === 0 ? "255,255,255" : "139,233,253"},0.03)`; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = jsonRowHover; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
           onClick={() => toggleCollapse(path)}
         >
@@ -2863,7 +3068,7 @@ export default function Home() {
           </span>
           <div className="flex-1 flex items-center py-[2px]">
             {key !== null && !isArrayItem && (
-              <><span style={{ color: "#8be9fd", fontWeight: "bold" }}>&quot;{key}&quot;</span><span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>: </span></>
+              <><span style={{ color: jsonKeyColor, fontWeight: "bold" }}>&quot;{key}&quot;</span><span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>: </span></>
             )}
             {isArrayItem && key !== null && (
               <span className="text-[14px] mr-1.5 inline-flex items-center justify-center w-4 text-center" style={{ color: "var(--text-tertiary)", opacity: 0.35 }}>{key}</span>
@@ -2887,7 +3092,7 @@ export default function Home() {
           <span
             onClick={(e) => { e.stopPropagation(); copyValue(path, value); }}
             className="cursor-pointer opacity-0 group-hover/jrow:opacity-60 hover:!opacity-100 text-[14px] px-2 py-0 mr-2 rounded transition-all select-none shrink-0 flex items-center"
-            style={{ color: isCopied ? "#50fa7b" : "var(--text-tertiary)", background: isCopied ? "rgba(80,250,123,0.1)" : "rgba(255,255,255,0.04)" }}
+            style={{ color: isCopied ? jsonCopiedColor : "var(--text-tertiary)", background: isCopied ? jsonCopiedBg : copyBtnBg }}
             title="Copy object"
           >
             {isCopied ? "✓ copied" : "⧉"}
@@ -3322,14 +3527,14 @@ export default function Home() {
                     <button
                       onClick={() => collapseAll(cfg)}
                       className="text-[11px] px-1.5 py-0.5 rounded-sm transition-all hover:brightness-125"
-                      style={{ color: "#ffa502", background: "rgba(255,165,2,0.08)", border: "1px solid rgba(255,165,2,0.2)" }}
+                      style={{ color: "var(--crt-amber)", background: "color-mix(in srgb, var(--crt-amber) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--crt-amber) 20%, transparent)" }}
                     >
                       COLLAPSE
                     </button>
                     <button
                       onClick={expandAll}
                       className="text-[11px] px-1.5 py-0.5 rounded-sm transition-all hover:brightness-125"
-                      style={{ color: "#51cf66", background: "rgba(81,207,102,0.08)", border: "1px solid rgba(81,207,102,0.2)" }}
+                      style={{ color: "var(--crt-green)", background: "color-mix(in srgb, var(--crt-green) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--crt-green) 20%, transparent)" }}
                     >
                       EXPAND
                     </button>
@@ -3337,9 +3542,9 @@ export default function Home() {
                       onClick={() => copyValue("$root", cfg)}
                       className="text-[11px] px-1.5 py-0.5 rounded-sm transition-all hover:brightness-125"
                       style={{
-                        color: copiedPath === "$root" ? "#50fa7b" : "#748ffc",
-                        background: copiedPath === "$root" ? "rgba(80,250,123,0.12)" : "rgba(116,143,252,0.08)",
-                        border: `1px solid ${copiedPath === "$root" ? "rgba(80,250,123,0.3)" : "rgba(116,143,252,0.2)"}`,
+                        color: copiedPath === "$root" ? jsonCopiedColor : "var(--crt-blue)",
+                        background: copiedPath === "$root" ? jsonCopiedBg : "color-mix(in srgb, var(--crt-blue) 8%, transparent)",
+                        border: `1px solid ${copiedPath === "$root" ? `color-mix(in srgb, ${jsonCopiedColor} 30%, transparent)` : "color-mix(in srgb, var(--crt-blue) 20%, transparent)"}`,
                       }}
                     >
                       {copiedPath === "$root" ? "COPIED" : "COPY"}
@@ -3406,7 +3611,7 @@ export default function Home() {
               <span className="text-[13px] font-bold" style={{ color: "var(--crt-amber)", letterSpacing: "0.04em", textShadow: "none" }}>
                 {cfg.name?.toUpperCase() || "MODULE"}
               </span>
-              <span className="text-[14px] px-1.5 py-0.5 rounded-sm" style={{ color: "#50fa7b", background: "rgba(80,250,123,0.1)", border: "1px solid rgba(80,250,123,0.2)" }}>
+              <span className="text-[14px] px-1.5 py-0.5 rounded-sm" style={{ color: "var(--crt-green)", background: `color-mix(in srgb, var(--crt-green) 10%, transparent)`, border: `1px solid color-mix(in srgb, var(--crt-green) 20%, transparent)` }}>
                 v{cfg.version || "?"}
               </span>
               <span className="text-[14px] px-1.5 py-0.5 rounded-sm" style={{ color: "var(--crt-blue)", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.15)" }}>
@@ -3418,9 +3623,9 @@ export default function Home() {
                 onClick={() => collapseAll(cfg)}
                 className="text-[13px] px-2.5 py-1 rounded-sm transition-all hover:brightness-125"
                 style={{
-                  color: "#ffa502",
-                  background: "rgba(255,165,2,0.08)",
-                  border: "1px solid rgba(255,165,2,0.2)",
+                  color: "var(--crt-amber)",
+                  background: "color-mix(in srgb, var(--crt-amber) 8%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--crt-amber) 20%, transparent)",
                   letterSpacing: "0",
                 }}
                 title="Collapse all nested objects"
@@ -3431,9 +3636,9 @@ export default function Home() {
                 onClick={expandAll}
                 className="text-[13px] px-2.5 py-1 rounded-sm transition-all hover:brightness-125"
                 style={{
-                  color: "#51cf66",
-                  background: "rgba(81,207,102,0.08)",
-                  border: "1px solid rgba(81,207,102,0.2)",
+                  color: "var(--crt-green)",
+                  background: "color-mix(in srgb, var(--crt-green) 8%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--crt-green) 20%, transparent)",
                   letterSpacing: "0",
                 }}
                 title="Expand all nested objects"
@@ -3444,9 +3649,9 @@ export default function Home() {
                 onClick={() => copyValue("$root", cfg)}
                 className="text-[13px] px-2.5 py-1 rounded-sm transition-all hover:brightness-125"
                 style={{
-                  color: copiedPath === "$root" ? "#50fa7b" : "#748ffc",
-                  background: copiedPath === "$root" ? "rgba(80,250,123,0.12)" : "rgba(116,143,252,0.08)",
-                  border: `1px solid ${copiedPath === "$root" ? "rgba(80,250,123,0.3)" : "rgba(116,143,252,0.2)"}`,
+                  color: copiedPath === "$root" ? jsonCopiedColor : "var(--crt-blue)",
+                  background: copiedPath === "$root" ? jsonCopiedBg : "color-mix(in srgb, var(--crt-blue) 8%, transparent)",
+                  border: `1px solid ${copiedPath === "$root" ? `color-mix(in srgb, ${jsonCopiedColor} 30%, transparent)` : "color-mix(in srgb, var(--crt-blue) 20%, transparent)"}`,
                   letterSpacing: "0",
                 }}
                 title="Copy entire config JSON"
@@ -3458,17 +3663,17 @@ export default function Home() {
           {/* Stats bar */}
           <div className="flex items-center gap-3 text-[14px]">
             {endpointCount > 0 && (
-              <span style={{ color: "#ff6b6b", opacity: 0.7 }}>
+              <span style={{ color: "var(--crt-red)", opacity: 0.7 }}>
                 ● {endpointCount} endpoints
               </span>
             )}
             {fnCount > 0 && (
-              <span style={{ color: "#ffd43b", opacity: 0.7 }}>
+              <span style={{ color: "var(--crt-amber)", opacity: 0.7 }}>
                 ● {fnCount} functions
               </span>
             )}
             {cfg.owner && (
-              <span style={{ color: "#50fa7b", opacity: 0.5 }}>
+              <span style={{ color: "var(--crt-green)", opacity: 0.5 }}>
                 ● {cfg.owner.slice(0, 6)}...{cfg.owner.slice(-4)}
               </span>
             )}
@@ -3604,7 +3809,7 @@ export default function Home() {
                     }}
                   >
                     {(currentEndpoint.method as string[]).map((m: string) => (
-                      <option key={m} value={m} style={{ background: "#111", color: "#fff" }}>{m}</option>
+                      <option key={m} value={m} style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>{m}</option>
                     ))}
                   </select>
                 ) : (
@@ -3626,7 +3831,7 @@ export default function Home() {
                   disabled={apiLoading}
                   className="text-[13px] font-bold px-3 py-1 border transition-all"
                   style={{
-                    color: apiLoading ? "var(--text-tertiary)" : "#000",
+                    color: apiLoading ? "var(--text-tertiary)" : "#fff",
                     background: apiLoading ? "transparent" : "var(--crt-green)",
                     borderColor: "var(--crt-green)",
                     letterSpacing: "0.01em",
@@ -3669,9 +3874,9 @@ export default function Home() {
                           className="flex-1 text-[13px] font-mono px-2 py-1 border bg-transparent"
                           style={{ color: "var(--text-primary)", borderColor: "var(--border-color-strong)" }}
                         >
-                          <option value="" style={{ background: "#111" }}>—</option>
-                          <option value="true" style={{ background: "#111" }}>true</option>
-                          <option value="false" style={{ background: "#111" }}>false</option>
+                          <option value="" style={{ background: "var(--bg-primary)" }}>—</option>
+                          <option value="true" style={{ background: "var(--bg-primary)" }}>true</option>
+                          <option value="false" style={{ background: "var(--bg-primary)" }}>false</option>
                         </select>
                       ) : (
                         <input
@@ -3741,7 +3946,7 @@ export default function Home() {
         className="flex flex-col shrink-0"
         style={{
           background: "var(--bg-secondary)",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+          boxShadow: isLight ? "0 1px 3px rgba(0,0,0,0.06)" : "0 1px 3px rgba(0,0,0,0.08)",
           borderBottom: `1px solid ${subtleBorder}`,
         }}
       >
@@ -4025,7 +4230,7 @@ export default function Home() {
                           : "1px solid var(--border-color)",
                         background: n.chainId === currentChainId
                           ? `${NETWORK_LOGOS[n.chainId]?.color || "rgba(245,158,11,"}10`
-                          : "rgba(0,0,0,0.15)",
+                          : networkBtnBg,
                         borderRadius: "10px",
                         opacity: headerSwitchingNetwork ? 0.5 : 1,
                       }}
@@ -4038,7 +4243,7 @@ export default function Home() {
                       onMouseLeave={(e) => {
                         if (n.chainId !== currentChainId) {
                           e.currentTarget.style.borderColor = "var(--border-color)";
-                          e.currentTarget.style.background = "rgba(0,0,0,0.15)";
+                          e.currentTarget.style.background = networkBtnBg;
                         }
                       }}
                     >
@@ -4163,6 +4368,33 @@ export default function Home() {
           </div>
 
       </header>
+
+      {/* API Status Bar */}
+      <div className="mx-4 mt-2 flex items-center gap-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+        <span className="flex items-center gap-1.5">
+          <span style={{
+            display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+            background: apiStatus === "on" ? "#34d399" : apiStatus === "starting" ? "#fbbf24" : "#f87171",
+            boxShadow: apiStatus === "on" ? "0 0 6px #34d399" : apiStatus === "starting" ? "0 0 6px #fbbf24" : "none",
+            animation: apiStatus === "starting" ? "pulse 1s infinite" : "none",
+          }} />
+          API {apiStatus === "on" ? "Online" : apiStatus === "starting" ? "Starting..." : "Offline"}
+        </span>
+        {apiStatus === "off" && (
+          <button
+            onClick={async () => { await ensureApi(); }}
+            className="text-[11px] px-2 py-0.5 border rounded"
+            style={{ borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+          >
+            Start API
+          </button>
+        )}
+        {apiStatus === "on" && (
+          <span style={{ color: "var(--text-tertiary)" }}>
+            auto-shutdown after {apiIdleTimeout.current}s idle
+          </span>
+        )}
+      </div>
 
       {error && (
         <div className="mx-4 mt-2 p-3 border-2 border-crt-red/50" style={{ background: "rgba(239,68,68,0.05)" }}>
@@ -4662,7 +4894,7 @@ export default function Home() {
               className="pixel-btn text-[13px] py-0.5 px-2"
               style={{
                 background: "var(--accent-color)",
-                color: theme === "light" ? "#fff" : "#000",
+                color: isLight ? "#fff" : "#000",
               }}
               title="Change theme"
             >
@@ -4688,7 +4920,7 @@ export default function Home() {
                     style={{
                       color: "var(--text-primary)",
                       opacity: theme === t ? 1 : 0.6,
-                      background: theme === t ? "rgba(255,255,255,0.05)" : "transparent",
+                      background: theme === t ? (isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.05)") : "transparent",
                       borderColor: "var(--border-color)",
                     }}
                   >

@@ -38,12 +38,13 @@ pub async fn serve(manager: AppState, port: u16) {
         let base = Router::new()
             .route("/jobs", post(submit_job))
             .route("/jobs", get(list_jobs))
-            .route("/jobs/{id}", get(get_job))
-            .route("/jobs/{id}", delete(delete_job))
-            .route("/jobs/{id}/cancel", post(cancel_job))
-            .route("/jobs/{id}/stream", get(stream_job))
-            .route("/modules/{name}", delete(delete_module))
-            .route("/modules/{name}/rename", put(rename_module));
+            .route("/jobs/:id", get(get_job))
+            .route("/jobs/:id", delete(delete_job))
+            .route("/jobs/:id/cancel", post(cancel_job))
+            .route("/jobs/:id/stream", get(stream_job))
+            .route("/modules/:name", delete(delete_module))
+            .route("/modules/:name/rename", put(rename_module))
+            .route("/files/write", post(file_write));
 
         if local_mode {
             println!("⚡ Local mode — auth disabled");
@@ -60,14 +61,14 @@ pub async fn serve(manager: AppState, port: u16) {
         .route("/config", get(get_config))
         .route("/repos", get(list_repos))
         .route("/modules", get(list_modules))
-        .route("/modules/{name}/config", get(get_module_config))
+        .route("/modules/:name/config", get(get_module_config))
         .route("/files/tree", get(file_tree))
         .route("/files/content", get(file_content))
         .route("/files/raw", get(file_raw))
         .route("/files/search", get(file_search))
         .route("/files/grep", get(file_grep))
         .route("/changelog", get(get_changelog))
-        .route("/versions/{version}", get(get_version))
+        .route("/versions/:version", get(get_version))
         .route("/owner", get(get_owner))
         .route("/auth/role", get(get_role))
         .route(
@@ -999,12 +1000,20 @@ async fn stream_job(
 
     match mgr.subscribe(&id).await {
         Some(rx) => {
-            let stream = BroadcastStream::new(rx).filter_map(|result| {
+            // Send any already-accumulated output first so late subscribers don't miss it
+            let existing = job.as_ref().map(|j| j.output.clone()).unwrap_or_default();
+            let initial = if !existing.is_empty() {
+                vec![Ok::<_, Infallible>(Event::default().data(existing))]
+            } else {
+                vec![]
+            };
+            let live = BroadcastStream::new(rx).filter_map(|result| {
                 match result {
                     Ok(text) => Some(Ok::<_, Infallible>(Event::default().data(text))),
                     Err(_) => None,
                 }
             });
+            let stream = tokio_stream::iter(initial).chain(live);
             let pinned: std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<Event, Infallible>> + Send>> = Box::pin(stream);
             Ok(Sse::new(pinned).keep_alive(KeepAlive::default()))
         }
@@ -1286,4 +1295,58 @@ async fn file_grep(Query(params): Query<GrepQuery>) -> impl IntoResponse {
 
     grep_recursive(dir_path, &query, params.caseSensitive, &home, &mut matches, 0);
     Json(json!({ "matches": matches }))
+}
+
+// ── File Write ───────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct WriteBody {
+    path: String,
+    content: String,
+}
+
+async fn file_write(Json(body): Json<WriteBody>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let resolved = body.path.replacen("~", &home, 1);
+    let file_path = std::path::Path::new(&resolved);
+
+    // Safety: only allow writes within ~/mod/
+    let mod_dir = format!("{}/mod", home);
+    let canonical_mod = std::fs::canonicalize(&mod_dir).unwrap_or_else(|_| std::path::PathBuf::from(&mod_dir));
+    // Resolve parent to check containment (file may not exist yet)
+    let parent = file_path.parent().unwrap_or(file_path);
+    let canonical_parent = std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
+    if !canonical_parent.starts_with(&canonical_mod) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": "Writes only allowed within ~/mod/" })),
+        )
+            .into_response();
+    }
+
+    // Create parent dirs if needed
+    if let Some(p) = file_path.parent() {
+        if !p.exists() {
+            if let Err(e) = std::fs::create_dir_all(p) {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": format!("Failed to create directories: {}", e) })),
+                )
+                    .into_response();
+            }
+        }
+    }
+
+    match std::fs::write(file_path, &body.content) {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "path": body.path })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("Failed to write file: {}", e) })),
+        )
+            .into_response(),
+    }
 }

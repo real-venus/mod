@@ -260,7 +260,8 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
         files = sorted(self.files(path, depth=depth), key=len)
         files = [f for f in files if any(f.endswith('.' + ft) for ft in self.file_types)]
 
-        if len(files) == 1:
+        # Single-file shortcut only if it's a Python file (not config.json, etc.)
+        if len(files) == 1 and files[0].endswith('.py'):
             return files[0]
 
         result_options = []
@@ -273,11 +274,126 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
         if result_options:
             return sorted(result_options, key=len)[0]
 
-        file_relative = [f[len(path) + 1:] for f in files]
-        raise Exception(
-            f'No anchor file found in {path} with anchor names '
-            f'{anchor_names} and file types {self.file_types} {file_relative}'
-        )
+        # No anchor found — attempt wrap to generate one, or return None
+        if not getattr(self, '_wrapping', False):
+            try:
+                self._wrapping = True
+                self.fn('wrap/forward')(path)
+            except Exception:
+                pass
+            finally:
+                self._wrapping = False
+            # Re-scan after wrap
+            files = sorted(self.files(path, depth=depth), key=len)
+            files = [f for f in files if any(f.endswith('.' + ft) for ft in self.file_types)]
+            for ft in self.file_types:
+                for anchor in anchor_names:
+                    for f in files:
+                        if f.endswith(f'/{anchor}.{ft}'):
+                            return f
+            if len(files) == 1 and files[0].endswith('.py'):
+                return files[0]
+
+            # Last resort: auto-generate a mod.py from README / project info
+            generated = self._generate_anchor(path)
+            if generated:
+                return generated
+
+        return None
+
+    def _generate_anchor(self, path: str) -> Optional[str]:
+        """Auto-generate a mod.py anchor file for a project that lacks one."""
+        mod_name = os.path.basename(path.rstrip('/'))
+        anchor_path = os.path.join(path, 'mod.py')
+        if os.path.exists(anchor_path):
+            return anchor_path
+
+        # Read README for description
+        description = mod_name
+        readmes = [f for f in self.files(path, depth=2) if 'readme' in os.path.basename(f).lower()]
+        if readmes:
+            try:
+                text = self.get_text(readmes[0])
+                # Use first non-empty line or first 200 chars as description
+                for line in text.splitlines():
+                    line = line.strip().strip('#').strip()
+                    if line and not line.startswith('[') and not line.startswith('|'):
+                        description = line[:200]
+                        break
+            except Exception:
+                pass
+
+        # Detect project type from files present
+        project_files = [os.path.basename(f) for f in self.files(path, depth=1)]
+        has_package_json = 'package.json' in project_files
+        has_requirements = 'requirements.txt' in project_files
+        has_pyproject = 'pyproject.toml' in project_files
+
+        # Build helper methods based on project type (first match wins for install)
+        extra_methods = ''
+        if has_package_json:
+            extra_methods += f'''
+    def install(self):
+        """Install project dependencies."""
+        import subprocess
+        return subprocess.run(['npm', 'install'], cwd=r'{path}', capture_output=True, text=True).stdout
+
+    def build(self):
+        """Build the project."""
+        import subprocess
+        return subprocess.run(['npm', 'run', 'build'], cwd=r'{path}', capture_output=True, text=True).stdout
+'''
+        elif has_requirements:
+            extra_methods += f'''
+    def install(self):
+        """Install Python dependencies."""
+        import subprocess
+        return subprocess.run(['pip', 'install', '-r', 'requirements.txt'], cwd=r'{path}', capture_output=True, text=True).stdout
+'''
+        elif has_pyproject:
+            extra_methods += f'''
+    def install(self):
+        """Install Python project."""
+        import subprocess
+        return subprocess.run(['pip', 'install', '-e', '.'], cwd=r'{path}', capture_output=True, text=True).stdout
+'''
+
+        content = f'''import os
+import mod as m
+
+class Mod:
+    description = """{description}"""
+    path = r'{path}'
+
+    def forward(self, **kwargs):
+        """Default entry point."""
+        return self.info()
+
+    def info(self):
+        """Return module info."""
+        return {{
+            'name': '{mod_name}',
+            'description': self.description,
+            'path': self.path,
+            'files': os.listdir(self.path),
+        }}
+
+    def readme(self):
+        """Return the project README."""
+        for name in ['README.md', 'readme.md', 'README.rst', 'README']:
+            p = os.path.join(self.path, name)
+            if os.path.exists(p):
+                return m.get_text(p)
+        return None
+{extra_methods}'''
+
+        try:
+            self.put_text(anchor_path, content)
+            self.print(f'Auto-generated anchor: {anchor_path}', color='green')
+            return anchor_path
+        except Exception as e:
+            self.print(f'Failed to generate anchor for {path}: {e}', color='red')
+            return None
 
     def anchor_object(self, path):
         path = self.get_name(path)

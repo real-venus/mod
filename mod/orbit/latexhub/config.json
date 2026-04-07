@@ -1,0 +1,77 @@
+{
+  "name": "latexhub",
+  "version": "1.0.0",
+  "description": "Local filesystem LaTeX document storage, compilation, and management hub.",
+  "fns": [
+    "save",
+    "load",
+    "ls",
+    "rm",
+    "compile",
+    "search",
+    "serve",
+    "kill",
+    "status"
+  ],
+  "schema": {
+    "save": {
+      "input": [
+        {"name": "name", "type": "str", "value": "_empty"},
+        {"name": "content", "type": "str", "value": "_empty"},
+        {"name": "folder", "type": "str", "value": null},
+        {"name": "tags", "type": "list", "value": null}
+      ],
+      "output": {"type": "dict", "value": null},
+      "docs": "Save a LaTeX document to local filesystem storage."
+    },
+    "load": {
+      "input": [
+        {"name": "name", "type": "str", "value": "_empty"},
+        {"name": "folder", "type": "str", "value": null}
+      ],
+      "output": {"type": "dict", "value": null},
+      "docs": "Load a LaTeX document from local filesystem storage."
+    },
+    "ls": {
+      "input": [
+        {"name": "folder", "type": "str", "value": null},
+        {"name": "tags", "type": "list", "value": null}
+      ],
+      "output": {"type": "list", "value": null},
+      "docs": "List all stored LaTeX documents, optionally filtered by folder or tags."
+    },
+    "rm": {
+      "input": [
+        {"name": "name", "type": "str", "value": "_empty"},
+        {"name": "folder", "type": "str", "value": null}
+      ],
+      "output": {"type": "dict", "value": null},
+      "docs": "Remove a LaTeX document from storage."
+    },
+    "compile": {
+      "input": [
+        {"name": "name", "type": "str", "value": "_empty"},
+        {"name": "folder", "type": "str", "value": null},
+        {"name": "engine", "type": "str", "value": "pdflatex"}
+      ],
+      "output": {"type": "dict", "value": null},
+      "docs": "Compile a LaTeX document to PDF using pdflatex/xelatex/lualatex."
+    },
+    "search": {
+      "input": [
+        {"name": "query", "type": "str", "value": "_empty"},
+        {"name": "folder", "type": "str", "value": null}
+      ],
+      "output": {"type": "list", "value": null},
+      "docs": "Search LaTeX documents by content or metadata."
+    }
+  },
+  "api": {
+    "port": 50200,
+    "entrypoint": "uvicorn api.api:app --host 0.0.0.0 --port 50200"
+  },
+  "app": {
+    "port": 3200,
+    "framework": "nextjs"
+  }
+}

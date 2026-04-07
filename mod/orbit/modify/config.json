@@ -1,14 +1,26 @@
 {
   "name": "modify",
   "version": "1.0.0",
-  "description": "Agent-powered module modifier. Applies suggestions from the suggest module or freeform instructions.",
+  "description": "Agent-powered module modifier. Applies suggestions, freeform instructions, and converts folders into mod protocol modules.",
   "fns": [
     "forward",
+    "modify_folder",
     "apply_suggestions",
     "suggest_and_apply",
     "test"
   ],
   "schema": {
+    "modify_folder": {
+      "input": [
+        {"name": "path", "type": "str", "value": null},
+        {"name": "name", "type": "str", "value": null},
+        {"name": "model", "type": "str", "value": "sonnet"},
+        {"name": "description", "type": "str", "value": null},
+        {"name": "background", "type": "bool", "value": false}
+      ],
+      "output": {"type": "dict", "value": null},
+      "docs": "Turn any folder into a mod protocol module by generating a mod.py class file via Claude CLI."
+    },
     "forward": {
       "input": [
         {"name": "mod", "type": "str", "value": null},

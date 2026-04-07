@@ -66,6 +66,25 @@ class Cli:
         else:
             print(result, color='green')
 
+    def _local_mod(self, init_kwargs=None):
+        """Check for a mod.py in the CWD and load its Mod class if present."""
+        import os, importlib.util
+        cwd = os.getcwd()
+        mod_py = os.path.join(cwd, 'mod.py')
+        if not os.path.isfile(mod_py):
+            return None
+        try:
+            spec = importlib.util.spec_from_file_location('_local_mod', mod_py)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            cls = getattr(module, 'Mod', None)
+            if cls is None:
+                return None
+            return cls(**(init_kwargs or {}))
+        except Exception as e:
+            print(f'Warning: failed to load local mod.py: {e}', color='yellow')
+            return None
+
     def get_fn(self) -> tuple:
         """
         Get the function object from the mod and function name.
@@ -79,6 +98,15 @@ class Cli:
         mod = self.mod
         init_kwargs = self.get_init_params()
         print(f'Init params: {init_kwargs}', color='cyan')
+
+        # Check for local mod.py in CWD first
+        if len(argv) > 0 and '/' not in argv[0]:
+            local = self._local_mod(init_kwargs)
+            if local is not None and hasattr(local, argv[0]):
+                mod = local
+                fn = argv.pop(0)
+                self._fn_name = fn if isinstance(fn, str) else getattr(fn, '__name__', 'unknown')
+                return getattr(mod, fn)
 
         if len(argv) == 0:
             fn = 'go'

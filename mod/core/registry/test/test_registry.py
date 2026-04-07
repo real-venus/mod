@@ -59,7 +59,8 @@ class TestRegGitBranch:
         mock_key = MagicMock()
         mock_key.address = '0xowner'
 
-        modpath = str(tmp_path / 'testmod')
+        # Create modpath at key/name to simulate a successful clone
+        modpath = str(tmp_path / '0xowner' / 'testmod')
         os.makedirs(modpath)
 
         with patch('mod.core.registry.registry.m.key', return_value=mock_key), \
@@ -68,10 +69,12 @@ class TestRegGitBranch:
              patch.object(reg, 'is_owner', return_value=True), \
              patch.object(reg, 'get_info', return_value={'name': 'testmod'}), \
              patch.object(reg, 'reg_info', return_value='cid'), \
-             patch('os.system'):
+             patch.object(reg, 'update'), \
+             patch('shutil.rmtree'), \
+             patch('os.system', return_value=0):
             reg.reg_git('https://github.com/test/testmod', key='owner')
 
-        branch_file = os.path.join(str(tmp_path), '0xowner', 'testmod', '.mod', 'branch')
+        branch_file = os.path.join(modpath, '.mod', 'branch')
         assert os.path.exists(branch_file)
         with open(branch_file) as f:
             assert f.read() == 'main'

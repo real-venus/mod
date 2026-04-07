@@ -121,8 +121,8 @@ class Api:
     def reg_git(self, url: str, name=None, key=None, comment=None, token=None) -> Dict[str, Any]:
         return self._reg.reg_git(url, name=name, key=key, comment=comment, token=token)
 
-    def reg_cid(self, cid: str) -> Dict[str, Any]:
-        return self._reg.reg_cid(cid)
+    def reg_cid(self, cid: str, key=None, name=None, comment=None) -> Dict[str, Any]:
+        return self._reg.reg_cid(cid, key=key, name=name, comment=comment)
 
     def get_info(self, mod='store', key=None, name=None, comment=None, public=False) -> Dict[str, Any]:
         return self._reg.get_info(mod=mod, key=key, name=name, comment=comment, public=public)

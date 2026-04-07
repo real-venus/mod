@@ -549,6 +549,7 @@ async fn run_claude_process(
     cmd.arg(prompt)
         .env("PATH", &child_path)
         .current_dir(work_dir)
+        .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
@@ -662,6 +663,14 @@ impl StreamParser {
         let v: serde_json::Value = serde_json::from_str(line).ok()?;
 
         match v.get("type")?.as_str()? {
+            "system" => {
+                if v.get("subtype").and_then(|s| s.as_str()) == Some("init") {
+                    let model = v.get("model").and_then(|m| m.as_str()).unwrap_or("unknown");
+                    Some(format!("⏳ Session started ({})\n", model))
+                } else {
+                    None
+                }
+            }
             "assistant" => {
                 if let Some(content) = v.pointer("/message/content") {
                     if let Some(arr) = content.as_array() {

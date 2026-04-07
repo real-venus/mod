@@ -4,7 +4,7 @@ Extends ContractModule but uses a local config.json per contract
 to track deployments independently across chains.
 """
 
-from mod.core.chain.mods.base import ContractModule  # noqa: E402
+from mod.core.chain.chain.mods.base import ContractModule  # noqa: E402
 import os
 import mod as m
 

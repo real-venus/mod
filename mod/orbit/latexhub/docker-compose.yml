@@ -1,0 +1,32 @@
+version: '3.8'
+
+networks:
+  default:
+    external: true
+    name: modnet
+
+services:
+  latexhub-api:
+    container_name: latexhub-api
+    entrypoint: bash -c "cd /root/mod/mod/orbit/latexhub && uvicorn api.api:app --host 0.0.0.0 --port 50200"
+    image: mod:latest
+    ports:
+      - "50200:50200"
+    restart: unless-stopped
+    shm_size: 100g
+    volumes:
+      - ~/mod:/root/mod
+      - ~/.mod:/root/.mod
+    working_dir: /root/mod/mod/orbit/latexhub
+
+  latexhub-app:
+    container_name: latexhub-app
+    build:
+      context: ./app
+    ports:
+      - "3200:3200"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://latexhub-api:50200
+    restart: unless-stopped
+    depends_on:
+      - latexhub-api

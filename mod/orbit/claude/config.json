@@ -2,7 +2,7 @@
   "name": "claude",
   "version": "2.0.0",
   "description": "Programmable AI developer interface — Python SDK, Rust Job Server, Next.js Terminal UI, IPFS versioning",
-  "owner": "0xeb0631ce3ec62ceed053c66eb6481753d0c812a8",
+  "owner": "0x2e34c7bbe3491c9ab3ff606951d46cc300bfb7cd",
   "port": 8820,
   "default_path": "~/mod",
   "urls": {

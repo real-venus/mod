@@ -4,7 +4,7 @@
 
 **Programmable AI developer interface**
 
-Python SDK · Rust Job Server · 8-Bit Terminal UI
+Python SDK · Rust Job Engine · Retro Terminal UI · IPFS Versioning
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Rust 1.70+](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
@@ -14,7 +14,7 @@ Python SDK · Rust Job Server · 8-Bit Terminal UI
 
 ---
 
-Script code tasks with Python, run long-lived jobs through a Rust backend, version everything to IPFS, and watch it all from a retro terminal dashboard.
+Script code tasks with Python. Run long-lived jobs through a Rust backend. Version everything to IPFS. Watch it all from a retro terminal dashboard.
 
 ## Quick Start
 
@@ -23,17 +23,19 @@ git clone https://github.com/modprotocol/mod.git
 cd mod/mod/orbit/claude
 
 pip install -r requirements.txt
-cd app && npm install && cd ..
-
-./scripts/start.sh          # starts Rust server + Next.js UI
+./start.sh
 ```
 
-Open **http://localhost:8821** — no wallet required in local mode (default).
+API server on **:8820**, terminal UI on **:8821**. No wallet required in local mode (default).
+
+<details>
+<summary><strong>Docker</strong></summary>
 
 ```bash
-./scripts/start.sh --build   # force Rust rebuild
-./scripts/start.sh --prod    # production Next.js build
+docker compose up -d
 ```
+
+</details>
 
 <details>
 <summary><strong>Install from IPFS</strong></summary>
@@ -41,10 +43,9 @@ Open **http://localhost:8821** — no wallet required in local mode (default).
 ```bash
 ipfs get <CID> -o claude && cd claude
 pip install -r requirements.txt
-cd app && npm install && cd ..
 ```
 
-The IPFS CID for the latest version is stored in the module's on-chain registry. Use `m.get_cid('claude')` to retrieve it.
+Get the latest CID from the on-chain registry: `m.get_cid('claude')`
 
 </details>
 
@@ -56,7 +57,7 @@ from claude import Mod
 c = Mod()
 ```
 
-### Core Operations
+### Code Operations
 
 ```python
 c.analyze_code(path="/project", focus="security")       # read-only analysis
@@ -74,13 +75,16 @@ c.ask("Explain this error: TypeError on line 42")        # conversational (OpenR
 c.edit_file("config.py", "Add DATABASE_URL env var")     # edit a specific file (owner-only)
 ```
 
-### Background Jobs
+### Jobs
 
 **Local** — fire-and-forget via Claude CLI:
 
 ```python
 task = c.bg("refactor utils.py to use async", mod="core", model="sonnet")
 # => {'pid': 12345, 'log_file': '~/.mod/claude/logs/...'}
+
+c.bg_status(task['pid'])   # check status
+c.bg_list()                # list all background tasks
 ```
 
 **Server** — managed execution with streaming through the Rust engine:
@@ -94,51 +98,52 @@ c.cancel(job['id'])     # cancel a running job
 c.delete_job(job['id']) # delete a job
 ```
 
+The SDK auto-starts the Rust API on first use and shuts it down after idle timeout (default 300s).
+
 ### Versioning
 
 Semantic versioning backed by IPFS:
 
 ```python
-c.snapshot("v1.2.0", message="Add auth endpoints")   # create versioned snapshot
-c.changelog()                                          # view version history
-c.show_changelog()                                     # pretty-print changelog
-c.get_version("v1.2.0")                               # fetch specific version
-c.restore_version("v1.2.0")                            # restore from IPFS CID
+c.snapshot("v1.2.0", message="Add auth endpoints")
+c.changelog()
+c.get_version("v1.2.0")
+c.restore_version("v1.2.0")
 ```
 
-### Module Operations
+### Modules
 
 ```python
 c.create_module("mymod", prompt="Build a web scraper module")
 c.edit_module("mymod", prompt="Add rate limiting")
-c.fork_module("myclaude", fork_source="claude", prompt="Add GitLab integration")
+c.modules()              # list all orbit modules
 ```
 
 ## Web UI
 
-Retro terminal dashboard at **http://localhost:8821** with:
+Retro terminal dashboard at **localhost:8821**:
 
-- ASCII boot screen and CRT aesthetic
-- Job submission, live SSE streaming, cancel/delete
+- ASCII boot screen with CRT aesthetic
+- Job submission with live SSE streaming
 - File browser with syntax highlighting (20+ languages)
 - File search (`Cmd+P`) and content search (`Cmd+Shift+F`)
 - Image paste support
-- MetaMask wallet auth
+- MetaMask / multi-chain wallet auth
 - 6 themes: dark, light, matrix, cyberpunk, amber, ocean
 
 ## REST API
 
-Rust server on port `8820`.
+Rust server (Axum + SQLite) on port `8820`.
 
-### Public (no auth required)
+### Public
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/health` | Health check |
 | `GET` | `/config` | Module config |
-| `GET` | `/owner` | Owner status |
+| `GET` | `/owner` | Owner address |
 | `GET` | `/repos` | List git repos |
-| `GET` | `/modules` | List orbit/core modules |
+| `GET` | `/modules` | List orbit modules |
 | `GET` | `/modules/{name}/config` | Module config by name |
 | `GET` | `/changelog` | Version changelog |
 | `GET` | `/versions/{version}` | Specific version entry |
@@ -160,6 +165,7 @@ Rust server on port `8820`.
 | `DELETE` | `/jobs/{id}` | Delete job |
 | `POST` | `/jobs/{id}/cancel` | Cancel running job |
 | `GET` | `/jobs/{id}/stream` | SSE stream of job output |
+| `POST` | `/files/write` | Write file contents |
 
 ```bash
 curl -X POST http://localhost:8820/jobs \
@@ -172,14 +178,13 @@ curl -X POST http://localhost:8820/jobs \
 | Mode | How | Details |
 |------|-----|---------|
 | **Local** | `CLAUDE_JOBS_LOCAL=1` (default) | No auth, all endpoints open |
-| **Wallet** | MetaMask / SubWallet / BIP-39 mnemonic / password-derived key | EIP-191 challenge/verify, 24-hour JWT |
+| **Wallet** | MetaMask / SubWallet / BIP-39 / password-derived key | EIP-191 challenge-verify, HMAC bearer token (24h) |
 
-The first wallet to authenticate becomes the **owner**. Owners can edit any file. Non-owners can only edit modules under `_outer/{their_address}/`. Read-only operations (`analyze_code`, `debug`, `ask`) are open to everyone.
+The first wallet to authenticate becomes the **owner**. Owners can edit any file and delete any module. Non-owners can only edit modules under `_outer/{their_address}/`. Read-only operations are open to everyone.
 
 ```python
-c = Mod(owner="0x1234...")   # set owner at init
-c.set_owner("0x1234...")     # or set later
-c.is_owner("0x1234...")      # check ownership
+c = Mod(owner="0x1234...")
+c.is_owner("0x1234...")
 ```
 
 ## Configuration
@@ -188,7 +193,7 @@ c.is_owner("0x1234...")      # check ownership
 |---------|---------|-------------|
 | `ANTHROPIC_API_KEY` | — | Anthropic API key (optional for Claude Max) |
 | `OPENROUTER_API_KEY` | — | OpenRouter key for 200+ models |
-| `CLAUDE_JOBS_LOCAL` | `0` | `1` to disable auth |
+| `CLAUDE_JOBS_LOCAL` | `1` | `0` to enable wallet auth |
 | `MOD_ANCHOR` | `~/mod` | Base directory for module creation |
 
 **Models:**
@@ -203,32 +208,29 @@ c.is_owner("0x1234...")      # check ownership
 
 ```
 claude/
-├── claude/claude.py        # Python SDK (Mod class)
-├── server/src/             # Rust job engine (Axum + SQLite + SSE)
-│   ├── api.rs              #   REST endpoints + file browser
-│   ├── jobs.rs             #   Job lifecycle and process management
-│   ├── auth.rs             #   Wallet signature auth (EIP-191)
-│   └── main.rs             #   Entry point
-├── app/src/                # Next.js 14 terminal UI
-│   ├── app/page.tsx        #   Dashboard
-│   ├── app/globals.css     #   6 retro themes
-│   └── components/         #   FileTree, CodeViewer, Search, WalletModal
-├── config.json             # Module metadata, endpoints, owner
-├── scripts/start.sh        # One-command launcher
-└── tests/                  # Python test suite
+├── claude/mod.py          # Python SDK — 34 public methods, auto-starts API
+├── api/src/               # Rust job engine (Axum + SQLite + SSE)
+│   ├── api.rs             #   REST endpoints, file browser, module ops
+│   ├── jobs.rs            #   Job lifecycle, process management, crash recovery
+│   ├── auth.rs            #   Wallet signature auth (EIP-191 + HMAC)
+│   └── main.rs            #   Entry point, Tokio runtime
+├── app/src/               # Next.js 14 terminal UI
+│   ├── app/page.tsx       #   Dashboard (jobs, files, modules, wallet)
+│   ├── app/globals.css    #   6 retro themes
+│   └── app/api/           #   Service proxy routes
+├── config.json            # Module metadata, endpoints, schema
+├── start.sh / stop.sh     # Process management
+├── docker-compose.yml     # Container deployment
+├── requirements.txt       # Python deps
+└── tests/                 # Python test suite
 ```
 
 ## Development
 
 ```bash
-python -m pytest tests/              # run tests
-cd server && cargo build --release   # build Rust server
-cd app && npm run dev -- -p 8821     # frontend dev server
-```
-
-```python
-from claude import Mod
-Mod.set_log_level('DEBUG')           # enable debug logging
+python -m pytest tests/                # run tests
+cd api && cargo build --release        # build Rust server
+cd app && npm run dev -- -p 8821       # frontend dev server
 ```
 
 ## Troubleshooting
@@ -255,7 +257,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ```bash
 lsof -i :8820              # check if port is in use
 pkill -f claude-jobs        # kill existing process
-./scripts/start.sh --build  # restart with rebuild
+./start.sh                  # restart
 ```
 </details>
 
@@ -268,16 +270,14 @@ ipfs init && ipfs daemon &
 ```
 </details>
 
-## Fork This Module
+## Fork
 
 ```bash
 m fork claude myclaude "Add GitLab integration"
 ```
 
-Forks include full source (Python, Rust, Next.js), config, tests, and docs. Lives in `~/mod/mod/orbit/<name>` and can be published with `m.publish('name')`.
+Forks include full source (Python, Rust, Next.js), config, and tests. Lives in `~/mod/mod/orbit/<name>` and can be published with `m.publish('name')`.
 
 ---
-
-[Architecture](ARCHITECTURE.md) · [Backends](BACKENDS.md) · [Permissions & IPFS](PERMISSIONS_AND_IPFS.md) · [Module Creation](MODULE_CREATION.md) · [Examples](EXAMPLE_USAGE.md) · [Quick Ref](QUICK_REFERENCE.md) · [Wallet Guide](WALLET_GUIDE.md)
 
 Part of the [Mod framework](https://github.com/modprotocol/mod).

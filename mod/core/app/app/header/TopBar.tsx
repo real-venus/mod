@@ -56,13 +56,16 @@ function parseValue(s: string): any {
   return s
 }
 
-// Extract module name from path like /bread or /mod/bread/key
+// Extract module name from path like /bread or /mod/bread/key or /bread/0xkey
 function getModuleFromPath(pathname: string): string | null {
   // /mod/[name]/[key]
   const modMatch = pathname.match(/^\/mod\/([^/]+)/)
   if (modMatch) return modMatch[1]
+  const knownRoutes = ['mod', 'mods', 'user', 'cid', 'chat', 'docs', 'quests', 'create', 'safe', 'bridge', 'contracts', 'treasury', 'jobs', 'traders', 'network', 'home', 'transactions', 'buidl', 'apps', 'chain', 'balancer', 'workers']
+  // /[name]/[key] (two segments, first is not a known route)
+  const twoSegMatch = pathname.match(/^\/([^/]+)\/([^/]+)$/)
+  if (twoSegMatch && !knownRoutes.includes(twoSegMatch[1])) return twoSegMatch[1]
   // /[name] (single segment, not a known route)
-  const knownRoutes = ['mod', 'mods', 'user', 'cid', 'chat', 'docs', 'quests', 'create', 'safe', 'bridge', 'contracts', 'treasury', 'jobs', 'traders', 'network', 'home', 'transactions', 'buidl']
   const singleMatch = pathname.match(/^\/([^/]+)$/)
   if (singleMatch && !knownRoutes.includes(singleMatch[1])) return singleMatch[1]
   return null
@@ -122,8 +125,10 @@ export function TopBar() {
     return () => window.removeEventListener('mod:tab-change' as any, handler)
   }, [])
 
-  // Listen for module info (fnCount, key, cid) from ModulePage
-  const [moduleInfo, setModuleInfo] = useState<{ fnCount: number; key: string; cid: string; url_app?: string } | null>(null)
+  // Listen for module info (fnCount, key, cid, allOwners) from ModulePage
+  const [moduleInfo, setModuleInfo] = useState<{ fnCount: number; key: string; cid: string; url_app?: string; allOwners?: any[] } | null>(null)
+  const [showOwnerDropdown, setShowOwnerDropdown] = useState(false)
+  const ownerDropdownRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const handler = (e: CustomEvent) => {
       setModuleInfo(e.detail)
@@ -132,11 +137,23 @@ export function TopBar() {
     return () => window.removeEventListener('mod:info' as any, handler)
   }, [])
 
+  // Close owner dropdown on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (showOwnerDropdown && ownerDropdownRef.current && !ownerDropdownRef.current.contains(e.target as Node)) {
+        setShowOwnerDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showOwnerDropdown])
+
   // Reset when leaving module page
   useEffect(() => {
     if (!activeModule) {
       setModuleInfo(null)
       setSearchExpanded(false)
+      setShowOwnerDropdown(false)
     }
   }, [activeModule])
 
@@ -190,6 +207,7 @@ export function TopBar() {
       if (e.key === 'Escape') {
         setShowBuild(false)
         setShowFork(false)
+        setShowOwnerDropdown(false)
       }
     }
     document.addEventListener('mousedown', handler)
@@ -282,12 +300,7 @@ export function TopBar() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setInputValue(value)
-    if (activeCommand !== '/run') {
-      handleSearch(value)
-      if (pathname !== '/mods') {
-        router.push('/mods')
-      }
-    }
+    // Search only triggers on Enter now, not on every keystroke
   }
 
   const handleEnter = async () => {
@@ -318,25 +331,7 @@ export function TopBar() {
       return
     }
 
-    // Navigate to the most relevant module
-    if (client) {
-      try {
-        const results = await client.call('mods', { search: trimmed, page: 0, page_size: 10 })
-        const list = Array.isArray(results) ? results : []
-        // Exact name match first, then first result
-        const exact = list.find((m: any) => m.name?.toLowerCase() === trimmed.toLowerCase())
-        const best = exact || list[0]
-        if (best?.name) {
-          setInputValue('')
-          handleSearch('')
-          setSearchExpanded(false)
-          router.push(`/${best.name}`)
-          return
-        }
-      } catch {}
-    }
-
-    // Fallback: show search results on /mods
+    // Search mods with the entered term
     handleSearch(trimmed)
     setSearchExpanded(false)
     if (pathname !== '/mods') {
@@ -425,7 +420,7 @@ export function TopBar() {
     >
       <div className="flex items-center flex-1 pl-3 pr-2 gap-3 min-w-0">
         {showModsToolbar ? (
-          /* Mods toolbar: count + search pill + collapsible settings */
+          /* Mods toolbar: count + search bar + settings */
           <div className="flex items-center gap-2.5 flex-1 min-w-0" style={{ fontFamily: 'var(--font-digital), monospace' }}>
             {/* Title + count pill */}
             <div className="flex items-center gap-2 shrink-0">
@@ -446,79 +441,97 @@ export function TopBar() {
               </span>
             </div>
 
-            {/* Search term snap pill */}
-            {searchFilters.searchTerm && (
-              <>
-                <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
-                <div
-                  className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold shrink-0"
+            <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
+
+            {/* Search bar - always visible */}
+            <div
+              className="flex items-center flex-1 transition-all"
+              style={{
+                maxWidth: '400px',
+                height: '32px',
+                backgroundColor: searchFocused ? 'var(--bg-input)' : 'transparent',
+                border: searchFocused ? '1px solid rgba(167, 139, 250, 0.3)' : '1px solid var(--border-color)',
+                borderRadius: '8px',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <div
+                className="flex items-center justify-center flex-shrink-0 pl-2.5 pr-1 cursor-pointer select-none"
+                onClick={() => inputRef.current?.focus()}
+                style={{ height: '100%' }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={searchFocused ? 'var(--accent-primary)' : 'var(--text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'all 0.15s ease' }}>
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                </svg>
+              </div>
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                placeholder="search modules..."
+                className="flex-1 bg-transparent focus:outline-none min-w-0"
+                style={{
+                  height: '100%',
+                  fontSize: '13px',
+                  fontFamily: 'var(--font-digital), monospace',
+                  color: 'var(--text-primary)',
+                  caretColor: 'var(--accent-primary)',
+                  padding: '0 8px 0 0',
+                }}
+              />
+              {/* Active search pill inside input */}
+              {searchFilters.searchTerm && (
+                <button
+                  onClick={() => { handleSearch(''); setInputValue('') }}
+                  className="flex items-center gap-1.5 mr-2 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 transition-all"
                   style={{
-                    background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.12), rgba(103, 232, 249, 0.06))',
-                    border: '1px solid rgba(167, 139, 250, 0.2)',
+                    background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))',
+                    border: '1px solid rgba(167, 139, 250, 0.25)',
                     color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-digital)',
-                    animation: 'fadeSlideIn 0.2s ease-out',
                   }}
                 >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-                  </svg>
-                  <span style={{ opacity: 0.9 }}>{searchFilters.searchTerm}</span>
-                  <button
-                    onClick={() => handleSearch('')}
-                    className="p-0.5 rounded-full transition-all"
-                    style={{ opacity: 0.4 }}
-                    onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-                    onMouseLeave={e => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              </>
-            )}
+                  <span style={{ opacity: 0.8 }}>{searchFilters.searchTerm}</span>
+                  <X size={8} style={{ opacity: 0.5 }} />
+                </button>
+              )}
+              {!searchFocused && !inputValue && !searchFilters.searchTerm && (
+                <kbd
+                  className="flex-shrink-0 mr-2 px-1.5 py-0.5"
+                  style={{
+                    fontSize: '10px',
+                    fontFamily: 'var(--font-digital), monospace',
+                    backgroundColor: 'var(--hover-bg)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '3px',
+                    color: 'var(--text-tertiary)',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  ⌘K
+                </kbd>
+              )}
+            </div>
 
             <div className="flex-1" />
 
-            {/* Collapsible sort/cols/filter - slides in when searching */}
-            <div
-              className="flex items-center overflow-hidden transition-all duration-300 ease-out"
-              style={{
-                maxWidth: searchFilters.searchTerm ? '500px' : '0px',
-                opacity: searchFilters.searchTerm ? 1 : 0,
-                transform: searchFilters.searchTerm ? 'translateX(0)' : 'translateX(8px)',
-              }}
-            >
-              <div className="flex items-center gap-2.5 pr-2">
-                <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
-                <ModCardSettings
-                  sort={modsState.sort as any}
-                  onSortChange={(s) => window.dispatchEvent(new CustomEvent('mods:sort-change', { detail: s }))}
-                  columns={modsState.columns}
-                  onColumnsChange={(c) => window.dispatchEvent(new CustomEvent('mods:columns-change', { detail: c }))}
-                  owners={modsState.owners}
-                  selectedOwners={modsState.selectedOwners}
-                  onToggleOwner={(o) => window.dispatchEvent(new CustomEvent('mods:toggle-owner', { detail: o }))}
-                  onClearFilters={() => window.dispatchEvent(new Event('mods:clear-filters'))}
-                />
-              </div>
+            {/* Settings */}
+            <div className="flex items-center gap-2.5">
+              <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
+              <ModCardSettings
+                sort={modsState.sort as any}
+                onSortChange={(s) => window.dispatchEvent(new CustomEvent('mods:sort-change', { detail: s }))}
+                columns={modsState.columns}
+                onColumnsChange={(c) => window.dispatchEvent(new CustomEvent('mods:columns-change', { detail: c }))}
+                owners={modsState.owners}
+                selectedOwners={modsState.selectedOwners}
+                onToggleOwner={(o) => window.dispatchEvent(new CustomEvent('mods:toggle-owner', { detail: o }))}
+                onClearFilters={() => window.dispatchEvent(new Event('mods:clear-filters'))}
+              />
             </div>
-
-            {/* Always-visible settings when NOT searching */}
-            {!searchFilters.searchTerm && (
-              <>
-                <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
-                <ModCardSettings
-                  sort={modsState.sort as any}
-                  onSortChange={(s) => window.dispatchEvent(new CustomEvent('mods:sort-change', { detail: s }))}
-                  columns={modsState.columns}
-                  onColumnsChange={(c) => window.dispatchEvent(new CustomEvent('mods:columns-change', { detail: c }))}
-                  owners={modsState.owners}
-                  selectedOwners={modsState.selectedOwners}
-                  onToggleOwner={(o) => window.dispatchEvent(new CustomEvent('mods:toggle-owner', { detail: o }))}
-                  onClearFilters={() => window.dispatchEvent(new Event('mods:clear-filters'))}
-                />
-              </>
-            )}
           </div>
         ) : showModuleBar ? (
           /* Module bar: name + meta + tabs */
@@ -562,15 +575,121 @@ export function TopBar() {
               </span>
             )}
 
-            {/* Owner key */}
+            {/* Owner key with dropdown for other owners */}
             {moduleInfo?.key && (
-              <Link
-                href={`/user/${moduleInfo.key}`}
-                className="flex-shrink-0 hover:underline"
-                style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}
-              >
-                {shorten(moduleInfo.key, 4, 4)}
-              </Link>
+              <div className="relative flex-shrink-0" ref={ownerDropdownRef}>
+                <button
+                  onClick={() => {
+                    if (moduleInfo.allOwners && moduleInfo.allOwners.length > 1) {
+                      setShowOwnerDropdown(!showOwnerDropdown)
+                    }
+                  }}
+                  className="flex items-center gap-1 transition-all"
+                  style={{
+                    color: 'var(--text-tertiary)',
+                    fontSize: '12px',
+                    cursor: moduleInfo.allOwners && moduleInfo.allOwners.length > 1 ? 'pointer' : 'default',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    background: showOwnerDropdown ? 'var(--hover-bg)' : 'transparent',
+                    border: showOwnerDropdown ? '1px solid var(--border-color)' : '1px solid transparent',
+                  }}
+                  onMouseEnter={e => {
+                    if (moduleInfo.allOwners && moduleInfo.allOwners.length > 1) {
+                      e.currentTarget.style.background = 'var(--hover-bg)'
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!showOwnerDropdown) e.currentTarget.style.background = 'transparent'
+                  }}
+                  title={moduleInfo.allOwners && moduleInfo.allOwners.length > 1
+                    ? `${moduleInfo.allOwners.length} owners — click to switch`
+                    : moduleInfo.key}
+                >
+                  <span>{shorten(moduleInfo.key, 4, 4)}</span>
+                  {moduleInfo.allOwners && moduleInfo.allOwners.length > 1 && (
+                    <span style={{ fontSize: '10px', opacity: 0.5 }}>
+                      ({moduleInfo.allOwners.length}) ▾
+                    </span>
+                  )}
+                </button>
+
+                {/* Owner dropdown */}
+                {showOwnerDropdown && moduleInfo.allOwners && moduleInfo.allOwners.length > 1 && (
+                  <div
+                    className="absolute left-0 top-full mt-1 z-[90] overflow-y-auto"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      backdropFilter: 'blur(20px)',
+                      WebkitBackdropFilter: 'blur(20px)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      boxShadow: '0 12px 40px rgba(0, 0, 0, 0.25)',
+                      fontFamily: 'var(--font-digital), monospace',
+                      minWidth: '220px',
+                      maxHeight: '300px',
+                    }}
+                  >
+                    <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                        OWNERS OF {activeModule?.toUpperCase()}
+                      </span>
+                    </div>
+                    {moduleInfo.allOwners.map((ownerMod: any, idx: number) => {
+                      const isCurrentOwner = ownerMod.key === moduleInfo.key
+                      const ownerColor = text2color(ownerMod.key || '')
+                      const ownerFnCount = ownerMod.schema ? Object.keys(ownerMod.schema).length : 0
+                      return (
+                        <button
+                          key={`${ownerMod.key}-${idx}`}
+                          onClick={() => {
+                            setShowOwnerDropdown(false)
+                            if (!isCurrentOwner) {
+                              router.push(`/${activeModule}/${ownerMod.key}`)
+                            }
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-all"
+                          style={{
+                            background: isCurrentOwner ? colorWithOpacity(ownerColor, 0.1) : 'transparent',
+                            borderBottom: '1px solid var(--border-color)',
+                          }}
+                          onMouseEnter={e => { if (!isCurrentOwner) e.currentTarget.style.background = 'var(--hover-bg)' }}
+                          onMouseLeave={e => { if (!isCurrentOwner) e.currentTarget.style.background = 'transparent' }}
+                        >
+                          <div
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{
+                              background: isCurrentOwner ? ownerColor : 'var(--text-tertiary)',
+                              boxShadow: isCurrentOwner ? `0 0 6px ${ownerColor}` : 'none',
+                            }}
+                          />
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <span
+                              className="text-xs font-bold truncate"
+                              style={{ color: isCurrentOwner ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                            >
+                              {shorten(ownerMod.key, 6, 4)}
+                            </span>
+                            {ownerMod.cid && (
+                              <span className="text-[10px] truncate" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }}>
+                                {shorten(ownerMod.cid, 6, 4)}
+                              </span>
+                            )}
+                          </div>
+                          {ownerFnCount > 0 && (
+                            <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                              {ownerFnCount} fn
+                            </span>
+                          )}
+                          {isCurrentOwner && (
+                            <span className="text-[10px] flex-shrink-0" style={{ color: ownerColor }}>&#10003;</span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Tabs */}

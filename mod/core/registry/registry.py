@@ -263,7 +263,14 @@ class Registry:
         return 'github.com' in url or 'gitlab.com' in url or ('/' in url and len(url.split('/')) == 2)
 
     def is_cid_url(self, url: str) -> bool:
-        return self.store.valid_cid(url)
+        return self.store.iscid(url)
+
+    def _init_mod_meta(self, modpath: str, branch: str = 'main'):
+        """Initialize .mod/branch metadata for a module directory."""
+        mod_meta = os.path.join(modpath, '.mod')
+        os.makedirs(mod_meta, exist_ok=True)
+        with open(os.path.join(mod_meta, 'branch'), 'w') as f:
+            f.write(branch)
 
     def reg_git(self, url: str, name=None, key=None, comment=None, token=None) -> Dict[str, Any]:
         """Register a module from a git URL."""
@@ -275,53 +282,109 @@ class Registry:
 
         print(f"Registering mod from URL: {url} with key: {key} and name: {name}")
         assert self.is_git_url(url), f'Unsupported URL for reg_git: {url}'
-        name = name or url.split('/')[-1].split('.git')[0]
+        # Normalize URL: strip trailing .git, extract repo name
+        clean_url = url.rstrip('/')
+        if clean_url.endswith('.git'):
+            clean_url = clean_url[:-4]
+        name = name or clean_url.split('/')[-1]
         name = name.lower()
-        if self.is_owner(key):
-            orbit = 'orbit'
-        else:
-            orbit = 'portal'
+        # Expand shorthand (user/repo) to full GitHub URL
+        clone_url = url
+        if '/' in url and len(url.split('/')) == 2 and 'github.com' not in url:
+            clone_url = f'https://github.com/{url}'
+        orbit = 'orbit' if self.is_owner(key) else 'portal'
         dirpath = m.paths['orbit'][orbit]
         modpath = os.path.join(dirpath, key, name)
         if os.path.exists(modpath):
             shutil.rmtree(modpath)
-        git_cmd = f'git clone --single-branch {url} {modpath}'
-        os.makedirs(dirpath, exist_ok=True)
-        os.system(git_cmd)
-        # Init .mod/branch metadata
-        mod_meta = os.path.join(modpath, '.mod')
-        os.makedirs(mod_meta, exist_ok=True)
-        with open(os.path.join(mod_meta, 'branch'), 'w') as f:
-            f.write('main')
+        os.makedirs(os.path.dirname(modpath), exist_ok=True)
+        git_cmd = f'git clone --single-branch {clone_url} {modpath}'
+        ret = os.system(git_cmd)
+        assert ret == 0 and os.path.exists(modpath), f'git clone failed for {clone_url}'
+        self._init_mod_meta(modpath)
+        # Write config.json with git url for provenance
+        config_path = os.path.join(modpath, 'config.json')
+        if not os.path.exists(config_path):
+            import json
+            config = {'name': name, 'url': clone_url, 'key': key}
+            with open(config_path, 'w') as f:
+                json.dump(config, f, indent=2)
         info = self.get_info(mod=name, key=key, comment=comment)
-        return self.reg_info(info)
+        info['cid'] = self.reg_info(info)
+        self.update()
+        return info
 
-    def reg_cid(self, cid: str) -> Dict[str, Any]:
-        """Register a module from a CID."""
-        mod_info = self.get(cid)
-        name = mod_info['name']
-        content = self.get(mod_info['content'])
-        orbit = 'orbit' if self.is_owner(mod_info['key']) else 'portal'
-        modpath = m.paths['orbit'][orbit] + '/' + mod_info['key'] + '/' + mod_info['name']
-        for file, file_cid in content['data'].items():
-            file_content = self.get(file_cid)
-            filepath = os.path.join(modpath, file)
-            m.put_text(filepath, file_content)
-        # Init .mod/branch metadata
-        mod_meta = os.path.join(modpath, '.mod')
-        os.makedirs(mod_meta, exist_ok=True)
-        with open(os.path.join(mod_meta, 'branch'), 'w') as f:
-            f.write('main')
-        return self.reg_info(mod_info)
+    def reg_cid(self, cid: str, key=None, name=None, comment=None) -> Dict[str, Any]:
+        """Register a module from a CID.
+
+        The CID can point to:
+        1. A config.json dict (must have 'name', may have 'url' for git source)
+        2. A full mod_info dict (has 'content' and 'schema' keys — legacy format)
+        """
+        data = self.get(cid)
+        assert isinstance(data, dict), f'CID {cid} does not resolve to a dict: {type(data)}'
+
+        # Legacy format: full mod_info with content/schema already built
+        if 'content' in data and 'schema' in data:
+            mod_info = data
+            mod_name = mod_info['name']
+            content = self.get(mod_info['content'])
+            owner_key = mod_info.get('key', self.key_address(key))
+            orbit = 'orbit' if self.is_owner(owner_key) else 'portal'
+            modpath = os.path.join(m.paths['orbit'][orbit], owner_key, mod_name)
+            for file, file_cid in content['data'].items():
+                file_content = self.get(file_cid)
+                filepath = os.path.join(modpath, file)
+                m.put_text(filepath, file_content)
+            self._init_mod_meta(modpath)
+            return self.reg_info(mod_info)
+
+        # Config.json format: resolve name, clone if git url, then register
+        config = data
+        name = name or config.get('name')
+        assert name, f'CID config has no "name" field and no name provided: {config}'
+        name = name.lower()
+        key = self.key_address(key)
+
+        # Extra fields from config to carry into registration info
+        config_fields = {k: v for k, v in config.items()
+                         if k not in ('name', 'key') and v is not None}
+
+        # If config has a git url, clone from it
+        url = config.get('url') or config.get('urls', {}).get('git')
+        if url and self.is_git_url(url):
+            info = self.reg_git(url, name=name, key=key, comment=comment)
+            info.update(config_fields)
+            # Re-store with merged fields
+            info['cid'] = self.put(info)
+            self.reg_info(info)
+            return info
+
+        # Otherwise, write the config locally and register as a local mod
+        orbit = 'orbit' if self.is_owner(key) else 'portal'
+        modpath = os.path.join(m.paths['orbit'][orbit], key, name)
+        os.makedirs(modpath, exist_ok=True)
+        # Write the config.json
+        import json
+        config_path = os.path.join(modpath, 'config.json')
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+        self._init_mod_meta(modpath)
+        # Build info from the now-local module (anchor auto-generates if needed)
+        info = self.get_info(mod=name, key=key, comment=comment)
+        info.update(config_fields)
+        info['cid'] = self.reg_info(info)
+        self.update()
+        return info
 
     def reg(self, mod: Union[str, dict] = 'store', key=None, comment=None, public=True, token=None, name=None) -> Dict[str, Any]:
         """Register or update a module in the store."""
-        if self.is_cid_url(mod):
-            return self.reg_cid(mod)
-        elif self.is_git_url(mod):
-            return self.reg_git(mod, key=key, comment=comment, name=name)
         if token:
-            key = m.mod('auth.base')().verify(token)['key']
+            key = key or m.mod('auth.base')().verify(token)['key']
+        if isinstance(mod, str) and self.is_cid_url(mod):
+            return self.reg_cid(mod, key=key, name=name, comment=comment)
+        elif isinstance(mod, str) and self.is_git_url(mod):
+            return self.reg_git(mod, key=key, comment=comment, name=name, token=token)
         info = self.get_info(mod=mod, key=key, comment=comment, public=public, name=name)
         info['cid'] = self.reg_info(info)
         self.update()

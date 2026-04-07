@@ -1,7 +1,9 @@
 import json
 import os
 import time
+import signal
 import subprocess
+import threading
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -32,7 +34,8 @@ class Mod:
     ]
 
     def __init__(self, api_url: str = None, app_url: str = None,
-                 key=None, default_path: str = None, **kwargs):
+                 key=None, default_path: str = None,
+                 idle_timeout: int = None, **kwargs):
         self.key = m.key(key)
         self.auth = m.mod('auth.base')()
         cfg = self._load_config()
@@ -42,6 +45,12 @@ class Mod:
         self.default_path = default_path or cfg.get('default_path', os.path.expanduser('~/mod'))
         self._owner = cfg.get('owner') or self.key.address.lower()
         self._history_dir = Path(self._module_dir()) / '.history'
+        # dynamic API lifecycle
+        self._idle_timeout = idle_timeout or cfg.get('idle_timeout', 300)  # seconds
+        self._last_activity = 0.0
+        self._api_managed = False  # True if we started the API ourselves
+        self._idle_lock = threading.Lock()
+        self._idle_thread = None
 
     # ── config ────────────────────────────────────────────────────
 
@@ -144,13 +153,15 @@ class Mod:
     # ── HTTP helpers ──────────────────────────────────────────────
 
     def _request(self, method: str, path: str, data: dict = None, timeout: int = 30) -> dict:
-        """Make a request to the API server."""
+        """Make a request to the API server. Auto-starts API if needed."""
+        self._ensure_api()
         url = f"{self.api_url}{path}"
         body = json.dumps(data).encode() if data else None
         headers = {'Content-Type': 'application/json'} if data else {}
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
+                self._touch_activity()
                 return json.loads(resp.read().decode())
         except urllib.error.URLError as e:
             raise ConnectionError(
@@ -177,10 +188,109 @@ class Mod:
     def _server_available(self) -> bool:
         """Check if the API server is reachable."""
         try:
-            self._request("GET", "/health", timeout=2)
+            url = f"{self.api_url}/health"
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                json.loads(resp.read().decode())
             return True
-        except (ConnectionError, Exception):
+        except Exception:
             return False
+
+    # ── dynamic API lifecycle ─────────────────────────────────────
+
+    def _api_port(self) -> int:
+        """Extract port from api_url."""
+        try:
+            return int(self.api_url.rsplit(':', 1)[-1].rstrip('/'))
+        except (ValueError, IndexError):
+            return 8820
+
+    def _start_api(self) -> bool:
+        """Start the Rust API server. Returns True if started successfully."""
+        api_dir = os.path.join(self._module_dir(), 'api')
+        binary = os.path.join(api_dir, 'target', 'release', 'claude-jobs')
+        if not os.path.exists(binary):
+            start_sh = os.path.join(api_dir, 'start.sh')
+            if os.path.exists(start_sh):
+                subprocess.Popen(
+                    ['bash', start_sh, str(self._api_port())],
+                    cwd=api_dir, stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL, start_new_session=True
+                )
+            else:
+                return False
+        else:
+            port = self._api_port()
+            env = os.environ.copy()
+            env['CLAUDE_JOBS_LOCAL'] = '1'
+            subprocess.Popen(
+                [binary, str(port)], cwd=api_dir, env=env,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+        # wait for it to come up
+        for _ in range(30):
+            time.sleep(0.5)
+            if self._server_available():
+                self._api_managed = True
+                self._touch_activity()
+                self._start_idle_monitor()
+                return True
+        return False
+
+    def _stop_api(self):
+        """Stop the API server if we started it."""
+        port = self._api_port()
+        try:
+            result = subprocess.run(
+                ['lsof', '-ti', f':{port}'],
+                capture_output=True, text=True
+            )
+            pids = result.stdout.strip().split('\n')
+            for pid in pids:
+                if pid.strip():
+                    try:
+                        os.kill(int(pid.strip()), signal.SIGTERM)
+                    except (ProcessLookupError, ValueError):
+                        pass
+        except Exception:
+            pass
+        self._api_managed = False
+
+    def _touch_activity(self):
+        """Record the current time as last API activity."""
+        with self._idle_lock:
+            self._last_activity = time.time()
+
+    def _start_idle_monitor(self):
+        """Start a daemon thread that shuts down the API after idle_timeout."""
+        if self._idle_thread and self._idle_thread.is_alive():
+            return
+        def _monitor():
+            while self._api_managed:
+                time.sleep(10)
+                with self._idle_lock:
+                    idle = time.time() - self._last_activity
+                if idle >= self._idle_timeout:
+                    print(f"[claude] API idle for {int(idle)}s — shutting down")
+                    self._stop_api()
+                    return
+        self._idle_thread = threading.Thread(target=_monitor, daemon=True)
+        self._idle_thread.start()
+
+    def _ensure_api(self):
+        """Ensure the API server is running. Auto-starts if needed."""
+        self._touch_activity()
+        if self._server_available():
+            return True
+        print("[claude] API not running — starting automatically...")
+        if self._start_api():
+            print(f"[claude] API started on port {self._api_port()} (idle timeout: {self._idle_timeout}s)")
+            return True
+        raise ConnectionError(
+            f"Failed to auto-start API on port {self._api_port()}. "
+            f"Start manually: cd {self._module_dir()}/api && bash start.sh"
+        )
 
     # ── core: forward ─────────────────────────────────────────────
 
@@ -674,62 +784,95 @@ class Mod:
 
     # ── test ──────────────────────────────────────────────────────
 
+    def _run_test(self, results, name, fn):
+        """Run a single test, append to results."""
+        try:
+            fn()
+            results["passed"] += 1
+            results["tests"].append({"name": name, "status": "ok"})
+        except Exception as e:
+            results["failed"] += 1
+            results["tests"].append({"name": name, "status": "fail", "error": str(e)})
+
     def test(self) -> dict:
         """Run self-tests. Returns {passed, failed, total}."""
         results = {"passed": 0, "failed": 0, "tests": []}
 
-        # test 1: init
-        try:
+        # 1: init
+        def t_init():
             assert self.config is not None
             assert self.default_path is not None
-            results["passed"] += 1
-            results["tests"].append({"name": "init", "status": "ok"})
-        except Exception as e:
-            results["failed"] += 1
-            results["tests"].append({"name": "init", "status": "fail", "error": str(e)})
+            assert self.default_path.rstrip('/').endswith('/mod'), \
+                f"default_path should end with /mod, got {self.default_path}"
+        self._run_test(results, "init", t_init)
 
-        # test 2: owner system + token auth
-        try:
+        # 2: owner + token auth
+        def t_auth():
             assert self._owner is not None, "owner should always be set"
             tok = self.token()
-            assert isinstance(tok, str) and len(tok) > 0, "token should be a string"
+            assert isinstance(tok, str) and len(tok) > 0
             verified = self.verify(tok)
-            assert verified['key'] == self.key.address, "token should contain key address"
-            results["passed"] += 1
-            results["tests"].append({"name": "owner_auth", "status": "ok"})
-        except Exception as e:
-            results["failed"] += 1
-            results["tests"].append({"name": "owner_auth", "status": "fail", "error": str(e)})
+            assert verified['key'] == self.key.address
+        self._run_test(results, "owner_auth", t_auth)
 
-        # test 3: history
-        try:
+        # 3: history
+        def t_history():
             h = self.get_history()
             assert isinstance(h, list)
-            results["passed"] += 1
-            results["tests"].append({"name": "history", "status": "ok"})
-        except Exception as e:
-            results["failed"] += 1
-            results["tests"].append({"name": "history", "status": "fail", "error": str(e)})
+        self._run_test(results, "history", t_history)
 
-        # test 4: modules fallback
-        try:
+        # 4: modules fallback
+        def t_modules():
             mods = self.modules()
             assert isinstance(mods, list)
-            results["passed"] += 1
-            results["tests"].append({"name": "modules", "status": "ok"})
-        except Exception as e:
-            results["failed"] += 1
-            results["tests"].append({"name": "modules", "status": "fail", "error": str(e)})
+        self._run_test(results, "modules", t_modules)
 
-        # test 5: bg_list
-        try:
+        # 5: bg_list
+        def t_bg_list():
             bl = self.bg_list()
             assert isinstance(bl, list)
-            results["passed"] += 1
-            results["tests"].append({"name": "bg_list", "status": "ok"})
-        except Exception as e:
-            results["failed"] += 1
-            results["tests"].append({"name": "bg_list", "status": "fail", "error": str(e)})
+        self._run_test(results, "bg_list", t_bg_list)
+
+        # 6: API auto-start (ensure_api)
+        def t_ensure_api():
+            self._ensure_api()
+            assert self._server_available(), "API should be reachable after _ensure_api"
+        self._run_test(results, "ensure_api", t_ensure_api)
+
+        # 7: health endpoint
+        def t_health():
+            h = self.health()
+            assert isinstance(h, dict), "health should return a dict"
+        self._run_test(results, "health", t_health)
+
+        # 8: submit + fetch job (real integration test)
+        def t_job_lifecycle():
+            job = self.submit(
+                prompt="echo hello from test — respond with just 'test_ok'",
+                model="haiku",
+                work_dir=os.path.expanduser('~/mod')
+            )
+            assert 'id' in job, f"submit should return job id, got {job}"
+            job_id = job['id']
+            # fetch it back
+            detail = self.job(job_id)
+            assert detail.get('id') == job_id, "job fetch should return same id"
+            assert detail.get('status') in ('pending', 'running', 'completed', 'failed')
+            # list jobs should include it
+            all_jobs = self.jobs()
+            ids = [j['id'] for j in all_jobs]
+            assert job_id in ids, f"job {job_id} should appear in jobs list"
+            # clean up — cancel then delete
+            if detail.get('status') in ('pending', 'running'):
+                self.cancel(job_id)
+            self.delete_job(job_id)
+        self._run_test(results, "job_lifecycle", t_job_lifecycle)
+
+        # 9: idle timeout config
+        def t_idle_timeout():
+            assert self._idle_timeout > 0, "idle_timeout should be positive"
+            assert self._last_activity > 0, "last_activity should be set after API use"
+        self._run_test(results, "idle_timeout", t_idle_timeout)
 
         results["total"] = results["passed"] + results["failed"]
         return results
