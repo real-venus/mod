@@ -277,7 +277,7 @@ export function ModsTab({ show }: { show: boolean }) {
                         key={name}
                         name={name}
                         app={app}
-                        owned={isOwner(app)}
+                        owned={!!isOwner(app)}
                         apiServer={getApiServer(name)}
                         isLoading={actionLoading === name}
                         onStart={() => handleAction('started', name, 'serve_app')}

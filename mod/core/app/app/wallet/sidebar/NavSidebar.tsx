@@ -203,7 +203,7 @@ export function NavSidebar() {
         <div className="shrink-0 flex flex-col gap-1 px-1.5 py-2" style={{ borderTop: '1px solid var(--border-default)' }}>
           {/* New + button */}
           <button
-            onClick={() => router.push('/create')}
+            onClick={() => router.push('/mods')}
             className="group relative w-full flex flex-col items-center justify-center transition-all duration-200 rounded-lg"
             style={{
               height: '48px',

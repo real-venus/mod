@@ -1,117 +1,74 @@
-# starts the container with the name of the current directory
+#!/bin/bash
+set -e
 
+VENV_DIR="$HOME/.mod_venv"
+MOD_DIR="${MOD_DIR:-$HOME/mod}"
 
-TEST=false
-NAME=$(basename $(pwd)) # default name is the current directory name
-IMAGE=$(basename $(pwd)) # get the name of the current directory
-BUILD=false # default to not build the image
-SHM_SIZE=4g # default shared memory size
-# get ~/.mod directory
-CACHE_DIR=~/.mod
-# get the absolute path of the cache directory
-CACHE_DIR=$(realpath $CACHE_DIR)
+echo "=== mod start.sh - the truth teller ==="
 
+# ---- Rust ----
+if ! command -v rustc &> /dev/null; then
+    echo "[+] Installing Rust via rustup..."
+    apt-get update && apt-get install -y --no-install-recommends curl build-essential
+    curl https://sh.rustup.rs -sSf | sh -s -- -y
+    rm -rf /var/lib/apt/lists/*
+fi
+export PATH="$HOME/.cargo/bin:$PATH"
+echo "[ok] rust $(rustc --version)"
 
-VOLUME_PART=" -v $(pwd):/app -v /var/run/docker.sock:/var/run/docker.sock -v $CACHE_DIR:/root/.mod" # mount the current directory to /app in the container
-NETWORK_PART="--network host" # use the host network to allow access to local services
-# ARGS
+# ---- Node + PM2 ----
+if ! command -v node &> /dev/null; then
+    echo "[+] Installing Node.js + npm..."
+    apt-get update && apt-get install -y --no-install-recommends nodejs npm
+    rm -rf /var/lib/apt/lists/*
+fi
+if ! command -v pm2 &> /dev/null; then
+    echo "[+] Installing PM2..."
+    npm install -g pm2
+fi
+echo "[ok] node $(node --version)"
+echo "[ok] pm2 $(pm2 --version)"
 
+# ---- Python venv ----
+if [ ! -d "$VENV_DIR" ]; then
+    echo "[+] Creating virtual environment at $VENV_DIR..."
+    python3 -m venv "$VENV_DIR"
+fi
 
+source "$VENV_DIR/bin/activate"
+echo "[ok] venv active: $(which python3)"
+
+# ---- Pip + mod ----
+pip install --upgrade pip setuptools wheel -q
+
+if [ -f "$MOD_DIR/setup.py" ]; then
+    echo "[+] Installing mod in editable mode..."
+    pip install -e "$MOD_DIR"
+fi
+
+# ---- Commune ----
+if ! python3 -c "import commune" 2>/dev/null; then
+    echo "[+] Installing commune..."
+    pip install commune
+fi
+echo "[ok] commune installed"
+
+echo "=== environment ready ==="
+
+# ---- Stop existing processes ----
+echo "[+] Stopping existing pm2 processes..."
+pm2 kill 2>/dev/null || true
+
+# ---- Start API + App via mod CLI (PM2) ----
+echo "[+] Starting api + app via pm2..."
+python3 -c "import mod; mod.start()"
+echo "[ok] pm2 services started"
+pm2 status
+
+# Run whatever command was passed (or default to keeping container alive)
 if [ $# -gt 0 ]; then
-  for arg in "$@"; do
-    # include the name of the container
-    if [ "$arg" == "--build" ]; then
-      BUILD=true
-      shift
-    elif [ "$arg" == "--test" ]; then
-      TEST=true
-      shift
-
-    elif [[ "$arg" == "--image="* ]]; then
-      # remove the --image= prefix
-      IMAGE="${arg#--image=}"
-      shift
-
-    elif [[ "$arg" == "--name="* ]]; then
-      # remove the --name= prefix
-      NAME="${arg#--name=}"
-      echo "NAME=$NAME"
-      shift
-    elif [[ "$arg" == "--shm-size="* ]]; then
-      # remove the --shm-size= prefix
-      SHM_SIZE="${arg#--shm-size=}"
-      # check if the shm size is valid
-      if ! [[ "$SHM_SIZE" =~ ^[0-9]+[gGmM]$ ]]; then
-        echo "Invalid shm size: $SHM_SIZE"
-        exit 1
-      fi
-      shift
-
-    elif [[ "$arg" == "--port="* ]]; then
-      # remove the --port= prefix
-      PORT="${arg#--port=}"
-      # check if the port is valid
-      if ! [[ "$PORT" =~ ^[0-9]+$ ]]; then
-        echo "Invalid port number: $PORT"
-        exit 1
-      fi
-      # add the port mapping to the docker run command
-      NETWORK_PART=" -p $PORT:$PORT" # map the port to the container
-      shift
-    elif [[ "$arg" == "--"* ]]; then
-      echo "Unknown argument: $arg"
-      exit 1
-    else
-      shift
-    fi
-
-  done
+    exec "$@"
+else
+    # keep container alive while pm2 manages services
+    exec pm2 logs --raw
 fi
-
-echo $BUILD
-
-if [ "$BUILD" == true ]; then
-  echo "BUILDING(name=$NAME repo=$IMAGE)"
-  docker build -t $IMAGE .
-fi
-
-# check if the container with the name already exists
-CONTAINER_EXISTS=$(docker ps -q -f name=$NAME)
-if [ $CONTAINER_EXISTS ]; then
-  echo "Container with name $NAME already exists. Stopping it first..."
-  # stop the existing container
-  docker kill $NAME
-  docker rm $NAME
-fi
-
-# # run the container with the name of the current directory
-# docker run -d --name $NAME \
-#   $NETWORK_PART \
-#   $VOLUME_PART \
-#   --restart unless-stopped  --privileged --shm-size $SHM_SIZE \
-#   $IMAGE
-
-# CONTAINER_ID=$(docker ps -q -f name=$NAME)
-# echo_msg="name=$NAME id=$CONTAINER_ID image=$IMAGE"
-# if PORT="${PORT:-}" ; then
-#   echo_msg="$echo_msg port=$PORT"
-# fi
-# echo "CONTAINER($echo_msg)"
-# # check if the container started successfully
-
-# # 
-# if [ "$TEST" == true ]; then
-#   echo "Running tests..."
-#   # run the tests in the container
-#   docker exec -it $CONTAINER_ID /bin/bash -c "c test"
-# else 
-#   echo "Container started successfully."
-#   if [ -n "$PORT" ]; then
-#     echo "You can access the service at http://localhost:$PORT"
-#   else
-#     echo "No port mapping specified. Access the service using the container's internal network."
-#   fi
-#   echo "To enter the container, run: docker exec -it $NAME /bin/bash"
-# fi
-
-docker compose up -d
