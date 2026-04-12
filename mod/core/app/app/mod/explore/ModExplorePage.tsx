@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import ModCard from '../ModCard'
+import { ModCardSettings } from '../ModCardSettings'
 import { ModuleType } from '@/types'
 import { useSearchContext } from '@/context/SearchContext'
 import { userContext } from '@/context'
 import { RotateCcw, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { CubeIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import Link from 'next/link'
 
 type SortKey = 'recent' | 'name' | 'author' | 'balance' | 'updated' | 'created'
 
@@ -190,30 +192,6 @@ export default function ModExplorePage() {
     setCurrentPage(0) // Reset to first page (0-based)
   }, [searchTermToUse, selectedOwners, sort])
 
-  // Emit state to TopBar
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent('mods:state', {
-      detail: { sort, columns, owners: uniqueOwners, selectedOwners, totalMods }
-    }))
-  }, [sort, columns, uniqueOwners.join(','), selectedOwners.join(','), totalMods])
-
-  // Listen for changes from TopBar
-  useEffect(() => {
-    const onSort = (e: CustomEvent) => setSort(e.detail)
-    const onCols = (e: CustomEvent) => setColumns(e.detail)
-    const onToggle = (e: CustomEvent) => toggleOwner(e.detail)
-    const onClear = () => clearOwnerFilters()
-    window.addEventListener('mods:sort-change' as any, onSort)
-    window.addEventListener('mods:columns-change' as any, onCols)
-    window.addEventListener('mods:toggle-owner' as any, onToggle)
-    window.addEventListener('mods:clear-filters' as any, onClear)
-    return () => {
-      window.removeEventListener('mods:sort-change' as any, onSort)
-      window.removeEventListener('mods:columns-change' as any, onCols)
-      window.removeEventListener('mods:toggle-owner' as any, onToggle)
-      window.removeEventListener('mods:clear-filters' as any, onClear)
-    }
-  }, [])
 
   const toggleOwner = (owner: string) => {
     setSelectedOwners(prev =>
@@ -243,7 +221,34 @@ export default function ModExplorePage() {
     >
       <div className="relative max-w-7xl mx-auto px-6 pt-4 pb-12 z-20">
 
-        {/* Controls now rendered in TopBar header */}
+        {/* Sort / Cols / Filter / Create toolbar */}
+        <div className="flex items-center gap-2.5 mb-5 flex-wrap" style={{ fontFamily: 'var(--font-digital), monospace' }}>
+          <ModCardSettings
+            sort={sort}
+            onSortChange={setSort}
+            columns={columns}
+            onColumnsChange={setColumns}
+            owners={uniqueOwners}
+            selectedOwners={selectedOwners}
+            onToggleOwner={toggleOwner}
+            onClearFilters={clearOwnerFilters}
+          />
+          <div className="flex-1" />
+          <Link
+            href="/create"
+            className="shrink-0 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all flex items-center rounded-full"
+            style={{
+              background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))',
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-digital)',
+              border: '1px solid rgba(167, 139, 250, 0.2)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(167, 139, 250, 0.25), rgba(103, 232, 249, 0.12))' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.2)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))' }}
+          >
+            + CREATE
+          </Link>
+        </div>
 
         {error && (
           <div className="mb-8">

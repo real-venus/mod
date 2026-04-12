@@ -1,220 +1,187 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Bridge", function () {
-  let token, bridge, owner, user1, user2;
-  const INITIAL_SUPPLY = ethers.parseEther("1000000"); // 1M tokens
+describe("BridgeableToken", function () {
+  let bridge, owner, user1, user2;
+  const SUPPLY = ethers.parseEther("1000000");
 
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
-
-    // Deploy BridgeToken
-    const BridgeToken = await ethers.getContractFactory("BridgeToken");
-    token = await BridgeToken.deploy("Bridged Commune", "BCOM", INITIAL_SUPPLY);
-    await token.waitForDeployment();
-
-    // Deploy Bridge
-    const Bridge = await ethers.getContractFactory("Bridge");
-    bridge = await Bridge.deploy(await token.getAddress());
+    const Bridge = await ethers.getContractFactory("BridgeableToken");
+    bridge = await Bridge.deploy("Bridge Token", "BRG", SUPPLY);
     await bridge.waitForDeployment();
-
-    // Approve bridge to spend owner's tokens
-    await token.approve(await bridge.getAddress(), INITIAL_SUPPLY);
   });
 
   describe("Deployment", function () {
-    it("Should set the right token", async function () {
-      expect(await bridge.token()).to.equal(await token.getAddress());
+    it("Should mint initial supply to deployer", async function () {
+      expect(await bridge.balanceOf(owner.address)).to.equal(SUPPLY);
     });
 
-    it("Should set the right owner", async function () {
-      expect(await bridge.owner()).to.equal(owner.address);
-    });
-
-    it("Should give operator initial supply", async function () {
-      expect(await token.balanceOf(owner.address)).to.equal(INITIAL_SUPPLY);
+    it("Should deploy with zero initial supply", async function () {
+      const Bridge = await ethers.getContractFactory("BridgeableToken");
+      const b = await Bridge.deploy("Zero", "ZRO", 0);
+      await b.waitForDeployment();
+      expect(await b.totalSupply()).to.equal(0);
     });
   });
 
-  describe("Claims", function () {
-    const sr25519Hash = ethers.keccak256(ethers.toUtf8Bytes("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"));
-    const claimAmount = ethers.parseEther("1000");
-
-    it("Should process a valid claim", async function () {
-      await expect(
-        bridge.processClaim(sr25519Hash, user1.address, claimAmount)
-      )
-        .to.emit(bridge, "ClaimProcessed")
-        .withArgs(sr25519Hash, user1.address, claimAmount);
-
-      expect(await token.balanceOf(user1.address)).to.equal(claimAmount);
-      expect(await bridge.claimed(sr25519Hash)).to.be.true;
-      expect(await bridge.totalClaimed()).to.equal(claimAmount);
+  describe("Bridge Mint", function () {
+    it("Should mint tokens", async function () {
+      const amount = ethers.parseEther("100");
+      await expect(bridge.bridgeMint(user1.address, amount, "bridge-1"))
+        .to.emit(bridge, "BridgeMint")
+        .withArgs(user1.address, amount, "bridge-1");
+      expect(await bridge.balanceOf(user1.address)).to.equal(amount);
     });
 
-    it("Should reject double claim", async function () {
-      await bridge.processClaim(sr25519Hash, user1.address, claimAmount);
-
+    it("Should reject mint to zero address", async function () {
       await expect(
-        bridge.processClaim(sr25519Hash, user1.address, claimAmount)
-      ).to.be.revertedWith("Already claimed");
+        bridge.bridgeMint(ethers.ZeroAddress, 100, "x")
+      ).to.be.revertedWith("Cannot mint to zero address");
     });
 
     it("Should reject zero amount", async function () {
       await expect(
-        bridge.processClaim(sr25519Hash, user1.address, 0)
-      ).to.be.revertedWith("Amount must be > 0");
+        bridge.bridgeMint(user1.address, 0, "x")
+      ).to.be.revertedWith("Amount must be greater than 0");
     });
 
-    it("Should reject zero address", async function () {
+    it("Should reject non-owner", async function () {
       await expect(
-        bridge.processClaim(sr25519Hash, ethers.ZeroAddress, claimAmount)
-      ).to.be.revertedWith("Invalid recipient");
-    });
-
-    it("Should only allow owner to process claims", async function () {
-      await expect(
-        bridge.connect(user1).processClaim(sr25519Hash, user1.address, claimAmount)
-      ).to.be.reverted;
+        bridge.connect(user1).bridgeMint(user1.address, 100, "x")
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
   });
 
-  describe("Batch Claims", function () {
-    const sr25519Hashes = [
-      ethers.keccak256(ethers.toUtf8Bytes("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY")),
-      ethers.keccak256(ethers.toUtf8Bytes("5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty")),
-      ethers.keccak256(ethers.toUtf8Bytes("5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y"))
-    ];
-    let recipients;
-    let amounts;
-
+  describe("Bridge Burn", function () {
     beforeEach(async function () {
-      recipients = [user1.address, user2.address, owner.address];
-      amounts = [
-        ethers.parseEther("1000"),
-        ethers.parseEther("2000"),
-        ethers.parseEther("3000")
-      ];
+      await bridge.bridgeMint(user1.address, ethers.parseEther("100"), "mint-1");
     });
 
-    it("Should batch process multiple claims", async function () {
-      await bridge.batchProcessClaims(sr25519Hashes, recipients, amounts);
-
-      expect(await token.balanceOf(user1.address)).to.equal(amounts[0]);
-      expect(await token.balanceOf(user2.address)).to.equal(amounts[1]);
-
-      expect(await bridge.claimed(sr25519Hashes[0])).to.be.true;
-      expect(await bridge.claimed(sr25519Hashes[1])).to.be.true;
-      expect(await bridge.claimed(sr25519Hashes[2])).to.be.true;
-
-      const totalExpected = amounts.reduce((a, b) => a + b, 0n);
-      expect(await bridge.totalClaimed()).to.equal(totalExpected);
+    it("Should burn tokens", async function () {
+      const amount = ethers.parseEther("50");
+      await expect(bridge.bridgeBurn(user1.address, amount, "burn-1"))
+        .to.emit(bridge, "BridgeBurn");
+      expect(await bridge.balanceOf(user1.address)).to.equal(ethers.parseEther("50"));
     });
 
-    it("Should reject mismatched array lengths", async function () {
+    it("Should reject burn with insufficient balance", async function () {
       await expect(
-        bridge.batchProcessClaims(
-          sr25519Hashes,
-          [user1.address, user2.address], // Missing one
-          amounts
-        )
-      ).to.be.revertedWith("Array length mismatch");
-    });
-
-    it("Should skip already claimed addresses in batch", async function () {
-      // Claim first one individually
-      await bridge.processClaim(sr25519Hashes[0], user1.address, amounts[0]);
-
-      // Batch should skip first, process others
-      await bridge.batchProcessClaims(sr25519Hashes, recipients, amounts);
-
-      // First user should only have first claim
-      expect(await token.balanceOf(user1.address)).to.equal(amounts[0]);
-      // Second user should have their claim
-      expect(await token.balanceOf(user2.address)).to.equal(amounts[1]);
+        bridge.bridgeBurn(user1.address, ethers.parseEther("200"), "x")
+      ).to.be.revertedWith("Insufficient balance to burn");
     });
   });
 
-  describe("View Functions", function () {
-    const sr25519Hash = ethers.keccak256(ethers.toUtf8Bytes("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"));
-    const claimAmount = ethers.parseEther("1000");
-
-    it("Should check claim status", async function () {
-      expect(await bridge.hasClaimed(sr25519Hash)).to.be.false;
-
-      await bridge.processClaim(sr25519Hash, user1.address, claimAmount);
-
-      expect(await bridge.hasClaimed(sr25519Hash)).to.be.true;
+  describe("Batch Operations", function () {
+    it("Should batch mint", async function () {
+      const amounts = [ethers.parseEther("10"), ethers.parseEther("20")];
+      await bridge.batchBridgeMint([user1.address, user2.address], amounts, "batch-1");
+      expect(await bridge.balanceOf(user1.address)).to.equal(amounts[0]);
+      expect(await bridge.balanceOf(user2.address)).to.equal(amounts[1]);
     });
 
-    it("Should track claim recipient", async function () {
-      await bridge.processClaim(sr25519Hash, user1.address, claimAmount);
+    it("Should batch burn", async function () {
+      await bridge.batchBridgeMint(
+        [user1.address, user2.address],
+        [ethers.parseEther("100"), ethers.parseEther("100")],
+        "setup"
+      );
+      await bridge.batchBridgeBurn(
+        [user1.address, user2.address],
+        [ethers.parseEther("50"), ethers.parseEther("50")],
+        "batch-burn-1"
+      );
+      expect(await bridge.balanceOf(user1.address)).to.equal(ethers.parseEther("50"));
+      expect(await bridge.balanceOf(user2.address)).to.equal(ethers.parseEther("50"));
+    });
 
-      expect(await bridge.claimRecipient(sr25519Hash)).to.equal(user1.address);
+    it("Should reject mismatched arrays", async function () {
+      await expect(
+        bridge.batchBridgeMint([user1.address], [100, 200], "x")
+      ).to.be.revertedWith("Arrays length mismatch");
     });
   });
 
-  describe("Admin Functions", function () {
-    it("Should allow owner to update token address", async function () {
-      const newToken = await (await ethers.getContractFactory("BridgeToken"))
-        .deploy("New Token", "NEW", INITIAL_SUPPLY);
+  describe("Commitments", function () {
+    it("Should commit a source address to an EVM address", async function () {
+      const sourceAddr = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes(sourceAddr));
 
-      await bridge.setToken(await newToken.getAddress());
+      await expect(bridge.commit(sourceHash, user1.address, sourceAddr, "substrate"))
+        .to.emit(bridge, "Commitment")
+        .withArgs(sourceHash, user1.address, sourceAddr, "substrate");
 
-      expect(await bridge.token()).to.equal(await newToken.getAddress());
+      expect(await bridge.getCommitment(sourceHash)).to.equal(user1.address);
     });
 
-    it("Should reject non-owner updating token", async function () {
+    it("Should track multiple commitments per EVM address", async function () {
+      const addr1 = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const addr2 = "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1";
+      const hash1 = ethers.keccak256(ethers.toUtf8Bytes(addr1));
+      const hash2 = ethers.keccak256(ethers.toUtf8Bytes(addr2));
+
+      await bridge.commit(hash1, user1.address, addr1, "substrate");
+      await bridge.commit(hash2, user1.address, addr2, "solana");
+
+      const commitments = await bridge.getEvmCommitments(user1.address);
+      expect(commitments.length).to.equal(2);
+      expect(commitments[0]).to.equal(hash1);
+      expect(commitments[1]).to.equal(hash2);
+    });
+
+    it("Should reject duplicate commitment", async function () {
+      const sourceAddr = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes(sourceAddr));
+
+      await bridge.commit(sourceHash, user1.address, sourceAddr, "substrate");
       await expect(
-        bridge.connect(user1).setToken(await token.getAddress())
-      ).to.be.reverted;
+        bridge.commit(sourceHash, user2.address, sourceAddr, "substrate")
+      ).to.be.revertedWith("Already committed");
+    });
+
+    it("Should reject commitment to zero address", async function () {
+      const sourceAddr = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes(sourceAddr));
+
+      await expect(
+        bridge.commit(sourceHash, ethers.ZeroAddress, sourceAddr, "substrate")
+      ).to.be.revertedWith("Invalid EVM address");
+    });
+
+    it("Should reject non-owner commitment", async function () {
+      const sourceAddr = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes(sourceAddr));
+
+      await expect(
+        bridge.connect(user1).commit(sourceHash, user1.address, sourceAddr, "substrate")
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it("Should return empty commitments for unknown hash", async function () {
+      const fakeHash = ethers.keccak256(ethers.toUtf8Bytes("nonexistent"));
+      expect(await bridge.getCommitment(fakeHash)).to.equal(ethers.ZeroAddress);
+    });
+
+    it("Should return empty array for address with no commitments", async function () {
+      const commitments = await bridge.getEvmCommitments(user1.address);
+      expect(commitments.length).to.equal(0);
     });
   });
 
-  describe("Token Mint and Burn", function () {
-    const mintAmount = ethers.parseEther("1000");
-    const burnAmount = ethers.parseEther("500");
-
-    it("Should allow owner to mint tokens", async function () {
-      const initialBalance = await token.balanceOf(user1.address);
-
-      await token.mint(user1.address, mintAmount);
-
-      expect(await token.balanceOf(user1.address)).to.equal(initialBalance + mintAmount);
-    });
-
-    it("Should reject non-owner minting", async function () {
+  describe("Set Ownerless", function () {
+    it("Should lock minting after ownerless", async function () {
+      await bridge.setOwnerless();
       await expect(
-        token.connect(user1).mint(user1.address, mintAmount)
-      ).to.be.reverted;
+        bridge.bridgeMint(user1.address, 100, "x")
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it("Should allow owner to burn tokens from any address", async function () {
-      // First mint some to user1
-      await token.mint(user1.address, mintAmount);
-
-      const balanceBefore = await token.balanceOf(user1.address);
-      await token.burnFrom(user1.address, burnAmount);
-
-      expect(await token.balanceOf(user1.address)).to.equal(balanceBefore - burnAmount);
-    });
-
-    it("Should allow users to burn their own tokens", async function () {
-      // First mint some to user1
-      await token.mint(user1.address, mintAmount);
-
-      const balanceBefore = await token.balanceOf(user1.address);
-      await token.connect(user1).burn(burnAmount);
-
-      expect(await token.balanceOf(user1.address)).to.equal(balanceBefore - burnAmount);
-    });
-
-    it("Should reject non-owner burning from other addresses", async function () {
-      await token.mint(user1.address, mintAmount);
-
+    it("Should lock commitments after ownerless", async function () {
+      await bridge.setOwnerless();
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes("test"));
       await expect(
-        token.connect(user2).burnFrom(user1.address, burnAmount)
-      ).to.be.reverted;
+        bridge.commit(sourceHash, user1.address, "test", "substrate")
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
   });
 });

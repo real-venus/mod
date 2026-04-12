@@ -51,6 +51,22 @@ class Mod(ContractModule):
         return self.send_tx('bridgeBurn', [from_addr, amount, bridge_id],
                             contract_key='Bridge')
 
+    def commit_address(self, source_hash, evm_address, source_address, source_type):
+        """Commit a source address to an EVM address on-chain."""
+        evm_address = Web3.to_checksum_address(evm_address)
+        return self.send_tx('commit',
+                            [source_hash, evm_address, source_address, source_type],
+                            contract_key='Bridge')
+
+    def get_commitment(self, source_hash):
+        """Get the EVM address committed to a source hash."""
+        return self.call('getCommitment', [source_hash], contract_key='Bridge')
+
+    def get_evm_commitments(self, evm_address):
+        """Get all source hashes committed to an EVM address."""
+        evm_address = Web3.to_checksum_address(evm_address)
+        return self.call('getEvmCommitments', [evm_address], contract_key='Bridge')
+
     def transfer_ownership(self, new_owner):
         return super().transfer_ownership(new_owner, contract_key='Bridge')
 

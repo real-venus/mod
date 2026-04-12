@@ -67,9 +67,16 @@ class Gate:
         assert not isinstance(fn, str) or fn != '', "Function name cannot be empty"
         print(f'Gate forwarding request to function: {fn}', color='green')
         info = mod.info if isinstance(mod.info, dict) else mod.info()
-        headers = self.auth.verify(headers)
-        print(f'Headers after auth verification: {headers}', color='green')
-        role = self.get_role(headers['key'])
+        try:
+            headers = self.auth.verify(headers)
+            print(f'Headers after auth verification: {headers}', color='green')
+            role = self.get_role(headers['key'])
+        except Exception as auth_err:
+            # Auth failed — treat as public/anonymous request
+            headers = headers if isinstance(headers, dict) else {}
+            headers['key'] = headers.get('key', '')
+            role = 'public'
+            print(f'Auth failed ({auth_err}), treating as public for {fn}', color='yellow')
         if  bool(role == 'owner'):
             print(f'ATTENTION: owner({headers["key"]}) is calling {fn}', color='green')
         else:
@@ -409,6 +416,8 @@ class Gate:
         'user', 'users', 'user_keys', 'versions', 'registry',
         'edit', 'reg', 'reg_payload', 'token', 'fork', 'new',
         'balance', 'balances', 'get_balances',
+        'app_namespace', 'app_status', 'app_owner', 'is_app_owner', 'app_logs',
+        'serve_app', 'kill_app', 'new_app', 'edit_app', 'remove_app',
     ]
     def ensure_role_map(self):
         """

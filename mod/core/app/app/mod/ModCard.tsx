@@ -305,6 +305,23 @@ export default function ModCard({
 
           <div className="flex-1" />
 
+          {mod.local && (
+            <span
+              className="flex-shrink-0 px-1.5 py-0.5 rounded-md"
+              style={{
+                color: '#fbbf24',
+                fontSize: '10px',
+                fontFamily: TERM_FONT,
+                fontWeight: 700,
+                background: 'rgba(251, 191, 36, 0.08)',
+                border: '1px solid rgba(251, 191, 36, 0.2)',
+                letterSpacing: '0.05em',
+              }}
+            >
+              LOCAL
+            </span>
+          )}
+
           {mod.url && (
             <span className="flex items-center gap-1.5" style={{
               color: 'var(--accent-success, #34d399)',

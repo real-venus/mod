@@ -2,6 +2,7 @@ import json
 import os
 import time
 import subprocess
+import requests
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from pathlib import Path
@@ -75,39 +76,69 @@ class Mod:
         api_port = api_port or self.api_port
         app_port = app_port or self.app_port
         results = {}
+        log_dir = Path('/tmp/goldfi')
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        # Kill existing processes on these ports first
+        self.kill()
 
         # Start API server
-        server_path = self.module_dir / 'server' / 'server.py'
+        server_dir = self.module_dir / 'server'
+        server_path = server_dir / 'server.py'
         if server_path.exists():
-            api_cmd = f"pm2 start {server_path} --name goldfi-api --interpreter python3 -- " if not dev else None
+            env = os.environ.copy()
+            env['PORT'] = str(api_port)
+            env['PYTHONPATH'] = str(self.module_dir.parent.parent.parent)
+
             if dev:
-                env = os.environ.copy()
-                env['PORT'] = str(api_port)
-                env['PYTHONPATH'] = str(self.module_dir.parent.parent.parent)
+                api_log = open(log_dir / 'api.log', 'w')
                 subprocess.Popen(
                     ['python3', '-m', 'uvicorn', 'server:app', '--host', '0.0.0.0',
                      '--port', str(api_port), '--reload'],
-                    cwd=str(self.module_dir / 'server'),
+                    cwd=str(server_dir),
                     env=env,
-                    stdout=open('/tmp/goldfi-api.log', 'w'),
+                    stdout=api_log,
                     stderr=subprocess.STDOUT,
                 )
-                results['api'] = f'http://localhost:{api_port}'
+            else:
+                subprocess.Popen(
+                    ['pm2', 'start', str(server_path), '--name', 'goldfi-api',
+                     '--interpreter', 'python3', '--', '--port', str(api_port)],
+                    cwd=str(server_dir),
+                    env=env,
+                )
+            results['api'] = f'http://localhost:{api_port}'
+            results['api_log'] = str(log_dir / 'api.log')
 
         # Start Next.js app
         app_dir = self.module_dir / 'app'
         if app_dir.exists():
             env = os.environ.copy()
             env['NEXT_PUBLIC_API_URL'] = f'http://localhost:{api_port}'
-            subprocess.Popen(
-                ['npx', 'next', 'dev', '-p', str(app_port)],
-                cwd=str(app_dir),
-                env=env,
-                stdout=open('/tmp/goldfi-app.log', 'w'),
-                stderr=subprocess.STDOUT,
-            )
-            results['app'] = f'http://localhost:{app_port}'
+            env['PORT'] = str(app_port)
 
+            app_log = open(log_dir / 'app.log', 'w')
+            if dev:
+                subprocess.Popen(
+                    ['npx', 'next', 'dev', '-p', str(app_port)],
+                    cwd=str(app_dir),
+                    env=env,
+                    stdout=app_log,
+                    stderr=subprocess.STDOUT,
+                )
+            else:
+                subprocess.Popen(
+                    ['npx', 'next', 'start', '-p', str(app_port)],
+                    cwd=str(app_dir),
+                    env=env,
+                    stdout=app_log,
+                    stderr=subprocess.STDOUT,
+                )
+            results['app'] = f'http://localhost:{app_port}'
+            results['app_log'] = str(log_dir / 'app.log')
+
+        results['dev'] = dev
+        results['logs'] = str(log_dir)
         return results
 
     def kill(self):
@@ -240,6 +271,78 @@ class Mod:
                     prices[asset_name]['uniswap'] = {'error': str(e)}
         return prices
 
+    def price_history(self, days=7, asset='gold'):
+        """Get gold price from multiple sources for the past N days.
+        Sources: CoinGecko (PAXG on-chain), Yahoo Finance (spot GC=F/SI=F),
+                 Frankfurter (XAU via ECB rates as cross-check)."""
+        results = {'asset': asset, 'days': days, 'sources': {}}
+
+        # ── CoinGecko: PAXG (on-chain gold token) ────────────────────
+        try:
+            cg_ids = {'gold': 'pax-gold', 'silver': 'silver-token'}
+            cg_id = cg_ids.get(asset, asset)
+            url = f'https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart'
+            resp = requests.get(url, params={'vs_currency': 'usd', 'days': days}, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            by_date = {}
+            for ts_ms, price in data.get('prices', []):
+                d = datetime.utcfromtimestamp(ts_ms / 1000).strftime('%Y-%m-%d')
+                by_date[d] = round(price, 2)
+            results['sources']['coingecko_paxg'] = [
+                {'date': d, 'price': p} for d, p in sorted(by_date.items())
+            ]
+        except Exception as e:
+            results['sources']['coingecko_paxg'] = {'error': str(e)}
+
+        # ── Yahoo Finance: spot futures (GC=F for gold, SI=F for silver)
+        try:
+            tickers = {'gold': 'GC=F', 'silver': 'SI=F'}
+            ticker = tickers.get(asset)
+            if ticker:
+                period1 = int((time.time() - days * 86400))
+                period2 = int(time.time())
+                url = (f'https://query1.finance.yahoo.com/v8/finance/chart/{ticker}'
+                       f'?period1={period1}&period2={period2}&interval=1d')
+                resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+                resp.raise_for_status()
+                chart = resp.json()['chart']['result'][0]
+                timestamps = chart['timestamp']
+                closes = chart['indicators']['quote'][0]['close']
+                results['sources']['yahoo_finance'] = [
+                    {
+                        'date': datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d'),
+                        'price': round(c, 2),
+                    }
+                    for ts, c in zip(timestamps, closes) if c is not None
+                ]
+            else:
+                results['sources']['yahoo_finance'] = {'error': f'No ticker for {asset}'}
+        except Exception as e:
+            results['sources']['yahoo_finance'] = {'error': str(e)}
+
+        # ── CoinGecko OHLC (separate granularity view) ───────────────
+        try:
+            cg_ids = {'gold': 'pax-gold', 'silver': 'silver-token'}
+            cg_id = cg_ids.get(asset, asset)
+            ohlc_days = min(days, 30)  # OHLC supports 1,7,14,30,90,180,365
+            url = f'https://api.coingecko.com/api/v3/coins/{cg_id}/ohlc'
+            resp = requests.get(url, params={'vs_currency': 'usd', 'days': ohlc_days}, timeout=10)
+            resp.raise_for_status()
+            candles = resp.json()
+            by_date = {}
+            for ts_ms, o, h, l, c in candles:
+                d = datetime.utcfromtimestamp(ts_ms / 1000).strftime('%Y-%m-%d')
+                by_date[d] = {'open': round(o, 2), 'high': round(h, 2),
+                              'low': round(l, 2), 'close': round(c, 2)}
+            results['sources']['coingecko_ohlc'] = [
+                {'date': d, **v} for d, v in sorted(by_date.items())
+            ]
+        except Exception as e:
+            results['sources']['coingecko_ohlc'] = {'error': str(e)}
+
+        return results
+
     # ── Storage helpers ──────────────────────────────────────────────
 
     def _load_json(self, path, default=None):
@@ -283,28 +386,32 @@ class Mod:
 
     # ── Quadratic reward curve ───────────────────────────────────────
 
-    def reward_score(self, pnl_pct):
-        """Quadratic reward: x^2 for gains, -x^2 for losses"""
-        if pnl_pct >= 0:
-            return pnl_pct ** 2
+    def reward_score(self, pnl_dollars):
+        """Quadratic reward: x^2 for gains, -x^2 for losses.
+        Parameterized over dollars profited/lost."""
+        if pnl_dollars >= 0:
+            return pnl_dollars ** 2
         else:
-            return -(pnl_pct ** 2)
+            return -(pnl_dollars ** 2)
 
     def compute_rewards(self, traders, inflation_pool):
         """Distribute inflation pool based on quadratic scores.
-        Only positive-score traders receive rewards."""
+        Only positive-score traders receive rewards.
+        Score is parameterized over dollars profited/lost."""
         scores = {}
         for t in traders:
             initial = t.get('initial_equity', 0)
             current = t.get('current_equity', 0)
+            pnl_dollars = current - initial
             if initial > 0:
                 pnl_pct = ((current - initial) / initial) * 100
             else:
                 pnl_pct = 0.0
             scores[t['address']] = {
                 'pnl_pct': pnl_pct,
-                'score': self.reward_score(pnl_pct),
-                'pnl_abs': current - initial,
+                'pnl_dollars': pnl_dollars,
+                'score': self.reward_score(pnl_dollars),
+                'pnl_abs': pnl_dollars,
                 'initial_equity': initial,
                 'current_equity': current,
             }
@@ -583,15 +690,15 @@ class Mod:
             self.traders_path = self.store_dir / 'traders.json'
             self.current_epoch_path = self.store_dir / 'current_epoch.json'
 
-            # ── 1. Quadratic reward curve ────────────────────────────
-            print('\n1. Quadratic Reward Curve')
-            check('positive 10% → 100', self.reward_score(10) == 100)
-            check('positive 5% → 25', self.reward_score(5) == 25)
+            # ── 1. Quadratic reward curve (dollars) ────────────────────
+            print('\n1. Quadratic Reward Curve (dollars)')
+            check('profit $10 → 100', self.reward_score(10) == 100)
+            check('profit $5 → 25', self.reward_score(5) == 25)
             check('zero → 0', self.reward_score(0) == 0)
-            check('negative -10% → -100', self.reward_score(-10) == -100)
-            check('negative -3% → -9', self.reward_score(-3) == -9)
+            check('loss $10 → -100', self.reward_score(-10) == -100)
+            check('loss $3 → -9', self.reward_score(-3) == -9)
             # Quadratic amplifies big winners
-            check('20% scores 4x more than 10%',
+            check('$20 profit scores 4x more than $10',
                   self.reward_score(20) == 4 * self.reward_score(10),
                   f'{self.reward_score(20)} vs 4*{self.reward_score(10)}')
 
@@ -682,23 +789,23 @@ class Mod:
             check('leaderboard has 3 entries', len(board) == 3)
             check('Alice ranked #1 (highest PnL)', board[0]['address'] == '0xAlice')
 
-            # Alice: +20% → score=400, Bob: -5% → score=-25, Charlie: +8% → score=64
+            # Alice: +$2000 → score=4000000, Bob: -$500 → score=-250000, Charlie: +$800 → score=640000
             alice_entry = [b for b in board if b['address'] == '0xAlice'][0]
             bob_entry = [b for b in board if b['address'] == '0xBob'][0]
             charlie_entry = [b for b in board if b['address'] == '0xCharlie'][0]
 
-            check('Alice score = 400', alice_entry['score'] == 400.0,
+            check('Alice score = 4000000', alice_entry['score'] == 4000000.0,
                   f'got {alice_entry["score"]}')
-            check('Bob score = -25 (negative)', bob_entry['score'] == -25.0,
+            check('Bob score = -250000 (negative)', bob_entry['score'] == -250000.0,
                   f'got {bob_entry["score"]}')
-            check('Charlie score = 64', charlie_entry['score'] == 64.0,
+            check('Charlie score = 640000', charlie_entry['score'] == 640000.0,
                   f'got {charlie_entry["score"]}')
             check('Bob reward = 0 (negative score)', bob_entry['reward'] == 0.0)
 
-            # Alice share = 400/(400+64) = 86.21%, Charlie = 64/464 = 13.79%
-            total_positive = 400 + 64
-            expected_alice_reward = round(400 / total_positive * 500, 4)
-            expected_charlie_reward = round(64 / total_positive * 500, 4)
+            # Alice share = 4000000/(4000000+640000) = 86.21%, Charlie = 640000/4640000 = 13.79%
+            total_positive = 4000000 + 640000
+            expected_alice_reward = round(4000000 / total_positive * 500, 4)
+            expected_charlie_reward = round(640000 / total_positive * 500, 4)
             check(f'Alice reward ≈ {expected_alice_reward}',
                   alice_entry['reward'] == expected_alice_reward,
                   f'got {alice_entry["reward"]}')
@@ -773,6 +880,7 @@ class Mod:
             rewards     - View rewards (epoch_id=)
             history     - Past epochs
             prices      - Current prices for tracked assets
+            price_history - Gold price from multiple sources (days=, asset=)
             assets      - List tracked assets
             add_asset   - Add new asset (name=, hl_symbol=, uni_address=)
             test        - Run test suite
@@ -788,6 +896,10 @@ class Mod:
             'rewards': lambda: self.rewards(kwargs.get('epoch_id')),
             'history': lambda: self.history(),
             'prices': lambda: self.get_prices(),
+            'price_history': lambda: self.price_history(
+                days=int(kwargs.get('days', 7)),
+                asset=kwargs.get('asset', 'gold'),
+            ),
             'assets': lambda: {
                 'tracked': self.tracked_assets,
                 'registry': {k: {ex: info.get('symbol') for ex, info in v.items()} for k, v in self.ASSETS.items()},

@@ -6,7 +6,7 @@ import { Loading } from '@/ui/Loading'
 import { ModuleType } from '@/types'
 import { userContext } from '@/context'
 import { useRouter } from 'next/navigation'
-import { text2color, colorWithOpacity, getModAppUrl } from '@/utils'
+import { text2color, colorWithOpacity, getModAppUrl, getModApiUrl } from '@/utils'
 import UpdateMod from '@/user/UpdateMod'
 import ModEdit from '@/mod/edit/ModEdit'
 import ModVersions from '@/mod/versions/ModVersions'
@@ -33,12 +33,18 @@ export default function ModulePage() {
   const [myMod, setMyMod] = useState(false)
   const [serving, setServing] = useState(false)
   const [serveError, setServeError] = useState<string | null>(null)
+  const [servePort, setServePort] = useState('')
+  const [serveApiPort, setServeApiPort] = useState('')
+  const [serveResult, setServeResult] = useState<any>(null)
   const [allModVersions, setAllModVersions] = useState<ModuleType[]>([])
   const [selectedOwnerIndex, setSelectedOwnerIndex] = useState(0)
   const [versions, setVersions] = useState<any[]>([])
   const [selectedVersionIndex, setSelectedVersionIndex] = useState(0)
 
   const moduleColor = mod ? text2color(mod.name || mod.key) : '#ffffff'
+
+  // Is the current user a creator of ANY version of this module?
+  const isCreator = !!(user?.key && allModVersions.length > 1 && allModVersions.some(m => m.key === user.key))
 
 
   useEffect(() => {
@@ -128,12 +134,12 @@ export default function ModulePage() {
   useEffect(() => {
     if (!mod) return
     window.dispatchEvent(new CustomEvent('mod:info', {
-      detail: { fnCount, key: mod.key, cid: mod.cid || '', url_app: getModAppUrl(mod) || '', allOwners: allModVersions }
+      detail: { fnCount, key: mod.key, cid: mod.cid || '', url_app: getModAppUrl(mod) || '', url_api: getModApiUrl(mod) || '', allOwners: allModVersions, isRunning: !!(mod.url || getModAppUrl(mod)), myMod, isCreator }
     }))
     window.dispatchEvent(new CustomEvent('mod:tab-change', {
       detail: { tab: activeTab }
     }))
-  }, [mod, fnCount, activeTab, allModVersions])
+  }, [mod, fnCount, activeTab, allModVersions, myMod, isCreator])
 
   // Listen for tab changes from TopBar
   useEffect(() => {
@@ -195,23 +201,50 @@ export default function ModulePage() {
     setSelectedVersionIndex(versionIndex)
   }
 
+  const reloadMod = async () => {
+    if (!client) return
+    try {
+      const data = await client.call('mod', { mod: modName, key: mod.key, expand: true, schema: true })
+      if (data && !data.error) setMod(data as ModuleType)
+    } catch {}
+  }
+
   const handleServe = async () => {
     if (!client || !mod) return
     setServing(true)
     setServeError(null)
+    setServeResult(null)
     try {
-      const result = await client.call('serve_app', { name: mod.name })
+      const params: any = { name: mod.name }
+      if (servePort) params.port = parseInt(servePort)
+      if (serveApiPort) params.api_port = parseInt(serveApiPort)
+      const result = await client.call('serve_app', params)
       if (result?.error) {
         setServeError(result.error)
       } else {
-        // Reload module data to pick up the new url
-        const data = await client.call('mod', { mod: modName, key: mod.key, expand: true, schema: true })
-        if (data && !data.error) {
-          setMod(data as ModuleType)
-        }
+        setServeResult(result)
+        await reloadMod()
       }
     } catch (err: any) {
       setServeError(err?.message || 'Failed to serve module')
+    } finally {
+      setServing(false)
+    }
+  }
+
+  const handleKill = async () => {
+    if (!client || !mod) return
+    setServing(true)
+    setServeError(null)
+    try {
+      const result = await client.call('kill_app', { name: mod.name })
+      if (result?.error) {
+        setServeError(result.error)
+      } else {
+        await reloadMod()
+      }
+    } catch (err: any) {
+      setServeError(err?.message || 'Failed to kill module')
     } finally {
       setServing(false)
     }
@@ -231,19 +264,41 @@ export default function ModulePage() {
         MODULE NOT RUNNING
       </p>
       {myMod ? (
-        <button
-          onClick={handleServe}
-          disabled={serving}
-          className="px-8 py-3 text-sm font-bold uppercase tracking-wider transition-all border-2"
-          style={{
-            borderColor: serving ? 'var(--border-color)' : moduleColor,
-            color: serving ? 'var(--text-tertiary)' : moduleColor,
-            background: serving ? 'transparent' : colorWithOpacity(moduleColor, 0.1),
-            fontFamily: 'var(--font-digital), monospace',
-          }}
-        >
-          {serving ? '▸ STARTING...' : '▸ SERVE'}
-        </button>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex gap-2 items-center">
+            <label className="text-[10px] uppercase tracking-wider w-12 text-right" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital), monospace' }}>API</label>
+            <input
+              type="number"
+              placeholder="auto"
+              value={serveApiPort}
+              onChange={e => setServeApiPort(e.target.value)}
+              className="px-2 py-1 text-[11px] w-24"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-digital), monospace' }}
+            />
+            <label className="text-[10px] uppercase tracking-wider w-12 text-right" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital), monospace' }}>APP</label>
+            <input
+              type="number"
+              placeholder="auto"
+              value={servePort}
+              onChange={e => setServePort(e.target.value)}
+              className="px-2 py-1 text-[11px] w-24"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-digital), monospace' }}
+            />
+          </div>
+          <button
+            onClick={handleServe}
+            disabled={serving}
+            className="px-8 py-3 text-sm font-bold uppercase tracking-wider transition-all border-2"
+            style={{
+              borderColor: serving ? 'var(--border-color)' : moduleColor,
+              color: serving ? 'var(--text-tertiary)' : moduleColor,
+              background: serving ? 'transparent' : colorWithOpacity(moduleColor, 0.1),
+              fontFamily: 'var(--font-digital), monospace',
+            }}
+          >
+            {serving ? '▸ STARTING...' : '▸ SERVE'}
+          </button>
+        </div>
       ) : (
         <p className="text-sm" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }}>
           Only the module owner can start it
@@ -251,6 +306,11 @@ export default function ModulePage() {
       )}
       {serveError && (
         <p className="text-sm font-bold" style={{ color: '#ef4444' }}>{serveError}</p>
+      )}
+      {serveResult && !serveError && (
+        <p className="text-sm font-bold" style={{ color: '#10b981' }}>
+          Started on port {serveResult.port || serveResult.api_port || '?'}
+        </p>
       )}
     </div>
   )
@@ -271,12 +331,26 @@ export default function ModulePage() {
           {activeTab === 'config' && <ModConfig mod={mod} />}
           {activeTab === 'terminal' && <ModTerminal mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'app' && (getModAppUrl(mod) ? <ModApp mod={mod} moduleColor={moduleColor} /> : <NotRunning />)}
-          {activeTab === 'api' && (mod.url ? <ModApiTab mod={mod} moduleColor={moduleColor} /> : <NotRunning />)}
+          {activeTab === 'api' && <ModApiTab mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'versions' && <ModVersions mod={mod} selectedVersionIndex={selectedVersionIndex} onVersionChange={handleVersionChange} />}
           {activeTab === 'manage' && <ModManage mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'server' && <ModServer mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'update' && myMod && <UpdateMod mod={mod} />}
-          {activeTab === 'edit' && <ModEdit mod={mod} />}
+          {activeTab === 'edit' && (myMod || isCreator ? (
+            <ModEdit mod={mod} moduleColor={moduleColor} isSuggestion={!myMod && isCreator} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-24 gap-5" style={{ fontFamily: 'var(--font-digital), monospace' }}>
+              <div className="w-16 h-16 flex items-center justify-center border-4" style={{ borderColor: 'var(--border-strong)', backgroundColor: 'var(--bg-secondary)' }}>
+                <span className="text-2xl" style={{ color: 'var(--text-tertiary)', opacity: 0.4 }}>🔒</span>
+              </div>
+              <p className="text-base font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                OWNER ONLY
+              </p>
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }}>
+                Only the module owner can edit this module
+              </p>
+            </div>
+          ))}
         </div>
       </main>
     </div>

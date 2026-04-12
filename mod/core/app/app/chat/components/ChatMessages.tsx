@@ -20,37 +20,43 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
   if (messages.length === 0 && !isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center p-12">
-        <div className="text-center max-w-lg">
+        <div className="text-center max-w-2xl">
           <div
-            className="mb-8 inline-flex items-center justify-center w-28 h-28 border-4"
+            className="mb-10 inline-flex items-center justify-center w-36 h-36 border-4 rounded-2xl"
             style={{
               borderColor: 'var(--border-strong)',
               backgroundColor: 'var(--bg-surface)',
             }}
           >
-            <span className="text-5xl">{">"}_</span>
+            <span className="text-6xl">{">"}_</span>
           </div>
           <h3
-            className="text-xl font-bold mb-4 uppercase tracking-widest"
+            className="text-3xl font-bold mb-6 uppercase tracking-widest"
             style={{ color: 'var(--text-primary)' }}
           >
-            Ready
+            Ready to Chat
           </h3>
           <p
-            className="text-base leading-relaxed"
+            className="text-xl leading-relaxed mb-4"
             style={{ color: 'var(--text-secondary)' }}
           >
             Type your message below and press SEND to begin.
           </p>
+          <p
+            className="text-lg leading-relaxed mb-8"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            You can also paste images directly into the text area!
+          </p>
           <div
-            className="mt-8 inline-flex items-center gap-2 px-6 py-3 border-2 text-sm uppercase"
+            className="mt-8 inline-flex items-center gap-3 px-8 py-4 border-2 text-lg uppercase rounded-lg"
             style={{
               borderColor: 'var(--border-color)',
               backgroundColor: 'var(--bg-surface)',
               color: 'var(--text-tertiary)',
             }}
           >
-            ENTER = SEND
+            <span className="text-2xl">⌨️</span> ENTER = SEND
           </div>
         </div>
       </div>
@@ -71,7 +77,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
               <div className={`max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
                 {/* Sender label */}
                 <div
-                  className={`text-base uppercase tracking-widest mb-2 px-1 font-bold ${
+                  className={`text-lg uppercase tracking-widest mb-3 px-1 font-bold ${
                     isUser ? 'text-right' : 'text-left'
                   }`}
                   style={{ color: isUser ? 'var(--accent-primary)' : 'var(--text-secondary)' }}
@@ -81,13 +87,13 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
 
                 {/* Message bubble */}
                 <div
-                  className="relative px-6 py-5 border-2 group"
+                  className="relative px-7 py-6 border-3 group rounded-xl"
                   style={{
                     backgroundColor: isUser ? 'var(--bg-secondary)' : 'var(--bg-surface)',
                     borderColor: isUser ? 'var(--accent-primary)' : 'var(--border-strong)',
                     color: 'var(--text-primary)',
                     boxShadow: isUser
-                      ? '0 0 15px color-mix(in srgb, var(--accent-primary) 20%, transparent)'
+                      ? '0 0 20px color-mix(in srgb, var(--accent-primary) 25%, transparent)'
                       : 'none',
                   }}
                 >
@@ -102,25 +108,44 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
                   {msg.isLoading && !msg.content ? (
                     <div className="flex items-center gap-3">
                       <span
-                        className="inline-block text-lg animate-pulse"
+                        className="inline-block text-2xl animate-pulse"
                         style={{ color: 'var(--accent-primary)' }}
                       >
                         ...
                       </span>
                     </div>
                   ) : isUser ? (
-                    <pre
-                      className="text-lg leading-relaxed whitespace-pre-wrap break-words"
-                      style={{
-                        fontFamily: 'var(--font-digital), "JetBrains Mono", monospace',
-                        maxWidth: '100%',
-                        wordBreak: 'break-word',
-                        overflowWrap: 'break-word',
-                        color: 'var(--text-primary)',
-                      }}
-                    >
-                      {msg.content}
-                    </pre>
+                    <div className="space-y-4">
+                      {/* Display pasted images */}
+                      {msg.images && msg.images.length > 0 && (
+                        <div className="flex flex-wrap gap-3 mb-4">
+                          {msg.images.map((img, idx) => (
+                            <img
+                              key={idx}
+                              src={img}
+                              alt={`Image ${idx + 1}`}
+                              className="max-w-md max-h-64 rounded-lg border-2 object-cover"
+                              style={{ borderColor: 'var(--border-strong)' }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {/* Display text content */}
+                      {msg.content && (
+                        <pre
+                          className="text-xl leading-relaxed whitespace-pre-wrap break-words"
+                          style={{
+                            fontFamily: 'var(--font-digital), "JetBrains Mono", monospace',
+                            maxWidth: '100%',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                            color: 'var(--text-primary)',
+                          }}
+                        >
+                          {msg.content}
+                        </pre>
+                      )}
+                    </div>
                   ) : (
                     <div>
                       <JsonRenderer content={msg.content} />
@@ -169,7 +194,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
 
                 {/* Timestamp */}
                 <div
-                  className={`text-base mt-2 px-1 ${isUser ? 'text-right' : 'text-left'}`}
+                  className={`text-lg mt-3 px-1 ${isUser ? 'text-right' : 'text-left'}`}
                   style={{ color: 'var(--text-tertiary)' }}
                 >
                   {new Date(msg.timestamp).toLocaleTimeString()}

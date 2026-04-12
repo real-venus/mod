@@ -5,14 +5,6 @@
   "default_exchange": "hyperliquid",
   "epoch_duration_days": 7,
   "default_inflation_pool": 1000,
-  "api": {
-    "port": 50095,
-    "entrypoint": "uvicorn server:app --host 0.0.0.0 --port 50095"
-  },
-  "app": {
-    "port": 3095,
-    "framework": "nextjs"
-  },
   "urls": {
     "api": "http://localhost:50095",
     "app": "http://localhost:3095"

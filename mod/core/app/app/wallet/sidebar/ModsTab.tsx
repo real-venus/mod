@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { userContext } from '@/context'
 import { text2color, shorten } from '@/utils'
+import { useRouter } from 'next/navigation'
 
 interface AppStatus {
   port: number
@@ -14,23 +15,40 @@ interface AppStatus {
   url: string
 }
 
+interface ModEntry {
+  name: string
+  key: string
+  url?: string | { api?: string; app?: string }
+  fns?: string[]
+}
+
 const FONT = "var(--font-digital), monospace"
 
 export function ModsTab({ show }: { show: boolean }) {
   const { client, user } = userContext()
+  const router = useRouter()
   const [apps, setApps] = useState<Record<string, AppStatus>>({})
+  const [ownedMods, setOwnedMods] = useState<ModEntry[]>([])
+  const [apiServers, setApiServers] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [newAppName, setNewAppName] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
+  const [filter, setFilter] = useState<'mine' | 'all'>('mine')
 
   const fetchApps = useCallback(async () => {
     if (!client) return
     try {
-      const result = await client.call('app_status')
-      if (result && typeof result === 'object' && !result.error) {
-        setApps(result)
+      const [statusResult, namespaceResult] = await Promise.all([
+        client.call('app_status'),
+        client.call('namespace'),
+      ])
+      if (statusResult && typeof statusResult === 'object' && !statusResult.error) {
+        setApps(statusResult)
+      }
+      if (namespaceResult && typeof namespaceResult === 'object' && !namespaceResult.error) {
+        setApiServers(namespaceResult)
       }
     } catch {
       // ignore
@@ -39,12 +57,25 @@ export function ModsTab({ show }: { show: boolean }) {
     }
   }, [client])
 
+  const fetchOwnedMods = useCallback(async () => {
+    if (!client || !user?.key) return
+    try {
+      const result = await client.call('mods', { key: user.key })
+      if (result && Array.isArray(result)) {
+        setOwnedMods(result)
+      }
+    } catch {
+      // ignore
+    }
+  }, [client, user?.key])
+
   useEffect(() => {
     if (!show) return
     fetchApps()
+    fetchOwnedMods()
     const interval = setInterval(fetchApps, 5000)
     return () => clearInterval(interval)
-  }, [fetchApps, show])
+  }, [fetchApps, fetchOwnedMods, show])
 
   const isOwner = (app: AppStatus) => {
     return user?.key && app.owner && user.key.toLowerCase() === app.owner.toLowerCase()
@@ -90,9 +121,24 @@ export function ModsTab({ show }: { show: boolean }) {
     }
   }
 
-  const entries = Object.entries(apps)
-  const myApps = entries.filter(([, app]) => isOwner(app))
-  const otherApps = entries.filter(([, app]) => !isOwner(app))
+  // Build unified list: installed apps + owned mods that aren't in apps
+  const appEntries = Object.entries(apps)
+  const myApps = appEntries.filter(([, app]) => isOwner(app))
+  const otherApps = appEntries.filter(([, app]) => !isOwner(app))
+
+  // Owned mods not already in the app list
+  const appNames = new Set(appEntries.map(([name]) => name))
+  const ownedNotInstalled = ownedMods.filter(m => !appNames.has(m.name))
+
+  // API servers that aren't 'api' (the main portal API)
+  const apiServerEntries = Object.entries(apiServers).filter(([name]) => name !== 'api')
+
+  // Check if a mod is being served as an API server
+  const getApiServer = (name: string) => apiServers[name] || null
+
+  const filtered = filter === 'mine'
+    ? { apps: myApps, others: [], mods: ownedNotInstalled }
+    : { apps: appEntries, others: [], mods: [] }
 
   return (
     <AnimatePresence>
@@ -114,9 +160,22 @@ export function ModsTab({ show }: { show: boolean }) {
                 textShadow: 'var(--effect-text-shadow, 0) 0px 10px var(--text-primary)',
                 letterSpacing: '0.2em'
               }}>
-                MODULE APPS
+                MODULES
               </span>
               <div className="flex items-center gap-1">
+                {/* Filter toggle */}
+                <button
+                  onClick={() => setFilter(f => f === 'mine' ? 'all' : 'mine')}
+                  className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-all border"
+                  style={{
+                    fontFamily: FONT,
+                    borderColor: filter === 'mine' ? 'rgba(16,185,129,0.4)' : 'var(--border-color)',
+                    color: filter === 'mine' ? '#10b981' : 'var(--text-tertiary)',
+                    background: filter === 'mine' ? 'rgba(16,185,129,0.08)' : 'transparent',
+                  }}
+                >
+                  {filter === 'mine' ? 'MINE' : 'ALL'}
+                </button>
                 <button
                   onClick={() => setShowAddForm(!showAddForm)}
                   className="p-1 transition-all"
@@ -127,7 +186,7 @@ export function ModsTab({ show }: { show: boolean }) {
                   </svg>
                 </button>
                 <button
-                  onClick={fetchApps}
+                  onClick={() => { fetchApps(); fetchOwnedMods() }}
                   disabled={loading}
                   className="p-1 transition-all disabled:opacity-50"
                   title="Refresh"
@@ -199,56 +258,79 @@ export function ModsTab({ show }: { show: boolean }) {
             {loading ? (
               <div className="flex items-center justify-center py-6 gap-2">
                 <ArrowPathIcon className="w-4 h-4 animate-spin" style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-xs" style={{ color: 'var(--text-tertiary)', fontFamily: FONT }}>Loading apps...</span>
+                <span className="text-xs" style={{ color: 'var(--text-tertiary)', fontFamily: FONT }}>Loading...</span>
               </div>
-            ) : entries.length === 0 ? (
+            ) : filtered.apps.length === 0 && filtered.mods.length === 0 && apiServerEntries.length === 0 ? (
               <div className="text-center py-6 text-xs" style={{ color: 'var(--text-tertiary)', fontFamily: FONT }}>
-                No module apps running
+                {filter === 'mine' ? 'No modules owned' : 'No module apps found'}
               </div>
             ) : (
-              <>
-                {/* My Apps */}
-                {myApps.length > 0 && (
+              <div className="space-y-3">
+                {/* Installed Apps */}
+                {filtered.apps.length > 0 && (
                   <div className="space-y-1">
                     <span className="text-[10px] uppercase tracking-widest px-1" style={{ color: 'var(--text-tertiary)', fontFamily: FONT }}>
-                      YOUR APPS
+                      {filter === 'mine' ? 'YOUR APPS' : 'ALL APPS'}
                     </span>
-                    {myApps.map(([name, app]) => (
+                    {filtered.apps.map(([name, app]) => (
                       <AppRow
                         key={name}
                         name={name}
                         app={app}
-                        owned
+                        owned={isOwner(app)}
+                        apiServer={getApiServer(name)}
                         isLoading={actionLoading === name}
                         onStart={() => handleAction('started', name, 'serve_app')}
                         onStop={() => handleAction('stopped', name, 'kill_app')}
                         onRemove={() => handleAction('removed', name, 'remove_app')}
+                        onNavigate={() => router.push(`/${name}`)}
                       />
                     ))}
                   </div>
                 )}
 
-                {/* Other Apps */}
-                {otherApps.length > 0 && (
-                  <div className="space-y-1 mt-2">
+                {/* Owned Mods (not installed as apps) */}
+                {filter === 'mine' && filtered.mods.length > 0 && (
+                  <div className="space-y-1">
                     <span className="text-[10px] uppercase tracking-widest px-1" style={{ color: 'var(--text-tertiary)', fontFamily: FONT }}>
-                      OTHER APPS
+                      YOUR MODULES
                     </span>
-                    {otherApps.map(([name, app]) => (
-                      <AppRow
-                        key={name}
-                        name={name}
-                        app={app}
-                        owned={false}
-                        isLoading={actionLoading === name}
-                        onStart={() => {}}
-                        onStop={() => {}}
-                        onRemove={() => {}}
+                    {filtered.mods.map((mod) => (
+                      <ModRow
+                        key={mod.name}
+                        mod={mod}
+                        apiServer={getApiServer(mod.name)}
+                        onNavigate={() => router.push(`/${mod.name}`)}
                       />
                     ))}
                   </div>
                 )}
-              </>
+
+                {/* Active API Servers (not already shown above) */}
+                {apiServerEntries.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-widest px-1" style={{ color: 'var(--text-tertiary)', fontFamily: FONT }}>
+                      API SERVERS
+                    </span>
+                    {apiServerEntries.map(([name, addr]) => {
+                      // Skip if already shown in apps
+                      if (appNames.has(name)) return null
+                      return (
+                        <div
+                          key={name}
+                          className="flex items-center gap-3 px-3 py-2 border transition-all cursor-pointer hover:border-emerald-500/30"
+                          style={{ borderColor: 'var(--border-color)', background: 'var(--bg-input)', fontFamily: FONT }}
+                          onClick={() => router.push(`/${name}`)}
+                        >
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                          <span className="font-bold uppercase tracking-wider text-xs flex-1" style={{ color: text2color(name) }}>{name}</span>
+                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{addr}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </motion.div>
@@ -258,26 +340,29 @@ export function ModsTab({ show }: { show: boolean }) {
 }
 
 function AppRow({
-  name, app, owned, isLoading, onStart, onStop, onRemove,
+  name, app, owned, apiServer, isLoading, onStart, onStop, onRemove, onNavigate,
 }: {
   name: string
   app: AppStatus
   owned: boolean
+  apiServer: string | null
   isLoading: boolean
   onStart: () => void
   onStop: () => void
   onRemove: () => void
+  onNavigate: () => void
 }) {
   const color = text2color(name)
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2.5 border-2 transition-all"
+      className="flex items-center gap-3 px-3 py-2.5 border-2 transition-all cursor-pointer hover:border-emerald-500/20"
       style={{
         borderColor: 'var(--border-color)',
         background: 'var(--bg-input)',
         fontFamily: FONT,
       }}
+      onClick={onNavigate}
     >
       {/* Status dot */}
       <div
@@ -298,7 +383,19 @@ function AppRow({
             :{app.port}
           </span>
         )}
+        {apiServer && (
+          <span className="ml-1 text-[10px]" style={{ color: 'rgba(59,130,246,0.7)' }}>
+            api
+          </span>
+        )}
       </div>
+
+      {/* Owner (when showing all) */}
+      {!owned && app.owner && (
+        <span className="text-[9px] shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+          {shorten(app.owner)}
+        </span>
+      )}
 
       {/* Status */}
       <span
@@ -310,7 +407,7 @@ function AppRow({
 
       {/* Actions */}
       {owned && (
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
           {app.running ? (
             <button
               onClick={onStop}
@@ -359,6 +456,51 @@ function AppRow({
             RM
           </button>
         </div>
+      )}
+    </div>
+  )
+}
+
+function ModRow({
+  mod, apiServer, onNavigate,
+}: {
+  mod: ModEntry
+  apiServer: string | null
+  onNavigate: () => void
+}) {
+  const color = text2color(mod.name)
+  const isServed = !!apiServer
+
+  return (
+    <div
+      className="flex items-center gap-3 px-3 py-2 border transition-all cursor-pointer hover:border-emerald-500/20"
+      style={{
+        borderColor: 'var(--border-color)',
+        background: 'var(--bg-input)',
+        fontFamily: FONT,
+      }}
+      onClick={onNavigate}
+    >
+      <div
+        className="w-2 h-2 rounded-full shrink-0"
+        style={{
+          background: isServed ? '#3b82f6' : '#6b7280',
+          boxShadow: isServed ? '0 0 6px #3b82f6' : 'none',
+          opacity: isServed ? 1 : 0.4,
+        }}
+      />
+      <span className="font-bold uppercase tracking-wider text-xs flex-1" style={{ color }}>
+        {mod.name}
+      </span>
+      {isServed && (
+        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+          {apiServer}
+        </span>
+      )}
+      {mod.fns && (
+        <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+          {mod.fns.length} fns
+        </span>
       )}
     </div>
   )

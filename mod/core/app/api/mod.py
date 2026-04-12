@@ -76,7 +76,15 @@ class Api:
         return self._reg.exists(mod=mod, key=key)
 
     def mod(self, mod='api', key=None, schema=False, expand=False, update=False, **kwargs) -> Dict[str, Any]:
-        return self._reg.mod(mod=mod, key=key, schema=schema, expand=expand, update=update, **kwargs)
+        result = self._reg.mod(mod=mod, key=key, schema=schema, expand=expand, update=update, **kwargs)
+        # Auto-register local modules on first access
+        if result.get('local') and result.get('name'):
+            try:
+                self._reg.reg(mod=result['name'], key=key, comment='auto-registered')
+                result = self._reg.mod(mod=mod, key=key, schema=schema, expand=expand, update=update, **kwargs)
+            except Exception:
+                pass
+        return result
 
     def root(self, encrypt=True, update=True, **kwargs) -> str:
         return self._reg.root(encrypt=encrypt, update=update, **kwargs)
@@ -250,6 +258,12 @@ class Api:
     def edit(self, query: str = 'make the readme better', mod='app', key=None, steps=20, **kwargs) -> Dict[str, Any]:
         t0 = time.time()
         status = 'success'
+        # Owner check: only the module owner can edit
+        caller = self._reg.key_address(key) if key else self.key.address.lower()
+        mod_info = self._reg.mod(mod=mod)
+        mod_owner = (mod_info.get('key') or '').lower()
+        if mod_owner and caller.lower() != mod_owner and caller.lower() != self.key.address.lower():
+            return {'error': f'Permission denied: only the module owner can edit {mod}'}
         try:
             m.fn('dev/forward')(query=query, mod=mod, safety=False, key=key, steps=steps, **kwargs)
         except Exception as e:
@@ -269,6 +283,12 @@ class Api:
         """
         t0 = time.time()
         status = 'success'
+        # Owner check: only the module owner can modify
+        caller = self._reg.key_address(key) if key else self.key.address.lower()
+        mod_info = self._reg.mod(mod=mod)
+        mod_owner = (mod_info.get('key') or '').lower()
+        if mod_owner and caller.lower() != mod_owner and caller.lower() != self.key.address.lower():
+            return {'error': f'Permission denied: only the module owner can modify {mod}'}
         try:
             result = m.fn('modify/suggest_and_apply')(
                 mod=mod, focus=focus, model=model,
@@ -298,13 +318,16 @@ class Api:
         return m.fn('server/namespace')()
 
     def app_namespace(self, *args, **kwargs):
-        return m.fn('server/app_namespace')()
+        ns = m.mod('server.namespace')()
+        return ns.app_namespace()
 
     def app_owner(self, mod: str = '', **kwargs):
-        return m.fn('server/app_owner')(mod)
+        ns = m.mod('server.namespace')()
+        return ns.app_owner(mod)
 
     def is_app_owner(self, mod: str = '', address: str = '', **kwargs):
-        return m.fn('server/is_app_owner')(mod, address)
+        ns = m.mod('server.namespace')()
+        return ns.is_app_owner(mod, address)
 
     def new_app(self, name: str = 'myapp', port: int = None, key=None, **kwargs):
         """One-step: create, configure, install, and serve a module app."""
@@ -318,24 +341,130 @@ class Api:
         """Edit a module app. Owner only."""
         return m.edit_app(name=name, query=query, key=key, **kwargs)
 
-    def serve_app(self, name: str = '', key=None, **kwargs):
-        """Start a stopped module app server. Owner only."""
+    def serve_app(self, name: str = '', port: int = None, api_port: int = None, key=None, **kwargs):
+        """Start a stopped module app server. Owner only. Optional port/api_port override."""
         ns = m.mod('server.namespace')()
         address = m.key_address(key) if key else m.owner()
         if not ns.is_app_owner(name, address):
             return {'error': f'Not owner of {name}'}
-        # Get installed info for port
+
+        # Get installed info for port (auto-install if not found)
         installed = ns.store.get('app_installed.json', {})
         info = installed.get(name, {})
+
+        # Auto-install if module exists but not registered
         if not info:
-            return {'error': f'{name} is not installed'}
-        port = info.get('port')
+            try:
+                # Check if module exists - try to load it
+                mod_path = m.dp(name)
+                if not mod_path or not os.path.exists(mod_path):
+                    return {'error': f'{name} module not found'}
+
+                # Auto-register the module
+                if not installed:
+                    installed = {}
+                installed[name] = {
+                    'port': port or 'auto',
+                    'api_port': api_port or 'auto',
+                    'owner': address,
+                    'auto_installed': True
+                }
+                ns.store.put('app_installed.json', installed)
+                info = installed[name]
+            except Exception as e:
+                return {'error': f'{name} not found: {str(e)}'}
+
+        # Use user-provided port, fall back to installed port
+        serve_port = port or (info.get('port') if info.get('port') != 'auto' else None)
+        serve_api_port = api_port or (info.get('api_port') if info.get('api_port') != 'auto' else None)
+
         try:
-            mod_obj = m.mod(name)()
-            mod_obj.serve(port=port)
-            return {'status': 'started', 'name': name, 'port': port}
+            # Load the module more carefully - look for the main module file
+            # For claude, this should load claude.mod, not api.mod
+            mod_path = m.dp(name)
+
+            # Try to find and import the main mod.py
+            possible_paths = [
+                os.path.join(mod_path, name, 'mod.py'),  # e.g., claude/claude/mod.py
+                os.path.join(mod_path, 'mod.py'),         # e.g., claude/mod.py
+            ]
+
+            mod_obj = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    # Import the module from this path
+                    import importlib.util
+                    spec = importlib.util.spec_from_file_location(f"{name}.mod", path)
+                    if spec and spec.loader:
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+                        if hasattr(module, 'Mod'):
+                            mod_obj = module.Mod()
+                            break
+
+            if not mod_obj:
+                # Fallback to regular mod loading
+                mod_obj = m.mod(name)()
+
+            # Check if serve method exists
+            if not hasattr(mod_obj, 'serve'):
+                return {'error': f'{name} does not have a serve method'}
+
+            # Pass api_port if the module's serve accepts it
+            serve_kwargs = {}
+            if serve_port:
+                serve_kwargs['port'] = serve_port
+            if serve_api_port:
+                serve_kwargs['api_port'] = serve_api_port
+
+            # Call serve and get result
+            result = mod_obj.serve(**serve_kwargs)
+
+            # Update module config.json with URLs if available
+            if isinstance(result, dict) and 'urls' in result:
+                try:
+                    mod_path = m.dp(name)
+                    config_path = os.path.join(mod_path, 'config.json')
+                    if os.path.exists(config_path):
+                        with open(config_path, 'r') as f:
+                            config = json.load(f)
+                        config['urls'] = result['urls']
+                        config['api_url'] = result['urls'].get('api', '')
+                        config['app_url'] = result['urls'].get('app', '')
+                        with open(config_path, 'w') as f:
+                            json.dump(config, f, indent=2)
+                except Exception as e:
+                    print(f"Warning: Could not update config.json: {e}")
+
+            # Return immediately - don't wait for logs (they can be fetched separately)
+            response = {
+                'status': 'started',
+                'name': name,
+                'port': serve_port,
+                'api_port': serve_api_port,
+                'urls': result.get('urls') if isinstance(result, dict) else {},
+                'result': result
+            }
+
+            # Optionally include logs if they're quickly available
+            try:
+                logs = self.app_logs(name, lines=20)
+                if logs and not logs.get('error'):
+                    response['logs'] = logs
+            except:
+                pass  # Skip logs if they're not available yet
+
+            return response
         except Exception as e:
             return {'error': str(e)}
+
+    def serve_status(self, name: str = '', **kwargs):
+        """Get namespace entries matching or similar to a module name."""
+        ns = m.mod('server.namespace')()
+        # Get both API and app registries
+        api_servers = ns.namespace(search=name) if name else ns.namespace()
+        app_servers = ns.app_namespace(search=name) if name else ns.app_namespace()
+        return {'api_servers': api_servers, 'app_servers': app_servers}
 
     def remove_app(self, name: str = '', key=None, **kwargs):
         """Remove a module app entirely. Owner only."""
@@ -355,7 +484,8 @@ class Api:
     def app_status(self, key=None, **kwargs):
         """Get all module apps with running/stopped status."""
         owner = m.key_address(key) if key else None
-        return m.fn('server/app_status')(owner=owner)
+        ns = m.mod('server.namespace')()
+        return ns.app_status(owner=owner)
 
     def app_logs(self, name: str = '', lines: int = 100, **kwargs):
         """Get logs for a module's app/api servers."""

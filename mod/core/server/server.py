@@ -193,7 +193,13 @@ class Server:
         self.mod.info = get_info(mod)
         self.gate = m.mod('gate')(mod=self.mod, paywall=paywall, sandbox=sandbox)
         self.app = Flask(__name__)
-        CORS(self.app)
+        CORS(self.app, resources={r"/*": {
+            "origins": "*",
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Accept", "token", "Authorization"],
+            "expose_headers": ["Content-Type"],
+            "max_age": 3600
+        }})
 
         @self.app.route("/<path:fn>", methods=['POST'])
         def server_fn(fn):

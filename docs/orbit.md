@@ -1,6 +1,6 @@
 # Orbit Modules
 
-The orbit ecosystem contains 140+ pluggable modules. Each module lives in `mod/orbit/` and is automatically discovered by the framework. No registration needed — just drop a folder with an anchor file and it's live.
+The orbit ecosystem contains 200+ pluggable modules. Each module lives in `mod/orbit/` and is automatically discovered by the framework. No registration needed --- just drop a folder with an anchor file and it's live.
 
 ## Module Categories
 
@@ -61,7 +61,7 @@ The orbit ecosystem contains 140+ pluggable modules. Each module lives in `mod/o
 
 ### And Many More
 
-The full list of 140+ modules can be discovered with:
+The full list of 200+ modules can be discovered with:
 
 ```bash
 m mods

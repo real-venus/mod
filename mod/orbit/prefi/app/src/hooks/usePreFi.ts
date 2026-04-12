@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAccount, useNetwork, usePublicClient, useWalletClient } from 'wagmi'
 import { ethers } from 'ethers'
 import { toast } from 'react-toastify'
@@ -14,7 +14,7 @@ export function usePreFi() {
   const [markets, setMarkets] = useState<any[]>([])
   const [userPredictions, setUserPredictions] = useState<any[]>([])
 
-  const getContract = (isWrite = false) => {
+  const getContract = useCallback(async (isWrite = false) => {
     if (!chain) return null
 
     const contractAddress = getContractAddress(chain.id, 'preFiV3')
@@ -22,20 +22,15 @@ export function usePreFi() {
 
     if (isWrite && walletClient) {
       const provider = new ethers.BrowserProvider(walletClient as any)
-      return provider.getSigner().then(signer =>
-        new ethers.Contract(contractAddress, PREFI_V3_ABI, signer)
-      )
+      const signer = await provider.getSigner()
+      return new ethers.Contract(contractAddress, PREFI_V3_ABI, signer)
     }
 
-    if (publicClient) {
-      const provider = new ethers.JsonRpcProvider(chain.rpcUrls.default.http[0])
-      return new ethers.Contract(contractAddress, PREFI_V3_ABI, provider)
-    }
+    const provider = new ethers.JsonRpcProvider(chain.rpcUrls.default.http[0])
+    return new ethers.Contract(contractAddress, PREFI_V3_ABI, provider)
+  }, [chain, walletClient])
 
-    return null
-  }
-
-  const getStakeTokenContract = async (isWrite = false) => {
+  const getStakeTokenContract = useCallback(async (isWrite = false) => {
     if (!chain) return null
 
     const tokenAddress = getContractAddress(chain.id, 'stakeToken')
@@ -49,10 +44,10 @@ export function usePreFi() {
 
     const provider = new ethers.JsonRpcProvider(chain.rpcUrls.default.http[0])
     return new ethers.Contract(tokenAddress, ERC20_ABI, provider)
-  }
+  }, [chain, walletClient])
 
   // Fetch markets
-  const fetchMarkets = async () => {
+  const fetchMarkets = useCallback(async () => {
     try {
       const contract = await getContract()
       if (!contract) return
@@ -61,28 +56,32 @@ export function usePreFi() {
       const marketsData = []
 
       for (let i = 1; i <= Number(marketCount); i++) {
-        const info = await contract.getMarketInfo(i)
-        marketsData.push({
-          id: i,
-          asset: info[0],
-          tokenAddress: info[1],
-          startTime: Number(info[2]),
-          endTime: Number(info[3]),
-          settled: info[4],
-          actualPrice: info[5],
-          totalStaked: info[6],
-          playersCount: Number(info[7]),
-        })
+        try {
+          const info = await contract.getMarketInfo(i)
+          marketsData.push({
+            id: i,
+            asset: info[0],
+            tokenAddress: info[1],
+            startTime: Number(info[2]),
+            endTime: Number(info[3]),
+            settled: info[4],
+            actualPrice: info[5],
+            totalStaked: info[6],
+            playersCount: Number(info[7]),
+          })
+        } catch {
+          // Skip markets that fail to load
+        }
       }
 
       setMarkets(marketsData)
     } catch (error) {
       console.error('Error fetching markets:', error)
     }
-  }
+  }, [getContract])
 
   // Fetch user predictions
-  const fetchUserPredictions = async () => {
+  const fetchUserPredictions = useCallback(async () => {
     if (!address || !chain) return
 
     try {
@@ -93,16 +92,20 @@ export function usePreFi() {
       const predictions = []
 
       for (let i = 1; i <= Number(marketCount); i++) {
-        const pred = await contract.getPrediction(i, address)
-        if (pred[1] > 0n) { // Has staked amount
-          predictions.push({
-            marketId: i,
-            predictedPrice: pred[0],
-            stakedAmount: pred[1],
-            timestamp: Number(pred[2]),
-            claimed: pred[3],
-            reward: pred[4],
-          })
+        try {
+          const pred = await contract.getPrediction(i, address)
+          if (pred[1] > BigInt(0)) {
+            predictions.push({
+              marketId: i,
+              predictedPrice: pred[0],
+              stakedAmount: pred[1],
+              timestamp: Number(pred[2]),
+              claimed: pred[3],
+              reward: pred[4],
+            })
+          }
+        } catch {
+          // Skip markets that fail
         }
       }
 
@@ -110,7 +113,7 @@ export function usePreFi() {
     } catch (error) {
       console.error('Error fetching predictions:', error)
     }
-  }
+  }, [address, chain, getContract])
 
   // Place prediction
   const placePrediction = async (marketId: number, predictedPrice: string, stakeAmount: string) => {
@@ -122,7 +125,6 @@ export function usePreFi() {
     setIsLoading(true)
 
     try {
-      // 1. Approve tokens
       const stakeToken = await getStakeTokenContract(true)
       if (!stakeToken) throw new Error('Stake token not found')
 
@@ -133,21 +135,22 @@ export function usePreFi() {
       const price = parsePrice(predictedPrice)
 
       // Check allowance
-      const allowance = await stakeToken.allowance(address, await contract.getAddress())
+      const contractAddr = await contract.getAddress()
+      const allowance = await stakeToken.allowance(address, contractAddr)
 
       if (allowance < amount) {
         toast.info('Approving tokens...')
-        const approveTx = await stakeToken.approve(await contract.getAddress(), amount)
+        const approveTx = await stakeToken.approve(contractAddr, amount)
         await approveTx.wait()
         toast.success('Tokens approved!')
       }
 
-      // 2. Place prediction
+      // Place prediction
       toast.info('Placing prediction...')
       const tx = await contract.predict(marketId, price, amount)
       await tx.wait()
 
-      toast.success('Prediction placed successfully! 🎉')
+      toast.success('Prediction placed successfully!')
       await fetchMarkets()
       await fetchUserPredictions()
 
@@ -178,7 +181,7 @@ export function usePreFi() {
       const tx = await contract.claimReward(marketId)
       await tx.wait()
 
-      toast.success('Reward claimed! 💰')
+      toast.success('Reward claimed!')
       await fetchUserPredictions()
 
       return true
@@ -211,13 +214,13 @@ export function usePreFi() {
     if (chain) {
       fetchMarkets()
     }
-  }, [chain])
+  }, [chain, fetchMarkets])
 
   useEffect(() => {
     if (address && chain) {
       fetchUserPredictions()
     }
-  }, [address, chain])
+  }, [address, chain, fetchUserPredictions])
 
   return {
     markets,

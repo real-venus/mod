@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 #
 # ╔══════════════════════════════════════════╗
-# ║  PREFI — 8BIT STARTUP SCRIPT            ║
-# ║  Starts Rust backend + Next.js frontend  ║
+# ║  PREFI — Startup Script                 ║
+# ║  Starts FastAPI backend + Next.js app    ║
 # ╚══════════════════════════════════════════╝
 #
-# Usage: ./scripts/start.sh [--build] [--dev]
-#   --build   Force rebuild of Rust server
-#   --dev     Run Next.js in dev mode (default)
-#   --prod    Build and run Next.js in production mode
+# Usage: ./scripts/start.sh [--dev] [--prod]
+#   --dev     Run in dev mode (default)
+#   --prod    Build and run in production mode
 
 set -e
 
@@ -35,27 +34,16 @@ NC='\033[0m'
 print_banner() {
     echo -e "${GREEN}"
     echo "  ╔══════════════════════════════════════╗"
-    echo "  ║   PREFI // 8BIT TERMINAL             ║"
-    echo "  ║   🎯 Prediction Markets              ║"
+    echo "  ║   PREFI // Prediction Markets        ║"
+    echo "  ║   🎯 FastAPI + Next.js               ║"
     echo "  ╚══════════════════════════════════════╝"
     echo -e "${NC}"
 }
 
-log() {
-    echo -e "  ${GREEN}[✓]${NC} $1"
-}
-
-warn() {
-    echo -e "  ${AMBER}[!]${NC} $1"
-}
-
-err() {
-    echo -e "  ${RED}[✕]${NC} $1"
-}
-
-info() {
-    echo -e "  ${BLUE}[·]${NC} $1"
-}
+log() { echo -e "  ${GREEN}[✓]${NC} $1"; }
+warn() { echo -e "  ${AMBER}[!]${NC} $1"; }
+err() { echo -e "  ${RED}[✕]${NC} $1"; }
+info() { echo -e "  ${BLUE}[·]${NC} $1"; }
 
 # ── Cleanup on exit ───────────────────────────────────────────────────
 cleanup() {
@@ -74,26 +62,23 @@ cleanup() {
         wait "$BACKEND_PID" 2>/dev/null || true
     fi
 
-    log "All processes stopped. Bismillah."
+    log "All processes stopped."
     exit 0
 }
 
 trap cleanup SIGINT SIGTERM EXIT
 
 # ── Parse args ────────────────────────────────────────────────────────
-FORCE_BUILD=false
 PROD_MODE=false
 
 for arg in "$@"; do
     case "$arg" in
-        --build) FORCE_BUILD=true ;;
         --prod)  PROD_MODE=true ;;
         --dev)   PROD_MODE=false ;;
         --help|-h)
-            echo "Usage: $0 [--build] [--dev|--prod]"
-            echo "  --build   Force rebuild Rust server"
-            echo "  --dev     Next.js dev mode (default)"
-            echo "  --prod    Build + start Next.js production"
+            echo "Usage: $0 [--dev|--prod]"
+            echo "  --dev     Dev mode with hot reload (default)"
+            echo "  --prod    Production mode"
             exit 0
             ;;
     esac
@@ -116,47 +101,35 @@ kill_existing() {
 
 print_banner
 
-# 0. Kill any existing prefi-server / next.js on our ports
-kill_existing 8830 "backend"
-kill_existing 8831 "frontend"
-# Also kill any leftover prefi-server binary
-pkill -f "prefi-server" 2>/dev/null || true
+# 0. Kill existing on our ports
+kill_existing $BACKEND_PORT "backend"
+kill_existing $FRONTEND_PORT "frontend"
 
 # 1. Check prerequisites
 info "Checking prerequisites..."
 
-if ! command -v cargo &>/dev/null; then
-    err "cargo not found — install Rust: https://rustup.rs"
+if ! command -v python3 &>/dev/null; then
+    err "python3 not found"
     exit 1
 fi
 
 if ! command -v node &>/dev/null; then
-    err "node not found — install Node.js: https://nodejs.org"
+    err "node not found — install Node.js"
     exit 1
 fi
 
-if ! command -v npm &>/dev/null; then
-    err "npm not found"
-    exit 1
-fi
+log "Prerequisites OK (python3 + node)"
 
-log "Prerequisites OK (cargo + node + npm)"
-
-# 2. Build Rust backend
-BINARY="$SERVER_DIR/target/release/prefi-server"
-
-if [ "$FORCE_BUILD" = true ] || [ ! -f "$BINARY" ]; then
-    info "Building Rust backend (release)..."
-    (cd "$SERVER_DIR" && cargo build --release 2>&1) || {
-        err "Rust build failed"
+# 2. Install Python deps if needed
+if ! python3 -c "import fastapi" 2>/dev/null; then
+    info "Installing FastAPI + uvicorn..."
+    pip3 install fastapi uvicorn requests 2>&1 || {
+        err "pip install failed"
         exit 1
     }
-    log "Backend built: $BINARY"
-else
-    log "Backend binary found (use --build to rebuild)"
 fi
 
-# 3. Install frontend deps
+# 3. Install frontend deps if needed
 if [ ! -d "$APP_DIR/node_modules" ]; then
     info "Installing frontend dependencies..."
     (cd "$APP_DIR" && npm install 2>&1) || {
@@ -168,12 +141,17 @@ else
     log "Frontend deps OK"
 fi
 
-# 4. Start Rust backend
-info "Starting backend on port $BACKEND_PORT..."
-export PREFI_LOCAL=1
-"$BINARY" "$BACKEND_PORT" &
+# 4. Start FastAPI backend
+info "Starting FastAPI backend on port $BACKEND_PORT..."
+export PYTHONPATH="$ROOT_DIR:$ROOT_DIR/../../.."
+
+if [ "$PROD_MODE" = true ]; then
+    (cd "$SERVER_DIR" && python3 -m uvicorn server:app --host 0.0.0.0 --port "$BACKEND_PORT") &
+else
+    (cd "$SERVER_DIR" && python3 -m uvicorn server:app --host 0.0.0.0 --port "$BACKEND_PORT" --reload) &
+fi
 BACKEND_PID=$!
-sleep 1
+sleep 2
 
 if kill -0 "$BACKEND_PID" 2>/dev/null; then
     log "Backend running (PID $BACKEND_PID) → http://localhost:$BACKEND_PORT"
@@ -183,6 +161,8 @@ else
 fi
 
 # 5. Start Next.js frontend
+export NEXT_PUBLIC_API_URL="http://localhost:$BACKEND_PORT"
+
 if [ "$PROD_MODE" = true ]; then
     info "Building frontend for production..."
     (cd "$APP_DIR" && npm run build 2>&1) || {
@@ -198,7 +178,7 @@ else
     FRONTEND_PID=$!
 fi
 
-sleep 2
+sleep 3
 
 if kill -0 "$FRONTEND_PID" 2>/dev/null; then
     log "Frontend running (PID $FRONTEND_PID) → http://localhost:$FRONTEND_PORT"
@@ -216,6 +196,7 @@ echo ""
 echo -e "  ${AMBER}Frontend${NC}  → ${BOLD}http://localhost:$FRONTEND_PORT${NC}"
 echo -e "  ${BLUE}Backend${NC}   → ${BOLD}http://localhost:$BACKEND_PORT${NC}"
 echo -e "  ${DIM}Health${NC}    → http://localhost:$BACKEND_PORT/health"
+echo -e "  ${DIM}Docs${NC}      → http://localhost:$BACKEND_PORT/docs"
 echo ""
 echo -e "  ${DIM}Press Ctrl+C to stop all services${NC}"
 echo ""

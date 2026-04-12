@@ -191,7 +191,7 @@ export default function CreateModule() {
         key: registerToKey.trim(),
         public: false,
         token: client.token,
-      })
+      }, true, {}, 120000)
       setResult(response)
       setUrl('')
       setName('')

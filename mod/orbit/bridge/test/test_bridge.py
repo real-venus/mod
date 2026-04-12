@@ -1,684 +1,318 @@
-"""Pytest tests for Bridge module."""
+"""
+Tests for Bridge module — snapshot, claims, commitments, health, status.
 
-import pytest
-import os
+Uses a tmp dir for claims/commitments storage so tests don't affect real data.
+Patches out mod dependencies (localfs, key modules, web3) to run offline.
+"""
+
 import json
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
-from web3 import Web3
-from eth_account import Account
+import os
 import sys
+import time
+import pytest
+from pathlib import Path
+from unittest.mock import MagicMock
 
-# Add bridge module to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'bridge'))
+# Insert the mod framework root so `import mod` resolves to the framework, not local mod.py
+_mod_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+sys.path.insert(0, str(_mod_root))
+
+# Pre-patch: insert a fake `mod` module before importing bridge mod.py
+_mock_m = MagicMock()
+_mock_lfs = MagicMock()
+_mock_lfs.valid_cid.return_value = False
+_mock_m.mod.return_value = lambda: _mock_lfs
+sys.modules.setdefault('_bridge_mock_m', _mock_m)
+
+# Now load the Mod class from bridge/mod.py directly
+import importlib.util
+_bridge_mod_path = Path(__file__).resolve().parent.parent / 'mod.py'
+_spec = importlib.util.spec_from_file_location('bridge_mod', _bridge_mod_path)
+_bridge_module = importlib.util.module_from_spec(_spec)
+_bridge_module.m = _mock_m  # inject mock before exec
+_spec.loader.exec_module(_bridge_module)
+BridgeMod = _bridge_module.Mod
 
 
-@pytest.fixture
-def mock_mod():
-    """Mock the mod framework."""
-    with patch('bridge.mod.m') as mock_m:
-        # Mock common mod functions
-        mock_m.print = Mock()
-        mock_m.dp = Mock(return_value='/mock/bridge/path')
-        mock_m.get_json = Mock(return_value={})
-        mock_m.put_json = Mock()
-        mock_m.save_json = Mock()
-        mock_m.key = Mock(return_value=Mock(private_key='0x' + '1' * 64))
-
-        # Mock mod() function for loading modules
-        mock_store = Mock()
-        mock_store.get = Mock(return_value={})
-        mock_store.put = Mock(return_value=True)
-
-        mock_auth = Mock()
-        mock_auth.verify = Mock(return_value={'key': 'test_sr25519_address'})
-        mock_auth.token = Mock(return_value='mock_token')
-
-        def mod_loader(name):
-            if name == 'store':
-                return lambda path: mock_store
-            elif name == 'auth':
-                return lambda crypto_type: mock_auth
-            elif name == 'ipfs':
-                return lambda: Mock(
-                    get=Mock(return_value={'abi': []}),
-                    put=Mock(return_value='QmTest123')
-                )
-            return Mock()
-
-        mock_m.mod = mod_loader
-        mock_m.files = Mock(return_value=[])
-
-        yield mock_m
-
+# ── Fixtures ────────────────────────────────────────────────────
 
 @pytest.fixture
-def mock_web3():
-    """Mock Web3 instance."""
-    mock_w3 = Mock()
-    mock_w3.eth.chain_id = 84532
-    mock_w3.eth.get_transaction_count = Mock(return_value=0)
-    mock_w3.eth.wait_for_transaction_receipt = Mock(return_value={'status': 1})
-    mock_w3.eth.send_raw_transaction = Mock(return_value=b'0x' + b'1' * 32)
-    mock_w3.eth.gas_price = 1000000000  # 1 gwei
-    mock_w3.eth.estimate_gas = Mock(return_value=100000)
-
-    # Mock account
-    mock_account = Mock()
-    mock_account.address = '0x' + '1' * 40
-    mock_account.key = '0x' + '2' * 64
-    mock_w3.eth.account.from_key = Mock(return_value=mock_account)
-    mock_w3.eth.account.sign_transaction = Mock()
-
-    # Mock contract
-    mock_contract = Mock()
-    mock_w3.eth.contract = Mock(return_value=mock_contract)
-
-    return mock_w3
-
-
-@pytest.fixture
-def bridge_instance(mock_mod, mock_web3):
-    """Create a Bridge instance with mocked dependencies."""
-    with patch('bridge.mod.Web3') as MockWeb3Class:
-        # Mock Web3 class methods
-        MockWeb3Class.to_checksum_address = Web3.to_checksum_address
-        MockWeb3Class.solidity_keccak = Web3.solidity_keccak
-        MockWeb3Class.HTTPProvider = Mock()
-
-        # Make Web3() constructor return our mock instance
-        MockWeb3Class.return_value = mock_web3
-
-        # Mock ABI class
-        with patch('bridge.mod.ABI') as MockABI:
-            mock_abi_instance = Mock()
-            MockABI.return_value = mock_abi_instance
-
-            from bridge.mod import Bridge
-
-            # Patch the config loading
-            mock_config = {
-                'testnet': {
-                    'contracts': {
-                        'bridge': {
-                            'address': '0x' + '3' * 40,
-                            'abi': 'QmBridgeABI'
-                        },
-                        'token': {
-                            'address': '0x' + '4' * 40,
-                            'abi': 'QmTokenABI'
-                        }
-                    }
-                }
-            }
-
-            with patch.object(Bridge, 'set_config', return_value=mock_config):
-                with patch.object(Bridge, 'load_contracts', return_value={}):
-                    bridge = Bridge(network='testnet', key='test', auth='auth')
-                    bridge.w3 = mock_web3
-
-                    # Setup mock contracts
-                    bridge.contracts = {
-                        'bridge': Mock(),
-                        'token': Mock()
-                    }
-
-                    # Setup mock balances
-                    bridge.total_balances = {'test_address': 1000}
-                    bridge.claims = {}
-
-                    yield bridge
-
-
-class TestBridgeInitialization:
-    """Test Bridge initialization."""
-
-    def test_init_with_testnet(self, mock_mod, mock_web3):
-        """Test initialization with testnet."""
-        with patch('bridge.mod.Web3') as MockWeb3Class:
-            MockWeb3Class.return_value = mock_web3
-            MockWeb3Class.HTTPProvider = Mock()
-
-            with patch('bridge.mod.ABI') as MockABI:
-                MockABI.return_value = Mock()
-
-                from bridge.mod import Bridge
-
-                with patch.object(Bridge, 'set_config'):
-                    with patch.object(Bridge, 'load_contracts'):
-                        bridge = Bridge(network='testnet')
-
-                        assert bridge.network == 'testnet'
-                        assert bridge.rpc_url == 'https://sepolia.base.org'
-                        assert bridge.chain_id == 84532
-
-    def test_init_with_custom_rpc(self, mock_mod, mock_web3):
-        """Test initialization with custom RPC URL."""
-        with patch('bridge.mod.Web3') as MockWeb3Class:
-            MockWeb3Class.return_value = mock_web3
-            MockWeb3Class.HTTPProvider = Mock()
-
-            with patch('bridge.mod.ABI') as MockABI:
-                MockABI.return_value = Mock()
-
-                from bridge.mod import Bridge
-
-                with patch.object(Bridge, 'set_config'):
-                    with patch.object(Bridge, 'load_contracts'):
-                        bridge = Bridge(network='http://localhost:8545')
-
-                        assert bridge.rpc_url == 'http://localhost:8545'
-
-
-class TestAddressHandling:
-    """Test address handling functions."""
-
-    def test_checksum_address(self, bridge_instance):
-        """Test checksum address conversion."""
-        address = '0xabcdef1234567890abcdef1234567890abcdef12'
-        checksum = bridge_instance.checksum(address)
-
-        assert checksum.startswith('0x')
-        assert len(checksum) == 42
-
-    def test_connect_wallet(self, bridge_instance, mock_web3):
-        """Test wallet connection."""
-        private_key = '0x' + '5' * 64
-        address = bridge_instance.connect(private_key)
-
-        assert address == mock_web3.eth.account.from_key(private_key).address
-
-
-class TestBalanceManagement:
-    """Test balance management functions."""
-
-    def test_get_total_balances_empty(self, bridge_instance, mock_mod):
-        """Test getting total balances when file doesn't exist."""
-        mock_mod.get_json.return_value = {}
-
-        with patch('os.path.exists', return_value=False):
-            balances = bridge_instance.get_total_balances()
-
-            assert isinstance(balances, dict)
-            assert len(balances) == 0
-
-    def test_get_total_balances_with_data(self, bridge_instance, mock_mod):
-        """Test getting total balances with existing data."""
-        expected = {'addr1': 100, 'addr2': 200}
-        mock_mod.get_json.return_value = expected
-
-        balances = bridge_instance.get_total_balances()
-
-        assert balances == expected
-
-    def test_save_total_balances(self, bridge_instance, mock_mod):
-        """Test saving total balances."""
-        bridge_instance.total_balances = {'addr1': 100}
-
-        # Reset call count from initialization
-        mock_mod.save_json.reset_mock()
-
-        bridge_instance.save_total_balances()
-
-        mock_mod.save_json.assert_called_once()
-
-
-class TestClaimsManagement:
-    """Test claims management functions."""
-
-    def test_has_claimed_true(self, bridge_instance):
-        """Test has_claimed when address has claimed."""
-        bridge_instance.claims = {'test_addr': {'amount': 100}}
-
-        assert bridge_instance.has_claimed('test_addr') is True
-
-    def test_has_claimed_false(self, bridge_instance):
-        """Test has_claimed when address hasn't claimed."""
-        bridge_instance.claims = {}
-
-        assert bridge_instance.has_claimed('test_addr') is False
-
-    def test_unclaimed_full_balance(self, bridge_instance):
-        """Test unclaimed when no claims made."""
-        bridge_instance.total_balances = {'addr1': 1000}
-        bridge_instance.claims = {}
-
-        unclaimed = bridge_instance.unclaimed('addr1')
-
-        assert unclaimed == 1000
-
-    def test_unclaimed_partial_claim(self, bridge_instance):
-        """Test unclaimed when partial claim made."""
-        bridge_instance.total_balances = {'addr1': 1000}
-        bridge_instance.claims = {'addr1': {'amount': 300}}
-
-        unclaimed = bridge_instance.unclaimed('addr1')
-
-        assert unclaimed == 700
-
-    def test_reset_claims(self, bridge_instance):
-        """Test resetting all claims."""
-        bridge_instance.claims = {'addr1': {'amount': 100}}
-
-        result = bridge_instance.reset_claims()
-
-        assert bridge_instance.claims == {}
-
-    def test_reset_single_claim(self, bridge_instance):
-        """Test resetting a single claim."""
-        bridge_instance.claims = {
-            'addr1': {'amount': 100},
-            'addr2': {'amount': 200}
-        }
-
-        bridge_instance.reset_claim('addr1')
-
-        assert 'addr1' not in bridge_instance.claims
-        assert 'addr2' in bridge_instance.claims
-
-    def test_delete_claim_success(self, bridge_instance):
-        """Test deleting an existing claim."""
-        bridge_instance.claims = {'addr1': {'amount': 100}}
-
-        result = bridge_instance.delete_claim('addr1')
-
-        assert result['success'] is True
-        assert 'addr1' not in bridge_instance.claims
-
-    def test_delete_claim_not_found(self, bridge_instance):
-        """Test deleting a non-existent claim."""
-        bridge_instance.claims = {}
-
-        result = bridge_instance.delete_claim('addr1')
-
-        assert result['success'] is False
-
-
-class TestTokenFunctions:
-    """Test token-related functions."""
-
-    def test_balance_default_address(self, bridge_instance):
-        """Test getting balance for default address."""
-        mock_token = bridge_instance.contracts['token']
-        mock_token.functions.balanceOf.return_value.call.return_value = 1000000000000000000
-        mock_token.functions.decimals.return_value.call.return_value = 18
-
-        balance = bridge_instance.balance()
-
-        assert balance == 1.0
-
-    def test_balance_specific_address(self, bridge_instance):
-        """Test getting balance for specific address."""
-        mock_token = bridge_instance.contracts['token']
-        mock_token.functions.balanceOf.return_value.call.return_value = 5000000000000000000
-        mock_token.functions.decimals.return_value.call.return_value = 18
-
-        balance = bridge_instance.balance('0x' + '5' * 40)
-
-        assert balance == 5.0
-
-    def test_decimals(self, bridge_instance):
-        """Test getting token decimals."""
-        mock_token = bridge_instance.contracts['token']
-        mock_token.functions.decimals.return_value.call.return_value = 18
-
-        decimals = bridge_instance.decimals()
-
-        assert decimals == 18
-
-    def test_decimals_no_contract(self, bridge_instance):
-        """Test getting decimals when token contract not loaded."""
-        bridge_instance.contracts = {}
-
-        decimals = bridge_instance.decimals()
-
-        assert decimals == 18
-
-    def test_format_balance(self, bridge_instance):
-        """Test formatting balance from wei."""
-        mock_token = bridge_instance.contracts['token']
-        mock_token.functions.decimals.return_value.call.return_value = 18
-
-        formatted = bridge_instance.format_balance(1000000000000000000)
-
-        assert formatted == 1.0
-
-
-class TestBridgeFunctions:
-    """Test bridge contract functions."""
-
-    def test_process_claim_with_hash(self, bridge_instance, mock_web3):
-        """Test processing claim with bytes32 hash."""
-        mock_bridge = bridge_instance.contracts['bridge']
-
-        def build_tx(params):
-            return {
-                'to': '0x' + '3' * 40,
-                'data': '0x123',
-                'from': bridge_instance.account.address,
-                **params
-            }
-
-        mock_bridge.functions.processClaim.return_value.build_transaction = build_tx
-        mock_web3.eth.estimate_gas.return_value = 100000
-
-        mock_signed = Mock()
-        mock_signed.raw_transaction = b'0xsigned'
-        mock_web3.eth.account.sign_transaction.return_value = mock_signed
-
-        receipt = bridge_instance.process_claim(
-            '0x' + '6' * 64,
-            '0x' + '7' * 40,
-            1000
-        )
-
-        assert receipt['status'] == 1
-
-    def test_process_claim_with_address(self, bridge_instance, mock_web3):
-        """Test processing claim with sr25519 address."""
-        mock_bridge = bridge_instance.contracts['bridge']
-
-        def build_tx(params):
-            return {
-                'to': '0x' + '3' * 40,
-                'data': '0x123',
-                'from': bridge_instance.account.address,
-                **params
-            }
-
-        mock_bridge.functions.processClaim.return_value.build_transaction = build_tx
-        mock_web3.eth.estimate_gas.return_value = 100000
-
-        mock_signed = Mock()
-        mock_signed.raw_transaction = b'0xsigned'
-        mock_web3.eth.account.sign_transaction.return_value = mock_signed
-
-        receipt = bridge_instance.process_claim(
-            'sr25519_address_string',
-            '0x' + '7' * 40,
-            1000
-        )
-
-        assert receipt['status'] == 1
-
-    def test_batch_process_claims(self, bridge_instance, mock_web3):
-        """Test batch processing claims."""
-        mock_bridge = bridge_instance.contracts['bridge']
-
-        def build_tx(params):
-            return {
-                'to': '0x' + '3' * 40,
-                'data': '0x123',
-                'from': bridge_instance.account.address,
-                **params
-            }
-
-        mock_bridge.functions.batchProcessClaims.return_value.build_transaction = build_tx
-        mock_web3.eth.estimate_gas.return_value = 200000
-
-        claims = [
-            {'address': 'addr1', 'recipient': '0x' + '8' * 40, 'amount': 100},
-            {'address': 'addr2', 'recipient': '0x' + '9' * 40, 'amount': 200}
-        ]
-
-        mock_signed = Mock()
-        mock_signed.raw_transaction = b'0xsigned'
-        mock_web3.eth.account.sign_transaction.return_value = mock_signed
-
-        receipt = bridge_instance.batch_process_claims(claims)
-
-        assert receipt['status'] == 1
-
-    def test_claim_recipient(self, bridge_instance):
-        """Test getting claim recipient."""
-        mock_bridge = bridge_instance.contracts['bridge']
-        mock_bridge.functions.claimRecipient.return_value.call.return_value = '0x' + 'a' * 40
-
-        recipient = bridge_instance.claim_recipient('sr25519_address')
-
-        assert recipient == '0x' + 'a' * 40
-
-    def test_total_claims(self, bridge_instance):
-        """Test getting total claims amount."""
-        mock_bridge = bridge_instance.contracts['bridge']
-        mock_bridge.functions.totalclaims.return_value.call.return_value = 5000
-
-        total = bridge_instance.total_claims()
-
-        assert total == 5000
-
-
-class TestMintBurnTransfer:
-    """Test mint, burn, and transfer functions."""
-
-    def test_mint(self, bridge_instance, mock_web3):
-        """Test minting tokens."""
-        mock_token = bridge_instance.contracts['token']
-
-        def build_tx(params):
-            return {
-                'to': '0x' + '4' * 40,
-                'data': '0x123',
-                'from': bridge_instance.account.address,
-                **params
-            }
-
-        mock_token.functions.mint.return_value.build_transaction = build_tx
-        mock_token.functions.decimals.return_value.call.return_value = 18
-        mock_web3.eth.estimate_gas.return_value = 80000
-
-        mock_signed = Mock()
-        mock_signed.raw_transaction = b'0xsigned'
-        mock_web3.eth.account.sign_transaction.return_value = mock_signed
-
-        receipt = bridge_instance.mint('0x' + 'b' * 40, 100)
-
-        assert receipt['status'] == 1
-
-    def test_burn(self, bridge_instance, mock_web3):
-        """Test burning tokens."""
-        mock_token = bridge_instance.contracts['token']
-
-        def build_tx(params):
-            return {
-                'to': '0x' + '4' * 40,
-                'data': '0x123',
-                'from': bridge_instance.account.address,
-                **params
-            }
-
-        mock_token.functions.burnFrom.return_value.build_transaction = build_tx
-        mock_token.functions.decimals.return_value.call.return_value = 18
-        mock_web3.eth.estimate_gas.return_value = 70000
-
-        mock_signed = Mock()
-        mock_signed.raw_transaction = b'0xsigned'
-        mock_web3.eth.account.sign_transaction.return_value = mock_signed
-
-        receipt = bridge_instance.burn('0x' + 'c' * 40, 50)
-
-        assert receipt['status'] == 1
-
-    def test_transfer(self, bridge_instance, mock_web3):
-        """Test transferring tokens."""
-        mock_token = bridge_instance.contracts['token']
-
-        def build_tx(params):
-            return {
-                'to': '0x' + '4' * 40,
-                'data': '0x123',
-                'from': bridge_instance.account.address,
-                **params
-            }
-
-        mock_token.functions.transfer.return_value.build_transaction = build_tx
-        mock_web3.eth.estimate_gas.return_value = 65000
-
-        mock_signed = Mock()
-        mock_signed.raw_transaction = b'0xsigned'
-        mock_web3.eth.account.sign_transaction.return_value = mock_signed
-
-        receipt = bridge_instance.transfer('0x' + 'd' * 40, 1000)
-
-        assert receipt['status'] == 1
-
-
-class TestAuthVerification:
-    """Test authentication and verification."""
-
-    def test_claim_with_valid_token(self, bridge_instance, mock_web3):
-        """Test claiming with valid auth token."""
-        bridge_instance.total_balances = {'test_sr25519_address': 1000}
-        bridge_instance.auth.verify.return_value = {'key': 'test_sr25519_address'}
-
-        mock_token = bridge_instance.contracts['token']
-
-        def build_tx(params):
-            return {
-                'to': '0x' + '4' * 40,
-                'data': '0x123',
-                'from': bridge_instance.account.address,
-                **params
-            }
-
-        mock_token.functions.mint.return_value.build_transaction = build_tx
-        mock_token.functions.decimals.return_value.call.return_value = 18
-        mock_token.functions.balanceOf.return_value.call.return_value = 1000000000000000000000
-        mock_web3.eth.estimate_gas.return_value = 100000
-
-        mock_signed = Mock()
-        mock_signed.raw_transaction = b'0xsigned'
-        mock_web3.eth.account.sign_transaction.return_value = mock_signed
-
-        result = bridge_instance.claim('auth_token', '0x' + 'e' * 40)
-
-        assert result['amount'] == 1000
-        assert 'test_sr25519_address' in bridge_instance.claims
-
-    def test_claim_with_zero_balance(self, bridge_instance):
-        """Test claiming with zero balance."""
-        bridge_instance.total_balances = {}
-        bridge_instance.auth.verify.return_value = {'key': 'test_sr25519_address'}
-
-        result = bridge_instance.claim('auth_token', '0x' + 'e' * 40)
-
-        assert 'No tokens to claim' in result
-
-    def test_clear_claims(self, bridge_instance):
-        """Test clearing all claims."""
-        bridge_instance.claims = {'addr1': {'amount': 100}}
-
-        result = bridge_instance.clear_claims()
-
-        assert result['success'] is True
-        assert len(bridge_instance.claims) == 0
-
-
-class TestUtilityFunctions:
-    """Test utility functions."""
-
-    def test_send_tx(self, bridge_instance, mock_web3):
-        """Test sending generic transaction."""
-        mock_contract = bridge_instance.contracts['token']
-        mock_function = Mock()
-
-        def build_tx(params):
-            return {
-                'to': '0x' + '4' * 40,
-                'data': '0x123',
-                'from': bridge_instance.account.address,
-                **params
-            }
-
-        mock_function.return_value.build_transaction = build_tx
-        mock_contract.functions.someFunction = mock_function
-        mock_web3.eth.estimate_gas.return_value = 90000
-
-        mock_signed = Mock()
-        mock_signed.raw_transaction = b'0xsigned'
-        mock_web3.eth.account.sign_transaction.return_value = mock_signed
-
-        receipt = bridge_instance.send_tx('token', 'someFunction', [])
-
-        assert receipt['status'] == 1
-
-    def test_compile(self, bridge_instance):
-        """Test compiling contracts."""
-        with patch('os.system') as mock_system:
-            mock_system.return_value = 0
-
-            result = bridge_instance.compile()
-
-            assert result == 0
-            mock_system.assert_called_once()
-
-
-class TestContractLoading:
-    """Test contract loading functions."""
-
-    def test_load_contracts_success(self, bridge_instance, mock_web3):
-        """Test successful contract loading."""
-        bridge_instance.config = {
+def bridge(tmp_path):
+    """Create a Bridge Mod instance with tmp storage and mocked deps."""
+    snapshot_dir = tmp_path / 'snapshot'
+    snapshot_dir.mkdir()
+
+    balances = {
+        '5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb': 9998,
+        '5Eneu6qKT7dcrUntNoEQ3qQfHQBjiovrx1wE8J3uU1TMwkX4': 235128862,
+        '5F9Ap1DX2sikreph5Ly2PrGUiCMBM7LFdpJt5x3vrc4jBu64': 170312245,
+    }
+    with open(snapshot_dir / 'total_balances.json', 'w') as f:
+        json.dump(balances, f)
+
+    config = {
+        'owner': '5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb',
+        'network': 'testnet',
+        'port': 18840,
+        'app_port': 18841,
+        'contracts': {
             'testnet': {
+                'chainId': '84532',
+                'url': 'https://sepolia.base.org',
                 'contracts': {
-                    'bridge': {
-                        'address': '0x' + '3' * 40,
-                        'abi': 'QmBridgeABI'
-                    },
-                    'token': {
-                        'address': '0x' + '4' * 40,
-                        'abi': 'QmTokenABI'
+                    'BridgeableToken': {
+                        'address': '0x0472a18bcB061B0bd047Db60f5717C8215dC7EeD',
                     }
                 }
             }
         }
+    }
 
-        mock_ipfs = Mock()
-        mock_ipfs.get.return_value = {'abi': []}
-        bridge_instance._ipfs = mock_ipfs
+    mock_lfs = MagicMock()
+    mock_lfs.valid_cid.return_value = False
 
-        contracts = bridge_instance.load_contracts()
+    # Build instance without calling __init__ (which has external deps)
+    instance = object.__new__(BridgeMod)
+    instance.module_dir = Path(__file__).resolve().parent.parent
+    instance.config = config
+    instance.store_dir = tmp_path / 'store'
+    instance.store_dir.mkdir(parents=True, exist_ok=True)
+    instance.claims_path = instance.store_dir / 'claims.json'
+    instance.commitments_path = instance.store_dir / 'commitments.json'
+    instance.snapshot_dir = snapshot_dir
+    instance.owner_address = config['owner']
+    instance.network = 'testnet'
+    instance.signer_key = ''
+    instance.port = 18840
+    instance.app_port = 18841
+    net_cfg = config['contracts']['testnet']
+    instance.rpc_url = net_cfg['url']
+    instance.contract_address = net_cfg['contracts']['BridgeableToken']['address']
+    instance.lfs = mock_lfs
+    instance._abi_cid = ''
 
-        assert isinstance(contracts, dict)
+    # Load snapshot (uses instance._load_snapshot which is a normal method)
+    raw = instance._load_snapshot('total_balances.json')
+    instance._total_balances = {addr: float(val) / 1e9 for addr, val in raw.items()}
 
-    def test_load_contracts_error(self, bridge_instance, mock_mod):
-        """Test contract loading with error."""
-        bridge_instance.config = {}
-
-        # Create a mock IPFS object that raises an exception
-        mock_ipfs = Mock()
-        mock_ipfs.get.side_effect = Exception('IPFS error')
-        bridge_instance._ipfs = mock_ipfs
-
-        contracts = bridge_instance.load_contracts()
-
-        # Should handle error gracefully
-        assert isinstance(contracts, dict)
-
-
-class TestIPFSIntegration:
-    """Test IPFS integration."""
-
-    def test_ipfs_property(self, bridge_instance, mock_mod):
-        """Test IPFS property lazy loading."""
-        ipfs = bridge_instance.ipfs
-
-        assert ipfs is not None
-        # Second call should return cached instance
-        ipfs2 = bridge_instance.ipfs
-        assert ipfs is ipfs2
-
-    def test_abi_map(self, bridge_instance, mock_mod):
-        """Test ABI mapping."""
-        with patch('os.path.join', return_value='/mock/path'):
-            with patch.object(mock_mod, 'files', return_value=['Contract.json']):
-                with patch('builtins.open', create=True) as mock_open:
-                    mock_open.return_value.__enter__.return_value.read.return_value = '{"abi": []}'
-
-                    with patch('json.load', return_value={'abi': []}):
-                        abi_map = bridge_instance.abi_map()
-
-                        assert isinstance(abi_map, dict)
+    return instance
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+ADDR1 = '5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb'
+ADDR2 = '5Eneu6qKT7dcrUntNoEQ3qQfHQBjiovrx1wE8J3uU1TMwkX4'
+ADDR3 = '5F9Ap1DX2sikreph5Ly2PrGUiCMBM7LFdpJt5x3vrc4jBu64'
+ADDR_NONE = '5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+EVM_ADDR = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18'
+
+
+# ── Health & Status ─────────────────────────────────────────────
+
+class TestHealth:
+    def test_health(self, bridge):
+        result = bridge.health()
+        assert result['status'] == 'ok'
+        assert result['module'] == 'bridge'
+        assert result['snapshot_addresses'] == 3
+        assert result['claims'] == 0
+
+    def test_status(self, bridge):
+        result = bridge.status()
+        assert result['total_addresses'] == 3
+        assert result['total_owed'] > 0
+        assert result['total_claimed'] == 0
+        assert result['total_unclaimed'] == result['total_owed']
+        assert result['claim_count'] == 0
+
+    def test_owner(self, bridge):
+        assert bridge.owner() == ADDR1
+
+
+# ── Snapshot ────────────────────────────────────────────────────
+
+class TestSnapshot:
+    def test_in_snapshot_found(self, bridge):
+        result = bridge.in_snapshot(ADDR1)
+        assert result['in_snapshot'] is True
+        assert result['balance'] > 0
+
+    def test_in_snapshot_not_found(self, bridge):
+        result = bridge.in_snapshot(ADDR_NONE)
+        assert result['in_snapshot'] is False
+        assert result['balance'] == 0
+
+    def test_get_total_balances(self, bridge):
+        balances = bridge.get_total_balances()
+        assert len(balances) == 3
+        assert ADDR1 in balances
+        assert ADDR2 in balances
+
+    def test_balances_normalized(self, bridge):
+        """Balances should be divided by 1e9 from raw snapshot values."""
+        balances = bridge.get_total_balances()
+        assert balances[ADDR1] == pytest.approx(9998 / 1e9)
+
+
+# ── Claims ──────────────────────────────────────────────────────
+
+class TestClaims:
+    def test_claim_success(self, bridge):
+        result = bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        assert result['success'] is True
+        assert result['recipient'] == EVM_ADDR
+        assert result['from'] == ADDR2
+        assert result['amount'] > 0
+        assert 'tx_hash' in result
+
+    def test_claim_no_recipient(self, bridge):
+        result = bridge.claim(auth_token='tok', recipient='', address=ADDR2)
+        assert 'error' in result
+
+    def test_claim_no_address(self, bridge):
+        result = bridge.claim(auth_token='tok', recipient=EVM_ADDR, address='')
+        assert 'error' in result
+
+    def test_claim_not_in_snapshot(self, bridge):
+        result = bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR_NONE)
+        assert 'error' in result
+        assert 'No allocation' in result['error']
+
+    def test_claim_duplicate(self, bridge):
+        bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        result = bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        assert 'error' in result
+        assert 'Already claimed' in result['error']
+
+    def test_has_claimed(self, bridge):
+        assert bridge.has_claimed(ADDR2)['claimed'] is False
+        bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        assert bridge.has_claimed(ADDR2)['claimed'] is True
+
+    def test_unclaimed(self, bridge):
+        total = bridge.in_snapshot(ADDR2)['balance']
+        assert bridge.unclaimed(ADDR2) == total
+        bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        assert bridge.unclaimed(ADDR2) == 0
+
+    def test_claims_array(self, bridge):
+        bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        arr = bridge.claims_array()
+        assert len(arr) == 1
+        assert arr[0]['address'] == ADDR2
+
+    def test_get_claims(self, bridge):
+        bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        claims = bridge.get_claims()
+        assert ADDR2 in claims
+
+    def test_delete_claim(self, bridge):
+        bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        result = bridge.delete_claim(ADDR2, caller=ADDR1)
+        assert result['success'] is True
+        assert bridge.has_claimed(ADDR2)['claimed'] is False
+
+    def test_delete_claim_not_owner(self, bridge):
+        bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        result = bridge.delete_claim(ADDR2, caller='someone_else')
+        assert 'error' in result
+
+    def test_delete_claim_not_found(self, bridge):
+        result = bridge.delete_claim(ADDR_NONE)
+        assert 'error' in result
+
+    def test_status_after_claim(self, bridge):
+        bridge.claim(auth_token='tok', recipient=EVM_ADDR, address=ADDR2)
+        status = bridge.status()
+        assert status['claim_count'] == 1
+        assert status['total_claimed'] > 0
+        assert status['total_unclaimed'] < status['total_owed']
+
+
+# ── Commitments ─────────────────────────────────────────────────
+
+class TestCommitments:
+    def test_commit_missing_fields(self, bridge):
+        result = bridge.commit('', EVM_ADDR, 'sig', 'substrate')
+        assert 'error' in result
+
+        result = bridge.commit(ADDR2, '', 'sig', 'substrate')
+        assert 'error' in result
+
+        result = bridge.commit(ADDR2, EVM_ADDR, '', 'substrate')
+        assert 'error' in result
+
+    def test_commit_bad_source_type(self, bridge):
+        result = bridge.commit(ADDR2, EVM_ADDR, 'sig', 'ethereum')
+        assert 'error' in result
+        assert 'source_type' in result['error']
+
+    def test_commit_not_in_snapshot(self, bridge):
+        result = bridge.commit(ADDR_NONE, EVM_ADDR, 'sig', 'substrate')
+        assert 'error' in result
+        assert 'not in snapshot' in result['error']
+
+    def test_get_commitments_empty(self, bridge):
+        assert bridge.get_commitments() == {}
+
+    def test_get_commitment_not_found(self, bridge):
+        result = bridge.get_commitment(ADDR_NONE)
+        assert 'error' in result
+
+    def test_update_commitment_no_existing(self, bridge):
+        result = bridge.update_commitment(ADDR2, EVM_ADDR, 'sig', 'substrate')
+        assert 'error' in result
+        assert 'No existing' in result['error']
+
+    def test_update_commitment_bad_type(self, bridge):
+        result = bridge.update_commitment(ADDR2, EVM_ADDR, 'sig', 'bitcoin')
+        assert 'error' in result
+
+    def test_update_commitment_missing_fields(self, bridge):
+        result = bridge.update_commitment('', EVM_ADDR, 'sig', 'substrate')
+        assert 'error' in result
+
+
+# ── Contract Info ───────────────────────────────────────────────
+
+class TestContractInfo:
+    def test_contract_info(self, bridge):
+        info = bridge.contract_info()
+        assert info['network'] == 'testnet'
+        assert info['chain_id'] == '84532'
+        assert info['contract_address'] == '0x0472a18bcB061B0bd047Db60f5717C8215dC7EeD'
+        assert info['abi_stored'] is False
+
+    def test_contract_info_abi_cid(self, bridge):
+        bridge._abi_cid = 'bafytest123'
+        bridge.lfs.valid_cid.return_value = True
+        info = bridge.contract_info()
+        assert info['abi_stored'] is True
+
+
+# ── Forward ─────────────────────────────────────────────────────
+
+class TestForward:
+    def test_forward_no_action(self, bridge):
+        result = bridge.forward()
+        assert 'module' in result
+        assert 'actions' in result
+        assert result['module'] == 'bridge'
+
+    def test_forward_unknown_action(self, bridge):
+        result = bridge.forward(action='nonexistent')
+        assert 'module' in result
+
+    def test_forward_health(self, bridge):
+        result = bridge.forward(action='health')
+        assert result['status'] == 'ok'
+
+    def test_forward_status(self, bridge):
+        result = bridge.forward(action='status')
+        assert 'total_addresses' in result
+
+    def test_forward_in_snapshot(self, bridge):
+        result = bridge.forward(action='in_snapshot', address=ADDR1)
+        assert result['in_snapshot'] is True
+
+    def test_forward_claims(self, bridge):
+        result = bridge.forward(action='claims')
+        assert isinstance(result, dict)

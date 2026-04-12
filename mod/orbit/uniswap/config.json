@@ -14,6 +14,7 @@
     "get_swaps_by_pool",
     "get_tokens",
     "get_pool_day_data",
+    "explore",
     "chains",
     "serve",
     "kill",
@@ -86,6 +87,18 @@
       ],
       "output": {"type": "list"},
       "docs": "Get daily OHLCV data for a pool"
+    },
+    "explore": {
+      "input": [
+        {"name": "chain", "type": "str", "value": "ethereum"},
+        {"name": "blocks", "type": "int", "value": 5000},
+        {"name": "batch_size", "type": "int", "value": 2000},
+        {"name": "min_liquidity", "type": "int", "value": 0},
+        {"name": "min_volume_usd", "type": "float", "value": 0},
+        {"name": "max_pools", "type": "int", "value": 200}
+      ],
+      "output": {"type": "dict"},
+      "docs": "Scan recent blocks newest-first, discover all pools + token prices. Set min_liquidity and min_volume_usd to filter. max_pools caps how many pools to resolve (sorted by swap activity). Returns tokens with USD prices, pools, and progress stats. Fully open-source — free public RPCs only."
     },
     "clear_cache": {
       "input": [

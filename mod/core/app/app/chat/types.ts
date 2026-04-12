@@ -56,6 +56,7 @@ export interface Message {
   isLoading?: boolean
   cid?: string  // Content ID for the message
   inputCid?: string  // CID of the input that generated this response
+  images?: string[]  // Base64 encoded images
 }
 
 // Transaction Types

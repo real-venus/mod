@@ -1,112 +1,159 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
- * @title Bridge
- * @dev Bridge contract for sr25519 to EVM token claims
- *
- * Flow:
- * 1. User signs timestamp with sr25519 key in Subwallet
- * 2. Backend verifies sr25519 signature off-chain
- * 3. Operator calls processClaim() to transfer tokens
- * 4. Each sr25519 address can only claim once
+ * @title BridgeableToken
+ * @dev ERC20 token with owner-controlled mint/burn for custom bridging
+ * Owner can mint and burn tokens to facilitate cross-chain transfers
+ * This is a temporary solution until migration to native bridging
  */
-contract Bridge is Ownable, ReentrancyGuard {
-    IERC20 public token;
+contract BridgeableToken is ERC20, Ownable {
 
-    // Mapping from sr25519 address (as string/bytes32) to claimed status
-    mapping(bytes32 => bool) public claimed;
+    event BridgeMint(address indexed to, uint256 amount, string bridgeId);
+    event BridgeBurn(address indexed from, uint256 amount, string bridgeId);
+    event ContractSetOwnerless();
+    event Commitment(bytes32 indexed sourceHash, address indexed evmAddress, string sourceAddress, string sourceType);
 
-    // Mapping from sr25519 to EVM address for tracking
-    mapping(bytes32 => address) public claimRecipient;
-
-    // Total amount claimed
-    uint256 public totalClaimed;
-
-    // Events
-    event ClaimRegistered(bytes32 indexed sr25519Hash, address indexed recipient, uint256 amount);
-    event ClaimProcessed(bytes32 indexed sr25519Hash, address indexed recipient, uint256 amount);
-
-    constructor(address _token) Ownable(msg.sender) {
-        token = IERC20(_token);
-    }
+    // Commitment: keccak256(sourceAddress) => evmAddress
+    mapping(bytes32 => address) public commitments;
+    mapping(address => bytes32[]) public evmCommitments;
 
     /**
-     * @dev Process a claim after off-chain verification
-     * @param sr25519Address The sr25519 address (SS58 format, hashed)
-     * @param recipient The EVM address to receive tokens
-     * @param amount Amount of tokens to distribute
-     *
-     * Only operator can call this after verifying signature
+     * @dev Constructor
+     * @param name Token name
+     * @param symbol Token symbol
+     * @param initialSupply Initial token supply minted to deployer
      */
-    function processClaim(
-        bytes32 sr25519Address,
-        address recipient,
-        uint256 amount
-    ) external onlyOwner nonReentrant {
-        require(!claimed[sr25519Address], "Already claimed");
-        require(recipient != address(0), "Invalid recipient");
-        require(amount > 0, "Amount must be > 0");
-
-        // Mark as claimed
-        claimed[sr25519Address] = true;
-        claimRecipient[sr25519Address] = recipient;
-        totalClaimed += amount;
-
-        // Transfer tokens from operator to recipient
-        require(
-            token.transferFrom(owner(), recipient, amount),
-            "Transfer failed"
-        );
-
-        emit ClaimProcessed(sr25519Address, recipient, amount);
-    }
-
-    /**
-     * @dev Batch process multiple claims
-     */
-    function batchProcessClaims(
-        bytes32[] calldata sr25519Addresses,
-        address[] calldata recipients,
-        uint256[] calldata amounts
-    ) external onlyOwner nonReentrant {
-        require(
-            sr25519Addresses.length == recipients.length &&
-            recipients.length == amounts.length,
-            "Array length mismatch"
-        );
-
-        for (uint256 i = 0; i < sr25519Addresses.length; i++) {
-            if (!claimed[sr25519Addresses[i]]) {
-                claimed[sr25519Addresses[i]] = true;
-                claimRecipient[sr25519Addresses[i]] = recipients[i];
-                totalClaimed += amounts[i];
-
-                require(
-                    token.transferFrom(owner(), recipients[i], amounts[i]),
-                    "Transfer failed"
-                );
-
-                emit ClaimProcessed(sr25519Addresses[i], recipients[i], amounts[i]);
-            }
+    constructor(
+        string memory name,
+        string memory symbol,
+        uint256 initialSupply
+    ) ERC20(name, symbol) {
+        if (initialSupply > 0) {
+            _mint(msg.sender, initialSupply);
         }
     }
 
     /**
-     * @dev Check if an address has claimed
+     * @dev Permanently renounce ownership, making the contract fully decentralized.
+     * Locks: bridgeMint, bridgeBurn, batchBridgeMint, batchBridgeBurn.
+     * This action is irreversible.
      */
-    function hasClaimed(bytes32 sr25519Address) external view returns (bool) {
-        return claimed[sr25519Address];
+    function setOwnerless() external onlyOwner {
+        emit ContractSetOwnerless();
+        renounceOwnership();
     }
 
     /**
-     * @dev Update token address (emergency only)
+     * @dev Mint tokens for bridging (owner only)
+     * @param to Address to mint tokens to
+     * @param amount Amount of tokens to mint
+     * @param bridgeId Identifier for the bridge transaction
      */
-    function setToken(address _token) external onlyOwner {
-        token = IERC20(_token);
+    function bridgeMint(address to, uint256 amount, string memory bridgeId) external onlyOwner {
+        require(to != address(0), "Cannot mint to zero address");
+        require(amount > 0, "Amount must be greater than 0");
+
+        _mint(to, amount);
+        emit BridgeMint(to, amount, bridgeId);
+    }
+
+    /**
+     * @dev Burn tokens for bridging (owner only)
+     * @param from Address to burn tokens from
+     * @param amount Amount of tokens to burn
+     * @param bridgeId Identifier for the bridge transaction
+     */
+    function bridgeBurn(address from, uint256 amount, string memory bridgeId) external onlyOwner {
+        require(from != address(0), "Cannot burn from zero address");
+        require(amount > 0, "Amount must be greater than 0");
+        require(balanceOf(from) >= amount, "Insufficient balance to burn");
+
+        _burn(from, amount);
+        emit BridgeBurn(from, amount, bridgeId);
+    }
+
+    /**
+     * @dev Batch mint for multiple addresses (owner only)
+     * @param recipients Array of addresses to mint to
+     * @param amounts Array of amounts to mint
+     * @param bridgeId Identifier for the batch bridge transaction
+     */
+    function batchBridgeMint(
+        address[] memory recipients,
+        uint256[] memory amounts,
+        string memory bridgeId
+    ) external onlyOwner {
+        require(recipients.length == amounts.length, "Arrays length mismatch");
+        require(recipients.length > 0, "Empty arrays");
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            require(recipients[i] != address(0), "Cannot mint to zero address");
+            require(amounts[i] > 0, "Amount must be greater than 0");
+
+            _mint(recipients[i], amounts[i]);
+            emit BridgeMint(recipients[i], amounts[i], bridgeId);
+        }
+    }
+
+    /**
+     * @dev Commit a source address (sr25519/solana) to an EVM address (owner only)
+     * @param sourceHash keccak256 hash of the source address string
+     * @param evmAddress Target EVM address
+     * @param sourceAddress Original source address string
+     * @param sourceType Type of source key (substrate or solana)
+     */
+    function commit(
+        bytes32 sourceHash,
+        address evmAddress,
+        string memory sourceAddress,
+        string memory sourceType
+    ) external onlyOwner {
+        require(commitments[sourceHash] == address(0), "Already committed");
+        require(evmAddress != address(0), "Invalid EVM address");
+        commitments[sourceHash] = evmAddress;
+        evmCommitments[evmAddress].push(sourceHash);
+        emit Commitment(sourceHash, evmAddress, sourceAddress, sourceType);
+    }
+
+    /**
+     * @dev Get the EVM address committed to a source address hash
+     */
+    function getCommitment(bytes32 sourceHash) external view returns (address) {
+        return commitments[sourceHash];
+    }
+
+    /**
+     * @dev Get all source address hashes committed to an EVM address
+     */
+    function getEvmCommitments(address evmAddress) external view returns (bytes32[] memory) {
+        return evmCommitments[evmAddress];
+    }
+
+    /**
+     * @dev Batch burn from multiple addresses (owner only)
+     * @param holders Array of addresses to burn from
+     * @param amounts Array of amounts to burn
+     * @param bridgeId Identifier for the batch bridge transaction
+     */
+    function batchBridgeBurn(
+        address[] memory holders,
+        uint256[] memory amounts,
+        string memory bridgeId
+    ) external onlyOwner {
+        require(holders.length == amounts.length, "Arrays length mismatch");
+        require(holders.length > 0, "Empty arrays");
+
+        for (uint256 i = 0; i < holders.length; i++) {
+            require(holders[i] != address(0), "Cannot burn from zero address");
+            require(amounts[i] > 0, "Amount must be greater than 0");
+            require(balanceOf(holders[i]) >= amounts[i], "Insufficient balance to burn");
+
+            _burn(holders[i], amounts[i]);
+            emit BridgeBurn(holders[i], amounts[i], bridgeId);
+        }
     }
 }

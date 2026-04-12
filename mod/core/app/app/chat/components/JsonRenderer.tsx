@@ -169,7 +169,7 @@ export function JsonRenderer({ content }: JsonRendererProps) {
   if (!isJson) {
     return (
       <pre
-        className="text-lg leading-relaxed whitespace-pre-wrap break-words"
+        className="text-xl leading-relaxed whitespace-pre-wrap break-words"
         style={{
           fontFamily: 'var(--font-digital), "JetBrains Mono", monospace',
           color: 'var(--text-primary)',
@@ -215,14 +215,14 @@ export function JsonRenderer({ content }: JsonRendererProps) {
       {/* Content */}
       {viewMode === 'tree' ? (
         <div
-          className="text-base leading-relaxed overflow-x-auto"
+          className="text-lg leading-relaxed overflow-x-auto"
           style={{ fontFamily: 'var(--font-digital), "JetBrains Mono", monospace' }}
         >
           <JsonNode data={data} />
         </div>
       ) : (
         <pre
-          className="text-base leading-relaxed whitespace-pre-wrap break-words overflow-x-auto"
+          className="text-lg leading-relaxed whitespace-pre-wrap break-words overflow-x-auto"
           style={{
             fontFamily: 'var(--font-digital), "JetBrains Mono", monospace',
             color: 'var(--text-primary)',

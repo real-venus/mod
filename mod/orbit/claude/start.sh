@@ -5,11 +5,11 @@ cd "$(dirname "$0")"
 bash stop.sh 2>/dev/null
 
 # Start API
-bash api/start.sh &
+bash ./src/api/start.sh &
 API_PID=$!
 
 # Start App
-bash app/start.sh &
+bash ./src/app/start.sh &
 APP_PID=$!
 
 trap "kill $API_PID $APP_PID 2>/dev/null" EXIT

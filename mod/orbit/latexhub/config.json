@@ -66,12 +66,8 @@
       "docs": "Search LaTeX documents by content or metadata."
     }
   },
-  "api": {
-    "port": 50200,
-    "entrypoint": "uvicorn api.api:app --host 0.0.0.0 --port 50200"
-  },
-  "app": {
-    "port": 3200,
-    "framework": "nextjs"
+  "urls": {
+    "api": "http://localhost:50200",
+    "app": "http://localhost:3200"
   }
 }

@@ -1,0 +1,13 @@
+{
+  "name": "prefi",
+  "description": "Prediction market for crypto prices on Base Sepolia",
+  "network": "baseSepolia",
+  "urls": {
+    "api": "http://localhost:8830",
+    "app": "http://localhost:8831"
+  },
+  "contracts": {},
+  "fns": [
+    "serve"
+  ]
+}

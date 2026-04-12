@@ -247,7 +247,7 @@ export default function CreateModule() {
           description: localDescription.trim() || undefined,
           public: false,
           token: client.token,
-        }, waitForCompletion)
+        }, waitForCompletion, {}, 120000)
         setResult(response)
         clearModsCache()
         setLocalPath('')
@@ -261,7 +261,7 @@ export default function CreateModule() {
           key: registerToKey.trim(),
           public: false,
           token: client.token,
-        }, waitForCompletion)
+        }, waitForCompletion, {}, 120000)
         setResult(response)
         clearModsCache()
         setUrl('')

@@ -7,6 +7,8 @@
     "modify_folder",
     "apply_suggestions",
     "suggest_and_apply",
+    "ensure_urls",
+    "ensure_serve",
     "test"
   ],
   "schema": {
@@ -57,6 +59,23 @@
       ],
       "output": {"type": "dict", "value": null},
       "docs": "Run suggest on a module, then apply the top suggestions automatically."
+    },
+    "ensure_urls": {
+      "input": [
+        {"name": "mod", "type": "str", "value": null},
+        {"name": "fix", "type": "bool", "value": true},
+        {"name": "host", "type": "str", "value": "localhost"}
+      ],
+      "output": {"type": "dict", "value": null},
+      "docs": "Ensure modules have compliant urls: {api, app} map in config.json. Scans all orbit modules or a specific one."
+    },
+    "ensure_serve": {
+      "input": [
+        {"name": "mod", "type": "str", "value": null},
+        {"name": "fix", "type": "bool", "value": true}
+      ],
+      "output": {"type": "dict", "value": null},
+      "docs": "Ensure modules with scripts/start.sh have a serve() method. Generates compliant serve() from mod protocol skill.md."
     },
     "test": {
       "input": [],

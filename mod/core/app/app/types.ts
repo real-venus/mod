@@ -7,7 +7,7 @@
       id?: number // module id
       desc?: string // description
       content?: string // CID to the content of the user
-      created: number // time of the mod
+      created?: number // time of the mod
       updated?: number // time of last update
       schema?: string // the schema of the mod
       url?: string | { api?: string; app?: string; [k: string]: string | undefined } // url string or {api, app}
@@ -19,6 +19,8 @@
       public?: boolean // whether the module is public
       allowed_users?: string[] // list of allowed user keys
       take?: number // take percentage
+      local?: boolean // true if module exists locally but isn't registered
+      path?: string // local filesystem path
     }
 
 

@@ -4,8 +4,8 @@
 |   M O D   P R O T O C O L                                |
 |                                                           |
 |   TECHNICAL WHITEPAPER                                    |
-|   STATUS: DRAFT                                           |
-|   REVISION: 1.0                                           |
+|   VERSION: 2.0                                            |
+|   APRIL 2026                                              |
 |                                                           |
 +-----------------------------------------------------------+
 ```
@@ -15,24 +15,27 @@
 ## 0. ABSTRACT
 
 MOD Protocol is a decentralized module registry and execution
-system. It enables secure, verifiable function calls across
-distributed modules using IPFS storage and cryptographic
-authentication.
+system with 200+ composable modules. It enables secure, verifiable
+function calls across distributed modules using IPFS storage,
+cryptographic authentication, and AI-native agent workflows.
 
-This document outlines the technical architecture, economic
-model, and governance mechanisms.
+Revenue flows through on-chain smart contracts on Base. Stakers
+earn proportional treasury shares via time-weighted BlocTime
+tokens---no inflation, only real marketplace fees.
 
 ---
 
 ## 1. PROBLEM
 
 ```
-CURRENT STATE OF WEB INFRASTRUCTURE:
+CURRENT STATE OF SOFTWARE INFRASTRUCTURE:
 
   [x] centralized    --> single points of failure
   [x] unverifiable   --> can't confirm what code runs
   [x] non-composable --> services don't interop
   [x] costly         --> complex payment infrastructure
+  [x] ai-siloed      --> models trapped in walled gardens
+  [x] no dev revenue --> open source creators earn nothing
 ```
 
 ## 2. SOLUTION
@@ -42,8 +45,10 @@ MOD PROTOCOL PROVIDES:
 
   [+] decentralized storage   --> ipfs content addressing
   [+] crypto verification     --> every tx signed & verified
-  [+] modular architecture    --> composable cross-module calls
+  [+] modular architecture    --> 200+ composable modules
   [+] built-in economics      --> token-gated execution
+  [+] ai-native agents        --> autonomous module composition
+  [+] dev monetization        --> earn per function call
 ```
 
 ---
@@ -52,31 +57,46 @@ MOD PROTOCOL PROVIDES:
 
 ```
 +------------------+
-| STORAGE LAYER    |  ipfs content-addressed storage
-| (ipfs)           |  immutable version history
-+--------+---------+  distributed availability
+| FRONTEND         |  next.js 14 + typescript + ethers.js v6
+| (app)            |  wallet connect, module browser
++--------+---------+
          |
 +--------v---------+
-| AUTH LAYER        |  sr25519 / ecdsa signatures
-| (crypto)          |  token-based authorization
-+--------+---------+  address-based identity
+| SERVICE LAYER    |  fastapi async endpoints
+| (api)            |  module registry, IPFS bridge
++--------+---------+
          |
 +--------v---------+
-| EXECUTION LAYER  |  async task processing
-| (runtime)        |  local & remote execution
-+--------+---------+  result caching & verification
+| MODULE LAYER     |  200+ python orbit modules
+| (orbit)          |  ai agents, defi, storage, tools
++--------+---------+
          |
 +--------v---------+
-| REGISTRY LAYER   |  module discovery & versioning
-| (on-chain)       |  owner-based access control
-+------------------+  schema validation
+| CHAIN LAYER      |  bloctime protocol (solidity 0.8.20)
+| (contracts)      |  base sepolia / base mainnet
++--------+---------+
+         |
++--------v---------+
+| CORE LAYER       |  mod.py framework engine
+| (engine)         |  crypto, storage, routing, CLI
++------------------+
 ```
 
 ### DATA FLOW
 
 ```
-user --> token gen --> api call --> task create -->
-ipfs store --> execute --> result store --> user
+developer --> drop module in orbit/ --> auto-discovered
+          --> register on-chain (Registry.sol)
+          --> set price in config.json
+
+user --> discover module via app/api
+     --> deposit stablecoins (Market.credit)
+     --> invoke function (Debit.executeDebit)
+     --> 5% fee to treasury, 95% to provider
+
+staker --> stake NativeToken into BlocTime
+       --> earn time-weighted BlocTime tokens
+       --> claim proportional treasury revenue
 ```
 
 ---
@@ -86,285 +106,256 @@ ipfs store --> execute --> result store --> user
 ### 4.1 TOKEN STRUCTURE
 
 ```
-FORMAT: key::to::cost::time::data::signature
-
-  key       sender's ss58 address
-  to        recipient module/user
-  cost      execution cost in tokens
-  time      unix timestamp
-  data      json payload
-  signature cryptographic proof
++------------------+-----------------------------------+
+| TOKEN            | PURPOSE                           |
++------------------+-----------------------------------+
+| NativeToken      | stakeable ERC20, fixed supply     |
+| BlocTime         | time-weighted receipt token        |
+| Market Token     | USD-pegged marketplace credit      |
+| USDC / USDT      | payment tokens                    |
++------------------+-----------------------------------+
 ```
 
 ### 4.2 COST MODEL
 
 ```
 +------------------+-----------------------------------+
-| COST TYPE        | DESCRIPTION                       |
+| FEE TYPE         | DESCRIPTION                       |
 +------------------+-----------------------------------+
-| base cost        | minimum fee per function call     |
-| compute cost     | based on execution time           |
-| storage cost     | ipfs pinning fees                 |
-| network cost     | cross-module communication        |
+| market credit    | 1% to treasury on deposit          |
+| market withdraw  | 0.1% retained in market            |
+| debit execution  | 5% to treasury per invocation      |
+| staker claim     | proportional to BlocTime balance   |
 +------------------+-----------------------------------+
 ```
 
 ### 4.3 REVENUE SPLIT
 
 ```
-  EXECUTION FEE
+  MODULE INVOCATION FEE
   |
-  |-- 70% --> module owner
-  |-- 20% --> protocol treasury
-  '-- 10% --> validators / infra
+  |-- 95% --> module provider
+  '-- 5%  --> protocol treasury
+              |
+              '--> distributed to BlocTime stakers
+                   (proportional to time-weighted stake)
+```
+
+### 4.4 STAKING MULTIPLIER
+
+```
+  lock longer = earn more
+
+  0 blocks      --> 1.0x multiplier
+  10,000 blocks --> 1.5x multiplier
+  50,000 blocks --> 2.0x multiplier
+  100,000 blocks -> 3.0x multiplier
+
+  BlocTime minted = amount * multiplier
+  treasury share  = your BlocTime / total BlocTime
 ```
 
 ---
 
 ## 5. MODULE SYSTEM
 
-### 5.1 REGISTRATION
+### 5.1 200+ ORBIT MODULES
+
+```
++------------------+-----------------------------------+
+| CATEGORY         | EXAMPLES                          |
++------------------+-----------------------------------+
+| ai & agents      | agent, claude, arena, skill, ag0  |
+| defi & trading   | uniswap, hyperliquid, goldfi,     |
+|                  | prefi, raydium, copyquant          |
+| blockchain       | bridge, safe, eth, near, solana,  |
+|                  | base, cardano, zcash               |
+| storage          | ipfs, filecoin, arweave, cache    |
+| dev tools        | git, pytest, docker, codex        |
+| infrastructure   | web, mcp, modal, compute, caddy   |
++------------------+-----------------------------------+
+```
+
+### 5.2 MODULE LIFECYCLE
+
+```
+  1. DROP    --> put module in mod/orbit/mymod/
+  2. DISCOVER --> framework auto-finds anchor file
+  3. LOAD    --> m.mod('mymod')() -- lazy, O(1)
+  4. SERVE   --> m serve mymod -- auto-generates API
+  5. REGISTER --> on-chain via Registry.sol
+  6. MONETIZE --> users pay per invocation
+```
+
+### 5.3 CREATING A MODULE
 
 ```python
-info = api.reg(
-    mod="mymodule",
-    key=owner_key,
-    comment="initial release"
-)
-```
+# mod/orbit/mymod/mymod/mod.py
 
-```
-PROCESS:
-  1. hash all module files to ipfs
-  2. generate function schema
-  3. create signed info object
-  4. update on-chain registry
-```
+class Mod:
+    description = "What this module does"
 
-### 5.2 VERSION CONTROL
+    def forward(self, **kwargs):
+        return {"status": "ok"}
 
-```
-v3 (current) --> v2 --> v1 --> genesis
-
-  - immutable history
-  - rollback capability
-  - full audit trail
-```
-
-### 5.3 FUNCTION SCHEMA
-
-```json
-{
-  "fns": ["forward", "train", "predict"],
-  "schema": {
-    "forward": {
-      "input": {"type": "string"},
-      "output": {"type": "object"}
-    }
-  }
-}
+# that's it. now run:
+#   m mymod/forward
+#   m serve mymod
+#   m info mymod
 ```
 
 ---
 
-## 6. SECURITY MODEL
-
-### 6.1 CRYPTOGRAPHIC VERIFICATION
-
-```python
-# sign
-signature = key.sign(data, mode="str")
-
-# verify
-valid = verify(data, signature, address, mode="str")
-```
-
-### 6.2 ACCESS CONTROL
+## 6. AI-NATIVE ARCHITECTURE
 
 ```
-+--------------------+-----------------------------+
-| LEVEL              | MECHANISM                   |
-+--------------------+-----------------------------+
-| owner-based        | only owner can update       |
-| function-level     | whitelist exposed functions  |
-| token-gated        | require payment for exec    |
-+--------------------+-----------------------------+
+AGENT EXECUTION LOOP:
+
+  1. init memory (goal, tools, context)
+  2. send context to LLM (claude / openrouter)
+  3. parse structured plan
+  4. execute tool calls
+  5. append results to context
+  6. repeat until done
 ```
 
-### 6.3 ATTACK MITIGATION
-
 ```
-[x] replay protection   --> timestamp validation
-[x] sig verification    --> every tx verified
-[x] rate limiting       --> per-user exec limits
-[x] sandboxing          --> isolated environments
+WHAT AGENTS CAN DO:
+
+  [+] discover and compose modules autonomously
+  [+] persistent memory across sessions
+  [+] vector embeddings for semantic retrieval
+  [+] background job execution (rust server)
+  [+] build, deploy, and monetize new modules
 ```
 
 ---
 
-## 7. USE CASES
+## 7. SMART CONTRACTS (BASE)
 
-### 7.1 AI MODEL MARKETPLACE
-
-```python
-# deploy model
-api.reg(mod="gpt_model", comment="gpt clone")
-
-# inference call
-result = api.call(
-    fn="gpt_model/forward",
-    params={"prompt": "hello world"},
-    cost=0.01
-)
-```
-
-### 7.2 DECENTRALIZED ORACLE
-
-```python
-price = api.call(
-    fn="oracle/get_price",
-    params={"asset": "BTC/USD"}
-)
-```
-
-### 7.3 DATA PIPELINE
-
-```python
-raw = api.call(fn="scraper/fetch", params={"url": url})
-out = api.call(fn="nlp/analyze", params={"text": raw})
-cid = api.call(fn="store/save", params={"data": out})
-```
-
----
-
-## 8. GOVERNANCE
+### 7.1 DEPLOYED (BASE SEPOLIA)
 
 ```
-PROTOCOL UPGRADES:
-  1. community submits proposals
-  2. token-weighted voting
-  3. phased rollout w/ testing
++------------------+--------------------------------------------+
+| CONTRACT         | ADDRESS                                    |
++------------------+--------------------------------------------+
+| NativeToken      | 0xB9b6...b51                               |
+| BlocTime         | 0xF25A...bD                                |
+| Treasury         | 0xe9a9...85                                |
+| Market           | 0x2F0B...87                                |
+| Registry         | 0x4f9e...43                                |
+| Debit            | 0x6F94...42                                |
+| TokenGate        | 0x97c7...8b                                |
+| Oracle           | 0x40C3...F1                                |
++------------------+--------------------------------------------+
+```
 
-DISPUTE RESOLUTION:
-  - 7 day challenge period for module updates
-  - community arbitration votes
-  - malicious actors lose collateral (slashing)
+### 7.2 SECURITY
 
-TREASURY:
-  - protocol fees accumulate
-  - community votes on allocation
-  - all transactions on-chain (transparent)
+```
+[x] reentrancy guard    --> all state-changing functions
+[x] safe erc20          --> openzeppelin SafeERC20
+[x] checked arithmetic  --> solidity 0.8.20 built-in
+[x] access control      --> ownable + modifiers
+[x] emergency pause     --> pausable on market
+[x] anti-flash-loan     --> BlocTime requires lock period
+[x] eip-712 signatures  --> structured data signing
+```
+
+### 7.3 IRREVERSIBLE DECENTRALIZATION
+
+```
+setOwnerless() --> one-way function
+  - permanently renounces all admin control
+  - cannot be reversed
+  - protocol runs autonomously forever
+
+  Phase 1: managed (deployer EOA)
+  Phase 2: multisig (gnosis safe)
+  Phase 3: dao (BlocTime-weighted voting)
+  Phase 4: ownerless (permanent autonomy)
 ```
 
 ---
 
-## 9. TECHNICAL SPECS
-
-### SUPPORTED CHAINS
+## 8. SECURITY MODEL
 
 ```
-+------------------+---------------------+
-| CHAIN            | ECOSYSTEM           |
-+------------------+---------------------+
-| polkadot         | substrate parachains|
-| ethereum         | evm-compatible      |
-| solana           | high-perf execution |
-+------------------+---------------------+
-```
+CRYPTOGRAPHIC:
+  [x] ecdsa / sr25519 / ed25519 key generation
+  [x] aes-256-gcm encryption at rest
+  [x] eip-712 structured signatures
+  [x] client-side key generation (keys never leave device)
+  [x] gnosis safe multisig (v+4 for eth_sign)
 
-### WALLET SUPPORT
-
-```
-+------------------+---------------------+
-| WALLET           | CHAIN               |
-+------------------+---------------------+
-| subwallet        | polkadot            |
-| metamask         | ethereum / evm      |
-| phantom          | solana              |
-| local keys       | browser-based       |
-+------------------+---------------------+
-```
-
-### PERFORMANCE
-
-```
-latency:      <100ms (cached calls)
-throughput:   1000+ calls/sec
-storage:      unlimited (ipfs)
-availability: 99.9% uptime target
+INFRASTRUCTURE:
+  [x] https enforced (tls 1.3)
+  [x] rate limiting (redis-backed)
+  [x] token gating (erc-20/erc-721)
+  [x] input sanitization
+  [x] environment secrets isolated from vcs
 ```
 
 ---
 
-## 10. ROADMAP
+## 9. ROADMAP
 
 ```
-PHASE 1 - FOUNDATION
-  [x] core api implementation
-  [x] ipfs integration
-  [x] multi-wallet support
-  [x] basic ui
+PHASE 1 - FOUNDATION [DONE]
+  [x] core framework & 200+ modules
+  [x] bloctime protocol (base sepolia)
+  [x] next.js frontend + wallet integration
+  [x] cli tooling (m command)
+  [x] ai agent framework
 
-PHASE 2 - ENHANCEMENT
-  [ ] advanced caching
-  [ ] cross-chain bridges
-  [ ] enhanced security
-  [ ] mobile apps
+PHASE 2 - GROWTH [IN PROGRESS]
+  [ ] base mainnet deployment
+  [ ] module marketplace UI
+  [ ] developer revenue dashboard
+  [ ] cross-chain registry sync
 
-PHASE 3 - ECOSYSTEM
-  [ ] developer sdk
-  [ ] module marketplace
-  [ ] governance launch
-  [ ] mainnet deployment
+PHASE 3 - GOVERNANCE
+  [ ] dao governance (BlocTime-weighted voting)
+  [ ] on-chain proposals & execution
+  [ ] module versioning (semver)
 
 PHASE 4 - SCALE
-  [ ] enterprise features
-  [ ] advanced analytics
-  [ ] global cdn
+  [ ] enterprise features & SLAs
+  [ ] global CDN for module execution
   [ ] institutional partnerships
+  [ ] setOwnerless() on all contracts
 ```
 
 ---
 
-## 11. CONCLUSION
+## 10. CONCLUSION
 
-MOD Protocol combines ipfs storage, cryptographic verification,
-and token economics to create a trustless, composable, and
-economically sustainable ecosystem.
+MOD Protocol combines composable modules, on-chain economics,
+and AI-native agents into a unified development framework.
 
 ```
 KEY INNOVATIONS:
-  1. content-addressed modules   (immutable, verifiable)
-  2. cryptographic auth          (every tx signed)
-  3. built-in economics          (transparent costs)
-  4. composability               (mix and match freely)
-  5. multi-chain support         (works across ecosystems)
+  1. time-weighted staking    (BlocTime multiplier curve)
+  2. non-inflationary rewards (real marketplace fees only)
+  3. 200+ composable modules  (zero-config, auto-discovered)
+  4. ai-native agents         (autonomous module composition)
+  5. irreversible decentral.  (setOwnerless() one-way lock)
+  6. eip-712 debit protocol   (multi-auth, daily limits)
 ```
-
-### VISION
-
-```
-+-----------------------------------------------------------+
-|                                                           |
-|  a future where:                                          |
-|    - developers monetize code directly                    |
-|    - users pay only for what they use                     |
-|    - applications are truly decentralized                 |
-|    - innovation is permissionless                         |
-|    - trust is cryptographic, not institutional            |
-|                                                           |
-+-----------------------------------------------------------+
-```
-
----
 
 ```
 +-----------------------------------------------------------+
 |                                                           |
-|   END OF WHITEPAPER                                       |
+|   code is capital.                                        |
+|   build modules. register on-chain. get paid.             |
 |                                                           |
 |   "simplicity is the ultimate sophistication"             |
 |                                        - da vinci         |
 |                                                           |
 +-----------------------------------------------------------+
 ```
+
+---
+
+*MOD Protocol v2.0 --- April 2026*
+*Open-source. On-chain. Unstoppable.*

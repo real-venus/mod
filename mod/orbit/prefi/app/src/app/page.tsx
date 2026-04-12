@@ -1,15 +1,44 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useNetwork } from 'wagmi'
 import PredictionForm from '@/components/PredictionForm'
 import PredictionList from '@/components/PredictionList'
+import MarketCard from '@/components/MarketCard'
 import NetworkSelector from '@/components/NetworkSelector'
+import PriceChart from '@/components/PriceChart'
+import { usePreFi } from '@/hooks/usePreFi'
+import { API_BASE_URL } from '@/lib/contracts'
 
 export default function Home() {
   const { isConnected } = useAccount()
   const { chain } = useNetwork()
+  const { markets, refreshMarkets } = usePreFi()
+  const [selectedMarketId, setSelectedMarketId] = useState<number | null>(null)
+  const [prices, setPrices] = useState<any>(null)
+
+  // Fetch prices from API
+  useEffect(() => {
+    const fetchPrices = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/prices`)
+        if (res.ok) {
+          const data = await res.json()
+          setPrices(data)
+        }
+      } catch {
+        // API might not be running, that's ok
+      }
+    }
+    fetchPrices()
+    const interval = setInterval(fetchPrices, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const activeMarkets = markets.filter(m => !m.settled && m.endTime > Date.now() / 1000)
+  const settledMarkets = markets.filter(m => m.settled)
 
   return (
     <main className="min-h-screen relative overflow-hidden">
@@ -29,10 +58,10 @@ export default function Home() {
               </h1>
             </Link>
             <p className="text-gray-300 text-lg font-medium">
-              Decentralized Prediction Market on <span className="text-blue-400 font-bold">Base Mainnet</span>
+              Decentralized Prediction Market on <span className="text-blue-400 font-bold">Base</span>
             </p>
             <p className="text-gray-400 text-sm mt-1">
-              Powered by Uniswap V3 Oracle • L2 Distance Scoring
+              L2 Distance Scoring • Oracle Settlement
             </p>
           </div>
           <div className="flex items-center gap-4 flex-wrap justify-center">
@@ -51,16 +80,50 @@ export default function Home() {
 
         {isConnected ? (
           <div className="space-y-8">
-            {/* Welcome Banner */}
-            <div className="glass-card rounded-2xl p-6 border-l-4 border-green-400">
-              <div className="flex items-center gap-3">
-                <div className="text-3xl">👋</div>
-                <div>
-                  <h3 className="text-xl font-bold gradient-text">Welcome Back!</h3>
-                  <p className="text-gray-300 text-sm">Start making predictions and track your portfolio</p>
+            {/* Price Ticker */}
+            {prices && !prices.error && (
+              <div className="glass-card rounded-2xl p-4">
+                <div className="flex items-center gap-8 overflow-x-auto">
+                  {Object.entries(prices).filter(([k]) => k !== 'timestamp').map(([pair, data]: [string, any]) => (
+                    <div key={pair} className="flex items-center gap-3 min-w-fit">
+                      <span className="font-bold text-white">{pair}</span>
+                      <span className="text-lg font-bold text-green-400">
+                        ${typeof data?.price === 'number' ? data.price.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}
+                      </span>
+                      {data?.change_24h && (
+                        <span className={`text-xs font-bold ${data.change_24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {data.change_24h >= 0 ? '+' : ''}{data.change_24h.toFixed(2)}%
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Active Markets */}
+            {markets.length > 0 && (
+              <div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-2xl shadow-lg">
+                    🎯
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold">Markets</h2>
+                    <p className="text-gray-400 text-sm">{activeMarkets.length} active, {settledMarkets.length} settled</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {markets.map(market => (
+                    <MarketCard
+                      key={market.id}
+                      market={market}
+                      onPredict={() => setSelectedMarketId(market.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Main Content */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -71,10 +134,13 @@ export default function Home() {
                   </div>
                   <div>
                     <h2 className="text-3xl font-bold">Place Prediction</h2>
-                    <p className="text-gray-400 text-sm">Create a new price prediction</p>
+                    <p className="text-gray-400 text-sm">Predict prices and stake tokens</p>
                   </div>
                 </div>
-                <PredictionForm />
+                <PredictionForm
+                  selectedMarketId={selectedMarketId}
+                  onPredictionPlaced={refreshMarkets}
+                />
               </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-6">
@@ -83,12 +149,18 @@ export default function Home() {
                   </div>
                   <div>
                     <h2 className="text-3xl font-bold">Your Predictions</h2>
-                    <p className="text-gray-400 text-sm">Track your active predictions</p>
+                    <p className="text-gray-400 text-sm">Track and claim rewards</p>
                   </div>
                 </div>
                 <PredictionList />
               </div>
             </div>
+
+            {/* Price Chart */}
+            <PriceChart
+              asset="ETH/USD"
+              currentPrice={prices?.['ETH/USD']?.price?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            />
           </div>
         ) : (
           <div className="space-y-12">
@@ -100,7 +172,7 @@ export default function Home() {
                   Welcome to the Future of Predictions
                 </h2>
                 <p className="text-gray-300 text-xl max-w-2xl mx-auto leading-relaxed">
-                  Connect your wallet to start making price predictions on Base mainnet.
+                  Connect your wallet to start making price predictions on Base.
                   Stake tokens, predict prices, and earn rewards based on accuracy.
                 </p>
                 <div className="pt-4 scale-110">
@@ -115,7 +187,7 @@ export default function Home() {
                 <div className="text-6xl float" style={{ animationDelay: '0s' }}>🎲</div>
                 <h3 className="text-2xl font-bold text-blue-400">Predict</h3>
                 <p className="text-gray-300 leading-relaxed">
-                  Submit price predictions for your favorite tokens using Uniswap V3 Oracle data
+                  Submit price predictions for your favorite tokens using oracle data
                 </p>
                 <div className="pt-2">
                   <span className="inline-block px-4 py-2 rounded-full bg-blue-500/20 text-blue-300 text-sm font-semibold">
@@ -161,7 +233,7 @@ export default function Home() {
                   </div>
                   <div>
                     <h4 className="text-xl font-bold mb-2 text-blue-400">Connect Your Wallet</h4>
-                    <p className="text-gray-300">Link your Web3 wallet to access the prediction market on Base mainnet</p>
+                    <p className="text-gray-300">Link your Web3 wallet to access the prediction market on Base</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -170,7 +242,7 @@ export default function Home() {
                   </div>
                   <div>
                     <h4 className="text-xl font-bold mb-2 text-green-400">Make Predictions</h4>
-                    <p className="text-gray-300">Choose a token pair, predict the future price, and stake your collateral</p>
+                    <p className="text-gray-300">Choose a market, predict the future price, and stake your tokens</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -179,7 +251,7 @@ export default function Home() {
                   </div>
                   <div>
                     <h4 className="text-xl font-bold mb-2 text-purple-400">Earn Rewards</h4>
-                    <p className="text-gray-300">Get rewarded based on accuracy when predictions settle using oracle data</p>
+                    <p className="text-gray-300">Score = stake / (1 + distance²) — closer predictions earn more</p>
                   </div>
                 </div>
               </div>
@@ -217,27 +289,27 @@ export default function Home() {
         {/* Stats Footer */}
         {isConnected && (
           <footer className="mt-16 glass-card rounded-3xl p-10 card-hover">
-            <h3 className="text-2xl font-bold text-center mb-8 gradient-text">Platform Features</h3>
+            <h3 className="text-2xl font-bold text-center mb-8 gradient-text">Platform Stats</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div className="text-center space-y-3">
                 <div className="text-4xl">⛓️</div>
-                <div className="text-2xl font-bold gradient-text">Base</div>
-                <div className="text-sm text-gray-400 leading-relaxed">Lightning-fast L2 network</div>
+                <div className="text-2xl font-bold gradient-text">{chain?.name || 'Base'}</div>
+                <div className="text-sm text-gray-400 leading-relaxed">Network</div>
               </div>
               <div className="text-center space-y-3">
-                <div className="text-4xl">🦄</div>
-                <div className="text-2xl font-bold text-green-400">Uniswap V3</div>
-                <div className="text-sm text-gray-400 leading-relaxed">Reliable price oracle</div>
+                <div className="text-4xl">🎯</div>
+                <div className="text-2xl font-bold text-green-400">{markets.length}</div>
+                <div className="text-sm text-gray-400 leading-relaxed">Total Markets</div>
               </div>
               <div className="text-center space-y-3">
                 <div className="text-4xl">📊</div>
-                <div className="text-2xl font-bold text-blue-400">L2 Scoring</div>
-                <div className="text-sm text-gray-400 leading-relaxed">Fair distance algorithm</div>
+                <div className="text-2xl font-bold text-blue-400">{activeMarkets.length}</div>
+                <div className="text-sm text-gray-400 leading-relaxed">Active Markets</div>
               </div>
               <div className="text-center space-y-3">
                 <div className="text-4xl">🔒</div>
-                <div className="text-2xl font-bold text-purple-400">Decentralized</div>
-                <div className="text-sm text-gray-400 leading-relaxed">Non-custodial & secure</div>
+                <div className="text-2xl font-bold text-purple-400">L2</div>
+                <div className="text-sm text-gray-400 leading-relaxed">Distance Scoring</div>
               </div>
             </div>
           </footer>

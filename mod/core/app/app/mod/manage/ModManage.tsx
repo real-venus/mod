@@ -167,7 +167,7 @@ export default function ModManage({ mod, moduleColor }: ModManageProps) {
         description: createDescription.trim() || undefined,
         public: false,
         token: client.token,
-      })
+      }, true, {}, 120000)
       if (result?.error) {
         setMessage({ text: result.error, type: 'error' })
       } else {

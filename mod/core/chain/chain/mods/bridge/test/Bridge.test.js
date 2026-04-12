@@ -102,11 +102,85 @@ describe("BridgeableToken", function () {
     });
   });
 
+  describe("Commitments", function () {
+    it("Should commit a source address to an EVM address", async function () {
+      const sourceAddr = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes(sourceAddr));
+
+      await expect(bridge.commit(sourceHash, user1.address, sourceAddr, "substrate"))
+        .to.emit(bridge, "Commitment")
+        .withArgs(sourceHash, user1.address, sourceAddr, "substrate");
+
+      expect(await bridge.getCommitment(sourceHash)).to.equal(user1.address);
+    });
+
+    it("Should track multiple commitments per EVM address", async function () {
+      const addr1 = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const addr2 = "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1";
+      const hash1 = ethers.keccak256(ethers.toUtf8Bytes(addr1));
+      const hash2 = ethers.keccak256(ethers.toUtf8Bytes(addr2));
+
+      await bridge.commit(hash1, user1.address, addr1, "substrate");
+      await bridge.commit(hash2, user1.address, addr2, "solana");
+
+      const commitments = await bridge.getEvmCommitments(user1.address);
+      expect(commitments.length).to.equal(2);
+      expect(commitments[0]).to.equal(hash1);
+      expect(commitments[1]).to.equal(hash2);
+    });
+
+    it("Should reject duplicate commitment", async function () {
+      const sourceAddr = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes(sourceAddr));
+
+      await bridge.commit(sourceHash, user1.address, sourceAddr, "substrate");
+      await expect(
+        bridge.commit(sourceHash, user2.address, sourceAddr, "substrate")
+      ).to.be.revertedWith("Already committed");
+    });
+
+    it("Should reject commitment to zero address", async function () {
+      const sourceAddr = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes(sourceAddr));
+
+      await expect(
+        bridge.commit(sourceHash, ethers.ZeroAddress, sourceAddr, "substrate")
+      ).to.be.revertedWith("Invalid EVM address");
+    });
+
+    it("Should reject non-owner commitment", async function () {
+      const sourceAddr = "5HgA2JHaR4NXVYBN8WV7hU1eFGTJFQQ8PpQzMgEoAPXJNQzb";
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes(sourceAddr));
+
+      await expect(
+        bridge.connect(user1).commit(sourceHash, user1.address, sourceAddr, "substrate")
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it("Should return empty commitments for unknown hash", async function () {
+      const fakeHash = ethers.keccak256(ethers.toUtf8Bytes("nonexistent"));
+      expect(await bridge.getCommitment(fakeHash)).to.equal(ethers.ZeroAddress);
+    });
+
+    it("Should return empty array for address with no commitments", async function () {
+      const commitments = await bridge.getEvmCommitments(user1.address);
+      expect(commitments.length).to.equal(0);
+    });
+  });
+
   describe("Set Ownerless", function () {
     it("Should lock minting after ownerless", async function () {
       await bridge.setOwnerless();
       await expect(
         bridge.bridgeMint(user1.address, 100, "x")
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it("Should lock commitments after ownerless", async function () {
+      await bridge.setOwnerless();
+      const sourceHash = ethers.keccak256(ethers.toUtf8Bytes("test"));
+      await expect(
+        bridge.commit(sourceHash, user1.address, "test", "substrate")
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
   });

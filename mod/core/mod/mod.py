@@ -244,8 +244,6 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
                 return self.dirpath(mod=mod, update=True, trials=trials - 1, key=key)
             assert False, f'Mod {mod} not found in tree'
         dirpath = tree_options[0]
-        if not os.path.exists(dirpath) and trials > 0:
-            return self.dirpath(mod=mod, update=True, trials=trials - 1, key=key)
         assert os.path.exists(dirpath), f'Dirpath {dirpath} does not exist for mod {mod}'
         return dirpath
 
@@ -938,7 +936,7 @@ class Mod:
 
     def info(self, mod: str = 'mod', schema=False, key=None, public=False, **kwargs):
         if self._api is None:
-            self._api = self.mod('api')()
+            self._api = self.mod('app.api')()
         if not self._api.exists(mod, key=key):
             self._api.reg(mod=mod, key=key, public=public)
         return self._api.mod(mod=mod, schema=schema, key=key, **kwargs)

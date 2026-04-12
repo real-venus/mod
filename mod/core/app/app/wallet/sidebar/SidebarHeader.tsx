@@ -271,106 +271,50 @@ export function SidebarHeader({
         transition={{ delay: 0.08, duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
       >
         <div className="px-3 pt-3 pb-2">
-          {/* Single unified bar */}
+          {/* Unified rounded bar */}
           <div
-            className="flex items-center gap-0"
+            className="flex items-center"
             style={{
-              height: '52px',
+              height: '40px',
               fontFamily: 'var(--font-digital), monospace',
               backgroundColor: 'var(--bg-input)',
-              border: `2px solid ${isTokenExpired ? 'rgba(234, 179, 8, 0.4)' : 'var(--border-strong)'}`,
-              overflow: 'visible',
+              border: `1px solid ${isTokenExpired ? 'rgba(234, 179, 8, 0.3)' : 'var(--border-color)'}`,
+              borderRadius: '999px',
+              overflow: 'hidden',
               position: 'relative',
+              boxShadow: isTokenExpired ? '0 0 12px rgba(234,179,8,0.1)' : '0 2px 8px rgba(0,0,0,0.15)',
             }}
           >
-            {/* Key type pill */}
-            <div className="relative flex-shrink-0" ref={keyTypeDropdownRef}>
-              <button
-                onClick={() => setShowKeyTypeDropdown(!showKeyTypeDropdown)}
-                className="flex items-center gap-1.5 h-[52px] px-3 transition-all hover:opacity-80 active:scale-[0.98]"
-                style={{ color: keyColor }}
-                title="Select key type"
-              >
-                <div className="flex-shrink-0 opacity-80" style={{ color: keyColor }}>
-                  <WalletModeLogo mode={KEY_TYPE_CYCLE.find(k => k.type === walletType)?.mode || localWalletMode} size={18} />
-                </div>
-                <span className="text-sm font-bold tracking-wider">{keyLabel}</span>
-                <svg className={`w-2.5 h-2.5 opacity-40 transition-transform ${showKeyTypeDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              <AnimatePresence>
-                {showKeyTypeDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                    transition={{ duration: 0.12 }}
-                    className="absolute left-0 top-full mt-1.5 z-[200] overflow-hidden"
-                    style={{
-                      minWidth: '180px',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '10px',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                    }}
-                  >
-                    <div className="py-1">
-                      {KEY_TYPE_CYCLE.map((kt) => {
-                        const c = getKeyTypeColor(kt.type)
-                        const isActive = kt.type === walletType
-                        return (
-                          <button
-                            key={kt.type}
-                            onClick={() => selectKeyType(kt)}
-                            className="flex items-center gap-2.5 w-full px-3 py-2.5 transition-all text-left"
-                            style={{
-                              backgroundColor: isActive ? `${c}12` : 'transparent',
-                              fontFamily: 'var(--font-digital), monospace',
-                            }}
-                            onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'var(--hover-bg)' }}
-                            onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = isActive ? `${c}12` : 'transparent' }}
-                          >
-                            <div className="flex-shrink-0" style={{ color: c, opacity: isActive ? 1 : 0.5 }}>
-                              <WalletModeLogo mode={kt.mode} size={16} />
-                            </div>
-                            <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: isActive ? c : 'var(--text-secondary)' }}>
-                              {kt.label}
-                            </span>
-                            <span className="flex-1" />
-                            {isActive && (
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke={c} strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Separator */}
-            <div className="w-px h-6 flex-shrink-0" style={{ backgroundColor: 'var(--border-strong)' }} />
-
-            {/* Address + wallet switcher */}
+            {/* Key type badge + Address + wallet switcher */}
             <div className="relative flex-shrink-0" ref={walletDropdownRef}>
               <div className="flex items-center h-full">
+                {/* Crypto type badge */}
+                <div
+                  className="flex items-center gap-1.5 pl-3.5 pr-2 h-[40px]"
+                  style={{ color: keyColor }}
+                >
+                  <div className="flex-shrink-0" style={{ filter: `drop-shadow(0 0 4px ${keyColor}60)` }}>
+                    <WalletModeLogo mode={KEY_TYPE_CYCLE.find(k => k.type === walletType)?.mode || localWalletMode} size={14} />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-wider">{keyLabel}</span>
+                </div>
+
+                {/* Divider */}
+                <div className="h-5 w-px flex-shrink-0" style={{ background: `${keyColor}30` }} />
+
+                {/* Address + copy */}
                 <button
                   onClick={copyAddress}
-                  className="flex items-center gap-2 px-3 h-[52px] transition-all hover:opacity-70"
+                  className="flex items-center gap-1.5 px-2.5 h-[40px] transition-all hover:brightness-125"
                   title="Copy address"
                 >
                   <span
                     className="tabular-nums font-bold uppercase"
-                    style={{ fontSize: '20px', color: copiedAddress ? '#4ade80' : 'var(--text-tertiary)', fontFamily: 'var(--font-digital), monospace' }}
+                    style={{ fontSize: '13px', color: copiedAddress ? '#4ade80' : 'var(--text-tertiary)', fontFamily: 'var(--font-digital), monospace' }}
                   >
                     {copiedAddress ? 'COPIED' : shortAddress}
                   </span>
-                  <svg className="w-4 h-4" style={{ color: copiedAddress ? '#4ade80' : 'var(--text-tertiary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-3 h-3" style={{ color: copiedAddress ? '#4ade80' : 'var(--text-tertiary)', opacity: copiedAddress ? 1 : 0.35 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     {copiedAddress ? (
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     ) : (
@@ -378,163 +322,200 @@ export function SidebarHeader({
                     )}
                   </svg>
                 </button>
-                {walletHistory.filter(w => w.address.toLowerCase() !== address.toLowerCase()).length > 0 && (
-                  <button
-                    onClick={() => setShowWalletDropdown(!showWalletDropdown)}
-                    className="flex items-center justify-center w-[28px] h-[52px] transition-all hover:opacity-70"
-                    style={{ color: 'var(--text-tertiary)' }}
-                    title="Switch wallet"
-                  >
-                    <svg className={`w-3 h-3 transition-transform ${showWalletDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                )}
-              </div>
 
-              <AnimatePresence>
-                {showWalletDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                    transition={{ duration: 0.12 }}
-                    className="absolute left-0 top-full mt-1.5 z-[200] overflow-hidden"
-                    style={{
-                      minWidth: '220px',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '10px',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                    }}
+                {/* Wallet switcher chevron */}
+                <button
+                  onClick={() => setShowWalletDropdown(!showWalletDropdown)}
+                  className="flex items-center justify-center w-[24px] h-[40px] transition-all hover:brightness-125"
+                  style={{ color: 'var(--text-tertiary)', opacity: showWalletDropdown ? 0.8 : 0.35 }}
+                  title="Switch wallet"
+                >
+                  <svg className={`w-3 h-3 transition-transform ${showWalletDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Wallet switcher dropdown — rendered outside overflow:hidden via portal-like positioning */}
+            {showWalletDropdown && (
+              <div
+                className="fixed z-[200]"
+                style={{
+                  top: walletDropdownRef.current ? walletDropdownRef.current.getBoundingClientRect().bottom + 8 : 0,
+                  left: walletDropdownRef.current ? walletDropdownRef.current.getBoundingClientRect().left : 0,
+                }}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.12 }}
+                  style={{
+                    minWidth: '240px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '14px',
+                    boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+                    backdropFilter: 'blur(12px)',
+                    fontFamily: 'var(--font-digital), monospace',
+                  }}
+                >
+                  {/* Current wallet */}
+                  <div className="px-3 pt-2.5 pb-1">
+                    <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>Current</div>
+                  </div>
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 mx-1.5 mb-1 rounded-lg"
+                    style={{ backgroundColor: `${keyColor}12` }}
                   >
-                    <div className="py-1">
+                    <div className="flex-shrink-0" style={{ color: keyColor, filter: `drop-shadow(0 0 4px ${keyColor}60)` }}>
+                      <WalletModeLogo mode={KEY_TYPE_CYCLE.find(k => k.type === walletType)?.mode || localWalletMode} size={14} />
+                    </div>
+                    <span className="text-[10px] font-bold tracking-wider" style={{ color: keyColor }}>{keyLabel}</span>
+                    <span className="text-[11px] font-bold tabular-nums" style={{ color: keyColor }}>
+                      {shortAddress}
+                    </span>
+                    <span className="flex-1" />
+                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke={keyColor} strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+
+                  {/* Other wallets */}
+                  {walletHistory.filter(w => w.address.toLowerCase() !== address.toLowerCase()).length > 0 && (
+                    <>
+                      <div className="px-3 pt-1.5 pb-1">
+                        <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>Wallets</div>
+                      </div>
                       {walletHistory
                         .filter(w => w.address.toLowerCase() !== address.toLowerCase())
                         .map((wallet) => {
                           const wColor = getKeyTypeColor(wallet.type)
                           const wLabel = KEY_TYPE_CYCLE.find(k => k.type === wallet.type)?.label || wallet.type.toUpperCase()
-                          const wShort = `${wallet.address.slice(0, 5)}...${wallet.address.slice(-4)}`
+                          const wShort = `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`
                           return (
-                            <div key={wallet.address} className="flex items-center gap-2 w-full group">
-                              <button
-                                onClick={() => { onSwitchWallet(wallet); setShowWalletDropdown(false) }}
-                                className="flex items-center gap-2 flex-1 px-3 py-2 transition-all text-left hover:bg-[var(--hover-bg)]"
-                                style={{ fontFamily: 'var(--font-digital), monospace' }}
-                              >
-                                <span style={{
-                                  width: '6px', height: '6px', borderRadius: '50%',
-                                  backgroundColor: wColor, flexShrink: 0,
-                                }} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: wColor }}>
-                                  {wLabel}
-                                </span>
-                                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-                                  {wShort}
-                                </span>
-                              </button>
-                              <button
+                            <button
+                              key={wallet.address}
+                              onClick={() => { onSwitchWallet(wallet); setShowWalletDropdown(false) }}
+                              className="flex items-center gap-2 w-full px-3 py-2 transition-all text-left group"
+                              style={{ backgroundColor: 'transparent' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--hover-bg)' }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                              disabled={isSwitchingWallet}
+                            >
+                              <div className="flex-shrink-0" style={{ color: wColor, opacity: 0.6 }}>
+                                <WalletModeLogo mode={wallet.mode} size={14} />
+                              </div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: wColor }}>
+                                {wLabel}
+                              </span>
+                              <span className="text-[11px] font-bold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                                {wShort}
+                              </span>
+                              <span className="flex-1" />
+                              <span
                                 onClick={(e) => { e.stopPropagation(); onRemoveFromHistory(wallet.address) }}
-                                className="px-2 py-1 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+                                className="opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity"
                                 style={{ color: 'var(--text-tertiary)' }}
                                 title="Remove"
                               >
-                                <XMarkIcon className="w-3 h-3" />
-                              </button>
-                            </div>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                              </span>
+                            </button>
                           )
                         })}
+                    </>
+                  )}
+
+                  {/* No other wallets message */}
+                  {walletHistory.filter(w => w.address.toLowerCase() !== address.toLowerCase()).length === 0 && (
+                    <div className="px-3 py-2.5 pb-3 text-[10px]" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>
+                      No other wallets cached
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                  )}
+                </motion.div>
+              </div>
+            )}
 
             {/* Spacer */}
             <div className="flex-1 min-w-0" />
 
             {/* Right actions */}
             <div className="flex items-center gap-0 flex-shrink-0">
-              {/* Token refresh + timer */}
+              {/* Divider */}
+              <div className="h-5 w-px flex-shrink-0" style={{ background: 'var(--border-color)', opacity: 0.4 }} />
+
+              {/* Token: timer + copy + details — unified */}
               <button
                 onClick={handleRefreshToken}
                 disabled={isRefreshing}
-                className="flex items-center gap-1.5 px-3 h-[52px] font-bold tracking-wide transition-all hover:bg-[var(--hover-bg)] disabled:opacity-40"
+                className="flex items-center gap-1.5 px-3 h-[40px] font-bold tracking-wide transition-all hover:brightness-125 disabled:opacity-40"
                 style={{
-                  fontSize: '18px',
-                  color: isTokenExpired ? '#eab308' : 'var(--text-tertiary)',
+                  fontSize: '12px',
+                  color: copiedToken ? '#4ade80' : isTokenExpired ? '#eab308' : 'var(--text-tertiary)',
                   fontFamily: 'var(--font-digital), monospace',
-                  borderLeft: '2px solid var(--border-strong)',
                 }}
-                title="Refresh token"
+                title="Click to refresh token"
               >
-                <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} style={{
+                  opacity: isTokenExpired ? 1 : 0.5,
+                  filter: isTokenExpired ? 'drop-shadow(0 0 4px rgba(234,179,8,0.5))' : 'none',
+                }} />
                 <span className="tabular-nums">{tokenExpiry || getTokenExpiry()}</span>
+                <span
+                  onClick={(e) => { e.stopPropagation(); copyToken() }}
+                  className="flex items-center justify-center transition-all hover:scale-110"
+                  style={{ opacity: copiedToken ? 1 : 0.35 }}
+                  title="Copy token"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    {copiedToken ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    )}
+                  </svg>
+                </span>
+                <span
+                  onClick={(e) => { e.stopPropagation(); setShowTokenCustomization(!showTokenCustomization) }}
+                  className="flex items-center justify-center transition-all hover:scale-110"
+                  style={{ opacity: showTokenCustomization ? 0.8 : 0.35 }}
+                  title="Token details"
+                >
+                  <svg className={`w-3 h-3 transition-transform ${showTokenCustomization ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </button>
 
-              {/* Token copy */}
-              <button
-                onClick={copyToken}
-                className="flex items-center gap-1.5 px-3 h-[52px] font-bold tracking-wider transition-all hover:bg-[var(--hover-bg)]"
-                style={{
-                  fontSize: '18px',
-                  color: copiedToken ? '#4ade80' : 'var(--text-tertiary)',
-                  fontFamily: 'var(--font-digital), monospace',
-                  borderLeft: '2px solid var(--border-strong)',
-                }}
-                title="Copy token"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  {copiedToken ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  )}
-                </svg>
-                <span>TKN</span>
-              </button>
-
-              {/* Details toggle */}
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowTokenCustomization(!showTokenCustomization) }}
-                className="flex items-center justify-center w-[42px] h-[52px] transition-all hover:bg-[var(--hover-bg)]"
-                style={{
-                  color: showTokenCustomization ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                  borderLeft: '2px solid var(--border-strong)',
-                }}
-                title="Details"
-              >
-                <svg className={`w-4 h-4 transition-transform ${showTokenCustomization ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+              {/* Divider */}
+              <div className="h-5 w-px flex-shrink-0" style={{ background: 'var(--border-color)', opacity: 0.4 }} />
 
               {/* Sign out */}
               <button
                 onClick={handleSignOut}
-                className="flex items-center justify-center w-[42px] h-[52px] transition-all hover:bg-[var(--hover-bg)]"
-                style={{
-                  color: 'var(--text-tertiary)',
-                  borderLeft: '2px solid var(--border-strong)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#ef4444' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
+                className="flex items-center justify-center w-[36px] h-[40px] transition-all hover:brightness-125"
+                style={{ color: 'var(--text-tertiary)', opacity: 0.4 }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.opacity = '1' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.opacity = '0.4' }}
                 title="Sign out"
               >
-                <ArrowRightStartOnRectangleIcon className="w-4 h-4" />
+                <ArrowRightStartOnRectangleIcon className="w-3.5 h-3.5" />
               </button>
+
+              {/* Divider */}
+              <div className="h-5 w-px flex-shrink-0" style={{ background: 'var(--border-color)', opacity: 0.4 }} />
 
               {/* Close */}
               <button
                 onClick={onClose}
-                className="flex items-center justify-center w-[42px] h-[52px] transition-all hover:bg-[var(--hover-bg)]"
-                style={{
-                  color: 'var(--text-tertiary)',
-                  borderLeft: '2px solid var(--border-strong)',
-                }}
+                className="flex items-center justify-center w-[36px] h-[40px] pr-1 transition-all hover:brightness-150"
+                style={{ color: 'var(--text-tertiary)', opacity: 0.4 }}
                 title="Close"
               >
-                <XMarkIcon className="w-4 h-4" />
+                <XMarkIcon className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -776,7 +757,7 @@ export function SidebarHeader({
           </div>
         )}
 
-        <div className="mx-3" style={{ borderBottom: '2px solid var(--border-strong)' }} />
+        <div className="mx-3" style={{ borderBottom: '1px solid var(--border-color)', opacity: 0.4 }} />
       </motion.div>
     </>
   )

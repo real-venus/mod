@@ -62,11 +62,15 @@ class Registry:
         return bool(self.cid(mod=mod, key=key))
 
     def mod(self, mod='api', key=None, schema=False, expand=False, update=False, **kwargs) -> Dict[str, Any]:
-        """Get a module's metadata from the store."""
+        """Get a module's metadata from the store. Falls back to local filesystem."""
         cid = self.cid(mod=mod, key=key)
         if not cid:
-            return {}
-        mod_info = self.get(cid)
+            # Try local filesystem fallback
+            return self._local_mod(mod, key=key, schema=schema, **kwargs)
+        try:
+            mod_info = self.get(cid)
+        except (FileNotFoundError, Exception):
+            return self._local_mod(mod, key=key, schema=schema, **kwargs)
         if mod_info['name'].startswith(mod_info['key'].lower() + '.'):
             mod_info['name'] = mod_info['name'][len(mod_info['key'].lower()) + 1:]
         mod_info['schema'] = self.get(mod_info['schema']) if schema else mod_info['schema']
@@ -79,12 +83,44 @@ class Registry:
                 mod_info['url'] = live_url
         return mod_info
 
+    def _local_mod(self, mod_name, key=None, schema=False, **kwargs) -> Dict[str, Any]:
+        """Build module info from local filesystem when not in registry."""
+        try:
+            tree = m.tree(search=mod_name, orbit='orbit', depth=2)
+            if not tree:
+                tree = m.tree(search=mod_name, depth=4)
+            if not tree:
+                return {}
+            mod_path = list(tree.values())[0]
+            owner_key = self.key_address(key) if key else self.key_address()
+            local_info = {
+                'name': mod_name,
+                'key': owner_key,
+                'cid': None,
+                'schema': None,
+                'content': None,
+                'created': None,
+                'updated': None,
+                'url': self.get_url(mod_name),
+                'local': True,
+                'path': mod_path,
+            }
+            if schema:
+                try:
+                    local_info['schema'] = m.schema(mod_name)
+                except Exception:
+                    pass
+            return local_info
+        except Exception:
+            return {}
+
     def mods(self, search: str = None, key='all', n: int = None, page: int = None, page_size=10, **kwargs) -> List[Dict[str, Any]]:
-        """List all registered mods."""
+        """List all registered mods + unregistered local mods from ~/mod."""
         registry = self.registry()
         # Build list of (mod_name, user_key) pairs first (cheap), dedup by lowered key
         entries = []
         seen = set()
+        registered_names = set()
         if key != 'all':
             registry = {key.lower(): registry.get(key.lower(), {})}
         for user_key, user_mods in registry.items():
@@ -93,23 +129,80 @@ class Registry:
                 if dedup_key not in seen:
                     seen.add(dedup_key)
                     entries.append((mod_name, user_key))
+                    registered_names.add(mod_name.lower())
+
+        # Discover local filesystem modules not yet registered
+        local_entries = []
+        try:
+            local_tree = m.tree(orbit='orbit', depth=2)
+            owner_key = self.key_address()
+            for mod_name, mod_path in local_tree.items():
+                # Include top-level modules always; include qualified (dotted) names only when searching
+                if mod_name.lower() not in registered_names and ('.' not in mod_name or search is not None):
+                    local_entries.append((mod_name, owner_key, mod_path))
+                    registered_names.add(mod_name.lower())
+        except Exception:
+            pass
+
         # Filter by search BEFORE loading full mod info (expensive)
         if search is not None:
             search_lower = search.lower()
             entries = [(name, k) for name, k in entries if search_lower in name.lower()]
+            local_entries = [(name, k, p) for name, k, p in local_entries if search_lower in name.lower()]
         # Paginate BEFORE loading full mod info
+        total_registered = len(entries)
+        total_local = len(local_entries)
         if page is not None and page_size is not None:
             start = page * page_size
             end = start + page_size
-            entries = entries[start:end]
+            # Registered entries come first, then local
+            if start < total_registered:
+                entries = entries[start:min(end, total_registered)]
+                remaining = end - total_registered
+                local_entries = local_entries[:max(0, remaining)] if remaining > 0 else []
+            else:
+                local_start = start - total_registered
+                entries = []
+                local_entries = local_entries[local_start:local_start + page_size]
         if n is not None:
             entries = entries[:n]
+            local_entries = local_entries[:max(0, n - len(entries))]
         # Now load full mod info only for the slice we need
         mods = []
+        seen_names = set()
         for mod_name, user_key in entries:
             info = self.mod(mod_name, key=user_key, **kwargs)
             if isinstance(info, dict) and 'name' in info:
-                mods.append(info)
+                # Deduplicate by resolved name (mod() may strip key prefix)
+                resolved = info['name'].lower()
+                if resolved not in seen_names:
+                    seen_names.add(resolved)
+                    mods.append(info)
+        # Build minimal info for unregistered local modules
+        for mod_name, owner_key, mod_path in local_entries:
+            if mod_name.lower() in seen_names:
+                continue
+            seen_names.add(mod_name.lower())
+            local_info = {
+                'name': mod_name,
+                'key': owner_key,
+                'cid': None,
+                'schema': None,
+                'content': None,
+                'created': None,
+                'updated': None,
+                'url': self.get_url(mod_name),
+                'local': True,
+                'path': mod_path,
+            }
+            # Try to get schema for local module
+            try:
+                local_schema = m.schema(mod_name)
+                if local_schema and isinstance(local_schema, dict):
+                    local_info['schema'] = local_schema
+            except Exception:
+                pass
+            mods.append(local_info)
         return mods
 
     def n(self, *args, **kwargs):

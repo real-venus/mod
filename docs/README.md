@@ -1,6 +1,6 @@
 # Mod Framework Documentation
 
-Mod is a modular Python framework for building, deploying, and managing decentralized applications. It combines a powerful CLI, 140+ pluggable modules, smart contracts on Base, IPFS storage, and a Next.js frontend into one unified system.
+Mod is a modular Python framework for building, deploying, and managing decentralized applications. It combines a powerful CLI, 200+ pluggable modules, smart contracts on Base, IPFS storage, AI-native agents, and a Next.js frontend into one unified system.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ mod/
 │   ├── store/          # Encrypted key-value storage
 │   └── key/            # Multi-chain key management (ETH, Substrate, Solana)
 │
-├── mod/orbit/          # 140+ pluggable modules
+├── mod/orbit/          # 200+ pluggable modules
 │   ├── agent/          # Agentic AI workflows
 │   ├── claude/         # Claude Code integration
 │   ├── ipfs/           # IPFS storage (auto-managed Kubo daemon)

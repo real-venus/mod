@@ -53,6 +53,10 @@ def assets():
 def prices():
     return get_mod().get_prices()
 
+@app.get("/price_history")
+def price_history(days: int = Query(7, ge=1, le=365), asset: str = Query("gold")):
+    return get_mod().price_history(days=days, asset=asset)
+
 @app.get("/rewards")
 def rewards(epoch_id: Optional[str] = Query(None)):
     return get_mod().rewards(epoch_id)

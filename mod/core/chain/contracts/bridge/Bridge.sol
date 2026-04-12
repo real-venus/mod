@@ -11,10 +11,15 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * This is a temporary solution until migration to native bridging
  */
 contract BridgeableToken is ERC20, Ownable {
-    
+
     event BridgeMint(address indexed to, uint256 amount, string bridgeId);
     event BridgeBurn(address indexed from, uint256 amount, string bridgeId);
     event ContractSetOwnerless();
+    event Commitment(bytes32 indexed sourceHash, address indexed evmAddress, string sourceAddress, string sourceType);
+
+    // Commitment: keccak256(sourceAddress) => evmAddress
+    mapping(bytes32 => address) public commitments;
+    mapping(address => bytes32[]) public evmCommitments;
 
     /**
      * @dev Constructor
@@ -94,6 +99,40 @@ contract BridgeableToken is ERC20, Ownable {
         }
     }
     
+    /**
+     * @dev Commit a source address (sr25519/solana) to an EVM address (owner only)
+     * @param sourceHash keccak256 hash of the source address string
+     * @param evmAddress Target EVM address
+     * @param sourceAddress Original source address string
+     * @param sourceType Type of source key (substrate or solana)
+     */
+    function commit(
+        bytes32 sourceHash,
+        address evmAddress,
+        string memory sourceAddress,
+        string memory sourceType
+    ) external onlyOwner {
+        require(commitments[sourceHash] == address(0), "Already committed");
+        require(evmAddress != address(0), "Invalid EVM address");
+        commitments[sourceHash] = evmAddress;
+        evmCommitments[evmAddress].push(sourceHash);
+        emit Commitment(sourceHash, evmAddress, sourceAddress, sourceType);
+    }
+
+    /**
+     * @dev Get the EVM address committed to a source address hash
+     */
+    function getCommitment(bytes32 sourceHash) external view returns (address) {
+        return commitments[sourceHash];
+    }
+
+    /**
+     * @dev Get all source address hashes committed to an EVM address
+     */
+    function getEvmCommitments(address evmAddress) external view returns (bytes32[] memory) {
+        return evmCommitments[evmAddress];
+    }
+
     /**
      * @dev Batch burn from multiple addresses (owner only)
      * @param holders Array of addresses to burn from

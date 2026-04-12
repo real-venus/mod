@@ -1,20 +1,15 @@
 {
-  "name": "sr25519-bridge",
+  "name": "bridge-contracts",
   "version": "1.0.0",
-  "description": "Bridge from Substrate sr25519 to Base ERC20",
   "scripts": {
-    "compile": "hardhat compile",
-    "test": "hardhat test",
-    "node": "hardhat node",
-    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
-    "deploy:testnet": "hardhat run scripts/deploy.js --network testnet",
-    "deploy:mainnet": "hardhat run scripts/deploy.js --network base",
-    "dev": "echo '1. Run: npm run node (in another terminal)' && echo '2. Run: npm run deploy:local' && echo '3. Run: python mod.py' && echo 'See LOCAL_DEVELOPMENT.md for details'"
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "test:verbose": "npx hardhat test --verbose"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "@openzeppelin/contracts": "^5.0.1",
-    "hardhat": "^2.19.4",
-    "dotenv": "^16.3.1"
+    "@openzeppelin/contracts": "^4.9.3",
+    "dotenv": "^16.3.1",
+    "hardhat": "^2.19.0"
   }
 }

@@ -430,6 +430,84 @@ class Mod:
             except Exception:
                 return ''
 
+    # ── USD estimation from swap amounts ─────────────────────
+
+    def _estimate_swap_usd(self, chain, token0_addr, token1_addr, amount0, amount1, d0=18, d1=18):
+        """
+        Estimate USD value of a swap from raw token amounts.
+        If one side is a stablecoin, use that amount directly.
+        If one side is WETH, estimate via the WETH/USDC pool price.
+        Returns absolute USD value (float).
+        """
+        t0 = token0_addr.lower()
+        t1 = token1_addr.lower()
+        amt0 = abs(amount0) / (10 ** d0)
+        amt1 = abs(amount1) / (10 ** d1)
+
+        if t0 in self.STABLECOINS:
+            return amt0
+        if t1 in self.STABLECOINS:
+            return amt1
+
+        # If one side is WETH, use cached ETH price
+        weth = self.WETH.get(chain, '').lower()
+        if weth:
+            eth_price = self._get_eth_price(chain)
+            if eth_price > 0:
+                if t0 == weth:
+                    return amt0 * eth_price
+                if t1 == weth:
+                    return amt1 * eth_price
+
+        return 0.0
+
+    def _get_eth_price(self, chain):
+        """Get ETH price in USD from the WETH/USDC pool via slot0. Cached in memory."""
+        cache_key = f'_eth_price_{chain}'
+        if cache_key in self._token_cache:
+            ts, price = self._token_cache[cache_key]
+            if time.time() - ts < 300:  # 5 min cache
+                return price
+
+        # Use the first known pool (WETH/USDC 0.05%) to derive price
+        known = self.KNOWN_POOLS.get(chain, [])
+        if not known:
+            return 0.0
+
+        try:
+            addr = known[0]  # WETH/USDC 0.05% is always first
+            slot0_hex = self._eth_call(chain, addr, self.SEL['slot0']).replace('0x', '')
+            if len(slot0_hex) < 64:
+                return 0.0
+            sqrt_price_x96 = int(slot0_hex[0:64], 16)
+            if sqrt_price_x96 == 0:
+                return 0.0
+
+            # Get token decimals
+            token0_addr = self._decode_address(self._eth_call(chain, addr, self.SEL['token0']))
+            token1_addr = self._decode_address(self._eth_call(chain, addr, self.SEL['token1']))
+            t0 = self._get_token_info(chain, token0_addr)
+            t1 = self._get_token_info(chain, token1_addr)
+            d0 = int(t0.get('decimals', '18'))
+            d1 = int(t1.get('decimals', '18'))
+
+            price_ratio = (sqrt_price_x96 / (2 ** 96)) ** 2
+            adjusted = price_ratio * (10 ** (d0 - d1))
+
+            # Determine which side is WETH
+            weth = self.WETH.get(chain, '').lower()
+            if token0_addr.lower() == weth:
+                # price_ratio = token1_per_token0, so token0Price = adjusted (USDC per WETH)
+                eth_price = adjusted
+            else:
+                # token1 is WETH, so 1/adjusted = USDC per WETH
+                eth_price = 1.0 / adjusted if adjusted > 0 else 0.0
+
+            self._token_cache[cache_key] = (time.time(), eth_price)
+            return eth_price
+        except Exception:
+            return 0.0
+
     # ── Contract call helpers ────────────────────────────────
 
     def _get_token_info(self, chain, token_address):
@@ -524,6 +602,26 @@ class Mod:
         except Exception:
             pass
 
+        # Estimate volume from recent swap logs (last 24h)
+        volume_usd = 0.0
+        tx_count = 0
+        try:
+            from_block = self._estimate_block_at(chain, 86400)  # 24h
+            logs = self._get_swap_logs(chain, pool_address=addr, from_block=from_block, batch_size=2000)
+            d0 = int(token0.get('decimals', '18'))
+            d1 = int(token1.get('decimals', '18'))
+            tx_count = len(logs)
+            for log in logs:
+                parsed = self._parse_swap_log(log)
+                if parsed:
+                    usd = self._estimate_swap_usd(
+                        chain, token0_addr, token1_addr,
+                        parsed['amount0'], parsed['amount1'], d0, d1,
+                    )
+                    volume_usd += usd
+        except Exception:
+            pass
+
         return {
             'id': addr,
             'token0': token0,
@@ -535,8 +633,8 @@ class Mod:
             'token0Price': token0Price,
             'token1Price': token1Price,
             'totalValueLockedUSD': tvl_usd,
-            'volumeUSD': '0',  # not available via RPC without scanning all swaps
-            'txCount': '0',
+            'volumeUSD': str(volume_usd),
+            'txCount': str(tx_count),
         }
 
     def _rpc_get_pools(self, chain, limit=20):
@@ -565,27 +663,43 @@ class Mod:
                 addr = t.get('id', '').lower()
                 if addr and addr not in seen:
                     liq = int(pool.get('liquidity', '0'))
+                    vol = float(pool.get('volumeUSD', '0'))
+                    txc = int(pool.get('txCount', '0'))
                     seen[addr] = {
                         'id': addr,
                         'symbol': t.get('symbol', ''),
                         'name': t.get('name', ''),
                         'decimals': t.get('decimals', '18'),
                         'totalValueLockedUSD': pool.get('totalValueLockedUSD', '0'),
-                        'volumeUSD': '0',
-                        'txCount': '0',
+                        'volumeUSD': vol,
+                        'txCount': txc,
                         '_liquidity': liq,
                     }
                 elif addr in seen:
-                    # Accumulate liquidity
+                    # Accumulate liquidity, volume, txns
                     seen[addr]['_liquidity'] += int(pool.get('liquidity', '0'))
+                    seen[addr]['volumeUSD'] += float(pool.get('volumeUSD', '0'))
+                    seen[addr]['txCount'] += int(pool.get('txCount', '0'))
 
+        for v in seen.values():
+            v['volumeUSD'] = str(v['volumeUSD'])
+            v['txCount'] = str(v['txCount'])
         tokens = sorted(seen.values(), key=lambda t: t.pop('_liquidity', 0), reverse=True)
         return tokens[:limit]
 
     def _rpc_get_pool_day_data(self, chain, pool_id, days=30):
         """Compute daily OHLCV from swap logs via RPC."""
+        addr = pool_id.lower()
         from_block = self._estimate_block_at(chain, days * 86400)
-        logs = self._get_swap_logs(chain, pool_address=pool_id, from_block=from_block, batch_size=5000)
+        logs = self._get_swap_logs(chain, pool_address=addr, from_block=from_block, batch_size=5000)
+
+        # Resolve token addresses and decimals for USD estimation
+        token0_addr = self._decode_address(self._eth_call(chain, addr, self.SEL['token0']))
+        token1_addr = self._decode_address(self._eth_call(chain, addr, self.SEL['token1']))
+        t0_info = self._get_token_info(chain, token0_addr)
+        t1_info = self._get_token_info(chain, token1_addr)
+        d0 = int(t0_info.get('decimals', '18'))
+        d1 = int(t1_info.get('decimals', '18'))
 
         # We need block timestamps — fetch them for unique blocks
         block_nums = list(set(
@@ -647,11 +761,10 @@ class Mod:
                     'low': sqrt_price,
                     'close': sqrt_price,
                     'liquidity': str(parsed.get('liquidity', 0)),
-                    'volumeUSD': '0',
+                    'volumeUSD': 0.0,
                     'tvlUSD': '0',
                     'feesUSD': '0',
                     '_swap_count': 0,
-                    '_volume_raw': 0,
                 }
 
             d = daily[day]
@@ -661,14 +774,18 @@ class Mod:
             if sqrt_price < d['low'] or d['low'] == 0:
                 d['low'] = sqrt_price
             d['_swap_count'] += 1
-            d['_volume_raw'] += abs(parsed.get('amount0', 0)) + abs(parsed.get('amount1', 0))
+            usd = self._estimate_swap_usd(
+                chain, token0_addr, token1_addr,
+                parsed['amount0'], parsed['amount1'], d0, d1,
+            )
+            d['volumeUSD'] += usd
 
         # Clean up and convert sqrtPriceX96 to readable price strings
         result = []
         for day_ts in sorted(daily.keys(), reverse=True):
             d = daily[day_ts]
             d.pop('_swap_count', None)
-            d.pop('_volume_raw', None)
+            d['volumeUSD'] = str(d['volumeUSD'])
             # Convert sqrtPriceX96 to price for OHLC
             for field in ('open', 'high', 'low', 'close'):
                 sp = d[field]
@@ -1272,6 +1389,268 @@ class Mod:
         except Exception as e:
             results['error'] = str(e)
         return results
+
+    # ── Explorer — discover all token prices from recent blocks ──
+
+    def explore(self, chain='ethereum', blocks=5000, batch_size=2000,
+                min_liquidity=0, min_volume_usd=0, max_pools=200, callback=None):
+        """
+        Scan recent blocks newest-first, discover all pools from Swap events,
+        compute token prices from sqrtPriceX96, and return every token with
+        its price + pool stats.
+
+        Fully open-source — uses only free public RPCs, no API keys needed.
+
+        Args:
+            chain:           Chain to scan (ethereum, arbitrum, base, polygon, optimism)
+            blocks:          Number of recent blocks to scan (default 5000)
+            batch_size:      Blocks per RPC request (default 2000, auto-shrinks on error)
+            min_liquidity:   Filter: minimum pool liquidity (raw uint128)
+            min_volume_usd:  Filter: minimum 24h volume in USD
+            max_pools:       Max pools to resolve details for (default 200, sorted by swap count)
+            callback:        Optional fn(progress_dict) called per batch for live progress
+
+        Returns:
+            dict with 'tokens' (list of token prices), 'pools' (discovered pools),
+            'progress' (final scan stats)
+        """
+        current_block = self._get_block_number(chain)
+        start_block = max(0, current_block - blocks)
+        total_blocks = current_block - start_block
+
+        # Progress tracking
+        progress = {
+            'chain': chain,
+            'current_block': current_block,
+            'start_block': start_block,
+            'total_blocks': total_blocks,
+            'blocks_scanned': 0,
+            'batches_done': 0,
+            'swaps_found': 0,
+            'pools_found': 0,
+            'tokens_found': 0,
+            'pct': 0.0,
+            'status': 'scanning',
+        }
+
+        def _report(msg=None):
+            progress['pct'] = round(progress['blocks_scanned'] / max(total_blocks, 1) * 100, 1)
+            if msg:
+                progress['status'] = msg
+            if callback:
+                callback(progress)
+
+        _report('starting scan')
+
+        # Scan newest blocks first — iterate from current_block down to start_block
+        pool_swaps = {}   # pool_addr -> list of parsed swaps
+        scan_from = current_block
+        bs = batch_size
+
+        while scan_from > start_block:
+            scan_to = max(scan_from - bs, start_block)
+            log_filter = {
+                'topics': [self.SWAP_TOPIC],
+                'fromBlock': hex(scan_to),
+                'toBlock': hex(scan_from),
+            }
+
+            try:
+                logs = self._rpc_call(chain, 'eth_getLogs', [log_filter])
+                if logs is None:
+                    logs = []
+            except Exception:
+                # Shrink batch on error (RPC block range limit)
+                if bs > 100:
+                    bs = bs // 2
+                    continue
+                # Skip this range
+                logs = []
+
+            for log in logs:
+                parsed = self._parse_swap_log(log)
+                if not parsed:
+                    continue
+                pool_addr = parsed['pool']
+                if pool_addr not in pool_swaps:
+                    pool_swaps[pool_addr] = []
+                pool_swaps[pool_addr].append(parsed)
+
+            scanned = scan_from - scan_to
+            progress['blocks_scanned'] += scanned
+            progress['batches_done'] += 1
+            progress['swaps_found'] += len(logs)
+            progress['pools_found'] = len(pool_swaps)
+            scan_from = scan_to
+            _report(f'scanned block {scan_to}..{scan_to + scanned}')
+
+        # Sort pools by swap count (most active first), limit to max_pools
+        ranked_pools = sorted(pool_swaps.items(), key=lambda kv: len(kv[1]), reverse=True)
+        if max_pools and len(ranked_pools) > max_pools:
+            ranked_pools = ranked_pools[:max_pools]
+
+        _report(f'resolving {len(ranked_pools)} pools (of {len(pool_swaps)} discovered)')
+
+        # Now resolve each pool — get token info + compute prices
+        discovered_pools = []
+        token_prices = {}  # token_addr -> {symbol, name, decimals, price_usd, pools:[]}
+
+        for i, (pool_addr, swaps) in enumerate(ranked_pools):
+            if not swaps:
+                continue
+
+            # Get the most recent swap (highest block) for current price
+            latest = max(swaps, key=lambda s: s['block'])
+
+            try:
+                token0_addr = self._decode_address(
+                    self._eth_call(chain, pool_addr, self.SEL['token0']))
+                token1_addr = self._decode_address(
+                    self._eth_call(chain, pool_addr, self.SEL['token1']))
+                fee_raw = self._decode_uint(
+                    self._eth_call(chain, pool_addr, self.SEL['fee']))
+                liq_raw = self._decode_uint(
+                    self._eth_call(chain, pool_addr, self.SEL['liquidity']))
+            except Exception:
+                continue
+
+            # Skip pools below min liquidity
+            if min_liquidity and liq_raw < min_liquidity:
+                continue
+
+            t0 = self._get_token_info(chain, token0_addr)
+            t1 = self._get_token_info(chain, token1_addr)
+            d0 = int(t0.get('decimals', '18'))
+            d1 = int(t1.get('decimals', '18'))
+
+            # Compute price from sqrtPriceX96
+            sqrt_price = latest.get('sqrtPriceX96', 0)
+            token0_price_in_token1 = 0.0
+            token1_price_in_token0 = 0.0
+            if sqrt_price > 0:
+                price_ratio = (sqrt_price / (2 ** 96)) ** 2
+                adjusted = price_ratio * (10 ** (d0 - d1))
+                token0_price_in_token1 = adjusted
+                token1_price_in_token0 = 1.0 / adjusted if adjusted > 0 else 0.0
+
+            # Estimate volume from scanned swaps
+            volume_usd = 0.0
+            for s in swaps:
+                volume_usd += self._estimate_swap_usd(
+                    chain, token0_addr, token1_addr,
+                    s['amount0'], s['amount1'], d0, d1)
+
+            if min_volume_usd and volume_usd < min_volume_usd:
+                continue
+
+            # Get USD price per token
+            weth = self.WETH.get(chain, '').lower()
+            eth_price = self._get_eth_price(chain)
+            t0_usd = 0.0
+            t1_usd = 0.0
+
+            if token0_addr.lower() in self.STABLECOINS:
+                t0_usd = 1.0
+                t1_usd = token1_price_in_token0
+            elif token1_addr.lower() in self.STABLECOINS:
+                t1_usd = 1.0
+                t0_usd = token0_price_in_token1
+            elif token0_addr.lower() == weth and eth_price > 0:
+                t0_usd = eth_price
+                t1_usd = token1_price_in_token0 * eth_price
+            elif token1_addr.lower() == weth and eth_price > 0:
+                t1_usd = eth_price
+                t0_usd = token0_price_in_token1 * eth_price
+
+            pool_info = {
+                'address': pool_addr,
+                'token0': t0,
+                'token1': t1,
+                'fee': fee_raw,
+                'liquidity': liq_raw,
+                'token0_price_in_token1': token0_price_in_token1,
+                'token1_price_in_token0': token1_price_in_token0,
+                'token0_usd': t0_usd,
+                'token1_usd': t1_usd,
+                'volume_usd': volume_usd,
+                'swap_count': len(swaps),
+                'latest_block': latest['block'],
+            }
+            discovered_pools.append(pool_info)
+
+            # Aggregate token prices across pools
+            for addr, info, usd in [
+                (token0_addr, t0, t0_usd),
+                (token1_addr, t1, t1_usd),
+            ]:
+                key = addr.lower()
+                if key not in token_prices:
+                    token_prices[key] = {
+                        'address': key,
+                        'symbol': info.get('symbol', '???'),
+                        'name': info.get('name', ''),
+                        'decimals': info.get('decimals', '18'),
+                        'price_usd': usd,
+                        'total_volume_usd': 0.0,
+                        'total_swaps': 0,
+                        'pools': [],
+                    }
+                tp = token_prices[key]
+                # Keep highest USD price (most liquid source)
+                if usd > tp['price_usd']:
+                    tp['price_usd'] = usd
+                tp['total_volume_usd'] += volume_usd
+                tp['total_swaps'] += len(swaps)
+                tp['pools'].append({
+                    'pool': pool_addr,
+                    'pair': f"{t0.get('symbol','?')}/{t1.get('symbol','?')}",
+                    'fee': fee_raw,
+                    'price_usd': usd,
+                    'volume_usd': volume_usd,
+                })
+
+            progress['tokens_found'] = len(token_prices)
+            if (i + 1) % 5 == 0:
+                _report(f'resolved {i + 1}/{len(ranked_pools)} pools')
+
+        # Sort tokens by volume
+        tokens_list = sorted(
+            token_prices.values(),
+            key=lambda t: t['total_volume_usd'],
+            reverse=True,
+        )
+        # Sort pools by volume
+        discovered_pools.sort(key=lambda p: p['volume_usd'], reverse=True)
+
+        # Convert floats for JSON
+        for t in tokens_list:
+            t['price_usd'] = round(t['price_usd'], 8)
+            t['total_volume_usd'] = round(t['total_volume_usd'], 2)
+        for p in discovered_pools:
+            p['token0_usd'] = round(p['token0_usd'], 8)
+            p['token1_usd'] = round(p['token1_usd'], 8)
+            p['volume_usd'] = round(p['volume_usd'], 2)
+            p['token0_price_in_token1'] = round(p['token0_price_in_token1'], 8)
+            p['token1_price_in_token0'] = round(p['token1_price_in_token0'], 8)
+
+        progress['status'] = 'done'
+        progress['pct'] = 100.0
+        _report('complete')
+
+        result = {
+            'tokens': tokens_list,
+            'pools': discovered_pools,
+            'progress': progress,
+            'filters': {
+                'min_liquidity': min_liquidity,
+                'min_volume_usd': min_volume_usd,
+            },
+        }
+
+        # Auto-save
+        self._cache_set('explore', result, chain=chain, blocks=blocks,
+                        min_liq=min_liquidity, min_vol=min_volume_usd)
+        return result
 
     # ── Utility ──────────────────────────────────────────────
 

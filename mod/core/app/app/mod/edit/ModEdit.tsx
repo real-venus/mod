@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { userContext } from '@/context'
 import { ModuleType } from '@/types'
-import { Send, Loader2, MessageSquare, GitBranch, AlertCircle, CheckCircle, Clock, Play, XCircle } from 'lucide-react'
-import ModVersions from '@/mod/versions/ModVersions'
+import { text2color, colorWithOpacity } from '@/utils'
+import { Send, Loader2, GitBranch, CheckCircle, Clock, Play, XCircle, Terminal, StopCircle } from 'lucide-react'
 
 const JOBS_API = process.env.NEXT_PUBLIC_CLAUDE_JOBS_URL || 'http://localhost:8820'
 
@@ -21,6 +21,15 @@ interface Job {
   updated_at: number
 }
 
+interface ChatMessage {
+  role: 'user' | 'agent' | 'system'
+  content: string
+  timestamp: number
+  jobId?: string
+  status?: 'pending' | 'running' | 'completed' | 'failed'
+  cid?: string
+}
+
 function timeSince(ts: number): string {
   const seconds = Math.floor(Date.now() / 1000 - ts)
   if (seconds < 60) return `${seconds}s ago`
@@ -29,262 +38,445 @@ function timeSince(ts: number): string {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
+const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
+  running:   { color: '#3b82f6', label: 'RUNNING' },
+  pending:   { color: '#fbbf24', label: 'PENDING' },
+  completed: { color: '#22c55e', label: 'COMPLETED' },
+  failed:    { color: '#ef4444', label: 'FAILED' },
+  cancelled: { color: '#64748b', label: 'CANCELLED' },
+}
+
+function StatusIcon({ status, size = 12 }: { status: string; size?: number }) {
+  const color = STATUS_CONFIG[status]?.color || '#fbbf24'
+  switch (status) {
+    case 'running':   return <Play size={size} style={{ color }} />
+    case 'completed': return <CheckCircle size={size} style={{ color }} />
+    case 'failed':    return <XCircle size={size} style={{ color }} />
+    case 'cancelled': return <StopCircle size={size} style={{ color }} />
+    default:          return <Clock size={size} style={{ color }} />
+  }
+}
+
 interface ModEditProps {
   mod: ModuleType
+  moduleColor?: string
+  isSuggestion?: boolean
 }
 
-const ui = {
-  bg: '#0b0b0b',
-  panel: '#121212',
-  panelAlt: '#151515',
-  border: '#2a2a2a',
-  text: '#e7e7e7',
-  textDim: '#a8a8a8',
-  purple: '#a855f7',
-  yellow: '#fbbf24',
-}
-
-export default function ModEdit({ mod }: ModEditProps) {
-  const { client } = userContext()
+export default function ModEdit({ mod, moduleColor, isSuggestion }: ModEditProps) {
+  const { client, user } = userContext()
+  const modColor = moduleColor || text2color(mod.name || mod.key)
   const [message, setMessage] = useState('')
-  const [response, setResponse] = useState<any>({})
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
-  const [pendingTx, setPendingTx] = useState<{ message: string, cid?: string } | null>(null)
-  const [pendingVersion, setPendingVersion] = useState<{ cid: string, comment: string | null, updated: string } | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [jobsError, setJobsError] = useState(false)
+  const [activeJobId, setActiveJobId] = useState<string | null>(null)
+  const [activeJobOutput, setActiveJobOutput] = useState('')
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const outputEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
+  // Authenticated fetch to Claude Jobs API using core app token
+  const jobsFetch = useCallback(async (endpoint: string, options: RequestInit = {}) => {
+    const token = client?.token || ''
+    return fetch(`${JOBS_API}${endpoint}`, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'token': token,
+        'Content-Type': 'application/json',
+      },
+    })
+  }, [client?.token])
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => { scrollToBottom() }, [messages])
+
+  // Fetch all jobs for this module
   const fetchJobs = useCallback(async () => {
     try {
-      const res = await fetch(`${JOBS_API}/jobs`)
+      const res = await jobsFetch('/jobs')
       if (!res.ok) throw new Error('Failed')
       const data = await res.json()
-      const active = (data.jobs || []).filter((j: Job) =>
-        j.status === 'pending' || j.status === 'running'
-      )
-      setJobs(active)
+      const allJobs = data.jobs || []
+      const modJobs = allJobs.filter((j: Job) => {
+        if (!j.work_dir) return false
+        const wd = j.work_dir.toLowerCase()
+        return wd.includes(`/${mod.name}/`) || wd.endsWith(`/${mod.name}`)
+      })
+      setJobs(modJobs)
       setJobsError(false)
+
+      if (activeJobId) {
+        const active = allJobs.find((j: Job) => j.id === activeJobId)
+        if (active) {
+          setActiveJobOutput(active.output || '')
+          if (active.status === 'completed' || active.status === 'failed') {
+            setMessages(prev => prev.map(m =>
+              m.jobId === activeJobId ? { ...m, status: active.status } : m
+            ))
+          }
+        }
+      }
     } catch {
       setJobsError(true)
     }
-  }, [])
+  }, [activeJobId, mod.name, jobsFetch])
 
   useEffect(() => {
     fetchJobs()
-    const interval = setInterval(fetchJobs, 5000)
+    const interval = setInterval(fetchJobs, 3000)
     return () => clearInterval(interval)
   }, [fetchJobs])
 
+  // Auto-scroll output
+  useEffect(() => {
+    outputEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [activeJobOutput])
+
   const handleSend = async () => {
     if (!message.trim() || !client) return
-    const query = message
+    const query = message.trim()
     setMessage('')
-    setLoading(true)
-    setError(null)
-    setPendingTx({ message: 'Submitting job to claude/forward...' })
+    inputRef.current?.focus()
 
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: query,
+      timestamp: Date.now() / 1000,
+    }])
+
+    setLoading(true)
     try {
       const result = await client.call('claude/forward', {
         query,
         mod: mod.name,
-        key: mod.key,
+        key: user?.key || mod.key,
         background: true,
       }, true, {}, 60000)
 
-      setResponse(result)
-
-      if (result && result.id) {
-        setPendingTx({ message: `Job submitted: ${result.id}`, cid: result.id })
-      } else if (result && result.cid) {
-        setPendingVersion({
+      if (result?.id) {
+        setActiveJobId(result.id)
+        setActiveJobOutput('')
+        setMessages(prev => [...prev, {
+          role: 'agent',
+          content: `Job submitted`,
+          timestamp: Date.now() / 1000,
+          jobId: result.id,
+          status: 'running',
+        }])
+      } else if (result?.cid) {
+        setMessages(prev => [...prev, {
+          role: 'agent',
+          content: `Done`,
+          timestamp: Date.now() / 1000,
           cid: result.cid,
-          comment: query,
-          updated: new Date().toISOString().replace('T', ' ').slice(0, 19)
-        })
-        setPendingTx({ message: 'Done', cid: result.cid })
+          status: 'completed',
+        }])
       } else {
-        setPendingTx(null)
+        setMessages(prev => [...prev, {
+          role: 'agent',
+          content: JSON.stringify(result, null, 2),
+          timestamp: Date.now() / 1000,
+          status: 'completed',
+        }])
       }
     } catch (err: any) {
-      console.error('Edit failed:', err)
-      setError(err?.message || 'Failed to process edit request')
-      setPendingTx(null)
+      setMessages(prev => [...prev, {
+        role: 'agent',
+        content: err?.message || 'Failed to submit edit',
+        timestamp: Date.now() / 1000,
+        status: 'failed',
+      }])
     } finally {
       setLoading(false)
     }
   }
 
+  const handleCancel = async (jobId: string) => {
+    try {
+      await jobsFetch(`/jobs/${jobId}/cancel`, { method: 'POST' })
+      fetchJobs()
+    } catch {}
+  }
+
+  const activeJob = jobs.find(j => j.id === activeJobId)
+  const isJobRunning = activeJob?.status === 'running' || activeJob?.status === 'pending'
+  const recentJobs = jobs.slice(0, 20)
+  const runningCount = jobs.filter(j => j.status === 'running').length
+
   return (
-    <div className="flex flex-col h-[600px]" style={{ backgroundColor: ui.bg }}>
-      {/* Input at top */}
-      <div className="p-4 border-b" style={{ backgroundColor: ui.panel, borderColor: ui.border }}>
-        <div className="flex items-center gap-2 mb-3">
-          <MessageSquare className="w-5 h-5" style={{ color: ui.purple }} />
-          <h3 className="text-xl font-bold" style={{ color: ui.text }}>Edit Module</h3>
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Describe the changes you want to make..."
-            disabled={loading}
-            className="flex-1 px-4 py-3 rounded-lg border outline-none"
-            style={{
-              backgroundColor: ui.panelAlt,
-              borderColor: ui.border,
-              color: ui.text
-            }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!message.trim() || loading}
-            className="px-6 py-3 rounded-lg font-bold transition-all disabled:opacity-50"
-            style={{
-              backgroundColor: ui.purple + '40',
-              borderColor: ui.purple,
-              color: ui.purple,
-              border: '2px solid'
-            }}
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Vertical split: Versions on left, Chat response on right */}
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 70px)', fontFamily: 'var(--font-digital), monospace' }}>
+      {/* Main split: Chat + Output on left, Tasks on right */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left side: Versions + Pending Jobs */}
-        <div className="w-1/2 border-r overflow-y-auto" style={{ borderColor: ui.border, backgroundColor: ui.bg }}>
-          <div className="p-4">
-            <ModVersions mod={mod} />
-          </div>
-
-          {/* Pending Jobs */}
-          <div className="p-4 border-t" style={{ borderColor: ui.border }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4" style={{ color: ui.yellow }} />
-              <span className="text-sm font-bold tracking-wider" style={{ color: ui.yellow }}>
-                PENDING JOBS
-              </span>
-              <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: ui.yellow + '20', color: ui.yellow }}>
-                {jobs.length}
-              </span>
-            </div>
-
-            {jobsError ? (
-              <p className="text-xs" style={{ color: ui.textDim }}>Jobs server offline</p>
-            ) : jobs.length === 0 ? (
-              <p className="text-xs" style={{ color: ui.textDim }}>No pending jobs</p>
-            ) : (
-              <div className="space-y-2">
-                {jobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className="p-3 rounded-lg border"
-                    style={{
-                      backgroundColor: ui.panelAlt,
-                      borderColor: job.status === 'running' ? '#3b82f6' + '60' : ui.yellow + '40',
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        {job.status === 'running' ? (
-                          <Play className="w-3 h-3" style={{ color: '#3b82f6' }} />
-                        ) : (
-                          <Clock className="w-3 h-3" style={{ color: ui.yellow }} />
-                        )}
-                        <span
-                          className="text-xs font-bold uppercase tracking-wider"
-                          style={{ color: job.status === 'running' ? '#3b82f6' : ui.yellow }}
-                        >
-                          {job.status}
-                        </span>
-                      </div>
-                      <span className="text-xs" style={{ color: ui.textDim }}>
-                        {timeSince(job.created_at)}
-                      </span>
-                    </div>
-                    <p className="text-xs truncate" style={{ color: ui.text }}>
-                      {job.prompt.length > 80 ? job.prompt.slice(0, 80) + '...' : job.prompt}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs font-mono" style={{ color: ui.textDim }}>
-                        {job.id.slice(0, 8)}...
-                      </span>
-                      <span className="text-xs uppercase" style={{ color: ui.purple }}>
-                        {job.model.replace('anthropic/', '').replace('claude-', '')}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+        {/* Left: Chat + Live Output */}
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: '1px solid var(--border-color)' }}>
+          {/* Chat messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ scrollbarWidth: 'thin' }}>
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full gap-3" style={{ opacity: 0.4 }}>
+                <Terminal size={32} style={{ color: modColor }} />
+                <p className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  {isSuggestion ? `Suggest changes to ${mod.name}` : `Dev Agent for ${mod.name}`}
+                </p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  {isSuggestion
+                    ? 'Describe your suggestion — it will be submitted as a proposal to the owner'
+                    : 'Describe changes and Claude will edit the module code'}
+                </p>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Right side: Chat response */}
-        <div className="w-1/2 overflow-y-auto p-4 space-y-4" style={{ backgroundColor: ui.bg }}>
-          {response && Object.keys(response).length > 0 && (
-            <div className="p-4 rounded-lg border-2 bg-gradient-to-br from-blue-500/10 border-blue-500/40">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="w-4 h-4" style={{ color: '#3b82f6' }} />
-                <span className="font-bold text-sm" style={{ color: '#3b82f6' }}>RESPONSE</span>
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className="max-w-[85%] px-3 py-2 rounded-lg"
+                  style={{
+                    background: msg.role === 'user'
+                      ? colorWithOpacity(modColor, 0.12)
+                      : msg.role === 'system'
+                      ? 'rgba(251, 191, 36, 0.08)'
+                      : 'var(--bg-surface)',
+                    border: msg.role === 'user'
+                      ? `1px solid ${colorWithOpacity(modColor, 0.25)}`
+                      : msg.role === 'system'
+                      ? '1px solid rgba(251, 191, 36, 0.2)'
+                      : '1px solid var(--border-color)',
+                  }}
+                >
+                  {msg.status && (
+                    <div className="flex items-center gap-1.5 mb-1">
+                      {msg.status === 'running' && <Loader2 size={10} className="animate-spin" style={{ color: '#3b82f6' }} />}
+                      {msg.status === 'completed' && <CheckCircle size={10} style={{ color: '#22c55e' }} />}
+                      {msg.status === 'failed' && <XCircle size={10} style={{ color: '#ef4444' }} />}
+                      {msg.status === 'pending' && <Clock size={10} style={{ color: '#fbbf24' }} />}
+                      <span className="text-[9px] font-bold uppercase tracking-wider" style={{
+                        color: msg.status === 'running' ? '#3b82f6'
+                          : msg.status === 'completed' ? '#22c55e'
+                          : msg.status === 'failed' ? '#ef4444'
+                          : '#fbbf24'
+                      }}>
+                        {msg.status}
+                      </span>
+                      {msg.jobId && (
+                        <span className="text-[9px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                          {msg.jobId.slice(0, 8)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-[13px] whitespace-pre-wrap break-words" style={{
+                    color: msg.role === 'user' ? 'var(--text-primary)'
+                      : msg.role === 'system' ? '#fbbf24'
+                      : 'var(--text-secondary)',
+                  }}>
+                    {msg.content}
+                  </p>
+
+                  {msg.cid && (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <GitBranch size={10} style={{ color: modColor }} />
+                      <span className="text-[10px] font-mono" style={{ color: modColor }}>
+                        {msg.cid}
+                      </span>
+                    </div>
+                  )}
+
+                  <span className="text-[9px] mt-1 block" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>
+                    {timeSince(msg.timestamp)}
+                  </span>
+                </div>
               </div>
-              <pre className="text-sm font-mono overflow-x-auto" style={{ color: ui.textDim }}>
-                {JSON.stringify(response, null, 2)}
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Live output panel */}
+          {activeJobId && activeJobOutput && (
+            <div
+              className="overflow-y-auto border-t"
+              style={{
+                maxHeight: '200px',
+                borderColor: 'var(--border-color)',
+                background: 'var(--bg-primary)',
+              }}
+            >
+              <div className="flex items-center justify-between px-3 py-1.5" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-surface)' }}>
+                <div className="flex items-center gap-2">
+                  <Terminal size={12} style={{ color: isJobRunning ? '#3b82f6' : '#22c55e' }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{
+                    color: isJobRunning ? '#3b82f6' : '#22c55e'
+                  }}>
+                    {isJobRunning ? 'LIVE OUTPUT' : 'OUTPUT'}
+                  </span>
+                </div>
+                {isJobRunning && (
+                  <button
+                    onClick={() => handleCancel(activeJobId)}
+                    className="text-[9px] font-bold uppercase px-2 py-0.5 rounded transition-all"
+                    style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  >
+                    CANCEL
+                  </button>
+                )}
+              </div>
+              <pre
+                className="p-3 text-[11px] leading-relaxed whitespace-pre-wrap break-words"
+                style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-digital), monospace' }}
+              >
+                {activeJobOutput.slice(-5000)}
+                <span ref={outputEndRef} />
               </pre>
             </div>
           )}
 
-          {(pendingTx || error) && (
-            <div
-              className={`p-4 rounded-lg border-2 ${
-                error ? 'bg-gradient-to-br from-red-500/10 border-red-500/40'
-                : loading
-                ? 'bg-gradient-to-br from-yellow-500/10 border-yellow-500/40'
-                : 'bg-gradient-to-br from-green-500/10 border-green-500/40'
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                {error ? (
-                  <>
-                    <AlertCircle className="w-4 h-4" style={{ color: '#ef4444' }} />
-                    <span className="font-bold text-sm" style={{ color: '#ef4444' }}>ERROR</span>
-                  </>
-                ) : loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: ui.yellow }} />
-                    <span className="font-bold text-sm" style={{ color: ui.yellow }}>PENDING</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" style={{ color: '#22c55e' }} />
-                    <span className="font-bold text-sm" style={{ color: '#22c55e' }}>SUCCESS</span>
-                  </>
-                )}
-              </div>
-              <p className="text-sm" style={{ color: ui.textDim }}>
-                {error || pendingTx?.message || 'Processing...'}
-              </p>
+          {/* Input bar */}
+          <div className="shrink-0 p-3 border-t" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-surface)' }}>
+            <div className="flex gap-2 items-center">
+              <input
+                ref={inputRef}
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                placeholder={isSuggestion ? `suggest changes to ${mod.name}...` : `edit ${mod.name}...`}
+                disabled={loading}
+                className="flex-1 px-3 py-2.5 rounded-lg border outline-none text-[13px]"
+                style={{
+                  backgroundColor: 'var(--bg-input)',
+                  borderColor: loading ? colorWithOpacity(modColor, 0.2) : 'var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-digital), monospace',
+                }}
+                autoFocus
+              />
+              <button
+                onClick={handleSend}
+                disabled={!message.trim() || loading}
+                className="px-4 py-2.5 rounded-lg font-bold transition-all disabled:opacity-30"
+                style={{
+                  backgroundColor: colorWithOpacity(modColor, 0.12),
+                  border: `1px solid ${colorWithOpacity(modColor, 0.3)}`,
+                  color: modColor,
+                }}
+              >
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              </button>
             </div>
-          )}
+          </div>
+        </div>
 
-          {pendingVersion && (
-            <div className="p-4 rounded-lg border-2" style={{ backgroundColor: ui.panel, borderColor: ui.purple }}>
-              <div className="flex items-center gap-2 mb-2">
-                <GitBranch className="w-4 h-4" style={{ color: ui.purple }} />
-                <span className="font-bold text-sm" style={{ color: ui.purple }}>PENDING VERSION</span>
+        {/* Right: Task list — Claude.ai style */}
+        <div
+          className="w-72 shrink-0 flex flex-col overflow-hidden"
+          style={{ background: 'var(--bg-surface)' }}
+        >
+          {/* Tasks header */}
+          <div className="px-3 py-2.5 border-b shrink-0" style={{ borderColor: 'var(--border-color)' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock size={12} style={{ color: 'var(--text-primary)' }} />
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
+                  TASKS
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{
+                  backgroundColor: colorWithOpacity(modColor, 0.12),
+                  color: modColor,
+                }}>
+                  {recentJobs.length}
+                </span>
               </div>
-              <div className="space-y-1 text-xs" style={{ color: ui.textDim }}>
-                <div>CID: {pendingVersion.cid}</div>
-                <div>Comment: {pendingVersion.comment || 'No comment'}</div>
-                <div>Updated: {pendingVersion.updated}</div>
-              </div>
+              {runningCount > 0 && (
+                <span className="text-[10px] font-bold flex items-center gap-1" style={{ color: '#3b82f6' }}>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#3b82f6' }} />
+                  {runningCount}
+                </span>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Task cards */}
+          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+            {jobsError ? (
+              <p className="text-[11px] p-3" style={{ color: 'var(--text-tertiary)' }}>Jobs server offline</p>
+            ) : recentJobs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-2" style={{ opacity: 0.3 }}>
+                <Clock size={24} style={{ color: 'var(--text-tertiary)' }} />
+                <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>No tasks yet</p>
+              </div>
+            ) : (
+              recentJobs.map((job) => {
+                const isActive = job.id === activeJobId
+                const sc = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending
+                return (
+                  <button
+                    key={job.id}
+                    onClick={() => {
+                      setActiveJobId(job.id)
+                      setActiveJobOutput(job.output || '')
+                    }}
+                    className="w-full text-left transition-all group"
+                    style={{
+                      borderBottom: '1px solid var(--border-color)',
+                      borderLeft: `3px solid ${isActive ? sc.color : 'transparent'}`,
+                      background: isActive ? colorWithOpacity(sc.color, 0.06) : 'transparent',
+                    }}
+                  >
+                    <div className="px-3 py-2.5">
+                      {/* Status + time */}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <StatusIcon status={job.status} size={11} />
+                          <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: sc.color }}>
+                            {sc.label}
+                          </span>
+                        </div>
+                        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                          {timeSince(job.created_at)}
+                        </span>
+                      </div>
+
+                      {/* Prompt */}
+                      <p
+                        className="text-[11px] leading-relaxed"
+                        style={{
+                          color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {job.prompt}
+                      </p>
+
+                      {/* Cancel for running */}
+                      {(job.status === 'running' || job.status === 'pending') && (
+                        <div className="mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span
+                            onClick={(e) => { e.stopPropagation(); handleCancel(job.id) }}
+                            className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded cursor-pointer transition-all"
+                            style={{
+                              color: '#ef4444',
+                              border: '1px solid rgba(239,68,68,0.25)',
+                              background: 'rgba(239,68,68,0.06)',
+                            }}
+                          >
+                            CANCEL
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                )
+              })
+            )}
+          </div>
         </div>
       </div>
     </div>

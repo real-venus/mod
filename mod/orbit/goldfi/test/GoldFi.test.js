@@ -101,13 +101,13 @@ describe('GoldFi', function () {
 
     it('should report PnL via oracle', async function () {
       await goldfi.startEpoch(INFLATION_POOL);
-      // Alice: +20%, Bob: -5%, Charlie: +8%
+      // Alice: +$2000, Bob: -$500, Charlie: +$800
       await goldfi.connect(oracle).reportPnl(1, alice.address, 2000);
       await goldfi.connect(oracle).reportPnl(1, bob.address, -500);
       await goldfi.connect(oracle).reportPnl(1, charlie.address, 800);
 
       const aliceInfo = await goldfi.getTraderInfo(1, alice.address);
-      expect(aliceInfo.pnlBps).to.equal(2000);
+      expect(aliceInfo.pnlDollars).to.equal(2000);
     });
 
     it('should batch report PnL', async function () {
@@ -119,7 +119,7 @@ describe('GoldFi', function () {
       );
 
       const bobInfo = await goldfi.getTraderInfo(1, bob.address);
-      expect(bobInfo.pnlBps).to.equal(-500);
+      expect(bobInfo.pnlDollars).to.equal(-500);
     });
 
     it('should reject PnL from non-oracle', async function () {
@@ -136,7 +136,7 @@ describe('GoldFi', function () {
       await goldfi.connect(charlie).register();
       await goldfi.startEpoch(INFLATION_POOL);
 
-      // Alice: +20% (2000 bps), Bob: -5% (-500 bps), Charlie: +8% (800 bps)
+      // Alice: +$2000, Bob: -$500, Charlie: +$800
       await goldfi.connect(oracle).reportPnlBatch(
         1,
         [alice.address, bob.address, charlie.address],

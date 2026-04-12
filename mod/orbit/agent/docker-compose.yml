@@ -8,7 +8,7 @@ networks:
 services:
   agent-api:
     container_name: agent-api
-    entrypoint: bash -c "cd /root/mod/mod/orbit/agent && uvicorn api.api:app --host 0.0.0.0 --port 50117"
+    entrypoint: bash -c "cd /root/mod/mod/orbit/agent/server && uvicorn server:app --host 0.0.0.0 --port 50117"
     image: mod:latest
     ports:
       - "50117:50117"

@@ -108,8 +108,13 @@ class Auth:
             headers['token'] = headers.pop('Token')
         if 'token' in headers:
             token = headers['token']
-            headers = json.loads(self._base64url_decode(token))
+            if token:
+                decoded = json.loads(self._base64url_decode(token))
+                if decoded and 'key' in decoded:
+                    headers = decoded
 
+        if 'key' not in headers:
+            raise Exception('No authentication key provided')
 
         crypto_type = self.infer_crypto_type(headers['key'])
         # ────────────────────────────────────────────────

@@ -147,3 +147,47 @@ def list_websites():
 def stats():
     """Get statistics"""
     return Mod().stats()
+
+    def serve(self, api_port=None, app_port=None):
+        """Start API server and app from config."""
+        import subprocess
+        from pathlib import Path
+
+        config = getattr(self, '_config', {})
+        api_port = api_port or config.get('port') or None
+        app_port = app_port or config.get('app_port') or None
+        root = os.path.join(os.path.dirname(__file__), '..')
+        log_dir = Path(f'/tmp/routy')
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        for p in [api_port, app_port]:
+            if p:
+                subprocess.run(f'lsof -ti:{p} | xargs kill -9', shell=True, capture_output=True)
+
+        results = {}
+
+        server_dir = os.path.join(root, 'server')
+        if os.path.exists(os.path.join(server_dir, 'server.py')) and api_port:
+            env = os.environ.copy()
+            env['PYTHONPATH'] = os.path.join(root, '..', '..', '..')
+            subprocess.Popen(
+                ['python3', '-m', 'uvicorn', 'server:app',
+                 '--host', '0.0.0.0', '--port', str(api_port), '--reload'],
+                cwd=server_dir, env=env,
+                stdout=open(log_dir / 'api.log', 'w'),
+                stderr=subprocess.STDOUT,
+            )
+            results['api'] = f'http://localhost:{api_port}'
+
+        app_dir = os.path.join(root, 'app')
+        if os.path.exists(os.path.join(app_dir, 'package.json')) and app_port:
+            subprocess.Popen(
+                ['npx', 'next', 'dev', '-p', str(app_port)],
+                cwd=app_dir,
+                stdout=open(log_dir / 'app.log', 'w'),
+                stderr=subprocess.STDOUT,
+            )
+            results['app'] = f'http://localhost:{app_port}'
+
+        return results
+

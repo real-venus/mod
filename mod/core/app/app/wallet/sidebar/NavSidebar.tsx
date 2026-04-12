@@ -9,7 +9,7 @@ import { useModuleApps } from '@/hooks/useModuleApps'
 import { ThemeSelectorCompact } from '@/themes/ThemeSelectorCompact'
 import {
   Blocks, Landmark, FileCode2, ArrowLeftRight,
-  BookOpen, MessageSquare, Waypoints, Shield
+  BookOpen, MessageSquare, Waypoints, Shield, Cpu, Bot
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { NetworkSelector } from '@/network/NetworkSelector'
@@ -23,12 +23,14 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   'TRANSACTIONS': <ArrowLeftRight size={22} strokeWidth={1.5} />,
   'DOCS': <BookOpen size={22} strokeWidth={1.5} />,
   'CHAT': <MessageSquare size={22} strokeWidth={1.5} />,
+  'AGENT': <Bot size={22} strokeWidth={1.5} />,
   'BRIDGE': <Waypoints size={22} strokeWidth={1.5} />,
   'WORKERS': <Shield size={22} strokeWidth={1.5} />,
+  'JOBS': <Cpu size={22} strokeWidth={1.5} />,
 }
 
 export const SIDEBAR_WIDTH = 64
-const COLLAPSED_WIDTH = 16
+export const COLLAPSED_WIDTH = 16
 
 const PIXEL_FONT = "var(--font-pixel), 'Press Start 2P', monospace"
 
@@ -116,7 +118,7 @@ export function NavSidebar() {
           overflow: 'hidden',
         }}
       >
-        {/* Collapsed state: just a thin expand button */}
+        {/* Collapsed state: just a thin expand strip */}
         {collapsed && (
           <button
             onClick={toggleCollapsed}
@@ -132,19 +134,6 @@ export function NavSidebar() {
 
         {/* Expanded content */}
         {!collapsed && <>
-        {/* Collapse toggle */}
-        <div className="shrink-0 flex justify-center" style={{ borderBottom: '1px solid var(--border-default)' }}>
-          <button
-            onClick={toggleCollapsed}
-            className="w-full flex items-center justify-center transition-all duration-200"
-            style={{ height: '24px', color: 'var(--text-tertiary)', opacity: 0.5 }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-primary)'; e.currentTarget.style.opacity = '1' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.opacity = '0.5' }}
-            title="Collapse sidebar"
-          >
-            <ChevronLeft size={14} />
-          </button>
-        </div>
 
         {/* Nav items */}
         <div className="flex-1 overflow-y-auto hide-scrollbar py-2 px-1.5 flex flex-col gap-1" style={{ scrollbarWidth: 'none' }}>
@@ -337,6 +326,41 @@ export function NavSidebar() {
         </div>
         </>}
       </div>
+
+      {/* Edge-mounted collapse/expand pill */}
+      {!collapsed && (
+        <button
+          onClick={toggleCollapsed}
+          className="fixed z-[61] flex items-center justify-center transition-all duration-200"
+          style={{
+            left: `${currentWidth - 6}px`,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '12px',
+            height: '40px',
+            borderRadius: '0 6px 6px 0',
+            background: 'var(--bg-header)',
+            border: '1px solid var(--border-default)',
+            borderLeft: 'none',
+            color: 'var(--text-tertiary)',
+            cursor: 'pointer',
+            opacity: 0.4,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1'
+            e.currentTarget.style.color = 'var(--accent-primary)'
+            e.currentTarget.style.width = '16px'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0.4'
+            e.currentTarget.style.color = 'var(--text-tertiary)'
+            e.currentTarget.style.width = '12px'
+          }}
+          title="Collapse sidebar"
+        >
+          <ChevronLeft size={10} />
+        </button>
+      )}
 
       {/* Network selector portal */}
       {mounted && networkOpen && networkBtnRect && createPortal(

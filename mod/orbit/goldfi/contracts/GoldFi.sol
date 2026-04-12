@@ -27,7 +27,7 @@ contract GoldFi is ReentrancyGuard, Pausable, Ownable {
 
     struct Trader {
         address addr;
-        int256 pnlBps;       // PnL in basis points reported by oracle (e.g. +2000 = +20%)
+        int256 pnlDollars;   // PnL in dollars reported by oracle (e.g. +500 = profited $500)
         int256 score;         // quadratic score: sign(pnl) * pnl^2
         uint256 reward;       // computed reward from inflation pool
         bool claimed;
@@ -77,7 +77,7 @@ contract GoldFi is ReentrancyGuard, Pausable, Ownable {
     event TraderRegistered(address indexed trader);
     event TraderUnregistered(address indexed trader);
     event EpochStarted(uint256 indexed epochId, uint256 startTime, uint256 endTime, uint256 inflationPool);
-    event PnlReported(uint256 indexed epochId, address indexed trader, int256 pnlBps);
+    event PnlReported(uint256 indexed epochId, address indexed trader, int256 pnlDollars);
     event EpochSettled(uint256 indexed epochId, uint256 totalDistributed);
     event RewardClaimed(uint256 indexed epochId, address indexed trader, uint256 amount);
     event OracleUpdated(address indexed newOracle);
@@ -178,7 +178,7 @@ contract GoldFi is ReentrancyGuard, Pausable, Ownable {
             if (registeredTraders[addr]) {
                 traders[currentEpochId][addr] = Trader({
                     addr: addr,
-                    pnlBps: 0,
+                    pnlDollars: 0,
                     score: 0,
                     reward: 0,
                     claimed: false,
@@ -193,23 +193,23 @@ contract GoldFi is ReentrancyGuard, Pausable, Ownable {
     }
 
     /**
-     * @notice Oracle reports PnL for a trader in basis points.
-     *         e.g. +2000 = +20%, -500 = -5%
+     * @notice Oracle reports PnL for a trader in dollars.
+     *         e.g. +500 = profited $500, -200 = lost $200
      *         Can be called multiple times (updates overwrite).
      */
     function reportPnl(
         uint256 epochId,
         address trader,
-        int256 pnlBps
+        int256 pnlDollars
     ) external {
         require(msg.sender == oracle, "Not oracle");
         require(epochId == currentEpochId, "Not current epoch");
         require(!epochs[epochId].settled, "Epoch settled");
         require(traders[epochId][trader].registered, "Trader not enrolled");
 
-        traders[epochId][trader].pnlBps = pnlBps;
+        traders[epochId][trader].pnlDollars = pnlDollars;
 
-        emit PnlReported(epochId, trader, pnlBps);
+        emit PnlReported(epochId, trader, pnlDollars);
     }
 
     /**
@@ -227,7 +227,7 @@ contract GoldFi is ReentrancyGuard, Pausable, Ownable {
 
         for (uint256 i = 0; i < traderAddrs.length; i++) {
             if (traders[epochId][traderAddrs[i]].registered) {
-                traders[epochId][traderAddrs[i]].pnlBps = pnlValues[i];
+                traders[epochId][traderAddrs[i]].pnlDollars = pnlValues[i];
                 emit PnlReported(epochId, traderAddrs[i], pnlValues[i]);
             }
         }
@@ -237,6 +237,7 @@ contract GoldFi is ReentrancyGuard, Pausable, Ownable {
      * @notice Settle the epoch: compute quadratic scores and distribute rewards.
      *         score = pnl >= 0 ? pnl^2 : -(pnl^2)
      *         Only positive scores share the inflation pool.
+     *         PnL is in dollars (e.g. +500 = profited $500).
      */
     function settleEpoch(uint256 epochId) external nonReentrant {
         require(msg.sender == oracle || msg.sender == owner(), "Not authorized");
@@ -250,7 +251,7 @@ contract GoldFi is ReentrancyGuard, Pausable, Ownable {
         // Phase 1: compute quadratic scores
         for (uint256 i = 0; i < traderAddrs.length; i++) {
             Trader storage t = traders[epochId][traderAddrs[i]];
-            int256 pnl = t.pnlBps;
+            int256 pnl = t.pnlDollars;
 
             if (pnl >= 0) {
                 // x^2 (positive direction)
@@ -306,14 +307,14 @@ contract GoldFi is ReentrancyGuard, Pausable, Ownable {
     }
 
     function getTraderInfo(uint256 epochId, address trader) external view returns (
-        int256 pnlBps,
+        int256 pnlDollars,
         int256 score,
         uint256 reward,
         bool claimed,
         bool enrolled
     ) {
         Trader memory t = traders[epochId][trader];
-        return (t.pnlBps, t.score, t.reward, t.claimed, t.registered);
+        return (t.pnlDollars, t.score, t.reward, t.claimed, t.registered);
     }
 
     function getLeaderboard(uint256 epochId) external view returns (

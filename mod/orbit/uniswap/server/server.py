@@ -1,11 +1,14 @@
 """Uniswap V3 API — FastAPI server wrapping the Uniswap connector."""
 
+import json
 import os
 import sys
+import threading
 from typing import Optional, Any
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -163,6 +166,72 @@ def delete_saved(filename: str):
         raise HTTPException(404, "File not found")
     except Exception as e:
         raise HTTPException(500, str(e))
+
+
+@app.get("/explore")
+def explore(
+    chain: str = Query('ethereum'),
+    blocks: int = Query(5000, ge=100, le=100000),
+    batch_size: int = Query(2000, ge=100, le=10000),
+    min_liquidity: int = Query(0, ge=0),
+    min_volume_usd: float = Query(0, ge=0),
+    max_pools: int = Query(200, ge=1, le=1000),
+    stream: bool = Query(True),
+):
+    """
+    Scan recent blocks newest-first, discover all pools + token prices.
+    With stream=true (default), returns Server-Sent Events with live progress.
+    With stream=false, returns final JSON result.
+    """
+    if not stream:
+        try:
+            return get_mod().explore(
+                chain, blocks, batch_size,
+                min_liquidity=min_liquidity,
+                min_volume_usd=min_volume_usd,
+                max_pools=max_pools,
+            )
+        except Exception as e:
+            raise HTTPException(500, str(e))
+
+    import queue
+    q = queue.Queue()
+
+    def _callback(progress):
+        q.put(progress.copy())
+
+    def _run():
+        try:
+            result = get_mod().explore(
+                chain, blocks, batch_size,
+                min_liquidity=min_liquidity,
+                min_volume_usd=min_volume_usd,
+                max_pools=max_pools,
+                callback=_callback,
+            )
+            q.put({'__result__': result})
+        except Exception as e:
+            q.put({'__error__': str(e)})
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+
+    def _stream():
+        while True:
+            try:
+                msg = q.get(timeout=120)
+            except Exception:
+                yield f"data: {json.dumps({'status': 'timeout'})}\n\n"
+                break
+            if '__result__' in msg:
+                yield f"data: {json.dumps(msg['__result__'], default=str)}\n\n"
+                break
+            if '__error__' in msg:
+                yield f"data: {json.dumps({'status': 'error', 'error': msg['__error__']})}\n\n"
+                break
+            yield f"data: {json.dumps(msg, default=str)}\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream")
 
 
 @app.get("/test")

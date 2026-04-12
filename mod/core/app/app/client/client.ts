@@ -13,7 +13,13 @@ export class Client {
 
   constructor(url?: string, token?: string) {
     const customUrl = typeof window !== 'undefined' ? localStorage.getItem('custom_node_url') : null;
-    this.url = url || customUrl || process.env.NEXT_PUBLIC_API_URL || modConfig.url.api || 'http://localhost:8000';
+    const baseUrl = url || customUrl || process.env.NEXT_PUBLIC_API_URL || modConfig.url.api || 'http://localhost:8000';
+    // Use Next.js proxy to avoid CORS issues in browsers (especially Safari)
+    if (typeof window !== 'undefined' && !url && !customUrl && baseUrl.includes('localhost')) {
+      this.url = '/api/proxy';
+    } else {
+      this.url = baseUrl;
+    }
     console.log('Client initialized with URL:', this.url);
     this.auth = new Auth(undefined);
     this.token = token;
@@ -47,18 +53,11 @@ export class Client {
     }
 
     try {
-      console.log('[Safari Debug] Making request to:', url);
-      console.log('[Safari Debug] Headers:', headers);
-      console.log('[Safari Debug] Body:', body);
-      console.log('[Safari Debug] Browser:', navigator.userAgent);
-
       const response = await fetch(url, {
         method: 'POST',
         headers: headers,
         body: body,
         signal: controller.signal,
-        mode: 'cors',
-        credentials: 'omit',
         cache: 'no-cache',
       });
 

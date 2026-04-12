@@ -54,6 +54,7 @@ export default function ChatInterface() {
   // Input state
   const [inputMode, setInputMode] = useState<'chat' | 'params'>('chat')
   const [selectedParam, setSelectedParam] = useState<string>('')
+  const [pastedImages, setPastedImages] = useState<string[]>([])
 
   // ── Session Management ──
 
@@ -194,6 +195,35 @@ export default function ChatInterface() {
     ))
   }, [])
 
+  // ── Image Paste Handling ──
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.type.indexOf('image') !== -1) {
+        e.preventDefault()
+        const blob = item.getAsFile()
+        if (blob) {
+          const reader = new FileReader()
+          reader.onload = (event) => {
+            const result = event.target?.result
+            if (typeof result === 'string') {
+              setPastedImages(prev => [...prev, result])
+            }
+          }
+          reader.readAsDataURL(blob)
+        }
+      }
+    }
+  }, [])
+
+  const removePastedImage = useCallback((index: number) => {
+    setPastedImages(prev => prev.filter((_, i) => i !== index))
+  }, [])
+
   // ── Submit & Cancel ──
 
   const handleCancel = useCallback(() => {
@@ -206,21 +236,24 @@ export default function ChatInterface() {
 
   const handleSubmit = useCallback(async () => {
     if (chatState.isLoading || !chatState.client) return
-    if (inputMode === 'chat' && !chatState.input.trim()) return
+    if (inputMode === 'chat' && !chatState.input.trim() && pastedImages.length === 0) return
 
     const finalParams = inputMode === 'chat'
       ? { ...chatState.params, [selectedParam]: chatState.input.trim() }
       : { ...chatState.params }
 
+    // Include pasted images in the message if any
     const userMessage: Message = {
       role: 'user',
       content: inputMode === 'chat' ? chatState.input.trim() : JSON.stringify(finalParams, null, 2),
       timestamp: Date.now(),
-      params: finalParams
+      params: finalParams,
+      images: pastedImages.length > 0 ? pastedImages : undefined
     }
 
     chatState.setMessages(prev => [...prev, userMessage])
     chatState.setInput('')
+    setPastedImages([])
     if (inputMode === 'params') {
       chatState.setParams({})
     }
@@ -267,7 +300,7 @@ export default function ChatInterface() {
       setAbortController(null)
       chatState.setIsLoading(false)
     }
-  }, [chatState, currentSessionId, inputMode, selectedParam])
+  }, [chatState, currentSessionId, inputMode, selectedParam, pastedImages])
 
   // Helper: call function and display result
   async function regularCall(fn: string, finalParams: Record<string, any>, streamingMessageId: number, userMessage: Message, module: any) {
@@ -388,11 +421,11 @@ export default function ChatInterface() {
           <div className="max-w-4xl mx-auto">
             {/* Function Controls Bar */}
             {chatState.selectedModules.length > 0 && combinedSchema && Object.keys(combinedSchema).length > 0 && (
-              <div className="px-6 pt-4 pb-2 flex items-center gap-3 border-b-2" style={{ borderColor: 'var(--border-color)' }}>
+              <div className="px-6 pt-5 pb-3 flex items-center gap-4 border-b-2" style={{ borderColor: 'var(--border-color)' }}>
                 <select
                   value={chatState.selectedFunction}
                   onChange={(e) => chatState.setSelectedFunction(e.target.value)}
-                  className="flex-1 max-w-md px-4 py-2.5 border-2 text-base font-digital focus:outline-none transition-all uppercase"
+                  className="flex-1 max-w-md px-5 py-3 border-2 text-lg font-digital focus:outline-none transition-all uppercase rounded-lg"
                   style={{
                     backgroundColor: 'var(--bg-input)',
                     borderColor: 'var(--border-input)',
@@ -407,12 +440,12 @@ export default function ChatInterface() {
 
                 {chatState.selectedFunction && fnSchema && (
                   <>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                       {(['chat', 'params'] as const).map(mode => (
                         <button
                           key={mode}
                           onClick={() => setInputMode(mode)}
-                          className="px-4 py-2 text-base font-digital font-bold transition-all border-2 uppercase"
+                          className="px-5 py-3 text-lg font-digital font-bold transition-all border-2 uppercase rounded-lg hover:scale-105"
                           style={{
                             backgroundColor: inputMode === mode ? 'var(--accent-primary)' : 'var(--bg-input)',
                             color: inputMode === mode ? 'var(--bg-primary)' : 'var(--text-secondary)',
@@ -425,12 +458,12 @@ export default function ChatInterface() {
                     </div>
 
                     {inputMode === 'chat' && (
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="text-base font-digital uppercase" style={{ color: 'var(--text-tertiary)' }}>Param:</span>
+                      <div className="flex items-center gap-3 flex-1">
+                        <span className="text-lg font-digital uppercase font-bold" style={{ color: 'var(--text-tertiary)' }}>Param:</span>
                         <select
                           value={selectedParam}
                           onChange={(e) => setSelectedParam(e.target.value)}
-                          className="px-3 py-1.5 text-base font-digital border-2"
+                          className="px-4 py-2 text-lg font-digital border-2 rounded-lg"
                           style={{
                             backgroundColor: 'var(--bg-input)',
                             borderColor: 'var(--border-input)',
@@ -450,7 +483,7 @@ export default function ChatInterface() {
                       </div>
                     )}
 
-                    <div className="text-base font-digital" style={{ color: 'var(--text-tertiary)' }}>
+                    <div className="text-lg font-digital font-bold" style={{ color: 'var(--text-tertiary)' }}>
                       {paramCount} params
                     </div>
                   </>
@@ -472,28 +505,54 @@ export default function ChatInterface() {
                           handleSubmit()
                         }
                       }}
+                      onPaste={handlePaste}
                       placeholder={`> ${selectedParam || 'message'}_`}
-                      rows={3}
+                      rows={4}
                       disabled={chatState.isLoading}
-                      className="relative w-full border-4 px-5 py-4 focus:outline-none resize-none text-xl transition-all font-digital"
+                      className="relative w-full border-4 px-6 py-5 focus:outline-none resize-none text-2xl transition-all font-digital leading-relaxed"
                       style={{
                         backgroundColor: 'var(--bg-input)',
                         borderColor: 'var(--border-strong)',
                         color: 'var(--text-primary)',
                         fontFamily: 'var(--font-digital), "JetBrains Mono", monospace',
                         letterSpacing: '0.02em',
+                        minHeight: '140px',
                       }}
                     />
+                    {pastedImages.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {pastedImages.map((img, idx) => (
+                          <div key={idx} className="relative group">
+                            <img
+                              src={img}
+                              alt={`Pasted ${idx + 1}`}
+                              className="max-w-xs max-h-32 rounded-lg border-2 object-cover"
+                              style={{ borderColor: 'var(--border-strong)' }}
+                            />
+                            <button
+                              onClick={() => removePastedImage(idx)}
+                              className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                              style={{
+                                backgroundColor: 'var(--accent-error, #ff4444)',
+                                color: '#ffffff',
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <SubmitButton isLoading={chatState.isLoading} disabled={!chatState.input.trim()} onSubmit={handleSubmit} onCancel={handleCancel} />
+                  <SubmitButton isLoading={chatState.isLoading} disabled={!chatState.input.trim() && pastedImages.length === 0} onSubmit={handleSubmit} onCancel={handleCancel} />
                 </div>
               ) : (
                 <div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                     {chatState.selectedFunction && fnSchema &&
                       Object.entries(inputFields).map(([paramName, paramSchema]: [string, any]) => (
-                        <div key={paramName} className="space-y-1.5">
-                          <label className="flex items-center gap-2 text-base font-digital" style={{ color: 'var(--text-secondary)' }}>
+                        <div key={paramName} className="space-y-2">
+                          <label className="flex items-center gap-3 text-lg font-digital" style={{ color: 'var(--text-secondary)' }}>
                             <span className="font-bold uppercase">{paramName}</span>
                             <span style={{ color: 'var(--text-tertiary)' }}>({paramSchema.type || 'any'})</span>
                           </label>
@@ -502,7 +561,7 @@ export default function ChatInterface() {
                             value={chatState.params[paramName] !== undefined ? chatState.params[paramName] : (paramSchema.value || '')}
                             onChange={(e) => chatState.setParams({ ...chatState.params, [paramName]: e.target.value })}
                             placeholder={`${paramName}...`}
-                            className="w-full px-4 py-2.5 text-base font-digital border-2 focus:outline-none transition-all"
+                            className="w-full px-5 py-3 text-lg font-digital border-2 focus:outline-none transition-all rounded-lg"
                             style={{
                               backgroundColor: 'var(--bg-input)',
                               borderColor: 'var(--border-input)',
@@ -538,15 +597,15 @@ function SubmitButton({ isLoading, disabled, onSubmit, onCancel }: {
     return (
       <button
         onClick={onCancel}
-        className="px-6 py-4 transition-all text-base font-bold border-4 flex items-center gap-3 flex-shrink-0 font-digital uppercase tracking-widest active:translate-x-[2px] active:translate-y-[2px]"
+        className="px-8 py-5 transition-all text-xl font-bold border-4 flex items-center gap-4 flex-shrink-0 font-digital uppercase tracking-widest active:translate-x-[2px] active:translate-y-[2px] rounded-xl"
         style={{
           backgroundColor: 'var(--accent-error, #ff4444)',
           color: '#ffffff',
           borderColor: 'var(--accent-error, #ff4444)',
-          boxShadow: '4px 4px 0px 0px var(--border-strong)',
+          boxShadow: '6px 6px 0px 0px var(--border-strong)',
         }}
       >
-        <span className="w-2.5 h-2.5 bg-white animate-pulse"></span>
+        <span className="w-3 h-3 bg-white rounded-full animate-pulse"></span>
         STOP
       </button>
     )
@@ -556,17 +615,17 @@ function SubmitButton({ isLoading, disabled, onSubmit, onCancel }: {
     <button
       onClick={onSubmit}
       disabled={disabled}
-      className="px-6 py-4 transition-all text-sm font-bold border-4 flex items-center gap-3 flex-shrink-0 font-digital uppercase tracking-widest active:translate-x-[2px] active:translate-y-[2px]"
+      className="px-8 py-5 transition-all text-xl font-bold border-4 flex items-center gap-4 flex-shrink-0 font-digital uppercase tracking-widest active:translate-x-[2px] active:translate-y-[2px] rounded-xl hover:scale-105"
       style={{
         backgroundColor: disabled ? 'var(--bg-input)' : 'var(--accent-primary)',
         color: disabled ? 'var(--text-tertiary)' : 'var(--bg-primary)',
         borderColor: disabled ? 'var(--border-color)' : 'var(--accent-primary)',
-        boxShadow: disabled ? 'none' : '4px 4px 0px 0px var(--border-strong)',
+        boxShadow: disabled ? 'none' : '6px 6px 0px 0px var(--border-strong)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
       }}
     >
-      <span className="text-lg">&#9654;</span>
+      <span className="text-2xl">&#9654;</span>
       SEND
     </button>
   )

@@ -30,6 +30,17 @@
         "token",
         "root",
         "registry",
-        "rm_mod"
+        "rm_mod",
+        "app_namespace",
+        "app_owner",
+        "is_app_owner",
+        "app_status",
+        "app_logs",
+        "new_app",
+        "serve_app",
+        "serve_status",
+        "kill_app",
+        "edit_app",
+        "remove_app"
     ]
 }

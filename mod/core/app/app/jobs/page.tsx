@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { userContext } from '@/context';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,7 @@ function timeSince(ts: number): string {
 }
 
 export default function JobsPage() {
+  const { client } = userContext();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [prompt, setPrompt] = useState('');
@@ -53,9 +55,22 @@ export default function JobsPage() {
   const outputRef = useRef<HTMLPreElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // Authenticated fetch to Claude Jobs API using core app token
+  const jobsFetch = useCallback(async (endpoint: string, options: RequestInit = {}) => {
+    const token = client?.token || '';
+    return fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'token': token,
+        'Content-Type': 'application/json',
+      },
+    });
+  }, [client?.token]);
+
   const fetchJobs = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/jobs`);
+      const res = await jobsFetch('/jobs');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setJobs(data.jobs || []);
@@ -86,9 +101,8 @@ export default function JobsPage() {
       const body: any = { prompt: prompt.trim(), model };
       if (workDir.trim()) body.work_dir = workDir.trim();
 
-      const res = await fetch(`${API_URL}/jobs`, {
+      const res = await jobsFetch('/jobs', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
@@ -135,12 +149,12 @@ export default function JobsPage() {
   };
 
   const cancelJob = async (id: string) => {
-    await fetch(`${API_URL}/jobs/${id}/cancel`, { method: 'POST' });
+    await jobsFetch(`/jobs/${id}/cancel`, { method: 'POST' });
     fetchJobs();
   };
 
   const deleteJob = async (id: string) => {
-    await fetch(`${API_URL}/jobs/${id}`, { method: 'DELETE' });
+    await jobsFetch(`/jobs/${id}`, { method: 'DELETE' });
     if (selectedJob === id) {
       setSelectedJob(null);
       setStreamOutput('');

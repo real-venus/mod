@@ -93,7 +93,7 @@ export default function CreateModPage() {
         signature: signature,
       }
 
-      const response = await client.call('reg', {mod: previewData})
+      const response = await client.call('reg', {mod: previewData}, true, {}, 120000)
       
       router.push(`/${response.name}`)
     } catch (err: any) {

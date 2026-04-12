@@ -33,10 +33,16 @@ class Modify:
     })
 
     def __init__(self, model: str = 'model.openrouter', **kwargs):
-        self.agent = m.mod('agent')(
-            goal=self.goal,
-            tools=self.tools,
-        )
+        self._agent = None
+
+    @property
+    def agent(self):
+        if self._agent is None:
+            self._agent = m.mod('agent')(
+                goal=self.goal,
+                skills=self.tools,
+            )
+        return self._agent
 
     def forward(self,
                 mod: str = None,
@@ -311,17 +317,22 @@ class Modify:
     def _build_modpy_prompt(self, path: str, name: str, scan: dict,
                             description: str = None) -> str:
         """Build the Claude prompt for generating mod.py."""
+        # Load protocol reference from skill.md
+        skill_path = os.path.join(os.path.dirname(__file__), '..', 'skill.md')
+        protocol_text = ''
+        if os.path.exists(skill_path):
+            with open(skill_path) as f:
+                protocol_text = f.read()
+
         parts = [f"""You are generating a mod.py class file to interface the folder at {path} as a module in the mod protocol.
 
-The mod protocol pattern:
-- Every module has a `class Mod` (or class named after the module) in a mod.py file
+{"## Mod Protocol Reference\n" + protocol_text if protocol_text else '''The mod protocol pattern:
+- Every module has a `class Mod` in a mod.py file
 - The class uses `import mod as m` to access framework utilities
 - Key interface: `forward()` as main entry, plus domain-specific methods
-- Common attributes: `description`, `fns` (list of public method names)
 - `__init__` takes **kwargs, sets `self._dir = os.path.dirname(__file__)`
-- Include a `test()` method that validates basic functionality
-- Include `info()` that returns module metadata
-- If the project has a server component, include `serve()` method
+- Include `test()`, `health()`, and `serve()` if server components exist
+'''}
 
 Module name: {name}
 Target directory: {path}
@@ -421,6 +432,280 @@ INSTRUCTIONS:
             if isinstance(step, dict) and step.get('error'):
                 return False
         return True
+
+    def ensure_serve(self, mod: str = None, fix: bool = True) -> Dict[str, Any]:
+        """
+        Ensure modules with scripts/start.sh have a serve() method in their mod.py.
+
+        Scans orbit modules (or a specific one) for start.sh without serve in fns.
+        If fix=True, injects a serve() method into the module's mod.py and adds
+        'serve' to config.json fns.
+
+        References the mod protocol skill.md for compliance.
+        """
+        orbit_dir = os.path.dirname(m.dp('modify'))
+        results = {'has_serve': [], 'added': [], 'skipped': [], 'errors': []}
+
+        if mod:
+            modules = [mod]
+        else:
+            modules = sorted(os.listdir(orbit_dir)) if os.path.isdir(orbit_dir) else []
+
+        # Load protocol reference
+        skill_path = os.path.join(os.path.dirname(__file__), '..', 'skill.md')
+        protocol_ref = ''
+        if os.path.exists(skill_path):
+            with open(skill_path) as f:
+                protocol_ref = f.read()
+
+        for name in modules:
+            if mod:
+                mod_dir = m.dp(name)
+            else:
+                mod_dir = os.path.join(orbit_dir, name)
+
+            if not os.path.isdir(mod_dir):
+                continue
+
+            # Check for start.sh
+            start_sh = os.path.join(mod_dir, 'scripts', 'start.sh')
+            if not os.path.exists(start_sh):
+                results['skipped'].append({'name': name, 'reason': 'no scripts/start.sh'})
+                continue
+
+            # Check config.json for serve in fns
+            cfg_path = os.path.join(mod_dir, 'config.json')
+            cfg = {}
+            if os.path.exists(cfg_path):
+                try:
+                    with open(cfg_path) as f:
+                        cfg = json.load(f)
+                except Exception:
+                    pass
+
+            fns = cfg.get('fns', [])
+            if 'serve' in fns:
+                results['has_serve'].append({'name': name})
+                continue
+
+            if not fix:
+                results['added'].append({'name': name, 'status': 'needs_serve'})
+                continue
+
+            # Find the module's mod.py
+            mod_py = os.path.join(mod_dir, name, 'mod.py')
+            if not os.path.exists(mod_py):
+                # Try flat layout
+                mod_py = os.path.join(mod_dir, 'mod.py')
+            if not os.path.exists(mod_py):
+                results['skipped'].append({'name': name, 'reason': 'no mod.py found'})
+                continue
+
+            # Read ports from config
+            port = cfg.get('port')
+            app_port = cfg.get('app_port')
+            mod_name = cfg.get('name', name)
+
+            # Generate serve() method
+            serve_code = self._generate_serve(mod_name, port, app_port)
+
+            try:
+                # Inject serve() into mod.py
+                with open(mod_py) as f:
+                    content = f.read()
+
+                if 'def serve(' in content:
+                    results['has_serve'].append({'name': name, 'note': 'serve exists in code but not in fns'})
+                    # Just add to fns
+                    if cfg and 'serve' not in fns:
+                        fns.append('serve')
+                        cfg['fns'] = fns
+                        with open(cfg_path, 'w') as f:
+                            json.dump(cfg, f, indent=2)
+                            f.write('\n')
+                    continue
+
+                # Find the last method in the class to append after
+                # Insert before the last line of the file (or before if __name__)
+                lines = content.rstrip().split('\n')
+                insert_idx = len(lines)
+
+                # Find a good insertion point: before if __name__ or at end
+                for i, line in enumerate(lines):
+                    if line.strip().startswith('if __name__'):
+                        insert_idx = i
+                        break
+
+                lines.insert(insert_idx, serve_code)
+                with open(mod_py, 'w') as f:
+                    f.write('\n'.join(lines) + '\n')
+
+                # Add serve to config fns
+                if cfg:
+                    if 'serve' not in fns:
+                        fns.append('serve')
+                        cfg['fns'] = fns
+                    with open(cfg_path, 'w') as f:
+                        json.dump(cfg, f, indent=2)
+                        f.write('\n')
+
+                results['added'].append({'name': name, 'mod_py': mod_py, 'status': 'added'})
+                print(f'[modify] Added serve() to {name}', color='green')
+
+            except Exception as e:
+                results['errors'].append({'name': name, 'error': str(e)})
+
+        print(f'[modify] ensure_serve: {len(results["has_serve"])} have serve, '
+              f'{len(results["added"])} added, {len(results["skipped"])} skipped',
+              color='cyan')
+        return results
+
+    def _generate_serve(self, name: str, port: int = None, app_port: int = None) -> str:
+        """Generate a serve() method body following mod protocol."""
+        return f'''
+    def serve(self, api_port=None, app_port=None):
+        """Start API server and app from config."""
+        import subprocess
+        from pathlib import Path
+
+        config = getattr(self, '_config', {{}})
+        api_port = api_port or config.get('port') or {port or 'None'}
+        app_port = app_port or config.get('app_port') or {app_port or 'None'}
+        root = os.path.join(os.path.dirname(__file__), '..')
+        log_dir = Path(f'/tmp/{name}')
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        for p in [api_port, app_port]:
+            if p:
+                subprocess.run(f'lsof -ti:{{p}} | xargs kill -9', shell=True, capture_output=True)
+
+        results = {{}}
+
+        server_dir = os.path.join(root, 'server')
+        if os.path.exists(os.path.join(server_dir, 'server.py')) and api_port:
+            env = os.environ.copy()
+            env['PYTHONPATH'] = os.path.join(root, '..', '..', '..')
+            subprocess.Popen(
+                ['python3', '-m', 'uvicorn', 'server:app',
+                 '--host', '0.0.0.0', '--port', str(api_port), '--reload'],
+                cwd=server_dir, env=env,
+                stdout=open(log_dir / 'api.log', 'w'),
+                stderr=subprocess.STDOUT,
+            )
+            results['api'] = f'http://localhost:{{api_port}}'
+
+        app_dir = os.path.join(root, 'app')
+        if os.path.exists(os.path.join(app_dir, 'package.json')) and app_port:
+            subprocess.Popen(
+                ['npx', 'next', 'dev', '-p', str(app_port)],
+                cwd=app_dir,
+                stdout=open(log_dir / 'app.log', 'w'),
+                stderr=subprocess.STDOUT,
+            )
+            results['app'] = f'http://localhost:{{app_port}}'
+
+        return results
+'''
+
+    def ensure_urls(self, mod: str = None, fix: bool = True, host: str = 'localhost') -> Dict[str, Any]:
+        """
+        Ensure modules have compliant urls map in config.json (mod protocol).
+
+        Scans all orbit modules (or a specific one) that have port/app_port
+        and ensures they have a proper urls: {api, app} map.
+
+        Args:
+            mod: specific module name to check (None = all orbit modules)
+            fix: if True, write missing urls into config.json
+            host: hostname for generated URLs (default: localhost)
+
+        Returns:
+            dict with compliant, fixed, and skipped module lists
+        """
+        orbit_dir = os.path.dirname(m.dp('modify'))
+        results = {'compliant': [], 'fixed': [], 'skipped': [], 'errors': []}
+
+        if mod:
+            modules = [mod]
+        else:
+            modules = sorted(os.listdir(orbit_dir)) if os.path.isdir(orbit_dir) else []
+
+        for name in modules:
+            if mod:
+                mod_dir = m.dp(name)
+            else:
+                mod_dir = os.path.join(orbit_dir, name)
+
+            cfg_path = os.path.join(mod_dir, 'config.json')
+            if not os.path.exists(cfg_path):
+                results['skipped'].append({'name': name, 'reason': 'no config.json'})
+                continue
+
+            try:
+                with open(cfg_path) as f:
+                    cfg = json.load(f)
+            except Exception as e:
+                results['errors'].append({'name': name, 'error': str(e)})
+                continue
+
+            port = cfg.get('port')
+            app_port = cfg.get('app_port')
+
+            # Skip modules without any port defined
+            if not port and not app_port:
+                results['skipped'].append({'name': name, 'reason': 'no port'})
+                continue
+
+            urls = cfg.get('urls', {})
+            has_api = isinstance(urls, dict) and urls.get('api')
+            has_app = isinstance(urls, dict) and urls.get('app')
+
+            if has_api and has_app:
+                results['compliant'].append({
+                    'name': name,
+                    'urls': urls,
+                })
+                continue
+
+            # Needs fixing
+            if not fix:
+                results['fixed'].append({
+                    'name': name,
+                    'status': 'needs_fix',
+                    'port': port,
+                    'app_port': app_port,
+                })
+                continue
+
+            # Build urls map from ports
+            new_urls = {}
+            if port:
+                new_urls['api'] = f'http://{host}:{port}'
+            if app_port:
+                new_urls['app'] = f'http://{host}:{app_port}'
+            elif port:
+                # Default app port = api port + 1 if not specified
+                new_urls['app'] = f'http://{host}:{int(port) + 1}'
+
+            cfg['urls'] = new_urls
+            try:
+                with open(cfg_path, 'w') as f:
+                    json.dump(cfg, f, indent=2)
+                    f.write('\n')
+                results['fixed'].append({
+                    'name': name,
+                    'urls': new_urls,
+                    'status': 'fixed',
+                })
+                print(f'[modify] Fixed urls for {name}: {new_urls}', color='green')
+            except Exception as e:
+                results['errors'].append({'name': name, 'error': str(e)})
+
+        total = len(results['compliant']) + len(results['fixed'])
+        print(f'[modify] ensure_urls: {len(results["compliant"])} compliant, '
+              f'{len(results["fixed"])} fixed, {len(results["skipped"])} skipped',
+              color='cyan')
+        return results
 
     def test(self):
         """Test with a dry suggestion."""

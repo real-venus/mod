@@ -12,19 +12,54 @@ interface ModApiTabProps {
   moduleColor?: string
 }
 
+// Built-in system functions available on every module
+const BUILTIN_FUNCTIONS: Record<string, any> = {
+  serve: {
+    docs: 'Start the module server',
+    input: [],
+    output: 'dict',
+    _builtin: true,
+  },
+  kill: {
+    docs: 'Stop the module server',
+    input: [],
+    output: 'dict',
+    _builtin: true,
+  },
+  edit: {
+    docs: 'Edit the module code with AI (claude/forward)',
+    input: [{ name: 'query', type: 'str', value: '' }],
+    output: 'dict',
+    _builtin: true,
+  },
+}
+
 export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
-  const { client } = userContext()
+  const { client, user } = userContext()
   const modColor = moduleColor || text2color(mod.name || mod.key)
   const schema: Record<string, any> = mod.schema && typeof mod.schema === 'object' ? mod.schema as Record<string, any> : {}
-  const functions = Object.keys(schema)
+  // Merge module schema with built-in functions (builtins at end)
+  const allSchema = useMemo(() => ({ ...schema, ...BUILTIN_FUNCTIONS }), [schema])
+  const functions = Object.keys(allSchema)
 
-  const [selectedFn, setSelectedFn] = useState<string>(functions[0] || '')
+  const [selectedFn, setSelectedFn] = useState<string>(Object.keys(schema)[0] || functions[0] || '')
   const [params, setParams] = useState<Record<string, any>>({})
   const [result, setResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCode, setShowCode] = useState(false)
   const [codeLang, setCodeLang] = useState<'python' | 'javascript' | 'curl'>('python')
+  const [search, setSearch] = useState('')
+
+  const filteredFunctions = useMemo(() => {
+    if (!search.trim()) return functions
+    const q = search.toLowerCase()
+    return functions.filter((fn) => {
+      const fnSchema = allSchema[fn]
+      const docs = fnSchema?.docs || ''
+      return fn.toLowerCase().includes(q) || docs.toLowerCase().includes(q)
+    })
+  }, [functions, allSchema, search])
 
   const apiUrl = getModApiUrl(mod)
 
@@ -36,14 +71,30 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
     setParams({})
   }
 
+  const isBuiltin = (fn: string) => !!BUILTIN_FUNCTIONS[fn]
+
   const handleExecute = async () => {
     if (!client || !selectedFn) return
     setLoading(true)
     setError(null)
     setResult(null)
     try {
-      const fn = `${mod.name}/${selectedFn}`
-      const res = await client.call(fn, params)
+      let res: any
+      if (selectedFn === 'serve') {
+        res = await client.call(`${mod.name}/serve`, params)
+      } else if (selectedFn === 'kill') {
+        res = await client.call('kill_app', { name: mod.name })
+      } else if (selectedFn === 'edit') {
+        res = await client.call('claude/forward', {
+          query: params.query || '',
+          mod: mod.name,
+          key: user?.key || mod.key,
+          background: true,
+        }, true, {}, 60000)
+      } else {
+        const fn = `${mod.name}/${selectedFn}`
+        res = await client.call(fn, params)
+      }
       setResult(res)
     } catch (err: any) {
       setError(err?.message || 'Execution failed')
@@ -60,7 +111,7 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
   }
 
   const generateCode = (fn: string, lang: 'python' | 'javascript' | 'curl'): string => {
-    const fnSchema = schema[fn]
+    const fnSchema = allSchema[fn]
     if (!fnSchema) return ''
     const inputs: { name: string; type: string; value: any }[] = Array.isArray(fnSchema.input)
       ? fnSchema.input.filter((p: any) => p.name !== 'kwargs' && p.name !== 'self')
@@ -122,50 +173,109 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
       <div className="flex gap-0 mt-0">
         {/* Function list sidebar */}
         <div
-          className="w-56 max-h-[600px] overflow-y-auto py-2"
+          className="w-60 max-h-[600px] flex flex-col"
           style={{
             backgroundColor: 'var(--bg-surface)',
             borderRight: '1px solid var(--border-color)',
             borderBottom: '1px solid var(--border-color)',
             borderLeft: '1px solid var(--border-color)',
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'var(--scrollbar-thumb) transparent',
           }}
         >
-          <div className="px-3 mb-2">
-            <h3
-              className="text-[10px] font-bold tracking-wider uppercase"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              Functions
-            </h3>
-          </div>
-          {functions.map((fn) => {
-            const isActive = selectedFn === fn
-            const fnSchema = (schema as Record<string, any>)[fn]
-            const inputCount = Array.isArray(fnSchema?.input) ? fnSchema.input.filter((p: any) => p.name !== 'kwargs' && p.name !== 'self').length : 0
-            return (
-              <button
-                key={fn}
-                onClick={() => handleFnSelect(fn)}
-                className="w-full text-left px-3 py-2 text-[11px] font-mono font-medium transition-all"
+          {/* Search input */}
+          <div className="px-2 pt-2 pb-1">
+            <div className="relative">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="search functions..."
+                className="w-full text-[11px] font-mono px-2.5 py-1.5 pl-7 outline-none"
                 style={{
-                  backgroundColor: isActive ? 'var(--bg-input)' : 'transparent',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  border: isActive ? '1px solid var(--border-color)' : '1px solid transparent',
+                  backgroundColor: 'var(--bg-input)',
+                  border: `1px solid ${search ? colorWithOpacity(modColor, 0.4) : 'var(--border-color)'}`,
+                  color: 'var(--text-primary)',
+                  caretColor: modColor,
                 }}
+              />
+              <span
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px]"
+                style={{ color: 'var(--text-tertiary)' }}
               >
-                <div className="flex items-center justify-between">
-                  <span className="truncate">{fn}</span>
-                  {inputCount > 0 && (
-                    <span className="text-[9px] ml-1 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-                      ({inputCount})
-                    </span>
-                  )}
-                </div>
-              </button>
-            )
-          })}
+                /
+              </span>
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] px-1"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <div className="flex items-center justify-between mt-1.5 px-0.5">
+              <span className="text-[9px] font-bold tracking-wider uppercase" style={{ color: 'var(--text-tertiary)' }}>
+                Functions
+              </span>
+              <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+                {filteredFunctions.length}/{functions.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Function list */}
+          <div
+            className="flex-1 overflow-y-auto py-1"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'var(--scrollbar-thumb) transparent',
+            }}
+          >
+            {filteredFunctions.length === 0 ? (
+              <div className="px-3 py-4 text-center">
+                <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                  no matches for "{search}"
+                </span>
+              </div>
+            ) : (
+              filteredFunctions.map((fn) => {
+                const isActive = selectedFn === fn
+                const fnSchema = allSchema[fn]
+                const builtin = isBuiltin(fn)
+                const inputCount = Array.isArray(fnSchema?.input) ? fnSchema.input.filter((p: any) => p.name !== 'kwargs' && p.name !== 'self').length : 0
+                const docs = fnSchema?.docs ? fnSchema.docs.split('\n')[0].trim() : ''
+                return (
+                  <button
+                    key={fn}
+                    onClick={() => handleFnSelect(fn)}
+                    className="w-full text-left px-3 py-1.5 text-[11px] font-mono font-medium transition-all group"
+                    style={{
+                      backgroundColor: isActive ? colorWithOpacity(modColor, 0.08) : 'transparent',
+                      color: isActive ? modColor : builtin ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+                      borderLeft: isActive ? `2px solid ${modColor}` : '2px solid transparent',
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="truncate">{builtin ? `⚙ ${fn}` : fn}</span>
+                      {inputCount > 0 && (
+                        <span className="text-[9px] ml-1 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                          ({inputCount})
+                        </span>
+                      )}
+                    </div>
+                    {docs && (
+                      <div
+                        className="text-[9px] mt-0.5 truncate"
+                        style={{ color: 'var(--text-tertiary)', opacity: isActive ? 0.8 : 0.5 }}
+                      >
+                        {docs.slice(0, 50)}
+                      </div>
+                    )}
+                  </button>
+                )
+              })
+            )}
+          </div>
         </div>
 
         {/* Execution panel */}
@@ -190,9 +300,9 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
                   <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>
                     {selectedFn}
                   </span>
-                  {schema[selectedFn]?.docs && (
+                  {allSchema[selectedFn]?.docs && (
                     <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                      {schema[selectedFn].docs.split('\n')[0].trim().slice(0, 80)}
+                      {allSchema[selectedFn].docs.split('\n')[0].trim().slice(0, 80)}
                     </span>
                   )}
                 </div>
@@ -251,10 +361,10 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
 
               {/* Params */}
               <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-primary)' }}>
-                {schema[selectedFn] && (
+                {allSchema[selectedFn] && (
                   <SchemaParamsPanel
                     selectedFunction={selectedFn}
-                    schema={schema}
+                    schema={allSchema}
                     params={params}
                     handleParamChange={handleParamChange}
                     handleResetParams={handleResetParams}
@@ -280,7 +390,7 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
                       <span>EXECUTING...</span>
                     </>
                   ) : (
-                    <span>EXECUTE</span>
+                    <span>{isBuiltin(selectedFn) ? `⚡ EXECUTE ${selectedFn.toUpperCase()}` : 'EXECUTE'}</span>
                   )}
                 </button>
 
@@ -319,7 +429,21 @@ export default function ModApiTab({ mod, moduleColor }: ModApiTabProps) {
                       className="flex items-center justify-between px-4 py-2"
                       style={{ borderBottom: '1px solid var(--border-color)' }}
                     >
-                      <span className="text-[11px] font-bold" style={{ color: modColor }}>[RES]</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] font-bold" style={{ color: modColor }}>[RES]</span>
+                        {/* Show CID if present */}
+                        {result && typeof result === 'object' && result.cid && (
+                          <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                            CID: {result.cid}
+                          </span>
+                        )}
+                        {/* Show job ID if present */}
+                        {result && typeof result === 'object' && result.id && !result.cid && (
+                          <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                            JOB: {typeof result.id === 'string' ? result.id.slice(0, 12) + '...' : result.id}
+                          </span>
+                        )}
+                      </div>
                       <CopyButton content={typeof result === 'string' ? result : JSON.stringify(result, null, 2)} />
                     </div>
                     <pre

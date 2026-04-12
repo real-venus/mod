@@ -238,7 +238,7 @@ export const Reg = ( ) => {
       }
 
       // Fire and forget - don't wait for response
-      client.call('reg', {mod: previewData, token: client.token})
+      client.call('reg', {mod: previewData, token: client.token}, true, {}, 120000)
 
       const timestamp = Date.now()
       setSignatureInfo({

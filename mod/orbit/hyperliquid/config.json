@@ -5,7 +5,6 @@
   "fns": [
     "forward",
     "serve",
-    "app",
     "kill",
     "status",
     "fetch_market_data",
@@ -89,14 +88,6 @@
       "output": {"type": "Dict", "value": null},
       "docs": "Comprehensive vault analysis (details, performance)"
     }
-  },
-  "api": {
-    "port": 8919,
-    "entrypoint": "uvicorn api:app --host 0.0.0.0 --port 8919"
-  },
-  "app": {
-    "port": 3919,
-    "framework": "nextjs"
   },
   "urls": {
     "api": "http://localhost:8919",

@@ -22,6 +22,7 @@ import { MetaMaskProvider } from '@/wallet/MetaMaskProvider'
 import { ThemeInitializer } from '@/themes/ThemeInitializer'
 import { NavSidebar } from '@/wallet/sidebar/NavSidebar'
 import { TopBar } from '@/header/TopBar'
+import { EditSidebar, EDIT_SIDEBAR_WIDTH } from '@/mod/edit/EditSidebar'
 
 function ThemedToast() {
   const { effectiveTheme } = useTheme()
@@ -54,7 +55,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     isCollapsed,
   } = useSplitScreenContext()
 
-  const { isHeaderMode, isHeaderCollapsed } = useLayoutContext()
+  const { isHeaderMode, isHeaderCollapsed, isEditSidebarOpen } = useLayoutContext()
   const pathname = usePathname()
 
   useEffect(() => {
@@ -71,11 +72,13 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     : 'border-b-2 border-green-500/30'
 
   return (
-    <div className="flex h-screen transition-all duration-200" style={{ paddingTop: isHeaderCollapsed ? '6px' : '64px', paddingLeft: isHeaderCollapsed ? '0px' : 'var(--sidebar-width, 220px)', backgroundColor: 'var(--bg-primary)', transition: 'padding-top 0.2s ease, padding-left 0.2s ease' }}>
+    <div className="flex h-screen transition-all duration-200" style={{ paddingTop: isHeaderCollapsed ? '6px' : '64px', paddingLeft: isHeaderCollapsed ? '0px' : 'var(--sidebar-width, 220px)', paddingRight: isEditSidebarOpen ? `${EDIT_SIDEBAR_WIDTH}px` : '0px', backgroundColor: 'var(--bg-primary)', transition: 'padding-top 0.2s ease, padding-left 0.2s ease, padding-right 0.2s ease' }}>
       {/* Navigation sidebar */}
       <NavSidebar />
       {/* Top bar */}
       <TopBar />
+      {/* Edit sidebar */}
+      <EditSidebar />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col">

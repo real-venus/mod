@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import time
 from datetime import datetime
-from hyperliquid.mod import HyperliquidMod
+from mod import HyperliquidMod
 
 try:
     # Try to import mod framework from orbit parent
@@ -51,7 +51,7 @@ API_SECRET = os.getenv("HYPERLIQUID_API_SECRET", "")
 
 # Initialize Hyperliquid client
 try:
-    from hyperliquid.mod import HyperliquidMod
+    from mod import HyperliquidMod
     hl = HyperliquidMod(
         api_key=API_KEY if API_KEY else None,
         api_secret=API_SECRET if API_SECRET else None,

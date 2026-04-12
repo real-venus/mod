@@ -92,25 +92,23 @@ class Tree:
                key=None, orbit='all', **kwargs) -> Dict[str, str]:
         """Search the tree for a mod."""
         if orbit == 'all':
+            result = {}
             for o in self.orbits + ['local']:
-                result = self.search(search=search, tree=None, depth=depth,
+                _r = self.search(search=search, tree=None, depth=depth,
                                      max_depth=max_depth, key=key, orbit=o, **kwargs)
-                if result:
-                    return result
-            return {}
+                if isinstance(_r, dict):
+                    result.update(_r)
+            # sort by shortest path
+            result = dict(sorted(result.items(), key=lambda item: len(item[0])))
+            return result
 
         search = search.lower().replace('/', '.')
         tree = tree or self.tree(depth=depth, orbit=orbit, key=key, **kwargs)
         if search is None:
             return tree
-        if key is not None:
-            key_address = self.mod.key_address(key)
-            tree = {k: v for k, v in tree.items() if k.startswith(key_address)}
-
         tree_options = [k for k in tree if self.filter_fn(k, search)]
         if tree_options:
-            tree_options = sorted(tree_options, key=lambda k: len(k.split('/')))
-            return {k: tree[k] for k in tree_options}
+            return {k: tree[k] for k in sorted(tree_options, key=lambda k: len(k))}
         elif depth < max_depth:
             return self.search(search=search, tree=None, depth=depth + 1,
                                max_depth=max_depth, orbit=orbit, **kwargs)

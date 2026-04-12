@@ -1,33 +1,95 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
-import { parseEther } from 'viem'
+import { usePreFi } from '@/hooks/usePreFi'
 
-export default function PredictionForm() {
+interface PredictionFormProps {
+  selectedMarketId?: number | null
+  onPredictionPlaced?: () => void
+}
+
+export default function PredictionForm({ selectedMarketId, onPredictionPlaced }: PredictionFormProps) {
   const { address } = useAccount()
+  const { markets, placePrediction, isLoading, getTokenBalance } = usePreFi()
   const [predictedPrice, setPredictedPrice] = useState('')
   const [collateralAmount, setCollateralAmount] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [marketId, setMarketId] = useState<number | null>(null)
+  const [balance, setBalance] = useState('0')
+
+  const activeMarkets = markets.filter(m => !m.settled && m.endTime > Date.now() / 1000)
+
+  useEffect(() => {
+    if (selectedMarketId) {
+      setMarketId(selectedMarketId)
+    } else if (activeMarkets.length > 0 && !marketId) {
+      setMarketId(activeMarkets[0].id)
+    }
+  }, [selectedMarketId, activeMarkets.length])
+
+  useEffect(() => {
+    if (address) {
+      getTokenBalance().then(setBalance)
+    }
+  }, [address])
+
+  const selectedMarket = markets.find(m => m.id === marketId)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    if (!marketId || !predictedPrice || !collateralAmount) return
 
-    // TODO: Implement contract interaction
-    console.log('Submitting prediction:', {
-      predictedPrice: parseEther(predictedPrice || '0'),
-      collateralAmount: parseEther(collateralAmount || '0'),
-    })
-
-    setTimeout(() => {
-      setIsLoading(false)
-      alert('Contract interaction will be available after deployment!')
-    }, 1000)
+    const success = await placePrediction(marketId, predictedPrice, collateralAmount)
+    if (success) {
+      setPredictedPrice('')
+      setCollateralAmount('')
+      onPredictionPlaced?.()
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="glass-card rounded-2xl p-8 space-y-6 card-hover">
+      {/* Market selector */}
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm font-bold text-gray-300 uppercase tracking-wide">
+          <span>🎯</span> Select Market
+        </label>
+        {activeMarkets.length > 0 ? (
+          <select
+            value={marketId || ''}
+            onChange={(e) => setMarketId(Number(e.target.value))}
+            className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-5 py-4 text-white text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none transition-all"
+          >
+            {activeMarkets.map(m => (
+              <option key={m.id} value={m.id}>
+                #{m.id} — {m.asset}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="bg-gray-900/50 border border-gray-700 rounded-xl px-5 py-4 text-gray-500">
+            No active markets available
+          </div>
+        )}
+      </div>
+
+      {selectedMarket && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-gray-400">Asset:</span>
+              <span className="ml-2 font-bold text-blue-300">{selectedMarket.asset}</span>
+            </div>
+            <div>
+              <span className="text-gray-400">Ends:</span>
+              <span className="ml-2 font-bold text-green-300">
+                {new Date(selectedMarket.endTime * 1000).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm font-bold text-gray-300 uppercase tracking-wide">
           <span>💰</span> Predicted Price
@@ -46,12 +108,12 @@ export default function PredictionForm() {
             USD
           </span>
         </div>
-        <p className="text-xs text-gray-500 pl-1">Enter your price prediction for the current epoch</p>
+        <p className="text-xs text-gray-500 pl-1">Enter your price prediction for this market</p>
       </div>
 
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm font-bold text-gray-300 uppercase tracking-wide">
-          <span>🔒</span> Collateral Amount
+          <span>🔒</span> Stake Amount
         </label>
         <div className="relative">
           <input
@@ -64,10 +126,12 @@ export default function PredictionForm() {
             required
           />
           <span className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">
-            ETH
+            TOKEN
           </span>
         </div>
-        <p className="text-xs text-gray-500 pl-1">Higher stakes increase your potential rewards</p>
+        <p className="text-xs text-gray-500 pl-1">
+          Balance: {parseFloat(balance).toFixed(4)} tokens — Higher stakes increase your potential rewards
+        </p>
       </div>
 
       <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
@@ -76,8 +140,7 @@ export default function PredictionForm() {
           <div className="flex-1">
             <h4 className="font-bold text-blue-300 mb-1">L2 Distance Scoring</h4>
             <p className="text-sm text-gray-300">
-              Rewards are calculated based on prediction accuracy and stake amount.
-              The closer your prediction to the actual price, the higher your reward.
+              Score = stake / (1 + distance²). The closer your prediction to the actual price, the higher your share of the reward pool.
             </p>
           </div>
         </div>
@@ -85,7 +148,7 @@ export default function PredictionForm() {
 
       <button
         type="submit"
-        disabled={isLoading || !predictedPrice || !collateralAmount}
+        disabled={isLoading || !predictedPrice || !collateralAmount || !marketId}
         className="w-full btn-shine text-white font-bold py-4 px-8 rounded-xl transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-50 shadow-lg hover:shadow-xl disabled:shadow-none"
       >
         {isLoading ? (
@@ -105,7 +168,7 @@ export default function PredictionForm() {
 
       <div className="text-center">
         <p className="text-xs text-gray-500">
-          By placing a prediction, you agree to lock your collateral until epoch settlement
+          By placing a prediction, you agree to lock your collateral until market settlement
         </p>
       </div>
     </form>

@@ -6,11 +6,9 @@ import { WalletHeader } from '@/wallet/WalletHeader'
 import { useSearchContext } from '@/context/SearchContext'
 import { userContext } from '@/context'
 import { useLayoutContext } from '@/context/LayoutContext'
-import Link from 'next/link'
 import { text2color, colorWithOpacity, shorten } from '@/utils'
 import { clearModsCache } from '@/mod/explore/ModExplorePage'
-import { ModCardSettings } from '@/mod/ModCardSettings'
-import { X } from 'lucide-react'
+import { X, Wrench } from 'lucide-react'
 
 const COMMANDS = ['/search', '/ask', '/run'] as const
 
@@ -76,7 +74,7 @@ export function TopBar() {
   const router = useRouter()
   const { handleSearch, searchFilters } = useSearchContext()
   const { user, client } = userContext()
-  const { isHeaderCollapsed, toggleHeaderCollapsed } = useLayoutContext()
+  const { isHeaderCollapsed, toggleHeaderCollapsed, isEditSidebarOpen, toggleEditSidebar } = useLayoutContext()
   const inputRef = useRef<HTMLInputElement>(null)
   const [inputValue, setInputValue] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
@@ -126,7 +124,14 @@ export function TopBar() {
   }, [])
 
   // Listen for module info (fnCount, key, cid, allOwners) from ModulePage
-  const [moduleInfo, setModuleInfo] = useState<{ fnCount: number; key: string; cid: string; url_app?: string; allOwners?: any[] } | null>(null)
+  const [moduleInfo, setModuleInfo] = useState<{ fnCount: number; key: string; cid: string; url_app?: string; url_api?: string; allOwners?: any[]; isRunning?: boolean; myMod?: boolean; isCreator?: boolean } | null>(null)
+  const [servingAction, setServingAction] = useState(false)
+  const [showServeDialog, setShowServeDialog] = useState(false)
+  const [servePort, setServePort] = useState('')
+  const [serveApiPort, setServeApiPort] = useState('')
+  const [serveResult, setServeResult] = useState<any>(null)
+  const [similarServers, setSimilarServers] = useState<any>(null)
+  const serveDialogRef = useRef<HTMLDivElement>(null)
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false)
   const ownerDropdownRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -143,10 +148,22 @@ export function TopBar() {
       if (showOwnerDropdown && ownerDropdownRef.current && !ownerDropdownRef.current.contains(e.target as Node)) {
         setShowOwnerDropdown(false)
       }
+      if (showServeDialog && serveDialogRef.current && !serveDialogRef.current.contains(e.target as Node)) {
+        setShowServeDialog(false)
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [showOwnerDropdown])
+  }, [showOwnerDropdown, showServeDialog])
+
+  // Fetch similar servers when serve dialog opens
+  useEffect(() => {
+    if (showServeDialog && client && activeModule) {
+      client.call('serve_status', { name: activeModule }).then((res: any) => {
+        if (res && !res.error) setSimilarServers(res)
+      }).catch(() => {})
+    }
+  }, [showServeDialog, client, activeModule])
 
   // Reset when leaving module page
   useEffect(() => {
@@ -157,21 +174,6 @@ export function TopBar() {
     }
   }, [activeModule])
 
-  // Mods toolbar state (synced from ModExplorePage via events)
-  const isModsPage = pathname === '/mods'
-  const [modsState, setModsState] = useState<{
-    sort: string; columns: number; owners: string[]; selectedOwners: string[]; totalMods: number
-  } | null>(null)
-
-  useEffect(() => {
-    const handler = (e: CustomEvent) => setModsState(e.detail)
-    window.addEventListener('mods:state' as any, handler)
-    return () => window.removeEventListener('mods:state' as any, handler)
-  }, [])
-
-  useEffect(() => {
-    if (!isModsPage) setModsState(null)
-  }, [isModsPage])
 
   useEffect(() => {
     setInputValue(searchFilters.searchTerm || '')
@@ -397,143 +399,27 @@ export function TopBar() {
   }
 
   const availableTabs = [
-    'api',
-    ...(moduleInfo?.url_app ? ['app'] : []),
-    'config', 'content', 'edit', 'manage', 'server', 'task', 'terminal', 'versions',
+    'app', 'api', 'config', 'content', 'edit', 'terminal', 'server',
   ]
 
   // On a module page: show module info + tabs, search collapses to icon
   const showModuleBar = activeModule && !searchExpanded
-  const showModsToolbar = isModsPage && modsState && !activeModule
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-[70] flex items-center"
+      className="fixed top-0 left-0 z-[70] flex items-center"
       style={{
+        right: isEditSidebarOpen ? '420px' : '0px',
         height: '48px',
         background: 'var(--bg-header)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--border-color)',
-        transition: 'height 0.2s ease',
+        transition: 'height 0.2s ease, right 0.2s ease',
       }}
     >
       <div className="flex items-center flex-1 pl-3 pr-2 gap-3 min-w-0">
-        {showModsToolbar ? (
-          /* Mods toolbar: count + search bar + settings */
-          <div className="flex items-center gap-2.5 flex-1 min-w-0" style={{ fontFamily: 'var(--font-digital), monospace' }}>
-            {/* Title + count pill */}
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
-                MODS
-              </span>
-              <span
-                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                style={{
-                  color: 'var(--text-tertiary)',
-                  backgroundColor: 'var(--bg-input)',
-                  border: '1px solid var(--border-color)',
-                  minWidth: '24px',
-                  textAlign: 'center',
-                }}
-              >
-                {modsState.totalMods}
-              </span>
-            </div>
-
-            <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
-
-            {/* Search bar - always visible */}
-            <div
-              className="flex items-center flex-1 transition-all"
-              style={{
-                maxWidth: '400px',
-                height: '32px',
-                backgroundColor: searchFocused ? 'var(--bg-input)' : 'transparent',
-                border: searchFocused ? '1px solid rgba(167, 139, 250, 0.3)' : '1px solid var(--border-color)',
-                borderRadius: '8px',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <div
-                className="flex items-center justify-center flex-shrink-0 pl-2.5 pr-1 cursor-pointer select-none"
-                onClick={() => inputRef.current?.focus()}
-                style={{ height: '100%' }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={searchFocused ? 'var(--accent-primary)' : 'var(--text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'all 0.15s ease' }}>
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-                </svg>
-              </div>
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputValue}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                placeholder="search modules..."
-                className="flex-1 bg-transparent focus:outline-none min-w-0"
-                style={{
-                  height: '100%',
-                  fontSize: '13px',
-                  fontFamily: 'var(--font-digital), monospace',
-                  color: 'var(--text-primary)',
-                  caretColor: 'var(--accent-primary)',
-                  padding: '0 8px 0 0',
-                }}
-              />
-              {/* Active search pill inside input */}
-              {searchFilters.searchTerm && (
-                <button
-                  onClick={() => { handleSearch(''); setInputValue('') }}
-                  className="flex items-center gap-1.5 mr-2 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 transition-all"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))',
-                    border: '1px solid rgba(167, 139, 250, 0.25)',
-                    color: 'var(--text-primary)',
-                  }}
-                >
-                  <span style={{ opacity: 0.8 }}>{searchFilters.searchTerm}</span>
-                  <X size={8} style={{ opacity: 0.5 }} />
-                </button>
-              )}
-              {!searchFocused && !inputValue && !searchFilters.searchTerm && (
-                <kbd
-                  className="flex-shrink-0 mr-2 px-1.5 py-0.5"
-                  style={{
-                    fontSize: '10px',
-                    fontFamily: 'var(--font-digital), monospace',
-                    backgroundColor: 'var(--hover-bg)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '3px',
-                    color: 'var(--text-tertiary)',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  ⌘K
-                </kbd>
-              )}
-            </div>
-
-            <div className="flex-1" />
-
-            {/* Settings */}
-            <div className="flex items-center gap-2.5">
-              <div className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'var(--border-color)', opacity: 0.3 }} />
-              <ModCardSettings
-                sort={modsState.sort as any}
-                onSortChange={(s) => window.dispatchEvent(new CustomEvent('mods:sort-change', { detail: s }))}
-                columns={modsState.columns}
-                onColumnsChange={(c) => window.dispatchEvent(new CustomEvent('mods:columns-change', { detail: c }))}
-                owners={modsState.owners}
-                selectedOwners={modsState.selectedOwners}
-                onToggleOwner={(o) => window.dispatchEvent(new CustomEvent('mods:toggle-owner', { detail: o }))}
-                onClearFilters={() => window.dispatchEvent(new Event('mods:clear-filters'))}
-              />
-            </div>
-          </div>
-        ) : showModuleBar ? (
+        {showModuleBar ? (
           /* Module bar: name + meta + tabs */
           <div className="flex items-center gap-4 flex-1 min-w-0" style={{ fontFamily: 'var(--font-digital), monospace' }}>
             {/* Search icon to expand (far left) */}
@@ -696,11 +582,12 @@ export function TopBar() {
             <div className="flex items-center gap-1 min-w-0 overflow-x-auto scrollbar-none">
               {availableTabs.map((tab) => {
                 const isActive = moduleTab === tab
+                const tabUrl = tab === 'app' ? moduleInfo?.url_app : tab === 'api' ? moduleInfo?.url_api : undefined
                 return (
                   <button
                     key={tab}
                     onClick={() => handleTabClick(tab)}
-                    className="px-2.5 py-1 font-bold uppercase tracking-wider transition-all flex-shrink-0"
+                    className="px-2.5 py-1 font-bold uppercase tracking-wider transition-all flex-shrink-0 flex items-center gap-1.5"
                     style={{
                       fontSize: '12px',
                       fontFamily: 'var(--font-digital), monospace',
@@ -720,6 +607,169 @@ export function TopBar() {
                 )
               })}
             </div>
+
+            {/* Serve / Kill button */}
+            {moduleInfo?.myMod && (
+              moduleInfo.isRunning ? (
+                <button
+                  onClick={async () => {
+                    if (!client || !activeModule) return
+                    setServingAction(true)
+                    try {
+                      await client.call('kill_app', { name: activeModule })
+                      // ModulePage will reload and re-broadcast
+                    } catch {}
+                    setServingAction(false)
+                  }}
+                  disabled={servingAction}
+                  className="flex-shrink-0 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-all"
+                  style={{
+                    fontFamily: 'var(--font-digital), monospace',
+                    border: '1px solid #ef4444',
+                    color: '#ef4444',
+                    background: servingAction ? 'transparent' : 'rgba(239,68,68,0.08)',
+                    opacity: servingAction ? 0.5 : 1,
+                  }}
+                  title="Kill module server"
+                >
+                  {servingAction ? '...' : 'KILL'}
+                </button>
+              ) : (
+                <div className="relative flex-shrink-0" ref={serveDialogRef}>
+                  <button
+                    onClick={() => setShowServeDialog(!showServeDialog)}
+                    disabled={servingAction}
+                    className="flex-shrink-0 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-all"
+                    style={{
+                      fontFamily: 'var(--font-digital), monospace',
+                      border: '1px solid #10b981',
+                      color: '#10b981',
+                      background: servingAction ? 'transparent' : 'rgba(16,185,129,0.08)',
+                      opacity: servingAction ? 0.5 : 1,
+                    }}
+                    title="Serve module"
+                  >
+                    {servingAction ? '...' : 'SERVE'}
+                  </button>
+                  {showServeDialog && (
+                    <div
+                      className="absolute right-0 top-full mt-1 z-[100] p-3 flex flex-col gap-2"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        fontFamily: 'var(--font-digital), monospace',
+                        minWidth: '260px',
+                      }}
+                    >
+                      <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Port Config</div>
+                      <div className="flex gap-2 items-center">
+                        <label className="text-[10px] w-8" style={{ color: 'var(--text-secondary)' }}>API</label>
+                        <input
+                          type="number"
+                          placeholder="auto"
+                          value={serveApiPort}
+                          onChange={e => setServeApiPort(e.target.value)}
+                          className="flex-1 px-2 py-1 text-[11px]"
+                          style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-digital), monospace' }}
+                        />
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <label className="text-[10px] w-8" style={{ color: 'var(--text-secondary)' }}>APP</label>
+                        <input
+                          type="number"
+                          placeholder="auto"
+                          value={servePort}
+                          onChange={e => setServePort(e.target.value)}
+                          className="flex-1 px-2 py-1 text-[11px]"
+                          style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-digital), monospace' }}
+                        />
+                      </div>
+                      {/* Similar servers from namespace */}
+                      {similarServers && (Object.keys(similarServers.api_servers || {}).length > 0 || Object.keys(similarServers.app_servers || {}).length > 0) && (
+                        <div className="mt-1">
+                          <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Running Servers</div>
+                          {Object.entries(similarServers.api_servers || {}).map(([name, addr]: [string, any]) => (
+                            <div key={`api-${name}`} className="flex justify-between text-[10px] py-0.5" style={{ color: '#10b981' }}>
+                              <span>{name}</span>
+                              <span style={{ color: 'var(--text-tertiary)' }}>{typeof addr === 'string' ? addr : addr?.url || ''}</span>
+                            </div>
+                          ))}
+                          {Object.entries(similarServers.app_servers || {}).map(([name, data]: [string, any]) => (
+                            <div key={`app-${name}`} className="flex justify-between text-[10px] py-0.5" style={{ color: '#3b82f6' }}>
+                              <span>{name}</span>
+                              <span style={{ color: 'var(--text-tertiary)' }}>{data?.url || ''}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {serveResult && (
+                        <div className="text-[10px] py-1" style={{ color: serveResult.error ? '#ef4444' : '#10b981' }}>
+                          {serveResult.error || `Started on port ${serveResult.port || serveResult.api_port || '?'}`}
+                        </div>
+                      )}
+                      <button
+                        onClick={async () => {
+                          if (!client || !activeModule) return
+                          setServingAction(true)
+                          setServeResult(null)
+                          try {
+                            const params: any = { name: activeModule }
+                            if (servePort) params.port = parseInt(servePort)
+                            if (serveApiPort) params.api_port = parseInt(serveApiPort)
+                            const res = await client.call('serve_app', params)
+                            setServeResult(res)
+                            if (!res?.error) setShowServeDialog(false)
+                          } catch (err: any) {
+                            setServeResult({ error: err?.message || 'Failed' })
+                          }
+                          setServingAction(false)
+                        }}
+                        disabled={servingAction}
+                        className="w-full px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider"
+                        style={{
+                          border: '1px solid #10b981',
+                          color: '#000',
+                          background: '#10b981',
+                          opacity: servingAction ? 0.5 : 1,
+                          fontFamily: 'var(--font-digital), monospace',
+                        }}
+                      >
+                        {servingAction ? 'STARTING...' : 'START'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+
+            {/* Running status dot */}
+            {moduleInfo && !moduleInfo.myMod && (
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{
+                  background: moduleInfo.isRunning ? '#10b981' : '#6b7280',
+                  boxShadow: moduleInfo.isRunning ? '0 0 6px #10b981' : 'none',
+                }}
+                title={moduleInfo.isRunning ? 'Running' : 'Not running'}
+              />
+            )}
+
+            {/* Suggest button — shown when user is a creator of another version but not the current owner */}
+            {moduleInfo?.isCreator && !moduleInfo.myMod && (
+              <button
+                onClick={() => handleTabClick('edit')}
+                className="flex-shrink-0 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-all"
+                style={{
+                  fontFamily: 'var(--font-digital), monospace',
+                  border: `1px solid ${colorWithOpacity(moduleColor, 0.5)}`,
+                  color: moduleColor,
+                  background: colorWithOpacity(moduleColor, 0.08),
+                }}
+                title="Suggest changes to this version"
+              >
+                SUGGEST
+              </button>
+            )}
 
             {/* Fork button */}
             {user && (
@@ -887,43 +937,37 @@ export function TopBar() {
 
       {/* Right section */}
       <div className="flex items-center pr-3 gap-2">
-        {/* + CREATE MOD button on mods page */}
-        {showModsToolbar && (
-          <Link
-            href="/create"
-            className="shrink-0 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all flex items-center rounded-full"
-            style={{
-              background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))',
-              color: 'var(--text-primary)',
-              fontFamily: 'var(--font-digital)',
-              border: '1px solid rgba(167, 139, 250, 0.2)',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(167, 139, 250, 0.25), rgba(103, 232, 249, 0.12))' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.2)'; e.currentTarget.style.background = 'linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(103, 232, 249, 0.08))' }}
-          >
-            + CREATE
-          </Link>
-        )}
-        {/* Build module button */}
+        {/* Wrench button: edit sidebar on module pages, build dropdown otherwise */}
         {user && (
           <button
-            onClick={() => { setShowBuild(!showBuild); setShowFork(false) }}
+            onClick={() => {
+              if (activeModule) {
+                toggleEditSidebar()
+              } else {
+                setShowBuild(!showBuild)
+                setShowFork(false)
+              }
+            }}
             className="flex items-center justify-center flex-shrink-0 mr-1"
             style={{
               width: '28px',
               height: '28px',
-              background: showBuild ? 'var(--text-primary)' : 'transparent',
-              border: '1px solid var(--border-color)',
+              background: (activeModule ? isEditSidebarOpen : showBuild)
+                ? (activeModule ? colorWithOpacity(moduleColor, 0.2) : 'var(--text-primary)')
+                : 'transparent',
+              border: (activeModule && isEditSidebarOpen)
+                ? `1px solid ${colorWithOpacity(moduleColor, 0.5)}`
+                : '1px solid var(--border-color)',
               borderRadius: '4px',
               cursor: 'pointer',
-              color: showBuild ? 'var(--bg-primary)' : 'var(--text-tertiary)',
+              color: (activeModule ? isEditSidebarOpen : showBuild)
+                ? (activeModule ? moduleColor : 'var(--bg-primary)')
+                : 'var(--text-tertiary)',
               transition: 'all 0.15s ease',
             }}
-            title="Build new module"
+            title={activeModule ? `Edit ${activeModule}` : 'Build new module'}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-            </svg>
+            <Wrench size={15} />
           </button>
         )}
         <WalletHeader />
@@ -1019,10 +1063,13 @@ export function TopBar() {
                       {templateSearch ? 'NO MATCHES' : 'NO MODULES FOUND'}
                     </div>
                   )
+                  const nameCounts: Record<string, number> = {}
+                  filtered.forEach((t: any) => { nameCounts[t.name] = (nameCounts[t.name] || 0) + 1 })
                   return filtered.map((t: any) => {
                     const isSelected = buildBase === t.name
                     const tColor = text2color(t.name)
                     const fnCount = t.schema ? Object.keys(t.schema).length : 0
+                    const isDupe = nameCounts[t.name] > 1
                     return (
                       <button
                         key={`${t.name}-${t.key}`}
@@ -1045,6 +1092,11 @@ export function TopBar() {
                         >
                           {t.name}
                         </span>
+                        {isDupe && t.key && (
+                          <span className="text-[10px] truncate flex-shrink-0 opacity-50" style={{ color: 'var(--text-tertiary)' }}>
+                            {t.key.slice(0, 6)}...{t.key.slice(-4)}
+                          </span>
+                        )}
                         {fnCount > 0 && (
                           <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
                             {fnCount} fn
