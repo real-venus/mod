@@ -1,13 +1,19 @@
-# base
+# embedcode
 
-A minimal example mod showing the standard module structure.
+Generate and search embeddings of code using local models.
 
 ## Structure
 
 ```
-base/
-├── base/
-│   └── mod.py    # Anchor file with Mod class
+embedcode/
+├── embedcode/
+│   ├── mod.py        # Core: embed, search, serve/kill/status
+│   ├── api.py        # FastAPI gateway
+│   ├── config.json   # Ports & schema
+│   └── app/          # Next.js frontend
+│       └── src/app/
+│           ├── layout.tsx
+│           └── page.tsx
 └── README.md
 ```
 
@@ -16,33 +22,43 @@ base/
 ```python
 import mod as m
 
-# Load and run
-base = m.mod('base')()
-result = base.forward(3, 4)  # 7
+ec = m.mod('embedcode')()
+
+# Embed a codebase
+ec.embed(path='./src')
+
+# Search by meaning
+results = ec.search(query='authentication middleware')
+
+# List collections
+ec.collections()
 ```
 
 ```bash
 # CLI
-m base forward a=3 b=4
+m embedcode embed path=./src
+m embedcode search query="error handling"
+m embedcode serve
+m embedcode app
+m embedcode status
+m embedcode kill
 ```
 
-## Creating a New Mod
+## API
 
-Every mod follows this pattern:
-
-1. Create a directory: `orbit/<name>/<name>/mod.py`
-2. Define a `Mod` class with a `description` and a `forward` method:
-
-```python
-class Mod:
-    description = """
-    What your mod does
-    """
-
-    def forward(self, **kwargs):
-        """Entry point for the mod."""
-        # your logic here
-        return result
+```
+POST /embed       - embed a path
+POST /search      - semantic search
+GET  /collections - list collections
+GET  /health      - health check
+GET  /status      - module status
 ```
 
-The `forward` method is the default entry point called when the mod is invoked. Additional methods can be called via `m.fn('name/method')()`.
+## Model
+
+Uses `sentence-transformers/all-MiniLM-L6-v2` by default (384-dim, runs locally). Pass `model='...'` to use a different model.
+
+## Ports
+
+- API: `8920`
+- App: `3920`
