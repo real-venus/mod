@@ -1,0 +1,27 @@
+{
+  "full-review": {
+    "name": "Full Review",
+    "description": "Architecture review then code review",
+    "steps": [
+      {"agent": "architect", "prompt": "Analyze the architecture and structure of this project"},
+      {"agent": "reviewer", "prompt": "Review the code quality based on the architecture analysis"}
+    ]
+  },
+  "debug-fix": {
+    "name": "Debug & Fix",
+    "description": "Debug the issue then build the fix",
+    "steps": [
+      {"agent": "debugger", "prompt": "Find the root cause of this issue"},
+      {"agent": "builder", "prompt": "Fix the issue based on the debug analysis"}
+    ]
+  },
+  "plan-build-review": {
+    "name": "Plan, Build, Review",
+    "description": "Full pipeline: architect, build, then review",
+    "steps": [
+      {"agent": "architect", "prompt": "Design the implementation plan"},
+      {"agent": "builder", "prompt": "Implement the plan"},
+      {"agent": "reviewer", "prompt": "Review the implementation"}
+    ]
+  }
+}
