@@ -87,6 +87,11 @@ def health():
 def status():
     return get_bridge().status()
 
+@app.post("/status")
+def status_post():
+    """POST alias for /status (app compatibility)."""
+    return get_bridge().status()
+
 @app.get("/owner")
 def owner():
     return {"owner": get_bridge().owner()}
@@ -104,6 +109,11 @@ def in_snapshot(address: str):
 
 @app.get("/balances")
 def balances():
+    return get_bridge().get_total_balances()
+
+@app.post("/get_total_balances")
+def get_total_balances_post():
+    """POST alias for /balances (app compatibility)."""
     return get_bridge().get_total_balances()
 
 
@@ -126,6 +136,11 @@ def unclaimed(address: str):
 
 @app.get("/claims")
 def claims():
+    return get_bridge().get_claims()
+
+@app.post("/get_claims")
+def get_claims_post():
+    """POST alias for /claims (app compatibility)."""
     return get_bridge().get_claims()
 
 @app.get("/claims_array")
@@ -162,6 +177,11 @@ def update_commitment(req: UpdateCommitmentRequest):
 
 @app.get("/commitments")
 def commitments():
+    return get_bridge().get_commitments()
+
+@app.post("/get_commitments")
+def get_commitments_post():
+    """POST alias for /commitments (app compatibility)."""
     return get_bridge().get_commitments()
 
 @app.get("/commitment/{source_address}")

@@ -1,10 +1,12 @@
 """
 StakeTime — Delegated staking + Consensus (pluggable) on EVM (Base Sepolia).
 
-Contracts:
+Primitives:
   Subnet     — ERC20 native token (each subnet IS a token)
-  StakeTime  — Stake Subnet tokens ON validators, earn STT
+  Staking    — Stake Subnet tokens ON validators, earn STT
   Consensus  — Mints new Subnet tokens as emissions each epoch
+  Inflation  — Pluggable emission curves (halving, flat, linear, sigmoid)
+  Registry   — Competitive 420-slot subnet directory
 
 Usage:
   m.fn('staketime/status')()
@@ -64,12 +66,12 @@ class Mod:
 
     def compile(self):
         _run('npx hardhat compile', cwd=str(self.module_dir))
-        st_abi = self.module_dir / 'artifacts' / 'src' / 'contracts' / 'StakeTime.sol' / 'StakeTime.json'
+        st_abi = self.module_dir / 'artifacts' / 'src' / 'contracts' / 'Staking.sol' / 'Staking.json'
         sub_abi = self.module_dir / 'artifacts' / 'src' / 'contracts' / 'Subnet.sol' / 'Subnet.json'
         con_abi = self.module_dir / 'artifacts' / 'src' / 'contracts' / 'consensus' / 'yuma' / 'ConsensusYuma.sol' / 'ConsensusYuma.json'
         return {
             'compiled': True,
-            'stakeTime_abi': str(st_abi),
+            'staking_abi': str(st_abi),
             'subnet_abi': str(sub_abi),
             'consensus_abi': str(con_abi),
         }
@@ -193,7 +195,7 @@ class Mod:
         else:
             # Fallback: first available network
             for key in contracts:
-                if isinstance(contracts[key], dict) and 'stakeTime' in contracts[key]:
+                if isinstance(contracts[key], dict) and ('staking' in contracts[key] or 'stakeTime' in contracts[key]):
                     deploy = contracts[key]
                     break
             else:
@@ -216,14 +218,15 @@ class Mod:
         )
         return w3, contract, account
 
-    def _load_staketime(self):
+    def _load_staking(self):
         from web3 import Web3
         w3, deploy, account = self._load_deployment()
-        abi_path = self.module_dir / 'artifacts' / 'src' / 'contracts' / 'StakeTime.sol' / 'StakeTime.json'
+        addr = deploy.get('staking') or deploy.get('stakeTime')
+        abi_path = self.module_dir / 'artifacts' / 'src' / 'contracts' / 'Staking.sol' / 'Staking.json'
         with open(abi_path) as f:
             artifact = json.load(f)
         contract = w3.eth.contract(
-            address=Web3.to_checksum_address(deploy['stakeTime']),
+            address=Web3.to_checksum_address(addr),
             abi=artifact['abi'],
         )
         return w3, contract, account
@@ -254,30 +257,30 @@ class Mod:
         receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
         return {'success': receipt.status == 1, 'tx_hash': tx_hash.hex()}
 
-    # ── StakeTime: Validator methods ──────────────────────────────────
+    # ── Staking: Validator methods ───────────────────────────────────
 
     def register(self, key, key_type=0, commission_bps=1000):
-        """Register a validator (via StakeTime)."""
+        """Register a validator (via Staking)."""
         return self._send_tx(
-            self._load_staketime,
+            self._load_staking,
             lambda c: c.functions.registerValidatorAdmin(key, key_type, commission_bps),
         )
 
-    # ── StakeTime: Staking methods ────────────────────────────────────
+    # ── Staking: Staking methods ──────────────────────────────────────
 
     def stake_on(self, validator_key, amount, lock_blocks=0):
-        """Stake Subnet tokens on a validator (via StakeTime)."""
+        """Stake Subnet tokens on a validator (via Staking)."""
         from web3 import Web3
         amount_wei = Web3.to_wei(amount, 'ether') if isinstance(amount, (int, float)) else int(amount)
         return self._send_tx(
-            self._load_staketime,
+            self._load_staking,
             lambda c: c.functions.stakeOn(validator_key, amount_wei, lock_blocks),
         )
 
     def unstake_from(self, stake_id):
-        """Unstake a position after lock period (via StakeTime)."""
+        """Unstake a position after lock period (via Staking)."""
         return self._send_tx(
-            self._load_staketime,
+            self._load_staking,
             lambda c: c.functions.unstakeFrom(stake_id),
         )
 
@@ -330,11 +333,11 @@ class Mod:
             lambda c: c.functions.claimValidatorRewards(key, to),
         )
 
-    # ── StakeTime: Views ──────────────────────────────────────────────
+    # ── Staking: Views ────────────────────────────────────────────────
 
     def validator(self, key):
-        """Get validator info from StakeTime."""
-        _, contract, _ = self._load_staketime()
+        """Get validator info from Staking."""
+        _, contract, _ = self._load_staking()
         r = contract.functions.getValidator(key).call()
         return {
             'key': r[0], 'keyType': r[1],
@@ -343,7 +346,7 @@ class Mod:
         }
 
     def stake_position(self, stake_id):
-        _, contract, _ = self._load_staketime()
+        _, contract, _ = self._load_staking()
         r = contract.functions.getStakePosition(stake_id).call()
         return {
             'staker': r[0], 'validatorKeyHash': r[1].hex(),
@@ -354,17 +357,17 @@ class Mod:
 
     def user_stakes(self, address):
         from web3 import Web3
-        _, contract, _ = self._load_staketime()
+        _, contract, _ = self._load_staking()
         return contract.functions.getUserStakeIds(
             Web3.to_checksum_address(address)
         ).call()
 
     def validator_stakes(self, key):
-        _, contract, _ = self._load_staketime()
+        _, contract, _ = self._load_staking()
         return contract.functions.getValidatorStakeIds(key).call()
 
     def validator_total_stake_time(self, key):
-        _, contract, _ = self._load_staketime()
+        _, contract, _ = self._load_staking()
         return str(contract.functions.getValidatorTotalStakeTime(key).call())
 
     # ── Consensus: Views ──────────────────────────────────────────────
@@ -521,3 +524,24 @@ class Mod:
         except Exception:
             pass
         return info
+
+    # ── API client ────────────────────────────────────────────────────
+
+    def call(self, fn='health', params=None, timeout=10):
+        """Call the staketime FastAPI server directly via HTTP."""
+        import requests as req
+        url = f'http://localhost:{self.api_port}/{fn}'
+        method = 'GET' if fn == 'health' else 'POST'
+        try:
+            if method == 'GET':
+                resp = req.get(url, timeout=timeout)
+            else:
+                resp = req.post(url, json=params or {}, timeout=timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except req.ConnectionError:
+            return {'error': f'API not running on port {self.api_port}. Run serve() first.'}
+        except Exception as e:
+            return {'error': str(e)}
+
+    c = call

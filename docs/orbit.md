@@ -13,6 +13,7 @@ The orbit ecosystem contains 200+ pluggable modules. Each module lives in `mod/o
 | `model` | Model management and routing |
 | `model.openrouter` | OpenRouter API proxy for multi-model access |
 | `skill` | Skill-based task execution |
+| `search` | LLM-powered module search — find the best module for any task (free tier) |
 | `arena` | AI arena (stub) |
 
 ### Storage & Data

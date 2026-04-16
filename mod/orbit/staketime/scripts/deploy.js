@@ -15,42 +15,53 @@ async function main() {
   const subnetAddress = await subnet.getAddress();
   console.log(`Subnet (ERC20) deployed to: ${subnetAddress}`);
 
-  // ── 2. Deploy StakeTime (consensus mechanism) ───────────────────
+  // ── 2. Deploy Staking (validator registration + staking) ──────────
   const maxLockBlocks = 100000;
   const maxStakersPerValidator = 100;
   const defaultCommissionBps = 1000;   // 10%
+
+  const Staking = await hre.ethers.getContractFactory("Staking");
+  const staking = await Staking.deploy(
+    subnetAddress,       // nativeToken (staked token)
+    maxLockBlocks,
+    maxStakersPerValidator,
+    defaultCommissionBps,
+    send({})
+  );
+  await staking.waitForDeployment();
+  const stakingAddress = await staking.getAddress();
+  console.log(`Staking deployed to: ${stakingAddress}`);
+
+  // ── 3. Deploy ConsensusYuma (scoring + emissions) ─────────────────
   const epochLength = 43200;           // ~1 day on Base
   const emissionRate = hre.ethers.parseEther("100"); // 100 tokens per epoch
   const decayBps = 500;                              // 5% decay
 
-  const StakeTime = await hre.ethers.getContractFactory("StakeTime");
-  const stakeTime = await StakeTime.deploy(
-    subnetAddress,       // nativeToken (staked token)
+  const ConsensusYuma = await hre.ethers.getContractFactory("ConsensusYuma");
+  const consensus = await ConsensusYuma.deploy(
     subnetAddress,       // subnet (emission token)
-    maxLockBlocks,
-    maxStakersPerValidator,
-    defaultCommissionBps,
-    epochLength,
+    stakingAddress,      // staking contract (reads validator/stake data)
     emissionRate,
     decayBps,
+    epochLength,
     send({})
   );
-  await stakeTime.waitForDeployment();
-  const stakeTimeAddress = await stakeTime.getAddress();
-  console.log(`StakeTime deployed to: ${stakeTimeAddress}`);
+  await consensus.waitForDeployment();
+  const consensusAddress = await consensus.getAddress();
+  console.log(`ConsensusYuma deployed to: ${consensusAddress}`);
 
-  // ── 3. Wire permissions ─────────────────────────────────────────
-  // StakeTime mints new Subnet tokens for emissions
-  await (await subnet.setMinter(stakeTimeAddress, send({}))).wait();
-  console.log(`Subnet minter set to StakeTime`);
+  // ── 4. Wire permissions ───────────────────────────────────────────
+  // ConsensusYuma mints new Subnet tokens for emissions
+  await (await subnet.setMinter(consensusAddress, send({}))).wait();
+  console.log(`Subnet minter set to ConsensusYuma`);
 
-  // ── 4. Deploy governance token for Registry ─────────────────────
+  // ── 5. Deploy governance token for Registry ───────────────────────
   const govToken = await Subnet.deploy("Governance", "GOV", hre.ethers.parseEther("10000000"), send({}));
   await govToken.waitForDeployment();
   const govTokenAddress = await govToken.getAddress();
   console.log(`Governance token deployed to: ${govTokenAddress}`);
 
-  // ── 5. Deploy Registry ──────────────────────────────────────────
+  // ── 6. Deploy Registry ────────────────────────────────────────────
   const immunityPeriod = 43200;
   const registrationCost = hre.ethers.parseEther("1000");
 
@@ -60,13 +71,12 @@ async function main() {
   const registryAddress = await registry.getAddress();
   console.log(`Registry deployed to: ${registryAddress}`);
 
-  // ── 6. Register genesis subnet ──────────────────────────────────
-  // StakeTime IS the consensus — pass same address for both stakeTime and consensus
+  // ── 7. Register genesis subnet ────────────────────────────────────
   await (await govToken.approve(registryAddress, registrationCost, send({}))).wait();
-  await (await registry.registerSubnet("genesis", subnetAddress, stakeTimeAddress, stakeTimeAddress, send({}))).wait();
+  await (await registry.registerSubnet("genesis", subnetAddress, stakingAddress, consensusAddress, send({}))).wait();
   console.log(`Genesis subnet registered (locked ${hre.ethers.formatEther(registrationCost)} GOV)`);
 
-  // ── 7. Save deployment info (network-specific) ─────────────────
+  // ── 8. Save deployment info (network-specific) ────────────────────
   const fs = require("fs");
   const path = require("path");
   const configPath = path.join(__dirname, "..", "config.json");
@@ -80,10 +90,10 @@ async function main() {
   if (!config.contracts) config.contracts = {};
   config.contracts[network] = {
     subnet: subnetAddress,
-    stakeTime: stakeTimeAddress,
+    staking: stakingAddress,
+    consensus: consensusAddress,
     governanceToken: govTokenAddress,
     registry: registryAddress,
-    address: subnetAddress,
     chainId: hre.network.config.chainId,
     emissionRate: emissionRate.toString(),
     decayBps,

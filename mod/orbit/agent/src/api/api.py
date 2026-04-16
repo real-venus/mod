@@ -50,6 +50,7 @@ class RunRequest(BaseModel):
     skills: Optional[List[str]] = None
     temperature: float = 0.0
     safety: bool = False
+    free: bool = False
     agent: Optional[str] = None
     agent_type: Optional[str] = None
     chain: Optional[List[dict]] = None
@@ -271,6 +272,7 @@ def run_agent(req: RunRequest):
                     agent_type=step_agent,
                     temperature=req.temperature,
                     safety=req.safety,
+                    free=req.free,
                 )
                 summary = ""
                 if isinstance(result, list):
@@ -293,6 +295,7 @@ def run_agent(req: RunRequest):
             agent_type=resolved_agent,
             temperature=req.temperature,
             safety=req.safety,
+            free=req.free,
         )
         return {"query": req.query, "agent_type": resolved_agent, "result": result}
     except PermissionError as e:

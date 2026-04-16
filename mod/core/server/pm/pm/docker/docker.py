@@ -374,12 +374,14 @@ class PM:
         """
         return name in self.ps()
         
-    def kill(self, name: str, update=True) -> Dict[str, str]:
+    def kill(self, name: str, update=True, prefix: bool = False) -> Dict[str, str]:
         """
-        Kill and remove a container.
+        Kill and remove a container. If prefix=True, kill all containers matching the prefix.
         """
         if name == 'all':
             return self.kill_all()
+        if prefix:
+            return self.kill_prefix(name, update=update)
         if not self.server_exists(name):
             return {'status': 'not_found', 'name': name}
         servers = self.ps(search=name)
@@ -399,6 +401,30 @@ class PM:
             self.kill(child, update=update)
         self.registry.dereg(name)
         return result
+
+    def kill_prefix(self, prefix: str, update=True) -> Dict[str, str]:
+        """Kill all Docker containers whose name starts with the given prefix."""
+        matches = [s for s in self.ps() if s.startswith(prefix)]
+        if not matches:
+            return {'status': 'no_matches', 'prefix': prefix, 'killed': []}
+        killed = []
+        errors = []
+        for name in matches:
+            try:
+                self.kill(name, update=False)
+                killed.append(name)
+            except Exception as e:
+                print(f'Error killing {name}: {e}', color='red')
+                errors.append(name)
+        if update and killed:
+            self.sync()
+        print(f"Killed {len(killed)}/{len(matches)} containers with prefix '{prefix}'", color='green')
+        return {
+            'status': 'killed' if not errors else 'partial',
+            'prefix': prefix,
+            'killed': killed,
+            'errors': errors
+        }
     
 
 

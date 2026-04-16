@@ -7,6 +7,8 @@ contracts on Base Sepolia.
 
 import json
 import os
+import re
+import subprocess
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, HTTPException
@@ -16,19 +18,20 @@ from web3 import Web3
 
 app = FastAPI(title="StakeTime API", description="Delegated staking + Yuma consensus emissions")
 
+_cors_origins = os.environ.get("MOD_CORS_ORIGINS", "http://localhost:*,http://127.0.0.1:*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept", "Authorization", "token"],
 )
 
 # ── Config ───────────────────────────────────────────────────────────────
 
 MODULE_DIR = Path(__file__).parent.parent.parent
 DEPLOY_PATH = MODULE_DIR / "config.json"
-ST_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "StakeTime.sol" / "StakeTime.json"
+ST_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "Staking.sol" / "Staking.json"
 INC_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "consensus" / "yuma" / "ConsensusYuma.sol" / "ConsensusYuma.json"
 NTV_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "Subnet.sol" / "Subnet.json"
 REG_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "Registry.sol" / "Registry.json"
@@ -55,7 +58,7 @@ def _deploy():
         return contracts[network]
     # Fallback: first available network
     for key in contracts:
-        if isinstance(contracts[key], dict) and "stakeTime" in contracts[key]:
+        if isinstance(contracts[key], dict) and ("staking" in contracts[key] or "stakeTime" in contracts[key]):
             return contracts[key]
     return data
 
@@ -64,11 +67,14 @@ def load_staketime():
     deploy = _deploy()
     if not deploy or not ST_ABI_PATH.exists():
         return None, None, None
+    addr = deploy.get("staking") or deploy.get("stakeTime")
+    if not addr:
+        return None, None, None
     w3 = _w3()
     with open(ST_ABI_PATH) as f:
         abi = json.load(f)["abi"]
     contract = w3.eth.contract(
-        address=Web3.to_checksum_address(deploy["stakeTime"]),
+        address=Web3.to_checksum_address(addr),
         abi=abi,
     )
     return w3, contract, _account(w3)
@@ -111,6 +117,20 @@ def load_registry():
         abi = json.load(f)["abi"]
     contract = w3.eth.contract(
         address=Web3.to_checksum_address(deploy["registry"]),
+        abi=abi,
+    )
+    return w3, contract, _account(w3)
+
+
+def load_governance_token():
+    deploy = _deploy()
+    if not deploy or not NTV_ABI_PATH.exists() or "governanceToken" not in deploy:
+        return None, None, None
+    w3 = _w3()
+    with open(NTV_ABI_PATH) as f:
+        abi = json.load(f)["abi"]
+    contract = w3.eth.contract(
+        address=Web3.to_checksum_address(deploy["governanceToken"]),
         abi=abi,
     )
     return w3, contract, _account(w3)
@@ -168,6 +188,20 @@ class RegisterSubnetReq(BaseModel):
 class SubnetIdReq(BaseModel):
     subnet_id: int
 
+class GenerateSubnetReq(BaseModel):
+    prompt: str
+
+class DeploySubnetReq(BaseModel):
+    name: str
+    symbol: str
+    initial_supply: str = "1000000"
+    max_lock_blocks: int = 100000
+    max_stakers_per_validator: int = 100
+    default_commission_bps: int = 1000
+    epoch_length: int = 43200
+    emission_rate: str = "100"
+    decay_bps: int = 500
+
 
 # ── Incentive endpoints ──────────────────────────────────────────────────
 
@@ -177,13 +211,14 @@ async def get_consensus():
     if not contract:
         raise HTTPException(status_code=500, detail="Contract not deployed")
     r = contract.functions.getBlock().call()
+    decay = contract.functions.decayBps().call()
     return {"result": {
         "currentBlock": r[0],
         "lastEmissionBlock": r[1],
         "totalBlocktime": r[2],
         "emissionRate": str(r[3]),
-        "decayBps": r[4],
-        "epochLength": r[5],
+        "epochLength": r[4],
+        "decayBps": decay,
     }}
 
 
@@ -426,10 +461,11 @@ async def get_subnets():
                 "id": s[0],
                 "owner": s[1],
                 "name": s[2],
-                "stakeTime": s[3],
-                "incentive": s[4],
-                "registeredBlock": s[5],
-                "active": s[6],
+                "subnet": s[3],
+                "stakeTime": s[4],
+                "consensus": s[5],
+                "registeredBlock": s[6],
+                "active": s[7],
                 "stakeScore": str(score),
                 "immune": immune,
             })
@@ -453,11 +489,11 @@ async def register_subnet(req: RegisterSubnetReq):
     if not contract or not account:
         raise HTTPException(status_code=500, detail="Registry not deployed or no signer")
     try:
-        # Approve NativeToken for registration cost
+        # Approve governance token for registration cost
         cost = contract.functions.getRegistrationCost().call()
         if cost > 0:
-            _, ntv, _ = load_native_token()
-            _send_tx(w3, ntv.functions.approve(contract.address, cost), account)
+            _, gov, _ = load_governance_token()
+            _send_tx(w3, gov.functions.approve(contract.address, cost), account)
 
         result = _send_tx(w3, contract.functions.registerSubnet(
             req.name,
@@ -494,10 +530,11 @@ async def get_subnet(req: SubnetIdReq):
         "id": r[0],
         "owner": r[1],
         "name": r[2],
-        "stakeTime": r[3],
-        "incentive": r[4],
-        "registeredBlock": r[5],
-        "active": r[6],
+        "subnet": r[3],
+        "stakeTime": r[4],
+        "consensus": r[5],
+        "registeredBlock": r[6],
+        "active": r[7],
         "stakeScore": str(score),
         "immune": immune,
     }}
@@ -514,6 +551,175 @@ async def get_weakest_subnet():
         "score": str(weak_score),
         "found": found,
     }}
+
+
+SUBNET_SYSTEM_PROMPT = """You generate subnet deployment parameters for a staking protocol. Given a user's description, output ONLY a JSON object with these fields (no markdown, no explanation):
+
+{
+  "name": "Human-readable subnet name",
+  "symbol": "3-5 char token ticker",
+  "initialSupply": "initial token supply in whole tokens (e.g. '1000000')",
+  "maxLockBlocks": integer max lock duration in blocks (1 block ≈ 2s on Base),
+  "maxStakersPerValidator": integer max stakers per validator per epoch,
+  "defaultCommissionBps": integer validator commission in basis points (1000 = 10%),
+  "epochLength": integer blocks per epoch (43200 ≈ 1 day on Base),
+  "emissionRate": "tokens minted per epoch in whole tokens (e.g. '100')",
+  "decayBps": integer score decay per epoch in basis points (500 = 5%),
+  "description": "one-line summary of what this subnet does"
+}
+
+Guidelines:
+- For AI/compute subnets: higher emissions (500-5000/epoch), shorter epochs (21600-43200)
+- For data/storage subnets: moderate emissions (100-500/epoch), longer epochs (43200-86400)
+- For governance/social subnets: lower emissions (10-100/epoch), longer epochs (86400+)
+- maxLockBlocks: shorter for liquid markets (50000), longer for long-term alignment (500000)
+- Higher decay (1000-2000 bps) rewards consistent uptime, lower (200-500) is more forgiving
+- Commission 500-2000 bps is typical (5-20%)
+- Initial supply: 1M-100M depending on scale
+- Keep symbol uppercase, 3-5 chars, relevant to the subnet purpose"""
+
+
+def _llm_generate(prompt: str) -> dict:
+    """Call an LLM to generate subnet params. Supports OpenRouter, Anthropic, or any OpenAI-compatible API."""
+    import httpx
+
+    # Resolve provider: OpenRouter > Anthropic > OpenAI-compatible
+    openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    openai_key = os.environ.get("OPENAI_API_KEY")
+
+    if openrouter_key:
+        base_url = "https://openrouter.ai/api/v1/chat/completions"
+        api_key = openrouter_key
+        model = os.environ.get("LLM_MODEL", "google/gemma-4-31b-it:free")
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://staketime.mod",
+            "X-Title": "StakeTime Subnet Creator",
+        }
+    elif anthropic_key:
+        # Use Anthropic Messages API directly
+        headers = {
+            "x-api-key": anthropic_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+        model = os.environ.get("LLM_MODEL", "claude-sonnet-4-5-20250929")
+        body = {
+            "model": model,
+            "max_tokens": 1024,
+            "system": SUBNET_SYSTEM_PROMPT,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        resp = httpx.post(
+            "https://api.anthropic.com/v1/messages",
+            headers=headers,
+            json=body,
+            timeout=60,
+        )
+        resp.raise_for_status()
+        text = resp.json()["content"][0]["text"].strip()
+        return _parse_llm_json(text)
+    elif openai_key:
+        base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1/chat/completions")
+        api_key = openai_key
+        model = os.environ.get("LLM_MODEL", "gpt-4o")
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+    else:
+        raise RuntimeError("Set OPENROUTER_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY")
+
+    # OpenAI-compatible request (OpenRouter / OpenAI)
+    body = {
+        "model": model,
+        "max_tokens": 1024,
+        "messages": [
+            {"role": "system", "content": SUBNET_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+    }
+    resp = httpx.post(base_url, headers=headers, json=body, timeout=60)
+    resp.raise_for_status()
+    text = resp.json()["choices"][0]["message"]["content"].strip()
+    return _parse_llm_json(text)
+
+
+def _parse_llm_json(text: str) -> dict:
+    """Strip markdown fences and parse JSON from LLM output."""
+    if text.startswith("```"):
+        text = re.sub(r"^```\w*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text)
+    return json.loads(text)
+
+
+@app.post("/generate_subnet_params")
+async def generate_subnet_params(req: GenerateSubnetReq):
+    """Use an LLM (via OpenRouter, Anthropic, or OpenAI) to generate subnet deployment params."""
+    try:
+        params = _llm_generate(req.prompt)
+        return {"result": params}
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"LLM returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/deploy_subnet")
+async def deploy_subnet(req: DeploySubnetReq):
+    """Deploy a new subnet (Subnet ERC20 + StakeTime) and register it in the Registry."""
+    deploy = _deploy()
+    if not deploy or "registry" not in deploy:
+        raise HTTPException(status_code=500, detail="Registry not deployed")
+
+    params = {
+        "name": req.name,
+        "symbol": req.symbol,
+        "initialSupply": req.initial_supply,
+        "maxLockBlocks": req.max_lock_blocks,
+        "maxStakersPerValidator": req.max_stakers_per_validator,
+        "defaultCommissionBps": req.default_commission_bps,
+        "epochLength": req.epoch_length,
+        "emissionRate": req.emission_rate,
+        "decayBps": req.decay_bps,
+        "registryAddress": deploy["registry"],
+    }
+
+    network = os.environ.get("NETWORK", "base_sepolia")
+    # Validate network name to prevent injection
+    if not re.match(r'^[a-zA-Z0-9_-]+$', network):
+        raise HTTPException(status_code=400, detail=f"Invalid network name: {network}")
+    env = os.environ.copy()
+    env["SUBNET_PARAMS"] = json.dumps(params)
+
+    try:
+        result = subprocess.run(
+            ["npx", "hardhat", "run", "scripts/deploy_subnet.js", "--network", network],
+            shell=False,
+            cwd=str(MODULE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=300,
+            env=env,
+        )
+        output = result.stdout + result.stderr
+
+        # Parse result from output
+        match = re.search(r"__RESULT__(.+?)__END__", output)
+        if match:
+            deployed = json.loads(match.group(1))
+            return {"result": deployed}
+
+        if result.returncode != 0:
+            raise HTTPException(status_code=400, detail=f"Deploy failed: {output[-500:]}")
+
+        return {"result": {"output": output, "success": result.returncode == 0}}
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Deploy timed out")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/health")

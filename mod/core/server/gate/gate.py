@@ -1,7 +1,7 @@
 from typing import *
 import os
 import hashlib
-import os
+import re
 import pandas as pd
 import json
 import inspect
@@ -9,8 +9,10 @@ import time
 import mod as m
 from mod.core.server.executor.worker import SandboxWorker, DockerWorker
 
-
 print = m.print
+
+# Whitelist pattern for function names: alphanumeric, underscores, slashes, dots, hyphens
+FN_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_/.-]{0,200}$')
 
 class Gate:
 
@@ -64,20 +66,29 @@ class Gate:
         API-level functions (mods, txs, etc.) run in-process.
         """
         mod = mod or self.mod
-        assert not isinstance(fn, str) or fn != '', "Function name cannot be empty"
+        # ── Validate function name ──
+        assert isinstance(fn, str) and fn != '', "Function name cannot be empty"
+        assert FN_NAME_RE.match(fn) and '..' not in fn, f"Invalid function name: {fn}"
+
         print(f'Gate forwarding request to function: {fn}', color='green')
         info = mod.info if isinstance(mod.info, dict) else mod.info()
+
+        # ── Authenticate ──
+        authenticated = False
+        role = None
         try:
             headers = self.auth.verify(headers)
-            print(f'Headers after auth verification: {headers}', color='green')
+            authenticated = True
             role = self.get_role(headers['key'])
         except Exception as auth_err:
-            # Auth failed — treat as public/anonymous request
+            # Auth failed — only allow through if fn is in PUBLIC_FNS
             headers = headers if isinstance(headers, dict) else {}
             headers['key'] = headers.get('key', '')
             role = 'public'
-            print(f'Auth failed ({auth_err}), treating as public for {fn}', color='yellow')
-        if  bool(role == 'owner'):
+            print(f'Auth failed ({auth_err}), checking public access for {fn}', color='yellow')
+
+        # ── Authorize ──
+        if role == 'owner' and authenticated:
             print(f'ATTENTION: owner({headers["key"]}) is calling {fn}', color='green')
         else:
             assert fn in info['fns'], f"Function {fn} not in fns={info['fns']}"
@@ -85,6 +96,9 @@ class Gate:
             role_fns = role_data.get('fns', [])
             if role_fns and '*' not in role_fns:
                 assert fn in role_fns, f"Function {fn} not permitted for role={role or 'public'}, allowed={role_fns}"
+            # Unauthenticated requests can ONLY call public fns
+            if not authenticated:
+                assert fn in self.PUBLIC_FNS, f"Authentication required for {fn}"
         params = json.loads(params) if isinstance(params, str) else params
         self.print_request({'fn': fn, 'params': params, 'client': headers.get('key', ''), 'time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())})
         # Payment gate check (x402 paywall)
@@ -418,6 +432,11 @@ class Gate:
         'balance', 'balances', 'get_balances',
         'app_namespace', 'app_status', 'app_owner', 'is_app_owner', 'app_logs',
         'serve_app', 'kill_app', 'new_app', 'edit_app', 'remove_app',
+        # Read-only module endpoints (health, status, listings)
+        'health', 'status', 'owner', 'contract_info', 'info',
+        'in_snapshot', 'get_total_balances',
+        'get_claims', 'claims_array', 'has_claimed', 'unclaimed',
+        'get_commitments', 'get_commitment',
     ]
     def ensure_role_map(self):
         """

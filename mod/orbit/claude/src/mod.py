@@ -30,6 +30,7 @@ class Mod:
         'refactor', 'debug', 'edit_file', 'run_task', 'batch_process',
         'bg', 'bg_status', 'bg_list', 'snapshot', 'changelog',
         'get_version', 'restore_version', 'health', 'modules',
+        'folders', 'suggest_folders',
         'set_owner', 'get_owner', 'is_owner', 'serve',
         'kill', 'kill_port',
     ]
@@ -210,7 +211,7 @@ class Mod:
 
     def _start_api(self) -> bool:
         """Start the Rust API server. Returns True if started successfully."""
-        api_dir = os.path.join(self._module_dir(), 'api')
+        api_dir = os.path.join(self._module_dir(), 'src', 'api')
         binary = os.path.join(api_dir, 'target', 'release', 'claude-jobs')
         if not os.path.exists(binary):
             start_sh = os.path.join(api_dir, 'start.sh')
@@ -292,7 +293,7 @@ class Mod:
             return True
         raise ConnectionError(
             f"Failed to auto-start API on port {self._api_port()}. "
-            f"Start manually: cd {self._module_dir()}/api && bash start.sh"
+            f"Start manually: cd {self._module_dir()}/src/api && bash start.sh"
         )
 
     # ── core: forward ─────────────────────────────────────────────
@@ -637,6 +638,70 @@ class Mod:
         except ConnectionError:
             all_mods = m.mods(search)
             return all_mods if isinstance(all_mods, list) else list(all_mods)
+
+    def folders(self, search: str = None, path: str = None, depth: int = 2) -> list:
+        """List folders under a path. Defaults to ~/mod. Returns [{name, path, has_config}]."""
+        base = os.path.expanduser(path or self.default_path)
+        results = []
+        for root, dirs, files in os.walk(base):
+            rel = os.path.relpath(root, base)
+            level = 0 if rel == '.' else rel.count(os.sep) + 1
+            if level > depth:
+                dirs.clear()
+                continue
+            # skip hidden/build dirs
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in
+                       ('node_modules', '__pycache__', 'target', 'build', 'dist', '.next', 'venv', '.venv')]
+            for d in dirs:
+                full = os.path.join(root, d)
+                name = os.path.relpath(full, base)
+                if search and search.lower() not in name.lower():
+                    continue
+                has_config = os.path.exists(os.path.join(full, 'config.json'))
+                has_mod = os.path.exists(os.path.join(full, 'mod.py'))
+                results.append({
+                    'name': name,
+                    'path': full,
+                    'has_config': has_config,
+                    'has_mod': has_mod,
+                })
+        results.sort(key=lambda x: x['name'])
+        return results
+
+    def suggest_folders(self, query: str, path: str = None, top_k: int = 10) -> list:
+        """Suggest folders using embedcode similarity search.
+
+        Embeds the codebase (if not already) and returns folders ranked by
+        semantic similarity to the query.
+
+        Returns: [{name, path, score, preview}]
+        """
+        try:
+            ec = m.mod('embedcode')()
+        except Exception:
+            return []
+        base = os.path.expanduser(path or self.default_path)
+        # ensure the codebase is embedded
+        collections = ec.collections()
+        col_name = ec._collection_name(base)
+        if col_name not in collections.get('collections', []):
+            ec.embed(base)
+        # search
+        results = ec.search(query=query, path=base, top_k=top_k * 5)
+        # group by folder — pick best score per folder
+        folder_scores = {}
+        for r in results:
+            folder = os.path.dirname(r['path'])
+            rel = os.path.relpath(folder, base)
+            if rel not in folder_scores or r['score'] > folder_scores[rel]['score']:
+                folder_scores[rel] = {
+                    'name': rel,
+                    'path': folder,
+                    'score': r['score'],
+                    'preview': r.get('preview', '')[:120],
+                }
+        ranked = sorted(folder_scores.values(), key=lambda x: x['score'], reverse=True)
+        return ranked[:top_k]
 
     def repos(self, search: str = None) -> list:
         q = f"?q={search}" if search else ""

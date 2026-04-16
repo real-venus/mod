@@ -290,7 +290,17 @@ class Mod:
         deps = {}
         for dep_name in mod_instance.dependencies:
             if dep_name in deployed:
-                deps[dep_name] = deployed[dep_name]
+                val = deployed[dep_name]
+                if isinstance(val, str):
+                    deps[dep_name] = val
+                elif isinstance(val, dict) and 'address' in val:
+                    deps[dep_name] = val['address']
+                elif isinstance(val, dict):
+                    # Multi-address result (e.g. token returns {USDC: addr, ...})
+                    deps[dep_name] = val
+                else:
+                    raise ValueError(f'Invalid deployment result for {dep_name}: {val}')
+
             else:
                 # Try to load from config
                 deployment = self.config.get('deployments', {}).get(self.network, {})
@@ -400,7 +410,10 @@ class Mod:
     def load_all_contracts(self):
         """Load all contracts at once."""
         abimap = self.abimap()
-        contracts = self.config['deployments'][self.network]['contracts']
+        deployments = self.config.get('deployments', {})
+        if self.network not in deployments:
+            return self.contracts
+        contracts = deployments[self.network].get('contracts', {})
         for name, info in contracts.items():
             address = info['address']
             try:
@@ -1065,7 +1078,7 @@ class Mod:
             mod_instance.compile()
         else:
             # Compile each mod that has local contracts
-            mods_dir = os.path.join(self.path, 'mods')
+            mods_dir = os.path.join(self.path, 'chain', 'mods')
             for name in self.MOD_NAMES:
                 mod_contracts = os.path.join(mods_dir, name, 'contracts')
                 if os.path.isdir(mod_contracts):

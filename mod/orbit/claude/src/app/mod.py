@@ -1,5 +1,5 @@
 import os
-import mod as m
+import src.mod as m
 
 class Mod:
     description = """app"""

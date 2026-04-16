@@ -24,7 +24,7 @@ export function clearModsCache() {
 }
 
 export default function ModExplorePage() {
-  const { client } = userContext()
+  const { client, user } = userContext()
   const { searchFilters, handleSearch } = useSearchContext()
 
   const [mods, setMods] = useState<ModuleType[]>([])
@@ -44,6 +44,15 @@ export default function ModExplorePage() {
   })
 
   const [selectedOwners, setSelectedOwners] = useState<string[]>([])
+  const [ownerInitialized, setOwnerInitialized] = useState(false)
+
+  // Default to filtering by the logged-in user's key
+  useEffect(() => {
+    if (!ownerInitialized && user?.key) {
+      setSelectedOwners([user.key])
+      setOwnerInitialized(true)
+    }
+  }, [user?.key, ownerInitialized])
   const [currentPage, setCurrentPage] = useState(0) // API uses 0-based pagination
   const [itemsPerPage] = useState(20)
   const [totalMods, setTotalMods] = useState(0)
@@ -184,7 +193,11 @@ export default function ModExplorePage() {
     fetchAll()
   }, [fetchAll])
 
-  const uniqueOwners = Array.from(new Set(mods.map(m => m.key).filter(Boolean) as string[])).sort()
+  const uniqueOwners = Array.from(new Set([
+    ...(user?.key ? [user.key] : []),
+    ...mods.map(m => m.key).filter(Boolean) as string[],
+    ...selectedOwners,
+  ])).sort()
 
   const totalPages = Math.ceil(totalMods / itemsPerPage)
 
@@ -232,6 +245,7 @@ export default function ModExplorePage() {
             selectedOwners={selectedOwners}
             onToggleOwner={toggleOwner}
             onClearFilters={clearOwnerFilters}
+            userKey={user?.key}
           />
           <div className="flex-1" />
           <Link

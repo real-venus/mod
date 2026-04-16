@@ -63,6 +63,8 @@ pub async fn serve(manager: AppState, port: u16) {
         .route("/repos", get(list_repos))
         .route("/modules", get(list_modules))
         .route("/modules/:name/config", get(get_module_config))
+        .route("/folders", get(list_folders))
+        .route("/suggest_folders", get(suggest_folders))
         .route("/files/tree", get(file_tree))
         .route("/files/content", get(file_content))
         .route("/files/raw", get(file_raw))
@@ -754,6 +756,169 @@ async fn list_modules(Query(params): Query<ModuleQuery>) -> impl IntoResponse {
     });
 
     Json(json!({ "modules": modules, "count": modules.len(), "anchor": anchor.replacen(&home, "~", 1) }))
+}
+
+#[derive(Deserialize)]
+struct FolderQuery {
+    q: Option<String>,
+    path: Option<String>,
+    depth: Option<usize>,
+}
+
+/// List folders under a path, with optional search filter
+async fn list_folders(Query(params): Query<FolderQuery>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let raw_path = params.path.unwrap_or_else(|| "~/mod".to_string());
+    let resolved = raw_path.replacen("~", &home, 1);
+    let max_depth = params.depth.unwrap_or(2);
+    let query = params.q.unwrap_or_default().to_lowercase();
+
+    let root = std::path::Path::new(&resolved);
+    if !root.is_dir() {
+        return Json(json!({ "folders": [], "error": "Directory not found" }));
+    }
+
+    fn walk_folders(
+        dir: &std::path::Path,
+        base: &std::path::Path,
+        depth: usize,
+        max_depth: usize,
+        query: &str,
+        home: &str,
+        results: &mut Vec<serde_json::Value>,
+    ) {
+        if depth > max_depth { return; }
+        let Ok(rd) = std::fs::read_dir(dir) else { return };
+        for entry in rd.flatten() {
+            let path = entry.path();
+            if !path.is_dir() { continue; }
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') || name == "node_modules" || name == "__pycache__"
+                || name == "target" || name == "build" || name == "dist"
+                || name == ".next" || name == "venv" || name == ".venv" { continue; }
+            let full = path.to_string_lossy().to_string();
+            let rel = path.strip_prefix(base).unwrap_or(&path).to_string_lossy().to_string();
+            if !query.is_empty() && !rel.to_lowercase().contains(query) {
+                // still recurse — subfolders might match
+                walk_folders(&path, base, depth + 1, max_depth, query, home, results);
+                continue;
+            }
+            let has_config = path.join("config.json").exists();
+            let has_mod = path.join("mod.py").exists();
+            let display = full.replacen(home, "~", 1);
+            results.push(json!({
+                "name": rel,
+                "path": full,
+                "display": display,
+                "has_config": has_config,
+                "has_mod": has_mod,
+            }));
+            walk_folders(&path, base, depth + 1, max_depth, query, home, results);
+        }
+    }
+
+    let mut results = Vec::new();
+    walk_folders(root, root, 0, max_depth, &query, &home, &mut results);
+    results.sort_by(|a, b| {
+        let a_name = a["name"].as_str().unwrap_or("");
+        let b_name = b["name"].as_str().unwrap_or("");
+        a_name.cmp(b_name)
+    });
+
+    Json(json!({ "folders": results, "count": results.len(), "path": raw_path }))
+}
+
+#[derive(Deserialize)]
+struct SuggestQuery {
+    query: String,
+    path: Option<String>,
+    top_k: Option<usize>,
+    embedcode_url: Option<String>,
+}
+
+/// Suggest folders using embedcode similarity search
+async fn suggest_folders(Query(params): Query<SuggestQuery>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let raw_path = params.path.unwrap_or_else(|| "~/mod".to_string());
+    let resolved = raw_path.replacen("~", &home, 1);
+    let top_k = params.top_k.unwrap_or(10);
+    let ec_url = params.embedcode_url.unwrap_or_else(|| "http://localhost:8920".to_string());
+
+    // Call embedcode search API
+    let client = reqwest::Client::new();
+    let search_resp = client
+        .post(format!("{}/search", ec_url))
+        .json(&json!({
+            "query": params.query,
+            "path": resolved,
+            "top_k": top_k * 5,
+        }))
+        .send()
+        .await;
+
+    let results = match search_resp {
+        Ok(resp) => {
+            match resp.json::<Vec<serde_json::Value>>().await {
+                Ok(items) => items,
+                Err(_) => return Json(json!({ "suggestions": [], "error": "Failed to parse embedcode response" })),
+            }
+        }
+        Err(e) => {
+            return Json(json!({ "suggestions": [], "error": format!("Embedcode not reachable at {}: {}", ec_url, e) }));
+        }
+    };
+
+    // Group by folder, keep best score per folder
+    let mut folder_scores: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
+    let base = std::path::Path::new(&resolved);
+
+    for item in &results {
+        let file_path = item.get("path").and_then(|v| v.as_str()).unwrap_or("");
+        let score = item.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let preview = item.get("preview").and_then(|v| v.as_str()).unwrap_or("");
+
+        let folder = std::path::Path::new(file_path)
+            .parent()
+            .unwrap_or(std::path::Path::new(""))
+            .to_string_lossy()
+            .to_string();
+        let rel = std::path::Path::new(&folder)
+            .strip_prefix(base)
+            .unwrap_or(std::path::Path::new(&folder))
+            .to_string_lossy()
+            .to_string();
+
+        let existing_score = folder_scores
+            .get(&rel)
+            .and_then(|v| v.get("score"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+
+        if score > existing_score {
+            let display = folder.replacen(&home, "~", 1);
+            let has_config = std::path::Path::new(&folder).join("config.json").exists();
+            let has_mod = std::path::Path::new(&folder).join("mod.py").exists();
+            folder_scores.insert(rel.clone(), json!({
+                "name": rel,
+                "path": folder,
+                "display": display,
+                "score": score,
+                "preview": &preview[..preview.len().min(120)],
+                "has_config": has_config,
+                "has_mod": has_mod,
+            }));
+        }
+    }
+
+    let mut suggestions: Vec<serde_json::Value> = folder_scores.into_values().collect();
+    suggestions.sort_by(|a, b| {
+        let a_score = a.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let b_score = b.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        b_score.partial_cmp(&a_score).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    suggestions.truncate(top_k);
+
+    Json(json!({ "suggestions": suggestions, "count": suggestions.len() }))
 }
 
 /// Return raw config.json for a specific module

@@ -41,7 +41,7 @@ contract ConsensusStaked is Consensus {
         s.lastSeenBlock = bn;
         lastCheckinEpoch[kh] = currentEpoch;
 
-        s.blocktimeScore = stakeTime.getValidatorTotalStakeTimeByHash(kh);
+        s.blocktimeScore = staking.getValidatorTotalStakeTimeByHash(kh);
 
         _recalcTotal();
         emit Checkin(kh, bn, s.blocktimeScore);
@@ -55,14 +55,14 @@ contract ConsensusStaked is Consensus {
         )));
         uint256 target = rand % consensus.totalBlocktime;
 
-        uint256 len = stakeTime.validatorCount();
+        uint256 len = staking.validatorCount();
         uint256 cumulative = 0;
         for (uint256 i = 0; i < len; i++) {
-            bytes32 kh = stakeTime.getValidatorKeyHash(i);
-            if (!stakeTime.isValidatorActive(kh)) continue;
+            bytes32 kh = staking.getValidatorKeyHash(i);
+            if (!staking.isValidatorActive(kh)) continue;
             if (lastCheckinEpoch[kh] != currentEpoch) continue;
 
-            uint256 score = stakeTime.getValidatorTotalStakeTimeByHash(kh);
+            uint256 score = staking.getValidatorTotalStakeTimeByHash(kh);
             if (score == 0) continue;
 
             cumulative += score;
@@ -77,14 +77,14 @@ contract ConsensusStaked is Consensus {
         if (consensus.totalBlocktime == 0) return;
 
         uint256 totalDistributed = 0;
-        uint256 len = stakeTime.validatorCount();
+        uint256 len = staking.validatorCount();
 
         for (uint256 i = 0; i < len; i++) {
-            bytes32 kh = stakeTime.getValidatorKeyHash(i);
-            if (!stakeTime.isValidatorActive(kh)) continue;
+            bytes32 kh = staking.getValidatorKeyHash(i);
+            if (!staking.isValidatorActive(kh)) continue;
             if (lastCheckinEpoch[kh] != currentEpoch) continue;
 
-            uint256 stt = stakeTime.getValidatorTotalStakeTimeByHash(kh);
+            uint256 stt = staking.getValidatorTotalStakeTimeByHash(kh);
             if (stt == 0) continue;
 
             uint256 validatorShare = (consensus.emissionRate * stt) / consensus.totalBlocktime;
@@ -96,20 +96,20 @@ contract ConsensusStaked is Consensus {
 
         _recalcTotal();
 
-        try stakeTime.advanceEpoch() {} catch {}
+        try staking.advanceEpoch() {} catch {}
 
         emit EmissionsDistributed(consensus.currentBlock, totalDistributed);
     }
 
     function _recalcTotal() internal override {
         uint256 total = 0;
-        uint256 len = stakeTime.validatorCount();
+        uint256 len = staking.validatorCount();
         for (uint256 i = 0; i < len; i++) {
-            bytes32 kh = stakeTime.getValidatorKeyHash(i);
-            if (!stakeTime.isValidatorActive(kh)) continue;
+            bytes32 kh = staking.getValidatorKeyHash(i);
+            if (!staking.isValidatorActive(kh)) continue;
             if (lastCheckinEpoch[kh] != currentEpoch) continue;
 
-            total += stakeTime.getValidatorTotalStakeTimeByHash(kh);
+            total += staking.getValidatorTotalStakeTimeByHash(kh);
         }
         consensus.totalBlocktime = total;
     }

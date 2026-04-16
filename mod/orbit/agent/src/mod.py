@@ -24,6 +24,7 @@ except ImportError:
 
 from .skills.mod import Skills
 from .agents.mod import Agents
+from .memory.memory import Memory
 
 
 # ── path sandboxing ────────────────────────────────────────────────
@@ -106,7 +107,7 @@ RULES:
                  **kwargs):
         self.skills = Skills()
         self.agents = Agents()
-        self.memory = m.mod(memory)() if m else __import__('agent.memory.memory', fromlist=['Memory']).Memory()
+        self.memory = m.mod(memory)() if m else Memory()
         self.model = m.mod(model)() if m else None
         if goal:
             self.goal = goal
@@ -152,6 +153,7 @@ RULES:
             save: bool = False,
             key: str = None,
             allowed_paths: list = None,
+            free: bool = False,
             **kwargs) -> List[Dict[str, Any]]:
         """Run the agent loop: query -> LLM -> parse step -> execute skill -> repeat.
 
@@ -177,18 +179,26 @@ RULES:
             if consecutive_errors >= 3:
                 self.memory.add('hint', 'Multiple errors in a row. Use think to reflect on what is going wrong and try a different approach.')
                 consecutive_errors = 0
-            output = self.model.forward(
-                str(self.memory.get()),
-                stream=True,
-                model=model,
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
-            plan = self.plan(output, safety=safety)
+            try:
+                output = self.model.forward(
+                    str(self.memory.get()),
+                    stream=True,
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    free=free,
+                )
+                plan = self.plan(output, safety=safety)
+            except Exception as e:
+                print(f"Model error: {e}")
+                plan = [{'tool': 'error', 'params': {}, 'error': str(e)}]
             history.append(plan)
             self.memory.add('history', history)
-            if plan and plan[-1]['tool'].lower() == 'finish':
+            if plan and plan[-1]['tool'].lower() in ('finish', 'response'):
                 print('Agent finished')
+                break
+            if plan and plan[-1]['tool'].lower() == 'error':
+                print('Agent stopped: model error')
                 break
             # track consecutive errors for recovery
             if plan and any(s.get('error') for s in plan):
@@ -203,23 +213,32 @@ RULES:
 
     def plan(self, output: str, safety: bool = False) -> list:
         """Parse LLM output into steps and execute them."""
-        steps = self.parse_steps(output)
+        steps, raw_text = self.parse_steps(output)
+        if not steps and raw_text.strip():
+            # LLM responded with text but no tool calls — return as a response step
+            return [{'tool': 'response', 'params': {}, 'result': raw_text.strip()}]
         steps = self.run_plan(steps, safety=safety)
         return steps
 
-    def parse_steps(self, output: str) -> list:
-        """Stream LLM output and extract steps from anchors."""
+    def parse_steps(self, output: str) -> tuple:
+        """Stream LLM output and extract steps from anchors.
+
+        Returns:
+            (plan, raw_text) — plan is list of step dicts, raw_text is full LLM output
+        """
         text = ''
+        raw = ''
         plan = []
         for ch in output:
             text += ch
+            raw += ch
             print(ch, end='')
             if self.anchors['tool'][0] in text and self.anchors['tool'][1] in text:
                 step = self._extract_step(text)
                 if step:
                     plan.append(step)
                 text = text.split(self.anchors['tool'][-1])[-1]
-        return plan
+        return plan, raw
 
     def _extract_step(self, text: str) -> Optional[dict]:
         """Extract a single step JSON from between STEP anchors."""
@@ -322,9 +341,11 @@ class Mod(Agent):
         self._acl_path = self.module_dir / '.acl.json'
         self._acl = self._load_acl()
         self._public_actions = {'status', 'health', 'skills', 'schema',
-                                'agents', 'agent', 'chains'}
+                                'agents', 'agent', 'chains', 'agent_cids',
+                                'agent_load'}
         self._admin_actions = {'run', 'plan', 'skill', 'serve', 'kill',
-                               'test', 'grant', 'revoke', 'acl'}
+                               'test', 'grant', 'revoke', 'acl',
+                               'agent_save', 'agent_install'}
 
     # ── permissions (Claude module interface) ────────────────────────────
 
@@ -485,6 +506,8 @@ class Mod(Agent):
             'agents': lambda: self.agents.forward(kwargs.get('name'), **kwargs),
             'agent': lambda: self.agents.forward(kwargs.get('name', 'default')),
             'chains': lambda: self.agents.chains(),
+            'agent_cids': lambda: self.agents.forward(action='cids'),
+            'agent_load': lambda: self.agents.load(kwargs.get('cid', ''), shares=kwargs.get('shares')),
             # admin (owner + granted)
             'run': lambda: self._run(**kwargs),
             'plan': lambda: super(Mod, self).plan(kwargs.get('output', ''), safety=kwargs.get('safety', False)),
@@ -492,6 +515,8 @@ class Mod(Agent):
             'serve': lambda: self.serve(kwargs.get('api_port'), kwargs.get('app_port'), kwargs.get('dev', True)),
             'kill': lambda: self.kill(kwargs.get('service')),
             'test': lambda: self.test(),
+            'agent_save': lambda: self.agents.save(**{k: v for k, v in kwargs.items() if k not in ('action',)}),
+            'agent_install': lambda: self.agents.load_and_create(cid=kwargs.get('cid', ''), shares=kwargs.get('shares'), key=key),
             # owner only
             'grant': lambda: self.grant(kwargs.get('address', ''), kwargs.get('actions'), key),
             'revoke': lambda: self.revoke(kwargs.get('address', ''), key),
@@ -554,6 +579,7 @@ class Mod(Agent):
                 save=kwargs.get('save', False),
                 key=kwargs.get('key'),
                 allowed_paths=allowed_paths,
+                free=kwargs.get('free', False),
             )
         finally:
             self.goal = original_goal
@@ -576,7 +602,8 @@ class Mod(Agent):
         if api_path.exists():
             env = os.environ.copy()
             env['PORT'] = str(api_port)
-            env['PYTHONPATH'] = str(self.module_dir) + os.pathsep + str(self.src_dir)
+            mod_root = str(self.module_dir.parent.parent.parent)
+            env['PYTHONPATH'] = mod_root + os.pathsep + str(self.module_dir) + os.pathsep + str(self.src_dir)
 
             api_log = open(log_dir / 'api.log', 'w')
             cmd = ['python3', '-m', 'uvicorn', 'api:app', '--host', '0.0.0.0',

@@ -1,5 +1,6 @@
 import requests
 import os
+import re
 import json
 from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
@@ -10,6 +11,10 @@ import inspect
 import shutil
 import mod as m
 from mod.core.server.executor.worker import SandboxWorker, WorkerPool
+
+# ── Security constants ──
+MAX_TASK_TIMEOUT = 300  # 5 minute cap on user-supplied timeouts
+_SAFE_PATH_RE = re.compile(r'^[a-zA-Z0-9_/.-]+$')  # no traversal characters
 
 class Router:
     threads = {}
@@ -68,6 +73,7 @@ class Router:
             Result of the function task
         """
         print(f'Calling function: {fn} with params: {params} and extra_params: {extra_params}')
+        timeout = min(int(timeout), MAX_TASK_TIMEOUT)  # cap user-supplied timeout
         params = {**params, **extra_params}
         task = self.task_data(fn=fn, params=params, timeout=timeout)
         task['key'] =  self.auth.verify(token)['key']
@@ -83,8 +89,18 @@ class Router:
             return self.store.get(self.store.get(result).get('result', None))
         return task
 
-    def task_path(self, data): 
-        return m.relpath(f'{self.tasks_path}/{data["key"]}/{data["fn"]}/{data["cid"]}.json')
+    def task_path(self, data):
+        # Sanitize path components to prevent directory traversal
+        key = re.sub(r'[^a-zA-Z0-9_-]', '_', str(data.get("key", "unknown")))
+        fn = re.sub(r'[^a-zA-Z0-9_/.-]', '_', str(data.get("fn", "unknown")))
+        fn = fn.replace('..', '_')  # extra guard against traversal
+        cid = re.sub(r'[^a-zA-Z0-9_-]', '_', str(data.get("cid", "unknown")))
+        path = m.relpath(f'{self.tasks_path}/{key}/{fn}/{cid}.json')
+        # Final check: ensure path stays within tasks_path
+        real_tasks = os.path.realpath(self.tasks_path)
+        real_path = os.path.realpath(path)
+        assert real_path.startswith(real_tasks), f"Path traversal blocked: {path}"
+        return path
 
     def _clear_tasks(self):
         shutil.rmtree(self.tasks_path) if os.path.exists(self.tasks_path) else None

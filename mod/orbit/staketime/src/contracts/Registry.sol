@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./Subnet.sol";
-import "./StakeTime.sol";
+import "./Staking.sol";
 
 /**
  * @title Registry
@@ -154,7 +154,7 @@ contract Registry is Ownable {
         SubnetInfo storage s = subnets[subnetId];
         if (!s.active || s.stakeTime == address(0)) return 0;
         uint256 locked = lockedStake[subnetId];
-        try StakeTime(s.stakeTime).totalSupply() returns (uint256 supply) {
+        try Staking(s.stakeTime).totalSupply() returns (uint256 supply) {
             return locked + supply;
         } catch {
             return locked;

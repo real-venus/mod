@@ -2,6 +2,9 @@
 
 import json
 import os
+import sys
+
+_ONCHAIN_SRC = os.path.join(os.path.dirname(__file__), '..', 'onchain', 'src')
 
 # Supported storage providers for data CIDs
 STORAGE_PROVIDERS = ('ipfs', 'lighthouse', 'filecoin')
@@ -74,7 +77,9 @@ class Mod:
             backend = OffchainRegistry(storage_path=cfg.get('storage_path'))
 
         elif name == 'evm':
-            from .evm import EVMRegistry
+            if _ONCHAIN_SRC not in sys.path:
+                sys.path.insert(0, _ONCHAIN_SRC)
+            from evm.evm import EVMRegistry
             cfg = self._config.get('evm', {}).get(self.network, {})
             backend = EVMRegistry(
                 rpc_url=cfg.get('rpc'),
@@ -84,7 +89,9 @@ class Mod:
             )
 
         elif name == 'solana':
-            from .solana import SolanaRegistry
+            if _ONCHAIN_SRC not in sys.path:
+                sys.path.insert(0, _ONCHAIN_SRC)
+            from solana.solana import SolanaRegistry
             cfg = self._config.get('solana', {}).get(self.network, {})
             backend = SolanaRegistry(
                 rpc_url=cfg.get('rpc'),
@@ -93,7 +100,9 @@ class Mod:
             )
 
         elif name == 'near':
-            from .near import NearRegistry
+            if _ONCHAIN_SRC not in sys.path:
+                sys.path.insert(0, _ONCHAIN_SRC)
+            from near.near import NearRegistry
             cfg = self._config.get('near', {}).get(self.network, {})
             backend = NearRegistry(
                 rpc_url=cfg.get('rpc'),

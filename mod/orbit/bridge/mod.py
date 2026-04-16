@@ -19,7 +19,6 @@ import json
 import os
 import time
 import subprocess
-import signal
 from pathlib import Path
 from typing import Dict, Optional, Any
 from web3 import Web3
@@ -541,31 +540,51 @@ class Mod:
             return {'error': f'Deploy failed: {str(e)}'}
 
     def serve(self, port=None, app_port=None, dev=True):
-        """Start both the FastAPI bridge API and the Next.js app."""
+        """Start both the FastAPI bridge API and the Next.js app as separate PM2 processes."""
         return self.serve_app(app_port=app_port, dev=dev)
 
     def kill(self):
-        """Stop both the FastAPI bridge API and the Next.js app."""
+        """Stop both bridge.api and bridge.app PM2 processes."""
         return self.kill_app()
 
-    def serve_api(self, port=None, reload=True):
-        """Start the FastAPI bridge API via uvicorn."""
-        port = int(port or self.port)
-        log_dir = Path('/tmp/bridge')
-        log_dir.mkdir(parents=True, exist_ok=True)
+    def _pm2_start(self, name, cmd, cwd=None, env=None):
+        """Start a command as a PM2 process."""
+        # Kill existing if present
+        subprocess.run(['pm2', 'delete', name], capture_output=True, text=True)
+        pm2_cmd = ['pm2', 'start', cmd[0], '--name', name, '--']
+        pm2_cmd.extend(cmd[1:])
+        if cwd:
+            # Insert --cwd before the -- separator
+            idx = pm2_cmd.index('--')
+            pm2_cmd.insert(idx, cwd)
+            pm2_cmd.insert(idx, '--cwd')
+        result = subprocess.run(
+            pm2_cmd,
+            capture_output=True, text=True,
+            env={**os.environ, **(env or {})}
+        )
+        return result.returncode == 0
 
-        self.kill_api()
+    def _pm2_kill(self, name):
+        """Kill a PM2 process by name."""
+        result = subprocess.run(['pm2', 'delete', name], capture_output=True, text=True)
+        return result.returncode == 0
+
+    def serve_api(self, port=None, reload=True):
+        """Start the FastAPI bridge API as bridge.api PM2 process."""
+        port = int(port or self.port)
+        name = 'bridge.api'
 
         api_dir = self.module_dir / 'api'
         if not (api_dir / 'api.py').exists():
             return {'error': 'api/api.py not found'}
 
         mod_root = str(self.module_dir.parent.parent.parent)
-        env = os.environ.copy()
-        env['PYTHONPATH'] = f"{mod_root}:{self.module_dir}:{env.get('PYTHONPATH', '')}"
-        env['PORT'] = str(port)
+        env = {
+            'PYTHONPATH': f"{mod_root}:{self.module_dir}:{os.environ.get('PYTHONPATH', '')}",
+            'PORT': str(port),
+        }
 
-        api_log = open(log_dir / 'api.log', 'w')
         cmd = [
             'python3', '-m', 'uvicorn', 'api:app',
             '--host', '0.0.0.0', '--port', str(port),
@@ -574,38 +593,21 @@ class Mod:
         if reload:
             cmd.append('--reload')
 
-        subprocess.Popen(
-            cmd, env=env,
-            stdout=api_log, stderr=subprocess.STDOUT,
-        )
+        self._pm2_start(name, cmd, env=env)
         return {
             'api': f'http://localhost:{port}',
-            'api_log': str(log_dir / 'api.log'),
+            'pm2': name,
             'docs': f'http://localhost:{port}/docs',
         }
 
     def kill_api(self):
-        """Stop the bridge FastAPI server."""
-        killed = []
-        pattern = f'uvicorn.*api:app.*{self.port}'
-        try:
-            result = subprocess.run(
-                ['pgrep', '-f', pattern],
-                capture_output=True, text=True,
-            )
-            for pid in result.stdout.strip().split('\n'):
-                if pid:
-                    os.kill(int(pid), signal.SIGTERM)
-                    killed.append(f'api:{pid}')
-        except Exception:
-            pass
-        return {'killed': killed}
+        """Stop the bridge.api PM2 process."""
+        success = self._pm2_kill('bridge.api')
+        return {'killed': ['bridge.api'] if success else [], 'success': success}
 
     def serve_app(self, app_port=None, dev=True):
-        """Start the FastAPI bridge API and Next.js app."""
+        """Start bridge.api and bridge.app as separate PM2 processes."""
         app_port = int(app_port or self.app_port)
-        log_dir = Path('/tmp/bridge')
-        log_dir.mkdir(parents=True, exist_ok=True)
         results = {}
 
         self.kill_app()
@@ -617,45 +619,28 @@ class Mod:
         # Start Next.js app
         app_dir = self.module_dir / 'app'
         if (app_dir / 'package.json').exists():
-            env = os.environ.copy()
-            env['NEXT_PUBLIC_API_URL'] = f'http://localhost:{self.port}'
-            env['PORT'] = str(app_port)
-            app_log = open(log_dir / 'app.log', 'w')
+            name = 'bridge.app'
+            env = {
+                'NEXT_PUBLIC_API_URL': f'http://localhost:{self.port}',
+                'PORT': str(app_port),
+            }
             cmd = ['npx', 'next', 'dev' if dev else 'start', '-p', str(app_port)]
-            subprocess.Popen(
-                cmd, cwd=str(app_dir), env=env,
-                stdout=app_log, stderr=subprocess.STDOUT,
-            )
+            self._pm2_start(name, cmd, cwd=str(app_dir), env=env)
             results['app'] = f'http://localhost:{app_port}'
-            results['app_log'] = str(log_dir / 'app.log')
+            results['pm2_app'] = name
         else:
             results['app'] = None
 
         results['dev'] = dev
-        results['logs'] = str(log_dir)
         return results
 
     def kill_app(self):
-        """Stop bridge API and Next.js app."""
+        """Stop bridge.api and bridge.app PM2 processes."""
         killed = []
-
-        # Kill API
-        api_result = self.kill_api()
-        killed.extend(api_result.get('killed', []))
-
-        # Kill Next.js
-        pattern = f'next.*{self.app_port}'
-        try:
-            result = subprocess.run(
-                ['pgrep', '-f', pattern],
-                capture_output=True, text=True,
-            )
-            for pid in result.stdout.strip().split('\n'):
-                if pid:
-                    os.kill(int(pid), signal.SIGTERM)
-                    killed.append(f'next:{pid}')
-        except Exception:
-            pass
+        if self._pm2_kill('bridge.api'):
+            killed.append('bridge.api')
+        if self._pm2_kill('bridge.app'):
+            killed.append('bridge.app')
         return {'killed': killed}
 
     def forward(self, action=None, **kwargs):

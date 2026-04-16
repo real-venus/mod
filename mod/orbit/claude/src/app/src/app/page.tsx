@@ -324,6 +324,14 @@ export default function Home() {
   const [showHeaderModuleDropdown, setShowHeaderModuleDropdown] = useState(false);
   const [headerModuleSearch, setHeaderModuleSearch] = useState("");
   const [ownerFilter, setOwnerFilter] = useState<string | null>(null);
+  const [folderSuggestions, setFolderSuggestions] = useState<Array<{
+    name: string; path: string; display: string; score: number; preview: string;
+    has_config: boolean; has_mod: boolean;
+  }>>([]);
+  const [folderList, setFolderList] = useState<Array<{
+    name: string; path: string; display: string; has_config: boolean; has_mod: boolean;
+  }>>([]);
+  const [selectorMode, setSelectorMode] = useState<"modules" | "folders">("modules");
   const [showHeaderCreateForm, setShowHeaderCreateForm] = useState<"create" | "fork" | null>(null);
   const [headerNewName, setHeaderNewName] = useState("");
   const [headerGithubUrl, setHeaderGithubUrl] = useState("");
@@ -1888,6 +1896,39 @@ export default function Home() {
       }
     } catch { /* ignore */ }
   }, [anchorDir, apiUrl]);
+
+  const fetchFolders = useCallback(async (q: string = "", path?: string) => {
+    try {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (path) params.set("path", path);
+      params.set("depth", "3");
+      const res = await fetch(`${apiUrl}/folders?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setFolderList(data.folders || []);
+      }
+    } catch { /* ignore */ }
+  }, [apiUrl]);
+
+  const suggestFolderDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchFolderSuggestions = useCallback(async (query: string, path?: string) => {
+    if (!query.trim()) { setFolderSuggestions([]); return; }
+    if (suggestFolderDebounceRef.current) clearTimeout(suggestFolderDebounceRef.current);
+    suggestFolderDebounceRef.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set("query", query);
+        if (path) params.set("path", path);
+        params.set("top_k", "8");
+        const res = await fetch(`${apiUrl}/suggest_folders?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setFolderSuggestions(data.suggestions || []);
+        }
+      } catch { /* ignore */ }
+    }, 300);
+  }, [apiUrl]);
 
   const fetchModuleConfig = useCallback(async (name: string) => {
     setLoadingConfig(true);
@@ -5347,57 +5388,102 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {/* Brand */}
             <span style={{ color: "var(--text-tertiary)", opacity: 0.15 }}>│</span>
-            {/* Module selector dropdown */}
+            {/* Module/Folder selector dropdown */}
             <div className="relative" ref={headerModuleRef}>
               {showHeaderModuleDropdown ? (
-                <input
-                  type="text"
-                  autoFocus
-                  value={headerModuleSearch}
-                  onChange={(e) => {
-                    setHeaderModuleSearch(e.target.value);
-                    fetchModules(e.target.value);
-                  }}
-                  onFocus={(e) => {
-                    e.target.select();
-                    if (!moduleList.length) fetchModules(headerModuleSearch);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && moduleList.length > 0) {
-                      const firstModule = moduleList[0];
-                      resetModuleState(firstModule);
-                      setSelectedModule(firstModule.name);
-                      setSelectedModuleInfo(firstModule);
-                      setWorkDir(firstModule.path);
-                      setHeaderModuleSearch("");
-                      setShowHeaderModuleDropdown(false);
-                      fetchModuleConfig(firstModule.name);
-                    }
-                    if (e.key === "Escape") {
-                      setShowHeaderModuleDropdown(false);
-                      setHeaderModuleSearch("");
-                    }
-                  }}
-                  placeholder="search modules..."
-                  className="px-3 py-1 bg-transparent text-crt-green border border-crt-green/40 font-code outline-none w-[220px]"
-                  style={{ letterSpacing: "0.01em", fontSize: "20px" }}
-                />
+                <div className="flex items-center gap-0">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={headerModuleSearch}
+                    onChange={(e) => {
+                      setHeaderModuleSearch(e.target.value);
+                      if (selectorMode === "modules") {
+                        fetchModules(e.target.value);
+                      } else {
+                        fetchFolders(e.target.value);
+                        fetchFolderSuggestions(e.target.value);
+                      }
+                    }}
+                    onFocus={(e) => {
+                      e.target.select();
+                      if (selectorMode === "modules") {
+                        if (!moduleList.length) fetchModules(headerModuleSearch);
+                      } else {
+                        fetchFolders(headerModuleSearch);
+                        if (headerModuleSearch) fetchFolderSuggestions(headerModuleSearch);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Tab") {
+                        e.preventDefault();
+                        const next = selectorMode === "modules" ? "folders" : "modules";
+                        setSelectorMode(next);
+                        if (next === "folders") { fetchFolders(headerModuleSearch); if (headerModuleSearch) fetchFolderSuggestions(headerModuleSearch); }
+                        else { fetchModules(headerModuleSearch); }
+                      }
+                      if (e.key === "Enter") {
+                        if (selectorMode === "modules" && moduleList.length > 0) {
+                          const firstModule = moduleList[0];
+                          resetModuleState(firstModule);
+                          setSelectedModule(firstModule.name);
+                          setSelectedModuleInfo(firstModule);
+                          setWorkDir(firstModule.path);
+                          setHeaderModuleSearch("");
+                          setShowHeaderModuleDropdown(false);
+                          fetchModuleConfig(firstModule.name);
+                        } else if (selectorMode === "folders") {
+                          const pick = folderSuggestions[0] || folderList[0];
+                          if (pick) {
+                            setWorkDir(pick.path);
+                            setSelectedModule(pick.name.split("/").pop() || pick.name);
+                            setHeaderModuleSearch("");
+                            setShowHeaderModuleDropdown(false);
+                          }
+                        }
+                      }
+                      if (e.key === "Escape") {
+                        setShowHeaderModuleDropdown(false);
+                        setHeaderModuleSearch("");
+                      }
+                    }}
+                    placeholder={selectorMode === "modules" ? "search modules..." : "search folders..."}
+                    className="px-3 py-1 bg-transparent text-crt-green border border-crt-green/40 font-code outline-none w-[220px]"
+                    style={{ letterSpacing: "0.01em", fontSize: "20px" }}
+                  />
+                  {/* Mode toggle: modules vs folders */}
+                  <div className="flex ml-1 border border-crt-green/20 rounded overflow-hidden">
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); setSelectorMode("modules"); fetchModules(headerModuleSearch); }}
+                      className={`text-[10px] px-2 py-1 font-code transition-colors ${selectorMode === "modules" ? "bg-crt-green/15 text-crt-green" : "text-crt-green/30 hover:text-crt-green/50"}`}
+                    >MOD</button>
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); setSelectorMode("folders"); fetchFolders(headerModuleSearch); if (headerModuleSearch) fetchFolderSuggestions(headerModuleSearch); }}
+                      className={`text-[10px] px-2 py-1 font-code transition-colors ${selectorMode === "folders" ? "bg-crt-blue/15 text-crt-blue" : "text-crt-green/30 hover:text-crt-green/50"}`}
+                    >DIR</button>
+                  </div>
+                </div>
               ) : (
                 <button
                   onClick={() => {
                     setShowHeaderModuleDropdown(true);
                     setHeaderModuleSearch("");
-                    if (!moduleList.length) fetchModules("");
+                    if (selectorMode === "modules") {
+                      if (!moduleList.length) fetchModules("");
+                    } else {
+                      fetchFolders("");
+                    }
                   }}
                   className="flex items-center gap-2 font-bold text-crt-green font-code cursor-pointer hover:text-crt-green/80 transition-colors group"
                   style={{ letterSpacing: "0.01em", fontSize: "20px" }}
-                  title="Click to switch module"
+                  title="Click to switch module/folder (Tab to toggle mode)"
                 >
                   {selectedModule || "claude"}
                   <span style={{ color: "var(--crt-green)", opacity: 0.25, fontSize: "11px", transition: "opacity 0.2s" }} className="group-hover:!opacity-50">▾</span>
                 </button>
               )}
-              {showHeaderModuleDropdown && moduleList.length > 0 && (() => {
+              {/* Modules dropdown */}
+              {showHeaderModuleDropdown && selectorMode === "modules" && moduleList.length > 0 && (() => {
                 const owners = [...new Set(moduleList.map(m => m.owner).filter(Boolean))] as string[];
                 const filtered = ownerFilter ? moduleList.filter(m => m.owner === ownerFilter) : moduleList;
                 return (
@@ -5479,6 +5565,110 @@ export default function Home() {
                 </div>
                 );
               })()}
+              {/* Folders dropdown with embedding suggestions */}
+              {showHeaderModuleDropdown && selectorMode === "folders" && (folderList.length > 0 || folderSuggestions.length > 0) && (
+                <div
+                  className="absolute left-0 top-full mt-1 border border-crt-blue/20 max-h-[450px] overflow-y-auto z-50 rounded min-w-[380px]"
+                  style={{ background: "var(--bg-primary)", boxShadow: "0 12px 48px rgba(0,0,0,0.15)", backdropFilter: "blur(12px)" }}
+                >
+                  {/* Embedding suggestions section */}
+                  {folderSuggestions.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 border-b border-crt-blue/20 sticky top-0 z-10" style={{ background: "var(--bg-primary)" }}>
+                        <span className="text-[10px] text-crt-blue/50 uppercase font-code">Suggested by similarity</span>
+                      </div>
+                      {folderSuggestions.map((f) => (
+                        <div
+                          key={`suggest-${f.path}`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setWorkDir(f.path);
+                            const folderName = f.name.split("/").pop() || f.name;
+                            setSelectedModule(folderName);
+                            setSelectedModuleInfo(null);
+                            setHeaderModuleSearch("");
+                            setShowHeaderModuleDropdown(false);
+                            // try to load config if it's a module
+                            if (f.has_config || f.has_mod) fetchModuleConfig(folderName);
+                          }}
+                          className={`px-3 py-2 cursor-pointer hover:bg-crt-blue/8 transition-colors border-b border-crt-blue/5 ${f.path === workDir ? 'bg-crt-blue/6' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] text-crt-blue/40 shrink-0">◈</span>
+                              <span className="text-[13px] font-code text-crt-blue/80 truncate">{f.name}</span>
+                              <span className="text-[9px] px-1 py-0.5 border border-crt-blue/20 text-crt-blue/40 font-mono shrink-0">
+                                {(f.score * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 ml-2">
+                              {f.has_config && (
+                                <span className="text-[9px] px-1 py-0.5 border border-crt-amber/25 text-crt-amber/50 rounded-sm">CFG</span>
+                              )}
+                              {f.has_mod && (
+                                <span className="text-[9px] px-1 py-0.5 border border-crt-green/25 text-crt-green/50 rounded-sm">MOD</span>
+                              )}
+                            </div>
+                          </div>
+                          {f.preview && (
+                            <div className="text-[10px] text-crt-blue/20 mt-0.5 truncate font-mono">{f.preview}</div>
+                          )}
+                          <div className="text-[10px] font-mono text-crt-blue/15 mt-0.5 truncate" title={f.path}>
+                            {f.display || f.path.replace(/^\/Users\/[^/]+/, "~")}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {/* Folder listing */}
+                  {folderList.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 border-b border-crt-green/20 sticky top-0 z-10" style={{ background: "var(--bg-primary)" }}>
+                        <span className="text-[10px] text-crt-green/40 uppercase font-code">Folders</span>
+                      </div>
+                      {folderList.slice(0, 30).map((f) => (
+                        <div
+                          key={`folder-${f.path}`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setWorkDir(f.path);
+                            const folderName = f.name.split("/").pop() || f.name;
+                            setSelectedModule(folderName);
+                            setSelectedModuleInfo(null);
+                            setHeaderModuleSearch("");
+                            setShowHeaderModuleDropdown(false);
+                            if (f.has_config || f.has_mod) fetchModuleConfig(folderName);
+                          }}
+                          className={`px-3 py-1.5 cursor-pointer hover:bg-crt-green/8 transition-colors border-b border-crt-green/5 ${f.path === workDir ? 'bg-crt-green/6' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] text-crt-green/30 shrink-0">▸</span>
+                              <span className="text-[12px] font-code text-crt-green/70 truncate">{f.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 ml-2">
+                              {f.has_config && (
+                                <span className="text-[9px] px-1 py-0.5 border border-crt-amber/20 text-crt-amber/40 rounded-sm">CFG</span>
+                              )}
+                              {f.has_mod && (
+                                <span className="text-[9px] px-1 py-0.5 border border-crt-green/20 text-crt-green/40 rounded-sm">MOD</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-[10px] font-mono text-crt-green/15 truncate" title={f.path}>
+                            {f.display || f.path.replace(/^\/Users\/[^/]+/, "~")}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {folderList.length === 0 && folderSuggestions.length === 0 && (
+                    <div className="px-3 py-4 text-[12px] text-crt-green/30 text-center font-code">
+                      No folders found. Type to search.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {selectedModule && effectiveConfig?.owner && (
               <span

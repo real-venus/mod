@@ -354,6 +354,7 @@ Explore **200+ production-ready modules** across AI, DeFi, infrastructure, and m
 | **agent** | Autonomous AI agents with memory, skills, and multi-step planning |
 | **claude** | Claude API integration (Rust backend + React UI) |
 | **memory** | Vector embeddings for semantic search & retrieval |
+| **search** | LLM-powered module search — find the best module for any task (free tier) |
 
 ### 💰 DeFi & Blockchain
 | Module | Description |

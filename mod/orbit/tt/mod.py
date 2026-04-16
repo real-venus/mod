@@ -1,4 +1,4 @@
-"""
+mod"""
 StakeTime — Delegated staking + Incentive (Yuma Consensus) on EVM (Base Sepolia).
 
 Two contracts:

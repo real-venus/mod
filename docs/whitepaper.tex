@@ -80,7 +80,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\textcolor{gray}{MOD Protocol Whitepaper}}
-\fancyhead[R]{\small\textcolor{gray}{v1.0 -- March 2026}}
+\fancyhead[R]{\small\textcolor{gray}{v2.1 -- April 2026}}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
@@ -107,14 +107,14 @@
 
 \vspace{2cm}
 
-{\large Version 1.0\par}
-{\large March 2026\par}
+{\large Version 2.1\par}
+{\large April 2026\par}
 
 \vspace{3cm}
 
 \begin{abstract}
 \noindent
-We present MOD Protocol, a decentralized modular development framework that unifies on-chain economic primitives with off-chain composable computation. The protocol introduces \emph{BlocTime}---a time-weighted staking mechanism that distributes real marketplace revenue to long-term participants proportional to their lock commitment. MOD operates across a five-layer architecture: a Python framework core with 174 composable orbit modules, a BlocTime smart contract suite deployed on Base (EVM), a FastAPI service layer, IPFS-backed distributed storage, and a Next.js frontend. Developers register callable functions on-chain, set prices, and earn revenue each time their modules are invoked. Revenue flows through a Treasury contract and is distributed to BlocTime stakers without inflationary token emission. All core contracts implement a \texttt{setOwnerless()} function enabling irreversible decentralization. The protocol supports multi-chain operation across EVM, Substrate, and Solana ecosystems.
+We present MOD Protocol, a decentralized modular development framework that unifies on-chain economic primitives with off-chain composable computation. The protocol introduces \emph{BlocTime}---a time-weighted staking mechanism that distributes real marketplace revenue to long-term participants proportional to their lock commitment---and \emph{StakeTime}---a validator consensus layer with Yuma-inspired scoring, subnet emissions, and slashing. MOD operates across a five-layer architecture: a Python framework core with 204 composable orbit modules, a BlocTime smart contract suite deployed on Base (EVM), a FastAPI service layer, IPFS-backed distributed storage, and a Next.js frontend. Developers register callable functions on-chain, set prices, and earn revenue each time their modules are invoked. Revenue flows through a Treasury contract and is distributed to BlocTime stakers without inflationary token emission. All core contracts implement a \texttt{setOwnerless()} function enabling irreversible decentralization. The protocol supports multi-chain operation across EVM, Substrate, and Solana ecosystems, with AI-native agent workflows as first-class primitives.
 \end{abstract}
 
 \vfill
@@ -132,6 +132,8 @@ We present MOD Protocol, a decentralized modular development framework that unif
 
 Modern software development relies on composable libraries and microservices, yet developers receive no direct economic benefit when their code is consumed by others at runtime. Package registries (npm, PyPI) track downloads but provide no revenue mechanism. Existing blockchain-based marketplaces either (a)~require developers to learn Solidity and smart contract development, (b)~operate inflationary token models divorced from real economic activity, or (c)~lack the composability needed for general-purpose software engineering.
 
+Meanwhile, AI is transforming development workflows but remains siloed---models run in walled gardens with no interoperability, no on-chain settlement, and no way for developers to monetize autonomous agent actions.
+
 \subsection{Solution}
 
 MOD Protocol bridges the gap between on-chain economics and off-chain development by providing:
@@ -141,16 +143,19 @@ MOD Protocol bridges the gap between on-chain economics and off-chain developmen
     \item \textbf{On-chain revenue flow}: Module invocations generate fees that accumulate in a Treasury contract and are distributed to stakers.
     \item \textbf{Time-weighted staking}: The BlocTime mechanism rewards long-term commitment through a configurable multiplier curve.
     \item \textbf{Non-inflationary rewards}: All staker rewards derive from real marketplace activity (credit fees, debit fees), not token minting.
+    \item \textbf{AI-native execution}: Built-in agent framework, Claude integration, and persistent memory enable autonomous module composition.
+    \item \textbf{Validator consensus}: StakeTime provides a decentralized scoring and emission system for validator networks with slashing.
     \item \textbf{Irreversible decentralization}: Every core contract includes \texttt{setOwnerless()}, a one-way function that permanently renounces administrative control.
 \end{enumerate}
 
 \subsection{Design Principles}
 
 \begin{itemize}
-    \item \textbf{Composability over monolithism}: 174 independent modules that compose at runtime.
+    \item \textbf{Composability over monolithism}: 204 independent modules that compose at runtime.
     \item \textbf{Revenue from usage, not inflation}: Treasury rewards funded exclusively by marketplace fees.
     \item \textbf{Progressive decentralization}: Contracts begin owner-managed, with an irreversible path to full decentralization.
-    \item \textbf{Multi-chain by default}: Native support for EVM (Base, Ethereum, Polygon), Substrate (Polkadot), and Solana.
+    \item \textbf{AI-native by default}: Agent workflows, memory, and tool execution are first-class primitives.
+    \item \textbf{Multi-chain by design}: Native support for EVM (Base, Ethereum, Polygon), Substrate (Polkadot), and Solana.
 \end{itemize}
 
 % ══════════════════════════════════════════════════════════════════════
@@ -167,8 +172,8 @@ MOD Protocol bridges the gap between on-chain economics and off-chain developmen
 ]
     \node[layer] (L5) at (0,5)   {\textbf{Layer 5: Frontend} -- Next.js 14 + TypeScript + ethers.js v6};
     \node[layer] (L4) at (0,3.5) {\textbf{Layer 4: Service} -- FastAPI async endpoints + module registry + IPFS};
-    \node[layer] (L3) at (0,2)   {\textbf{Layer 3: Modules} -- 174 composable Python orbit modules};
-    \node[layer] (L2) at (0,0.5) {\textbf{Layer 2: Chain} -- BlocTime Protocol (Solidity 0.8.20, Base)};
+    \node[layer] (L3) at (0,2)   {\textbf{Layer 3: Modules} -- 204 composable Python orbit modules};
+    \node[layer] (L2) at (0,0.5) {\textbf{Layer 2: Chain} -- BlocTime + StakeTime Protocol (Solidity 0.8.20, Base)};
     \node[layer] (L1) at (0,-1)  {\textbf{Layer 1: Core} -- mod.py framework engine (crypto, storage, routing)};
 
     \draw[arrow] (L5) -- (L4);
@@ -189,11 +194,12 @@ The protocol operates a circular economic flow:
     \item \textbf{User} discovers the module, deposits stablecoins into \texttt{Market.sol} (credit operation), and invokes the module function (debit operation).
     \item \textbf{Fee split}: 5\% of debit transactions and 1\% of credit transactions flow to the Treasury.
     \item \textbf{Staker} locks NativeToken in \texttt{BlocTime.sol}, receives time-weighted BlocTime tokens, and claims a proportional share of Treasury revenue.
+    \item \textbf{Validator} registers in \texttt{StakeTime.sol}, receives delegated stakes, and earns emission rewards via Yuma consensus scoring.
 \end{enumerate}
 
 \subsection{Core Framework: mod.py}
 
-The framework engine (\texttt{mod/core/mod.py}, $\sim$1800 lines of code) provides the following subsystems:
+The framework engine (\texttt{mod/core/mod.py}) is composed from focused mixins---\texttt{FsMixin} (path \& file utilities), \texttt{DeployMixin} (server, Docker, deployment), and \texttt{FactoryMixin} (new, fork, clone, rm operations)---providing the following subsystems:
 
 \begin{table}[H]
 \centering
@@ -206,7 +212,7 @@ Cryptographic Primitives & ECDSA key generation, AES-256 encryption, signature v
 Storage & Encrypted key-value store at \texttt{\textasciitilde/.mod/\{module\}/} \\
 Server Management & Process lifecycle for API servers per module \\
 Git Integration & Commit, push, repository discovery \\
-AI Integration & Claude API for code generation, analysis, refactoring \\
+AI Integration & Claude API, OpenRouter, agent orchestration \\
 Execution & Thread/process pool executors with function-level caching \\
 \bottomrule
 \end{tabularx}
@@ -398,6 +404,81 @@ A generic permission system mapping parent keys to arrays of child keys:
 \end{itemize}
 
 % ══════════════════════════════════════════════════════════════════════
+\section{StakeTime Consensus Layer}
+\label{sec:staketime}
+
+StakeTime extends BlocTime with a full validator consensus mechanism, enabling decentralized scoring, emission distribution, and slashing across subnet networks.
+
+\subsection{Validator Registration}
+
+Validators register with a multi-key identity supporting ECDSA, Ed25519, and Sr25519 key types:
+
+\begin{lstlisting}[style=solidity]
+struct Validator {
+    address owner;
+    bytes32 ecdsaKey;
+    bytes32 ed25519Key;
+    bytes32 sr25519Key;
+    uint256 stakedAmount;
+    uint256 commission;     // basis points
+    bool active;
+    uint256 slashCount;
+}
+\end{lstlisting}
+
+\subsection{Delegated Staking}
+
+Stakers delegate to validators with configurable lock periods. The multiplier curve from BlocTime (Equation~\ref{eq:multiplier}) applies to delegation weight, incentivizing long-term commitment:
+
+\begin{equation}
+W_{u,v} = S_{u,v} \cdot M(L_{u,v}) / 10000
+\label{eq:delegation}
+\end{equation}
+
+where $W_{u,v}$ is the weighted delegation of staker $u$ to validator $v$, $S_{u,v}$ is the raw stake amount, and $L_{u,v}$ is the lock duration.
+
+\subsection{Yuma Consensus Scoring}
+
+StakeTime implements a Yuma-inspired scoring algorithm with exponential decay for validator performance evaluation:
+
+\begin{equation}
+\text{score}_v(t) = \alpha \cdot \text{score}_v(t-1) + (1 - \alpha) \cdot r_v(t)
+\label{eq:yuma}
+\end{equation}
+
+where $\alpha$ is the decay factor and $r_v(t)$ is the raw performance rating at epoch $t$. Scores determine each validator's share of per-epoch subnet emissions.
+
+\subsection{Emission Distribution}
+
+Each epoch, subnet tokens are distributed to validators proportional to their consensus score, with a commission split to delegators:
+
+\begin{equation}
+E_v = E_{\text{total}} \cdot \frac{\text{score}_v}{\sum_j \text{score}_j}, \quad
+D_v = E_v \cdot \frac{10000 - c_v}{10000}
+\label{eq:emission}
+\end{equation}
+
+where $E_v$ is the validator's emission, $c_v$ is the commission rate in basis points, and $D_v$ is the portion distributed to delegators.
+
+\subsection{Slashing}
+
+Validators can be slashed for misbehavior. After exceeding a configurable maximum slash count, validators are auto-deactivated:
+
+\begin{lstlisting}[style=solidity]
+function slash(uint256 validatorId, uint256 amount) external onlyOwner {
+    validators[validatorId].stakedAmount -= amount;
+    validators[validatorId].slashCount++;
+    if (validators[validatorId].slashCount >= maxSlashCount) {
+        validators[validatorId].active = false;
+    }
+}
+\end{lstlisting}
+
+\subsection{Subnet Architecture}
+
+StakeTime supports multiple subnets, each with its own emission token and consensus parameters. The \texttt{Subnet.sol} contract manages subnet registration, validator enrollment, and per-subnet emission schedules. Consensus strategy is pluggable via adapter contracts: \texttt{ConsensusLinear}, \texttt{ConsensusStaked}, and \texttt{ConsensusYuma}.
+
+% ══════════════════════════════════════════════════════════════════════
 \section{Tokenomics \& Economic Model}
 \label{sec:tokenomics}
 
@@ -412,6 +493,7 @@ A generic permission system mapping parent keys to arrays of child keys:
 NativeToken & ERC20 & 18 & Fixed (minted on deploy) & Stakeable governance asset \\
 BlocTime & ERC20 & 18 & Dynamic (mint/burn) & Time-weighted stake receipt \\
 Market Token & ERC20 & 8 & Dynamic (mint/burn) & USD-pegged marketplace credit \\
+Subnet Token & ERC20 & 18 & Per-subnet emission & Validator reward token \\
 USDC / USDT & ERC20 & 6 & External & Payment tokens \\
 \bottomrule
 \end{tabularx}
@@ -432,8 +514,9 @@ USDC / USDT & ERC20 & 6 & External & Payment tokens \\
     \node[box] (market) at (0,2) {Market.sol\\(credit/withdraw)};
     \node[box] (debit) at (5,2) {Debit.sol\\(module invocation)};
     \node[box] (treasury) at (2.5,0) {Treasury.sol\\(accumulates fees)};
-    \node[box] (staking) at (2.5,-2) {BlocTime.sol\\(stakers claim)};
+    \node[box] (staking) at (0,-2) {BlocTime.sol\\(stakers claim)};
     \node[box] (provider) at (5,4) {Provider\\(module developer)};
+    \node[box] (validators) at (5,-2) {StakeTime.sol\\(validator rewards)};
 
     % Arrows
     \draw[arrow] (user) -- node[left, fee] {deposit} (market);
@@ -442,6 +525,7 @@ USDC / USDT & ERC20 & 6 & External & Payment tokens \\
     \draw[arrow] (debit) -- node[right, fee] {5\% fee} (treasury);
     \draw[arrow] (debit) -- node[right, fee] {95\%} (provider);
     \draw[arrow] (treasury) -- node[left, fee] {proportional} (staking);
+    \draw[arrow] (treasury) -- node[below, fee] {emissions} (validators);
 \end{tikzpicture}
 \caption{Economic value flow through the protocol}
 \label{fig:valueflow}
@@ -459,6 +543,7 @@ Market Credit & 1\% (configurable, bps) & Treasury & Automatic on \texttt{credit
 Market Withdrawal & 0.1\% & Retained in Market & Implicit in conversion \\
 Debit Execution & 5\% (constant) & Treasury & Automatic on \texttt{executeDebit()} \\
 Owner Claim & Configurable \% & Owner address & Manual via \texttt{ownerWithdraw()} \\
+Validator Commission & Per-validator bps & Validator & On emission distribution \\
 \bottomrule
 \end{tabular}
 \caption{Protocol fee schedule}
@@ -528,7 +613,7 @@ mod/orbit/{module_name}/
 
 Anchor file resolution order: \texttt{agent.py} $>$ \texttt{mod.py} $>$ \texttt{block.py} $>$ \texttt{\{name\}.py}.
 
-\subsection{Module Categories (174 total)}
+\subsection{Module Categories (204 total)}
 
 \begin{table}[H]
 \centering
@@ -536,11 +621,14 @@ Anchor file resolution order: \texttt{agent.py} $>$ \texttt{mod.py} $>$ \texttt{
 \toprule
 \textbf{Category} & \textbf{Count} & \textbf{Key Modules} \\
 \midrule
-AI \& Agents & 6 & \texttt{agent}, \texttt{claude}, \texttt{model}, \texttt{model.openrouter}, \texttt{skill} \\
-Storage \& Data & 5 & \texttt{ipfs}, \texttt{filecoin}, \texttt{lighthouse}, \texttt{cache}, \texttt{localfs} \\
-Blockchain \& DeFi & 8 & \texttt{bridge}, \texttt{uniswap}, \texttt{safe}, \texttt{eth}, \texttt{near}, \texttt{solana}, \texttt{raydium} \\
-Dev Tools & 6 & \texttt{git}, \texttt{gitagent}, \texttt{pytest}, \texttt{conda}, \texttt{docker} \\
-Infrastructure & 149+ & \texttt{web}, \texttt{mcp}, \texttt{modal}, \texttt{registry}, \texttt{perms}, \texttt{ssh} \\
+AI \& Agents & 10+ & \texttt{agent}, \texttt{claude}, \texttt{claudecode}, \texttt{model}, \texttt{arena}, \texttt{skill}, \texttt{ag0} \\
+DeFi \& Trading & 15+ & \texttt{uniswap}, \texttt{hyperliquid}, \texttt{goldfi}, \texttt{prefi}, \texttt{raydium}, \texttt{copyquant}, \texttt{defi} \\
+Blockchain & 12+ & \texttt{bridge}, \texttt{safe}, \texttt{eth}, \texttt{near}, \texttt{solana}, \texttt{base}, \texttt{cardano}, \texttt{zcash} \\
+Storage \& Data & 6+ & \texttt{ipfs}, \texttt{filecoin}, \texttt{lighthouse}, \texttt{arweave}, \texttt{cache}, \texttt{localfs} \\
+Dev Tools & 10+ & \texttt{git}, \texttt{gitagent}, \texttt{pytest}, \texttt{conda}, \texttt{docker}, \texttt{codex}, \texttt{claudegit} \\
+Consensus & 3+ & \texttt{staketime}, \texttt{bloctime}, \texttt{quests} \\
+Applications & 5+ & \texttt{bloctime} (staking app), \texttt{embedcode} (code embed), \texttt{openhouse}, \texttt{portal} \\
+Infrastructure & 140+ & \texttt{web}, \texttt{mcp}, \texttt{modal}, \texttt{compute}, \texttt{caddy}, \texttt{proton}, \texttt{ssh} \\
 \bottomrule
 \end{tabularx}
 \caption{Orbit module ecosystem}
@@ -551,14 +639,24 @@ Infrastructure & 149+ & \texttt{web}, \texttt{mcp}, \texttt{modal}, \texttt{regi
 \begin{enumerate}
     \item \textbf{Discover}: \texttt{mod.py} scans \texttt{orbit/} for anchor files ($O(n)$ at startup, cached).
     \item \textbf{Load}: \texttt{m.mod('name')} imports and instantiates (lazy, $O(1)$).
+    \item \textbf{Serve}: \texttt{m serve name} auto-generates a FastAPI server for the module.
     \item \textbf{Register}: \texttt{api.reg('name')} uploads to IPFS + writes to \texttt{Registry.sol}.
     \item \textbf{Invoke}: \texttt{m.fn('name/function')(args)} executes locally.
     \item \textbf{Monetize}: Remote calls route through Market $\to$ Debit $\to$ fee to Treasury.
 \end{enumerate}
 
+\subsection{Full-Stack Module Applications}
+
+Select modules ship as complete applications with their own frontend, API, and smart contracts:
+
+\begin{itemize}
+    \item \textbf{BlocTime App}: Next.js + FastAPI staking dashboard. Users stake NativeToken, view positions, claim rewards. Ports 8851 (API) / 8852 (frontend).
+    \item \textbf{EmbedCode}: Code embedding and execution platform. Next.js frontend with Tailwind CSS, FastAPI backend for code processing and deployment.
+\end{itemize}
+
 \subsection{IPFS-Backed Registry}
 
-Module metadata is stored on IPFS (Kubo v0.40.1 daemon, auto-managed). Versioning is achieved by updating the CID pointer on-chain; previous CIDs remain accessible on IPFS indefinitely:
+Module metadata is stored on IPFS (Kubo daemon, auto-managed). Versioning is achieved by updating the CID pointer on-chain; previous CIDs remain accessible on IPFS indefinitely:
 
 \begin{lstlisting}[style=python]
 # Registration flow
@@ -636,6 +734,58 @@ Three adapter implementations are provided:
 \end{enumerate}
 
 % ══════════════════════════════════════════════════════════════════════
+\section{AI-Native Architecture}
+\label{sec:ai}
+
+\subsection{Agent Framework}
+
+The \texttt{agent} module provides autonomous multi-step AI workflows:
+
+\begin{lstlisting}[style=python]
+agent = m.mod('agent')()
+result = agent.forward(
+    query="Build a REST API for user management",
+    tools=['cmd', 'git', 'deploy'],
+    steps=10
+)
+\end{lstlisting}
+
+Execution loop:
+\begin{enumerate}
+    \item Initialize memory with goal, tools, and context.
+    \item Send context to LLM (Claude, OpenRouter).
+    \item Parse structured plan (\texttt{<PLAN><STEP>JSON</STEP></PLAN>}).
+    \item Execute tool calls from the plan.
+    \item Append results to context; repeat until \texttt{finish} tool is called.
+\end{enumerate}
+
+\subsection{Persistent Memory}
+
+Agents maintain persistent memory across sessions:
+\begin{itemize}
+    \item Vector embeddings for semantic retrieval.
+    \item Key-value facts storage.
+    \item Session history with automatic summarization.
+\end{itemize}
+
+\subsection{AI-Driven Module Composition}
+
+Agents can discover, load, and compose modules autonomously:
+
+\begin{lstlisting}[style=python]
+# Agent discovers available modules
+mods = m.mods()
+
+# Agent selects and chains modules
+data = m.fn('web/scrape')(url='...')
+analysis = m.fn('agent/analyze')(data=data)
+cid = m.fn('ipfs/put')(data=analysis)
+m.fn('registry/register')(name='analysis', data=cid)
+\end{lstlisting}
+
+This enables autonomous agents to build, deploy, and monetize new modules without human intervention.
+
+% ══════════════════════════════════════════════════════════════════════
 \section{Debit Protocol \& EIP-712 Authorization}
 \label{sec:debit}
 
@@ -695,6 +845,7 @@ Access control & \texttt{Ownable} + per-function modifiers \\
 Emergency stops & \texttt{Pausable} on Market contract \\
 Input validation & \texttt{require} guards on all external functions \\
 Monotonic enforcement & Multiplier curve points must be strictly increasing \\
+Slashing & Validator misbehavior penalized with stake reduction \\
 \bottomrule
 \end{tabularx}
 \caption{Smart contract security measures}
@@ -703,15 +854,26 @@ Monotonic enforcement & Multiplier curve points must be strictly increasing \\
 \subsection{Cryptographic Security}
 
 \begin{itemize}
-    \item \textbf{Key management}: ECDSA (secp256k1) and Sr25519 key generation.
-    \item \textbf{Storage encryption}: AES-256 for sensitive data at rest.
+    \item \textbf{Key management}: ECDSA (secp256k1), Sr25519, and Ed25519 key generation.
+    \item \textbf{Storage encryption}: AES-256-GCM for sensitive data at rest.
     \item \textbf{Signature verification}: EIP-712 structured data signing for debit authorizations.
     \item \textbf{Safe multisig}: Gnosis Safe integration with $v + 4$ adjustment for \texttt{eth\_sign} mode.
+    \item \textbf{Client-side key generation}: Private keys never leave the user's device.
 \end{itemize}
 
 \subsection{Anti-Flash-Loan Design}
 
 The Treasury distribution uses current token balances. Since BlocTime can only be minted by staking NativeToken with a lock period, flash-loan attacks on the distribution are structurally infeasible: an attacker cannot acquire, claim, and exit within a single transaction.
+
+\subsection{Infrastructure Security}
+
+\begin{itemize}
+    \item \textbf{HTTPS enforced} in production (TLS 1.3).
+    \item \textbf{Rate limiting} on all API endpoints (Redis-backed).
+    \item \textbf{Token gating} for premium features (ERC-20/ERC-721).
+    \item \textbf{Input sanitization} on all user-facing endpoints.
+    \item \textbf{Environment secrets} isolated from version control.
+\end{itemize}
 
 % ══════════════════════════════════════════════════════════════════════
 \section{Governance \& Decentralization Path}
@@ -763,6 +925,7 @@ Phase 4: Ownerless & \texttt{setOwnerless()} on all contracts. Permanent, irreve
 \textbf{Contract} & \textbf{Locked Functions} \\
 \midrule
 BlocTime & \texttt{setPoints()}, \texttt{setParams()}, \texttt{emergencyWithdraw()} \\
+StakeTime & \texttt{slash()}, \texttt{setEmission()}, \texttt{setConsensus()} \\
 Treasury & \texttt{setOwnerPercentage()}, \texttt{setGovernanceToken()}, \texttt{setTokenGate()} \\
 Market & \texttt{setTreasury()}, \texttt{setTokenGate()}, \texttt{setDebitContract()}, \texttt{pause()}/\texttt{unpause()} \\
 Debit & \texttt{setMarket()}, \texttt{setSignatureRequired()} \\
@@ -787,7 +950,7 @@ Perms & \texttt{setMaxChildKeys()}, \texttt{setMaxKeySize()} \\
 \midrule
 Base Sepolia & 84532 & Deployed & \texttt{https://sepolia.base.org} \\
 Base Mainnet & 8453 & Production-ready & \texttt{https://mainnet.base.org} \\
-Ganache (local) & 1337 & Development & \texttt{localhost:8545} \\
+Hardhat (local) & 31337 & Development & \texttt{localhost:8545} \\
 \bottomrule
 \end{tabular}
 \caption{Supported network configurations}
@@ -799,7 +962,7 @@ Ganache (local) & 1337 & Development & \texttt{localhost:8545} \\
     \item \textbf{Solidity}: 0.8.20
     \item \textbf{Framework}: Hardhat
     \item \textbf{Libraries}: OpenZeppelin Contracts v5.x
-    \item \textbf{Testing}: Hardhat + Chai (100+ test cases)
+    \item \textbf{Testing}: Hardhat + Chai
 \end{itemize}
 
 \subsection{Multi-Chain Module Support}
@@ -809,30 +972,36 @@ Beyond EVM contracts, the orbit module ecosystem supports:
     \item \textbf{Substrate}: \texttt{bridge} module (Sr25519 signatures, cross-chain minting via \texttt{BridgeableToken.sol}).
     \item \textbf{Solana}: \texttt{solana}, \texttt{raydium} modules (SPL token operations).
     \item \textbf{NEAR}: \texttt{near} module (NEAR Protocol integration).
-    \item \textbf{Polkadot}: Via Substrate compatibility layer.
+    \item \textbf{Cardano}: \texttt{cardano} module.
+    \item \textbf{Zcash}: \texttt{zcash} module (privacy-preserving transactions).
+    \item \textbf{Arweave}: \texttt{arweave} module (permanent storage).
 \end{itemize}
 
 % ══════════════════════════════════════════════════════════════════════
 \section{Conclusion}
 \label{sec:conclusion}
 
-MOD Protocol presents a complete, production-ready framework for decentralized module development and revenue sharing. The key technical contributions are:
+MOD Protocol presents a production-ready framework for decentralized module development, AI-native computation, and on-chain revenue sharing. The key technical contributions are:
 
 \begin{enumerate}
     \item \textbf{BlocTime staking}: A novel time-weighted multiplier mechanism that aligns long-term commitment with proportional revenue share, using piecewise-linear interpolation over configurable control points (Equation~\ref{eq:multiplier}).
 
+    \item \textbf{StakeTime consensus}: A validator consensus layer with Yuma-inspired scoring, delegated staking, commission-based emission distribution, and slashing for decentralized subnet networks (Equation~\ref{eq:yuma}).
+
     \item \textbf{Non-inflationary economics}: All staker rewards derive from real marketplace activity (credit and debit fees), eliminating the inflation-dilution problem common in DeFi protocols (Equation~\ref{eq:reward}).
 
-    \item \textbf{Zero-friction development}: The orbit module system auto-discovers Python modules without registration, configuration, or blockchain knowledge.
+    \item \textbf{204 composable modules}: The orbit ecosystem spans AI agents, DeFi protocols, cross-chain bridges, decentralized storage, validator consensus, and developer tooling---all discoverable and callable with zero configuration.
+
+    \item \textbf{AI-native execution}: Built-in agent framework with persistent memory, tool composition, and autonomous module creation enables a new paradigm of self-building software systems.
+
+    \item \textbf{Full-stack applications}: Select modules (BlocTime, EmbedCode) ship as complete applications with their own frontends, APIs, and smart contracts.
 
     \item \textbf{Irreversible decentralization}: The \texttt{setOwnerless()} pattern provides a cryptographically guaranteed path to full decentralization, requiring no trust assumptions about future governance.
-
-    \item \textbf{Multi-oracle architecture}: Pluggable oracle adapters (Chainlink, Pyth, Manual) with per-token configuration and fallback resolution.
 
     \item \textbf{EIP-712 debit authorization}: Structured signature-based payment authorization with multi-authority approval, daily spending limits, and replay protection.
 \end{enumerate}
 
-The protocol is deployed on Base Sepolia with all 10 core contracts operational, and is architecturally ready for mainnet deployment on Base (Chain ID 8453) or any EVM-compatible chain.
+The protocol is deployed on Base Sepolia with all core contracts operational, and is architecturally ready for mainnet deployment on Base (Chain ID 8453) or any EVM-compatible chain.
 
 % ══════════════════════════════════════════════════════════════════════
 \appendix
@@ -846,6 +1015,13 @@ stake(uint256 amount, uint256 lockBlocks)
 unstake(uint256 stakeId)
 getMultiplier(uint256 blockCount) returns (uint256)
 getStakePosition(address, uint256) returns (StakePosition)
+
+// StakeTime
+registerValidator(bytes32 ecdsa, bytes32 ed25519, bytes32 sr25519)
+stakeOnValidator(uint256 validatorId, uint256 amount, uint256 lockBlocks)
+distributeEmissions(uint256 epoch)
+slash(uint256 validatorId, uint256 amount)
+getValidatorScore(uint256 validatorId) returns (uint256)
 
 // Treasury
 fundTreasury(address token, uint256 amount)
@@ -878,7 +1054,7 @@ setDailyLimit(uint256)
 \begin{lstlisting}[basicstyle=\ttfamily\small, frame=single, backgroundcolor=\color{codebg}]
 {
     "name": "mod",
-    "version": "1.0.0",
+    "version": "2.1.0",
     "port_range": [50050, 50150],
     "shortcuts": { "m": "mod", "c": "mod" },
     "expose": ["forward", "info"],

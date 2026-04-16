@@ -195,7 +195,13 @@ class Registry:
                 'local': True,
                 'path': mod_path,
             }
-            # Try to get schema for local module
+            # Pull desc and schema from config/introspection
+            try:
+                cfg = m.config(mod_name)
+                if isinstance(cfg, dict) and cfg.get('description'):
+                    local_info['desc'] = cfg['description']
+            except Exception:
+                pass
             try:
                 local_schema = m.schema(mod_name)
                 if local_schema and isinstance(local_schema, dict):

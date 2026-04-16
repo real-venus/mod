@@ -1,15 +1,22 @@
 from typing import *
-from flask import Flask, request, Response
+from flask import Flask, request, Response, abort
 from flask_cors import CORS
 import os
 import hashlib
 import pandas as pd
 import json
+import re
+import subprocess
 import inspect
+from pathlib import Path
 from functools import partial
 import time
 import mod as m
 print = m.print
+
+# ── Security constants ──
+MAX_REQUEST_BODY = 10 * 1024 * 1024  # 10 MB max request body
+FN_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_/.-]{0,200}$')  # whitelist for fn paths
 
 class Server:
     
@@ -28,9 +35,15 @@ class Server:
         self.timeout = timeout
 
     def kill(self, name):
-        self.pm.kill(name)
-        self.registry.dereg(name)
-        return {'status': 'killed', 'name': name}
+        matches = [s for s in self.servers() if s.startswith(name)]
+        if not matches:
+            matches = [name]
+        killed = []
+        for s in matches:
+            self.pm.kill(s)
+            self.registry.dereg(s)
+            killed.append(s)
+        return {'status': 'killed', 'killed': killed}
     
     def kill_all(self):
         servers = self.servers()
@@ -143,6 +156,13 @@ class Server:
             return
         setattr(self, name, mod)
 
+    def _find_app_dir(self, mod_dir: Path) -> 'Path | None':
+        """Find the Next.js app directory within a module (checks app/, src/app/)."""
+        for candidate in [mod_dir / 'app', mod_dir / 'src' / 'app']:
+            if candidate.is_dir() and (candidate / 'package.json').exists():
+                return candidate
+        return None
+
     def get_fns(self, mod):
         config = m.config(mod)
         if config != None and 'fns' in config:
@@ -166,9 +186,10 @@ class Server:
 
               ):
         
-        if 'serve' in m.fns(mod):
+        mod_obj = m.mod(mod)()
+        if mod not in (None, 'mod') and 'serve' in type(mod_obj).__dict__:
             print(f'Mod {mod} has its own serve function, using it to serve the mod', color='green')
-            return m.fn(mod + '/serve')()
+            return mod_obj.serve()
         self.set_pm(pm)
         mod = mod or m.name
         port = self.get_port(port, mod=mod)
@@ -193,9 +214,13 @@ class Server:
         self.mod.info = get_info(mod)
         self.gate = m.mod('gate')(mod=self.mod, paywall=paywall, sandbox=sandbox)
         self.app = Flask(__name__)
+        self.app.config['MAX_CONTENT_LENGTH'] = MAX_REQUEST_BODY
+
+        # CORS: restrict to known origins; override with MOD_CORS_ORIGINS env var
+        allowed_origins = os.environ.get('MOD_CORS_ORIGINS', 'http://localhost:*,http://127.0.0.1:*').split(',')
         CORS(self.app, resources={r"/*": {
-            "origins": "*",
-            "methods": ["GET", "POST", "OPTIONS"],
+            "origins": allowed_origins,
+            "methods": ["POST", "OPTIONS"],
             "allow_headers": ["Content-Type", "Accept", "token", "Authorization"],
             "expose_headers": ["Content-Type"],
             "max_age": 3600
@@ -203,19 +228,46 @@ class Server:
 
         @self.app.route("/<path:fn>", methods=['POST'])
         def server_fn(fn):
+            # ── Validate function name ──
+            if not FN_NAME_RE.match(fn) or '..' in fn:
+                return {'error': 'Invalid function name'}, 400
             try:
                 headers = dict(request.headers)
-                params = request.get_json()
+                params = request.get_json(silent=True) or {}
+                if not isinstance(params, dict):
+                    return {'error': 'Request body must be a JSON object'}, 400
                 result = self.gate.forward(fn=fn, headers=headers, params=params, mod=self.mod)
+            except AssertionError as e:
+                # Permission / role assertion errors → 403
+                m.print(f'Denied {fn}: {e}', color='yellow')
+                return {'error': str(e)}, 403
             except Exception as e:
-                result = m.detailed_error(e)
-                m.print(f'Error in server function {fn}: {result} {e}', color='red')
+                # Log full error server-side, return sanitized message to client
+                m.print(f'Error in server function {fn}: {m.detailed_error(e)}', color='red')
+                result = {'error': 'Internal server error', 'fn': fn}
             # Ensure result is JSON-serializable
             try:
                 json.dumps(result)
             except (TypeError, ValueError):
                 result = json.loads(json.dumps(result, default=str))
-            return  {'result': result}
+            return {'result': result}
+
+        # ── Auto-serve Next.js app if the module has one ──
+        mod_dir = Path(m.dirpath(mod))
+        app_dir = self._find_app_dir(mod_dir)
+        if app_dir and (app_dir / 'package.json').exists():
+            config = m.config(mod) or {}
+            app_port = int(config.get('app_port', 0)) or (port + 1)
+            log_dir = Path(f'/tmp/{name}')
+            log_dir.mkdir(parents=True, exist_ok=True)
+            app_env = os.environ.copy()
+            app_env['NEXT_PUBLIC_API_URL'] = f'http://localhost:{port}'
+            app_env['PORT'] = str(app_port)
+            app_log = open(log_dir / 'app.log', 'w')
+            app_cmd = ['npx', 'next', 'dev', '-p', str(app_port)]
+            subprocess.Popen(app_cmd, cwd=str(app_dir), env=app_env,
+                             stdout=app_log, stderr=subprocess.STDOUT)
+            print(f'App started at http://localhost:{app_port} (log: {log_dir}/app.log)', color='green')
 
         self.registry.reg(name, f'http://0.0.0.0:{port}')
         if run_mode == 'flask':

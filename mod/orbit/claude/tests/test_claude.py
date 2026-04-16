@@ -21,8 +21,8 @@ from unittest.mock import patch, MagicMock, Mock
 # Add parent directory to path so we can import the module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import mod as m
-from claude.mod import Mod
+import src.mod as m
+from src.mod import Mod
 
 
 # ── Helpers ──────────────────────────────────────────────────────

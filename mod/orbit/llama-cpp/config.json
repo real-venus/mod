@@ -1,0 +1,32 @@
+{
+    "name": "llama-cpp",
+    "description": "Local LLM inference via llama.cpp — CPU and Metal (Apple Silicon GPU/ANE)",
+    "schema": {
+        "forward": {
+            "prompt": "str",
+            "max_tokens": "int",
+            "temperature": "float"
+        },
+        "chat": {
+            "message": "str",
+            "system": "str",
+            "max_tokens": "int",
+            "temperature": "float"
+        },
+        "load": {
+            "model": "str",
+            "n_ctx": "int",
+            "n_gpu_layers": "int",
+            "backend": "str"
+        },
+        "download": {
+            "url": "str",
+            "name": "str"
+        },
+        "bench": {
+            "prompt": "str",
+            "n_tokens": "int",
+            "backend": "str"
+        }
+    }
+}

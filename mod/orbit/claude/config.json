@@ -42,6 +42,8 @@
     "is_owner",
     "health",
     "modules",
+    "folders",
+    "suggest_folders",
     "repos",
     "files",
     "owner",
@@ -662,6 +664,54 @@
       },
       "docs": "List orbit/core modules. Falls back to m.mods() if server is down."
     },
+    "folders": {
+      "input": [
+        {
+          "name": "search",
+          "type": "str",
+          "value": null
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "value": null
+        },
+        {
+          "name": "depth",
+          "type": "int",
+          "value": 2
+        }
+      ],
+      "output": {
+        "type": "list",
+        "value": null
+      },
+      "docs": "List folders under a path. Returns [{name, path, has_config, has_mod}]."
+    },
+    "suggest_folders": {
+      "input": [
+        {
+          "name": "query",
+          "type": "str",
+          "value": "_empty"
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "value": null
+        },
+        {
+          "name": "top_k",
+          "type": "int",
+          "value": 10
+        }
+      ],
+      "output": {
+        "type": "list",
+        "value": null
+      },
+      "docs": "Suggest folders using embedcode similarity search. Returns [{name, path, score, preview}]."
+    },
     "test": {
       "input": [],
       "output": {
@@ -696,6 +746,16 @@
       "method": "GET",
       "auth": false,
       "docs": "List orbit and core modules"
+    },
+    "/folders": {
+      "method": "GET",
+      "auth": false,
+      "docs": "List folders under a path with optional search filter"
+    },
+    "/suggest_folders": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Suggest folders using embedcode similarity search"
     },
     "/files/tree": {
       "method": "GET",

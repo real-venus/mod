@@ -22,6 +22,9 @@ import {
   ServerStackIcon,
   ShieldCheckIcon,
   XCircleIcon,
+  SparklesIcon,
+  CheckIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline'
 import { motion } from 'framer-motion'
 
@@ -67,8 +70,9 @@ interface SubnetInfo {
   id: number
   owner: string
   name: string
+  subnet: string
   stakeTime: string
-  incentive: string
+  consensus: string
   registeredBlock: number
   active: boolean
   stakeScore: string
@@ -132,6 +136,13 @@ function StakeTimeApp() {
   const [subConsensus, setSubConsensus] = useState('')
   const [registeringSub, setRegisteringSub] = useState(false)
   const [registrationCost, setRegistrationCost] = useState('0')
+
+  // LLM subnet creation
+  const [llmPrompt, setLlmPrompt] = useState('')
+  const [llmParams, setLlmParams] = useState<any>(null)
+  const [llmGenerating, setLlmGenerating] = useState(false)
+  const [llmDeploying, setLlmDeploying] = useState(false)
+  const [llmEditing, setLlmEditing] = useState(false)
 
   // Register form
   const [regKey, setRegKey] = useState('')
@@ -337,6 +348,45 @@ function StakeTimeApp() {
     }
   }, [fetchAll])
 
+  const handleLlmGenerate = useCallback(async () => {
+    if (!llmPrompt.trim()) { toast.error('Describe the subnet you want to create'); return }
+    setLlmGenerating(true)
+    try {
+      const params = await api('generate_subnet_params', { prompt: llmPrompt.trim() })
+      setLlmParams(params)
+      setLlmEditing(false)
+      toast.success('Parameters generated')
+    } catch (err: any) {
+      toast.error(err?.message || 'Generation failed')
+    }
+    setLlmGenerating(false)
+  }, [llmPrompt])
+
+  const handleLlmDeploy = useCallback(async () => {
+    if (!llmParams) return
+    setLlmDeploying(true)
+    try {
+      const result = await api('deploy_subnet', {
+        name: llmParams.name,
+        symbol: llmParams.symbol,
+        initial_supply: llmParams.initialSupply || '1000000',
+        max_lock_blocks: llmParams.maxLockBlocks || 100000,
+        max_stakers_per_validator: llmParams.maxStakersPerValidator || 100,
+        default_commission_bps: llmParams.defaultCommissionBps || 1000,
+        epoch_length: llmParams.epochLength || 43200,
+        emission_rate: llmParams.emissionRate || '100',
+        decay_bps: llmParams.decayBps || 500,
+      })
+      toast.success(`Subnet "${llmParams.name}" deployed!`)
+      setLlmParams(null)
+      setLlmPrompt('')
+      fetchAll()
+    } catch (err: any) {
+      toast.error(err?.message || 'Deploy failed')
+    }
+    setLlmDeploying(false)
+  }, [llmParams, fetchAll])
+
   // ── Sorting ─────────────────────────────────────────────────────────
 
   const toggleSort = (key: SortKey) => {
@@ -503,54 +553,101 @@ function StakeTimeApp() {
         {/* ── Subnets Tab ────────────────────────────────────────────── */}
         {tab === 'subnets' && (
           <>
-            {/* Register Subnet Form */}
+            {/* LLM Subnet Creator */}
             <div className="border border-white/10 rounded-lg p-4 bg-white/[0.02]">
               <div className="flex items-center gap-2 mb-3">
-                <ServerStackIcon className="w-4 h-4 text-white/40" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Register Subnet</span>
-                <span className="text-[10px] text-white/20 ml-auto">Cost: {fmtEth(registrationCost)} NTV | {subnets.length} / 420</span>
+                <SparklesIcon className="w-4 h-4 text-violet-400/70" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Create Subnet</span>
+                <span className="text-[10px] text-white/20 ml-auto">Cost: {fmtEth(registrationCost)} GOV | {subnets.length} / 420</span>
               </div>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="Subnet name..."
-                  value={subName}
-                  onChange={e => setSubName(e.target.value)}
-                  className="w-full text-sm px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white/90 focus:outline-none focus:border-white/30 font-mono transition-colors placeholder:text-white/20"
-                />
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    placeholder="Subnet (ERC20) address..."
-                    value={subSubnet}
-                    onChange={e => setSubSubnet(e.target.value)}
-                    className="flex-1 text-sm px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white/90 focus:outline-none focus:border-white/30 font-mono transition-colors placeholder:text-white/20"
+
+              {!llmParams ? (
+                <div className="space-y-2">
+                  <textarea
+                    placeholder="Describe the subnet you want to create...&#10;&#10;e.g. &quot;An AI inference subnet with high throughput, rewarding consistent uptime. Fast 12-hour epochs, generous emissions to attract early validators.&quot;"
+                    value={llmPrompt}
+                    onChange={e => setLlmPrompt(e.target.value)}
+                    rows={3}
+                    className="w-full text-sm px-4 py-3 rounded-lg border border-white/10 bg-white/5 text-white/90 focus:outline-none focus:border-white/30 font-mono transition-colors placeholder:text-white/20 resize-none"
                   />
-                  <input
-                    type="text"
-                    placeholder="StakeTime contract address..."
-                    value={subStakeTime}
-                    onChange={e => setSubStakeTime(e.target.value)}
-                    className="flex-1 text-sm px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white/90 focus:outline-none focus:border-white/30 font-mono transition-colors placeholder:text-white/20"
-                  />
+                  <div className="flex items-center justify-end">
+                    <button
+                      onClick={handleLlmGenerate}
+                      disabled={llmGenerating || !llmPrompt.trim()}
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-violet-500/40 bg-violet-500/15 text-violet-300 text-[10px] font-bold uppercase tracking-wider hover:bg-violet-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {llmGenerating ? (
+                        <><ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> Generating...</>
+                      ) : (
+                        <><SparklesIcon className="w-3.5 h-3.5" /> Generate</>
+                      )}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    placeholder="Consensus contract address..."
-                    value={subConsensus}
-                    onChange={e => setSubConsensus(e.target.value)}
-                    className="flex-1 text-sm px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white/90 focus:outline-none focus:border-white/30 font-mono transition-colors placeholder:text-white/20"
-                  />
-                  <button
-                    onClick={handleRegisterSubnet}
-                    disabled={registeringSub || !subName.trim() || !subSubnet.trim() || !subStakeTime.trim() || !subConsensus.trim()}
-                    className="px-4 py-2.5 rounded-lg border border-violet-500/40 bg-violet-500/15 text-violet-300 text-[10px] font-bold uppercase tracking-wider hover:bg-violet-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                  >
-                    {registeringSub ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : 'Register'}
-                  </button>
+              ) : (
+                <div className="space-y-3">
+                  {llmParams.description && (
+                    <p className="text-xs text-white/50 italic">{llmParams.description}</p>
+                  )}
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {[
+                      { label: 'Name', key: 'name', type: 'text' },
+                      { label: 'Symbol', key: 'symbol', type: 'text' },
+                      { label: 'Initial Supply', key: 'initialSupply', type: 'text' },
+                      { label: 'Emission Rate/Epoch', key: 'emissionRate', type: 'text' },
+                      { label: 'Epoch Length (blocks)', key: 'epochLength', type: 'number' },
+                      { label: 'Decay (bps)', key: 'decayBps', type: 'number' },
+                      { label: 'Max Lock Blocks', key: 'maxLockBlocks', type: 'number' },
+                      { label: 'Max Stakers/Val', key: 'maxStakersPerValidator', type: 'number' },
+                      { label: 'Commission (bps)', key: 'defaultCommissionBps', type: 'number' },
+                    ].map(f => (
+                      <div key={f.key}>
+                        <label className="text-[9px] text-white/30 uppercase tracking-wider mb-0.5 block">{f.label}</label>
+                        <input
+                          type={f.type}
+                          value={llmParams[f.key] ?? ''}
+                          disabled={!llmEditing}
+                          onChange={e => setLlmParams({ ...llmParams, [f.key]: f.type === 'number' ? parseInt(e.target.value) || 0 : e.target.value })}
+                          className={`w-full text-xs px-3 py-2 rounded-lg border font-mono transition-colors ${
+                            llmEditing
+                              ? 'border-white/20 bg-white/5 text-white/90 focus:outline-none focus:border-white/40'
+                              : 'border-white/[0.06] bg-white/[0.02] text-white/60'
+                          }`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setLlmParams(null); setLlmPrompt('') }}
+                        className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white/40 text-[10px] font-bold uppercase tracking-wider hover:bg-white/10 hover:text-white/60 transition-colors"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={() => setLlmEditing(!llmEditing)}
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white/40 text-[10px] font-bold uppercase tracking-wider hover:bg-white/10 hover:text-white/60 transition-colors"
+                      >
+                        <PencilIcon className="w-3 h-3" /> {llmEditing ? 'Lock' : 'Edit'}
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleLlmDeploy}
+                      disabled={llmDeploying}
+                      className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {llmDeploying ? (
+                        <><ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> Deploying...</>
+                      ) : (
+                        <><CheckIcon className="w-3.5 h-3.5" /> Deploy Subnet</>
+                      )}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Weakest Subnet Banner */}

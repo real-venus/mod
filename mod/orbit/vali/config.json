@@ -1,0 +1,236 @@
+{
+  "name": "vali",
+  "version": "1.0.0",
+  "description": "Validator module \u2014 scores modules, runs epochs, maintains scoreboards, votes on performance.",
+  "port": 50100,
+  "app_port": 50101,
+  "urls": {
+    "api": "http://localhost:50100",
+    "app": "http://localhost:50101"
+  },
+  "fns": [
+    "forward",
+    "status",
+    "epoch",
+    "results",
+    "score_module",
+    "vote",
+    "set_network",
+    "set_score",
+    "modules",
+    "refresh_results",
+    "serve",
+    "kill"
+  ],
+  "schema": {
+    "forward": {
+      "input": [],
+      "output": {
+        "type": "Dict",
+        "value": null
+      },
+      "docs": "Default entry point \u2014 returns validator status."
+    },
+    "status": {
+      "input": [],
+      "output": {
+        "type": "Dict",
+        "value": null
+      },
+      "docs": "Get validator status (network, epochs, module count)."
+    },
+    "epoch": {
+      "input": [
+        {
+          "name": "search",
+          "type": "str",
+          "value": null
+        },
+        {
+          "name": "key",
+          "type": "str",
+          "value": null
+        },
+        {
+          "name": "debug",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "output": {
+        "type": "list",
+        "value": null
+      },
+      "docs": "Run a validation epoch, scoring all modules."
+    },
+    "results": {
+      "input": [
+        {
+          "name": "by",
+          "type": "str",
+          "value": "score"
+        },
+        {
+          "name": "ascending",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "max_age",
+          "type": "int",
+          "value": 10000
+        }
+      ],
+      "output": {
+        "type": "list",
+        "value": null
+      },
+      "docs": "Get scored results (scoreboard)."
+    },
+    "score_module": {
+      "input": [
+        {
+          "name": "module",
+          "type": "str",
+          "value": "_empty"
+        }
+      ],
+      "output": {
+        "type": "Dict",
+        "value": null
+      },
+      "docs": "Score a single module."
+    },
+    "vote": {
+      "input": [
+        {
+          "name": "results",
+          "type": "list",
+          "value": "_empty"
+        }
+      ],
+      "output": {
+        "type": "Dict",
+        "value": null
+      },
+      "docs": "Submit votes for modules."
+    },
+    "set_network": {
+      "input": [
+        {
+          "name": "network",
+          "type": "str",
+          "value": null
+        },
+        {
+          "name": "tempo",
+          "type": "int",
+          "value": null
+        },
+        {
+          "name": "search",
+          "type": "str",
+          "value": null
+        }
+      ],
+      "output": {
+        "type": "str",
+        "value": null
+      },
+      "docs": "Configure the network connection."
+    },
+    "modules": {
+      "input": [],
+      "output": {
+        "type": "list",
+        "value": null
+      },
+      "docs": "List discovered modules on the network."
+    },
+    "refresh_results": {
+      "input": [],
+      "output": {
+        "type": "Dict",
+        "value": null
+      },
+      "docs": "Clear the scoreboard."
+    },
+    "serve": {
+      "input": [
+        {
+          "name": "api_port",
+          "type": "int",
+          "value": 50100
+        },
+        {
+          "name": "app_port",
+          "type": "int",
+          "value": 50101
+        },
+        {
+          "name": "dev",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "output": {
+        "type": "Dict",
+        "value": null
+      },
+      "docs": "Launch the API and App servers."
+    },
+    "kill": {
+      "input": [],
+      "output": {
+        "type": "Dict",
+        "value": null
+      },
+      "docs": "Kill the API and App processes."
+    }
+  },
+  "endpoints": {
+    "/health": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Health check"
+    },
+    "/status": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Validator status"
+    },
+    "/epoch": {
+      "method": "POST",
+      "auth": false,
+      "docs": "Run a validation epoch"
+    },
+    "/results": {
+      "method": "GET",
+      "auth": false,
+      "docs": "Get scoreboard"
+    },
+    "/score": {
+      "method": "POST",
+      "auth": false,
+      "docs": "Score a single module"
+    },
+    "/vote": {
+      "method": "POST",
+      "auth": true,
+      "docs": "Submit votes"
+    },
+    "/network": {
+      "method": [
+        "GET",
+        "POST"
+      ],
+      "auth": false,
+      "docs": "Get or set network config"
+    },
+    "/modules": {
+      "method": "GET",
+      "auth": false,
+      "docs": "List discovered modules"
+    }
+  }
+}

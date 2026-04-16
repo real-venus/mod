@@ -97,7 +97,8 @@ class Cli:
         argv = self.argv
         mod = self.mod
         init_kwargs = self.get_init_params()
-        print(f'Init params: {init_kwargs}', color='cyan')
+        if init_kwargs:
+            print(f'Init params: {init_kwargs}', color='cyan')
 
         # Check for local mod.py in CWD first
         if len(argv) > 0 and '/' not in argv[0]:

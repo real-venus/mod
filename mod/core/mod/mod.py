@@ -1,12 +1,9 @@
 """
-Mod — the core class, composed from focused mixins.
+Mod — the unified core class.
 
     core/mod/
     ├── __init__.py   ← re-exports Mod
-    ├── mod.py        ← this file (Mod: resolve + introspect + config + key + storage)
-    ├── fs.py         ← FsMixin  (path & file utilities)
-    ├── deploy.py     ← DeployMixin  (server, docker, deploy)
-    ├── factory.py    ← FactoryMixin  (new, fork, clone, rm)
+    ├── mod.py        ← this file (all core functionality)
     └── tx.py         ← Tx  (transaction logging)
 """
 
@@ -18,19 +15,16 @@ import time
 import logging
 import inspect
 import subprocess
+import shutil
 from typing import Any, Dict, List, Optional, Union
 from functools import partial
 
 import yaml
 
-from .fs import FsMixin
-from .deploy import DeployMixin
-from .factory import FactoryMixin
-
 logger = logging.getLogger(__name__)
 
 
-class Mod(FsMixin, DeployMixin, FactoryMixin):
+class Mod:
 
     # ── Class Constants ──────────────────────────────────────────────────
     name = 'mod'
@@ -161,6 +155,133 @@ class Mod(FsMixin, DeployMixin, FactoryMixin):
             v = util.split('.')[-1]
             routes.setdefault(k, []).append(v)
         return routes
+
+    # ── Filesystem (path & file utilities) ────────────────────────────────
+
+    def abspath(self, path: str = '') -> str:
+        return os.path.abspath(os.path.expanduser(path))
+
+    def relpath(self, path: str = '~') -> str:
+        path = os.path.abspath(os.path.expanduser(path))
+        return path.replace(self.homepath, '~')
+
+    def pwd(self):
+        return os.getcwd()
+
+    def cwd(self, mod=None):
+        return self.dirpath(mod) if mod else os.getcwd()
+
+    def get_path(self, path: str = None, extension: Optional[str] = None) -> str:
+        """Resolve path relative to storage dir (~/.mod) unless absolute."""
+        storage_dir = self.storage_dir()
+        if path is None:
+            return storage_dir
+        if path.startswith('/'):
+            pass
+        elif path.startswith('~/'):
+            path = os.path.expanduser(path)
+        elif path.startswith('.'):
+            path = os.path.abspath(path)
+        elif storage_dir not in path:
+            path = os.path.join(storage_dir, path)
+        if extension is not None and not path.endswith(extension):
+            path = f'{path}.{extension}'
+        return path
+
+    def storage_dir(self, mod=None):
+        mod = (mod or self.name).replace('/', '.')
+        return self.abspath(f'~/.{self.name}/{mod}')
+
+    def is_home(self, path: str = None) -> bool:
+        if path is None:
+            path = self.pwd()
+        return os.path.abspath(path) == os.path.abspath(self.homepath)
+
+    def filter_path(self, path, search=None, include_hidden=False):
+        """Return True if path passes avoid-folder / hidden / search filters."""
+        parts = path.replace('\\', '/').split('/')
+        for part in parts:
+            if part in self.avoid_folders:
+                return False
+            if not include_hidden and part.startswith('.') and part != '.':
+                return False
+        if search and search not in path:
+            return False
+        return True
+
+    def _walk(self, path, depth=10, include_hidden=False):
+        """Shared os.walk with depth-limiting and folder pruning."""
+        avoid = self.avoid_folders
+        for root, dirs, files in os.walk(path):
+            rel = os.path.relpath(root, path)
+            cur_depth = 0 if rel == '.' else rel.count(os.sep) + 1
+            if cur_depth >= depth:
+                dirs.clear()
+                continue
+            dirs[:] = sorted(
+                d for d in dirs
+                if d not in avoid and (include_hidden or not d.startswith('.'))
+            )
+            yield root, dirs, files
+
+    def folders(self, path: str = './', depth: Optional[int] = 1,
+                search=None, include_hidden=False, **kwargs) -> List[str]:
+        path = self.abspath(path)
+        result = []
+        for root, dirs, _files in self._walk(path, depth, include_hidden):
+            for d in dirs:
+                full = os.path.join(root, d)
+                if search is not None and search not in full:
+                    continue
+                result.append(full)
+        return sorted(result)
+
+    def files(self, path='./', search: str = None, include_hidden: bool = False,
+              depth=10, **kwargs) -> List[str]:
+        """List all files in path with depth-limiting and folder pruning."""
+        path = self.abspath(path)
+        if not os.path.exists(path) and self.mod_exists(path):
+            path = self.dirpath(path)
+        if depth <= 0:
+            return []
+        result = []
+        for root, dirs, files in self._walk(path, depth, include_hidden):
+            for f in files:
+                if not include_hidden and f.startswith('.'):
+                    continue
+                full = os.path.join(root, f)
+                if search is not None and search not in full:
+                    continue
+                result.append(full)
+        return sorted(result)
+
+    def glob(self, path: str = './', depth: Optional[int] = 4,
+             files_only: bool = True, include_hidden=False, **kwargs):
+        path = self.abspath(path)
+        if depth <= 0:
+            return []
+        result = []
+        for root, dirs, files in self._walk(path, depth, include_hidden):
+            if not files_only:
+                result.extend(os.path.join(root, d) for d in dirs)
+            for f in files:
+                if not include_hidden and f.startswith('.'):
+                    continue
+                result.append(os.path.join(root, f))
+        return result
+
+    def ls(self, path: str = './', search=None, include_hidden=False,
+           depth=None, return_full_path: bool = True):
+        """List directory entries (non-recursive)."""
+        path = self.abspath(path)
+        try:
+            entries = os.scandir(path)
+        except (OSError, PermissionError):
+            return []
+        ls_files = sorted(e.path if return_full_path else e.name for e in entries)
+        if search is not None:
+            ls_files = [f for f in ls_files if search in f]
+        return ls_files
 
     # ── Resolve (module resolution, anchor discovery, object import) ───
 
@@ -458,6 +579,9 @@ class Mod:
         elif self.obj_exists(obj):
             obj = self.obj(obj)
         return inspect.getsource(obj)
+
+    def claude(self, *text, obj=None, **kwargs) -> str:
+        return self.fn('claude/forward')(text=' '.join(text), obj=obj, **kwargs)
 
     def content(self, mod=None, ignore_folders=[], depth=10, **kwargs) -> Dict[str, str]:
         """Get mod content as {relative_path: file_text}."""
@@ -865,7 +989,6 @@ class Mod:
             else:
                 return {'success': False, 'message': f'{path} does not exist'}
         if os.path.isdir(path):
-            import shutil
             shutil.rmtree(path)
         elif os.path.isfile(path):
             os.remove(path)
@@ -936,7 +1059,7 @@ class Mod:
 
     def info(self, mod: str = 'mod', schema=False, key=None, public=False, **kwargs):
         if self._api is None:
-            self._api = self.mod('app.api')()
+            self._api = self.mod('api')()
         if not self._api.exists(mod, key=key):
             self._api.reg(mod=mod, key=key, public=public)
         return self._api.mod(mod=mod, schema=schema, key=key, **kwargs)
@@ -966,8 +1089,17 @@ class Mod:
 
     # ── Module Listing ───────────────────────────────────────────────────
 
-    def mods(self, search=None, startswith=None, endswith=None, **kwargs) -> List[str]:
-        return list(self.tree(search=search, endswith=endswith, startswith=startswith, **kwargs).keys())
+    def mods(self, search=None, startswith=None, endswith=None, all=False, **kwargs) -> List[str]:
+        if all:
+            tree = self.tree(search=search, **kwargs)
+        else:
+            tree = self.operational_tree(search=search, **kwargs)
+        names = list(tree.keys())
+        if startswith:
+            names = [n for n in names if n.startswith(startswith)]
+        if endswith:
+            names = [n for n in names if n.endswith(endswith)]
+        return names
 
     def core_mods(self, *args, **kwargs) -> List[str]:
         return list(self.core_tree(*args, orbit='core', **kwargs).keys())
@@ -1134,6 +1266,489 @@ class Mod:
     def epoch(self, *args, **kwargs):
         return self.fn('vali/epoch')(*args, **kwargs)
 
+    # ── Server & Deploy ──────────────────────────────────────────────────
+
+    def serve(self, mod: str = 'mod', port: int = None, remote=True, **kwargs):
+        fn = self.fn('server/serve')
+        if isinstance(mod, str):
+            return fn(mod, port=port, remote=remote, **kwargs)
+        elif isinstance(mod, list):
+            threads = []
+            for m in mod:
+                params = {'mod': m, 'port': port, 'remote': remote, **kwargs}
+                t = self.thread(fn, params)
+                threads.append(t)
+            return self.wait(threads)
+
+    def servers(self, *args, pm='pm2', **kwargs):
+        return self.fn(f'{pm}/servers')(*args, **kwargs)
+
+    def server_exists(self, server: str = 'mod', pm='pm2', *args, **kwargs):
+        return self.fn(f'{pm}/exists')(server, *args, **kwargs)
+
+    def ensure_server(self, server: str = 'mod', pm='pm2', *args, **kwargs):
+        if not self.server_exists(server, pm=pm, *args, **kwargs):
+            return self.serve(server, pm=pm, *args, **kwargs)
+        return {'msg': f'Server {server} already running'}
+
+    def kill(self, server: str = 'mod'):
+        return self.fn('server/kill')(server)
+
+    def kill_all(self):
+        return self.fn('server/killall')()
+
+    def urls(self, *args, **kwargs):
+        return self.fn('server/urls')(*args, **kwargs)
+
+    def namespace(self, *args, **kwargs):
+        return self.fn('server/namespace')(*args, **kwargs)
+
+    def logs(self, mod, pm='pm2', **kwargs):
+        return self.fn(f'{pm}/logs')(mod, **kwargs)
+
+    def app(self):
+        if not self.server_exists('app'):
+            return
+        self.serve('api')
+        return self.serve('app')
+
+    def setup(self):
+        self.serve('ipfs')
+        self.serve('api')
+        self.up('app')
+
+    def get_ports(self, n: int = 3) -> list:
+        port_range = self.get_port_range()
+        used_ports = set(self.used_ports())
+        available = [p for p in range(port_range[0], port_range[1]) if p not in used_ports]
+        if len(available) < n:
+            raise RuntimeError(f'Not enough available ports in range {port_range}')
+        return available[:n]
+
+    def get_port_range(self, port_range: list = None) -> list:
+        if port_range is None:
+            port_range = self.get('port_range', [])
+        if isinstance(port_range, str):
+            port_range = list(map(int, port_range.split('-')))
+        if not port_range:
+            port_range = self.port_range
+        port_range = list(port_range)
+        if len(port_range) < 2:
+            raise ValueError('Port range must be a list of at least 2 integers')
+        if not isinstance(port_range[0], int) or not isinstance(port_range[1], int):
+            raise TypeError('Port range values must be integers')
+        return port_range
+
+    # ── Docker ───────────────────────────────────────────────────────────
+
+    def up(self, mod='mod'):
+        return self.fn('pm.docker/up')(mod)
+
+    def down(self, mod='mod'):
+        return self.fn('pm.docker/down')(mod)
+
+    def enter(self, image='mod'):
+        return self.fn('pm.docker/enter')(image)
+
+    def build(self, *args, **kwargs):
+        return self.fn('pm.docker/build')(*args, **kwargs)
+
+    def exec(self, mod: str = 'mod', *args, **kwargs):
+        return self.fn('pm.docker/exec')(mod, *args, **kwargs)
+
+    def dockerfiles(self, mod=None):
+        dirpath = self.dirpath(mod)
+        return [os.path.join(dirpath, f) for f in os.listdir(dirpath) if f.startswith('Dockerfile')]
+
+    # ── Start & Deploy ───────────────────────────────────────────────────
+
+    def start(self, mod=None):
+        """Find and execute the closest start.sh script."""
+        path = self.abspath(self.dirpath(mod) if mod else os.getcwd())
+        start_script = None
+
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('node_modules', '__pycache__', '.git')]
+            if 'start.sh' in files:
+                start_script = os.path.join(root, 'start.sh')
+                break
+
+        if start_script is None:
+            current = os.path.dirname(path)
+            while True:
+                candidate = os.path.join(current, 'start.sh')
+                if os.path.isfile(candidate):
+                    start_script = candidate
+                    break
+                parent = os.path.dirname(current)
+                if parent == current:
+                    break
+                current = parent
+
+        if start_script is None:
+            raise FileNotFoundError(f'No start.sh found in or above {path}')
+
+        os.chmod(start_script, os.stat(start_script).st_mode | 0o755)
+        mod_dir = self.abspath(self.dirpath(mod) if mod else self.dirpath())
+        self.print(f'Running {start_script} in {mod_dir}')
+        return self.cmd(f'bash {start_script}', cwd=mod_dir, verbose=True)
+
+    def _pm2_running(self):
+        """Get set of running PM2 process names."""
+        try:
+            result = subprocess.run(['pm2', 'jlist'], capture_output=True, text=True, timeout=10)
+            procs = json.loads(result.stdout) if result.stdout.strip() else []
+            return {p['name'] for p in procs if p.get('pm2_env', {}).get('status') == 'online'}
+        except Exception:
+            return set()
+
+    def _find_start_script(self, mod):
+        """Find start.sh for a module."""
+        path = self.abspath(self.dirpath(mod))
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if not d.startswith('.')
+                       and d not in ('node_modules', '__pycache__', '.git', 'target', '.next', 'venv', '.venv')]
+            if 'start.sh' in files:
+                return os.path.join(root, 'start.sh')
+        return None
+
+    def _detect_mod_type(self, mod):
+        """Detect module type based on its files."""
+        path = self.abspath(self.dirpath(mod))
+        info = {
+            'path': path, 'name': mod,
+            'has_python': False, 'has_node': False, 'has_rust': False,
+            'has_docker': False, 'has_app': False, 'has_requirements': False,
+            'has_mod_py': False, 'python_module': None,
+        }
+        skip_dirs = {'node_modules', '__pycache__', '.git', 'target', '.next', 'venv', '.venv'}
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in skip_dirs]
+            rel = os.path.relpath(root, path)
+            if (0 if rel == '.' else rel.count(os.sep) + 1) > 2:
+                continue
+            for f in files:
+                if f == 'requirements.txt':
+                    info['has_requirements'] = info['has_python'] = True
+                elif f == 'package.json':
+                    info['has_node'] = True
+                    if os.path.basename(root) in ('app', '') or rel == '.':
+                        info['has_app'] = True
+                elif f == 'Cargo.toml':
+                    info['has_rust'] = True
+                elif f in ('docker-compose.yml', 'Dockerfile'):
+                    info['has_docker'] = True
+                elif f == 'mod.py':
+                    info['has_mod_py'] = info['has_python'] = True
+                    info['python_module'] = os.path.basename(root)
+        return info
+
+    def create_start_script(self, mod):
+        """Auto-generate a start.sh script for a module."""
+        info = self._detect_mod_type(mod)
+        path, mod_name = info['path'], info['name'].split('.')[-1]
+        lines = [
+            '#!/bin/bash',
+            f'# Auto-generated start script for {mod_name}',
+            'DIR="$(cd "$(dirname "$0")" && pwd)"',
+            'cd "$DIR"', '',
+        ]
+
+        if info['has_docker'] and os.path.isfile(os.path.join(path, 'docker-compose.yml')):
+            lines += [f'echo "Starting {mod_name} via docker-compose..."', 'docker-compose up -d']
+        elif info['has_rust']:
+            lines += [
+                f'if [ ! -f "target/release/{mod_name}" ]; then',
+                f'    echo "Building {mod_name}..."', '    cargo build --release', 'fi', '',
+                f'echo "Starting {mod_name}..."', f'exec ./target/release/{mod_name}',
+            ]
+        elif info['has_python'] and info['has_node'] and info['has_app']:
+            lines += ['if [ -f "requirements.txt" ]; then', '    pip3 install -r requirements.txt -q', 'fi', '']
+            if info['has_mod_py'] and info['python_module']:
+                lines += [f'python3 -m {info["python_module"]}.mod &', 'SERVER_PID=$!', '']
+            lines += [
+                'cd "$DIR/app"',
+                'if [ ! -d "node_modules" ]; then', '    npm install', 'fi',
+                'npm run dev &', 'APP_PID=$!', '',
+                f'echo "{mod_name} started"',
+                'trap "kill $SERVER_PID $APP_PID 2>/dev/null" EXIT', 'wait',
+            ]
+        elif info['has_node']:
+            lines += [
+                'if [ ! -d "node_modules" ]; then', '    npm install', 'fi', '',
+                f'echo "Starting {mod_name}..."', 'npm run dev',
+            ]
+        elif info['has_python']:
+            if info['has_requirements']:
+                lines += ['if [ -f "requirements.txt" ]; then', '    pip3 install -r requirements.txt -q', 'fi', '']
+            if info['has_mod_py'] and info['python_module']:
+                lines += [f'echo "Starting {mod_name}..."', f'python3 -m {info["python_module"]}.mod']
+            else:
+                lines += [f'echo "Starting {mod_name}..."', f'python3 -c "import mod; mod.Mod().serve(\'{mod_name}\')"']
+        else:
+            lines += [f'echo "Starting {mod_name}..."', f'python3 -c "import mod; mod.Mod().serve(\'{mod_name}\')"']
+
+        scripts_dir = os.path.join(path, 'scripts')
+        script_path = os.path.join(scripts_dir if os.path.isdir(scripts_dir) else path, 'start.sh')
+        with open(script_path, 'w') as f:
+            f.write('\n'.join(lines) + '\n')
+        os.chmod(script_path, os.stat(script_path).st_mode | 0o755)
+        self.print(f'Created {script_path}')
+        return script_path
+
+    def off_mods(self, search=None, orbit='orbit'):
+        """List modules not currently running in PM2."""
+        running = self._pm2_running()
+        return [m for m in self.mods(search=search, orbit=orbit) if m not in running]
+
+    def deploy(self, mod=None, search=None, orbit='orbit', create=True):
+        """Deploy modules by running their start scripts."""
+        if mod:
+            mods_to_deploy = [mod]
+        else:
+            mods_to_deploy = self.off_mods(search=search, orbit=orbit)
+            if not search and not mod:
+                self.print(f'{len(mods_to_deploy)} modules are off:')
+                for m in sorted(mods_to_deploy):
+                    has_script = 'Y' if self._find_start_script(m) else 'N'
+                    self.print(f'  [{has_script}] {m}')
+                return mods_to_deploy
+
+        results = {}
+        for mod_name in mods_to_deploy:
+            script = self._find_start_script(mod_name)
+            if script is None:
+                if create:
+                    self.print(f'No start.sh for {mod_name}, creating one...')
+                    script = self.create_start_script(mod_name)
+                else:
+                    results[mod_name] = 'skipped'
+                    continue
+            try:
+                self.print(f'Deploying {mod_name}...')
+                mod_dir = self.abspath(self.dirpath(mod_name))
+                os.chmod(script, os.stat(script).st_mode | 0o755)
+                self.cmd(f'bash {script}', cwd=mod_dir, verbose=True)
+                results[mod_name] = 'deployed'
+            except Exception as e:
+                self.print(f'Failed to deploy {mod_name}: {e}')
+                results[mod_name] = f'error: {e}'
+        return results
+
+    # ── Branch Management ─────────────────────────────────────────────
+
+    def init_mod_meta(self, dirpath, branch='main'):
+        """Ensure {dirpath}/.mod/ exists with a default branch file."""
+        mod_dir = os.path.join(dirpath, '.mod')
+        os.makedirs(mod_dir, exist_ok=True)
+        branch_file = os.path.join(mod_dir, 'branch')
+        if not os.path.exists(branch_file):
+            with open(branch_file, 'w') as f:
+                f.write(branch)
+
+    def branch(self, mod=None):
+        """Read the current branch for a module. Defaults to 'main'."""
+        dirpath = self.dirpath(mod) if mod else self.paths['lib']
+        branch_file = os.path.join(dirpath, '.mod', 'branch')
+        if os.path.exists(branch_file):
+            with open(branch_file, 'r') as f:
+                return f.read().strip()
+        return 'main'
+
+    def set_branch(self, mod=None, branch='main'):
+        """Set the branch for a module."""
+        dirpath = self.dirpath(mod) if mod else self.paths['lib']
+        self.init_mod_meta(dirpath, branch=branch)
+        branch_file = os.path.join(dirpath, '.mod', 'branch')
+        with open(branch_file, 'w') as f:
+            f.write(branch)
+        return {'mod': mod or self.name, 'branch': branch}
+
+    # ── Module Creation ───────────────────────────────────────────────
+
+    def new(self, name='test_base', base='base', orbit='orbit'):
+        """Create a new mod from a base template."""
+        dirpath = self.paths['orbit'][orbit] + '/' + name.replace('.', '/')
+        if os.path.exists(dirpath):
+            shutil.rmtree(dirpath)
+        for k, v in self.content(base).items():
+            new_path = dirpath + '/' + k.replace(f'{base}/', f'/{name}/')
+            self.put_text(new_path, v)
+        self.init_mod_meta(dirpath)
+        self.update()
+        assert self.mod_exists(name), f'Mod {name} not found after creation'
+        return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': self.cid(name)}
+
+    def addpath(self, path, name=None, update=True):
+        assert os.path.exists(path), f'Path {path} does not exist'
+        path = self.abspath(path)
+        name = name or path.split('/')[-1]
+        dirpath = self.paths['orbit']['orbit'] + '/' + name.replace('.', '/')
+        self.cmd(f'cp -r {path} {dirpath}')
+        self.init_mod_meta(dirpath)
+        return {'name': name, 'path': dirpath, 'msg': 'Mod Created from path'}
+
+    def addcid(self, name='churn', cid='QmXUjBQRFa8DbY2GhD1Aq6a44EBYzgejmtwwnYYTfvnFW4'):
+        api = self.mod('api')()
+        file2text = api.content(cid, expand=True)
+        path = self.paths['orbit']['orbit'] + '/' + name.replace('.', '/')
+        for k, v in file2text.items():
+            print(f'Creating {path}/{k} for mod {name}')
+            self.put_text(f'{path}/{k}', v)
+        self.init_mod_meta(path)
+        self.tree(update=True)
+        assert self.mod_exists(name), f'Mod {name} not found after creation from cid {cid}'
+        return {'name': name, 'path': path, 'msg': 'Mod Created from cid', 'cid': cid}
+
+    def update(self):
+        tree = self.tree(update=1)
+        return {
+            'success': True, 'message': 'Mod tree updated',
+            'mods': len(tree), 'orbits': self.paths['orbit'].to_dict(),
+            'orbit2depth': self._tree.orbit2depth,
+        }
+
+    def cpmod(self, from_mod: str = 'dev', to_mod: str = 'dev2', force=True):
+        return self.fn('factory/cpmod')(from_mod=from_mod, to_mod=to_mod, force=force)
+
+    def rmmod(self, mod: str = 'test'):
+        return self.fn('factory/rmmod')(mod=mod)
+
+    def clone(self, mod, name):
+        return self.fn('factory/clone')(mod=mod, name=name)
+
+    def mergemods(self, from_mod: Any, to_mod: Any, fns: list):
+        for fn in fns:
+            setattr(to_mod, fn, getattr(from_mod, fn))
+        return to_mod
+
+    def add_fns(self, obj, add_fns=['fns', 'schema', 'code', 'cid', 'edit', 'config', 'info']):
+        for fn in add_fns:
+            if not hasattr(obj, fn):
+                setattr(obj, fn, partial(getattr(self, fn), obj=obj.__name__))
+        return obj
+
+    def get_mods_path(self, exp=True):
+        return self.paths['orbit']['orbit']
+
+    def new_app(self, name='myapp', port=None, orbit='orbit', install=True, serve=True):
+        """One-step: create a module app, configure, install, and serve.
+
+        Usage:
+            m.new_app('dashboard')
+            # -> Creates orbit/dashboard/ with Next.js app
+            # -> Sets owner, port, basePath
+            # -> Installs npm deps
+            # -> Starts the server via PM2
+            # -> Registers in app_namespace
+        """
+        # 1. Copy the appbase template (full directory tree, not just mod content)
+        base_root = self.dirpath('appbase')            # orbit/appbase/
+        target = self.paths['orbit'][orbit] + '/' + name.replace('.', '/')
+        if os.path.exists(target):
+            shutil.rmtree(target)
+        shutil.copytree(base_root, target, ignore=shutil.ignore_patterns(
+            'node_modules', '.next', '__pycache__', '_serve.sh',
+        ))
+
+        # 2. Rename inner module dir: target/appbase/ -> target/{name}/
+        old_inner = os.path.join(target, 'appbase')
+        new_inner = os.path.join(target, name)
+        if os.path.exists(old_inner):
+            os.rename(old_inner, new_inner)
+
+        # 3. Allocate port and fill mod.json with owner, name, port, basePath
+        import mod
+        owner = self.owner()
+        port = port or mod.free_port()
+        app_dir = os.path.join(target, 'app')
+        mod_json_path = os.path.join(app_dir, 'app.json')
+        config = {
+            'name': name,
+            'port': port,
+            'basePath': f'/{name}',
+            'owner': owner,
+        }
+        with open(mod_json_path, 'w') as f:
+            json.dump(config, f, indent=2)
+
+        # 4. Update next.config.js basePath
+        next_config_path = os.path.join(app_dir, 'next.config.js')
+        if os.path.exists(next_config_path):
+            with open(next_config_path) as f:
+                content = f.read()
+            content = content.replace("'/appbase'", f"'/{name}'")
+            with open(next_config_path, 'w') as f:
+                f.write(content)
+
+        # 5. Update package.json name
+        pkg_path = os.path.join(app_dir, 'package.json')
+        if os.path.exists(pkg_path):
+            with open(pkg_path) as f:
+                pkg = json.load(f)
+            pkg['name'] = name
+            with open(pkg_path, 'w') as f:
+                json.dump(pkg, f, indent=2)
+
+        # 6. Update template page and layout with module name
+        for fpath in [
+            os.path.join(app_dir, 'app', 'page.tsx'),
+            os.path.join(app_dir, 'app', 'layout.tsx'),
+        ]:
+            if os.path.exists(fpath):
+                with open(fpath) as f:
+                    txt = f.read()
+                txt = txt.replace('appbase', name)
+                with open(fpath, 'w') as f:
+                    f.write(txt)
+
+        # 7. Init .mod/branch metadata
+        self.init_mod_meta(target)
+
+        # 8. Refresh the module tree so the new mod is discoverable
+        self.update()
+
+        # 8. Install npm deps
+        if install:
+            subprocess.run(['npm', 'install', '--prefer-offline'], cwd=app_dir,
+                           capture_output=True, timeout=120)
+
+        # 9. Register and serve
+        if serve:
+            ns = self.mod('server.namespace')()
+            ns.reg_app(name, f'http://0.0.0.0:{port}', owner=owner, port=port, path=target)
+            mod_obj = self.mod(name)()
+            mod_obj.serve(port=port)
+
+        return {
+            'name': name,
+            'port': port,
+            'url': f'http://localhost:{port}/{name}',
+            'owner': owner,
+            'path': target,
+            'app_dir': app_dir,
+            'msg': 'App module created and serving',
+        }
+
+    def kill_app(self, name, key=None):
+        """Kill a module app server. Owner only."""
+        ns = self.mod('server.namespace')()
+        address = self.key_address(key) if key else self.owner()
+        if not ns.is_app_owner(name, address):
+            return {'error': f'Not owner of {name}'}
+        pm2 = self.mod('pm.pm2')()
+        pm2.kill(name)
+        ns.dereg_app(name)
+        return {'status': 'killed', 'name': name}
+
+    def edit_app(self, name, query='', key=None, **kwargs):
+        """Edit a module app. Owner only."""
+        ns = self.mod('server.namespace')()
+        address = self.key_address(key) if key else self.owner()
+        if not ns.is_app_owner(name, address):
+            return {'error': f'Not owner of {name}'}
+        return self.edit(name, query, **kwargs)
+
     # ── Aliases ──────────────────────────────────────────────────────────
     fp = filepath
     dp = dirpath
@@ -1149,10 +1764,11 @@ class Mod:
     a = ask
     e = edit
     card = info
-    killall = DeployMixin.kill_all
-    rm_mod = FactoryMixin.rmmod
+    killall = kill_all
+    rm_mod = rmmod
     is_file_mod = is_mod_file
     future = fut = submit
+    create = add = fork = new
 
 
 def main():

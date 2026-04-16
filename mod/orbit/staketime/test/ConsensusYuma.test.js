@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const { mine } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("ConsensusYuma", function () {
-  let stakeTime, consensus, subnet;
+  let staking, consensus, subnet;
   let owner, user1, user2;
 
   const EMISSION_RATE = ethers.parseEther("100");
@@ -20,23 +20,19 @@ describe("ConsensusYuma", function () {
     subnet = await Subnet.deploy("TestNet", "TST", ethers.parseEther("1000000"));
     await subnet.waitForDeployment();
 
-    const StakeTime = await ethers.getContractFactory("StakeTime");
-    stakeTime = await StakeTime.deploy(
-      await subnet.getAddress(),
+    const Staking = await ethers.getContractFactory("Staking");
+    staking = await Staking.deploy(
       await subnet.getAddress(),
       MAX_LOCK_BLOCKS,
       MAX_STAKERS,
-      DEFAULT_COMMISSION_BPS,
-      EPOCH_LENGTH,
-      EMISSION_RATE,
-      DECAY_BPS
+      DEFAULT_COMMISSION_BPS
     );
-    await stakeTime.waitForDeployment();
+    await staking.waitForDeployment();
 
     const ConsensusYuma = await ethers.getContractFactory("ConsensusYuma");
     consensus = await ConsensusYuma.deploy(
       await subnet.getAddress(),
-      await stakeTime.getAddress(),
+      await staking.getAddress(),
       EMISSION_RATE,
       DECAY_BPS,
       EPOCH_LENGTH
@@ -44,10 +40,10 @@ describe("ConsensusYuma", function () {
     await consensus.waitForDeployment();
 
     // Register validators BEFORE transferring ownership
-    await stakeTime.registerValidatorAdmin("val1", 1, 1000);
+    await staking.registerValidatorAdmin("val1", 1, 1000);
 
-    // Transfer StakeTime ownership to consensus (so it can advanceEpoch)
-    await stakeTime.transferOwnership(await consensus.getAddress());
+    // Transfer Staking ownership to consensus (so it can advanceEpoch)
+    await staking.transferOwnership(await consensus.getAddress());
 
     // Set consensus as minter on subnet token
     await subnet.setMinter(await consensus.getAddress());
@@ -56,9 +52,9 @@ describe("ConsensusYuma", function () {
     await subnet.transfer(user1.address, ethers.parseEther("10000"));
     await subnet.transfer(user2.address, ethers.parseEther("10000"));
 
-    // Approve StakeTime
-    await subnet.connect(user1).approve(await stakeTime.getAddress(), ethers.MaxUint256);
-    await subnet.connect(user2).approve(await stakeTime.getAddress(), ethers.MaxUint256);
+    // Approve Staking
+    await subnet.connect(user1).approve(await staking.getAddress(), ethers.MaxUint256);
+    await subnet.connect(user2).approve(await staking.getAddress(), ethers.MaxUint256);
   });
 
   describe("Deployment", function () {
@@ -68,8 +64,8 @@ describe("ConsensusYuma", function () {
       expect(block[4]).to.equal(EPOCH_LENGTH);
     });
 
-    it("references StakeTime contract", async function () {
-      expect(await consensus.stakeTime()).to.equal(await stakeTime.getAddress());
+    it("references Staking contract", async function () {
+      expect(await consensus.staking()).to.equal(await staking.getAddress());
     });
 
     it("references Subnet token", async function () {
@@ -91,7 +87,7 @@ describe("ConsensusYuma", function () {
     });
 
     it("batch checkin works for multiple validators", async function () {
-      await stakeTime.connect(user1).registerValidator("val2", 0);
+      await staking.connect(user1).registerValidator("val2", 0);
       await consensus.batchCheckin(["val1", "val2"]);
 
       const s1 = await consensus.getValidatorScore(
@@ -137,7 +133,7 @@ describe("ConsensusYuma", function () {
 
     it("splits emissions between validator commission and stakers", async function () {
       await consensus.batchCheckin(["val1"]);
-      await stakeTime.connect(user1).stakeOn("val1", ethers.parseEther("1000"), 0);
+      await staking.connect(user1).stakeOn("val1", ethers.parseEther("1000"), 0);
 
       for (let i = 0; i < EPOCH_LENGTH; i++) {
         await consensus.produceBlock();
@@ -154,8 +150,8 @@ describe("ConsensusYuma", function () {
     it("distributes to multiple stakers proportionally", async function () {
       await consensus.batchCheckin(["val1"]);
 
-      await stakeTime.connect(user1).stakeOn("val1", ethers.parseEther("3000"), 0);
-      await stakeTime.connect(user2).stakeOn("val1", ethers.parseEther("1000"), 0);
+      await staking.connect(user1).stakeOn("val1", ethers.parseEther("3000"), 0);
+      await staking.connect(user2).stakeOn("val1", ethers.parseEther("1000"), 0);
 
       for (let i = 0; i < EPOCH_LENGTH; i++) {
         await consensus.produceBlock();
@@ -180,7 +176,7 @@ describe("ConsensusYuma", function () {
   describe("Reward Claims", function () {
     beforeEach(async function () {
       await consensus.batchCheckin(["val1"]);
-      await stakeTime.connect(user1).stakeOn("val1", ethers.parseEther("1000"), 0);
+      await staking.connect(user1).stakeOn("val1", ethers.parseEther("1000"), 0);
 
       for (let i = 0; i < EPOCH_LENGTH; i++) {
         await consensus.produceBlock();
@@ -266,7 +262,7 @@ describe("ConsensusYuma", function () {
 
   describe("Leaderboard", function () {
     it("returns validators sorted by score", async function () {
-      await stakeTime.connect(user1).registerValidator("low", 0);
+      await staking.connect(user1).registerValidator("low", 0);
       await consensus.batchCheckin(["val1"]);
       await mine(5);
       await consensus.batchCheckin(["val1"]);
@@ -279,8 +275,8 @@ describe("ConsensusYuma", function () {
 
   describe("Integration: Full Flow", function () {
     it("register → stake → checkin → produce → mint → distribute → claim", async function () {
-      await stakeTime.connect(user1).stakeOn("val1", ethers.parseEther("5000"), 0);
-      expect(await stakeTime.balanceOf(user1.address)).to.equal(ethers.parseEther("5000"));
+      await staking.connect(user1).stakeOn("val1", ethers.parseEther("5000"), 0);
+      expect(await staking.balanceOf(user1.address)).to.equal(ethers.parseEther("5000"));
 
       await consensus.batchCheckin(["val1"]);
 
@@ -304,9 +300,9 @@ describe("ConsensusYuma", function () {
       expect(await consensus.getStakerRewards(user1.address)).to.equal(0);
       expect(await consensus.getValidatorBalance("val1")).to.equal(0);
 
-      const ids = await stakeTime.getUserStakeIds(user1.address);
-      await stakeTime.connect(user1).unstakeFrom(ids[0]);
-      expect(await stakeTime.balanceOf(user1.address)).to.equal(0);
+      const ids = await staking.getUserStakeIds(user1.address);
+      await staking.connect(user1).unstakeFrom(ids[0]);
+      expect(await staking.balanceOf(user1.address)).to.equal(0);
     });
   });
 });
