@@ -44,6 +44,13 @@ class Namespace:
         return registry
 
 
+    def _caddy_sync(self):
+        """Trigger Caddy config reload (best-effort)."""
+        try:
+            m.fn('caddy/sync')()
+        except Exception:
+            pass
+
     # --- App Registry (separate Next.js app servers with ownership) ---
 
     def reg_app(self, name: str, address: str, owner: str = None, port: int = None, path: str = '') -> Dict[str, Any]:
@@ -58,6 +65,7 @@ class Namespace:
             except (ValueError, IndexError):
                 port = 0
         self.install_app(name, port=port, owner=owner or '', path=path)
+        self._caddy_sync()
         return {'status': 'success', 'name': name, 'address': address, 'owner': owner}
 
     def dereg_app(self, name: str) -> Dict[str, Any]:
@@ -66,6 +74,7 @@ class Namespace:
         if name in registry:
             del registry[name]
             self.store.put('app_registry.json', registry)
+            self._caddy_sync()
             return {'status': 'success', 'name': name}
         return {'status': 'error', 'name': name, 'error': 'not found'}
 

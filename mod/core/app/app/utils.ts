@@ -1,16 +1,54 @@
 import { ModuleType } from '@/types'
 
+/** Check if the browser is accessing remotely (not localhost). */
+function isRemote(): boolean {
+  if (typeof window === 'undefined') return false
+  const h = window.location.hostname
+  return h !== 'localhost' && h !== '127.0.0.1'
+}
+
+/** Check if a URL points to localhost. */
+function isLocalUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
+  } catch {
+    return false
+  }
+}
+
+/** Rewrite localhost URLs for remote access.
+ *  When modName is provided and we're remote, use Caddy path-based routing:
+ *    origin/modName (e.g. https://app.modc2.com/bridge)
+ *  Otherwise fall back to hostname replacement (keeps port). */
+function resolveUrl(url: string | undefined, modName?: string): string | undefined {
+  if (!url) return url
+  if (typeof window === 'undefined') return url
+  if (!isLocalUrl(url) || !isRemote()) return url
+  // Remote + localhost URL → rewrite
+  if (modName) {
+    // Caddy path-based routing: origin/modName
+    return `${window.location.origin}/${modName}`
+  }
+  // Fallback: replace hostname, keep port (for API proxy etc.)
+  try {
+    const parsed = new URL(url)
+    parsed.hostname = window.location.hostname
+    return parsed.toString().replace(/\/$/, '')
+  } catch {}
+  return url
+}
+
 /** Extract the app URL from mod.url_app or mod.url.app */
 export function getModAppUrl(mod: ModuleType): string | undefined {
-  if (mod.url_app) return mod.url_app
-  if (mod.url && typeof mod.url === 'object' && mod.url.app) return mod.url.app
-  return undefined
+  const raw = mod.url_app || (mod.url && typeof mod.url === 'object' ? mod.url.app : undefined)
+  return resolveUrl(raw, mod.name)
 }
 
 /** Extract the api URL from mod.url (string) or mod.url.api */
 export function getModApiUrl(mod: ModuleType): string | undefined {
-  if (typeof mod.url === 'string') return mod.url
-  if (mod.url && typeof mod.url === 'object' && mod.url.api) return mod.url.api
+  if (typeof mod.url === 'string') return resolveUrl(mod.url)
+  if (mod.url && typeof mod.url === 'object' && mod.url.api) return resolveUrl(mod.url.api)
   return undefined
 }
 
