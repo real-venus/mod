@@ -1,5 +1,5 @@
 {
-  "name": "tt-contracts",
+  "name": "staketime",
   "version": "1.0.0",
   "scripts": {
     "compile": "npx hardhat compile",

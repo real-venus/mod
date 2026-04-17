@@ -62,7 +62,7 @@ interface StakePosition {
   amount: string
   startBlock: number
   lockBlocks: number
-  stakeTimeBalance: string
+  mintedBalance: string
   blocksRemaining: number
 }
 
@@ -71,12 +71,16 @@ interface SubnetInfo {
   owner: string
   name: string
   subnet: string
-  stakeTime: string
+  staking: string
   consensus: string
   registeredBlock: number
   active: boolean
   stakeScore: string
   immune: boolean
+  totalShares: string
+  totalBloctime: string
+  sharePrice: string
+  lockedGov: string
 }
 
 interface WeakestSubnet {
@@ -143,6 +147,16 @@ function StakeTimeApp() {
   const [llmGenerating, setLlmGenerating] = useState(false)
   const [llmDeploying, setLlmDeploying] = useState(false)
   const [llmEditing, setLlmEditing] = useState(false)
+
+  // Boost
+  const [boostSubnetId, setBoostSubnetId] = useState<number | null>(null)
+  const [boostSttToken, setBoostSttToken] = useState('')
+  const [boostAmount, setBoostAmount] = useState('')
+  const [boosting, setBoosting] = useState(false)
+  const [sellSubnetId, setSellSubnetId] = useState<number | null>(null)
+  const [sellShares, setSellShares] = useState('')
+  const [sellSttToken, setSellSttToken] = useState('')
+  const [selling, setSelling] = useState(false)
 
   // Register form
   const [regKey, setRegKey] = useState('')
@@ -326,7 +340,7 @@ function StakeTimeApp() {
       await api('register_subnet', {
         name: subName.trim(),
         subnet: subSubnet.trim(),
-        stake_time: subStakeTime.trim(),
+        staking: subStakeTime.trim(),
         consensus: subConsensus.trim(),
       })
       toast.success('Subnet registered')
@@ -347,6 +361,52 @@ function StakeTimeApp() {
       toast.error(err?.message || 'Deregister failed')
     }
   }, [fetchAll])
+
+  const handleBoost = useCallback(async () => {
+    if (boostSubnetId === null || !boostSttToken.trim() || !boostAmount.trim()) {
+      toast.error('Fill in all boost fields'); return
+    }
+    setBoosting(true)
+    try {
+      const amount = boostAmount.includes('e') || boostAmount.length <= 10
+        ? ethers.parseEther(boostAmount).toString()
+        : boostAmount
+      await api('boost_subnet', {
+        subnet_id: boostSubnetId,
+        stt_token: boostSttToken.trim(),
+        amount,
+      })
+      toast.success('Subnet boosted!')
+      setBoostSubnetId(null); setBoostAmount('')
+      fetchAll()
+    } catch (err: any) {
+      toast.error(err?.message || 'Boost failed')
+    }
+    setBoosting(false)
+  }, [boostSubnetId, boostSttToken, boostAmount, fetchAll])
+
+  const handleSellBoost = useCallback(async () => {
+    if (sellSubnetId === null || !sellShares.trim() || !sellSttToken.trim()) {
+      toast.error('Fill in all sell fields'); return
+    }
+    setSelling(true)
+    try {
+      const shares = sellShares.includes('e') || sellShares.length <= 10
+        ? ethers.parseEther(sellShares).toString()
+        : sellShares
+      await api('sell_boost', {
+        subnet_id: sellSubnetId,
+        shares,
+        stt_token: sellSttToken.trim(),
+      })
+      toast.success('Shares sold!')
+      setSellSubnetId(null); setSellShares('')
+      fetchAll()
+    } catch (err: any) {
+      toast.error(err?.message || 'Sell failed')
+    }
+    setSelling(false)
+  }, [sellSubnetId, sellShares, sellSttToken, fetchAll])
 
   const handleLlmGenerate = useCallback(async () => {
     if (!llmPrompt.trim()) { toast.error('Describe the subnet you want to create'); return }
@@ -376,6 +436,7 @@ function StakeTimeApp() {
         epoch_length: llmParams.epochLength || 43200,
         emission_rate: llmParams.emissionRate || '100',
         decay_bps: llmParams.decayBps || 500,
+        consensus_type: llmParams.consensusType || 'yuma',
       })
       toast.success(`Subnet "${llmParams.name}" deployed!`)
       setLlmParams(null)
@@ -617,6 +678,23 @@ function StakeTimeApp() {
                         />
                       </div>
                     ))}
+                    <div>
+                      <label className="text-[9px] text-white/30 uppercase tracking-wider mb-0.5 block">Consensus</label>
+                      <select
+                        value={llmParams.consensusType || 'yuma'}
+                        disabled={!llmEditing}
+                        onChange={e => setLlmParams({ ...llmParams, consensusType: e.target.value })}
+                        className={`w-full text-xs px-3 py-2 rounded-lg border font-mono transition-colors ${
+                          llmEditing
+                            ? 'border-white/20 bg-white/5 text-white/90 focus:outline-none focus:border-white/40'
+                            : 'border-white/[0.06] bg-white/[0.02] text-white/60'
+                        }`}
+                      >
+                        <option value="yuma">Yuma (score decay)</option>
+                        <option value="linear">Linear (equal weight)</option>
+                        <option value="staked">Staked (by stake weight)</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
@@ -662,12 +740,12 @@ function StakeTimeApp() {
 
             {/* Subnets Table */}
             <div className="border border-white/10 rounded-lg bg-white/[0.02] overflow-hidden">
-              <div className="grid grid-cols-[50px_1fr_1fr_1fr_100px_60px_50px] gap-2 px-4 py-2.5 border-b border-white/5 bg-white/[0.01]">
+              <div className="grid grid-cols-[40px_1fr_90px_90px_80px_60px_70px] gap-2 px-4 py-2.5 border-b border-white/5 bg-white/[0.01]">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">ID</div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">Name</div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">StakeTime</div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">Owner</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 text-right">Bloctime</div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 text-right">Score</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 text-right">Price</div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 text-center">Status</div>
                 <div></div>
               </div>
@@ -683,30 +761,31 @@ function StakeTimeApp() {
                     return (
                       <div
                         key={s.id}
-                        className={`grid grid-cols-[50px_1fr_1fr_1fr_100px_60px_50px] gap-2 px-4 py-2.5 border-b border-white/[0.03] hover:bg-white/[0.03] transition-colors items-center ${
+                        className={`grid grid-cols-[40px_1fr_90px_90px_80px_60px_70px] gap-2 px-4 py-2.5 border-b border-white/[0.03] hover:bg-white/[0.03] transition-colors items-center ${
                           isWeakest ? 'bg-red-500/[0.03]' : ''
                         }`}
                       >
                         <span className={`text-xs font-bold tabular-nums ${isWeakest ? 'text-red-400/80' : 'text-white/60'}`}>
                           #{s.id}
                         </span>
-                        <span className="text-xs font-mono text-white/80 truncate">{s.name}</span>
-                        <span
-                          className="text-xs font-mono text-white/40 truncate cursor-pointer hover:text-white/70 transition-colors"
-                          title={s.stakeTime}
-                          onClick={() => { navigator.clipboard.writeText(s.stakeTime); toast.success('Address copied') }}
-                        >
-                          {fmtAddr(s.stakeTime)}
-                        </span>
-                        <span
-                          className="text-xs font-mono text-white/40 truncate cursor-pointer hover:text-white/70 transition-colors"
-                          title={s.owner}
-                          onClick={() => { navigator.clipboard.writeText(s.owner); toast.success('Address copied') }}
-                        >
-                          {fmtAddr(s.owner)}
+                        <div className="truncate">
+                          <span className="text-xs font-mono text-white/80">{s.name}</span>
+                          <span
+                            className="text-[10px] font-mono text-white/25 ml-2 cursor-pointer hover:text-white/50 transition-colors"
+                            title={s.staking}
+                            onClick={() => { navigator.clipboard.writeText(s.staking); toast.success('Address copied') }}
+                          >
+                            {fmtAddr(s.staking)}
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold text-cyan-400/80 text-right tabular-nums" title="Total STT deposited">
+                          {fmtEth(s.totalBloctime)}
                         </span>
                         <span className={`text-xs font-bold text-right tabular-nums ${isWeakest ? 'text-red-400/80' : 'text-blue-400/80'}`}>
                           {fmtEth(s.stakeScore)}
+                        </span>
+                        <span className="text-xs text-white/40 text-right tabular-nums" title="Share price (STT per share)">
+                          {fmtEth(s.sharePrice)}
                         </span>
                         <div className="flex justify-center">
                           {s.immune ? (
@@ -719,7 +798,14 @@ function StakeTimeApp() {
                             </span>
                           )}
                         </div>
-                        <div className="flex justify-center">
+                        <div className="flex justify-center gap-1">
+                          <button
+                            onClick={() => { setBoostSubnetId(s.id); setBoostSttToken(s.staking) }}
+                            className="p-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+                            title="Boost subnet with STT"
+                          >
+                            <BoltIcon className="w-3 h-3" />
+                          </button>
                           <button
                             onClick={() => handleDeregisterSubnet(s.id)}
                             className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
@@ -734,6 +820,53 @@ function StakeTimeApp() {
                 </div>
               )}
             </div>
+
+            {/* Boost Modal */}
+            {boostSubnetId !== null && (
+              <div className="border border-cyan-500/20 rounded-lg p-4 bg-cyan-500/[0.03]">
+                <div className="flex items-center gap-2 mb-3">
+                  <BoltIcon className="w-4 h-4 text-cyan-400/70" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">
+                    Boost Subnet #{boostSubnetId}
+                  </span>
+                  <button
+                    onClick={() => setBoostSubnetId(null)}
+                    className="ml-auto p-1 text-white/30 hover:text-white/60"
+                  >
+                    <XCircleIcon className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex items-end gap-3 flex-wrap">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="text-[10px] text-white/30 uppercase tracking-wider mb-1 block">STT Token Address</label>
+                    <input
+                      type="text"
+                      value={boostSttToken}
+                      onChange={e => setBoostSttToken(e.target.value)}
+                      placeholder="0x..."
+                      className="w-full text-xs px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white/90 focus:outline-none focus:border-white/30 font-mono transition-colors placeholder:text-white/20"
+                    />
+                  </div>
+                  <div className="w-36">
+                    <label className="text-[10px] text-white/30 uppercase tracking-wider mb-1 block">Amount (STT)</label>
+                    <input
+                      type="text"
+                      value={boostAmount}
+                      onChange={e => setBoostAmount(e.target.value)}
+                      placeholder="100"
+                      className="w-full text-xs px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white/90 focus:outline-none focus:border-white/30 font-mono transition-colors placeholder:text-white/20"
+                    />
+                  </div>
+                  <button
+                    onClick={handleBoost}
+                    disabled={boosting}
+                    className="px-5 py-2.5 rounded-lg border border-cyan-500/40 bg-cyan-500/15 text-cyan-300 text-[10px] font-bold uppercase tracking-wider hover:bg-cyan-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {boosting ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : 'Boost'}
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -978,7 +1111,7 @@ function StakeTimeApp() {
                         <span className="text-xs text-white/50 tabular-nums">#{s.stakeId}</span>
                         <span className="text-xs font-mono text-white/60 truncate" title={valKey}>{valKey}</span>
                         <span className="text-xs font-bold text-white/80 text-right tabular-nums">{fmtEth(s.amount)}</span>
-                        <span className="text-xs font-bold text-blue-400/80 text-right tabular-nums">{fmtEth(s.stakeTimeBalance)}</span>
+                        <span className="text-xs font-bold text-blue-400/80 text-right tabular-nums">{fmtEth(s.mintedBalance)}</span>
                         <span className={`text-xs text-right tabular-nums ${unlocked ? 'text-emerald-400/80' : 'text-amber-400/80'}`}>
                           {unlocked ? (
                             <span className="flex items-center gap-1 justify-end"><LockOpenIcon className="w-3 h-3" /> Unlocked</span>

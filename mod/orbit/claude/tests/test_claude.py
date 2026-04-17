@@ -317,8 +317,9 @@ class TestTokenAuth:
 
     def test_is_owner_with_non_owner_token(self):
         """is_owner() rejects token from a non-owner key."""
+        import mod
         c = Mod()
-        other_key = m.key('test.claude.nonowner')
+        other_key = mod.key('test.claude.nonowner')
         c._owner = c.key.address.lower()
         tok = c.token(key=other_key)
         assert c.is_owner(tok) is False
@@ -332,8 +333,9 @@ class TestTokenAuth:
 
     def test_require_owner_rejects_non_owner_token(self):
         """require_owner() rejects token from non-owner."""
+        import mod
         c = Mod()
-        other_key = m.key('test.claude.nonowner2')
+        other_key = mod.key('test.claude.nonowner2')
         c._owner = c.key.address.lower()
         tok = c.token(key=other_key)
         with pytest.raises(PermissionError, match="Permission denied"):
@@ -515,18 +517,20 @@ class TestServerAvailability:
 
     def test_server_available_bad_url(self):
         """_server_available returns False for bad URL."""
-        c = Mod(api_url='http://localhost:1')
+        c = Mod(api_url='http://127.0.0.1:59999')
         assert c._server_available() is False
 
     def test_request_raises_on_bad_server(self):
         """_request raises ConnectionError for unreachable server."""
-        c = Mod(api_url='http://localhost:1')
-        with pytest.raises(ConnectionError):
-            c._request("GET", "/health", timeout=1)
+        c = Mod(api_url='http://127.0.0.1:59999')
+        # Prevent auto-start so it actually fails
+        with patch.object(c, '_start_api', return_value=False):
+            with pytest.raises(ConnectionError):
+                c._request("GET", "/health", timeout=1)
 
     def test_modules_fallback(self):
         """modules() falls back to m.mods() when server is down."""
-        c = Mod(api_url='http://localhost:1')
+        c = Mod(api_url='http://127.0.0.1:59999')
         mods = c.modules()
         assert isinstance(mods, list)
         # should have found some modules via m.mods()
@@ -646,18 +650,17 @@ class TestForwardPermissions:
         with pytest.raises(PermissionError):
             c.forward("Remove the deprecated function", key="0xother", background=False)
 
-    def test_forward_read_ok_for_non_owner(self, c):
-        """Read-only queries don't trigger PermissionError."""
-        with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
-            result = c.forward("Explain the code structure", key="0xother", background=False)
-            assert mock.called
+    def test_forward_read_rejected_for_non_owner(self, c):
+        """All forward calls require owner — even read-only queries."""
+        with pytest.raises(PermissionError):
+            c.forward("Explain the code structure", key="0xother")
 
     def test_forward_write_ok_for_owner_default(self):
         """Owner can call write operations without passing key (default)."""
         c = Mod()
         c._owner = c.key.address.lower()  # align owner with default key
-        with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
-            result = c.forward("Edit the login page", background=False)
+        with patch.object(c, '_request', return_value={"id": "test-job"}) as mock:
+            result = c.forward("Edit the login page")
             assert mock.called
 
     def test_forward_write_ok_with_owner_token(self):
@@ -665,8 +668,8 @@ class TestForwardPermissions:
         c = Mod()
         c._owner = c.key.address.lower()
         tok = c.token()
-        with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
-            result = c.forward("Edit the login page", key=tok, background=False)
+        with patch.object(c, '_request', return_value={"id": "test-job"}) as mock:
+            result = c.forward("Edit the login page", key=tok)
             assert mock.called
 
 

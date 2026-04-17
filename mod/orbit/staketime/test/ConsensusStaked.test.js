@@ -18,16 +18,12 @@ describe("ConsensusStaked", function () {
     subnet = await Subnet.deploy("StakedNet", "STK", ethers.parseEther("1000000"));
     await subnet.waitForDeployment();
 
-    const StakeTime = await ethers.getContractFactory("StakeTime");
-    stakeTime = await StakeTime.deploy(
-      await subnet.getAddress(),
+    const StakeTimeToken = await ethers.getContractFactory("StakeTime");
+    stakeTime = await StakeTimeToken.deploy(
       await subnet.getAddress(),
       MAX_LOCK_BLOCKS,
       MAX_STAKERS,
-      DEFAULT_COMMISSION_BPS,
-      EPOCH_LENGTH,
-      EMISSION_RATE,
-      0
+      DEFAULT_COMMISSION_BPS
     );
     await stakeTime.waitForDeployment();
 

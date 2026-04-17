@@ -1,0 +1,12 @@
+{
+    "owner": "0xD3905ef2F8A321f236b613058960f27232530453",
+    "gas_sponsor": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
+    "network": "testnet",
+    "label": "test-fork",
+    "contracts": {
+        "registry": {
+            "address": "0x4a9D4cecb2c6D091E63ea0D732C391FC55F8E492",
+            "mod": "registry"
+        }
+    }
+}

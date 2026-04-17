@@ -7,7 +7,7 @@ import json
 import inspect
 import time
 import mod as m
-from mod.core.server.executor.worker import SandboxWorker, DockerWorker
+from mod.core.server.executor.worker import SandboxWorker, DockerWorker, WorkerPool
 
 print = m.print
 
@@ -16,14 +16,14 @@ FN_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_/.-]{0,200}$')
 
 class Gate:
 
-    def __init__(self, path = '~/.mod/server', auth='auth.base',mod='api', paywall=None, serializer='serializer', sandbox='subprocess', meter=True, **_kwargs):
+    def __init__(self, path = '~/.mod/server', auth='auth.base',mod='api', paywall=None, serializer='serializer', sandbox='docker', meter=True, **_kwargs):
         """
         Initialize the Gate class
         params:
             path: the path to store the gate data
             auth: the auth module to use
             paywall: optional x402 payment gate instance (has gate_check(fn, headers) method)
-            sandbox: 'subprocess' (default) or 'docker' for container-level isolation
+            sandbox: 'docker' (default), 'pool' for persistent workers, or 'subprocess' for one-shot
             meter: enable usage metering (default True)
         """
         self.store = m.mod('store')(path)
@@ -33,6 +33,9 @@ class Gate:
         if sandbox == 'docker':
             self.sandbox = DockerWorker(max_workers=10)
             print('Gate: using Docker sandbox (container isolation)', color='green')
+        elif sandbox == 'pool':
+            self.sandbox = WorkerPool(min_workers=2, max_workers=10)
+            print('Gate: using WorkerPool (persistent background workers)', color='green')
         else:
             self.sandbox = SandboxWorker(max_workers=10)
         # Usage metering
@@ -57,6 +60,8 @@ class Gate:
         'token', 'logs', 'namespace', 'serve', 'stop',
         # Metering, billing, load balancing, paywall (mod paths)
         'meter', 'balancer', 'paywall',
+        # Worker management (owner-only via RBAC)
+        'worker_status', 'worker_scale', 'worker_set_limits',
     }
 
     def forward(self, fn:str, headers:dict, params:dict, mod:Any=None) -> dict:
@@ -160,6 +165,24 @@ class Gate:
 
         return result
 
+    # ── Worker management (owner-only) ─────────────────────────────────
+
+    def worker_status(self) -> dict:
+        """Get the status of all sandbox workers."""
+        return self.sandbox.status()
+
+    def worker_scale(self, n: int) -> dict:
+        """Manually scale workers to n (clamped to limits)."""
+        return self.sandbox.scale(n)
+
+    def worker_set_limits(self, max_workers: int = None, idle_timeout: int = None) -> dict:
+        """Set worker pool limits. max_workers controls capacity, idle_timeout (seconds) controls auto-shutdown."""
+        kwargs = {}
+        if max_workers is not None:
+            kwargs['max_workers'] = max_workers
+        if idle_timeout is not None:
+            kwargs['idle_timeout'] = idle_timeout
+        return self.sandbox.set_limits(**kwargs)
 
     def get_role(self, user:str) -> str:
         """
@@ -426,7 +449,7 @@ class Gate:
     ensure_roles = ['owner', 'public']
     # public users can read + edit in their peer space only
     PUBLIC_FNS = [
-        'mod', 'mods', 'schema', 'content', 'files', 'exists',
+        'mod', 'mods', 'schema', 'content', 'files', 'exists', 'get',
         'user', 'users', 'user_keys', 'versions', 'registry',
         'edit', 'reg', 'reg_payload', 'token', 'fork', 'new',
         'balance', 'balances', 'get_balances',

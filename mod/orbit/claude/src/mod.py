@@ -32,7 +32,7 @@ class Mod:
         'get_version', 'restore_version', 'health', 'modules',
         'folders', 'suggest_folders',
         'set_owner', 'get_owner', 'is_owner', 'serve',
-        'kill', 'kill_port',
+        'kill', 'kill_port', 'status',
     ]
 
     def __init__(self, api_url: str = None, app_url: str = None,
@@ -298,50 +298,42 @@ class Mod:
 
     # ── core: forward ─────────────────────────────────────────────
 
-    def forward(self, query: str, *extra_query, path: str = None, mod: str = None,
-                model: str = "sonnet", background: bool = True,
-                stream: bool = False, key: str = None, **kwargs) -> Dict[str, Any]:
+    def forward(self, query: str, *extra_query, mod: str = None,
+                model: str = "sonnet", stream: bool = False,
+                key: str = None, **kwargs) -> Dict[str, Any]:
         """
-        Run a Claude task.
-
-        background=True  → submit to Rust job server, return immediately
-        background=False → run Claude CLI directly, block until done
-
-        Write operations (edit/modify/fix/add/remove) require owner when set.
+        Edit a module with the Claude agent.
 
         Args:
-            query:      prompt / task description
-            path:       working directory (resolves from mod if given)
-            mod:        orbit module name — auto-resolves path via m.dp()
-            model:      sonnet | opus | haiku (passed to claude CLI --model)
-            background: if True submit to job server (default)
-            stream:     if True and background, auto-tail the job
-            key:        caller address for permission check
+            query:  what to do (edit instructions)
+            mod:    orbit module name to edit (default: resolves from kwargs or cwd)
+            model:  sonnet | opus | haiku
+            stream: if True, auto-tail the job output
+            key:    caller address for permission check
         """
-        # permission check for write operations
         query = query + " " + " ".join(extra_query)
-        write_keywords = ('edit', 'modify', 'update', 'fix', 'add', 'remove',
-                          'delete', 'create', 'write', 'refactor', 'change')
-        if any(kw in query.lower() for kw in write_keywords):
-            self.require_owner(key, f"forward({query[:40]}...)")
+        self.require_owner(key, f"forward({query[:40]}...)")
 
-        if mod is not None:
-            path = m.dp(mod)
+        module_name = mod or kwargs.pop('module_name', None)
+        path = m.dp(module_name) if module_name else kwargs.pop('path', self.default_path)
 
-        if background:
-            data = {"prompt": query, "model": model}
-            if path:
-                data["work_dir"] = path
-            data["user_address"] = self._resolve_address(key)
-            for k in ('module_name', 'creation_mode', 'github_url', 'anchor_dir', 'images'):
-                if k in kwargs:
-                    data[k] = kwargs[k]
-            result = self._request("POST", "/jobs", data)
-            if stream and result.get('id'):
-                self.tail(result['id'])
-            return result
-        else:
-            return self._run_cli(query, path=path, model=model, **kwargs)
+        data = {
+            "prompt": query,
+            "model": model,
+            "work_dir": path,
+            "user_address": self._resolve_address(key),
+            "creation_mode": "edit",
+        }
+        if module_name:
+            data["module_name"] = module_name
+        for k in ('github_url', 'anchor_dir', 'images'):
+            if k in kwargs:
+                data[k] = kwargs[k]
+
+        result = self._request("POST", "/jobs", data)
+        if stream and result.get('id'):
+            self.tail(result['id'])
+        return result
 
     # ── CLI (no server needed) ────────────────────────────────────
 
@@ -500,45 +492,25 @@ class Mod:
         """Kill a process by PID, port, or both claude services (API+App) if no args given. Owner-only."""
         self.require_owner(operation="kill")
 
-        # No args → kill both claude services (API on 8820 + App on 8821)
+        # No args → kill both claude services by port
         if pid is None and port is None:
-            killed = {}
-            name = self.config.get('name', 'claude')
-            pm2 = None
-            try:
-                pm2 = m.mod('pm.pm2')()
-            except Exception:
-                pass
-
-            for svc, svc_port in [('api', self._api_port()), ('app', int(self.app_url.rsplit(':', 1)[-1].rstrip('/')))]:
-                svc_name = f'{name}-{svc}'
-                # Try pm2 first
-                if pm2:
-                    try:
-                        if pm2.exists(svc_name):
-                            pm2.kill(svc_name)
-                            killed[svc] = f'pm2 stopped {svc_name}'
-                            continue
-                    except Exception:
-                        pass
-                # Fallback: kill by port
+            killed = []
+            api_port = self.config.get('port', 8820)
+            app_port = self.config.get('app_port', 8821)
+            for svc_port in [api_port, app_port]:
                 try:
                     result = subprocess.run(
                         ['lsof', '-ti', f':{svc_port}'],
-                        capture_output=True, text=True
+                        capture_output=True, text=True,
                     )
-                    pids = [p.strip() for p in result.stdout.strip().split('\n') if p.strip()]
-                    for p in pids:
-                        try:
-                            os.kill(int(p), signal.SIGKILL)
-                        except (ProcessLookupError, ValueError):
-                            pass
-                    killed[svc] = f'killed {len(pids)} process(es) on port {svc_port}' if pids else f'nothing on port {svc_port}'
-                except Exception as e:
-                    killed[svc] = f'error: {e}'
-
+                    for p in result.stdout.strip().split('\n'):
+                        if p.strip():
+                            os.kill(int(p), signal.SIGTERM)
+                            killed.append(p.strip())
+                except Exception:
+                    pass
             self._api_managed = False
-            return {'status': 'killed', 'services': killed}
+            return {'status': 'killed', 'killed': killed}
 
         # Specific PID or port → delegate to API server
         data = {"signal": sig}
@@ -870,108 +842,104 @@ class Mod:
 
     # ── serve ─────────────────────────────────────────────────────
 
-    def serve(self, port=8821, prod=False, api_port=8820, **kwargs):
-        """Start the claude API server (pm2) and Next.js app (pm2)."""
-        pm2 = m.mod('pm.pm2')()
-        module_dir = self._module_dir()
-        name = self.config.get('name', 'claude')
+    def serve(self, api_port=None, app_port=None, dev=True):
+        """Start the claude API (Rust job server) and Next.js app."""
+        api_port = int(api_port or self.config.get('port', 8820))
+        app_port = int(app_port or self.config.get('app_port', 8821))
+        log_dir = Path('/tmp/claude')
+        log_dir.mkdir(parents=True, exist_ok=True)
+        results = {}
+
+        self.kill()
+
         api_url = f'http://localhost:{api_port}'
-        app_url = f'http://localhost:{port}'
-        api_result = None
-        app_result = None
+        app_url = f'http://localhost:{app_port}'
 
         # ── API (Rust job server) ──
-        api_cwd = os.path.join(module_dir, 'api')
-        if not os.path.isdir(api_cwd):
-            api_cwd = os.path.join(module_dir, 'src', 'api')
-        api_script = os.path.join(api_cwd, 'start.sh')
-        api_name = f'{name}-api'
-        if os.path.isfile(api_script):
-            if pm2.exists(api_name):
-                pm2.kill(api_name, remove_script=False)
-            api_result = pm2.start_script(
-                name=api_name,
-                script_path=api_script,
-                cwd=api_cwd,
-                interpreter='bash'
+        api_dir = Path(self._module_dir()) / 'src' / 'api'
+        start_sh = api_dir / 'start.sh'
+        if start_sh.exists():
+            api_log = open(log_dir / 'api.log', 'w')
+            subprocess.Popen(
+                ['bash', str(start_sh), str(api_port)],
+                cwd=str(api_dir), stdout=api_log, stderr=subprocess.STDOUT,
             )
+            results['api'] = api_url
+            results['api_log'] = str(log_dir / 'api.log')
 
         # ── App (Next.js) ──
-        app_cwd = os.path.join(module_dir, 'app')
-        if not os.path.isdir(app_cwd):
-            app_cwd = os.path.join(module_dir, 'src', 'app')
-        app_pkg = os.path.join(app_cwd, 'package.json')
-        app_name = f'{name}-app'
-        if os.path.isfile(app_pkg):
-            cmd = f'npm run build && npm run start' if prod else f'npm run dev -- -p {port}'
-            app_script = os.path.join(app_cwd, '_serve_app.sh')
-            with open(app_script, 'w') as f:
-                f.write(f'#!/bin/bash\ncd {app_cwd}\nexport NEXT_PUBLIC_API_URL="{api_url}"\n{cmd}\n')
-            os.chmod(app_script, 0o755)
-            if pm2.exists(app_name):
-                pm2.kill(app_name, remove_script=False)
-            app_result = pm2.start_script(
-                name=app_name,
-                script_path=app_script,
-                cwd=app_cwd,
-                interpreter='bash'
+        app_dir = Path(self._module_dir()) / 'src' / 'app'
+        if (app_dir / 'package.json').exists():
+            app_env = os.environ.copy()
+            app_env['NEXT_PUBLIC_API_URL'] = api_url
+            app_env['PORT'] = str(app_port)
+            app_log = open(log_dir / 'app.log', 'w')
+            app_cmd = ['npx', 'next', 'dev' if dev else 'start', '-p', str(app_port)]
+            subprocess.Popen(
+                app_cmd, cwd=str(app_dir), env=app_env,
+                stdout=app_log, stderr=subprocess.STDOUT,
             )
+            results['app'] = app_url
+            results['app_log'] = str(log_dir / 'app.log')
 
-        # ── Update config.json with URLs ──
+        # ── Save urls to config ──
         try:
             cfg = self._load_config()
-            if 'urls' not in cfg:
-                cfg['urls'] = {}
+            cfg.setdefault('urls', {})
             cfg['urls']['api'] = api_url
             cfg['urls']['app'] = app_url
-            cfg['api_url'] = api_url
-            cfg['app_url'] = app_url
             self._save_config(cfg)
         except Exception:
             pass
 
-        result = {'status': 'started', 'urls': {}}
-        if api_result:
-            result['api'] = api_result
-            result['urls']['api'] = api_url
-        if app_result:
-            result['app'] = app_result
-            result['urls']['app'] = app_url
-        if not api_result and not app_result:
-            return {'status': 'error', 'message': 'No api/ or app/ directory found to serve'}
-        result['message'] = f"Started: {', '.join(result['urls'].values())}"
-        return result
+        results['logs'] = str(log_dir)
+        return results
 
-    def logs(self, service='both', lines=100, follow=False):
+    def logs(self, service='both', lines=100):
         """View logs for API and/or app servers.
 
         Args:
             service: 'api', 'app', or 'both' (default)
             lines: Number of lines to show (default 100)
-            follow: Follow logs in real-time (default False)
         """
-        pm2 = m.mod('pm.pm2')()
-        name = self.config.get('name', 'claude')
+        log_dir = Path('/tmp/claude')
+        results = {}
+        for svc in (['api', 'app'] if service == 'both' else [service]):
+            log_file = log_dir / f'{svc}.log'
+            if log_file.exists():
+                tail = subprocess.run(
+                    ['tail', '-n', str(lines), str(log_file)],
+                    capture_output=True, text=True,
+                )
+                results[svc] = tail.stdout
+            else:
+                results[svc] = f'No log file at {log_file}'
+        return results
 
-        if service in ('api', 'both'):
-            api_name = f'{name}-api'
-            print(f"\n{'='*60}")
-            print(f"API LOGS ({api_name})")
-            print(f"{'='*60}")
-            print(pm2.logs(api_name, lines=lines, follow=False))
+    # ── status ─────────────────────────────────────────────────────
 
-        if service in ('app', 'both'):
-            app_name = f'{name}-app'
-            print(f"\n{'='*60}")
-            print(f"APP LOGS ({app_name})")
-            print(f"{'='*60}")
-            print(pm2.logs(app_name, lines=lines, follow=False))
+    def status(self) -> dict:
+        """Check if claude services (API + App) are running.
 
-        if follow:
-            # Follow logs in real-time
-            target = f'{name}-api' if service == 'api' else f'{name}-app' if service == 'app' else name
-            print(f"\n🔄 Following logs for {target}... (Ctrl+C to stop)")
-            return pm2.logs(target, follow=True, blocking=True)
+        Returns dict with per-service status and overall 'online' bool.
+        """
+        api_port = self.config.get('port', 8820)
+        app_port = self.config.get('app_port', 8821)
+        result = {'online': False, 'services': {}}
+
+        for svc, port in [('api', api_port), ('app', app_port)]:
+            info = {'port': port, 'reachable': False}
+            try:
+                url = f'http://localhost:{port}' + ('/health' if svc == 'api' else '/')
+                req = urllib.request.Request(url, method='GET')
+                with urllib.request.urlopen(req, timeout=2):
+                    info['reachable'] = True
+            except Exception:
+                pass
+            result['services'][svc] = info
+
+        result['online'] = any(s['reachable'] for s in result['services'].values())
+        return result
 
     # ── test ──────────────────────────────────────────────────────
 

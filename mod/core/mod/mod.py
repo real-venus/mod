@@ -583,6 +583,10 @@ class Mod:
     def claude(self, *text, obj=None, **kwargs) -> str:
         return self.fn('claude/forward')(text=' '.join(text), obj=obj, **kwargs)
 
+    def _has_hidden(self, relpath: str) -> bool:
+        """Check if any path component is a hidden file/folder (starts with '.')."""
+        return any(part.startswith('.') for part in relpath.split('/') if part)
+
     def content(self, mod=None, ignore_folders=[], depth=10, **kwargs) -> Dict[str, str]:
         """Get mod content as {relative_path: file_text}."""
         mod = mod or 'mod'
@@ -599,6 +603,9 @@ class Mod:
         if ignore_folders:
             content = {k: v for k, v in content.items()
                        if not any(f'/{f}/' in k for f in ignore_folders)}
+        # Filter hidden files/folders unless suffixed with .example
+        content = {k: v for k, v in content.items()
+                   if not self._has_hidden(k) or k.endswith('.example')}
         return dict(sorted(content.items()))
 
     def content_files(self, mod='store', **kwargs) -> List[str]:
@@ -1268,7 +1275,7 @@ class Mod:
 
     # ── Server & Deploy ──────────────────────────────────────────────────
 
-    def serve(self, mod: str = 'mod', port: int = None, remote=True, **kwargs):
+    def serve(self, mod: str = 'app', port: int = None, remote=True, **kwargs):
         fn = self.fn('server/serve')
         if isinstance(mod, str):
             return fn(mod, port=port, remote=remote, **kwargs)

@@ -41,7 +41,7 @@ contract ConsensusStaked is Consensus {
         s.lastSeenBlock = bn;
         lastCheckinEpoch[kh] = currentEpoch;
 
-        s.blocktimeScore = staking.getValidatorTotalStakeTimeByHash(kh);
+        s.blocktimeScore = staking.getValidatorTotalMintedByHash(kh);
 
         _recalcTotal();
         emit Checkin(kh, bn, s.blocktimeScore);
@@ -62,7 +62,7 @@ contract ConsensusStaked is Consensus {
             if (!staking.isValidatorActive(kh)) continue;
             if (lastCheckinEpoch[kh] != currentEpoch) continue;
 
-            uint256 score = staking.getValidatorTotalStakeTimeByHash(kh);
+            uint256 score = staking.getValidatorTotalMintedByHash(kh);
             if (score == 0) continue;
 
             cumulative += score;
@@ -84,7 +84,7 @@ contract ConsensusStaked is Consensus {
             if (!staking.isValidatorActive(kh)) continue;
             if (lastCheckinEpoch[kh] != currentEpoch) continue;
 
-            uint256 stt = staking.getValidatorTotalStakeTimeByHash(kh);
+            uint256 stt = staking.getValidatorTotalMintedByHash(kh);
             if (stt == 0) continue;
 
             uint256 validatorShare = (consensus.emissionRate * stt) / consensus.totalBlocktime;
@@ -109,7 +109,7 @@ contract ConsensusStaked is Consensus {
             if (!staking.isValidatorActive(kh)) continue;
             if (lastCheckinEpoch[kh] != currentEpoch) continue;
 
-            total += staking.getValidatorTotalStakeTimeByHash(kh);
+            total += staking.getValidatorTotalMintedByHash(kh);
         }
         consensus.totalBlocktime = total;
     }

@@ -181,11 +181,11 @@ class Server:
               pm = None,
               run_mode:str='flask',
               paywall = None, # optional x402 payment gate instance
-              sandbox:str = 'subprocess', # 'subprocess' or 'docker' for container isolation
+              sandbox:str = 'docker', # 'docker' (default), 'pool' for persistent workers, or 'subprocess' for one-shot
               **extra_params
 
               ):
-        
+
         mod_obj = m.mod(mod)()
         if mod not in (None, 'mod') and 'serve' in type(mod_obj).__dict__:
             print(f'Mod {mod} has its own serve function, using it to serve the mod', color='green')

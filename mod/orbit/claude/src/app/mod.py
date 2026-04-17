@@ -33,5 +33,6 @@ class Mod:
 
     def build(self):
         """Build the project."""
-        import subprocess
+        import subprmocess
         return subprocess.run(['npm', 'run', 'build'], cwd=r'/Users/broski/mod/mod/orbit/claude/app', capture_output=True, text=True).stdout
+  

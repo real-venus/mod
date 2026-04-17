@@ -4,6 +4,7 @@
   "description": "Programmable AI developer interface \u2014 Python SDK, Rust Job Server, Next.js Terminal UI, IPFS versioning",
   "owner": "0xaF3e0796042aF79eA1642c919ac0ea6d165Bc6dB",
   "port": 8820,
+  "app_port": 8821,
   "default_path": "~/mod",
   "servers": {
     "claude-api": "http://localhost:8820",

@@ -20,8 +20,8 @@ describe("ConsensusYuma", function () {
     subnet = await Subnet.deploy("TestNet", "TST", ethers.parseEther("1000000"));
     await subnet.waitForDeployment();
 
-    const Staking = await ethers.getContractFactory("Staking");
-    staking = await Staking.deploy(
+    const StakeTime = await ethers.getContractFactory("StakeTime");
+    staking = await StakeTime.deploy(
       await subnet.getAddress(),
       MAX_LOCK_BLOCKS,
       MAX_STAKERS,

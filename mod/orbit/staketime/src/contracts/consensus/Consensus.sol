@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../Subnet.sol";
-import "../Staking.sol";
+import "../staking/Staking.sol";
 import "../inflation/IInflationCurve.sol";
 
 /**
@@ -192,7 +192,7 @@ abstract contract Consensus is ReentrancyGuard, Ownable {
         subnet.mint(address(this), validatorShare);
 
         ValidatorScore storage s = scores[kh];
-        uint256 totalSTT = staking.getValidatorTotalStakeTimeByHash(kh);
+        uint256 totalSTT = staking.getValidatorTotalMintedByHash(kh);
         uint256 commissionBps = staking.getValidatorCommission(kh);
 
         if (totalSTT == 0) {

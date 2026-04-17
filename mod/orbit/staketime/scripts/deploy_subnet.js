@@ -1,8 +1,10 @@
 /**
- * Deploy a single subnet: Subnet ERC20 + Staking + ConsensusYuma + register in Registry.
+ * Deploy a single subnet: Subnet ERC20 + Staking + Consensus + register in Registry.
+ *
+ * Supports consensus types: yuma (default), linear, staked
  *
  * Usage:
- *   SUBNET_PARAMS='{"name":"MyNet","symbol":"MNT","initialSupply":"1000000",...}' \
+ *   SUBNET_PARAMS='{"name":"MyNet","symbol":"MNT","consensusType":"yuma",...}' \
  *   npx hardhat run scripts/deploy_subnet.js --network base_sepolia
  */
 const hre = require("hardhat");
@@ -22,14 +24,20 @@ async function main() {
     epochLength = 43200,
     emissionRate = "100",
     decayBps = 500,
+    consensusType = "yuma",
     registryAddress,
   } = params;
 
   if (!name || !symbol) throw new Error("name and symbol required");
   if (!registryAddress) throw new Error("registryAddress required");
 
+  const validTypes = ["yuma", "linear", "staked"];
+  if (!validTypes.includes(consensusType)) {
+    throw new Error(`Invalid consensusType: ${consensusType}. Must be one of: ${validTypes.join(", ")}`);
+  }
+
   const [deployer] = await hre.ethers.getSigners();
-  console.log(`Deploying subnet "${name}" (${symbol}) with: ${deployer.address}`);
+  console.log(`Deploying subnet "${name}" (${symbol}) [${consensusType}] with: ${deployer.address}`);
 
   let nonce = await deployer.getNonce();
   const send = (opts) => ({ ...opts, nonce: nonce++ });
@@ -42,9 +50,9 @@ async function main() {
   const subnetAddress = await subnet.getAddress();
   console.log(`Subnet token deployed: ${subnetAddress}`);
 
-  // 2. Deploy Staking
-  const Staking = await hre.ethers.getContractFactory("Staking");
-  const staking = await Staking.deploy(
+  // 2. Deploy StakeTime (ERC20 + staking)
+  const StakeTime = await hre.ethers.getContractFactory("StakeTime");
+  const staking = await StakeTime.deploy(
     subnetAddress,
     maxLockBlocks,
     maxStakersPerValidator,
@@ -53,32 +61,42 @@ async function main() {
   );
   await staking.waitForDeployment();
   const stakingAddress = await staking.getAddress();
-  console.log(`Staking deployed: ${stakingAddress}`);
+  console.log(`StakeTime (STT) deployed: ${stakingAddress}`);
 
-  // 3. Deploy ConsensusYuma
+  // 3. Deploy Consensus (selected type)
   const emRate = hre.ethers.parseEther(emissionRate);
-  const ConsensusYuma = await hre.ethers.getContractFactory("ConsensusYuma");
-  const consensus = await ConsensusYuma.deploy(
-    subnetAddress,
-    stakingAddress,
-    emRate,
-    decayBps,
-    epochLength,
-    send({})
-  );
+  let consensus;
+  const contractNames = {
+    yuma: "ConsensusYuma",
+    linear: "ConsensusLinear",
+    staked: "ConsensusStaked",
+  };
+  const factoryName = contractNames[consensusType];
+  const Factory = await hre.ethers.getContractFactory(factoryName);
+
+  if (consensusType === "yuma") {
+    // Yuma has an extra decayBps parameter
+    consensus = await Factory.deploy(
+      subnetAddress, stakingAddress, emRate, decayBps, epochLength, send({})
+    );
+  } else {
+    // Linear and Staked share the same constructor
+    consensus = await Factory.deploy(
+      subnetAddress, stakingAddress, emRate, epochLength, send({})
+    );
+  }
   await consensus.waitForDeployment();
   const consensusAddress = await consensus.getAddress();
-  console.log(`ConsensusYuma deployed: ${consensusAddress}`);
+  console.log(`${factoryName} deployed: ${consensusAddress}`);
 
-  // 4. Set ConsensusYuma as minter
+  // 4. Set consensus as minter
   await (await subnet.setMinter(consensusAddress, send({}))).wait();
-  console.log(`Minter set to ConsensusYuma`);
+  console.log(`Minter set to ${factoryName}`);
 
   // 5. Register in Registry
   const Registry = await hre.ethers.getContractFactory("Registry");
   const registry = Registry.attach(registryAddress);
 
-  // Approve governance token
   const govTokenAddr = await registry.governanceToken();
   const GovToken = await hre.ethers.getContractFactory("Subnet");
   const govToken = GovToken.attach(govTokenAddr);
@@ -93,11 +111,11 @@ async function main() {
   const receipt = await tx.wait();
   console.log(`Subnet registered in Registry (tx: ${receipt.hash})`);
 
-  // Output result as JSON for the API to parse
   const result = {
     subnet: subnetAddress,
     staking: stakingAddress,
     consensus: consensusAddress,
+    consensusType,
     name,
     symbol,
     initialSupply,

@@ -15,14 +15,14 @@ async function main() {
   const subnetAddress = await subnet.getAddress();
   console.log(`Subnet (ERC20) deployed to: ${subnetAddress}`);
 
-  // ── 2. Deploy Staking (validator registration + staking) ──────────
+  // ── 2. Deploy StakeTime (ERC20 + staking) ────────────────────────
   const maxLockBlocks = 100000;
   const maxStakersPerValidator = 100;
   const defaultCommissionBps = 1000;   // 10%
 
-  const Staking = await hre.ethers.getContractFactory("Staking");
-  const staking = await Staking.deploy(
-    subnetAddress,       // nativeToken (staked token)
+  const StakeTime = await hre.ethers.getContractFactory("StakeTime");
+  const staking = await StakeTime.deploy(
+    subnetAddress,
     maxLockBlocks,
     maxStakersPerValidator,
     defaultCommissionBps,
@@ -30,7 +30,7 @@ async function main() {
   );
   await staking.waitForDeployment();
   const stakingAddress = await staking.getAddress();
-  console.log(`Staking deployed to: ${stakingAddress}`);
+  console.log(`StakeTime (STT) deployed to: ${stakingAddress}`);
 
   // ── 3. Deploy ConsensusYuma (scoring + emissions) ─────────────────
   const epochLength = 43200;           // ~1 day on Base

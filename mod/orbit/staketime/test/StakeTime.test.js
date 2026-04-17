@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { mine } = require("@nomicfoundation/hardhat-network-helpers");
 
-describe("Staking", function () {
+describe("StakeTime", function () {
   let staking, subnet;
   let owner, user1, user2;
 
@@ -11,8 +11,8 @@ describe("Staking", function () {
   const DEFAULT_COMMISSION_BPS = 1000;
 
   async function deployStaking(nativeToken) {
-    const Staking = await ethers.getContractFactory("Staking");
-    const st = await Staking.deploy(
+    const StakeTime = await ethers.getContractFactory("StakeTime");
+    const st = await StakeTime.deploy(
       nativeToken, MAX_LOCK_BLOCKS, MAX_STAKERS, DEFAULT_COMMISSION_BPS
     );
     await st.waitForDeployment();
@@ -111,9 +111,9 @@ describe("Staking", function () {
       expect(pos.amount).to.equal(ethers.parseEther("500"));
     });
 
-    it("tracks validator total stake time", async function () {
+    it("tracks validator total minted", async function () {
       await staking.connect(user1).stakeOn("val1", ethers.parseEther("1000"), 0);
-      expect(await staking.getValidatorTotalStakeTime("val1")).to.equal(ethers.parseEther("1000"));
+      expect(await staking.getValidatorTotalMinted("val1")).to.equal(ethers.parseEther("1000"));
     });
 
     it("rejects zero amount", async function () {

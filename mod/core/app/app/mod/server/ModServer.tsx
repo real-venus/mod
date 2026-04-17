@@ -168,8 +168,8 @@ export default function ModServer({ mod, moduleColor }: ModServerProps) {
     }
 
     setModServerStatus({
-      api: { running: !!apiUrl, url: apiUrl || null, port: apiPort, healthy: apiHealthy },
-      app: { running: !!appUrl, url: appUrl || null, port: appPort, healthy: appHealthy },
+      api: { running: apiHealthy, url: apiUrl || null, port: apiPort, healthy: apiHealthy },
+      app: { running: appHealthy, url: appUrl || null, port: appPort, healthy: appHealthy },
     })
   }, [mod])
 
@@ -202,6 +202,15 @@ export default function ModServer({ mod, moduleColor }: ModServerProps) {
         setMessage({ text: result.error, type: 'error' })
       } else {
         setMessage({ text: `${mod.name} started`, type: 'success' })
+        // Optimistically show "STARTING" while servers boot
+        const apiUrl = getModApiUrl(mod)
+        const appUrl = getModAppUrl(mod)
+        if (apiUrl || appUrl) {
+          setModServerStatus(prev => ({
+            api: apiUrl ? { ...prev.api, running: true, url: apiUrl, healthy: false } : prev.api,
+            app: appUrl ? { ...prev.app, running: true, url: appUrl, healthy: false } : prev.app,
+          }))
+        }
         setTimeout(checkModuleHealth, 2000)
       }
     } catch (e: any) {

@@ -1,0 +1,12 @@
+{
+    "owner": "0xD3905ef2F8A321f236b613058960f27232530453",
+    "gas_sponsor": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
+    "network": "testnet",
+    "label": "final-test",
+    "contracts": {
+        "oracle": {
+            "address": "0xA1a450C6FBa33bCcdCBD0e0655B3d12323ab0e9a",
+            "mod": "oracle"
+        }
+    }
+}

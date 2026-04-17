@@ -10,12 +10,15 @@ import pytest
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'venice'))
+# Ensure venice package is importable from the module directory
+_venice_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _venice_root not in sys.path:
+    sys.path.insert(0, _venice_root)
 
 
 @pytest.fixture(scope="module")
 def client():
-    from mod import Mod
+    from venice.mod import Mod
     return Mod()
 
 
@@ -62,20 +65,20 @@ class TestModels:
 class TestFilterModels:
 
     def test_filter_none_returns_all(self):
-        from mod import Mod
+        from venice.mod import Mod
         models = [{'id': 'a'}, {'id': 'b'}]
         result = Mod.filter_models(models, search=None)
         assert len(result) == 2
 
     def test_filter_single(self):
-        from mod import Mod
+        from venice.mod import Mod
         models = [{'id': 'deepseek-r1-671b'}, {'id': 'llama-3.3-70b'}]
         result = Mod.filter_models(models, search='deepseek')
         assert len(result) == 1
         assert result[0]['id'] == 'deepseek-r1-671b'
 
     def test_filter_comma_separated(self):
-        from mod import Mod
+        from venice.mod import Mod
         models = [
             {'id': 'deepseek-r1-671b'},
             {'id': 'llama-3.3-70b'},
@@ -85,7 +88,7 @@ class TestFilterModels:
         assert len(result) == 2
 
     def test_filter_string_list(self):
-        from mod import Mod
+        from venice.mod import Mod
         models = ['deepseek-r1-671b', 'llama-3.3-70b']
         result = Mod.filter_models(models, search='deepseek')
         assert len(result) == 1

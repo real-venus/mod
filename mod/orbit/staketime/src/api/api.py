@@ -11,6 +11,10 @@ import re
 import subprocess
 from pathlib import Path
 from typing import Optional
+
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -18,10 +22,11 @@ from web3 import Web3
 
 app = FastAPI(title="StakeTime API", description="Delegated staking + Yuma consensus emissions")
 
-_cors_origins = os.environ.get("MOD_CORS_ORIGINS", "http://localhost:*,http://127.0.0.1:*").split(",")
+_cors_origins = os.environ.get("MOD_CORS_ORIGINS", "").split(",") if os.environ.get("MOD_CORS_ORIGINS") else []
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Accept", "Authorization", "token"],
@@ -31,7 +36,8 @@ app.add_middleware(
 
 MODULE_DIR = Path(__file__).parent.parent.parent
 DEPLOY_PATH = MODULE_DIR / "config.json"
-ST_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "Staking.sol" / "Staking.json"
+ST_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "staking" / "Staking.sol" / "Staking.json"
+STT_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "staking" / "StakeTime.sol" / "StakeTime.json"
 INC_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "consensus" / "yuma" / "ConsensusYuma.sol" / "ConsensusYuma.json"
 NTV_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "Subnet.sol" / "Subnet.json"
 REG_ABI_PATH = MODULE_DIR / "artifacts" / "src" / "contracts" / "Registry.sol" / "Registry.json"
@@ -58,20 +64,21 @@ def _deploy():
         return contracts[network]
     # Fallback: first available network
     for key in contracts:
-        if isinstance(contracts[key], dict) and ("staking" in contracts[key] or "stakeTime" in contracts[key]):
+        if isinstance(contracts[key], dict) and ("staking" in contracts[key] or "staking" in contracts[key]):
             return contracts[key]
     return data
 
 
 def load_staketime():
     deploy = _deploy()
-    if not deploy or not ST_ABI_PATH.exists():
+    abi_path = STT_ABI_PATH if STT_ABI_PATH.exists() else ST_ABI_PATH
+    if not deploy or not abi_path.exists():
         return None, None, None
     addr = deploy.get("staking") or deploy.get("stakeTime")
     if not addr:
         return None, None, None
     w3 = _w3()
-    with open(ST_ABI_PATH) as f:
+    with open(abi_path) as f:
         abi = json.load(f)["abi"]
     contract = w3.eth.contract(
         address=Web3.to_checksum_address(addr),
@@ -182,11 +189,32 @@ class ClaimValidatorReq(BaseModel):
 class RegisterSubnetReq(BaseModel):
     name: str
     subnet: str
-    stake_time: str
+    staking: str
     consensus: str
 
 class SubnetIdReq(BaseModel):
     subnet_id: int
+
+class BoostSubnetReq(BaseModel):
+    subnet_id: int
+    stt_token: str  # address of the Staking (STT) contract
+    amount: str     # wei string
+
+class SellBoostReq(BaseModel):
+    subnet_id: int
+    shares: str     # wei string
+    stt_token: str
+
+class BoostPriceReq(BaseModel):
+    subnet_id: int
+    num_shares: str  # wei string
+
+class PoolInfoReq(BaseModel):
+    subnet_id: int
+
+class UserSharesReq(BaseModel):
+    subnet_id: int
+    address: str
 
 class GenerateSubnetReq(BaseModel):
     prompt: str
@@ -201,6 +229,7 @@ class DeploySubnetReq(BaseModel):
     epoch_length: int = 43200
     emission_rate: str = "100"
     decay_bps: int = 500
+    consensus_type: str = "yuma"  # yuma | linear | staked
 
 
 # ── Incentive endpoints ──────────────────────────────────────────────────
@@ -236,7 +265,7 @@ async def get_validators():
         v = st.functions.getValidatorByHash(kh).call()
         score = inc.functions.getValidatorScore(kh).call()
         bal = inc.functions.validatorBalances(kh).call()
-        total_stt = st.functions.getValidatorTotalStakeTimeByHash(kh).call()
+        total_stt = st.functions.getValidatorTotalMintedByHash(kh).call()
         validators.append({
             "key": v[0],
             "keyHash": kh.hex(),
@@ -353,7 +382,7 @@ async def get_user_stakes(req: AddressReq):
             "amount": str(pos[2]),
             "startBlock": pos[3],
             "lockBlocks": pos[4],
-            "stakeTimeBalance": str(pos[5]),
+            "mintedBalance": str(pos[5]),
             "blocksRemaining": pos[6],
         })
     return {"result": stakes}
@@ -372,7 +401,7 @@ async def get_stake_position(req: StakeIdReq):
         "amount": str(pos[2]),
         "startBlock": pos[3],
         "lockBlocks": pos[4],
-        "stakeTimeBalance": str(pos[5]),
+        "mintedBalance": str(pos[5]),
         "blocksRemaining": pos[6],
     }}
 
@@ -387,7 +416,7 @@ async def get_validator(req: KeyReq):
     kh = Web3.solidity_keccak(["string"], [req.key])
     score = inc.functions.getValidatorScore(kh).call()
     bal = inc.functions.validatorBalances(kh).call()
-    total_stt = st.functions.getValidatorTotalStakeTimeByHash(kh).call()
+    total_stt = st.functions.getValidatorTotalMintedByHash(kh).call()
     return {"result": {
         "key": v[0],
         "keyType": v[1],
@@ -457,17 +486,22 @@ async def get_subnets():
         for s in raw:
             score = contract.functions.getStakeScore(s[0]).call()
             immune = contract.functions.isImmune(s[0]).call()
+            pool = contract.functions.getPoolInfo(s[0]).call()
             subnets.append({
                 "id": s[0],
                 "owner": s[1],
                 "name": s[2],
                 "subnet": s[3],
-                "stakeTime": s[4],
+                "staking": s[4],
                 "consensus": s[5],
                 "registeredBlock": s[6],
                 "active": s[7],
                 "stakeScore": str(score),
                 "immune": immune,
+                "totalShares": str(pool[0]),
+                "totalBloctime": str(pool[1]),
+                "sharePrice": str(pool[2]),
+                "lockedGov": str(pool[3]),
             })
         return {"result": subnets}
     except Exception as e:
@@ -498,7 +532,7 @@ async def register_subnet(req: RegisterSubnetReq):
         result = _send_tx(w3, contract.functions.registerSubnet(
             req.name,
             Web3.to_checksum_address(req.subnet),
-            Web3.to_checksum_address(req.stake_time),
+            Web3.to_checksum_address(req.staking),
             Web3.to_checksum_address(req.consensus),
         ), account)
         return {"result": result}
@@ -531,7 +565,7 @@ async def get_subnet(req: SubnetIdReq):
         "owner": r[1],
         "name": r[2],
         "subnet": r[3],
-        "stakeTime": r[4],
+        "staking": r[4],
         "consensus": r[5],
         "registeredBlock": r[6],
         "active": r[7],
@@ -551,6 +585,97 @@ async def get_weakest_subnet():
         "score": str(weak_score),
         "found": found,
     }}
+
+
+# ── Bonding Curve Pool endpoints ───────────────────────────────────────
+
+@app.post("/boost_subnet")
+async def boost_subnet(req: BoostSubnetReq):
+    """Deposit STT (bloctime) to boost a subnet via bonding curve."""
+    w3, contract, account = load_registry()
+    if not contract or not account:
+        raise HTTPException(status_code=500, detail="Registry not deployed or no signer")
+    try:
+        stt_addr = Web3.to_checksum_address(req.stt_token)
+        amount = int(req.amount)
+
+        # Approve STT token for registry
+        with open(ST_ABI_PATH) as f:
+            stt_abi = json.load(f)["abi"]
+        stt_contract = w3.eth.contract(address=stt_addr, abi=stt_abi)
+        _send_tx(w3, stt_contract.functions.approve(contract.address, amount), account)
+
+        result = _send_tx(w3, contract.functions.boostSubnet(
+            req.subnet_id, stt_addr, amount
+        ), account, gas=500000)
+        return {"result": result}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/sell_boost")
+async def sell_boost(req: SellBoostReq):
+    """Sell shares back, receive STT from the pool."""
+    w3, contract, account = load_registry()
+    if not contract or not account:
+        raise HTTPException(status_code=500, detail="Registry not deployed or no signer")
+    try:
+        shares = int(req.shares)
+        stt_addr = Web3.to_checksum_address(req.stt_token)
+        result = _send_tx(w3, contract.functions.sellBoost(
+            req.subnet_id, shares, stt_addr
+        ), account, gas=300000)
+        return {"result": result}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/get_boost_price")
+async def get_boost_price(req: BoostPriceReq):
+    """Get STT cost for buying numShares at current supply."""
+    w3, contract, _ = load_registry()
+    if not contract:
+        raise HTTPException(status_code=500, detail="Registry not deployed")
+    num_shares = int(req.num_shares)
+    cost = contract.functions.getBoostPrice(req.subnet_id, num_shares).call()
+    sell_return = contract.functions.getSellReturn(req.subnet_id, num_shares).call()
+    return {"result": {
+        "buyCost": str(cost),
+        "sellReturn": str(sell_return),
+    }}
+
+
+@app.post("/get_pool_info")
+async def get_pool_info(req: PoolInfoReq):
+    """Get bonding curve pool info for a subnet."""
+    w3, contract, _ = load_registry()
+    if not contract:
+        raise HTTPException(status_code=500, detail="Registry not deployed")
+    pool = contract.functions.getPoolInfo(req.subnet_id).call()
+    score = contract.functions.getStakeScore(req.subnet_id).call()
+    try:
+        bloctime_price = contract.functions.getBloctimePrice(req.subnet_id).call()
+    except Exception:
+        bloctime_price = 0
+    return {"result": {
+        "totalShares": str(pool[0]),
+        "totalBloctime": str(pool[1]),
+        "sharePrice": str(pool[2]),
+        "lockedGov": str(pool[3]),
+        "stakeScore": str(score),
+        "bloctimePrice": str(bloctime_price),
+    }}
+
+
+@app.post("/get_user_shares")
+async def get_user_shares(req: UserSharesReq):
+    """Get user's shares in a subnet's bonding curve pool."""
+    w3, contract, _ = load_registry()
+    if not contract:
+        raise HTTPException(status_code=500, detail="Registry not deployed")
+    addr = Web3.to_checksum_address(req.address)
+    shares = contract.functions.getUserShares(req.subnet_id, addr).call()
+    return {"result": str(shares)}
 
 
 SUBNET_SYSTEM_PROMPT = """You generate subnet deployment parameters for a staking protocol. Given a user's description, output ONLY a JSON object with these fields (no markdown, no explanation):
@@ -591,7 +716,7 @@ def _llm_generate(prompt: str) -> dict:
     if openrouter_key:
         base_url = "https://openrouter.ai/api/v1/chat/completions"
         api_key = openrouter_key
-        model = os.environ.get("LLM_MODEL", "google/gemma-4-31b-it:free")
+        model = os.environ.get("LLM_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -641,8 +766,14 @@ def _llm_generate(prompt: str) -> dict:
             {"role": "user", "content": prompt},
         ],
     }
-    resp = httpx.post(base_url, headers=headers, json=body, timeout=60)
-    resp.raise_for_status()
+    import time as _time
+    for attempt in range(4):
+        resp = httpx.post(base_url, headers=headers, json=body, timeout=60)
+        if resp.status_code == 429 and attempt < 3:
+            _time.sleep(3 * (attempt + 1))
+            continue
+        resp.raise_for_status()
+        break
     text = resp.json()["choices"][0]["message"]["content"].strip()
     return _parse_llm_json(text)
 
@@ -674,6 +805,10 @@ async def deploy_subnet(req: DeploySubnetReq):
     if not deploy or "registry" not in deploy:
         raise HTTPException(status_code=500, detail="Registry not deployed")
 
+    valid_types = ("yuma", "linear", "staked")
+    if req.consensus_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"consensus_type must be one of: {', '.join(valid_types)}")
+
     params = {
         "name": req.name,
         "symbol": req.symbol,
@@ -684,6 +819,7 @@ async def deploy_subnet(req: DeploySubnetReq):
         "epochLength": req.epoch_length,
         "emissionRate": req.emission_rate,
         "decayBps": req.decay_bps,
+        "consensusType": req.consensus_type,
         "registryAddress": deploy["registry"],
     }
 

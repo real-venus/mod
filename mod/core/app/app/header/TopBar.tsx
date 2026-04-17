@@ -3,63 +3,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { WalletHeader } from '@/wallet/WalletHeader'
-import { useSearchContext } from '@/context/SearchContext'
 import { userContext } from '@/context'
 import { useLayoutContext } from '@/context/LayoutContext'
 import { text2color, colorWithOpacity, shorten } from '@/utils'
 import { clearModsCache } from '@/mod/explore/ModExplorePage'
-import { X, Wrench } from 'lucide-react'
-
-const COMMANDS = ['/search', '/ask', '/run'] as const
-
-function isCid(s: string): boolean {
-  const trimmed = s.trim()
-  return /^Qm[1-9A-HJ-NP-Za-km-z]{44,}$/.test(trimmed) || /^bafy[a-z2-7]{50,}$/i.test(trimmed)
-}
-
-function parseRunArgs(input: string): { fn: string; params: Record<string, any> } {
-  const parts = input.trim().split(/\s+/)
-  const fn = parts[0] || ''
-  const params: Record<string, any> = {}
-  const positional: string[] = []
-
-  for (let i = 1; i < parts.length; i++) {
-    const arg = parts[i]
-    const eqPos = arg.indexOf('=')
-    if (eqPos > 0) {
-      const key = arg.slice(0, eqPos)
-      const val = arg.slice(eqPos + 1)
-      params[key] = parseValue(val)
-    } else {
-      positional.push(arg)
-    }
-  }
-  if (positional.length > 0) {
-    params.args = positional.length === 1 ? parseValue(positional[0]) : positional.map(parseValue)
-  }
-  return { fn, params }
-}
-
-function parseValue(s: string): any {
-  if (s === 'null' || s === 'none' || s === 'None') return null
-  if (s === 'true' || s === 'True') return true
-  if (s === 'false' || s === 'False') return false
-  const n = Number(s)
-  if (!isNaN(n) && s !== '') return n
-  try {
-    if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
-      return JSON.parse(s)
-    }
-  } catch {}
-  return s
-}
+import { Wrench } from 'lucide-react'
 
 // Extract module name from path like /bread or /mod/bread/key or /bread/0xkey
 function getModuleFromPath(pathname: string): string | null {
   // /mod/[name]/[key]
   const modMatch = pathname.match(/^\/mod\/([^/]+)/)
   if (modMatch) return modMatch[1]
-  const knownRoutes = ['mod', 'mods', 'user', 'cid', 'chat', 'docs', 'quests', 'create', 'safe', 'bridge', 'contracts', 'treasury', 'jobs', 'traders', 'network', 'home', 'transactions', 'buidl', 'apps', 'chain', 'balancer', 'workers']
+  const knownRoutes = ['mod', 'mods', 'user', 'cid', 'chat', 'docs', 'quests', 'create', 'safe', 'contracts', 'treasury', 'jobs', 'traders', 'network', 'home', 'transactions', 'buidl', 'apps', 'chain', 'balancer', 'workers', 'agent']
   // /[name]/[key] (two segments, first is not a known route)
   const twoSegMatch = pathname.match(/^\/([^/]+)\/([^/]+)$/)
   if (twoSegMatch && !knownRoutes.includes(twoSegMatch[1])) return twoSegMatch[1]
@@ -72,18 +27,8 @@ function getModuleFromPath(pathname: string): string | null {
 export function TopBar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { handleSearch, searchFilters } = useSearchContext()
   const { user, client } = userContext()
   const { isHeaderCollapsed, toggleHeaderCollapsed, isEditSidebarOpen, toggleEditSidebar } = useLayoutContext()
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [inputValue, setInputValue] = useState('')
-  const [searchFocused, setSearchFocused] = useState(false)
-  const [searchExpanded, setSearchExpanded] = useState(false)
-  const [commandIndex, setCommandIndex] = useState(0)
-  const [runResult, setRunResult] = useState<any>(null)
-  const [runLoading, setRunLoading] = useState(false)
-  const [runError, setRunError] = useState<string | null>(null)
-  const activeCommand = COMMANDS[commandIndex]
 
   // Build dropdown state
   const [showBuild, setShowBuild] = useState(false)
@@ -112,7 +57,7 @@ export function TopBar() {
   const moduleColor = activeModule ? text2color(activeModule) : '#ffffff'
 
   // Module tab state (shared with ModulePage via custom event)
-  const [moduleTab, setModuleTab] = useState<string>('app')
+  const [moduleTab, setModuleTab] = useState<string>('info')
 
   // Listen for module tab changes from ModulePage
   useEffect(() => {
@@ -124,14 +69,7 @@ export function TopBar() {
   }, [])
 
   // Listen for module info (fnCount, key, cid, allOwners) from ModulePage
-  const [moduleInfo, setModuleInfo] = useState<{ fnCount: number; key: string; cid: string; url_app?: string; url_api?: string; allOwners?: any[]; isRunning?: boolean; myMod?: boolean; isCreator?: boolean } | null>(null)
-  const [servingAction, setServingAction] = useState(false)
-  const [showServeDialog, setShowServeDialog] = useState(false)
-  const [servePort, setServePort] = useState('')
-  const [serveApiPort, setServeApiPort] = useState('')
-  const [serveResult, setServeResult] = useState<any>(null)
-  const [similarServers, setSimilarServers] = useState<any>(null)
-  const serveDialogRef = useRef<HTMLDivElement>(null)
+  const [moduleInfo, setModuleInfo] = useState<{ fnCount: number; key: string; cid: string; url_app?: string; url_api?: string; allOwners?: any[]; isRunning?: boolean; myMod?: boolean; isCreator?: boolean; isPublic?: boolean } | null>(null)
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false)
   const ownerDropdownRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -148,51 +86,17 @@ export function TopBar() {
       if (showOwnerDropdown && ownerDropdownRef.current && !ownerDropdownRef.current.contains(e.target as Node)) {
         setShowOwnerDropdown(false)
       }
-      if (showServeDialog && serveDialogRef.current && !serveDialogRef.current.contains(e.target as Node)) {
-        setShowServeDialog(false)
-      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [showOwnerDropdown, showServeDialog])
-
-  // Fetch similar servers when serve dialog opens
-  useEffect(() => {
-    if (showServeDialog && client && activeModule) {
-      client.call('serve_status', { name: activeModule }).then((res: any) => {
-        if (res && !res.error) setSimilarServers(res)
-      }).catch(() => {})
-    }
-  }, [showServeDialog, client, activeModule])
+  }, [showOwnerDropdown])
 
   // Reset when leaving module page
   useEffect(() => {
     if (!activeModule) {
       setModuleInfo(null)
-      setSearchExpanded(false)
       setShowOwnerDropdown(false)
     }
-  }, [activeModule])
-
-
-  useEffect(() => {
-    setInputValue(searchFilters.searchTerm || '')
-  }, [searchFilters.searchTerm])
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        if (activeModule) {
-          setSearchExpanded(true)
-          setTimeout(() => inputRef.current?.focus(), 50)
-        } else {
-          inputRef.current?.focus()
-        }
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
   }, [activeModule])
 
   // Click-outside for build/fork dropdowns
@@ -299,69 +203,6 @@ export function TopBar() {
     }
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setInputValue(value)
-    // Search only triggers on Enter now, not on every keystroke
-  }
-
-  const handleEnter = async () => {
-    const trimmed = inputValue.trim()
-    if (!trimmed) return
-
-    if (isCid(trimmed)) {
-      router.push(`/cid/${trimmed}`)
-      setSearchExpanded(false)
-      return
-    }
-
-    if (activeCommand === '/run') {
-      if (!client) return
-      const { fn, params } = parseRunArgs(trimmed)
-      if (!fn) return
-      setRunLoading(true)
-      setRunError(null)
-      setRunResult(null)
-      try {
-        const result = await client.call(fn, params)
-        setRunResult(result)
-      } catch (err: any) {
-        setRunError(err.message || 'Run failed')
-      } finally {
-        setRunLoading(false)
-      }
-      return
-    }
-
-    // Search mods with the entered term
-    handleSearch(trimmed)
-    setSearchExpanded(false)
-    if (pathname !== '/mods') {
-      router.push('/mods')
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleEnter()
-    }
-    if (e.key === 'Escape') {
-      setInputValue('')
-      handleSearch('')
-      setRunResult(null)
-      setRunError(null)
-      setSearchExpanded(false)
-      inputRef.current?.blur()
-    }
-    if ((e.key === 'Backspace' || e.key === 'Delete') && inputValue === '') {
-      e.preventDefault()
-      setRunResult(null)
-      setRunError(null)
-      setCommandIndex((prev) => (prev + 1) % COMMANDS.length)
-    }
-  }
-
   const handleTabClick = (tab: string) => {
     window.dispatchEvent(new CustomEvent('mod:tab-set', { detail: { tab } }))
     setModuleTab(tab)
@@ -399,11 +240,13 @@ export function TopBar() {
   }
 
   const availableTabs = [
-    'app', 'api', 'config', 'content', 'edit', 'terminal', 'server',
+    'info',
+    ...(moduleInfo?.isPublic !== false ? ['content'] : []),
+    'app', 'api',
   ]
 
-  // On a module page: show module info + tabs, search collapses to icon
-  const showModuleBar = activeModule && !searchExpanded
+  // On a module page: always show module info + tabs
+  const showModuleBar = !!activeModule
 
   return (
     <div
@@ -422,26 +265,6 @@ export function TopBar() {
         {showModuleBar ? (
           /* Module bar: name + meta + tabs */
           <div className="flex items-center gap-4 flex-1 min-w-0" style={{ fontFamily: 'var(--font-digital), monospace' }}>
-            {/* Search icon to expand (far left) */}
-            <button
-              onClick={() => {
-                setSearchExpanded(true)
-                setTimeout(() => inputRef.current?.focus(), 50)
-              }}
-              className="flex-shrink-0 flex items-center justify-center"
-              style={{
-                width: '32px',
-                height: '32px',
-                color: 'var(--text-tertiary)',
-                transition: 'color 0.15s ease',
-              }}
-              title="Search (⌘K)"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-              </svg>
-            </button>
-
             {/* Module name */}
             <code
               className="font-bold tracking-wide flex-shrink-0"
@@ -608,142 +431,8 @@ export function TopBar() {
               })}
             </div>
 
-            {/* Serve / Kill button */}
-            {moduleInfo?.myMod && (
-              moduleInfo.isRunning ? (
-                <button
-                  onClick={async () => {
-                    if (!client || !activeModule) return
-                    setServingAction(true)
-                    try {
-                      await client.call('kill_app', { name: activeModule })
-                      // ModulePage will reload and re-broadcast
-                    } catch {}
-                    setServingAction(false)
-                  }}
-                  disabled={servingAction}
-                  className="flex-shrink-0 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-all"
-                  style={{
-                    fontFamily: 'var(--font-digital), monospace',
-                    border: '1px solid #ef4444',
-                    color: '#ef4444',
-                    background: servingAction ? 'transparent' : 'rgba(239,68,68,0.08)',
-                    opacity: servingAction ? 0.5 : 1,
-                  }}
-                  title="Kill module server"
-                >
-                  {servingAction ? '...' : 'KILL'}
-                </button>
-              ) : (
-                <div className="relative flex-shrink-0" ref={serveDialogRef}>
-                  <button
-                    onClick={() => setShowServeDialog(!showServeDialog)}
-                    disabled={servingAction}
-                    className="flex-shrink-0 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-all"
-                    style={{
-                      fontFamily: 'var(--font-digital), monospace',
-                      border: '1px solid #10b981',
-                      color: '#10b981',
-                      background: servingAction ? 'transparent' : 'rgba(16,185,129,0.08)',
-                      opacity: servingAction ? 0.5 : 1,
-                    }}
-                    title="Serve module"
-                  >
-                    {servingAction ? '...' : 'SERVE'}
-                  </button>
-                  {showServeDialog && (
-                    <div
-                      className="absolute right-0 top-full mt-1 z-[100] p-3 flex flex-col gap-2"
-                      style={{
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-color)',
-                        fontFamily: 'var(--font-digital), monospace',
-                        minWidth: '260px',
-                      }}
-                    >
-                      <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Port Config</div>
-                      <div className="flex gap-2 items-center">
-                        <label className="text-[10px] w-8" style={{ color: 'var(--text-secondary)' }}>API</label>
-                        <input
-                          type="number"
-                          placeholder="auto"
-                          value={serveApiPort}
-                          onChange={e => setServeApiPort(e.target.value)}
-                          className="flex-1 px-2 py-1 text-[11px]"
-                          style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-digital), monospace' }}
-                        />
-                      </div>
-                      <div className="flex gap-2 items-center">
-                        <label className="text-[10px] w-8" style={{ color: 'var(--text-secondary)' }}>APP</label>
-                        <input
-                          type="number"
-                          placeholder="auto"
-                          value={servePort}
-                          onChange={e => setServePort(e.target.value)}
-                          className="flex-1 px-2 py-1 text-[11px]"
-                          style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-digital), monospace' }}
-                        />
-                      </div>
-                      {/* Similar servers from namespace */}
-                      {similarServers && (Object.keys(similarServers.api_servers || {}).length > 0 || Object.keys(similarServers.app_servers || {}).length > 0) && (
-                        <div className="mt-1">
-                          <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Running Servers</div>
-                          {Object.entries(similarServers.api_servers || {}).map(([name, addr]: [string, any]) => (
-                            <div key={`api-${name}`} className="flex justify-between text-[10px] py-0.5" style={{ color: '#10b981' }}>
-                              <span>{name}</span>
-                              <span style={{ color: 'var(--text-tertiary)' }}>{typeof addr === 'string' ? addr : addr?.url || ''}</span>
-                            </div>
-                          ))}
-                          {Object.entries(similarServers.app_servers || {}).map(([name, data]: [string, any]) => (
-                            <div key={`app-${name}`} className="flex justify-between text-[10px] py-0.5" style={{ color: '#3b82f6' }}>
-                              <span>{name}</span>
-                              <span style={{ color: 'var(--text-tertiary)' }}>{data?.url || ''}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {serveResult && (
-                        <div className="text-[10px] py-1" style={{ color: serveResult.error ? '#ef4444' : '#10b981' }}>
-                          {serveResult.error || `Started on port ${serveResult.port || serveResult.api_port || '?'}`}
-                        </div>
-                      )}
-                      <button
-                        onClick={async () => {
-                          if (!client || !activeModule) return
-                          setServingAction(true)
-                          setServeResult(null)
-                          try {
-                            const params: any = { name: activeModule }
-                            if (servePort) params.port = parseInt(servePort)
-                            if (serveApiPort) params.api_port = parseInt(serveApiPort)
-                            const res = await client.call('serve_app', params)
-                            setServeResult(res)
-                            if (!res?.error) setShowServeDialog(false)
-                          } catch (err: any) {
-                            setServeResult({ error: err?.message || 'Failed' })
-                          }
-                          setServingAction(false)
-                        }}
-                        disabled={servingAction}
-                        className="w-full px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider"
-                        style={{
-                          border: '1px solid #10b981',
-                          color: '#000',
-                          background: '#10b981',
-                          opacity: servingAction ? 0.5 : 1,
-                          fontFamily: 'var(--font-digital), monospace',
-                        }}
-                      >
-                        {servingAction ? 'STARTING...' : 'START'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            )}
-
             {/* Running status dot */}
-            {moduleInfo && !moduleInfo.myMod && (
+            {moduleInfo && (
               <span
                 className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{
@@ -792,125 +481,8 @@ export function TopBar() {
             )}
           </div>
         ) : (
-          /* Search bar (default or expanded on module page) */
-          <div
-            className="flex items-center flex-1 transition-all"
-            style={{
-              maxWidth: '560px',
-              height: '36px',
-              backgroundColor: searchFocused ? 'var(--bg-input)' : 'transparent',
-              border: searchFocused ? '1px solid rgba(167, 139, 250, 0.3)' : '1px solid transparent',
-              borderRadius: '8px',
-              backdropFilter: searchFocused ? 'blur(12px)' : 'none',
-              WebkitBackdropFilter: searchFocused ? 'blur(12px)' : 'none',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-          >
-            {/* Back button when search expanded on module page */}
-            {activeModule && searchExpanded && (
-              <button
-                onClick={() => {
-                  setSearchExpanded(false)
-                  setInputValue('')
-                  handleSearch('')
-                }}
-                className="flex items-center justify-center flex-shrink-0 pl-2"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m15 18-6-6 6-6"/>
-                </svg>
-              </button>
-            )}
-
-            {/* Search icon */}
-            <div
-              className="flex items-center justify-center flex-shrink-0 pl-2.5 pr-1 cursor-pointer select-none"
-              onClick={() => inputRef.current?.focus()}
-              style={{ height: '100%' }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={searchFocused ? 'var(--accent-primary)' : 'var(--text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'all 0.15s ease' }}>
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-              </svg>
-            </div>
-
-            {/* Input */}
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              placeholder={activeCommand === '/run' ? 'mod/fn key=value ...' : 'modules, functions, cid...'}
-              className="flex-1 bg-transparent focus:outline-none min-w-0"
-              style={{
-                height: '100%',
-                fontSize: '14px',
-                fontFamily: 'var(--font-digital), monospace',
-                color: 'var(--text-primary)',
-                caretColor: 'var(--accent-primary)',
-                padding: '0 8px 0 0',
-              }}
-            />
-
-            {/* Mode indicator */}
-            {activeCommand !== '/search' && (
-              <span
-                className="flex-shrink-0 mr-2 px-1.5 py-0.5"
-                style={{
-                  fontSize: '11px',
-                  fontFamily: 'var(--font-digital), monospace',
-                  backgroundColor: 'var(--accent-primary)15',
-                  border: '1px solid var(--accent-primary)',
-                  borderRadius: '3px',
-                  color: 'var(--accent-primary)',
-                  lineHeight: 1.2,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {activeCommand}
-              </span>
-            )}
-
-            {/* CID hint */}
-            {inputValue && isCid(inputValue.trim()) && (
-              <span
-                className="flex-shrink-0 mr-2 px-1.5 py-0.5"
-                style={{
-                  fontSize: '11px',
-                  fontFamily: 'var(--font-digital), monospace',
-                  backgroundColor: 'var(--accent-primary)15',
-                  border: '1px solid var(--accent-primary)',
-                  borderRadius: '3px',
-                  color: 'var(--accent-primary)',
-                  lineHeight: 1.2,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                CID ↵
-              </span>
-            )}
-
-            {/* ⌘K hint */}
-            {!searchFocused && !inputValue && (
-              <kbd
-                className="flex-shrink-0 mr-2 px-1.5 py-0.5"
-                style={{
-                  fontSize: '12px',
-                  fontFamily: 'var(--font-digital), monospace',
-                  backgroundColor: 'var(--hover-bg)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '3px',
-                  color: 'var(--text-tertiary)',
-                  lineHeight: 1.2,
-                }}
-              >
-                ⌘K
-              </kbd>
-            )}
-          </div>
+          /* Empty spacer when not on a module page — search is in sidebar */
+          <div className="flex-1" />
         )}
       </div>
 
@@ -1267,54 +839,6 @@ export function TopBar() {
         </div>
       )}
 
-      {/* Run result dropdown */}
-      {activeCommand === '/run' && (runResult !== null || runError || runLoading) && (
-        <div
-          className="fixed left-3 z-[80]"
-          style={{
-            top: '52px',
-            maxWidth: '560px',
-            width: '100%',
-          }}
-        >
-          <div
-            style={{
-              background: 'var(--bg-secondary)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              maxHeight: '400px',
-              overflow: 'auto',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)',
-            }}
-          >
-            {runLoading && (
-              <div className="p-4" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital), monospace', fontSize: '14px' }}>
-                running...
-              </div>
-            )}
-            {runError && (
-              <div className="p-4" style={{ color: '#ff4444', fontFamily: 'var(--font-digital), monospace', fontSize: '14px' }}>
-                {runError}
-              </div>
-            )}
-            {runResult !== null && !runLoading && (
-              <pre
-                className="p-4 whitespace-pre-wrap break-all"
-                style={{
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-digital), monospace',
-                  fontSize: '13px',
-                  margin: 0,
-                }}
-              >
-                {typeof runResult === 'string' ? runResult : JSON.stringify(runResult, null, 2)}
-              </pre>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
