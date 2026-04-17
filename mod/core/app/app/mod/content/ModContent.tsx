@@ -231,7 +231,7 @@ export function FileTreeItem({
 
 
 export default function ModContent({ mod }: { mod: ModuleType }) {
-  const files = typeof mod.content === 'object' && mod.content !== null ? mod.content : {};
+  const files: Record<string, string> = typeof mod.content === 'object' && mod.content !== null ? mod.content as Record<string, string> : {};
   const { client } = userContext();
   const { effectiveTheme } = useTheme();
   const isLight = effectiveTheme === 'light';

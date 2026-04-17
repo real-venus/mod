@@ -1,7 +1,7 @@
 "use client";
 import { createHash } from 'crypto';
 import {Key} from '@/key';
-import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
+// dynamic import: @polkadot/extension-dapp accesses window at load time
 import { stringToU8a, u8aToHex } from '@polkadot/util'
 import { MetamaskAdapter } from '@/wallet/adapters/MetamaskAdapter'
 import { PhantomAdapter } from '@/wallet/adapters/PhantomAdapter'
@@ -125,6 +125,7 @@ export class Auth {
   }
 
   public async signWithInjector(signMessage: string, walletAddress: string): Promise<string> {
+    const { web3Enable, web3FromAddress } = await import('@polkadot/extension-dapp')
     const extensions = await web3Enable('MOD')
     if (extensions.length === 0) {
       throw new Error('No wallet extension found')

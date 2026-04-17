@@ -69,7 +69,9 @@ export function TopBar() {
   }, [])
 
   // Listen for module info (fnCount, key, cid, allOwners) from ModulePage
-  const [moduleInfo, setModuleInfo] = useState<{ fnCount: number; key: string; cid: string; url_app?: string; url_api?: string; allOwners?: any[]; isRunning?: boolean; myMod?: boolean; isCreator?: boolean; isPublic?: boolean } | null>(null)
+  const [moduleInfo, setModuleInfo] = useState<{ fnCount: number; key: string; cid: string; url_app?: string; url_api?: string; allOwners?: any[]; isRunning?: boolean; myMod?: boolean; isCreator?: boolean; isPublic?: boolean; modName?: string; id?: number; updated?: number } | null>(null)
+  const [serving, setServing] = useState(false)
+  const [serveMsg, setServeMsg] = useState<string | null>(null)
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false)
   const ownerDropdownRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -431,16 +433,98 @@ export function TopBar() {
               })}
             </div>
 
-            {/* Running status dot */}
+            {/* Running dot + START/STOP/RESTART */}
             {moduleInfo && (
-              <span
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{
-                  background: moduleInfo.isRunning ? '#10b981' : '#6b7280',
-                  boxShadow: moduleInfo.isRunning ? '0 0 6px #10b981' : 'none',
-                }}
-                title={moduleInfo.isRunning ? 'Running' : 'Not running'}
-              />
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    background: moduleInfo.isRunning ? '#10b981' : '#6b7280',
+                    boxShadow: moduleInfo.isRunning ? '0 0 6px #10b981' : 'none',
+                  }}
+                  title={moduleInfo.isRunning ? 'Running' : 'Not running'}
+                />
+                {moduleInfo.myMod && (
+                  <>
+                    <button
+                      onClick={async () => {
+                        if (!client || !moduleInfo.modName) return
+                        setServing(true); setServeMsg(null)
+                        try {
+                          const fn = moduleInfo.isRunning ? 'kill_app' : 'serve_app'
+                          const res = await client.call(fn, { name: moduleInfo.modName })
+                          if (res?.error) setServeMsg(res.error)
+                          else setServeMsg(moduleInfo.isRunning ? 'stopped' : 'started')
+                        } catch (e: any) { setServeMsg(e?.message || 'Failed') }
+                        finally { setServing(false); setTimeout(() => setServeMsg(null), 3000) }
+                      }}
+                      disabled={serving}
+                      className="px-2 py-px text-[9px] font-bold uppercase tracking-wider transition-all"
+                      style={{
+                        fontFamily: 'var(--font-digital), monospace',
+                        border: `1px solid ${moduleInfo.isRunning ? 'rgba(239,68,68,0.5)' : 'rgba(16,185,129,0.5)'}`,
+                        color: moduleInfo.isRunning ? '#ef4444' : '#10b981',
+                        background: moduleInfo.isRunning ? 'rgba(239,68,68,0.06)' : 'rgba(16,185,129,0.06)',
+                        borderRadius: '3px',
+                        opacity: serving ? 0.5 : 1,
+                      }}
+                    >
+                      {serving ? '...' : moduleInfo.isRunning ? 'STOP' : 'START'}
+                    </button>
+                    {/* Restart button — always available */}
+                    <button
+                      onClick={async () => {
+                        if (!client || !moduleInfo.modName) return
+                        setServing(true); setServeMsg('restarting...')
+                        try {
+                          await client.call('kill_app', { name: moduleInfo.modName })
+                          await new Promise(r => setTimeout(r, 1000))
+                          const res = await client.call('serve_app', { name: moduleInfo.modName })
+                          if (res?.error) setServeMsg(res.error)
+                          else setServeMsg('restarted')
+                        } catch (e: any) { setServeMsg(e?.message || 'Failed') }
+                        finally { setServing(false); setTimeout(() => setServeMsg(null), 3000) }
+                      }}
+                      disabled={serving}
+                      className="px-2 py-px text-[9px] font-bold uppercase tracking-wider transition-all"
+                      style={{
+                        fontFamily: 'var(--font-digital), monospace',
+                        border: '1px solid rgba(251,191,36,0.5)',
+                        color: '#fbbf24',
+                        background: 'rgba(251,191,36,0.06)',
+                        borderRadius: '3px',
+                        opacity: serving ? 0.5 : 1,
+                      }}
+                      title="Kill and restart the module"
+                    >
+                      {serving ? '...' : '↻'}
+                    </button>
+                  </>
+                )}
+                {serveMsg && <span className="text-[9px] font-bold uppercase" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-digital), monospace' }}>{serveMsg}</span>}
+              </div>
+            )}
+
+            {/* API / APP links */}
+            {moduleInfo && (moduleInfo.url_api || moduleInfo.url_app) && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {moduleInfo.url_api && (
+                  <a href={moduleInfo.url_api} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-1.5 py-px transition-all no-underline" style={{ fontSize: '10px', fontFamily: 'var(--font-digital), monospace', color: 'var(--text-tertiary)', textDecoration: 'none', borderRadius: '3px', border: '1px solid var(--border-color)' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = colorWithOpacity(moduleColor, 0.4) }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'var(--border-color)' }}
+                  >
+                    <span className="font-bold uppercase">API</span>
+                  </a>
+                )}
+                {moduleInfo.url_app && (
+                  <a href={moduleInfo.url_app} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-1.5 py-px transition-all no-underline" style={{ fontSize: '10px', fontFamily: 'var(--font-digital), monospace', color: 'var(--text-tertiary)', textDecoration: 'none', borderRadius: '3px', border: '1px solid var(--border-color)' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = colorWithOpacity(moduleColor, 0.4) }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'var(--border-color)' }}
+                  >
+                    <span className="font-bold uppercase">APP</span>
+                  </a>
+                )}
+              </div>
             )}
 
             {/* Suggest button — shown when user is a creator of another version but not the current owner */}

@@ -124,16 +124,28 @@ export default function ModulePage() {
 
   const fnCount = mod?.schema ? Object.keys(mod.schema).length : 0
 
+  // Track live health status from ModApp health checks
+  const [isLive, setIsLive] = useState<boolean | null>(null)
+  useEffect(() => {
+    const handler = (e: CustomEvent) => setIsLive(e.detail.isLive)
+    window.addEventListener('mod:health' as any, handler)
+    return () => window.removeEventListener('mod:health' as any, handler)
+  }, [])
+
+  // Determine running status: use live health check if available, otherwise fall back to URL existence
+  const hasUrl = !!(mod?.url || (mod && getModAppUrl(mod)))
+  const isRunningResolved = isLive !== null ? isLive : hasUrl
+
   // Broadcast module info to TopBar
   useEffect(() => {
     if (!mod) return
     window.dispatchEvent(new CustomEvent('mod:info', {
-      detail: { fnCount, key: mod.key, cid: mod.cid || '', url_app: getModAppUrl(mod) || '', url_api: getModApiUrl(mod) || '', allOwners: allModVersions, isRunning: !!(mod.url || getModAppUrl(mod)), myMod, isCreator, isPublic: mod.public !== false }
+      detail: { fnCount, key: mod.key, cid: mod.cid || '', url_app: getModAppUrl(mod) || '', url_api: getModApiUrl(mod) || '', allOwners: allModVersions, isRunning: isRunningResolved, myMod, isCreator, isPublic: mod.public !== false, modName: mod.name, id: mod.id, updated: mod.updated }
     }))
     window.dispatchEvent(new CustomEvent('mod:tab-change', {
       detail: { tab: activeTab }
     }))
-  }, [mod, fnCount, activeTab, allModVersions, myMod, isCreator])
+  }, [mod, fnCount, activeTab, allModVersions, myMod, isCreator, isRunningResolved])
 
   // Listen for tab changes from TopBar
   useEffect(() => {

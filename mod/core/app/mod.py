@@ -13,6 +13,10 @@ class App:
         env = f'NEXT_PUBLIC_API_URL="{api_url}"'
         return os.system(f'cd {cwd} && {env} npm run build')
 
+    def install(self, mod='app', **kwargs):
+        cwd = m.dirpath(mod)
+        return os.system(f'cd {cwd} && npm install')
+
     def serve(self,
             port=3000,
             mod = 'app',
@@ -20,6 +24,7 @@ class App:
             build = False,
             api_port=8000,
              **kwargs):
+        self.install(mod=mod)
         m.serve('api', pm='pm.pm2')
         cwd = m.dirpath(mod)
         api_url = 'https://api.modc2.com' if prod else f'http://localhost:{api_port}'

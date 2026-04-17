@@ -57,6 +57,28 @@ class Mod:
                 return json.load(f)
         return {}
 
+    # ── Info ──────────────────────────────────────────────────────────
+
+    def info(self):
+        """Return module info."""
+        return {
+            'name': 'tt',
+            'description': self.description,
+            'path': str(self.module_dir),
+            'fns': [
+                'info', 'forward', 'status', 'compile', 'deploy', 'test',
+                'serve', 'kill', 'call',
+                'register', 'stake_on', 'unstake_from',
+                'checkin', 'batch_checkin', 'produce_block', 'distribute',
+                'claim_staker_rewards', 'claim_validator_rewards',
+                'validator', 'stake_position', 'user_stakes', 'validator_stakes',
+                'validator_total_stake_time',
+                'consensus_state', 'leaderboard', 'staker_rewards', 'validator_balance',
+                'subnets', 'subnet_info', 'weakest_subnet',
+                'register_subnet', 'deregister_subnet',
+            ],
+        }
+
     # ── Default entry point ───────────────────────────────────────────
 
     def forward(self, **kwargs):
