@@ -91,6 +91,9 @@ class Gate:
             inner = params.get('fn', fn)
             # 'bridge/info' → 'info',  'info' → 'info'
             actual_fn = inner.split('/')[-1] if isinstance(inner, str) else fn
+        elif '/' in fn:
+            # Direct path calls: 'api/mods' → 'mods'
+            actual_fn = fn.split('/')[-1]
 
         # ── Authenticate ──
         authenticated = False
