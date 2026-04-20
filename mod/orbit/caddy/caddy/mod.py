@@ -77,12 +77,13 @@ class Mod:
         return modules
 
     def _routes(self, modules, key, default_port):
-        """Build handle blocks for a domain."""
+        """Build handle blocks for a domain with path prefix stripping."""
         lines = []
         for name in sorted(modules):
             port = modules[name].get(key)
             if port and port != default_port:
                 lines.append(f'    handle /{name}/* {{')
+                lines.append(f'        uri strip_prefix /{name}')
                 lines.append(f'        reverse_proxy localhost:{port}')
                 lines.append(f'    }}')
         lines.append(f'    handle /* {{')
@@ -90,27 +91,26 @@ class Mod:
         lines.append(f'    }}')
         return lines
 
-    def generate(self, domain='modc2.com', api_domain='api.modc2.com',
+    def generate(self, app_domain='app.modc2.com', api_domain='api.modc2.com',
                  app_port=3000, api_port=8000, admin_port=2099, check_ports=True):
         """Generate Caddyfile from module config.json urls."""
         modules = self._scan()
         if check_ports:
             modules = self._filter_live(modules)
 
-        origin = f'https://{domain}'
         lines = [
             '{',
             f'    admin localhost:{admin_port}',
             '}',
             '',
-            f'{domain} {{',
+            f'{app_domain} {{',
             *self._routes(modules, 'app_port', app_port),
             '}',
             '',
             f'{api_domain} {{',
             '    @cors_preflight method OPTIONS',
             '',
-            f'    header Access-Control-Allow-Origin "{origin}"',
+            f'    header Access-Control-Allow-Origin "https://{app_domain}"',
             '    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"',
             '    header Access-Control-Allow-Headers "Content-Type, Accept, Authorization, token"',
             '    header Access-Control-Max-Age "3600"',

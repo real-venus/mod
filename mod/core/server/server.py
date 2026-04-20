@@ -217,7 +217,7 @@ class Server:
         self.app.config['MAX_CONTENT_LENGTH'] = MAX_REQUEST_BODY
 
         # CORS: restrict to known origins; override with MOD_CORS_ORIGINS env var
-        allowed_origins = os.environ.get('MOD_CORS_ORIGINS', 'http://localhost:*,http://127.0.0.1:*').split(',')
+        allowed_origins = os.environ.get('MOD_CORS_ORIGINS', 'http://localhost:*,http://127.0.0.1:*,https://app.modc2.com').split(',')
         CORS(self.app, resources={r"/*": {
             "origins": allowed_origins,
             "methods": ["POST", "OPTIONS"],
@@ -261,7 +261,11 @@ class Server:
             log_dir = Path(f'/tmp/{name}')
             log_dir.mkdir(parents=True, exist_ok=True)
             app_env = os.environ.copy()
-            app_env['NEXT_PUBLIC_API_URL'] = f'http://localhost:{port}'
+            prod_api_url = os.environ.get('MOD_API_URL')
+            if prod_api_url:
+                app_env['NEXT_PUBLIC_API_URL'] = f'{prod_api_url}/{name}'
+            else:
+                app_env['NEXT_PUBLIC_API_URL'] = f'http://localhost:{port}'
             app_env['PORT'] = str(app_port)
             app_log = open(log_dir / 'app.log', 'w')
             app_cmd = ['npx', 'next', 'dev', '-p', str(app_port)]

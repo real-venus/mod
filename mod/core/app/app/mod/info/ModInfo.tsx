@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ModuleType } from '@/types'
+import { userContext } from '@/context'
 import { text2color, colorWithOpacity, getModApiUrl, getModAppUrl } from '@/utils'
 import { CopyButton } from '@/ui/CopyButton'
 
@@ -13,6 +14,7 @@ interface ModInfoProps {
 const FONT = "var(--font-digital), monospace"
 
 export default function ModInfo({ mod, moduleColor }: ModInfoProps) {
+  const { client, user } = userContext()
   const color = moduleColor || text2color(mod.name || mod.key)
   const apiUrl = getModApiUrl(mod)
   const appUrl = getModAppUrl(mod)
@@ -22,6 +24,17 @@ export default function ModInfo({ mod, moduleColor }: ModInfoProps) {
   const [showPreview, setShowPreview] = useState(true)
   const [configOpen, setConfigOpen] = useState(false)
   const [fnsOpen, setFnsOpen] = useState(false)
+  const [isInIframe, setIsInIframe] = useState(false)
+  const [serverAction, setServerAction] = useState<string | null>(null)
+  const [serverMsg, setServerMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
+
+  const isOwner = user?.key && mod.key && user.key.toLowerCase() === mod.key.toLowerCase()
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsInIframe(window.self !== window.top)
+    }
+  }, [])
 
   const checkHealth = useCallback(async () => {
     if (apiUrl) {
@@ -39,6 +52,44 @@ export default function ModInfo({ mod, moduleColor }: ModInfoProps) {
     const iv = setInterval(checkHealth, 5000)
     return () => clearInterval(iv)
   }, [checkHealth])
+
+  const handleServe = useCallback(async () => {
+    if (!client || !mod.name) return
+    setServerAction('serve')
+    setServerMsg(null)
+    try {
+      const result = await client.call('serve_app', { name: mod.name })
+      if (result?.error) {
+        setServerMsg({ text: result.error, type: 'error' })
+      } else {
+        setServerMsg({ text: `${mod.name} started`, type: 'success' })
+        setTimeout(checkHealth, 2000)
+      }
+    } catch (e: any) {
+      setServerMsg({ text: e?.message || 'Failed to start', type: 'error' })
+    } finally {
+      setServerAction(null)
+    }
+  }, [client, mod.name, checkHealth])
+
+  const handleKill = useCallback(async () => {
+    if (!client || !mod.name) return
+    setServerAction('kill')
+    setServerMsg(null)
+    try {
+      const result = await client.call('kill_app', { name: mod.name })
+      if (result?.error) {
+        setServerMsg({ text: result.error, type: 'error' })
+      } else {
+        setServerMsg({ text: `${mod.name} stopped`, type: 'success' })
+        setTimeout(checkHealth, 1000)
+      }
+    } catch (e: any) {
+      setServerMsg({ text: e?.message || 'Failed to stop', type: 'error' })
+    } finally {
+      setServerAction(null)
+    }
+  }, [client, mod.name, checkHealth])
 
   const isRunning = apiHealthy || appHealthy
   const fnNames = mod.schema && typeof mod.schema === 'object' ? Object.keys(mod.schema) : []
@@ -72,11 +123,42 @@ export default function ModInfo({ mod, moduleColor }: ModInfoProps) {
 
       {/* ── Status row ── */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        {isRunning && (
+        {isRunning ? (
           <div className="flex items-center gap-1.5 px-2 py-1" style={{ border: '1px solid rgba(16,185,129,0.3)', borderRadius: '3px', background: 'rgba(16,185,129,0.06)' }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#10b981', boxShadow: '0 0 4px #10b981' }} />
             <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#10b981' }}>RUNNING</span>
           </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2 py-1" style={{ border: '1px solid rgba(107,114,128,0.3)', borderRadius: '3px', background: 'rgba(107,114,128,0.06)' }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#6b7280' }} />
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#6b7280' }}>OFFLINE</span>
+          </div>
+        )}
+        {isOwner && (
+          isRunning ? (
+            <button
+              onClick={handleKill}
+              disabled={serverAction === 'kill'}
+              className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-all"
+              style={{ border: '1px solid #ef4444', color: '#ef4444', background: 'transparent', borderRadius: '3px', fontFamily: FONT, opacity: serverAction === 'kill' ? 0.5 : 1, cursor: serverAction === 'kill' ? 'wait' : 'pointer' }}
+            >
+              {serverAction === 'kill' ? '...' : 'STOP'}
+            </button>
+          ) : (
+            <button
+              onClick={handleServe}
+              disabled={serverAction === 'serve'}
+              className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-all"
+              style={{ border: '1px solid #10b981', color: '#10b981', background: 'transparent', borderRadius: '3px', fontFamily: FONT, opacity: serverAction === 'serve' ? 0.5 : 1, cursor: serverAction === 'serve' ? 'wait' : 'pointer' }}
+            >
+              {serverAction === 'serve' ? '...' : 'START'}
+            </button>
+          )
+        )}
+        {serverMsg && (
+          <span className="text-[9px] font-bold uppercase tracking-wider cursor-pointer" style={{ color: serverMsg.type === 'error' ? '#ef4444' : '#10b981' }} onClick={() => setServerMsg(null)}>
+            {serverMsg.text}
+          </span>
         )}
         {fnNames.length > 0 && (
           <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1" style={{ color: 'var(--text-tertiary)', border: '1px solid var(--border-color)', borderRadius: '3px' }}>
@@ -91,8 +173,8 @@ export default function ModInfo({ mod, moduleColor }: ModInfoProps) {
         )}
       </div>
 
-      {/* ── App Preview ── */}
-      {appUrl && appHealthy && (
+      {/* ── App Preview (skip when inside iframe to prevent recursive nesting) ── */}
+      {appUrl && appHealthy && !isInIframe && (
         <div className="mb-4" style={{ borderRadius: '5px', overflow: 'hidden', border: `1px solid ${colorWithOpacity(color, 0.2)}` }}>
           <div
             className="flex items-center justify-between px-3 py-1"
