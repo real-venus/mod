@@ -275,7 +275,7 @@ export function AgentPanel() {
     agentFetch('/modules')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.modules) setModules([...new Set(data.modules.map((m: any) => typeof m === 'string' ? m : m.name))])
+        if (data?.modules) setModules([...new Set(data.modules.map((m: any) => typeof m === 'string' ? m : m.name))] as string[])
       })
       .catch(() => {})
   }, [agentFetch, isAgentSidebarOpen])

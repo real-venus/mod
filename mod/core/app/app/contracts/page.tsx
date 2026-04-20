@@ -377,7 +377,7 @@ export default function ContractsPage() {
       // Detect BAD_DATA (contract not deployed / wrong network)
       if (err?.code === 'BAD_DATA' || errorMsg.includes('BAD_DATA') || errorMsg.includes('could not decode result data')) {
         try {
-          const provider = new ethers.BrowserProvider(window.ethereum)
+          const provider = new ethers.BrowserProvider(window.ethereum!)
           const network = await provider.getNetwork()
           const expectedChainId = activeChainConfig?.chainId
           const networkLabel = NETWORKS.find(n => n.key === selectedNetwork)?.label || selectedNetwork

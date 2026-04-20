@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 
-const pty = require('node-pty')
+let pty: any = null
+try {
+  pty = require('node-pty')
+} catch {
+  // node-pty not available — terminal disabled
+}
 
 interface Session {
   pty: any
@@ -26,13 +31,17 @@ function genId(): string {
 }
 
 export async function POST(request: Request) {
+  if (!pty) {
+    return NextResponse.json({ error: 'Terminal not available (node-pty not installed)' }, { status: 501 })
+  }
+
   try {
     const body = await request.json()
     const { action } = body
 
     if (action === 'create') {
       const { cwd, cols = 80, rows = 24 } = body
-      const shell = process.env.SHELL || '/bin/zsh'
+      const shell = process.env.SHELL || '/bin/bash'
       const id = genId()
 
       const term = pty.spawn(shell, [], {
