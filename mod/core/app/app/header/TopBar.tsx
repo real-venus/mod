@@ -6,8 +6,7 @@ import { WalletHeader } from '@/wallet/WalletHeader'
 import { userContext } from '@/context'
 import { useLayoutContext } from '@/context/LayoutContext'
 import { text2color, colorWithOpacity, shorten } from '@/utils'
-import { clearModsCache } from '@/mod/explore/ModExplorePage'
-import { Wrench } from 'lucide-react'
+import { clearModsCache, syncModsConfig } from '@/mod/explore/ModExplorePage'
 
 // Extract module name from path like /bread or /mod/bread/key or /bread/0xkey
 function getModuleFromPath(pathname: string): string | null {
@@ -28,21 +27,7 @@ export function TopBar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, client } = userContext()
-  const { isHeaderCollapsed, toggleHeaderCollapsed, isEditSidebarOpen, toggleEditSidebar } = useLayoutContext()
-
-  // Build dropdown state
-  const [showBuild, setShowBuild] = useState(false)
-  const [buildName, setBuildName] = useState('')
-  const [buildBase, setBuildBase] = useState('base')
-  const [buildSubmitting, setBuildSubmitting] = useState(false)
-  const [buildResult, setBuildResult] = useState<any>(null)
-  const [buildError, setBuildError] = useState<string | null>(null)
-  const [templates, setTemplates] = useState<any[]>([])
-  const [templatesLoading, setTemplatesLoading] = useState(false)
-  const [templateSearch, setTemplateSearch] = useState('')
-  const [buildMode, setBuildMode] = useState<'build' | 'fork'>('build')
-  const buildRef = useRef<HTMLDivElement>(null)
-  const templateSearchRef = useRef<HTMLInputElement>(null)
+  const { isHeaderCollapsed, toggleHeaderCollapsed, isEditSidebarOpen } = useLayoutContext()
 
   // Fork dropdown state (module page only)
   const [showFork, setShowFork] = useState(false)
@@ -101,19 +86,15 @@ export function TopBar() {
     }
   }, [activeModule])
 
-  // Click-outside for build/fork dropdowns
+  // Click-outside for fork dropdown
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (showBuild && buildRef.current && !buildRef.current.contains(e.target as Node)) {
-        setShowBuild(false)
-      }
       if (showFork && forkRef.current && !forkRef.current.contains(e.target as Node)) {
         setShowFork(false)
       }
     }
     const escHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setShowBuild(false)
         setShowFork(false)
         setShowOwnerDropdown(false)
       }
@@ -124,55 +105,12 @@ export function TopBar() {
       document.removeEventListener('mousedown', handler)
       document.removeEventListener('keydown', escHandler)
     }
-  }, [showBuild, showFork])
-
-  // Fetch templates when build dropdown opens
-  useEffect(() => {
-    if (showBuild && client && templates.length === 0) {
-      setTemplatesLoading(true)
-      client.call('mods', { page: 0, page_size: 100 })
-        .then((res: any) => {
-          setTemplates(Array.isArray(res) ? res : [])
-        })
-        .catch(() => {})
-        .finally(() => setTemplatesLoading(false))
-    }
-    if (showBuild) {
-      setBuildError(null)
-      setBuildResult(null)
-      setTemplateSearch('')
-    }
-  }, [showBuild, client])
+  }, [showFork])
 
   // Reset fork name when module changes
   useEffect(() => {
     if (activeModule) setForkName(activeModule)
   }, [activeModule])
-
-  const handleBuildSubmit = async () => {
-    if (!client?.token || !user?.key || !buildName.trim()) return
-    setBuildSubmitting(true)
-    setBuildError(null)
-    setBuildResult(null)
-    try {
-      const response = await client.call('new', {
-        name: buildName.trim(),
-        base: buildBase,
-        key: user.key,
-      })
-      if (response?.error) throw new Error(response.error)
-      setBuildResult(response)
-      clearModsCache()
-      setTimeout(() => {
-        setShowBuild(false)
-        router.push('/mods')
-      }, 1000)
-    } catch (err: any) {
-      setBuildError(err?.message || 'Failed to build module')
-    } finally {
-      setBuildSubmitting(false)
-    }
-  }
 
   const handleForkSubmit = async (modName?: string) => {
     const target = modName || activeModule
@@ -180,8 +118,6 @@ export function TopBar() {
     setForkSubmitting(true)
     setForkError(null)
     setForkResult(null)
-    setBuildError(null)
-    setBuildResult(null)
     try {
       const response = await client.call('fork', {
         mod: target,
@@ -189,17 +125,14 @@ export function TopBar() {
       })
       if (response?.error) throw new Error(response.error)
       setForkResult(response)
-      setBuildResult(response)
+      await syncModsConfig(client?.token)
       clearModsCache()
       setTimeout(() => {
         setShowFork(false)
-        setShowBuild(false)
         router.push('/mods')
       }, 1000)
     } catch (err: any) {
-      const msg = err?.message || 'Failed to fork module'
-      setForkError(msg)
-      setBuildError(msg)
+      setForkError(err?.message || 'Failed to fork module')
     } finally {
       setForkSubmitting(false)
     }
@@ -244,7 +177,7 @@ export function TopBar() {
   const availableTabs = [
     'info',
     ...(moduleInfo?.isPublic !== false ? ['content'] : []),
-    'app', 'api',
+    'app', 'api', 'logs',
   ]
 
   // On a module page: always show module info + tabs
@@ -505,27 +438,6 @@ export function TopBar() {
               </div>
             )}
 
-            {/* API / APP links */}
-            {moduleInfo && (moduleInfo.url_api || moduleInfo.url_app) && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {moduleInfo.url_api && (
-                  <a href={moduleInfo.url_api} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-1.5 py-px transition-all no-underline" style={{ fontSize: '10px', fontFamily: 'var(--font-digital), monospace', color: 'var(--text-tertiary)', textDecoration: 'none', borderRadius: '3px', border: '1px solid var(--border-color)' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = colorWithOpacity(moduleColor, 0.4) }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'var(--border-color)' }}
-                  >
-                    <span className="font-bold uppercase">API</span>
-                  </a>
-                )}
-                {moduleInfo.url_app && (
-                  <a href={moduleInfo.url_app} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-1.5 py-px transition-all no-underline" style={{ fontSize: '10px', fontFamily: 'var(--font-digital), monospace', color: 'var(--text-tertiary)', textDecoration: 'none', borderRadius: '3px', border: '1px solid var(--border-color)' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = colorWithOpacity(moduleColor, 0.4) }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'var(--border-color)' }}
-                  >
-                    <span className="font-bold uppercase">APP</span>
-                  </a>
-                )}
-              </div>
-            )}
 
             {/* Suggest button — shown when user is a creator of another version but not the current owner */}
             {moduleInfo?.isCreator && !moduleInfo.myMod && (
@@ -547,7 +459,7 @@ export function TopBar() {
             {/* Fork button */}
             {user && (
               <button
-                onClick={() => { setShowFork(!showFork); setShowBuild(false) }}
+                onClick={() => setShowFork(!showFork)}
                 className="flex-shrink-0 flex items-center justify-center"
                 style={{
                   width: '32px',
@@ -593,256 +505,8 @@ export function TopBar() {
 
       {/* Right section */}
       <div className="flex items-center pr-3 gap-2">
-        {/* Wrench button: edit sidebar on module pages, build dropdown otherwise */}
-        {user && (
-          <button
-            onClick={() => {
-              if (activeModule) {
-                toggleEditSidebar()
-              } else {
-                setShowBuild(!showBuild)
-                setShowFork(false)
-              }
-            }}
-            className="flex items-center justify-center flex-shrink-0 mr-1"
-            style={{
-              width: '28px',
-              height: '28px',
-              background: (activeModule ? isEditSidebarOpen : showBuild)
-                ? (activeModule ? colorWithOpacity(moduleColor, 0.2) : 'var(--text-primary)')
-                : 'transparent',
-              border: (activeModule && isEditSidebarOpen)
-                ? `1px solid ${colorWithOpacity(moduleColor, 0.5)}`
-                : '1px solid var(--border-color)',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              color: (activeModule ? isEditSidebarOpen : showBuild)
-                ? (activeModule ? moduleColor : 'var(--bg-primary)')
-                : 'var(--text-tertiary)',
-              transition: 'all 0.15s ease',
-            }}
-            title={activeModule ? `Edit ${activeModule}` : 'Build new module'}
-          >
-            <Wrench size={15} />
-          </button>
-        )}
         <WalletHeader />
       </div>
-
-      {/* Build module dropdown */}
-      {showBuild && (
-        <div
-          ref={buildRef}
-          className="fixed z-[80]"
-          style={{
-            top: '52px',
-            right: '12px',
-            width: '400px',
-          }}
-        >
-          <div
-            style={{
-              background: 'var(--bg-secondary)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '10px',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.25)',
-              fontFamily: 'var(--font-digital), monospace',
-            }}
-          >
-            <div className="p-4 space-y-3">
-              {/* Mode toggle: Build / Fork */}
-              <div className="flex items-center gap-1 p-0.5 rounded-md" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                {(['build', 'fork'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => { setBuildMode(mode); setBuildError(null); setBuildResult(null) }}
-                    className="flex-1 py-1.5 text-xs font-bold uppercase tracking-wider transition-all rounded-md"
-                    style={{
-                      background: buildMode === mode ? 'var(--bg-secondary)' : 'transparent',
-                      color: buildMode === mode ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                      border: buildMode === mode ? '1px solid var(--border-color)' : '1px solid transparent',
-                    }}
-                  >
-                    {mode === 'build' ? 'NEW MOD' : 'FORK MOD'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Search modules */}
-              <div className="relative">
-                <svg
-                  width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="var(--text-tertiary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2"
-                >
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-                </svg>
-                <input
-                  ref={templateSearchRef}
-                  type="text"
-                  value={templateSearch}
-                  onChange={(e) => setTemplateSearch(e.target.value)}
-                  placeholder={buildMode === 'build' ? 'SEARCH TEMPLATE...' : 'SEARCH MODULE TO FORK...'}
-                  className="w-full pl-8 pr-3 py-2 text-xs font-bold focus:outline-none uppercase"
-                  style={{
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-digital), monospace',
-                  }}
-                  autoFocus
-                />
-              </div>
-
-              {/* Module list */}
-              <div
-                className="overflow-y-auto scrollbar-none"
-                style={{
-                  maxHeight: '200px',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                }}
-              >
-                {templatesLoading ? (
-                  <div className="px-3 py-6 text-xs text-center" style={{ color: 'var(--text-tertiary)' }}>
-                    LOADING MODULES...
-                  </div>
-                ) : (() => {
-                  const filtered = templates.filter((t: any) =>
-                    !templateSearch || t.name?.toLowerCase().includes(templateSearch.toLowerCase())
-                  )
-                  if (filtered.length === 0) return (
-                    <div className="px-3 py-6 text-xs text-center" style={{ color: 'var(--text-tertiary)' }}>
-                      {templateSearch ? 'NO MATCHES' : 'NO MODULES FOUND'}
-                    </div>
-                  )
-                  const nameCounts: Record<string, number> = {}
-                  filtered.forEach((t: any) => { nameCounts[t.name] = (nameCounts[t.name] || 0) + 1 })
-                  return filtered.map((t: any) => {
-                    const isSelected = buildBase === t.name
-                    const tColor = text2color(t.name)
-                    const fnCount = t.schema ? Object.keys(t.schema).length : 0
-                    const isDupe = nameCounts[t.name] > 1
-                    return (
-                      <button
-                        key={`${t.name}-${t.key}`}
-                        onClick={() => setBuildBase(t.name)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all"
-                        style={{
-                          background: isSelected ? colorWithOpacity(tColor, 0.08) : 'transparent',
-                          borderBottom: '1px solid var(--border-color)',
-                        }}
-                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--hover-bg)' }}
-                        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
-                      >
-                        <div
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ background: isSelected ? tColor : 'var(--text-tertiary)', boxShadow: isSelected ? `0 0 6px ${tColor}` : 'none' }}
-                        />
-                        <span
-                          className="text-xs font-bold uppercase tracking-wide truncate"
-                          style={{ color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}
-                        >
-                          {t.name}
-                        </span>
-                        {isDupe && t.key && (
-                          <span className="text-[10px] truncate flex-shrink-0 opacity-50" style={{ color: 'var(--text-tertiary)' }}>
-                            {t.key.slice(0, 6)}...{t.key.slice(-4)}
-                          </span>
-                        )}
-                        {fnCount > 0 && (
-                          <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-                            {fnCount} fn
-                          </span>
-                        )}
-                        {t.url && (
-                          <span className="flex items-center gap-1 flex-shrink-0" style={{ fontSize: '10px', color: 'var(--accent-success, #34d399)' }}>
-                            <span className="w-1 h-1 rounded-full" style={{ background: 'var(--accent-success, #34d399)' }} />
-                            LIVE
-                          </span>
-                        )}
-                        <span className="flex-1" />
-                        {isSelected && (
-                          <span className="text-xs" style={{ color: tColor }}>&#10003;</span>
-                        )}
-                      </button>
-                    )
-                  })
-                })()}
-              </div>
-
-              {/* Name input (build mode only) */}
-              {buildMode === 'build' && (
-                <input
-                  type="text"
-                  value={buildName}
-                  onChange={(e) => setBuildName(e.target.value)}
-                  placeholder="YOUR MOD NAME"
-                  className="w-full px-3 py-2.5 text-sm font-bold focus:outline-none uppercase"
-                  style={{
-                    background: 'var(--bg-input)',
-                    border: buildName.trim() ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-digital), monospace',
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && buildName.trim()) handleBuildSubmit() }}
-                />
-              )}
-
-              {/* Action button */}
-              {buildMode === 'build' ? (
-                <button
-                  onClick={handleBuildSubmit}
-                  disabled={buildSubmitting || !buildName.trim()}
-                  className="w-full py-2.5 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-30"
-                  style={{
-                    background: 'var(--hover-bg)',
-                    border: '1px solid var(--accent-primary)',
-                    borderRadius: '6px',
-                    color: 'var(--accent-primary)',
-                    fontFamily: 'var(--font-digital), monospace',
-                  }}
-                >
-                  {buildSubmitting ? 'BUILDING...' : `BUILD FROM ${buildBase.toUpperCase()}`}
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleForkSubmit(buildBase)}
-                  disabled={forkSubmitting || !buildBase}
-                  className="w-full py-2.5 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-30"
-                  style={{
-                    background: colorWithOpacity(text2color(buildBase), 0.12),
-                    border: `1px solid ${colorWithOpacity(text2color(buildBase), 0.4)}`,
-                    borderRadius: '6px',
-                    color: text2color(buildBase),
-                    fontFamily: 'var(--font-digital), monospace',
-                  }}
-                >
-                  {forkSubmitting ? 'FORKING...' : `FORK ${buildBase.toUpperCase()}`}
-                </button>
-              )}
-
-              {/* Result */}
-              {buildResult && (
-                <div className="text-xs font-bold text-green-500 uppercase px-1">
-                  {buildMode === 'fork' ? 'FORKED' : 'BUILT'} &mdash; {buildResult.name || buildName}
-                </div>
-              )}
-
-              {/* Error */}
-              {buildError && (
-                <div className="text-xs font-bold text-red-500 uppercase px-1 py-1">
-                  {buildError}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Fork module dropdown */}
       {showFork && activeModule && (

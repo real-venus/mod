@@ -1,8 +1,8 @@
-"""PreFi - Prediction Market Module
+"""PreFi - Trading Protocol
 
-On-chain prediction market on Base with L2 distance scoring.
-Players predict asset prices, stake tokens, and earn rewards
-proportional to accuracy: score = stake / (1 + distance^2).
+Trade assets through Uniswap V3 on Base. Profit goes to treasury,
+trader receives 1 PREFI per $1 profit. Lock PREFI for staketime
+to claim weekly treasury distributions.
 """
 
 import json
@@ -12,38 +12,53 @@ import subprocess
 import signal
 import requests
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from pathlib import Path
 
 
 class Mod:
-    description = """PreFi - Decentralized prediction market on Base.
-    Players predict token prices, stake collateral, earn rewards via
-    L2 distance scoring. Oracle-powered settlement with Uniswap V3."""
+    description = """PreFi - Trading protocol on Base.
+    Trade via Uniswap V3, profit → treasury, earn PREFI tokens.
+    Lock PREFI for staketime → claim weekly treasury earnings."""
 
     def __init__(self, config=None):
         self.config = config or {}
         self.module_dir = Path(__file__).parent.parent
         self.store_dir = Path(os.path.expanduser('~/.prefi'))
         self.store_dir.mkdir(parents=True, exist_ok=True)
+
+        # Storage paths
+        self.positions_path = self.store_dir / 'positions.json'
+        self.stakes_path = self.store_dir / 'stakes.json'
+        self.treasury_path = self.store_dir / 'treasury.json'
         self.markets_path = self.store_dir / 'markets.json'
-        self.predictions_path = self.store_dir / 'predictions.json'
-        self.deployment_path = self.store_dir / 'deployment.json'
 
         # Network config
         self.network = self.config.get('network', 'baseSepolia')
         self.contracts = self.config.get('contracts', {})
 
         # Ports
-        api_cfg = self.config.get('api', {})
-        app_cfg = self.config.get('app', {})
-        self.api_port = api_cfg.get('port', self.config.get('api_port', 8830))
-        self.app_port = app_cfg.get('port', self.config.get('app_port', 8831))
+        self.api_port = self.config.get('api_port', 8830)
+        self.app_port = self.config.get('app_port', 8831)
+        urls = self.config.get('urls', {})
+        if urls.get('api'):
+            try:
+                self.api_port = int(urls['api'].split(':')[-1])
+            except (ValueError, IndexError):
+                pass
+        if urls.get('app'):
+            try:
+                self.app_port = int(urls['app'].split(':')[-1])
+            except (ValueError, IndexError):
+                pass
 
-        # Load deployment if available
+        # Price cache (5-min TTL)
+        self._price_cache = {}
+        self._price_cache_ttl = 300
+
         self._load_deployment()
 
-    # ── Storage helpers ───────────────────────────────────────────────
+    # ── Storage helpers ──────────────────────────────────────────────
 
     def _load_json(self, path, default=None):
         if path.exists():
@@ -55,34 +70,666 @@ class Mod:
         with open(path, 'w') as f:
             json.dump(data, f, indent=2, default=str)
 
-    def _load_markets(self):
-        return self._load_json(self.markets_path, [])
-
-    def _save_markets(self, markets):
-        self._save_json(self.markets_path, markets)
-
-    def _load_predictions(self):
-        return self._load_json(self.predictions_path, [])
-
-    def _save_predictions(self, predictions):
-        self._save_json(self.predictions_path, predictions)
-
     def _load_deployment(self):
-        """Load deployment info from deployments dir or store"""
-        # Check deployments directory first
         deploy_dir = self.module_dir / 'deployments'
         deploy_file = deploy_dir / f'{self.network}-latest.json'
         if deploy_file.exists():
             data = self._load_json(deploy_file)
             if data and 'contracts' in data:
                 self.contracts = data['contracts']
-                return
-        # Fall back to store
-        data = self._load_json(self.deployment_path)
-        if data and 'contracts' in data:
-            self.contracts = data['contracts']
 
-    # ── Service management ────────────────────────────────────────────
+    def _init_treasury(self):
+        """Get or initialize treasury state"""
+        treasury = self._load_json(self.treasury_path, {})
+        treasury.setdefault('balance', 0.0)
+        treasury.setdefault('total_captured', 0.0)
+        treasury.setdefault('total_distributed', 0.0)
+        treasury.setdefault('total_prefi_minted', 0.0)
+        treasury.setdefault('epochs', [])
+        if 'genesis_time' not in treasury:
+            treasury['genesis_time'] = time.time()
+            self._save_json(self.treasury_path, treasury)
+        return treasury
+
+    # ── Markets ──────────────────────────────────────────────────────
+
+    def add_market(self, token: str, symbol: str, fee_tier: int = 3000) -> Dict:
+        """Add a supported asset market (token with Uniswap pool)"""
+        markets = self._load_json(self.markets_path, [])
+
+        for m in markets:
+            if m['token'].lower() == token.lower():
+                return {'error': f'{symbol} already listed', 'market': m}
+
+        market = {
+            'token': token,
+            'symbol': symbol,
+            'fee_tier': fee_tier,
+            'active': True,
+            'added_at': datetime.now().isoformat(),
+            'total_volume': 0.0,
+            'total_positions': 0,
+            'total_profit': 0.0,
+            'win_count': 0,
+            'loss_count': 0,
+        }
+        markets.append(market)
+        self._save_json(self.markets_path, markets)
+        return {'status': 'added', 'market': market}
+
+    def list_markets(self) -> List[Dict]:
+        """Get all supported asset markets with prices and stats"""
+        markets = self._load_json(self.markets_path, [])
+        for m in markets:
+            price = self._get_token_price(m['symbol'])
+            if price:
+                m['price_usd'] = price
+            total = m.get('win_count', 0) + m.get('loss_count', 0)
+            m['win_rate'] = round(m.get('win_count', 0) / total * 100, 1) if total > 0 else 0
+        return markets
+
+    def _get_token_price(self, symbol: str) -> Optional[float]:
+        """Get current USD price from CoinGecko (cached 5 min)"""
+        key = symbol.upper()
+        cached = self._price_cache.get(key)
+        if cached and (time.time() - cached['ts']) < self._price_cache_ttl:
+            return cached['price']
+
+        ids = {
+            'WETH': 'ethereum', 'ETH': 'ethereum', 'BTC': 'bitcoin',
+            'cbBTC': 'bitcoin', 'USDC': 'usd-coin', 'LINK': 'chainlink',
+            'UNI': 'uniswap', 'AAVE': 'aave', 'SOL': 'solana',
+            'ARB': 'arbitrum', 'OP': 'optimism',
+        }
+        cg_id = ids.get(key)
+        if not cg_id:
+            return None
+        try:
+            resp = requests.get(
+                'https://api.coingecko.com/api/v3/simple/price',
+                params={'ids': cg_id, 'vs_currencies': 'usd'},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            price = resp.json().get(cg_id, {}).get('usd')
+            if price:
+                self._price_cache[key] = {'price': price, 'ts': time.time()}
+            return price
+        except Exception:
+            return cached['price'] if cached else None
+
+    # ── Positions ────────────────────────────────────────────────────
+
+    def open_position(self, asset: str, amount: float, address: str) -> Dict:
+        """Open a trading position: buy asset with USDC through protocol"""
+        if amount <= 0:
+            return {'error': 'Amount must be positive'}
+        if not address:
+            return {'error': 'Address required'}
+
+        markets = self._load_json(self.markets_path, [])
+        market = None
+        for m in markets:
+            if m['symbol'].upper() == asset.upper() or m['token'].lower() == asset.lower():
+                market = m
+                break
+
+        if not market:
+            return {'error': f'Market not found for {asset}'}
+        if not market.get('active'):
+            return {'error': f'{asset} market not active'}
+
+        positions = self._load_json(self.positions_path, [])
+        position_id = len(positions) + 1
+
+        price = self._get_token_price(market['symbol'])
+        asset_amount = (amount / price) if price and price > 0 else 0
+
+        position = {
+            'id': position_id,
+            'trader': address,
+            'asset': market['symbol'],
+            'token': market['token'],
+            'usdc_in': amount,
+            'asset_amount': asset_amount,
+            'entry_price': price,
+            'open_time': time.time(),
+            'closed': False,
+            'usdc_out': None,
+            'profit': None,
+            'prefi_earned': None,
+        }
+        positions.append(position)
+
+        for m in markets:
+            if m['token'].lower() == market['token'].lower():
+                m['total_volume'] = m.get('total_volume', 0) + amount
+                m['total_positions'] = m.get('total_positions', 0) + 1
+        self._save_json(self.markets_path, markets)
+        self._save_json(self.positions_path, positions)
+
+        return {
+            'position_id': position_id,
+            'asset': market['symbol'],
+            'usdc_in': amount,
+            'asset_amount': round(asset_amount, 8),
+            'entry_price': price,
+            'status': 'open',
+        }
+
+    def close_position(self, position_id: int, address: str) -> Dict:
+        """Close a position: sell asset back to USDC, capture profit to treasury"""
+        positions = self._load_json(self.positions_path, [])
+        treasury = self._init_treasury()
+
+        pos = None
+        pos_idx = None
+        for i, p in enumerate(positions):
+            if p['id'] == position_id:
+                pos = p
+                pos_idx = i
+                break
+
+        if not pos:
+            return {'error': f'Position {position_id} not found'}
+        if pos['trader'].lower() != address.lower():
+            return {'error': 'Not your position'}
+        if pos['closed']:
+            return {'error': 'Already closed'}
+
+        price = self._get_token_price(pos['asset'])
+        if not price:
+            return {'error': f'Could not get price for {pos["asset"]}'}
+
+        usdc_out = pos['asset_amount'] * price
+        profit = usdc_out - pos['usdc_in']
+
+        pos['closed'] = True
+        pos['close_time'] = time.time()
+        pos['exit_price'] = price
+        pos['usdc_out'] = round(usdc_out, 6)
+        pos['profit'] = round(profit, 6)
+
+        # Update market stats
+        markets = self._load_json(self.markets_path, [])
+        for m in markets:
+            if m['token'].lower() == pos.get('token', '').lower():
+                m['total_volume'] = m.get('total_volume', 0) + usdc_out
+                if profit > 0:
+                    m['total_profit'] = m.get('total_profit', 0) + profit
+                    m['win_count'] = m.get('win_count', 0) + 1
+                else:
+                    m['loss_count'] = m.get('loss_count', 0) + 1
+
+        if profit > 0:
+            pos['prefi_earned'] = round(profit, 6)
+            treasury['balance'] += profit
+            treasury['total_captured'] += profit
+            treasury['total_prefi_minted'] = treasury.get('total_prefi_minted', 0) + profit
+        else:
+            pos['prefi_earned'] = 0
+
+        positions[pos_idx] = pos
+        self._save_json(self.positions_path, positions)
+        self._save_json(self.treasury_path, treasury)
+        self._save_json(self.markets_path, markets)
+
+        return {
+            'position_id': position_id,
+            'asset': pos['asset'],
+            'usdc_in': pos['usdc_in'],
+            'usdc_out': pos['usdc_out'],
+            'profit': pos['profit'],
+            'prefi_earned': pos['prefi_earned'],
+            'entry_price': pos['entry_price'],
+            'exit_price': price,
+            'hold_time': round(pos['close_time'] - pos['open_time']),
+            'return_pct': round(profit / pos['usdc_in'] * 100, 2) if pos['usdc_in'] > 0 else 0,
+            'status': 'profitable' if profit > 0 else 'loss',
+        }
+
+    def get_positions(self, address: str) -> List[Dict]:
+        """Get all positions for an address"""
+        positions = self._load_json(self.positions_path, [])
+        result = []
+        for p in positions:
+            if p['trader'].lower() == address.lower():
+                info = {**p}
+                if not p['closed']:
+                    price = self._get_token_price(p['asset'])
+                    if price:
+                        info['current_price'] = price
+                        info['unrealized_pnl'] = round(
+                            p['asset_amount'] * price - p['usdc_in'], 6
+                        )
+                        info['return_pct'] = round(
+                            (p['asset_amount'] * price - p['usdc_in']) / p['usdc_in'] * 100, 2
+                        ) if p['usdc_in'] > 0 else 0
+                result.append(info)
+        return result
+
+    # ── Staking ──────────────────────────────────────────────────────
+
+    def lock_prefi(self, amount: float, duration: int, address: str) -> Dict:
+        """Lock PREFI tokens for staketime
+
+        Args:
+            amount: PREFI amount to lock
+            duration: lock duration in seconds (min 1 week, max 52 weeks)
+            address: staker address
+        """
+        if amount <= 0:
+            return {'error': 'Amount must be positive'}
+        if not address:
+            return {'error': 'Address required'}
+        if duration < 604800:
+            return {'error': 'Minimum lock duration is 1 week (604800s)'}
+        if duration > 31449600:
+            return {'error': 'Maximum lock duration is 52 weeks'}
+
+        stakes = self._load_json(self.stakes_path, [])
+        stake_id = len(stakes) + 1
+        now = time.time()
+        staketime = amount * duration
+
+        stake = {
+            'id': stake_id,
+            'staker': address,
+            'amount': amount,
+            'lock_end': now + duration,
+            'duration': duration,
+            'staketime': staketime,
+            'start_epoch': self._current_epoch(),
+            'withdrawn': False,
+            'created_at': datetime.now().isoformat(),
+        }
+        stakes.append(stake)
+        self._save_json(self.stakes_path, stakes)
+
+        return {
+            'stake_id': stake_id,
+            'amount': amount,
+            'duration_weeks': round(duration / 604800, 1),
+            'staketime': staketime,
+            'lock_end': datetime.fromtimestamp(now + duration).isoformat(),
+            'status': 'locked',
+        }
+
+    def extend_lock(self, stake_id: int, added_duration: int, address: str) -> Dict:
+        """Extend lock duration on an existing stake"""
+        if added_duration < 604800:
+            return {'error': 'Minimum extension is 1 week'}
+
+        stakes = self._load_json(self.stakes_path, [])
+        for i, s in enumerate(stakes):
+            if s['id'] == stake_id:
+                if s['staker'].lower() != address.lower():
+                    return {'error': 'Not your stake'}
+                if s['withdrawn']:
+                    return {'error': 'Already withdrawn'}
+
+                new_end = s['lock_end'] + added_duration
+                max_end = time.time() + 31449600  # 52 weeks from now
+                if new_end > max_end:
+                    return {'error': 'Would exceed 52 week maximum'}
+
+                added_staketime = s['amount'] * added_duration
+                s['lock_end'] = new_end
+                s['duration'] += added_duration
+                s['staketime'] += added_staketime
+                stakes[i] = s
+                self._save_json(self.stakes_path, stakes)
+                return {
+                    'stake_id': stake_id,
+                    'added_weeks': round(added_duration / 604800, 1),
+                    'new_staketime': s['staketime'],
+                    'new_lock_end': datetime.fromtimestamp(new_end).isoformat(),
+                    'status': 'extended',
+                }
+        return {'error': f'Stake {stake_id} not found'}
+
+    def unlock_prefi(self, stake_id: int, address: str) -> Dict:
+        """Unlock expired PREFI stake"""
+        stakes = self._load_json(self.stakes_path, [])
+        for i, s in enumerate(stakes):
+            if s['id'] == stake_id:
+                if s['staker'].lower() != address.lower():
+                    return {'error': 'Not your stake'}
+                if s['withdrawn']:
+                    return {'error': 'Already withdrawn'}
+                if time.time() < s['lock_end']:
+                    remaining = s['lock_end'] - time.time()
+                    return {'error': f'Still locked for {int(remaining)}s'}
+
+                s['withdrawn'] = True
+                s['withdrawn_at'] = datetime.now().isoformat()
+                stakes[i] = s
+                self._save_json(self.stakes_path, stakes)
+                return {
+                    'stake_id': stake_id,
+                    'amount': s['amount'],
+                    'status': 'unlocked',
+                }
+        return {'error': f'Stake {stake_id} not found'}
+
+    def get_stakes(self, address: str) -> Dict:
+        """Get staking info for an address"""
+        stakes = self._load_json(self.stakes_path, [])
+        user_stakes = [s for s in stakes if s['staker'].lower() == address.lower()]
+
+        active = [s for s in user_stakes if not s['withdrawn']]
+        total_staketime = sum(s['staketime'] for s in active)
+        total_locked = sum(s['amount'] for s in active)
+
+        now = time.time()
+        for s in user_stakes:
+            s['is_unlockable'] = not s['withdrawn'] and now >= s['lock_end']
+            s['time_remaining'] = max(0, int(s['lock_end'] - now))
+
+        return {
+            'address': address,
+            'total_locked': total_locked,
+            'total_staketime': total_staketime,
+            'active_stakes': len(active),
+            'stakes': user_stakes,
+        }
+
+    def _current_epoch(self) -> int:
+        """Get current weekly epoch number"""
+        treasury = self._init_treasury()
+        genesis = treasury.get('genesis_time', time.time())
+        return int((time.time() - genesis) / 604800)
+
+    # ── Treasury ─────────────────────────────────────────────────────
+
+    def treasury(self) -> Dict:
+        """Get treasury status"""
+        treasury = self._init_treasury()
+        stakes = self._load_json(self.stakes_path, [])
+        active_stakes = [s for s in stakes if not s.get('withdrawn')]
+        total_staketime = sum(s['staketime'] for s in active_stakes)
+        total_staked = sum(s['amount'] for s in active_stakes)
+
+        return {
+            'balance': treasury.get('balance', 0),
+            'total_captured': treasury.get('total_captured', 0),
+            'total_distributed': treasury.get('total_distributed', 0),
+            'total_prefi_minted': treasury.get('total_prefi_minted', 0),
+            'current_epoch': self._current_epoch(),
+            'total_staketime': total_staketime,
+            'total_staked': total_staked,
+            'active_stakers': len(set(s['staker'] for s in active_stakes)),
+            'epoch_count': len(treasury.get('epochs', [])),
+        }
+
+    def deposit_rewards(self, amount: float = None) -> Dict:
+        """Deposit USDC from treasury into current epoch for staker distribution"""
+        treasury = self._init_treasury()
+        stakes = self._load_json(self.stakes_path, [])
+
+        active_stakes = [s for s in stakes if not s.get('withdrawn')]
+        if not active_stakes:
+            return {'error': 'No active stakers'}
+
+        balance = treasury.get('balance', 0)
+        if balance <= 0:
+            return {'error': 'Treasury empty'}
+
+        deposit = amount if amount and amount <= balance else balance
+        epoch = self._current_epoch()
+        total_staketime = sum(s['staketime'] for s in active_stakes)
+
+        epoch_record = {
+            'epoch': epoch,
+            'amount': deposit,
+            'total_staketime': total_staketime,
+            'stakers': len(set(s['staker'] for s in active_stakes)),
+            'timestamp': datetime.now().isoformat(),
+            'claims': {},
+        }
+
+        treasury['balance'] -= deposit
+        treasury['total_distributed'] = treasury.get('total_distributed', 0) + deposit
+        treasury.setdefault('epochs', []).append(epoch_record)
+        self._save_json(self.treasury_path, treasury)
+
+        return {
+            'epoch': epoch,
+            'deposited': deposit,
+            'total_staketime': total_staketime,
+            'stakers': epoch_record['stakers'],
+        }
+
+    def claim_treasury(self, epoch: int, address: str) -> Dict:
+        """Claim share of epoch rewards based on staketime"""
+        treasury = self._init_treasury()
+
+        epoch_rec = None
+        epoch_idx = None
+        for i, e in enumerate(treasury.get('epochs', [])):
+            if e['epoch'] == epoch:
+                epoch_rec = e
+                epoch_idx = i
+                break
+
+        if not epoch_rec:
+            return {'error': f'No rewards for epoch {epoch}'}
+
+        claims = epoch_rec.get('claims', {})
+        if address.lower() in claims:
+            return {'error': 'Already claimed this epoch'}
+
+        stakes = self._load_json(self.stakes_path, [])
+        user_staketime = 0
+        for s in stakes:
+            if (s['staker'].lower() == address.lower()
+                    and not s.get('withdrawn')
+                    and s['start_epoch'] <= epoch):
+                user_staketime += s['staketime']
+
+        if user_staketime <= 0:
+            return {'error': 'No staketime for this epoch'}
+
+        total_st = epoch_rec['total_staketime']
+        if total_st <= 0:
+            return {'error': 'No staketime in epoch'}
+
+        share = (epoch_rec['amount'] * user_staketime) / total_st
+
+        claims[address.lower()] = {
+            'amount': round(share, 6),
+            'staketime': user_staketime,
+            'timestamp': datetime.now().isoformat(),
+        }
+        epoch_rec['claims'] = claims
+        treasury['epochs'][epoch_idx] = epoch_rec
+        self._save_json(self.treasury_path, treasury)
+
+        return {
+            'epoch': epoch,
+            'address': address,
+            'share': round(share, 6),
+            'staketime': user_staketime,
+            'total_staketime': total_st,
+            'pct_of_pool': round(user_staketime / total_st * 100, 2),
+            'status': 'claimed',
+        }
+
+    def treasury_history(self) -> List[Dict]:
+        """Get past epoch distribution history"""
+        treasury = self._init_treasury()
+        return treasury.get('epochs', [])
+
+    # ── Leaderboard & Portfolio ──────────────────────────────────────
+
+    def leaderboard(self) -> List[Dict]:
+        """Trader leaderboard ranked by total profit captured"""
+        positions = self._load_json(self.positions_path, [])
+        traders = {}
+
+        for p in positions:
+            addr = p['trader']
+            if addr not in traders:
+                traders[addr] = {
+                    'address': addr,
+                    'total_volume': 0.0,
+                    'total_profit': 0.0,
+                    'total_loss': 0.0,
+                    'prefi_earned': 0.0,
+                    'positions': 0,
+                    'wins': 0,
+                    'losses': 0,
+                }
+            t = traders[addr]
+            t['positions'] += 1
+            t['total_volume'] += p.get('usdc_in', 0)
+
+            if p.get('closed') and p.get('profit') is not None:
+                profit = p['profit']
+                if profit > 0:
+                    t['total_profit'] += profit
+                    t['prefi_earned'] += p.get('prefi_earned', 0)
+                    t['wins'] += 1
+                else:
+                    t['total_loss'] += abs(profit)
+                    t['losses'] += 1
+
+        board = list(traders.values())
+        for t in board:
+            t['net_pnl'] = round(t['total_profit'] - t['total_loss'], 6)
+            total = t['wins'] + t['losses']
+            t['win_rate'] = round(t['wins'] / total * 100, 1) if total > 0 else 0
+            t['total_profit'] = round(t['total_profit'], 6)
+            t['total_loss'] = round(t['total_loss'], 6)
+            t['prefi_earned'] = round(t['prefi_earned'], 6)
+
+        board.sort(key=lambda x: x['total_profit'], reverse=True)
+        for i, t in enumerate(board):
+            t['rank'] = i + 1
+        return board
+
+    def portfolio(self, address: str) -> Dict:
+        """Full portfolio view: positions + stakes + claims"""
+        positions = self._load_json(self.positions_path, [])
+        stakes_data = self._load_json(self.stakes_path, [])
+        treasury = self._init_treasury()
+
+        # Position summary
+        user_pos = [p for p in positions if p['trader'].lower() == address.lower()]
+        open_pos = [p for p in user_pos if not p.get('closed')]
+        closed_pos = [p for p in user_pos if p.get('closed')]
+        total_profit = sum(p.get('profit', 0) for p in closed_pos if (p.get('profit') or 0) > 0)
+        total_loss = sum(abs(p.get('profit', 0)) for p in closed_pos if (p.get('profit') or 0) < 0)
+        total_prefi = sum(p.get('prefi_earned', 0) for p in closed_pos if p.get('prefi_earned'))
+
+        # Open position unrealized PnL
+        unrealized = 0.0
+        for p in open_pos:
+            price = self._get_token_price(p['asset'])
+            if price:
+                unrealized += p['asset_amount'] * price - p['usdc_in']
+
+        # Stake summary
+        user_stakes = [s for s in stakes_data if s['staker'].lower() == address.lower()]
+        active_stakes = [s for s in user_stakes if not s.get('withdrawn')]
+        total_locked = sum(s['amount'] for s in active_stakes)
+        total_staketime = sum(s['staketime'] for s in active_stakes)
+
+        # Claims summary
+        total_claimed = 0.0
+        for epoch_rec in treasury.get('epochs', []):
+            claim = epoch_rec.get('claims', {}).get(address.lower())
+            if claim:
+                total_claimed += claim.get('amount', 0)
+
+        return {
+            'address': address,
+            'trading': {
+                'open_positions': len(open_pos),
+                'closed_positions': len(closed_pos),
+                'total_volume': round(sum(p.get('usdc_in', 0) for p in user_pos), 2),
+                'total_profit': round(total_profit, 6),
+                'total_loss': round(total_loss, 6),
+                'net_pnl': round(total_profit - total_loss, 6),
+                'unrealized_pnl': round(unrealized, 6),
+                'win_rate': round(
+                    sum(1 for p in closed_pos if (p.get('profit') or 0) > 0) /
+                    len(closed_pos) * 100, 1
+                ) if closed_pos else 0,
+            },
+            'prefi': {
+                'total_earned': round(total_prefi, 6),
+                'total_locked': round(total_locked, 6),
+                'total_staketime': total_staketime,
+                'active_stakes': len(active_stakes),
+            },
+            'treasury_claims': {
+                'total_claimed': round(total_claimed, 6),
+                'epochs_claimed': sum(
+                    1 for e in treasury.get('epochs', [])
+                    if address.lower() in e.get('claims', {})
+                ),
+            },
+        }
+
+    # ── Prices ───────────────────────────────────────────────────────
+
+    def get_prices(self) -> Dict:
+        """Get current prices from CoinGecko"""
+        try:
+            resp = requests.get(
+                'https://api.coingecko.com/api/v3/simple/price',
+                params={
+                    'ids': 'ethereum,bitcoin,usd-coin',
+                    'vs_currencies': 'usd',
+                    'include_24hr_change': 'true',
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return {
+                'ETH': {'price': data.get('ethereum', {}).get('usd', 0),
+                         'change_24h': data.get('ethereum', {}).get('usd_24h_change', 0)},
+                'BTC': {'price': data.get('bitcoin', {}).get('usd', 0),
+                         'change_24h': data.get('bitcoin', {}).get('usd_24h_change', 0)},
+                'USDC': {'price': data.get('usd-coin', {}).get('usd', 0),
+                          'change_24h': data.get('usd-coin', {}).get('usd_24h_change', 0)},
+                'timestamp': datetime.now().isoformat(),
+            }
+        except Exception as e:
+            return {'error': str(e)}
+
+    def get_asset_price(self, asset: str) -> Dict:
+        """Get price for a specific asset"""
+        price = self._get_token_price(asset)
+        return {
+            'asset': asset,
+            'price': price,
+            'timestamp': datetime.now().isoformat(),
+        }
+
+    # ── Deploy ───────────────────────────────────────────────────────
+
+    def deploy(self, network: str = None) -> Dict:
+        """Deploy contracts via hardhat"""
+        network = network or self.network
+        result = subprocess.run(
+            ['npx', 'hardhat', 'run', 'src/scripts/deploy-prefi.js',
+             '--network', network],
+            cwd=str(self.module_dir),
+            capture_output=True, text=True, timeout=300,
+        )
+        self._load_deployment()
+        return {
+            'network': network,
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+            'returncode': result.returncode,
+            'contracts': self.contracts,
+        }
+
+    # ── Service management ───────────────────────────────────────────
 
     def serve(self, api_port=None, app_port=None, dev=True):
         """Start the FastAPI server and Next.js app"""
@@ -94,99 +741,58 @@ class Mod:
 
         self.kill()
 
-        # Start API server
-        server_dir = self.module_dir / 'server'
-        server_path = server_dir / 'server.py'
-        if server_path.exists():
+        api_dir = self.module_dir / 'src' / 'api'
+        api_path = api_dir / 'api.py'
+        if api_path.exists():
             env = os.environ.copy()
             env['PORT'] = str(api_port)
             env['PYTHONPATH'] = str(self.module_dir.parent.parent.parent)
-
             api_log = open(log_dir / 'api.log', 'w')
+            cmd = ['python3', '-m', 'uvicorn', 'api:app', '--host', '0.0.0.0',
+                   '--port', str(api_port)]
             if dev:
-                subprocess.Popen(
-                    ['python3', '-m', 'uvicorn', 'server:app', '--host', '0.0.0.0',
-                     '--port', str(api_port), '--reload'],
-                    cwd=str(server_dir),
-                    env=env,
-                    stdout=api_log,
-                    stderr=subprocess.STDOUT,
-                )
-            else:
-                subprocess.Popen(
-                    ['python3', '-m', 'uvicorn', 'server:app', '--host', '0.0.0.0',
-                     '--port', str(api_port)],
-                    cwd=str(server_dir),
-                    env=env,
-                    stdout=api_log,
-                    stderr=subprocess.STDOUT,
-                )
+                cmd.append('--reload')
+            subprocess.Popen(cmd, cwd=str(api_dir), env=env,
+                             stdout=api_log, stderr=subprocess.STDOUT)
             results['api'] = f'http://localhost:{api_port}'
-            results['api_log'] = str(log_dir / 'api.log')
 
-        # Start Next.js app
-        app_dir = self.module_dir / 'app'
+        app_dir = self.module_dir / 'src' / 'app'
         if app_dir.exists():
             env = os.environ.copy()
             env['NEXT_PUBLIC_API_URL'] = f'http://localhost:{api_port}'
             env['PORT'] = str(app_port)
-
             app_log = open(log_dir / 'app.log', 'w')
-            if dev:
-                subprocess.Popen(
-                    ['npx', 'next', 'dev', '-p', str(app_port)],
-                    cwd=str(app_dir),
-                    env=env,
-                    stdout=app_log,
-                    stderr=subprocess.STDOUT,
-                )
-            else:
-                subprocess.Popen(
-                    ['npx', 'next', 'start', '-p', str(app_port)],
-                    cwd=str(app_dir),
-                    env=env,
-                    stdout=app_log,
-                    stderr=subprocess.STDOUT,
-                )
+            cmd = ['npx', 'next', 'dev' if dev else 'start', '-p', str(app_port)]
+            subprocess.Popen(cmd, cwd=str(app_dir), env=env,
+                             stdout=app_log, stderr=subprocess.STDOUT)
             results['app'] = f'http://localhost:{app_port}'
-            results['app_log'] = str(log_dir / 'app.log')
 
-        results['dev'] = dev
         results['logs'] = str(log_dir)
         return results
 
     def kill(self):
         """Stop all PreFi services"""
         killed = []
-        patterns = [
-            f'uvicorn.*server:app.*{self.api_port}',
-            f'next.*dev.*{self.app_port}',
-            f'next.*start.*{self.app_port}',
-        ]
-        for pattern in patterns:
+        for pattern in [f'uvicorn.*{self.api_port}', f'next.*{self.app_port}']:
             try:
-                result = subprocess.run(
-                    ['pgrep', '-f', pattern],
-                    capture_output=True, text=True
-                )
+                result = subprocess.run(['pgrep', '-f', pattern],
+                                        capture_output=True, text=True)
                 for pid in result.stdout.strip().split('\n'):
                     if pid:
                         os.kill(int(pid), signal.SIGTERM)
-                        killed.append(f'{pattern.split(".*")[0]}:{pid}')
+                        killed.append(pid)
             except Exception:
                 pass
         return {'killed': killed}
 
     def health(self):
-        """Check if services are running"""
+        """Check service health"""
         status = {
-            'status': 'ok',
             'service': 'prefi',
             'network': self.network,
             'contracts': self.contracts,
             'timestamp': datetime.now().isoformat(),
         }
-        # Check API
         try:
             r = requests.get(f'http://localhost:{self.api_port}/health', timeout=2)
             status['api'] = {'status': 'up', 'port': self.api_port}
@@ -194,375 +800,38 @@ class Mod:
             status['api'] = {'status': 'down', 'port': self.api_port}
         return status
 
-    # ── Market management (off-chain tracking) ────────────────────────
+    def status(self) -> Dict:
+        """Get overall protocol status"""
+        markets = self._load_json(self.markets_path, [])
+        positions = self._load_json(self.positions_path, [])
+        stakes = self._load_json(self.stakes_path, [])
+        treasury = self._init_treasury()
 
-    def create_market(self, asset: str, token_address: str, duration: int = 86400) -> Dict:
-        """Create a new prediction market (tracked off-chain)"""
-        markets = self._load_markets()
-        market_id = len(markets) + 1
-        now = time.time()
-
-        market = {
-            'id': market_id,
-            'asset': asset,
-            'token_address': token_address,
-            'start_time': now,
-            'end_time': now + duration,
-            'duration': duration,
-            'settled': False,
-            'actual_price': None,
-            'total_staked': 0.0,
-            'players': [],
-            'created_at': datetime.now().isoformat(),
-        }
-        markets.append(market)
-        self._save_markets(markets)
+        open_positions = [p for p in positions if not p.get('closed')]
+        active_stakes = [s for s in stakes if not s.get('withdrawn')]
+        total_volume = sum(p.get('usdc_in', 0) for p in positions)
 
         return {
-            'market_id': market_id,
-            'asset': asset,
-            'token_address': token_address,
-            'start_time': now,
-            'end_time': now + duration,
-            'duration': duration,
+            'service': 'prefi',
+            'network': self.network,
+            'contracts': self.contracts,
+            'markets': len([m for m in markets if m.get('active')]),
+            'positions_total': len(positions),
+            'positions_open': len(open_positions),
+            'total_volume': round(total_volume, 2),
+            'traders': len(set(p['trader'] for p in positions)) if positions else 0,
+            'stakes_active': len(active_stakes),
+            'total_staked': sum(s['amount'] for s in active_stakes),
+            'treasury_balance': treasury.get('balance', 0),
+            'total_profit_captured': treasury.get('total_captured', 0),
+            'total_prefi_minted': treasury.get('total_prefi_minted', 0),
+            'current_epoch': self._current_epoch(),
+            'api_port': self.api_port,
+            'app_port': self.app_port,
+            'timestamp': datetime.now().isoformat(),
         }
-
-    def list_markets(self) -> List[Dict]:
-        """Get all markets"""
-        markets = self._load_markets()
-        now = time.time()
-        result = []
-        for m in markets:
-            time_left = max(0, m['end_time'] - now)
-            is_active = not m['settled'] and time_left > 0
-            result.append({
-                'id': m['id'],
-                'asset': m['asset'],
-                'token_address': m['token_address'],
-                'start_time': m['start_time'],
-                'end_time': m['end_time'],
-                'settled': m['settled'],
-                'actual_price': m.get('actual_price'),
-                'total_staked': m['total_staked'],
-                'players_count': len(m.get('players', [])),
-                'is_active': is_active,
-                'time_remaining': int(time_left),
-            })
-        return result
-
-    def get_market(self, market_id: int) -> Dict:
-        """Get a single market by ID"""
-        markets = self._load_markets()
-        for m in markets:
-            if m['id'] == market_id:
-                now = time.time()
-                time_left = max(0, m['end_time'] - now)
-                return {
-                    **m,
-                    'is_active': not m['settled'] and time_left > 0,
-                    'time_remaining': int(time_left),
-                    'players_count': len(m.get('players', [])),
-                }
-        return {'error': f'Market {market_id} not found'}
-
-    def resolve_market(self, market_id: int, actual_price: str) -> Dict:
-        """Resolve a market with the actual price, compute rewards"""
-        markets = self._load_markets()
-        predictions = self._load_predictions()
-
-        market = None
-        market_idx = None
-        for i, m in enumerate(markets):
-            if m['id'] == market_id:
-                market = m
-                market_idx = i
-                break
-
-        if not market:
-            return {'error': f'Market {market_id} not found'}
-        if market['settled']:
-            return {'error': 'Market already settled'}
-
-        price = float(actual_price)
-        market['actual_price'] = price
-        market['settled'] = True
-        market['settled_at'] = datetime.now().isoformat()
-
-        # Calculate L2 distance scores for all predictions in this market
-        market_preds = [p for p in predictions if p['market_id'] == market_id]
-
-        total_score = 0.0
-        scores = {}
-        for p in market_preds:
-            predicted = float(p['predicted_price'])
-            stake = float(p['stake_amount'])
-            diff = abs(predicted - price)
-            distance_sq = (diff ** 2) / (price ** 2) if price > 0 else 0  # normalize
-            score = stake / (1 + distance_sq)
-            scores[p['address']] = score
-            total_score += score
-
-        # Distribute rewards proportionally
-        total_staked = market['total_staked']
-        fee_rate = 0.02  # 2% platform fee
-        fee = total_staked * fee_rate
-        reward_pool = total_staked - fee
-
-        rewards = {}
-        for addr, score in scores.items():
-            if total_score > 0:
-                reward = (reward_pool * score) / total_score
-            else:
-                reward = 0
-            rewards[addr] = round(reward, 6)
-
-        # Update predictions with rewards
-        for p in predictions:
-            if p['market_id'] == market_id:
-                p['reward'] = rewards.get(p['address'], 0)
-                p['status'] = 'settled'
-
-        market['rewards'] = rewards
-        market['fee'] = round(fee, 6)
-        market['reward_pool'] = round(reward_pool, 6)
-        markets[market_idx] = market
-
-        self._save_markets(markets)
-        self._save_predictions(predictions)
-
-        return {
-            'market_id': market_id,
-            'actual_price': price,
-            'total_staked': total_staked,
-            'reward_pool': round(reward_pool, 6),
-            'fee': round(fee, 6),
-            'rewards': rewards,
-            'predictions_count': len(market_preds),
-        }
-
-    # ── Predictions ───────────────────────────────────────────────────
-
-    def record_prediction(self, market_id: int, address: str,
-                          predicted_price: str, stake_amount: str) -> Dict:
-        """Record a prediction (off-chain tracking of on-chain activity)"""
-        markets = self._load_markets()
-        predictions = self._load_predictions()
-
-        # Validate market exists and is active
-        market = None
-        market_idx = None
-        for i, m in enumerate(markets):
-            if m['id'] == market_id:
-                market = m
-                market_idx = i
-                break
-
-        if not market:
-            return {'error': f'Market {market_id} not found'}
-
-        now = time.time()
-        if market['settled'] or now >= market['end_time']:
-            return {'error': 'Market is closed'}
-
-        # Check duplicate
-        for p in predictions:
-            if p['market_id'] == market_id and p['address'].lower() == address.lower():
-                return {'error': 'Already predicted in this market'}
-
-        stake = float(stake_amount)
-        prediction = {
-            'market_id': market_id,
-            'address': address,
-            'predicted_price': predicted_price,
-            'stake_amount': stake_amount,
-            'timestamp': now,
-            'status': 'active',
-            'reward': 0,
-            'claimed': False,
-        }
-        predictions.append(prediction)
-
-        # Update market
-        market['total_staked'] += stake
-        if address not in market.get('players', []):
-            market['players'].append(address)
-        markets[market_idx] = market
-
-        self._save_predictions(predictions)
-        self._save_markets(markets)
-
-        return {
-            'market_id': market_id,
-            'address': address,
-            'predicted_price': predicted_price,
-            'stake_amount': stake_amount,
-            'status': 'active',
-        }
-
-    def get_user_predictions(self, address: str) -> List[Dict]:
-        """Get all predictions for an address"""
-        predictions = self._load_predictions()
-        markets = self._load_markets()
-        market_map = {m['id']: m for m in markets}
-
-        result = []
-        for p in predictions:
-            if p['address'].lower() == address.lower():
-                market = market_map.get(p['market_id'], {})
-                result.append({
-                    'market_id': p['market_id'],
-                    'asset': market.get('asset', 'Unknown'),
-                    'predicted_price': p['predicted_price'],
-                    'stake_amount': p['stake_amount'],
-                    'timestamp': p['timestamp'],
-                    'status': p.get('status', 'active'),
-                    'reward': p.get('reward', 0),
-                    'claimed': p.get('claimed', False),
-                    'market_settled': market.get('settled', False),
-                    'actual_price': market.get('actual_price'),
-                })
-        return result
-
-    def record_claim(self, market_id: int, address: str) -> Dict:
-        """Record that a user claimed their reward"""
-        predictions = self._load_predictions()
-        for p in predictions:
-            if p['market_id'] == market_id and p['address'].lower() == address.lower():
-                if p.get('claimed'):
-                    return {'error': 'Already claimed'}
-                if p.get('status') != 'settled':
-                    return {'error': 'Market not settled'}
-                p['claimed'] = True
-                self._save_predictions(predictions)
-                return {
-                    'market_id': market_id,
-                    'address': address,
-                    'reward': p.get('reward', 0),
-                    'claimed': True,
-                }
-        return {'error': 'Prediction not found'}
-
-    # ── Leaderboard & Rewards ─────────────────────────────────────────
-
-    def leaderboard(self, market_id: Optional[int] = None) -> List[Dict]:
-        """Get leaderboard sorted by total rewards"""
-        predictions = self._load_predictions()
-
-        if market_id:
-            predictions = [p for p in predictions if p['market_id'] == market_id]
-
-        # Aggregate by address
-        scores = {}
-        for p in predictions:
-            addr = p['address']
-            if addr not in scores:
-                scores[addr] = {
-                    'address': addr,
-                    'total_staked': 0.0,
-                    'total_reward': 0.0,
-                    'predictions_count': 0,
-                }
-            scores[addr]['total_staked'] += float(p.get('stake_amount', 0))
-            scores[addr]['total_reward'] += float(p.get('reward', 0))
-            scores[addr]['predictions_count'] += 1
-
-        board = sorted(scores.values(), key=lambda x: x['total_reward'], reverse=True)
-        for i, entry in enumerate(board):
-            entry['rank'] = i + 1
-            entry['pnl'] = round(entry['total_reward'] - entry['total_staked'], 6)
-        return board
-
-    def get_rewards(self, address: str, market_id: Optional[int] = None) -> Dict:
-        """Get reward details for a specific address"""
-        predictions = self._load_predictions()
-        rewards = []
-        total = 0.0
-
-        for p in predictions:
-            if p['address'].lower() != address.lower():
-                continue
-            if market_id and p['market_id'] != market_id:
-                continue
-            reward = float(p.get('reward', 0))
-            total += reward
-            rewards.append({
-                'market_id': p['market_id'],
-                'predicted_price': p['predicted_price'],
-                'stake_amount': p['stake_amount'],
-                'reward': reward,
-                'claimed': p.get('claimed', False),
-                'status': p.get('status', 'active'),
-            })
-
-        return {
-            'address': address,
-            'total_reward': round(total, 6),
-            'rewards': rewards,
-        }
-
-    # ── Prices ────────────────────────────────────────────────────────
-
-    def get_prices(self) -> Dict:
-        """Get current prices from CoinGecko"""
-        try:
-            url = 'https://api.coingecko.com/api/v3/simple/price'
-            params = {
-                'ids': 'ethereum,bitcoin,usd-coin',
-                'vs_currencies': 'usd',
-                'include_24hr_change': 'true',
-            }
-            resp = requests.get(url, params=params, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            return {
-                'ETH/USD': {
-                    'price': data.get('ethereum', {}).get('usd', 0),
-                    'change_24h': data.get('ethereum', {}).get('usd_24h_change', 0),
-                },
-                'BTC/USD': {
-                    'price': data.get('bitcoin', {}).get('usd', 0),
-                    'change_24h': data.get('bitcoin', {}).get('usd_24h_change', 0),
-                },
-                'USDC/USD': {
-                    'price': data.get('usd-coin', {}).get('usd', 0),
-                    'change_24h': data.get('usd-coin', {}).get('usd_24h_change', 0),
-                },
-                'timestamp': datetime.now().isoformat(),
-            }
-        except Exception as e:
-            return {'error': str(e)}
-
-    def get_asset_price(self, asset: str) -> Dict:
-        """Get price for a specific asset"""
-        coingecko_ids = {
-            'ETH': 'ethereum', 'BTC': 'bitcoin', 'USDC': 'usd-coin',
-            'WETH': 'weth', 'USDT': 'tether', 'DAI': 'dai',
-            'LINK': 'chainlink', 'UNI': 'uniswap', 'AAVE': 'aave',
-        }
-        asset_upper = asset.upper().split('/')[0]
-        cg_id = coingecko_ids.get(asset_upper, asset_upper.lower())
-        try:
-            url = 'https://api.coingecko.com/api/v3/simple/price'
-            resp = requests.get(url, params={
-                'ids': cg_id,
-                'vs_currencies': 'usd',
-                'include_24hr_change': 'true',
-            }, timeout=10)
-            resp.raise_for_status()
-            data = resp.json().get(cg_id, {})
-            return {
-                'asset': asset,
-                'price': data.get('usd', 0),
-                'change_24h': data.get('usd_24h_change', 0),
-                'timestamp': datetime.now().isoformat(),
-            }
-        except Exception as e:
-            return {'asset': asset, 'error': str(e)}
-
-    # ── Deployment info ───────────────────────────────────────────────
 
     def get_deployment_info(self) -> Dict:
-        """Get current deployment info"""
         return {
             'network': self.network,
             'contracts': self.contracts,
@@ -571,36 +840,15 @@ class Mod:
             'app_port': self.app_port,
         }
 
-    # ── Status ────────────────────────────────────────────────────────
-
-    def status(self) -> Dict:
-        """Get overall status"""
-        markets = self._load_markets()
-        predictions = self._load_predictions()
-        now = time.time()
-        active = [m for m in markets if not m['settled'] and m['end_time'] > now]
-
-        return {
-            'service': 'prefi',
-            'network': self.network,
-            'contracts': self.contracts,
-            'markets_total': len(markets),
-            'markets_active': len(active),
-            'predictions_total': len(predictions),
-            'api_port': self.api_port,
-            'app_port': self.app_port,
-            'timestamp': datetime.now().isoformat(),
-        }
-
-    # ── Test ──────────────────────────────────────────────────────────
+    # ── Test ─────────────────────────────────────────────────────────
 
     def test(self) -> Dict:
-        """Run integration tests with mock data"""
+        """Run integration tests"""
         import tempfile
         import shutil
 
         print('=' * 60)
-        print('PreFi Test Suite')
+        print('PreFi Trading Protocol Tests')
         print('=' * 60)
         results = {'passed': 0, 'failed': 0, 'tests': []}
 
@@ -611,100 +859,172 @@ class Mod:
             print(f'  [{status}] {name}' + (f' — {detail}' if detail else ''))
 
         tmp = tempfile.mkdtemp(prefix='prefi_test_')
-        orig_store = self.store_dir
-        orig_markets = self.markets_path
-        orig_preds = self.predictions_path
+        orig = {
+            'store_dir': self.store_dir,
+            'positions_path': self.positions_path,
+            'stakes_path': self.stakes_path,
+            'treasury_path': self.treasury_path,
+            'markets_path': self.markets_path,
+        }
         try:
             self.store_dir = Path(tmp)
+            self.positions_path = self.store_dir / 'positions.json'
+            self.stakes_path = self.store_dir / 'stakes.json'
+            self.treasury_path = self.store_dir / 'treasury.json'
             self.markets_path = self.store_dir / 'markets.json'
-            self.predictions_path = self.store_dir / 'predictions.json'
 
-            # 1. L2 distance scoring
-            print('\n1. L2 Distance Scoring')
-            # score = stake / (1 + (diff/actual)^2)
-            diff = abs(3500 - 3500)
-            score_perfect = 100 / (1 + (diff ** 2) / (3500 ** 2))
-            check('perfect prediction score = stake', score_perfect == 100.0)
+            # 1. Markets
+            print('\n1. Markets')
+            r = self.add_market('0xWETH', 'WETH', 3000)
+            check('add WETH market', r.get('status') == 'added')
+            r2 = self.add_market('0xcbBTC', 'cbBTC', 3000)
+            check('add cbBTC market', r2.get('status') == 'added')
 
-            diff = abs(3600 - 3500)
-            score_close = 100 / (1 + (diff ** 2) / (3500 ** 2))
-            check('close prediction > 0', score_close > 0)
-            check('close < perfect', score_close < score_perfect)
-
-            diff = abs(5000 - 3500)
-            score_far = 100 / (1 + (diff ** 2) / (3500 ** 2))
-            check('far prediction < close', score_far < score_close)
-
-            # 2. Create market
-            print('\n2. Market Creation')
-            m = self.create_market('ETH/USD', '0xETH', 3600)
-            check('market created', 'market_id' in m, f'id={m.get("market_id")}')
-            check('asset is ETH/USD', m.get('asset') == 'ETH/USD')
-
-            markets = self.list_markets()
-            check('1 market listed', len(markets) == 1)
-            check('market is active', markets[0]['is_active'])
-
-            # 3. Predictions
-            print('\n3. Predictions')
-            p1 = self.record_prediction(1, '0xAlice', '3500', '10')
-            check('Alice predicted', p1.get('status') == 'active')
-
-            p2 = self.record_prediction(1, '0xBob', '3600', '20')
-            check('Bob predicted', p2.get('status') == 'active')
-
-            p3 = self.record_prediction(1, '0xCharlie', '4000', '5')
-            check('Charlie predicted', p3.get('status') == 'active')
-
-            dup = self.record_prediction(1, '0xAlice', '3700', '5')
+            dup = self.add_market('0xWETH', 'WETH', 3000)
             check('duplicate blocked', 'error' in dup)
 
-            preds = self.get_user_predictions('0xAlice')
-            check('Alice has 1 prediction', len(preds) == 1)
+            markets = self.list_markets()
+            check('2 markets listed', len(markets) == 2)
 
-            # 4. Market resolution
-            print('\n4. Market Resolution')
-            res = self.resolve_market(1, '3500')
-            check('market resolved', 'rewards' in res)
-            check('3 rewards computed', len(res.get('rewards', {})) == 3)
+            # 2. Positions with mocked prices
+            print('\n2. Positions')
+            mock_positions = [
+                {'id': 1, 'trader': '0xAlice', 'asset': 'WETH', 'token': '0xWETH',
+                 'usdc_in': 1000.0, 'asset_amount': 0.5, 'entry_price': 2000.0,
+                 'open_time': time.time(), 'closed': False,
+                 'usdc_out': None, 'profit': None, 'prefi_earned': None},
+                {'id': 2, 'trader': '0xBob', 'asset': 'WETH', 'token': '0xWETH',
+                 'usdc_in': 500.0, 'asset_amount': 0.25, 'entry_price': 2000.0,
+                 'open_time': time.time(), 'closed': False,
+                 'usdc_out': None, 'profit': None, 'prefi_earned': None},
+                {'id': 3, 'trader': '0xAlice', 'asset': 'cbBTC', 'token': '0xcbBTC',
+                 'usdc_in': 2000.0, 'asset_amount': 0.02, 'entry_price': 100000.0,
+                 'open_time': time.time(), 'closed': False,
+                 'usdc_out': None, 'profit': None, 'prefi_earned': None},
+            ]
+            self._save_json(self.positions_path, mock_positions)
 
-            # L2 scoring: score = stake / (1 + distance²)
-            # Alice: stake=10, perfect → score=10. Bob: stake=20, close → score≈20. Charlie: stake=5, far → score<5.
-            # Bob has 2x stake with small distance, so Bob > Alice despite worse prediction
-            alice_reward = res['rewards'].get('0xAlice', 0)
-            bob_reward = res['rewards'].get('0xBob', 0)
-            charlie_reward = res['rewards'].get('0xCharlie', 0)
-            check('all rewards > 0', alice_reward > 0 and bob_reward > 0 and charlie_reward > 0,
-                  f'Alice={alice_reward:.4f} Bob={bob_reward:.4f} Charlie={charlie_reward:.4f}')
-            check('Bob > Charlie (higher stake)', bob_reward > charlie_reward,
-                  f'Bob={bob_reward:.4f} Charlie={charlie_reward:.4f}')
-            check('total rewards = pool',
-                  round(alice_reward + bob_reward + charlie_reward, 2) == round(res['reward_pool'], 2))
+            positions = self.get_positions('0xAlice')
+            check('Alice has 2 positions', len(positions) == 2)
 
-            # 5. Claims
-            print('\n5. Claims')
-            claim = self.record_claim(1, '0xAlice')
-            check('Alice claimed', claim.get('claimed'))
+            # Mock prices for close
+            orig_get_price = self._get_token_price
+            self._get_token_price = lambda sym: 2500.0 if sym == 'WETH' else 110000.0
 
-            dup_claim = self.record_claim(1, '0xAlice')
-            check('double claim blocked', 'error' in dup_claim)
+            c = self.close_position(1, '0xAlice')
+            check('profitable close', c.get('status') == 'profitable', f'profit={c.get("profit")}')
+            check('profit = 250', abs(c.get('profit', 0) - 250.0) < 0.01)
+            check('prefi = profit', abs(c.get('prefi_earned', 0) - 250.0) < 0.01)
+            check('return_pct = 25%', c.get('return_pct') == 25.0)
 
-            # 6. Leaderboard
-            print('\n6. Leaderboard')
+            wrong = self.close_position(2, '0xAlice')
+            check('wrong user blocked', 'error' in wrong)
+
+            # Losing trade
+            self._get_token_price = lambda sym: 1500.0
+            loss = self.close_position(2, '0xBob')
+            check('loss close', loss.get('status') == 'loss')
+            check('no prefi on loss', loss.get('prefi_earned') == 0)
+
+            # BTC profitable trade
+            self._get_token_price = lambda sym: 110000.0
+            btc = self.close_position(3, '0xAlice')
+            check('BTC profitable', btc.get('status') == 'profitable',
+                  f'profit={btc.get("profit")}')
+
+            self._get_token_price = orig_get_price
+
+            # 3. Treasury
+            print('\n3. Treasury')
+            t = self.treasury()
+            check('treasury captured profit', t.get('total_captured', 0) > 0,
+                  f'captured={t["total_captured"]}')
+            check('prefi tracked', t.get('total_prefi_minted', 0) > 0)
+
+            # 4. Leaderboard
+            print('\n4. Leaderboard')
             board = self.leaderboard()
-            check('3 players on board', len(board) == 3)
-            check('Bob ranked #1 (highest reward from 2x stake)', board[0]['address'] == '0xBob')
+            check('2 traders on board', len(board) == 2)
+            check('Alice ranked #1', board[0]['address'] == '0xAlice')
+            check('Alice has wins', board[0]['wins'] >= 2)
+            check('Bob has loss', board[1]['losses'] == 1)
 
-            # 7. Status
-            print('\n7. Status')
-            s = self.status()
-            check('status has markets_total', s['markets_total'] == 1)
-            check('status has predictions_total', s['predictions_total'] == 3)
+            # 5. Staking
+            print('\n5. Staking')
+            s = self.lock_prefi(100.0, 604800, '0xAlice')
+            check('PREFI locked', s.get('status') == 'locked')
+            check('staketime = amount * duration',
+                  s.get('staketime') == 100.0 * 604800)
+
+            s2 = self.lock_prefi(200.0, 1209600, '0xBob')
+            check('Bob locked 2 weeks', s2.get('status') == 'locked')
+            check('Bob staketime > Alice', s2['staketime'] > s['staketime'])
+
+            short = self.lock_prefi(50.0, 3600, '0xCharlie')
+            check('short lock rejected', 'error' in short)
+
+            # Extend lock
+            ext = self.extend_lock(1, 604800, '0xAlice')
+            check('lock extended', ext.get('status') == 'extended')
+            check('staketime increased', ext['new_staketime'] > s['staketime'])
+
+            stakes = self.get_stakes('0xAlice')
+            check('Alice total locked = 100', stakes['total_locked'] == 100.0)
+
+            unlock = self.unlock_prefi(1, '0xAlice')
+            check('early unlock blocked', 'error' in unlock)
+
+            # 6. Treasury distribution
+            print('\n6. Treasury Distribution')
+            treasury_data = self._load_json(self.treasury_path, {})
+            treasury_data['genesis_time'] = time.time() - 700000
+            self._save_json(self.treasury_path, treasury_data)
+
+            dep = self.deposit_rewards()
+            check('rewards deposited', 'epoch' in dep, f'deposited={dep.get("deposited")}')
+
+            treasury_data = self._load_json(self.treasury_path, {})
+            if treasury_data.get('epochs'):
+                treasury_data['epochs'][-1]['epoch'] = 0
+                treasury_data['genesis_time'] = time.time() - 700000
+                self._save_json(self.treasury_path, treasury_data)
+
+                stakes_data = self._load_json(self.stakes_path, [])
+                for s in stakes_data:
+                    s['start_epoch'] = 0
+                self._save_json(self.stakes_path, stakes_data)
+
+                claim = self.claim_treasury(0, '0xAlice')
+                check('Alice claimed', claim.get('status') == 'claimed',
+                      f'share={claim.get("share")} ({claim.get("pct_of_pool")}%)')
+
+                dup_claim = self.claim_treasury(0, '0xAlice')
+                check('double claim blocked', 'error' in dup_claim)
+
+                bob_claim = self.claim_treasury(0, '0xBob')
+                check('Bob claimed', bob_claim.get('status') == 'claimed')
+                check('Bob share > Alice (more staketime)',
+                      bob_claim.get('share', 0) > claim.get('share', 0))
+
+            # 7. Portfolio
+            print('\n7. Portfolio')
+            port = self.portfolio('0xAlice')
+            check('portfolio has trading', 'trading' in port)
+            check('portfolio has prefi', 'prefi' in port)
+            check('portfolio has claims', 'treasury_claims' in port)
+            check('Alice net_pnl > 0', port['trading']['net_pnl'] > 0)
+            check('Alice prefi earned > 0', port['prefi']['total_earned'] > 0)
+
+            # 8. Status
+            print('\n8. Status')
+            status = self.status()
+            check('status has volume', status.get('total_volume', 0) > 0)
+            check('status has traders', status.get('traders', 0) == 2)
+            check('status has prefi minted', status.get('total_prefi_minted', 0) > 0)
 
         finally:
-            self.store_dir = orig_store
-            self.markets_path = orig_markets
-            self.predictions_path = orig_preds
+            for k, v in orig.items():
+                setattr(self, k, v)
             shutil.rmtree(tmp, ignore_errors=True)
 
         print('\n' + '=' * 60)
@@ -713,7 +1033,7 @@ class Mod:
         print('=' * 60)
         return results
 
-    # ── CLI entry point ───────────────────────────────────────────────
+    # ── CLI entry point ──────────────────────────────────────────────
 
     def forward(self, action=None, **kwargs):
         """CLI entry point: prefi <action> [args]
@@ -722,16 +1042,29 @@ class Mod:
             serve       - Start API + app servers
             kill        - Stop all services
             health      - Check service health
-            status      - Get system status
-            markets     - List all markets
-            market      - Get market detail (id=)
-            create      - Create market (asset=, token=, duration=)
-            predict     - Place prediction (market_id=, address=, price=, stake=)
-            resolve     - Resolve market (market_id=, price=)
-            predictions - Get user predictions (address=)
-            claim       - Claim reward (market_id=, address=)
-            leaderboard - Rankings
-            rewards     - Get rewards (address=, market_id=)
+            status      - Get protocol status
+            deploy      - Deploy contracts
+
+            markets     - List supported markets
+            add-market  - Add market (token=, symbol=, fee_tier=)
+
+            open        - Open position (asset=, amount=, address=)
+            close       - Close position (id=, address=)
+            positions   - Get positions (address=)
+
+            lock        - Lock PREFI (amount=, duration=, address=)
+            extend      - Extend lock (id=, duration=, address=)
+            unlock      - Unlock stake (id=, address=)
+            stakes      - Get stakes (address=)
+
+            distribute  - Deposit treasury rewards for epoch
+            claim       - Claim epoch share (epoch=, address=)
+            treasury    - Treasury status
+            history     - Treasury epoch history
+
+            leaderboard - Trader rankings
+            portfolio   - Full portfolio view (address=)
+
             prices      - Current asset prices
             price       - Single asset price (asset=)
             deployment  - Deployment info
@@ -746,35 +1079,55 @@ class Mod:
             'kill': lambda: self.kill(),
             'health': lambda: self.health(),
             'status': lambda: self.status(),
+            'deploy': lambda: self.deploy(kwargs.get('network')),
+
             'markets': lambda: self.list_markets(),
-            'market': lambda: self.get_market(int(kwargs.get('id', 0))),
-            'create': lambda: self.create_market(
-                kwargs.get('asset', 'ETH/USD'),
-                kwargs.get('token', '0x0000000000000000000000000000000000000000'),
-                int(kwargs.get('duration', 86400)),
+            'add-market': lambda: self.add_market(
+                kwargs.get('token', ''),
+                kwargs.get('symbol', ''),
+                int(kwargs.get('fee_tier', 3000)),
             ),
-            'predict': lambda: self.record_prediction(
-                int(kwargs.get('market_id', 0)),
-                kwargs.get('address', ''),
-                kwargs.get('price', '0'),
-                kwargs.get('stake', '0'),
-            ),
-            'resolve': lambda: self.resolve_market(
-                int(kwargs.get('market_id', 0)),
-                kwargs.get('price', '0'),
-            ),
-            'predictions': lambda: self.get_user_predictions(kwargs.get('address', '')),
-            'claim': lambda: self.record_claim(
-                int(kwargs.get('market_id', 0)),
+
+            'open': lambda: self.open_position(
+                kwargs.get('asset', ''),
+                float(kwargs.get('amount', 0)),
                 kwargs.get('address', ''),
             ),
-            'leaderboard': lambda: self.leaderboard(
-                market_id=int(kwargs['market_id']) if kwargs.get('market_id') else None,
-            ),
-            'rewards': lambda: self.get_rewards(
+            'close': lambda: self.close_position(
+                int(kwargs.get('id', 0)),
                 kwargs.get('address', ''),
-                market_id=int(kwargs['market_id']) if kwargs.get('market_id') else None,
             ),
+            'positions': lambda: self.get_positions(kwargs.get('address', '')),
+
+            'lock': lambda: self.lock_prefi(
+                float(kwargs.get('amount', 0)),
+                int(kwargs.get('duration', 604800)),
+                kwargs.get('address', ''),
+            ),
+            'extend': lambda: self.extend_lock(
+                int(kwargs.get('id', 0)),
+                int(kwargs.get('duration', 604800)),
+                kwargs.get('address', ''),
+            ),
+            'unlock': lambda: self.unlock_prefi(
+                int(kwargs.get('id', 0)),
+                kwargs.get('address', ''),
+            ),
+            'stakes': lambda: self.get_stakes(kwargs.get('address', '')),
+
+            'distribute': lambda: self.deposit_rewards(
+                float(kwargs['amount']) if kwargs.get('amount') else None,
+            ),
+            'claim': lambda: self.claim_treasury(
+                int(kwargs.get('epoch', 0)),
+                kwargs.get('address', ''),
+            ),
+            'treasury': lambda: self.treasury(),
+            'history': lambda: self.treasury_history(),
+
+            'leaderboard': lambda: self.leaderboard(),
+            'portfolio': lambda: self.portfolio(kwargs.get('address', '')),
+
             'prices': lambda: self.get_prices(),
             'price': lambda: self.get_asset_price(kwargs.get('asset', 'ETH')),
             'deployment': lambda: self.get_deployment_info(),

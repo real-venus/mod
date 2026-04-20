@@ -7,6 +7,8 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "clean": "hardhat clean && rm -rf cache artifacts",
+    "deploy:prefi:baseSepolia": "hardhat run src/scripts/deploy-prefi.js --network baseSepolia",
+    "deploy:prefi:base": "hardhat run src/scripts/deploy-prefi.js --network base",
     "deploy:testnet": "hardhat run src/scripts/deploy-modular.js --network baseSepolia",
     "deploy:mainnet": "hardhat run src/scripts/deploy-modular.js --network base",
     "deploy:ganache": "hardhat run src/scripts/deploy.js --network ganache",

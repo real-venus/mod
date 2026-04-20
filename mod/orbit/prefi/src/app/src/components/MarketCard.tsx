@@ -19,6 +19,10 @@ interface MarketCardProps {
 
 export default function MarketCard({ market, onPredict }: MarketCardProps) {
   const timeLeft = Math.max(0, market.endTime - Date.now() / 1000)
+  const totalDuration = market.endTime - market.startTime
+  const elapsed = totalDuration - timeLeft
+  const progressPct = totalDuration > 0 ? Math.min(100, (elapsed / totalDuration) * 100) : 0
+
   const hours = Math.floor(timeLeft / 3600)
   const minutes = Math.floor((timeLeft % 3600) / 60)
 
@@ -26,69 +30,76 @@ export default function MarketCard({ market, onPredict }: MarketCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ scale: 1.02 }}
-      className={`glass-card rounded-2xl p-6 border-l-4 ${
-        isActive ? 'border-green-400' : market.settled ? 'border-blue-400' : 'border-gray-600'
-      }`}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="glass-card rounded-xl p-5 card-hover"
     >
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-2xl font-bold gradient-text mb-1">{market.asset}</h3>
-          <p className="text-sm text-gray-400">Market #{market.id}</p>
+          <h3 className="text-lg font-bold mb-0.5">{market.asset}</h3>
+          <p className="text-[11px] text-gray-500">Market #{market.id}</p>
         </div>
-        <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-          isActive ? 'bg-green-500/20 text-green-300' :
-          market.settled ? 'bg-blue-500/20 text-blue-300' :
-          'bg-gray-500/20 text-gray-400'
+        <span className={`tag border ${
+          isActive
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+            : market.settled
+            ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+            : 'bg-gray-500/10 border-gray-500/20 text-gray-400'
         }`}>
-          {isActive ? '🟢 Active' : market.settled ? '✅ Settled' : '⏸️ Closed'}
-        </div>
+          {isActive ? 'Live' : market.settled ? 'Settled' : 'Ended'}
+        </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-gray-900/50 rounded-lg p-3">
-          <div className="text-xs text-gray-400 mb-1">Total Staked</div>
-          <div className="text-lg font-bold text-green-400">
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="p-2.5 bg-black/20 rounded-lg">
+          <div className="text-[11px] text-gray-500 mb-0.5">Staked</div>
+          <div className="text-sm font-bold text-emerald-400 tabular-nums">
             {formatPrice(market.totalStaked, 18)} ETH
           </div>
         </div>
-        <div className="bg-gray-900/50 rounded-lg p-3">
-          <div className="text-xs text-gray-400 mb-1">Participants</div>
-          <div className="text-lg font-bold text-blue-400">
-            {market.playersCount} 👥
+        <div className="p-2.5 bg-black/20 rounded-lg">
+          <div className="text-[11px] text-gray-500 mb-0.5">Players</div>
+          <div className="text-sm font-bold text-blue-400 tabular-nums">
+            {market.playersCount}
           </div>
         </div>
       </div>
 
       {market.settled ? (
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-          <div className="text-sm text-gray-300 mb-1">Final Price</div>
-          <div className="text-2xl font-bold text-blue-300">
+        <div className="p-3 bg-blue-500/[0.06] border border-blue-500/10 rounded-lg">
+          <div className="text-[11px] text-gray-400 mb-0.5">Final Price</div>
+          <div className="text-xl font-bold text-blue-300 tabular-nums">
             ${formatPrice(market.actualPrice, 18)}
           </div>
         </div>
       ) : isActive ? (
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-400">Time Remaining</span>
-            <span className="font-bold text-green-400">
-              {hours}h {minutes}m
-            </span>
+          {/* Time progress */}
+          <div>
+            <div className="flex items-center justify-between text-[11px] mb-1.5">
+              <span className="text-gray-500">Time remaining</span>
+              <span className="font-semibold text-emerald-400 tabular-nums">{hours}h {minutes}m</span>
+            </div>
+            <div className="progress-bar">
+              <div
+                className="progress-bar-fill bg-gradient-to-r from-emerald-500 to-blue-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
           </div>
+
           {onPredict && (
             <button
               onClick={onPredict}
-              className="w-full btn-shine text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105"
+              className="w-full btn-primary text-white font-semibold py-2.5 px-4 rounded-lg text-sm"
             >
-              📊 Make Prediction
+              Predict
             </button>
           )}
         </div>
       ) : (
-        <div className="text-center py-3 text-gray-500">
-          Market ended, waiting for settlement
+        <div className="text-center py-2 text-xs text-gray-500">
+          Awaiting settlement
         </div>
       )}
     </motion.div>

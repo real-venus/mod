@@ -3,10 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 const GAMMA_API = "https://gamma-api.polymarket.com";
 const DATA_API = "https://data-api.polymarket.com";
 
-const DATA_ENDPOINTS = new Set([
-  "positions", "trades", "activity", "value", "holders", "leaderboard",
-  "profit-leaderboard", "volume-leaderboard",
-]);
+const DATA_PREFIXES = ["positions", "trades", "activity", "value", "holders", "v1/"];
+
+function isDataEndpoint(endpoint: string): boolean {
+  return DATA_PREFIXES.some((p) => endpoint === p || endpoint.startsWith(p));
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     if (k !== "endpoint") params.set(k, v);
   });
 
-  const baseUrl = DATA_ENDPOINTS.has(endpoint) ? DATA_API : GAMMA_API;
+  const baseUrl = isDataEndpoint(endpoint) ? DATA_API : GAMMA_API;
   const url = `${baseUrl}/${endpoint}?${params.toString()}`;
 
   try {

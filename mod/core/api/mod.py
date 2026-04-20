@@ -16,6 +16,8 @@ class Api:
     folder_path = m.abspath('~/.mod/api')
     threads = {}
 
+    _worker_started = False
+
     def __init__(self, key=None, store=None, auth='auth.base'):
         store = store or m.config('api').get('store', 'localfs')
         self.store = m.mod(store)()
@@ -26,6 +28,9 @@ class Api:
             self._meter = m.mod('meter')()
         except Exception:
             self._meter = None
+        if not Api._worker_started:
+            Api._worker_started = True
+            self._reg.start_worker(interval=300)
 
     def _record(self, user: str, fn: str, duration: float, status: str = 'success', **kw):
         """Record usage in the meter if available."""
@@ -213,6 +218,18 @@ class Api:
 
     def schema(self, mod='store', key=None) -> Dict[str, Any]:
         return self._reg.schema(mod=mod, key=key)
+
+    def sync_schemas(self, search=None, depth=1) -> Dict[str, str]:
+        return self._reg.sync_schemas(search=search, depth=depth)
+
+    def start_worker(self, interval=300) -> dict:
+        return self._reg.start_worker(interval=interval)
+
+    def stop_worker(self) -> dict:
+        return self._reg.stop_worker()
+
+    def worker_status(self) -> dict:
+        return self._reg.worker_status()
 
     def setback(self, mod: str, cid: str, key=None, safety=True) -> Dict[str, Any]:
         return self._reg.setback(mod, cid, key=key, safety=safety)

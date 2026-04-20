@@ -1,0 +1,26 @@
+{
+    admin localhost:2099
+}
+
+modc2.com {
+    handle /* {
+        reverse_proxy localhost:3000
+    }
+}
+
+api.modc2.com {
+    @cors_preflight method OPTIONS
+
+    header Access-Control-Allow-Origin "https://modc2.com"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Content-Type, Accept, Authorization, token"
+    header Access-Control-Max-Age "3600"
+
+    handle @cors_preflight {
+        respond 204
+    }
+
+    handle /* {
+        reverse_proxy localhost:8000
+    }
+}

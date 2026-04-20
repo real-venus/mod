@@ -17,6 +17,7 @@ Caching: all public methods cache to disk. Pass update=1 to force refresh.
 import json
 import hashlib
 import os
+import signal
 import struct
 import subprocess
 import time
@@ -381,8 +382,15 @@ class Mod:
         return result or '0x'
 
     def _get_block_number(self, chain):
+        cache_key = f'_block_{chain}'
+        if cache_key in self._token_cache:
+            ts, bn = self._token_cache[cache_key]
+            if time.time() - ts < 4:  # 4s cache — covers one operation
+                return bn
         result = self._rpc_call(chain, 'eth_blockNumber', [])
-        return int(result, 16)
+        bn = int(result, 16)
+        self._token_cache[cache_key] = (time.time(), bn)
+        return bn
 
     def _estimate_block_at(self, chain, seconds_ago):
         current = self._get_block_number(chain)
@@ -1298,97 +1306,63 @@ class Mod:
     api_port = 50088
     app_port = 3088
 
-    def serve(self, api_port=None, app_port=None, dev=True, api_only=False, app_only=False):
-        """
-        Start the Uniswap API server and/or Next.js app via PM2.
-
-        Args:
-            api_port:  FastAPI port (default 50088)
-            app_port:  Next.js port (default 3088)
-            dev:       dev mode with hot reload (default True)
-            api_only:  only start the API
-            app_only:  only start the app
-        """
+    def serve(self, api_port=None, app_port=None, dev=True):
+        """Start the FastAPI server and Next.js app."""
         api_port = api_port or self.api_port
         app_port = app_port or self.app_port
         results = {}
+        log_dir = Path('/tmp/uniswap')
+        log_dir.mkdir(parents=True, exist_ok=True)
 
-        if not app_only:
-            results['api'] = self._serve_api(api_port, dev=dev)
-        if not api_only:
-            results['app'] = self._serve_app(app_port, api_port=api_port, dev=dev)
+        self.kill()
 
+        # API — uniswap/api.py lives inside the package dir
+        api_dir = Path(__file__).parent
+        api_path = api_dir / 'api.py'
+        if api_path.exists():
+            env = os.environ.copy()
+            env['PORT'] = str(api_port)
+            env['PYTHONPATH'] = str(self._dir)
+            api_log = open(log_dir / 'api.log', 'w')
+            cmd = ['python3', '-m', 'uvicorn', 'api:app', '--host', '0.0.0.0',
+                   '--port', str(api_port)]
+            if dev:
+                cmd.append('--reload')
+            subprocess.Popen(cmd, cwd=str(api_dir), env=env,
+                             stdout=api_log, stderr=subprocess.STDOUT)
+            results['api'] = f'http://localhost:{api_port}'
+
+        # App — Next.js
+        app_dir = self._dir / 'app'
+        if app_dir.exists():
+            if not (app_dir / 'node_modules').exists():
+                subprocess.run(['npm', 'install'], cwd=str(app_dir), capture_output=True)
+            env = os.environ.copy()
+            env['NEXT_PUBLIC_API_URL'] = f'http://localhost:{api_port}'
+            env['PORT'] = str(app_port)
+            app_log = open(log_dir / 'app.log', 'w')
+            cmd = ['npx', 'next', 'dev' if dev else 'start', '-p', str(app_port)]
+            subprocess.Popen(cmd, cwd=str(app_dir), env=env,
+                             stdout=app_log, stderr=subprocess.STDOUT)
+            results['app'] = f'http://localhost:{app_port}'
+
+        results['logs'] = str(log_dir)
         return results
 
-    def _serve_api(self, port=None, dev=True):
-        port = port or self.api_port
-        cwd = str(self._dir / 'server')
-        cmd = f'uvicorn server:app --host 0.0.0.0 --port {port}' + (' --reload' if dev else '')
-
-        script = os.path.join(cwd, '_serve.sh')
-        with open(script, 'w') as f:
-            f.write(f'#!/bin/bash\ncd {cwd}\n{cmd}\n')
-        os.chmod(script, 0o755)
-
-        try:
-            import mod as m
-            pm2 = m.mod('pm.pm2')()
-            name = 'uniswap-api'
-            if pm2.exists(name):
-                pm2.kill(name, remove_script=False)
-            pm2.start_script(name=name, script_path=script, cwd=cwd, interpreter='bash')
-            return {'status': 'running', 'port': port, 'manager': 'pm2', 'name': name}
-        except Exception:
-            proc = subprocess.Popen(['bash', script], cwd=cwd)
-            return {'status': 'running', 'port': port, 'manager': 'subprocess', 'pid': proc.pid}
-
-    def _serve_app(self, port=None, api_port=None, dev=True):
-        port = port or self.app_port
-        api_port = api_port or self.api_port
-        cwd = str(self._dir / 'app')
-
-        if not os.path.exists(os.path.join(cwd, 'node_modules')):
-            subprocess.run(['npm', 'install'], cwd=cwd, capture_output=True)
-
-        cmd = f'npm run {"dev" if dev else "start"} -- -p {port}'
-
-        script = os.path.join(cwd, '_serve.sh')
-        with open(script, 'w') as f:
-            f.write(f'#!/bin/bash\ncd {cwd}\nexport NEXT_PUBLIC_API_URL=http://localhost:{api_port}\n{cmd}\n')
-        os.chmod(script, 0o755)
-
-        try:
-            import mod as m
-            pm2 = m.mod('pm.pm2')()
-            name = 'uniswap-app'
-            if pm2.exists(name):
-                pm2.kill(name, remove_script=False)
-            pm2.start_script(name=name, script_path=script, cwd=cwd, interpreter='bash')
-            return {'status': 'running', 'port': port, 'manager': 'pm2', 'name': name}
-        except Exception:
-            proc = subprocess.Popen(['bash', script], cwd=cwd)
-            return {'status': 'running', 'port': port, 'manager': 'subprocess', 'pid': proc.pid}
-
-    def kill(self, service=None):
-        """
-        Stop running services.
-
-        Args:
-            service: 'api', 'app', or None (both)
-        """
-        results = {}
-        try:
-            import mod as m
-            pm2 = m.mod('pm.pm2')()
-            if service in (None, 'api') and pm2.exists('uniswap-api'):
-                pm2.kill('uniswap-api')
-                results['api'] = 'killed'
-            if service in (None, 'app') and pm2.exists('uniswap-app'):
-                pm2.kill('uniswap-app')
-                results['app'] = 'killed'
-        except Exception as e:
-            results['error'] = str(e)
-        return results
+    def kill(self):
+        """Stop all uniswap services."""
+        killed = []
+        for pattern in [f'uvicorn.*{self.api_port}', f'next.*{self.app_port}']:
+            try:
+                result = subprocess.run(['pgrep', '-f', pattern],
+                                        capture_output=True, text=True)
+                for pid in result.stdout.strip().split('\n'):
+                    if pid:
+                        os.kill(int(pid), signal.SIGTERM)
+                        killed.append(pid)
+            except Exception:
+                pass
+        return {'killed': killed}
 
     # ── Explorer — discover all token prices from recent blocks ──
 

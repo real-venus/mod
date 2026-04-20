@@ -13,6 +13,13 @@ class Mod:
     Supports chat completions, streaming, model listing, and key management.
     """
 
+    fns = [
+        'forward', 'history', 'resolve_model',
+        'api_key', 'keys', 'add_key', 'set_keys', 'set_key', 'rm_key',
+        'model2info', 'models', 'model_infos', 'model_info', 'filter_models',
+        'pricing', 'test', 'env',
+    ]
+
     api_path = 'apikeys'
     env_varname = 'VENICE_API_KEY'
 

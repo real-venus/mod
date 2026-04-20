@@ -17,6 +17,7 @@ import ModManage from '@/mod/manage/ModManage'
 import ModServer from '@/mod/server/ModServer'
 import ModInfo from '@/mod/info/ModInfo'
 import ModContent from '@/mod/content/ModContent'
+import { LogsViewer } from '@/mod/LogsViewer'
 
 const defaultTab = 'info'
 export default function ModulePage() {
@@ -227,13 +228,14 @@ export default function ModulePage() {
       }}
     >
       <main className="relative flex-1 px-4 pt-2 pb-4">
-        <div className="w-full">
+        <div className="w-full" style={{ height: activeTab === 'logs' ? 'calc(100vh - 70px)' : 'auto' }}>
           {activeTab === 'info' && <ModInfo mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'content' && mod.public !== false && <ModContent mod={mod} />}
           {activeTab === 'task' && <ModTask mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'terminal' && <ModTerminal mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'app' && <ModApp mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'api' && <ModApiTab mod={mod} moduleColor={moduleColor} />}
+          {activeTab === 'logs' && <LogsViewer modName={mod.name} token={client?.token} moduleColor={moduleColor} />}
           {activeTab === 'versions' && <ModVersions mod={mod} selectedVersionIndex={selectedVersionIndex} onVersionChange={handleVersionChange} />}
           {activeTab === 'manage' && <ModManage mod={mod} moduleColor={moduleColor} />}
           {activeTab === 'server' && <ModServer mod={mod} moduleColor={moduleColor} />}

@@ -4,16 +4,11 @@ import json
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
-from pathlib import Path
 
-# Add prefi root to path so `prefi.mod` import works,
-# and add mod root so `mod` package imports work inside Mod
-prefi_root = os.path.join(os.path.dirname(__file__), '..')
-mod_root = os.path.join(prefi_root, '..', '..', '..')
-sys.path.insert(0, prefi_root)
-sys.path.insert(0, mod_root)
+prefi_src = os.path.join(os.path.dirname(__file__), '..')
+sys.path.insert(0, prefi_src)
 
-app = FastAPI(title="PreFi API", version="1.0.0")
+app = FastAPI(title="PreFi API", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 _mod = None
@@ -21,8 +16,8 @@ _mod = None
 def get_mod():
     global _mod
     if _mod is None:
-        from prefi.mod import Mod
-        config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
+        from mod import Mod
+        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config.json')
         config = {}
         if os.path.exists(config_path):
             with open(config_path) as f:
@@ -31,7 +26,7 @@ def get_mod():
     return _mod
 
 
-# ── Health & Status ────────────────────────────────────────────────
+# ── Health & Status ──────────────────────────────────────────────
 
 @app.get("/health")
 def health():
@@ -42,67 +37,130 @@ def status():
     return get_mod().status()
 
 
-# ── Markets ────────────────────────────────────────────────────────
+# ── Markets ──────────────────────────────────────────────────────
 
 @app.get("/markets")
 def list_markets():
     return get_mod().list_markets()
 
-@app.get("/markets/{market_id}")
-def get_market(market_id: int):
-    result = get_mod().get_market(market_id)
+@app.post("/markets/add")
+def add_market(
+    token: str = Query(..., description="Token contract address"),
+    symbol: str = Query(..., description="Token symbol e.g. WETH"),
+    fee_tier: int = Query(3000, description="Uniswap V3 fee tier (500, 3000, 10000)"),
+):
+    return get_mod().add_market(token, symbol, fee_tier)
+
+
+# ── Positions ────────────────────────────────────────────────────
+
+@app.post("/position/open")
+def open_position(
+    asset: str = Query(..., description="Asset symbol e.g. WETH"),
+    amount: float = Query(..., description="USDC amount to invest"),
+    address: str = Query(..., description="Trader address"),
+):
+    result = get_mod().open_position(asset, amount, address)
     if 'error' in result:
-        raise HTTPException(status_code=404, detail=result['error'])
+        raise HTTPException(status_code=400, detail=result['error'])
     return result
 
-@app.post("/markets")
-def create_market(
-    asset: str = Query(..., description="Asset pair e.g. ETH/USD"),
-    token_address: str = Query(..., description="Token address for oracle"),
-    duration: int = Query(86400, description="Duration in seconds"),
+@app.post("/position/close")
+def close_position(
+    position_id: int = Query(..., description="Position ID"),
+    address: str = Query(..., description="Trader address"),
 ):
-    return get_mod().create_market(asset, token_address, duration)
+    result = get_mod().close_position(position_id, address)
+    if 'error' in result:
+        raise HTTPException(status_code=400, detail=result['error'])
+    return result
 
-@app.post("/markets/{market_id}/resolve")
-def resolve_market(
-    market_id: int,
-    actual_price: str = Query(..., description="Actual price (human readable e.g. '3500.50')"),
+@app.get("/positions/{address}")
+def get_positions(address: str):
+    return get_mod().get_positions(address)
+
+
+# ── Staking ──────────────────────────────────────────────────────
+
+@app.post("/stake/lock")
+def lock_prefi(
+    amount: float = Query(..., description="PREFI amount to lock"),
+    duration: int = Query(..., description="Lock duration in seconds (min 604800 = 1 week)"),
+    address: str = Query(..., description="Staker address"),
 ):
-    return get_mod().resolve_market(market_id, actual_price)
+    result = get_mod().lock_prefi(amount, duration, address)
+    if 'error' in result:
+        raise HTTPException(status_code=400, detail=result['error'])
+    return result
 
-
-# ── Predictions ────────────────────────────────────────────────────
-
-@app.get("/predictions/{address}")
-def get_predictions(address: str):
-    return get_mod().get_user_predictions(address)
-
-@app.post("/predictions")
-def place_prediction(
-    market_id: int = Query(...),
-    predicted_price: str = Query(..., description="Predicted price (human readable)"),
-    stake_amount: str = Query(..., description="Stake amount (human readable)"),
-    address: str = Query(..., description="Player address"),
+@app.post("/stake/extend")
+def extend_lock(
+    stake_id: int = Query(..., description="Stake ID to extend"),
+    duration: int = Query(..., description="Additional lock duration in seconds"),
+    address: str = Query(..., description="Staker address"),
 ):
-    return get_mod().record_prediction(market_id, address, predicted_price, stake_amount)
+    result = get_mod().extend_lock(stake_id, duration, address)
+    if 'error' in result:
+        raise HTTPException(status_code=400, detail=result['error'])
+    return result
 
-@app.post("/predictions/{market_id}/claim")
-def claim_reward(market_id: int, address: str = Query(...)):
-    return get_mod().record_claim(market_id, address)
+@app.post("/stake/unlock")
+def unlock_prefi(
+    stake_id: int = Query(..., description="Stake ID"),
+    address: str = Query(..., description="Staker address"),
+):
+    result = get_mod().unlock_prefi(stake_id, address)
+    if 'error' in result:
+        raise HTTPException(status_code=400, detail=result['error'])
+    return result
+
+@app.get("/stakes/{address}")
+def get_stakes(address: str):
+    return get_mod().get_stakes(address)
 
 
-# ── Leaderboard & Rewards ─────────────────────────────────────────
+# ── Treasury ─────────────────────────────────────────────────────
+
+@app.get("/treasury")
+def treasury():
+    return get_mod().treasury()
+
+@app.get("/treasury/history")
+def treasury_history():
+    return get_mod().treasury_history()
+
+@app.post("/treasury/distribute")
+def distribute_rewards(
+    amount: Optional[float] = Query(None, description="Amount to distribute (default: all)"),
+):
+    result = get_mod().deposit_rewards(amount)
+    if 'error' in result:
+        raise HTTPException(status_code=400, detail=result['error'])
+    return result
+
+@app.post("/treasury/claim")
+def claim_treasury(
+    epoch: int = Query(..., description="Epoch number to claim"),
+    address: str = Query(..., description="Staker address"),
+):
+    result = get_mod().claim_treasury(epoch, address)
+    if 'error' in result:
+        raise HTTPException(status_code=400, detail=result['error'])
+    return result
+
+
+# ── Leaderboard & Portfolio ──────────────────────────────────────
 
 @app.get("/leaderboard")
-def leaderboard(market_id: Optional[int] = Query(None)):
-    return get_mod().leaderboard(market_id)
+def leaderboard():
+    return get_mod().leaderboard()
 
-@app.get("/rewards/{address}")
-def get_rewards(address: str, market_id: Optional[int] = Query(None)):
-    return get_mod().get_rewards(address, market_id)
+@app.get("/portfolio/{address}")
+def portfolio(address: str):
+    return get_mod().portfolio(address)
 
 
-# ── Prices ─────────────────────────────────────────────────────────
+# ── Prices ───────────────────────────────────────────────────────
 
 @app.get("/prices")
 def get_prices():
@@ -113,24 +171,11 @@ def get_asset_price(asset: str):
     return get_mod().get_asset_price(asset)
 
 
-# ── Deployment Info ────────────────────────────────────────────────
+# ── Deployment ───────────────────────────────────────────────────
 
 @app.get("/deployment")
 def deployment():
     return get_mod().get_deployment_info()
-
-@app.get("/config")
-def config():
-    m = get_mod()
-    return {
-        'api_port': m.api_port,
-        'app_port': m.app_port,
-        'network': m.network,
-        'contracts': m.contracts,
-    }
-
-
-# ── Test ───────────────────────────────────────────────────────────
 
 @app.get("/test")
 def test():
@@ -140,4 +185,4 @@ def test():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8830))
-    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("api:app", host="0.0.0.0", port=port, reload=True)

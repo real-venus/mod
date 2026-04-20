@@ -16,7 +16,7 @@ _mod = None
 def get_mod():
     global _mod
     if _mod is None:
-        from mod import Polymarket
+        from polymarket.mod import Polymarket
         pk = os.environ.get("POLYMARKET_PRIVATE_KEY")
         db = os.environ.get("POLYMARKET_DB_PATH")
         _mod = Polymarket(private_key=pk, db_path=db)

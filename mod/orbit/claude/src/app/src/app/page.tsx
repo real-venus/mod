@@ -203,6 +203,10 @@ export default function Home() {
   const [togglingModule, setTogglingModule] = useState(false);
   const [togglingApi, setTogglingApi] = useState(false);
   const [togglingApp, setTogglingApp] = useState(false);
+  const [moduleLogs, setModuleLogs] = useState<Record<string, string>>({});
+  const [moduleLogsOpen, setModuleLogsOpen] = useState<"api" | "app" | null>(null);
+  const [moduleLogsLoading, setModuleLogsLoading] = useState(false);
+  const [moduleLogsAutoRefresh, setModuleLogsAutoRefresh] = useState(false);
   const [expandedAsks, setExpandedAsks] = useState<Set<string>>(new Set());
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
   const [expandedJobImage, setExpandedJobImage] = useState<string | null>(null);
@@ -2098,6 +2102,44 @@ export default function Home() {
     await startProcess(target);
   }, [getPortForTarget, authFetch, startProcess]);
 
+  // Fetch module logs (API and App)
+  const fetchModuleLogs = useCallback(async () => {
+    if (!selectedModule || !token) return;
+    setModuleLogsLoading(true);
+    try {
+      const res = await authFetch("/forward", {
+        method: "POST",
+        body: JSON.stringify({ fn: "app_logs", name: selectedModule, lines: 200 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data === "object" && !data.error) {
+          setModuleLogs(typeof data === "string" ? { stdout: data } : data);
+        }
+      }
+    } catch { /* ignore */ }
+    setModuleLogsLoading(false);
+  }, [selectedModule, token, authFetch]);
+
+  // Auto-refresh logs
+  useEffect(() => {
+    if (!moduleLogsAutoRefresh || !moduleLogsOpen) return;
+    const iv = setInterval(fetchModuleLogs, 4000);
+    return () => clearInterval(iv);
+  }, [moduleLogsAutoRefresh, moduleLogsOpen, fetchModuleLogs]);
+
+  // Fetch logs when opened
+  useEffect(() => {
+    if (moduleLogsOpen) fetchModuleLogs();
+  }, [moduleLogsOpen]);
+
+  // Reset logs when switching modules
+  useEffect(() => {
+    setModuleLogs({});
+    setModuleLogsOpen(null);
+    setModuleLogsAutoRefresh(false);
+  }, [selectedModule]);
+
   // Legacy toggle (used by old single button, kept for compat)
   const toggleModule = useCallback(async () => {
     if (!selectedModuleInfo || !token || togglingModule) return;
@@ -3498,6 +3540,22 @@ export default function Home() {
                   </button>
                 </div>
 
+                {/* Active module indicator */}
+                {selectedModule && (
+                  <span
+                    className="px-2 py-1 text-[12px] font-pixel uppercase tracking-wide border rounded"
+                    style={{
+                      color: "#fbbf24",
+                      borderColor: "rgba(251,191,36,0.35)",
+                      background: "rgba(251,191,36,0.08)",
+                      letterSpacing: "0.04em",
+                    }}
+                    title={`Module: ${selectedModule}`}
+                  >
+                    {selectedModule}
+                  </span>
+                )}
+
                 {/* Mode selector: edit/ fork/ new/ */}
                 <div className="flex items-center border rounded overflow-hidden" style={{ borderColor: "rgba(251,191,36,0.25)" }}>
                   {(["edit", "fork", "new"] as const).map((md) => (
@@ -3998,235 +4056,339 @@ export default function Home() {
       return matchesSearch && matchesStatus && matchesModule;
     });
 
+    const runningCount = filteredJobs.filter(j => j.status === "running").length;
+    const isRunning = selectedJobData?.status === "running";
+    const output = streamOutput || selectedJobData?.output || "";
+    const MODEL_CHIPS = [
+      { value: "opus", label: "Opus", color: "#a78bfa" },
+      { value: "sonnet", label: "Sonnet", color: "#60a5fa" },
+      { value: "haiku", label: "Haiku", color: "#34d399" },
+    ];
+    const activeModelChip = MODEL_CHIPS.find(m => m.value === model) || MODEL_CHIPS[0];
+
     return (
       <div className="flex-1 flex flex-col overflow-hidden" style={{ background: "var(--bg-primary)" }}>
-        {/* Top: Input Area */}
-        <div className="border-b flex flex-col shrink-0" style={{ borderColor: subtleBorder, background: tintBg }}>
-          <div className="p-3">
-            <div
-              className="border relative flex flex-col overflow-hidden rounded-xl"
-              style={{ background: darkOverlay, borderColor: subtleBorder }}
+        {/* ── Header ── */}
+        <div
+          className="flex items-center justify-between px-3 py-2 shrink-0"
+          style={{ borderBottom: `1px solid ${subtleBorder}`, background: tintBg }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[13px]" style={{ color: "#a78bfa" }}>⬡</span>
+            <span
+              className="text-[12px] font-bold uppercase tracking-wider"
+              style={{ color: "#a78bfa", textShadow: "0 0 8px rgba(167, 139, 250, 0.4)" }}
             >
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe what Claude should do... [Enter=submit, Shift+Enter=newline]"
-                className="w-full p-4 pb-2 text-[15px] resize-none rounded-none bg-transparent border-0 outline-none"
-                style={{ lineHeight: "1.6", color: "var(--text-primary)", minHeight: "60px", maxHeight: "200px" }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    submitJob();
-                  }
-                }}
-                onPaste={(e) => {
-                  const items = e.clipboardData?.items;
-                  if (!items) return;
-                  for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.startsWith("image/")) {
-                      e.preventDefault();
-                      const file = items[i].getAsFile();
-                      if (!file) continue;
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const base64 = reader.result as string;
-                        setImages((prev) => [...prev, { name: file.name || `image-${Date.now()}.png`, data: base64 }]);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }
-                }}
-              />
-              <div className="flex items-center gap-2 px-3 py-2 border-t border-crt-amber/20 shrink-0" style={{ background: darkOverlayStrong }}>
-                <select
-                  value={model}
-                  onChange={(e) => { setModel(e.target.value); localStorage.setItem("claude_jobs_model", e.target.value); }}
-                  className="px-2 py-1 text-[13px] bg-transparent border font-pixel uppercase cursor-pointer hover:border-opacity-60 transition-colors"
-                  style={{ borderColor: "var(--border-color)", color: "var(--crt-green)", maxWidth: "160px" }}
-                >
-                  <option value="opus">Opus 4.6</option>
-                  <option value="sonnet">Sonnet 4.5</option>
-                  <option value="haiku">Haiku 4.5</option>
-                </select>
-                <select
-                  value={agentType}
-                  onChange={(e) => { setAgentType(e.target.value); localStorage.setItem("claude_jobs_agent", e.target.value); }}
-                  className="px-2 py-1 text-[13px] bg-transparent border font-pixel uppercase cursor-pointer hover:border-opacity-60 transition-colors"
-                  style={{ borderColor: "var(--border-color)", color: "var(--crt-blue, #60a5fa)", maxWidth: "160px" }}
-                >
-                  {AGENT_OPTIONS.map((a) => (
-                    <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
-                  ))}
-                </select>
-                {images.length > 0 && (
-                  <div className="flex items-center">
-                    <span className="text-[14px] px-2 py-1 border border-crt-blue/30 text-crt-blue/70 uppercase" style={{ letterSpacing: "0" }}>
-                      {images.length} IMG{images.length > 1 ? "S" : ""}
+              Agent
+            </span>
+            {runningCount > 0 && (
+              <span className="flex items-center gap-1 text-[10px] font-bold" style={{ color: "#3b82f6" }}>
+                <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#3b82f6" }} />
+                {runningCount} active
+              </span>
+            )}
+            {error && (
+              <span className="text-[10px] truncate" style={{ color: "var(--crt-red)" }}>{error}</span>
+            )}
+          </div>
+          <button
+            onClick={() => setAgentSidebarOpen(false)}
+            className="flex items-center justify-center transition-all rounded"
+            style={{ width: "24px", height: "24px", color: "var(--text-tertiary)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--text-primary)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-tertiary)")}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* ── Model selector ── */}
+        <div className="flex items-center gap-1.5 px-3 py-2 shrink-0" style={{ borderBottom: `1px solid ${subtleBorder}`, background: tintBg }}>
+          {MODEL_CHIPS.map(m => (
+            <button
+              key={m.value}
+              onClick={() => { setModel(m.value); localStorage.setItem("claude_jobs_model", m.value); }}
+              className="px-2.5 py-1 transition-all"
+              style={{
+                fontSize: "11px",
+                fontWeight: model === m.value ? 600 : 400,
+                background: model === m.value ? `${m.color}18` : "transparent",
+                border: model === m.value ? `1px solid ${m.color}40` : "1px solid transparent",
+                color: model === m.value ? m.color : "var(--text-tertiary)",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+          <div className="flex-1" />
+          <select
+            value={agentType}
+            onChange={(e) => { setAgentType(e.target.value); localStorage.setItem("claude_jobs_agent", e.target.value); }}
+            className="px-1.5 py-0.5 text-[10px] bg-transparent border uppercase cursor-pointer transition-colors"
+            style={{ borderColor: subtleBorder, color: "var(--crt-blue)", borderRadius: "4px" }}
+          >
+            {AGENT_OPTIONS.map((a) => (
+              <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* ── Main content area ── */}
+        <div ref={outputRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+          {selectedJobData ? (
+            <div className="flex flex-col h-full">
+              {/* Job header */}
+              <div className="px-3 py-2.5 shrink-0" style={{ borderBottom: `1px solid ${subtleBorder}`, background: tintBg }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] ${isRunning ? "led-pulse" : ""}`} style={{ color: STATUS_COLOR[selectedJobData.status] }}>
+                      {STATUS_ICON[selectedJobData.status]}
                     </span>
-                    <button onClick={() => setImages([])} className="text-[14px] text-crt-red/60 hover:text-crt-red ml-1 transition-colors" title="Clear all images">✕</button>
+                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: STATUS_COLOR[selectedJobData.status] }}>
+                      {STATUS_LABEL[selectedJobData.status]}
+                    </span>
+                    <span className="text-[10px] uppercase" style={{ color: "var(--text-tertiary)" }}>
+                      {selectedJobData.model}
+                    </span>
+                    <span className="text-[10px] font-mono" style={{ color: "var(--text-tertiary)", opacity: 0.6 }}>
+                      {selectedJobData.id.slice(0, 8)}
+                    </span>
                   </div>
-                )}
-                <div className="flex-1" />
-                {selectedJobData && (
-                  <div className="flex items-center gap-2 mr-2">
-                    <span className="text-[13px]" style={{ color: STATUS_COLOR[selectedJobData.status] }}>
-                      {STATUS_ICON[selectedJobData.status]} {STATUS_LABEL[selectedJobData.status]}
-                    </span>
-                    {(selectedJobData.status === "running" || selectedJobData.status === "pending") && (
+                  <div className="flex items-center gap-1.5">
+                    {isRunning && (
                       <button
                         onClick={() => cancelJob(selectedJobData.id)}
-                        className="text-[10px] px-1.5 py-0.5 border border-red-500/20 text-red-400/50 hover:bg-red-500/10 hover:text-red-400 transition-all uppercase"
+                        className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded transition-all"
+                        style={{ color: "var(--crt-red)", border: "1px solid rgba(239,68,68,0.3)" }}
                       >
-                        CANCEL
+                        STOP
+                      </button>
+                    )}
+                    {["completed", "failed", "cancelled"].includes(selectedJobData.status) && (
+                      <button
+                        onClick={() => deleteJob(selectedJobData.id)}
+                        className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded transition-all"
+                        style={{ color: "var(--text-tertiary)", border: `1px solid ${subtleBorder}` }}
+                      >
+                        DELETE
                       </button>
                     )}
                     <button
                       onClick={() => { setSelectedJob(null); setStreamOutput(""); }}
-                      className="text-[13px] text-crt-green/30 hover:text-crt-red transition-colors"
-                      title="Deselect"
+                      className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded transition-all"
+                      style={{ color: "var(--text-tertiary)", border: `1px solid ${subtleBorder}` }}
                     >
-                      ✕
+                      BACK
                     </button>
                   </div>
-                )}
-                <button
-                  onClick={submitJob}
-                  disabled={submitting || !prompt.trim()}
-                  className="pixel-btn text-[13px] py-1.5 px-6 uppercase"
-                  style={{ letterSpacing: "0.02em" }}
-                >
-                  {submitting ? <span className="animate-pulse">...</span> : "Run"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom: Output (left) | Tasks (right) split */}
-        <div className="flex-1 flex flex-row overflow-hidden min-w-0">
-          {/* Left: Output Area */}
-          <div ref={outputRef} className="flex-1 overflow-y-auto">
-            {selectedJobData ? (
-              <pre
-                className="px-6 pt-4 pb-8 m-0 whitespace-pre-wrap text-[13px] leading-relaxed font-mono"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {(streamOutput || selectedJobData.output)
-                  ? renderOutput(streamOutput || selectedJobData.output)
-                  : (selectedJobData.status === "pending" ? (
-                    <span style={{ color: "var(--crt-amber)", opacity: 0.7 }}>{"Queued — waiting for worker...\n\n"}</span>
-                  ) : selectedJobData.status === "running" ? (
-                    <span className="led-pulse" style={{ color: "var(--crt-green)", opacity: 0.7 }}>{"Running...\n\n"}</span>
-                  ) : (
-                    <span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>No output</span>
-                  ))}
-              </pre>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center gap-4">
-                <span className="text-[40px] opacity-5">⬡</span>
-                <span className="text-[13px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.2, letterSpacing: "0.08em" }}>
-                  Submit a task or select one from the list
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Right: Task List */}
-          <div className="flex flex-col overflow-hidden" style={{ width: "40%", borderLeft: `1px solid var(--border-color)`, background: "var(--bg-secondary)" }}>
-            {/* Search & Filter */}
-            <div className="border-b px-3 py-1.5 flex items-center gap-2 shrink-0" style={{ borderColor: subtleBorder }}>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter tasks..."
-                className="flex-1 min-w-0 px-1 py-0.5 text-[11px] border-none bg-transparent focus:outline-none placeholder:opacity-20 transition-colors"
-                style={{ color: "var(--text-secondary)" }}
-              />
-              <div className="flex gap-1.5 shrink-0 items-center">
-                {["running", "pending", "completed", "failed", "cancelled"].map((status) => {
-                  const count = jobs.filter(j => j.status === status && (!selectedModule || (j.work_dir && (j.work_dir.includes(`/orbit/${selectedModule}`) || j.work_dir.includes("/orbit/claude"))))).length;
-                  if (count === 0) return null;
-                  const isActive = statusFilter === status;
-                  return (
-                    <button
-                      key={status}
-                      onClick={() => setStatusFilter(isActive ? null : status)}
-                      className="text-[10px] transition-all whitespace-nowrap border-none bg-transparent cursor-pointer"
-                      style={{ color: STATUS_COLOR[status], opacity: isActive ? 0.9 : 0.3 }}
-                    >
-                      {STATUS_ICON[status]}{count}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Job List */}
-            <div className="flex-1 overflow-y-auto">
-              {loading && !jobs.length ? (
-                <div className="p-8 text-center">
-                  <p className="text-[11px] cursor-blink" style={{ color: "var(--text-tertiary)" }}>LOADING JOBS</p>
                 </div>
-              ) : filteredJobs.length === 0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-[11px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>No agent tasks found</p>
+                <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  {selectedJobData.prompt}
+                </p>
+              </div>
+
+              {/* Output */}
+              <div className="flex-1 overflow-y-auto p-3">
+                {output ? (
+                  <pre className="m-0 whitespace-pre-wrap text-[11px] leading-relaxed" style={{ color: "var(--text-primary)", fontFamily: "monospace", wordBreak: "break-word" }}>
+                    {renderOutput(output)}
+                    {isRunning && <span className="inline-block animate-pulse" style={{ color: STATUS_COLOR.running }}>&#9610;</span>}
+                  </pre>
+                ) : (
+                  <div className="flex items-center justify-center h-32">
+                    {isRunning ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#3b82f6" }} />
+                        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#3b82f6", animationDelay: "0.2s" }} />
+                        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#3b82f6", animationDelay: "0.4s" }} />
+                      </div>
+                    ) : (
+                      <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>No output</p>
+                    )}
+                  </div>
+                )}
+
+                {selectedJobData.error && (
+                  <div className="mt-3 p-2.5 rounded-lg" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                    <span className="text-[9px] font-bold uppercase" style={{ color: "var(--crt-red)" }}>Error</span>
+                    <pre className="m-0 mt-1 whitespace-pre-wrap text-[10px]" style={{ color: "var(--crt-red)", fontFamily: "monospace" }}>
+                      {selectedJobData.error}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Job list */
+            <div>
+              {/* Filter bar */}
+              <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 z-10" style={{ borderBottom: `1px solid ${subtleBorder}`, background: "var(--bg-primary)" }}>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="filter..."
+                  className="flex-1 min-w-0 px-1 py-0.5 text-[11px] border-none bg-transparent focus:outline-none placeholder:opacity-20"
+                  style={{ color: "var(--text-secondary)" }}
+                />
+                <div className="flex gap-1 shrink-0 items-center">
+                  {["running", "pending", "completed", "failed"].map((status) => {
+                    const count = filteredJobs.filter(j => j.status === status).length;
+                    if (count === 0) return null;
+                    const isActive = statusFilter === status;
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => setStatusFilter(isActive ? null : status)}
+                        className="text-[10px] transition-all border-none bg-transparent cursor-pointer"
+                        style={{ color: STATUS_COLOR[status], opacity: isActive ? 0.9 : 0.3 }}
+                      >
+                        {STATUS_ICON[status]}{count}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {filteredJobs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3" style={{ opacity: 0.4 }}>
+                  <span className="text-[28px]" style={{ color: "#a78bfa" }}>⬡</span>
+                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                    No tasks yet
+                  </p>
+                  <p className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+                    Submit a prompt below
+                  </p>
                 </div>
               ) : (
-                filteredJobs.map((job) => {
-                  const isSelected = selectedJob === job.id;
+                filteredJobs.map(job => {
                   const color = STATUS_COLOR[job.status];
                   const moduleName = job.work_dir ? extractModuleFromWorkDir(job.work_dir) : null;
                   const { cleanPrompt } = parsePromptImages(job.prompt);
-                  const isDragOver = dragOverJobId === job.id && draggedJobId !== job.id;
                   return (
-                    <div
+                    <button
                       key={job.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, job.id)}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={(e) => handleDragOver(e, job.id)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, job.id)}
                       onClick={() => viewJob(job)}
-                      className="cursor-pointer transition-all duration-150"
-                      style={{
-                        borderBottom: `1px solid ${subtleBorder}`,
-                        borderLeft: isSelected ? `3px solid ${color}` : "3px solid transparent",
-                        borderTop: isDragOver ? "2px solid var(--crt-blue, #60a5fa)" : "2px solid transparent",
-                        background: isSelected ? `${color}08` : isDragOver ? "rgba(96,165,250,0.05)" : "transparent",
-                      }}
+                      className="w-full text-left transition-all group"
+                      style={{ borderBottom: `1px solid ${subtleBorder}` }}
+                      onMouseEnter={e => (e.currentTarget.style.background = tintBgStrong)}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                     >
-                      <div className="px-3 py-2">
+                      <div className="px-3 py-2.5">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5">
-                            <span
-                              className="text-[10px] cursor-grab active:cursor-grabbing select-none"
-                              style={{ color: "var(--text-tertiary)", opacity: 0.3 }}
-                              title="Drag to reorder"
-                            >⠿</span>
                             <span className={`text-[11px] ${job.status === "running" ? "led-pulse" : ""}`} style={{ color }}>{STATUS_ICON[job.status]}</span>
-                            <span className="text-[11px] font-pixel" style={{ color, letterSpacing: "0" }}>{STATUS_LABEL[job.status]}</span>
-                            <span className="text-[10px]" style={{ color: "var(--text-tertiary)", opacity: 0.4 }}>
-                              {job.model === "opus" ? "Op" : job.model === "sonnet" ? "So" : job.model === "haiku" ? "Ha" : job.model}
+                            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color }}>{STATUS_LABEL[job.status]}</span>
+                            <span className="text-[10px] uppercase" style={{ color: "var(--text-tertiary)" }}>
+                              {job.model === "opus" ? "Op" : job.model === "sonnet" ? "So" : "Ha"}
                             </span>
-                            {job.work_dir && moduleName && moduleName !== "claude" && (
+                            {moduleName && moduleName !== "claude" && (
                               <span className="text-[9px] uppercase" style={{ color: "var(--crt-amber)", opacity: 0.4 }}>{moduleName}</span>
                             )}
                           </div>
-                          <span className="text-[10px]" style={{ color: faintGreenText, opacity: 0.5 }}>{timeSince(job.created_at)}</span>
+                          <span className="text-[10px] font-mono" style={{ color: "var(--text-tertiary)" }}>{timeSince(job.created_at)}</span>
                         </div>
-                        <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-secondary)", opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {cleanPrompt.length > 60 ? cleanPrompt.slice(0, 60) + "..." : cleanPrompt}
+                        <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {cleanPrompt}
                         </p>
+                        {/* Hover actions */}
+                        <div className="flex justify-end gap-1.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {job.status === "running" && (
+                            <span
+                              onClick={(e) => { e.stopPropagation(); cancelJob(job.id); }}
+                              className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded cursor-pointer"
+                              style={{ color: "var(--crt-red)", border: "1px solid rgba(239,68,68,0.25)" }}
+                            >
+                              CANCEL
+                            </span>
+                          )}
+                          {["completed", "failed", "cancelled"].includes(job.status) && (
+                            <span
+                              onClick={(e) => { e.stopPropagation(); deleteJob(job.id); }}
+                              className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded cursor-pointer"
+                              style={{ color: "var(--text-tertiary)", border: `1px solid ${subtleBorder}` }}
+                            >
+                              DELETE
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })
               )}
             </div>
-          </div>
+          )}
+        </div>
 
+        {/* ── Input bar (bottom) ── */}
+        <div className="shrink-0 px-3 py-2.5" style={{ borderTop: `1px solid ${subtleBorder}`, background: tintBg }}>
+          <div className="flex gap-1.5 items-center">
+            <input
+              type="text"
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitJob(); } }}
+              onPaste={(e) => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (let i = 0; i < items.length; i++) {
+                  if (items[i].type.startsWith("image/")) {
+                    e.preventDefault();
+                    const file = items[i].getAsFile();
+                    if (!file) continue;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const base64 = reader.result as string;
+                      setImages((prev) => [...prev, { name: file.name || `image-${Date.now()}.png`, data: base64 }]);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }
+              }}
+              placeholder="ask agent..."
+              disabled={submitting}
+              className="flex-1 px-2.5 py-2 rounded-lg border outline-none text-[12px]"
+              style={{
+                backgroundColor: darkOverlay,
+                borderColor: submitting ? `${activeModelChip.color}40` : subtleBorder,
+                color: "var(--text-primary)",
+                fontFamily: "monospace",
+              }}
+              onFocus={e => (e.currentTarget.style.borderColor = activeModelChip.color)}
+              onBlur={e => (e.currentTarget.style.borderColor = subtleBorder)}
+            />
+            <button
+              onClick={submitJob}
+              disabled={!prompt.trim() || submitting}
+              className="px-3 py-2 rounded-lg font-bold transition-all disabled:opacity-30"
+              style={{
+                backgroundColor: `${activeModelChip.color}18`,
+                border: `1px solid ${activeModelChip.color}40`,
+                color: activeModelChip.color,
+              }}
+            >
+              {submitting ? <span className="animate-spin text-[14px]">⟳</span> : "▶"}
+            </button>
+          </div>
+          {images.length > 0 && (
+            <div className="flex items-center gap-1 mt-1.5">
+              <span className="text-[10px] px-1.5 py-0.5 border rounded" style={{ borderColor: "rgba(96,165,250,0.3)", color: "rgba(96,165,250,0.7)" }}>
+                {images.length} IMG{images.length > 1 ? "S" : ""}
+              </span>
+              <button onClick={() => setImages([])} className="text-[11px] transition-colors" style={{ color: "var(--crt-red)", opacity: 0.6 }} title="Clear images">✕</button>
+            </div>
+          )}
+          <div className="flex items-center justify-between mt-1.5 px-0.5">
+            <span className="text-[9px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+              Enter to submit
+            </span>
+            <span className="text-[9px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+              {activeModelChip.label} · {apiUrl.replace("http://", "")}
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -4893,6 +5055,101 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Logs */}
+              {(info?.api_url || info?.app_url) && (
+              <div className="border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
+                <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "var(--border-color)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "0.02em" }}>LOGS</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => { setModuleLogsAutoRefresh(!moduleLogsAutoRefresh); if (!moduleLogsOpen) setModuleLogsOpen("api"); }}
+                      className="text-[9px] px-1.5 py-0.5 rounded-sm border uppercase font-bold transition-all"
+                      style={{
+                        borderColor: moduleLogsAutoRefresh ? "color-mix(in srgb, var(--crt-green) 50%, transparent)" : "color-mix(in srgb, var(--border-color) 50%, transparent)",
+                        color: moduleLogsAutoRefresh ? "var(--crt-green)" : "var(--text-tertiary)",
+                        background: moduleLogsAutoRefresh ? "color-mix(in srgb, var(--crt-green) 8%, transparent)" : "transparent",
+                      }}
+                    >
+                      {moduleLogsAutoRefresh ? "LIVE" : "AUTO"}
+                    </button>
+                    {moduleLogsOpen && (
+                      <button
+                        onClick={fetchModuleLogs}
+                        className="text-[9px] px-1.5 py-0.5 rounded-sm border uppercase font-bold transition-all"
+                        style={{ borderColor: "color-mix(in srgb, var(--border-color) 50%, transparent)", color: "var(--text-tertiary)" }}
+                      >
+                        {moduleLogsLoading ? "..." : "REFRESH"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="p-3 flex flex-col gap-2">
+                  {/* Source tabs */}
+                  <div className="flex items-center gap-1.5">
+                    {info?.api_url && (
+                      <button
+                        onClick={() => setModuleLogsOpen(moduleLogsOpen === "api" ? null : "api")}
+                        className="text-[10px] px-2.5 py-1 rounded-sm border uppercase font-bold transition-all hover:brightness-125"
+                        style={{
+                          borderColor: moduleLogsOpen === "api" ? "color-mix(in srgb, var(--crt-blue) 50%, transparent)" : "color-mix(in srgb, var(--border-color) 50%, transparent)",
+                          color: moduleLogsOpen === "api" ? "var(--crt-blue)" : "var(--text-tertiary)",
+                          background: moduleLogsOpen === "api" ? "color-mix(in srgb, var(--crt-blue) 8%, transparent)" : "transparent",
+                        }}
+                      >
+                        API LOGS
+                      </button>
+                    )}
+                    {info?.app_url && (
+                      <button
+                        onClick={() => setModuleLogsOpen(moduleLogsOpen === "app" ? null : "app")}
+                        className="text-[10px] px-2.5 py-1 rounded-sm border uppercase font-bold transition-all hover:brightness-125"
+                        style={{
+                          borderColor: moduleLogsOpen === "app" ? "color-mix(in srgb, var(--crt-amber) 50%, transparent)" : "color-mix(in srgb, var(--border-color) 50%, transparent)",
+                          color: moduleLogsOpen === "app" ? "var(--crt-amber)" : "var(--text-tertiary)",
+                          background: moduleLogsOpen === "app" ? "color-mix(in srgb, var(--crt-amber) 8%, transparent)" : "transparent",
+                        }}
+                      >
+                        APP LOGS
+                      </button>
+                    )}
+                  </div>
+                  {/* Log output */}
+                  {moduleLogsOpen && (
+                    <div className="border rounded overflow-hidden" style={{ borderColor: moduleLogsOpen === "api" ? "color-mix(in srgb, var(--crt-blue) 25%, transparent)" : "color-mix(in srgb, var(--crt-amber) 25%, transparent)" }}>
+                      <div className="flex items-center justify-between px-3 py-1" style={{ background: moduleLogsOpen === "api" ? "color-mix(in srgb, var(--crt-blue) 4%, transparent)" : "color-mix(in srgb, var(--crt-amber) 4%, transparent)", borderBottom: "1px solid var(--border-color)" }}>
+                        <span className="text-[9px] font-bold uppercase" style={{ color: moduleLogsOpen === "api" ? "var(--crt-blue)" : "var(--crt-amber)", letterSpacing: "0.05em" }}>
+                          {moduleLogsOpen.toUpperCase()} LOGS
+                        </span>
+                        <button onClick={() => setModuleLogsOpen(null)} className="text-[9px] font-bold uppercase" style={{ color: "var(--text-tertiary)", background: "none", border: "none", cursor: "pointer" }}>
+                          CLOSE
+                        </button>
+                      </div>
+                      <pre
+                        className="px-3 py-2 text-[11px] overflow-auto"
+                        style={{
+                          color: "var(--text-secondary)",
+                          fontFamily: "var(--font-code, monospace)",
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-all",
+                          lineHeight: "1.5",
+                          maxHeight: "300px",
+                          background: "var(--bg-primary)",
+                          margin: 0,
+                        }}
+                        ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}
+                      >
+                        {(() => {
+                          const keys = Object.keys(moduleLogs);
+                          const matchKey = keys.find(k => k.toLowerCase().includes(moduleLogsOpen));
+                          return matchKey ? moduleLogs[matchKey] || "(empty)" : keys.length > 0 ? moduleLogs[keys[0]] || "(empty)" : moduleLogsLoading ? "Loading..." : "(no logs found)";
+                        })()}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+              )}
 
               {/* Scripts & Ports */}
               <div className="border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>

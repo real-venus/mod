@@ -1,107 +1,197 @@
-import mod as m
 import subprocess
 import os
+import json
+import socket
+from urllib.parse import urlparse
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+MOD_ROOT = os.path.expanduser('~/mod/mod')
+CADDYFILE = os.path.join(BASE, 'Caddyfile')
+PM2_NAME = 'caddy'
+
 
 class Mod:
-    """Dynamic Caddy reverse proxy manager for module apps."""
+    """Dynamic Caddy reverse proxy manager for mod modules."""
 
     def __init__(self, caddyfile=None):
-        self.caddyfile = caddyfile or os.path.expanduser('~/mod/mod/orbit/caddy/Caddyfile')
+        self.caddyfile = caddyfile or CADDYFILE
 
-    def _get_app_ports(self):
-        """Read installed apps and resolve their ports from config."""
-        ns = m.mod('server.namespace')()
-        installed = ns.store.get('app_installed.json', {})
-        apps = {}
-        for name, info in installed.items():
-            port = info.get('port', 0)
-            if not port or port == 'auto':
-                # Resolve from module config.json
+    def _port(self, url):
+        try:
+            return urlparse(url).port
+        except Exception:
+            return None
+
+    def _live(self, port):
+        if not port:
+            return False
+        try:
+            with socket.create_connection(('localhost', port), timeout=0.3):
+                return True
+        except (ConnectionRefusedError, OSError, socket.timeout):
+            return False
+
+    def _scan(self):
+        """Scan orbit/ and core/ config.json files for urls.app and urls.api."""
+        modules = {}
+        for d in ['orbit', 'core']:
+            search = os.path.join(MOD_ROOT, d)
+            if not os.path.isdir(search):
+                continue
+            for name in sorted(os.listdir(search)):
+                cfg_path = os.path.join(search, name, 'config.json')
+                if not os.path.isfile(cfg_path):
+                    continue
                 try:
-                    config = m.config(name) or {}
-                    port = config.get('app_port', 0)
+                    with open(cfg_path) as f:
+                        cfg = json.load(f)
                 except Exception:
-                    port = 0
-            if port and port != 'auto':
-                apps[name] = int(port)
-        return apps
+                    continue
+                urls = cfg.get('urls') or cfg.get('url') or {}
+                app_url, api_url = urls.get('app'), urls.get('api')
+                if not app_url and not api_url:
+                    continue
+                modules[name] = {
+                    'app_port': self._port(app_url),
+                    'api_port': self._port(api_url),
+                }
+        return modules
 
-    def generate(self, domain='app.modc2.com', api_domain='api.modc2.com',
-                 app_port=3000, api_port=8000):
-        """Generate Caddyfile content from registered/installed apps.
+    def _filter_live(self, modules):
+        """Remove modules with no live ports, null out dead individual ports."""
+        dead = []
+        for name, ports in modules.items():
+            app_live = self._live(ports.get('app_port'))
+            api_live = self._live(ports.get('api_port'))
+            if not app_live and not api_live:
+                dead.append(name)
+            else:
+                if not app_live:
+                    ports['app_port'] = None
+                if not api_live:
+                    ports['api_port'] = None
+        for name in dead:
+            del modules[name]
+        if dead:
+            print(f'Skipped (not live): {", ".join(sorted(dead))}')
+        return modules
 
-        Returns the Caddyfile string with route blocks for each module app,
-        plus catch-all for the main app and a separate API domain block.
-        """
-        apps = self._get_app_ports()
-
-        lines = [f'{domain} {{']
-
-        # Per-module handle blocks
-        for name in sorted(apps):
-            port = apps[name]
-            lines.append(f'    handle /{name}/* {{')
-            lines.append(f'        reverse_proxy localhost:{port}')
-            lines.append(f'    }}')
-
-        # Catch-all for main app
+    def _routes(self, modules, key, default_port):
+        """Build handle blocks for a domain."""
+        lines = []
+        for name in sorted(modules):
+            port = modules[name].get(key)
+            if port and port != default_port:
+                lines.append(f'    handle /{name}/* {{')
+                lines.append(f'        reverse_proxy localhost:{port}')
+                lines.append(f'    }}')
         lines.append(f'    handle /* {{')
-        lines.append(f'        reverse_proxy localhost:{app_port}')
+        lines.append(f'        reverse_proxy localhost:{default_port}')
         lines.append(f'    }}')
-        lines.append(f'}}')
+        return lines
 
-        # API domain
-        lines.append(f'')
-        lines.append(f'{api_domain} {{')
-        lines.append(f'    reverse_proxy localhost:{api_port}')
-        lines.append(f'}}')
-        lines.append('')
+    def generate(self, domain='modc2.com', api_domain='api.modc2.com',
+                 app_port=3000, api_port=8000, admin_port=2099, check_ports=True):
+        """Generate Caddyfile from module config.json urls."""
+        modules = self._scan()
+        if check_ports:
+            modules = self._filter_live(modules)
+
+        origin = f'https://{domain}'
+        lines = [
+            '{',
+            f'    admin localhost:{admin_port}',
+            '}',
+            '',
+            f'{domain} {{',
+            *self._routes(modules, 'app_port', app_port),
+            '}',
+            '',
+            f'{api_domain} {{',
+            '    @cors_preflight method OPTIONS',
+            '',
+            f'    header Access-Control-Allow-Origin "{origin}"',
+            '    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"',
+            '    header Access-Control-Allow-Headers "Content-Type, Accept, Authorization, token"',
+            '    header Access-Control-Max-Age "3600"',
+            '',
+            '    handle @cors_preflight {',
+            '        respond 204',
+            '    }',
+            '',
+            *self._routes(modules, 'api_port', api_port),
+            '}',
+            '',
+        ]
 
         content = '\n'.join(lines)
         print(content)
         return content
 
-    def sync(self, **kwargs):
-        """Generate Caddyfile, write it, and reload Caddy."""
-        content = self.generate(**kwargs)
+    def _write(self, content):
         with open(self.caddyfile, 'w') as f:
             f.write(content)
-        result = subprocess.run(
-            ['caddy', 'reload', '--config', self.caddyfile],
-            capture_output=True, text=True
-        )
-        status = 'ok' if result.returncode == 0 else 'error'
-        return {
-            'status': status,
-            'caddyfile': self.caddyfile,
-            'stdout': result.stdout.strip(),
-            'stderr': result.stderr.strip(),
-        }
 
-    def start(self, **kwargs):
-        """Start Caddy daemon with current config."""
-        # Generate fresh config first
-        self.sync(**kwargs)
-        result = subprocess.run(
-            ['caddy', 'start', '--config', self.caddyfile],
-            capture_output=True, text=True
-        )
-        status = 'ok' if result.returncode == 0 else 'error'
-        return {
-            'status': status,
-            'stdout': result.stdout.strip(),
-            'stderr': result.stderr.strip(),
-        }
+    def _run(self, cmd, **kw):
+        return subprocess.run(cmd, capture_output=True, text=True, **kw)
 
-    def stop(self):
-        """Stop Caddy daemon."""
-        result = subprocess.run(
-            ['caddy', 'stop'],
-            capture_output=True, text=True
-        )
-        status = 'ok' if result.returncode == 0 else 'error'
-        return {
-            'status': status,
-            'stdout': result.stdout.strip(),
-            'stderr': result.stderr.strip(),
-        }
+    def _pm2_start(self, cmd):
+        self._run(['pm2', 'delete', PM2_NAME])
+        result = self._run(['pm2', 'start', cmd[0], '--name', PM2_NAME, '--'] + cmd[1:])
+        return result.returncode == 0
+
+    def _stop_stale(self):
+        try:
+            self._run(['caddy', 'stop'], timeout=3)
+        except subprocess.TimeoutExpired:
+            self._run(['pkill', '-f', 'caddy run'])
+            self._run(['pkill', 'caddy'])
+
+    def sync(self, **kwargs):
+        """Generate Caddyfile, write it, reload if running."""
+        self._write(self.generate(**kwargs))
+        try:
+            result = self._run(['caddy', 'reload', '--config', self.caddyfile], timeout=5)
+            reloaded = result.returncode == 0
+        except subprocess.TimeoutExpired:
+            reloaded = False
+        return {'status': 'ok', 'caddyfile': self.caddyfile, 'reloaded': reloaded}
+
+    def serve(self, **kwargs):
+        """Generate Caddyfile and start Caddy via PM2."""
+        self._write(self.generate(**kwargs))
+        self._stop_stale()
+        ok = self._pm2_start(['caddy', 'run', '--config', self.caddyfile])
+        return {'status': 'ok' if ok else 'error', 'pm2': PM2_NAME, 'caddyfile': self.caddyfile}
+
+    def kill(self):
+        """Stop Caddy PM2 process and any stale daemon."""
+        result = self._run(['pm2', 'delete', PM2_NAME])
+        self._stop_stale()
+        return {'status': 'killed' if result.returncode == 0 else 'error', 'pm2': PM2_NAME}
+
+    def restart(self, **kwargs):
+        """Kill and re-serve."""
+        self.kill()
+        return self.serve(**kwargs)
+
+    def status(self):
+        """Check if Caddy is running via PM2."""
+        try:
+            result = self._run(['pm2', 'jlist'], timeout=10)
+            for p in json.loads(result.stdout or '[]'):
+                if p.get('name') == PM2_NAME:
+                    env = p.get('pm2_env', {})
+                    return {
+                        'running': env.get('status') == 'online',
+                        'status': env.get('status'),
+                        'pid': p.get('pid'),
+                    }
+        except Exception:
+            pass
+        return {'running': False}
+
+    def logs(self, lines=50):
+        """Show recent PM2 logs."""
+        result = self._run(['pm2', 'logs', PM2_NAME, '--nostream', '--lines', str(lines)])
+        return result.stdout + result.stderr

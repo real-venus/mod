@@ -11,6 +11,19 @@ body {
   min-height: 100vh;
 }
 
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* select dropdown */
+select option {
+  background: #14141e;
+  color: #e5e5e5;
+}
+
+/* toast overrides */
 .Toastify__toast {
   background: rgba(20, 20, 30, 0.95) !important;
   backdrop-filter: blur(10px);

@@ -11,13 +11,83 @@ Usage:
     pc.forward('status')
     pc.forward('start')
     pc.forward('watch', address='0x...')
-    pc.forward('scrape', min_trades_per_day=10)
+    pc.forward('top_traders', top=10, min_trades_per_day=5)
 """
+import asyncio
 import json
 import os
 
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SRC_DIR)
+
+DEFAULT_CHAINS = [
+    {
+        'chain_id': 8453, 'name': 'base', 'enabled': True,
+        'rpc_urls': [
+            'https://mainnet.base.org', 'https://base.llamarpc.com',
+            'https://base-rpc.publicnode.com', 'https://base.drpc.org',
+            'https://rpc.ankr.com/base',
+        ],
+        'routers': [
+            {'address': '0x2626664c2603336E57B271c5C0b26F421741e481', 'name': 'Uniswap V3', 'dex_type': 'UniswapV3'},
+            {'address': '0x6BDED42c6DA8FBf0d2bA55B2fa120C5e0c8D7891', 'name': 'SushiSwap', 'dex_type': 'UniswapV2'},
+        ],
+        'proxy_address': None,
+    },
+    {
+        'chain_id': 137, 'name': 'polygon', 'enabled': True,
+        'rpc_urls': [
+            'https://polygon-rpc.com', 'https://polygon.llamarpc.com',
+            'https://polygon-bor-rpc.publicnode.com', 'https://polygon.drpc.org',
+            'https://rpc.ankr.com/polygon',
+        ],
+        'routers': [
+            {'address': '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45', 'name': 'Uniswap V3', 'dex_type': 'UniswapV3'},
+            {'address': '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506', 'name': 'SushiSwap', 'dex_type': 'UniswapV2'},
+            {'address': '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff', 'name': 'QuickSwap', 'dex_type': 'UniswapV2'},
+        ],
+        'proxy_address': None,
+    },
+    {
+        'chain_id': 42161, 'name': 'arbitrum', 'enabled': True,
+        'rpc_urls': [
+            'https://arb1.arbitrum.io/rpc', 'https://arbitrum.llamarpc.com',
+            'https://arbitrum-one-rpc.publicnode.com', 'https://arbitrum.drpc.org',
+            'https://rpc.ankr.com/arbitrum',
+        ],
+        'routers': [
+            {'address': '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45', 'name': 'Uniswap V3', 'dex_type': 'UniswapV3'},
+            {'address': '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506', 'name': 'SushiSwap', 'dex_type': 'UniswapV2'},
+            {'address': '0xc873fEcbd354f5A56E00E710B90EF4201db2448d', 'name': 'Camelot', 'dex_type': 'UniswapV2'},
+        ],
+        'proxy_address': None,
+    },
+    {
+        'chain_id': 1, 'name': 'ethereum', 'enabled': False,
+        'rpc_urls': [
+            'https://eth.llamarpc.com', 'https://ethereum-rpc.publicnode.com',
+            'https://eth.drpc.org', 'https://rpc.ankr.com/eth',
+            'https://rpc.flashbots.net',
+        ],
+        'routers': [
+            {'address': '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45', 'name': 'Uniswap V3', 'dex_type': 'UniswapV3'},
+            {'address': '0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F', 'name': 'SushiSwap', 'dex_type': 'UniswapV2'},
+        ],
+        'proxy_address': None,
+    },
+]
+
+DEFAULT_CONFIG = {
+    'chains': DEFAULT_CHAINS,
+    'wallets': [],
+    'max_trade_usd': 100,
+    'slippage_bps': 50,
+    'position_pct': 10.0,
+    'daily_limit_usd': 1000,
+    'auto_discover': False,
+    'min_score': 70.0,
+    'poll_interval_ms': 4000,
+}
 
 
 class Mod:
@@ -36,10 +106,13 @@ class Mod:
         self.engine = None
 
     def _load_config(self):
+        import copy
+        cfg = copy.deepcopy(DEFAULT_CONFIG)
         if os.path.exists(self.config_path):
             with open(self.config_path) as f:
-                return json.load(f)
-        return {}
+                saved = json.load(f)
+            cfg.update(saved)
+        return cfg
 
     def _save_config(self):
         save = {k: v for k, v in self.config.items() if k != 'private_key'}
@@ -76,6 +149,8 @@ class Mod:
             'rpc': self.rpc_stats,
             'wallets': self.list_wallets,
             'build': self.build,
+            'scrape': self.scrape,
+            'top_traders': self.top_traders,
         }
         fn = commands.get(cmd, self.status)
         return fn(**kwargs)
@@ -87,7 +162,8 @@ class Mod:
         self.engine.start()
         self._save_config()
         chains = [c['name'] for c in self.config.get('chains', []) if c.get('enabled')]
-        return {'status': 'running', 'chains': chains}
+        mode = 'copy' if self.config.get('private_key') else 'monitor-only'
+        return {'status': 'running', 'chains': chains, 'mode': mode}
 
     def stop(self, **kwargs):
         if self.engine:
@@ -101,8 +177,10 @@ class Mod:
                 running = self.engine.is_running()
             except Exception:
                 pass
+        mode = 'copy' if self.config.get('private_key') else 'monitor-only'
         return {
             'running': running,
+            'mode': mode,
             'chains': [
                 {'name': c['name'], 'chain_id': c['chain_id'], 'enabled': c.get('enabled')}
                 for c in self.config.get('chains', [])
@@ -195,7 +273,108 @@ class Mod:
         ret = os.system(f'cd {rs_dir} && maturin develop --release')
         return {'status': 'built' if ret == 0 else 'failed', 'exit_code': ret}
 
+    # ── scraper / top traders ────────────────────────────────────────
+
+    def scrape(self, min_trades_per_day=10, lookback_days=7, chains=None, **kwargs):
+        """Run the historical swap scraper across chains."""
+        from api.scraper import Scraper
+        chain_ids = chains or [c['chain_id'] for c in self.config.get('chains', []) if c.get('enabled')]
+        if isinstance(chain_ids, str):
+            chain_ids = json.loads(chain_ids)
+        s = Scraper(
+            min_trades_per_day=int(min_trades_per_day),
+            lookback_days=int(lookback_days),
+            chains=chain_ids,
+        )
+        asyncio.get_event_loop().run_until_complete(s.run()) if asyncio.get_event_loop().is_running() is False else asyncio.run(s.run())
+        return {
+            'progress': s.get_progress(),
+            'traders': s.get_traders(min_trades_per_day=int(min_trades_per_day)),
+        }
+
+    def top_traders(self, top=10, min_trades_per_day=5, lookback_days=7,
+                    chains=None, auto_watch=False, **kwargs):
+        """Scan for top N traders by performance over the lookback period.
+
+        Runs the scraper, ranks traders by avg trades/day, and optionally
+        adds them to the watch list.
+
+        Args:
+            top: number of top traders to return (default 10)
+            min_trades_per_day: minimum avg trades/day threshold (default 5)
+            lookback_days: how many days back to scan (default 7)
+            chains: list of chain IDs to scan (default: enabled chains)
+            auto_watch: if True, automatically add top traders to watch list
+        """
+        from api.scraper import Scraper
+        chain_ids = chains or [c['chain_id'] for c in self.config.get('chains', []) if c.get('enabled')]
+        if isinstance(chain_ids, str):
+            chain_ids = json.loads(chain_ids)
+        top = int(top)
+        min_trades_per_day = int(min_trades_per_day)
+
+        s = Scraper(
+            min_trades_per_day=min_trades_per_day,
+            lookback_days=int(lookback_days),
+            chains=chain_ids,
+        )
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    pool.submit(asyncio.run, s.run()).result()
+            else:
+                loop.run_until_complete(s.run())
+        except RuntimeError:
+            asyncio.run(s.run())
+
+        all_traders = s.get_traders(min_trades_per_day=min_trades_per_day)
+        selected = all_traders[:top]
+
+        if auto_watch or str(kwargs.get('auto_watch', '')).lower() in ('true', '1', 'yes'):
+            for t in selected:
+                self.watch(address=t['address'], label=f"top-{selected.index(t)+1}")
+
+        return {
+            'top': top,
+            'min_trades_per_day': min_trades_per_day,
+            'lookback_days': int(lookback_days),
+            'chains': chain_ids,
+            'total_scanned': len(all_traders),
+            'selected': len(selected),
+            'traders': selected,
+            'auto_watched': bool(auto_watch),
+        }
+
+    def set_key(self, private_key=None, **kwargs):
+        if not private_key:
+            return {'error': 'private_key required'}
+        self.config['private_key'] = private_key
+        return {'set': True}
+
+    def set_proxy(self, chain=None, chain_id=None, address=None, **kwargs):
+        if not address:
+            return {'error': 'address required'}
+        cid = chain_id or self._chain_name_to_id(chain)
+        if not cid:
+            return {'error': 'chain or chain_id required'}
+        for c in self.config.get('chains', []):
+            if c['chain_id'] == cid or c['name'] == (chain or '').lower():
+                c['proxy_address'] = address
+                self._save_config()
+                return {'chain': c['name'], 'proxy': address}
+        return {'error': f'chain not found: {chain or chain_id}'}
+
     # ── helpers ─────────────────────────────────────────────────────
+
+    def _chain_name_to_id(self, name):
+        if not name:
+            return None
+        for c in self.config.get('chains', []):
+            if c['name'] == name.lower():
+                return c['chain_id']
+        return None
 
     def _chain_id(self, name):
         if not name:

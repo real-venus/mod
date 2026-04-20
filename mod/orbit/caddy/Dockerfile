@@ -1,3 +1,2 @@
-FROM mod:latest
-COPY . .
-RUN pip install -r requirements.txt 
+FROM caddy:latest
+COPY Caddyfile /etc/caddy/Caddyfile

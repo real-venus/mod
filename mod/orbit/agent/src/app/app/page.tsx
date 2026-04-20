@@ -348,6 +348,16 @@ export default function Home() {
     setViewingFile(null)
   }
 
+  const continueTask = () => {
+    if (!currentTask || currentTask.status === 'running') return
+    // extract the last agent message output as context
+    const agentMsgs = currentTask.messages.filter(m => m.role === 'agent')
+    const lastOutput = agentMsgs.length > 0 ? agentMsgs[agentMsgs.length - 1].text : ''
+    const prefix = `Continue from previous task "${currentTask.query}":\n\nPrevious output:\n${lastOutput}\n\nNext step: `
+    setQuery(prefix)
+    inputRef.current?.focus()
+  }
+
   const toggleStep = (idx: number) => {
     setExpandedSteps(s => ({ ...s, [idx]: !s[idx] }))
   }
@@ -631,6 +641,13 @@ export default function Home() {
           ))}
         </div>
         <div className="ml-auto flex items-center gap-1.5 pr-1">
+          {selectedTask && currentTask && currentTask.status !== 'running' && (
+            <button onClick={continueTask}
+              className="w-6 h-6 flex items-center justify-center rounded text-[10px] text-blue-400 hover:bg-blue-500/10 transition"
+              title="Continue this task">
+              ↳
+            </button>
+          )}
           {selectedTask && currentTask?.status === 'running' && (
             <button onClick={completeTask}
               className="w-6 h-6 flex items-center justify-center rounded text-[10px] text-emerald-400 hover:bg-emerald-500/10 transition">
@@ -691,6 +708,26 @@ export default function Home() {
                       <span className="truncate flex-1 text-gray-300 group-hover:text-gray-200">{t.query}</span>
                       {t.stepCount !== undefined && (
                         <span className="text-[10px] text-gray-600 shrink-0">{t.stepCount}s</span>
+                      )}
+                      {t.status !== 'running' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedTask(t.id)
+                            // defer so currentTask updates
+                            setTimeout(() => {
+                              const agentMsgs = t.messages.filter(m => m.role === 'agent')
+                              const lastOutput = agentMsgs.length > 0 ? agentMsgs[agentMsgs.length - 1].text : ''
+                              const prefix = `Continue from previous task "${t.query}":\n\nPrevious output:\n${lastOutput}\n\nNext step: `
+                              setQuery(prefix)
+                              inputRef.current?.focus()
+                            }, 0)
+                          }}
+                          className="text-[10px] text-blue-400 hover:text-blue-300 opacity-0 group-hover:opacity-100 transition shrink-0"
+                          title="Continue this task"
+                        >
+                          ↳
+                        </button>
                       )}
                     </div>
                   </button>

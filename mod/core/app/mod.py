@@ -3,9 +3,9 @@ import os
 
 class App:
     
-    def run_caddy(self):
-        caddyfile_path = os.path.join(m.dirpath('app'), 'Caddyfile')
-        return os.system(f'caddy run --config {caddyfile_path}')
+    def run_caddy(self, **kwargs):
+        caddy = m.mod('caddy')()
+        return caddy.serve(**kwargs)
     
     def build(self, mod='app', api_url=None, **kwargs):
         cwd = m.dirpath(mod)
@@ -55,7 +55,9 @@ class App:
         result = self.build(mod=mod, api_url=api_url)
         if result != 0:
             return f'Build failed with exit code {result}'
-        return self.serve(port=port, mod=mod, prod=True, build=False, api_port=api_port, **kwargs)
+        self.serve(port=port, mod=mod, prod=True, build=False, api_port=api_port, **kwargs)
+        caddy = m.mod('caddy')()
+        return caddy.serve(app_port=port, api_port=api_port)
 
     def edit(self, text='so i want you to have the transactions tab be you calling the history by calling the call function with fn=api/h and params={}', *extra_text, **kwargs):
         text += ' '.join(extra_text) 

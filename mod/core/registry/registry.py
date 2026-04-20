@@ -1,5 +1,7 @@
 import os
 import shutil
+import threading
+import time
 from typing import Optional, Dict, Any, List, Union
 import mod as m
 
@@ -195,17 +197,11 @@ class Registry:
                 'local': True,
                 'path': mod_path,
             }
-            # Pull desc and schema from config/introspection
+            # Pull desc from config (schema is lazy — fetched on demand)
             try:
                 cfg = m.config(mod_name)
                 if isinstance(cfg, dict) and cfg.get('description'):
                     local_info['desc'] = cfg['description']
-            except Exception:
-                pass
-            try:
-                local_schema = m.schema(mod_name)
-                if local_schema and isinstance(local_schema, dict):
-                    local_info['schema'] = local_schema
             except Exception:
                 pass
             mods.append(local_info)
@@ -517,6 +513,19 @@ class Registry:
         if key in registry and mod in registry[key]:
             del registry[key][mod]
             m.put(self.registry_path, registry)
+        # Remove local module directory if it exists
+        try:
+            mod_path = m.dp(mod)
+        except (AssertionError, Exception):
+            mod_path = None
+        if mod_path and os.path.isdir(mod_path):
+            import shutil
+            shutil.rmtree(mod_path)
+        # Rebuild tree cache so mods() doesn't rediscover the deleted module
+        try:
+            m._tree.orbit('orbit', update=True)
+        except Exception:
+            m._tree.tree_cache.clear()
         return True
 
     # --- Schema ---
@@ -683,6 +692,77 @@ class Registry:
             except Exception as e:
                 print(f"Error registering mod: {str(e)}")
         return results
+
+    # --- Schema sync & background worker ---
+
+    def sync_schemas(self, search=None, depth=1) -> Dict[str, str]:
+        """Compute schema for all modules, store as localfs CIDs, update config.json and registry."""
+        results = {}
+        for mod_name in m.mods(search=search, depth=depth):
+            try:
+                schema = m.schema(mod_name)
+                if not schema:
+                    continue
+                cid = self.put(schema)
+                # update config.json schema field to CID
+                mod_path = m.dp(mod_name)
+                if mod_path:
+                    config_path = os.path.join(mod_path, 'config.json')
+                    if os.path.exists(config_path):
+                        cfg = m.config(mod_name)
+                        if cfg.get('schema') != cid:
+                            cfg['schema'] = cid
+                            m.save_config(mod_name, cfg)
+                # update registry entry if registered
+                registry = m.get(self.registry_path, {})
+                key = self.key_address()
+                if key in registry and mod_name in registry[key]:
+                    mod_cid = registry[key][mod_name]
+                    try:
+                        mod_info = self.get(mod_cid)
+                        if mod_info.get('schema') != cid:
+                            mod_info['schema'] = cid
+                            mod_info['updated'] = m.time()
+                            new_cid = self.put(mod_info)
+                            registry[key][mod_name] = new_cid
+                            m.put(self.registry_path, registry)
+                    except Exception:
+                        pass
+                results[mod_name] = cid
+            except Exception as e:
+                results[mod_name] = f'error: {str(e)}'
+        return results
+
+    def start_worker(self, interval=300) -> dict:
+        """Start background schema sync worker (runs every `interval` seconds)."""
+        if hasattr(self, '_worker_thread') and self._worker_thread and self._worker_thread.is_alive():
+            return {'status': 'already_running', 'interval': interval}
+        self._worker_interval = interval
+        self._worker_running = True
+        self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+        self._worker_thread.start()
+        return {'status': 'started', 'interval': interval}
+
+    def stop_worker(self) -> dict:
+        """Stop the background schema sync worker."""
+        self._worker_running = False
+        return {'status': 'stopped'}
+
+    def worker_status(self) -> dict:
+        """Check if the background worker is running."""
+        alive = hasattr(self, '_worker_thread') and self._worker_thread and self._worker_thread.is_alive()
+        return {
+            'running': alive,
+            'interval': getattr(self, '_worker_interval', None),
+        }
+
+    def _worker_loop(self):
+        while getattr(self, '_worker_running', False):
+            try:
+                self.sync_schemas()
+            except Exception as e:
+                print(f'[registry worker] sync error: {e}')
+            time.sleep(self._worker_interval)
 
     def reg_payload(self, mod: str = 'store', key=None, comment=None) -> Dict[str, Any]:
         """Generate registration payload without executing registration."""

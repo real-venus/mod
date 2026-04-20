@@ -1,114 +1,56 @@
-# BaseMod 🚀
+# Caddy
 
-> *"Simplicity is the ultimate sophistication."* - Leonardo da Vinci
+Reverse proxy manager for mod. Routes `modc2.com` (app) and `api.modc2.com` (API) to module ports based on config.json URLs.
 
-## Overview
-
-BaseMod is a foundational Python module that provides core functionality and utilities for building elegant, modular systems. Designed with simplicity and extensibility in mind, it serves as a template for creating robust, production-ready applications.
-
-## ✨ Features
-
-- **Mathematical Operations**: Basic utilities for calculations
-- **Cryptocurrency Integration**: Real-time price fetching from CoinGecko API
-- **Clean Architecture**: Modular, extensible design following SOLID principles
-- **Production Ready**: Battle-tested and reliable
-
-## 🚀 Quick Start
-
-### Installation
+## Usage
 
 ```bash
-# Navigate to the base module directory
-cd /Users/broski/mod/mod/_orbit/base
+# Generate Caddyfile from live module ports
+m caddy/generate
 
-# Install dependencies
-pip install -r requirements.txt
+# Generate + write Caddyfile + reload if running
+m caddy/sync
+
+# Start Caddy via PM2
+m caddy/serve
+
+# Stop Caddy
+m caddy/kill
+
+# Restart (regenerate + restart)
+m caddy/restart
+
+# Check status
+m caddy/status
+
+# View logs
+m caddy/logs
 ```
-
-### Basic Usage
 
 ```python
-from base.mod import BaseMod
-
-# Create an instance
-mod = BaseMod()
-
-# Multiply numbers
-result = mod.multiply(5, 10)
-print(result)  # Output: 50
-
-# Get cryptocurrency price
-price = mod.get_bittenso_price()
-print(f"Current Bittenso price: {price}")
+import mod as m
+caddy = m.mod('caddy')()
+caddy.serve()       # generate Caddyfile, start via PM2
+caddy.sync()        # regenerate + reload
+caddy.status()      # check if running
+caddy.kill()        # stop
 ```
 
-## 📚 Documentation
+## How it works
 
-For detailed documentation, examples, and API reference, see [TUTORIAL.md](TUTORIAL.md).
+`generate()` scans all `config.json` files in `orbit/` and `core/` for `urls.app` and `urls.api` entries. Each module gets a path-based route (`/modulename/*`) on the appropriate domain. Modules whose ports aren't live are skipped by default.
 
-## 🏗️ Project Structure
+## Routing
 
-```
-base/
-├── base/
-│   └── mod.py          # Core BaseMod implementation
-├── Dockerfile          # Docker configuration
-├── docker-compose.yml  # Docker Compose setup
-├── requirements.txt    # Python dependencies
-├── TUTORIAL.md        # Comprehensive tutorial
-└── README.md          # This file
-```
+| Domain | Default backend | Purpose |
+|---|---|---|
+| `modc2.com` | `localhost:3000` | App frontends |
+| `api.modc2.com` | `localhost:8000` | API backends |
 
-## 🐳 Docker Support
+Module routes: `modc2.com/claude/*` -> `localhost:8821`, `api.modc2.com/claude/*` -> `localhost:8820`, etc.
 
-Run BaseMod in a containerized environment:
+## Options
 
 ```bash
-# Build and run with Docker Compose
-docker-compose up --build
+m caddy/generate domain=modc2.com api_domain=api.modc2.com app_port=3000 api_port=8000 check_ports=false
 ```
-
-## 🔧 Extending BaseMod
-
-BaseMod is designed to be extended:
-
-```python
-from base.mod import BaseMod
-
-class MyCustomMod(BaseMod):
-    def custom_method(self):
-        # Your custom functionality
-        pass
-```
-
-## 💡 Use Cases
-
-- Building modular Python applications
-- Cryptocurrency price monitoring
-- Foundation for larger systems
-- Learning modular design patterns
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to:
-- Report bugs
-- Suggest features
-- Submit pull requests
-
-## 📝 License
-
-This project is open source and available for use.
-
-## 🌟 Philosophy
-
-Built following:
-- **SOLID principles** for maintainable code
-- **Simplicity first** approach
-- **Modular design** for extensibility
-- **Production quality** standards
-
----
-
-*Crafted with precision, purpose, and passion.* ⚡
-
-**Ready to build something amazing? Start with the [TUTORIAL.md](TUTORIAL.md)!**

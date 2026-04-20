@@ -326,7 +326,7 @@ class Mod:
         }
         if module_name:
             data["module_name"] = module_name
-        for k in ('github_url', 'anchor_dir', 'images'):
+        for k in ('github_url', 'anchor_dir', 'images', 'agent_type', 'system_prompt'):
             if k in kwargs:
                 data[k] = kwargs[k]
 

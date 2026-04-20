@@ -251,7 +251,6 @@ class TestSample:
 # causes infinite recursion — skipping these tests as it's a known issue.
 
 class TestRoundDecimals:
-    @pytest.mark.skip(reason="round_decimals triggers RecursionError due to module-level round override")
     def test_basic(self):
         assert round_decimals(3.14159, decimals=2) == 3.14
 

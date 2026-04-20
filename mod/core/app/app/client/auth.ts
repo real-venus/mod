@@ -29,13 +29,13 @@ export class Auth {
    * Initialize the Auth class
    * @param maxAge - Maximum staleness allowed for timestamps (in seconds)
    * @param signatureKeys - The keys to use for signing
-   * @param refreshInterval - Token refresh interval in seconds (default: 3600 = 1 hour)
+   * @param refreshInterval - Token refresh interval in seconds (default: 86400 = 1 day)
    * @param key - Optional Key instance to use instead of creating one from localStorage
    */
   constructor(
-    maxAge: number = 3600,
+    maxAge: number = 86400,
     signatureKeys: string[] = ['data', 'time'],
-    refreshInterval: number = 3600,
+    refreshInterval: number = 86400,
     key?: Key
   ) {
     this.maxAge = maxAge;
@@ -265,7 +265,7 @@ export class Auth {
     key: Key,
   ): Promise<{ headers: boolean; verified: boolean }> {
     const data = { fn: 'test', params: { a: 1, b: 2 } };
-    const auth = new Auth(3600, ['data', 'time'], 3600, key);
+    const auth = new Auth(86400, ['data', 'time'], 86400, key);
     
     const headers = await auth.generate(data);
     

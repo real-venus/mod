@@ -6,7 +6,7 @@ class Tree:
     """Module tree discovery, caching, and search."""
 
     orbits = ['core', 'orbit', 'portal']
-    orbit2depth = { 'orbit': 1, 'core': 10, 'portal': 4}
+    orbit2depth = { 'orbit': 1, 'core': 10, 'portal': 2}
     ignore_suffixes = ['/src', '/core']
     tree_cache = {}
 

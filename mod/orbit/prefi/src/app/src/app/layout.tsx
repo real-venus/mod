@@ -9,9 +9,8 @@ import 'react-toastify/dist/ReactToastify.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'PreFi - Decentralized Prediction Market on Base',
-  description: 'Predict token prices, stake collateral, and earn rewards on Base with Uniswap V3 oracle integration',
-  keywords: ['DeFi', 'Prediction Market', 'Base', 'Uniswap', 'Web3', 'Crypto'],
+  title: 'PreFi - Trade, Earn PREFI, Stake for Weekly Yields',
+  description: 'Trade assets on Uniswap V3 via Base. Profit goes to treasury, earn PREFI tokens 1:1, lock for staketime to claim weekly treasury distributions.',
 }
 
 export default function RootLayout({
@@ -26,13 +25,10 @@ export default function RootLayout({
           {children}
           <ToastContainer
             position="top-right"
-            autoClose={5000}
-            hideProgressBar={false}
+            autoClose={4000}
+            hideProgressBar
             newestOnTop
             closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
             pauseOnHover
             theme="dark"
           />

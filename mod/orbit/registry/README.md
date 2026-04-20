@@ -66,6 +66,29 @@ python registry/deploy.py --network near   # NEAR only
 python registry/deploy.py --network solana # Solana only
 ```
 
+## Git URL & CID Registration
+
+The core API registry (`mod/core/api`) supports registering modules from git URLs and IPFS CIDs. The `reg()` method auto-dispatches:
+
+```python
+api = m.mod('api')()
+
+# Git URL (clones into portal, registers)
+api.reg('https://github.com/user/repo', key='main')
+
+# GitHub shorthand (user/repo auto-expands)
+api.reg('user/repo', key='main')
+
+# IPFS CID (resolves config, clones if git url present)
+api.reg('QmXyz...', key='main', name='mymod')
+```
+
+```bash
+m api/reg mod=https://github.com/user/repo key=main
+m api/reg mod=user/repo key=main
+m api/reg mod=QmXyz... key=main name=mymod
+```
+
 ## API
 
 | Method | Description |
