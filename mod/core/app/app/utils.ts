@@ -18,38 +18,29 @@ function isLocalUrl(url: string): boolean {
 }
 
 /** Rewrite localhost URLs for remote access.
- *  When modName is provided and we're remote, use Caddy path-based routing:
- *    origin/modName (e.g. https://app.modc2.com/bridge)
- *  Otherwise fall back to hostname replacement (keeps port). */
-function resolveUrl(url: string | undefined, modName?: string): string | undefined {
+ *  Uses Caddy path-based routing: /proxy/{mod}/app or /proxy/{mod}/api
+ *  Falls back to /proxy/api for the main API. */
+function resolveUrl(url: string | undefined, modName?: string, kind?: 'app' | 'api'): string | undefined {
   if (!url) return url
   if (typeof window === 'undefined') return url
   if (!isLocalUrl(url) || !isRemote()) return url
-  // Remote + localhost URL → rewrite
-  if (modName) {
-    // Caddy path-based routing: origin/modName
-    return `${window.location.origin}/${modName}`
+  if (modName && kind) {
+    return `${window.location.origin}/proxy/${modName}/${kind}`
   }
-  // Fallback: replace hostname, keep port (for API proxy etc.)
-  try {
-    const parsed = new URL(url)
-    parsed.hostname = window.location.hostname
-    return parsed.toString().replace(/\/$/, '')
-  } catch {}
-  return url
+  // Fallback: main API
+  return `${window.location.origin}/proxy/api`
 }
 
 /** Extract the app URL from mod.url_app or mod.url.app */
 export function getModAppUrl(mod: ModuleType): string | undefined {
   const raw = mod.url_app || (mod.url && typeof mod.url === 'object' ? mod.url.app : undefined)
-  return resolveUrl(raw, mod.name)
+  return resolveUrl(raw, mod.name, 'app')
 }
 
 /** Extract the api URL from mod.url (string) or mod.url.api */
 export function getModApiUrl(mod: ModuleType): string | undefined {
-  if (typeof mod.url === 'string') return resolveUrl(mod.url)
-  if (mod.url && typeof mod.url === 'object' && mod.url.api) return resolveUrl(mod.url.api)
-  return undefined
+  const raw = typeof mod.url === 'string' ? mod.url : (mod.url && typeof mod.url === 'object' ? mod.url.api : undefined)
+  return resolveUrl(raw, mod.name, 'api')
 }
 
 export const time2str = (timestamp: number): string => {

@@ -217,7 +217,7 @@ class Server:
         self.app.config['MAX_CONTENT_LENGTH'] = MAX_REQUEST_BODY
 
         # CORS: restrict to known origins; override with MOD_CORS_ORIGINS env var
-        allowed_origins = os.environ.get('MOD_CORS_ORIGINS', 'http://localhost:*,http://127.0.0.1:*,https://app.modc2.com').split(',')
+        allowed_origins = os.environ.get('MOD_CORS_ORIGINS', 'http://localhost:*,http://127.0.0.1:*,https://modc2.com').split(',')
         CORS(self.app, resources={r"/*": {
             "origins": allowed_origins,
             "methods": ["POST", "OPTIONS"],

@@ -9,7 +9,7 @@ class App:
     
     def build(self, mod='app', api_url=None, **kwargs):
         cwd = m.dirpath(mod)
-        api_url = api_url or 'https://api.modc2.com'
+        api_url = api_url or 'https://modc2.com/proxy/api'
         env = f'NEXT_PUBLIC_API_URL="{api_url}"'
         return os.system(f'cd {cwd} && {env} npm run build')
 
@@ -27,7 +27,7 @@ class App:
         self.install(mod=mod)
         m.serve('api', pm='pm.pm2')
         cwd = m.dirpath(mod)
-        api_url = 'https://api.modc2.com' if prod else f'http://localhost:{api_port}'
+        api_url = 'https://modc2.com/proxy/api' if prod else f'http://localhost:{api_port}'
         if prod:
             if build:
                 result = self.build(mod=mod, api_url=api_url)
@@ -51,7 +51,7 @@ class App:
                     )
 
     def prod(self, port=3000, mod='app', api_port=8000, api_url=None, **kwargs):
-        api_url = api_url or 'https://api.modc2.com'
+        api_url = api_url or 'https://modc2.com/proxy/api'
         result = self.build(mod=mod, api_url=api_url)
         if result != 0:
             return f'Build failed with exit code {result}'

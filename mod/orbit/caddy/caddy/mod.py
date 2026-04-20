@@ -47,6 +47,9 @@ class Mod:
                         cfg = json.load(f)
                 except Exception:
                     continue
+                # config may be wrapped in a 'data' key
+                if 'data' in cfg and isinstance(cfg['data'], dict):
+                    cfg = cfg['data']
                 urls = cfg.get('urls') or cfg.get('url') or {}
                 app_url, api_url = urls.get('app'), urls.get('api')
                 if not app_url and not api_url:
@@ -76,50 +79,59 @@ class Mod:
             print(f'Skipped (not live): {", ".join(sorted(dead))}')
         return modules
 
-    def _routes(self, modules, key, default_port):
-        """Build handle blocks for a domain with path prefix stripping."""
+    def _module_routes(self, modules, proxy_prefix):
+        """Build /proxy/{mod}/app and /proxy/{mod}/api handle blocks."""
         lines = []
         for name in sorted(modules):
-            port = modules[name].get(key)
-            if port and port != default_port:
-                lines.append(f'    handle /{name}/* {{')
-                lines.append(f'        uri strip_prefix /{name}')
-                lines.append(f'        reverse_proxy localhost:{port}')
+            app_port = modules[name].get('app_port')
+            api_port = modules[name].get('api_port')
+            if app_port:
+                path = f'/{proxy_prefix}/{name}/app'
+                lines.append(f'    handle {path}/* {{')
+                lines.append(f'        uri strip_prefix {path}')
+                lines.append(f'        reverse_proxy localhost:{app_port}')
                 lines.append(f'    }}')
-        lines.append(f'    handle /* {{')
-        lines.append(f'        reverse_proxy localhost:{default_port}')
-        lines.append(f'    }}')
+            if api_port:
+                path = f'/{proxy_prefix}/{name}/api'
+                lines.append(f'    handle {path}/* {{')
+                lines.append(f'        uri strip_prefix {path}')
+                lines.append(f'        reverse_proxy localhost:{api_port}')
+                lines.append(f'    }}')
         return lines
 
-    def generate(self, app_domain='app.modc2.com', api_domain='api.modc2.com',
-                 app_port=3000, api_port=8000, admin_port=2099, check_ports=True):
-        """Generate Caddyfile from module config.json urls."""
+    def generate(self, domain='modc2.com', app_port=3000, api_port=8000,
+                 admin_port=2099, proxy_prefix='proxy', check_ports=True):
+        """Generate Caddyfile from module config.json urls.
+
+        All routing lives under a single domain:
+          domain/proxy/api          → main API (localhost:api_port)
+          domain/proxy/{mod}/app    → module app port
+          domain/proxy/{mod}/api    → module api port
+          domain/*                  → main app (localhost:app_port)
+        """
         modules = self._scan()
         if check_ports:
             modules = self._filter_live(modules)
+
+        api_prefix = f'/{proxy_prefix}/api'
 
         lines = [
             '{',
             f'    admin localhost:{admin_port}',
             '}',
             '',
-            f'{app_domain} {{',
-            *self._routes(modules, 'app_port', app_port),
-            '}',
-            '',
-            f'{api_domain} {{',
-            '    @cors_preflight method OPTIONS',
-            '',
-            f'    header Access-Control-Allow-Origin "https://{app_domain}"',
-            '    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"',
-            '    header Access-Control-Allow-Headers "Content-Type, Accept, Authorization, token"',
-            '    header Access-Control-Max-Age "3600"',
-            '',
-            '    handle @cors_preflight {',
-            '        respond 204',
-            '    }',
-            '',
-            *self._routes(modules, 'api_port', api_port),
+            f'{domain} {{',
+            # Main API: /proxy/api/* → localhost:api_port
+            f'    handle {api_prefix}/* {{',
+            f'        uri strip_prefix {api_prefix}',
+            f'        reverse_proxy localhost:{api_port}',
+            f'    }}',
+            # Module routes: /proxy/{mod}/app/*, /proxy/{mod}/api/*
+            *self._module_routes(modules, proxy_prefix),
+            # Default fallback: main app
+            f'    handle /* {{',
+            f'        reverse_proxy localhost:{app_port}',
+            f'    }}',
             '}',
             '',
         ]
