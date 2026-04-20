@@ -3,55 +3,55 @@
 }
 
 modc2.com {
-    handle /agent/* {
+    handle /~/agent/* {
         reverse_proxy localhost:3117
     }
-    handle /bloctime/* {
+    handle /~/bloctime/* {
         reverse_proxy localhost:8852
     }
-    handle /bridge/* {
+    handle /~/bridge/* {
         reverse_proxy localhost:8841
     }
-    handle /claude/* {
+    handle /~/claude/* {
         reverse_proxy localhost:8821
     }
-    handle /claudegit/* {
+    handle /~/claudegit/* {
         reverse_proxy localhost:8831
     }
-    handle /goldfi/* {
+    handle /~/goldfi/* {
         reverse_proxy localhost:3095
     }
-    handle /hyperliquid/* {
+    handle /~/hyperliquid/* {
         reverse_proxy localhost:3919
     }
-    handle /ipfs/* {
+    handle /~/ipfs/* {
         reverse_proxy localhost:50080
     }
-    handle /latexhub/* {
+    handle /~/latexhub/* {
         reverse_proxy localhost:3200
     }
-    handle /openclaw/* {
+    handle /~/openclaw/* {
         reverse_proxy localhost:50121
     }
-    handle /polymarket/* {
+    handle /~/polymarket/* {
         reverse_proxy localhost:3091
     }
-    handle /prefi/* {
+    handle /~/prefi/* {
         reverse_proxy localhost:8831
     }
-    handle /staketime/* {
+    handle /~/staketime/* {
         reverse_proxy localhost:8850
     }
-    handle /tt/* {
+    handle /~/tt/* {
         reverse_proxy localhost:8850
     }
-    handle /uniswap/* {
+    handle /~/uniswap/* {
         reverse_proxy localhost:3088
     }
-    handle /vali/* {
+    handle /~/vali/* {
         reverse_proxy localhost:50101
     }
-    handle /zcash/* {
+    handle /~/zcash/* {
         reverse_proxy localhost:3930
     }
     handle /* {
@@ -71,55 +71,55 @@ api.modc2.com {
         respond 204
     }
 
-    handle /agent/* {
+    handle /~/agent/* {
         reverse_proxy localhost:50117
     }
-    handle /bloctime/* {
+    handle /~/bloctime/* {
         reverse_proxy localhost:8851
     }
-    handle /bridge/* {
+    handle /~/bridge/* {
         reverse_proxy localhost:8840
     }
-    handle /claude/* {
+    handle /~/claude/* {
         reverse_proxy localhost:8820
     }
-    handle /claudegit/* {
+    handle /~/claudegit/* {
         reverse_proxy localhost:8830
     }
-    handle /goldfi/* {
+    handle /~/goldfi/* {
         reverse_proxy localhost:50095
     }
-    handle /hyperliquid/* {
+    handle /~/hyperliquid/* {
         reverse_proxy localhost:8919
     }
-    handle /ipfs/* {
+    handle /~/ipfs/* {
         reverse_proxy localhost:50079
     }
-    handle /latexhub/* {
+    handle /~/latexhub/* {
         reverse_proxy localhost:50200
     }
-    handle /openclaw/* {
+    handle /~/openclaw/* {
         reverse_proxy localhost:50120
     }
-    handle /polymarket/* {
+    handle /~/polymarket/* {
         reverse_proxy localhost:50091
     }
-    handle /prefi/* {
+    handle /~/prefi/* {
         reverse_proxy localhost:8830
     }
-    handle /staketime/* {
+    handle /~/staketime/* {
         reverse_proxy localhost:8849
     }
-    handle /tt/* {
+    handle /~/tt/* {
         reverse_proxy localhost:8849
     }
-    handle /uniswap/* {
+    handle /~/uniswap/* {
         reverse_proxy localhost:50088
     }
-    handle /vali/* {
+    handle /~/vali/* {
         reverse_proxy localhost:50100
     }
-    handle /zcash/* {
+    handle /~/zcash/* {
         reverse_proxy localhost:8930
     }
     handle /* {
