@@ -17,9 +17,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { userContext } from '@/context'
 
-// Direct bridge API
-const IS_PROD = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-const BRIDGE_API = process.env.NEXT_PUBLIC_BRIDGE_API || (IS_PROD ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:8840` : 'http://localhost:8840')
+// Bridge API via core server mod route
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const BRIDGE_API = `${API_URL}/mod/bridge`
 
 interface CommitResult {
   success?: boolean

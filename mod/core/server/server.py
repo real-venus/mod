@@ -226,6 +226,54 @@ class Server:
             "max_age": 3600
         }})
 
+        @self.app.route("/mod/<name>/<path:fn>", methods=['POST'])
+        def mod_fn(name, fn):
+            """Route: {url}/mod/{name}/{fn} -> gate.forward('{name}/{fn}')"""
+            full_fn = f'{name}/{fn}'
+            if not FN_NAME_RE.match(full_fn) or '..' in full_fn:
+                return {'error': 'Invalid function name'}, 400
+            try:
+                headers = dict(request.headers)
+                params = request.get_json(silent=True) or {}
+                if not isinstance(params, dict):
+                    return {'error': 'Request body must be a JSON object'}, 400
+                result = self.gate.forward(fn=full_fn, headers=headers, params=params, mod=self.mod)
+            except AssertionError as e:
+                m.print(f'Denied {full_fn}: {e}', color='yellow')
+                return {'error': str(e)}, 403
+            except Exception as e:
+                m.print(f'Error in server function {full_fn}: {m.detailed_error(e)}', color='red')
+                result = {'error': 'Internal server error', 'fn': full_fn}
+            try:
+                json.dumps(result)
+            except (TypeError, ValueError):
+                result = json.loads(json.dumps(result, default=str))
+            return {'result': result}
+
+        @self.app.route("/mod/<name>", methods=['POST'])
+        def mod_info(name):
+            """Route: {url}/mod/{name} -> gate.forward('{name}/info')"""
+            full_fn = f'{name}/info'
+            if not FN_NAME_RE.match(full_fn) or '..' in full_fn:
+                return {'error': 'Invalid function name'}, 400
+            try:
+                headers = dict(request.headers)
+                params = request.get_json(silent=True) or {}
+                if not isinstance(params, dict):
+                    return {'error': 'Request body must be a JSON object'}, 400
+                result = self.gate.forward(fn=full_fn, headers=headers, params=params, mod=self.mod)
+            except AssertionError as e:
+                m.print(f'Denied {full_fn}: {e}', color='yellow')
+                return {'error': str(e)}, 403
+            except Exception as e:
+                m.print(f'Error in server function {full_fn}: {m.detailed_error(e)}', color='red')
+                result = {'error': 'Internal server error', 'fn': full_fn}
+            try:
+                json.dumps(result)
+            except (TypeError, ValueError):
+                result = json.loads(json.dumps(result, default=str))
+            return {'result': result}
+
         @self.app.route("/<path:fn>", methods=['POST'])
         def server_fn(fn):
             # ── Validate function name ──

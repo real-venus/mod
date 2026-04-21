@@ -18,14 +18,17 @@ function isLocalUrl(url: string): boolean {
 }
 
 /** Rewrite localhost URLs for remote access.
- *  Uses Caddy path-based routing: /proxy/{mod}/app or /proxy/{mod}/api
+ *  Uses path-based routing: /mod/{name} for API, /proxy/{mod}/app for app.
  *  Falls back to /proxy/api for the main API. */
 function resolveUrl(url: string | undefined, modName?: string, kind?: 'app' | 'api'): string | undefined {
   if (!url) return url
   if (typeof window === 'undefined') return url
   if (!isLocalUrl(url) || !isRemote()) return url
-  if (modName && kind) {
-    return `${window.location.origin}/proxy/${modName}/${kind}`
+  if (modName && kind === 'api') {
+    return `${window.location.origin}/mod/${modName}`
+  }
+  if (modName && kind === 'app') {
+    return `${window.location.origin}/proxy/${modName}/app`
   }
   // Fallback: main API
   return `${window.location.origin}/proxy/api`

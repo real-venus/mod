@@ -26,11 +26,14 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
   const [isEditSidebarOpen, setIsEditSidebarOpen] = useState(false)
   const [isAgentSidebarOpen, setIsAgentSidebarOpen] = useState(false)
-  const [isTerminalMode, setIsTerminalMode] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('sidebar_terminal_mode') === 'true'
-    return false
-  })
+  const [isTerminalMode, setIsTerminalMode] = useState(false)
   const pathname = usePathname()
+
+  // Hydrate terminal mode from localStorage after mount to avoid SSR mismatch
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar_terminal_mode')
+    if (saved === 'true') setIsTerminalMode(true)
+  }, [])
 
   // Keep header visible on module pages (module info shows in header)
   useEffect(() => {
