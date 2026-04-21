@@ -7,7 +7,7 @@ import { userContext } from '@/context'
 import { X, Send, Loader2, Bot, CheckCircle, Clock, XCircle, Play, StopCircle, ChevronDown, ChevronUp, ImageIcon, Terminal, FolderOpen, Lock, Power } from 'lucide-react'
 import { MODELS, AGENT_TYPES } from '@/mod/edit/shared'
 import { SidebarTerminal } from './SidebarTerminal'
-import modConfig from '@config'
+import { getChainConfig } from '@/network/chainConfig'
 
 const API_URL = process.env.NEXT_PUBLIC_CLAUDE_JOBS_URL || 'http://localhost:50117'
 const OWNER_ABI = ['function owner() view returns (address)']
@@ -141,7 +141,7 @@ export function AgentPanel() {
     async function checkOwner() {
       if (!user?.key) { setIsOwner(null); return }
       try {
-        const chainCfg = (modConfig.chain as any)?.testnet
+        const chainCfg = getChainConfig()
         const treasuryAddr = chainCfg?.contracts?.Treasury?.address
         if (!treasuryAddr) { setIsOwner(true); return }
         // First try: check deployer from config (no RPC needed)

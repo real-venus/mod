@@ -2,15 +2,35 @@
     admin localhost:2099
 }
 
+:80 {
+    handle /proxy/bridge/app/* {
+        uri strip_prefix /proxy/bridge/app
+        reverse_proxy localhost:8841
+    }
+    handle /proxy/bridge/api/* {
+        uri strip_prefix /proxy/bridge/api
+        reverse_proxy localhost:8840
+    }
+    handle /* {
+        reverse_proxy localhost:3000
+    }
+}
+
 modc2.com {
     handle /proxy/api/* {
         uri strip_prefix /proxy/api
         reverse_proxy localhost:8000
     }
-    handle /bridge/* {
-        reverse_proxy localhost:8841
+    handle /proxy/app/app/* {
+        uri strip_prefix /proxy/app/app
+        reverse_proxy localhost:3000
     }
-    handle /bridge {
+    handle /proxy/app/api/* {
+        uri strip_prefix /proxy/app/api
+        reverse_proxy localhost:8000
+    }
+    handle /proxy/bridge/app/* {
+        uri strip_prefix /proxy/bridge/app
         reverse_proxy localhost:8841
     }
     handle /proxy/bridge/api/* {

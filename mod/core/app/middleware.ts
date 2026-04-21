@@ -17,7 +17,8 @@ let appNamespaceCache: Record<string, AppEntry> = {}
 let lastFetch = 0
 const CACHE_TTL = 5000
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+// Use internal API URL for server-side namespace lookups (not the public proxy URL)
+const API_URL = process.env.API_URL_INTERNAL || 'http://localhost:8000'
 
 async function getAppNamespace(): Promise<Record<string, AppEntry>> {
   const now = Date.now()
@@ -56,7 +57,7 @@ const MAIN_APP_ROUTES = new Set([
   'api', '_next', 'favicon.ico',
   // App pages
   'mod', 'treasury', 'contracts', 'transactions', 'docs', 'chat',
-  'bridge', 'network', 'create', 'home', 'user', 'safe', 'wallet',
+  'network', 'create', 'home', 'user', 'safe', 'wallet',
   'key', 'quests', 'traders', 'jobs', 'buidl', 'cid', 'host', 'apps',
   // App internals
   'client', 'components', 'config', 'context', 'header', 'images',

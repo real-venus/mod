@@ -7,7 +7,7 @@ import AgentSidebar from './AgentSidebar'
 import AgentChat from './AgentChat'
 import ServerPanel from '@/components/ServerPanel'
 import { MODELS, AGENT_TYPES } from '@/mod/edit/shared'
-import modConfig from '@config'
+import { getChainConfig } from '@/network/chainConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,7 +70,7 @@ export default function AgentPage() {
     async function checkOwner() {
       if (!user?.key) { setIsOwner(null); return }
       try {
-        const chainCfg = (modConfig.chain as any)?.testnet
+        const chainCfg = getChainConfig()
         const treasuryAddr = chainCfg?.contracts?.Treasury?.address
         if (!treasuryAddr) { setIsOwner(true); return }
         // First try: check deployer from config (no RPC needed)

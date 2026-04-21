@@ -632,6 +632,14 @@ class Mod:
             results['app'] = None
 
         results['dev'] = dev
+
+        # Register in app namespace so core middleware can route to bridge
+        try:
+            ns = m.mod('server.namespace')()
+            ns.reg_app('bridge', f'http://localhost:{app_port}', owner='')
+        except Exception:
+            pass
+
         return results
 
     def kill_app(self):
