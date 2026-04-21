@@ -1,11 +1,10 @@
 "use client";
 
-import ModulePage from '@/mod/ModulePage'
+import { useParams, redirect } from 'next/navigation'
 
-export default function ModulePageWrapper() {
-  return (
-    <div className="h-full" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <ModulePage />
-    </div>
-  )
+export default function ModuleRedirect() {
+  const params = useParams()
+  const mod = params.mod as string
+  const key = params.key as string
+  redirect(`/mod/${mod}/${key}`)
 }

@@ -96,7 +96,7 @@ export default function CreateModPage() {
 
       const response = await client.call('reg', {mod: previewData}, true, {}, 120000)
       
-      router.push(`/${response.name}`)
+      router.push(`/mod/${response.name}`)
     } catch (err: any) {
       console.error('Module creation error:', err)
       setError(err.message || 'Failed to create module')

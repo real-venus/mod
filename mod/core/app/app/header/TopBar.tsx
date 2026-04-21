@@ -8,18 +8,11 @@ import { useLayoutContext } from '@/context/LayoutContext'
 import { text2color, colorWithOpacity, shorten } from '@/utils'
 import { clearModsCache, syncModsConfig } from '@/mod/explore/ModExplorePage'
 
-// Extract module name from path like /bread or /mod/bread/key or /bread/0xkey
+// Extract module name from path like /mod/bread or /mod/bread/0xkey
 function getModuleFromPath(pathname: string): string | null {
   // /mod/[name]/[key]
   const modMatch = pathname.match(/^\/mod\/([^/]+)/)
   if (modMatch) return modMatch[1]
-  const knownRoutes = ['mod', 'mods', 'user', 'cid', 'chat', 'docs', 'quests', 'create', 'safe', 'contracts', 'treasury', 'jobs', 'traders', 'network', 'home', 'transactions', 'buidl', 'apps', 'chain', 'balancer', 'workers', 'agent']
-  // /[name]/[key] (two segments, first is not a known route)
-  const twoSegMatch = pathname.match(/^\/([^/]+)\/([^/]+)$/)
-  if (twoSegMatch && !knownRoutes.includes(twoSegMatch[1])) return twoSegMatch[1]
-  // /[name] (single segment, not a known route)
-  const singleMatch = pathname.match(/^\/([^/]+)$/)
-  if (singleMatch && !knownRoutes.includes(singleMatch[1])) return singleMatch[1]
   return null
 }
 
@@ -289,7 +282,7 @@ export function TopBar() {
                           onClick={() => {
                             setShowOwnerDropdown(false)
                             if (!isCurrentOwner) {
-                              router.push(`/${activeModule}/${ownerMod.key}`)
+                              router.push(`/mod/${activeModule}/${ownerMod.key}`)
                             }
                           }}
                           className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-all"

@@ -194,7 +194,7 @@ export function NavSidebar() {
     setSuggestions([])
     setSearchValue('')
     setSelectedIdx(-1)
-    router.push(`/${s.name}`)
+    router.push(`/mod/${s.name}`)
   }
 
   const onSearchKeyDown = (e: React.KeyboardEvent) => {

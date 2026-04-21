@@ -201,7 +201,7 @@ export default function ModulePage() {
   }
 
   const handleOwnerChange = (newOwnerKey: string) => {
-    router.push(`/${modName}`)
+    router.push(`/mod/${modName}`)
   }
 
   const handleVersionChange = async (versionIndex: number) => {
