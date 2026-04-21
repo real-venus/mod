@@ -65,15 +65,33 @@ const MAIN_APP_ROUTES = new Set([
 ])
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  let { pathname } = request.nextUrl
+
+  // Strip /app prefix (Caddy proxies modc2.com/app/* → localhost:3000/app/*)
+  if (pathname === '/app' || pathname.startsWith('/app/')) {
+    pathname = pathname.slice(4) || '/'
+  }
+
   const segments = pathname.split('/').filter(Boolean)
 
-  if (segments.length === 0) return NextResponse.next()
+  if (segments.length === 0) {
+    if (request.nextUrl.pathname !== pathname) {
+      const url = request.nextUrl.clone()
+      url.pathname = pathname
+      return NextResponse.rewrite(url)
+    }
+    return NextResponse.next()
+  }
 
   const firstSegment = segments[0]
 
   // Skip main app routes and Next.js internals
   if (MAIN_APP_ROUTES.has(firstSegment) || firstSegment.startsWith('_')) {
+    if (request.nextUrl.pathname !== pathname) {
+      const url = request.nextUrl.clone()
+      url.pathname = pathname
+      return NextResponse.rewrite(url)
+    }
     return NextResponse.next()
   }
 
@@ -91,6 +109,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Not a registered module app — fall through to [mod] catch-all
+  if (request.nextUrl.pathname !== pathname) {
+    const url = request.nextUrl.clone()
+    url.pathname = pathname
+    return NextResponse.rewrite(url)
+  }
   return NextResponse.next()
 }
 

@@ -18,17 +18,25 @@ function isLocalUrl(url: string): boolean {
 }
 
 /** Rewrite localhost URLs for remote access.
- *  Uses path-based routing: /mod/{name} for API, /proxy/{mod}/app for app.
+ *  Uses path-based routing: /mod/{name} for API, /{mod} for app.
  *  Falls back to /proxy/api for the main API. */
 function resolveUrl(url: string | undefined, modName?: string, kind?: 'app' | 'api'): string | undefined {
   if (!url) return url
   if (typeof window === 'undefined') return url
-  if (!isLocalUrl(url) || !isRemote()) return url
+  if (isLocalUrl(url) && !isRemote()) {
+    // Local access: module apps use basePath=/{modName}, so append it
+    if (modName && kind === 'app') {
+      return `${url.replace(/\/+$/, '')}/${modName}`
+    }
+    return url
+  }
+  if (!isLocalUrl(url)) return url
+  // Remote access: rewrite localhost URLs to path-based routing
   if (modName && kind === 'api') {
     return `${window.location.origin}/mod/${modName}`
   }
   if (modName && kind === 'app') {
-    return `${window.location.origin}/proxy/${modName}/app`
+    return `${window.location.origin}/${modName}`
   }
   // Fallback: main API
   return `${window.location.origin}/proxy/api`

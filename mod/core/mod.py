@@ -57,7 +57,7 @@ class Mod:
         self.paths['orbit'] = {
             'orbit': f'{self.mod_path}/orbit',
             'core': f'{self.mod_path}/core',
-            'portal': f'{self.mod_path}/portal',
+            'mods': f'{self.mod_path}/orbit/registry/mods',
             'local': os.getcwd(),
         }
 
@@ -621,7 +621,7 @@ class Mod:
 
     def fns(self, obj: Any = None, search=None, include_hidden=False, **kwargs) -> List[str]:
         """Get list of public functions on a mod."""
-        obj = self.mod(obj)()
+        obj = self.mod(obj)
         fns = sorted(set(dir(obj)))
         if search is not None:
             fns = [f for f in fns if search in f]

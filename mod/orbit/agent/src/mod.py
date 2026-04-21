@@ -82,6 +82,17 @@ RULES:
 - If stuck, use think to reflect on what went wrong and try a different approach.
 """
 
+    PROVIDERS = {
+        'openrouter': 'model.openrouter',
+        'venice': 'venice',
+    }
+
+    DEFAULT_MODELS = {
+        'model.openrouter': 'anthropic/claude-sonnet-4-5-20250929',
+        'openrouter': 'anthropic/claude-sonnet-4-5-20250929',
+        'venice': 'deepseek-v3.2',
+    }
+
     anchors = {
         'plan': ['<PLAN>', '</PLAN>'],
         'tool': ['<STEP>', '</STEP>'],
@@ -101,6 +112,7 @@ RULES:
 
     def __init__(self,
                  model: str = 'model.openrouter',
+                 provider: str = None,
                  memory: str = 'agent.memory',
                  goal: str = None,
                  skills: list = None,
@@ -108,10 +120,19 @@ RULES:
         self.skills = Skills()
         self.agents = Agents()
         self.memory = m.mod(memory)() if m else Memory()
-        self.model = m.mod(model)() if m else None
+        # resolve provider: shorthand ('venice', 'openrouter') or full module path
+        provider = provider or model
+        self._provider = self.PROVIDERS.get(provider, provider)
+        self.model = m.mod(self._provider)() if m else None
         if goal:
             self.goal = goal
         self._skill_names = skills  # optional filter
+
+    def set_provider(self, provider: str):
+        """Switch LLM provider at runtime. Use 'openrouter', 'venice', or any module path."""
+        self._provider = self.PROVIDERS.get(provider, provider)
+        self.model = m.mod(self._provider)() if m else None
+        return {'provider': self._provider}
 
     # ── skill interface ──────────────────────────────────────────────
 
@@ -142,7 +163,8 @@ RULES:
     def run(self,
             query: str = 'help me with this',
             *extra_text,
-            model: Optional[str] = 'anthropic/claude-sonnet-4-5-20250929',
+            model: Optional[str] = None,
+            provider: str = None,
             path: str = None,
             temperature: float = 0.0,
             max_tokens: int = 100000,
@@ -158,9 +180,15 @@ RULES:
         """Run the agent loop: query -> LLM -> parse step -> execute skill -> repeat.
 
         Args:
+            model: model name on the provider (e.g. 'anthropic/claude-sonnet-4-5-20250929' for openrouter,
+                   'deepseek-v3.2' for venice). Defaults to provider's default model.
+            provider: LLM provider — 'openrouter', 'venice', or any module path. Switches at runtime.
             allowed_paths: list of allowed write paths, or None for unrestricted (owner).
                            Non-owners are restricted to their portal directory.
         """
+        if provider:
+            self.set_provider(provider)
+        model = model or self.DEFAULT_MODELS.get(self._provider, 'anthropic/claude-sonnet-4-5-20250929')
         self._allowed_paths = allowed_paths
         query = query + ' ' + ' '.join(extra_text) if extra_text else query
         path = path or (m.dp(mod) if m and mod else os.getcwd())
@@ -331,9 +359,9 @@ class Mod(Agent):
         self.auth = m.mod('auth.base')() if m else None
         self._owner = (self.key.address.lower() if self.key else
                        svc_config.get('owner'))
-        self._portal_root = (m.paths['orbit']['portal']
-                             if m and hasattr(m, 'paths') else
-                             str(self.module_dir.parent.parent / 'portal'))
+        self._mods_root = (m.paths['orbit']['mods']
+                           if m and hasattr(m, 'paths') else
+                           str(self.module_dir.parent / 'registry' / 'mods'))
 
         # ── access control (gate) ──
         # public: anyone can call these
@@ -386,14 +414,14 @@ class Mod(Agent):
         """Return allowed write paths for the caller.
 
         Owner: None (unrestricted)
-        Others: [portal/{address}/]
+        Others: [registry/mods/{address}/]
         """
         if self.is_owner(key):
             return None
         addr = self._resolve_address(key).lower()
-        portal_dir = os.path.join(self._portal_root, addr)
-        os.makedirs(portal_dir, exist_ok=True)
-        return [portal_dir]
+        mods_dir = os.path.join(self._mods_root, addr)
+        os.makedirs(mods_dir, exist_ok=True)
+        return [mods_dir]
 
     # ── access control (gate) ────────────────────────────────────────
 
@@ -550,7 +578,8 @@ class Mod(Agent):
         agent_type = kwargs.get('agent_type') or kwargs.get('agent')
         agent_goal = None
         agent_skills = kwargs.get('skills')
-        agent_model = kwargs.get('model', 'anthropic/claude-sonnet-4-5-20250929')
+        agent_model = kwargs.get('model')
+        agent_provider = kwargs.get('provider')
 
         if agent_type and agent_type in self.agents.ls():
             agent_config = self.agents.get(agent_type)
@@ -569,6 +598,7 @@ class Mod(Agent):
             return self.run(
                 query=kwargs.get('query', 'help me with this'),
                 model=agent_model,
+                provider=agent_provider,
                 path=kwargs.get('path'),
                 temperature=kwargs.get('temperature', 0.0),
                 max_tokens=kwargs.get('max_tokens', 100000),

@@ -539,6 +539,34 @@ class Mod:
         except Exception as e:
             return {'error': f'Deploy failed: {str(e)}'}
 
+    def start(self, dev=True):
+        """Start everything: bridge API, Next.js app, and sync Caddy routing."""
+        results = self.serve_app(dev=dev)
+
+        # Sync Caddy so /bridge/* and /bridge/api/* routes are live
+        try:
+            caddy = m.mod('caddy')()
+            caddy_result = caddy.sync()
+            results['caddy'] = caddy_result
+        except Exception as e:
+            results['caddy'] = {'error': str(e)}
+
+        return results
+
+    def stop(self):
+        """Stop bridge API, Next.js app, and re-sync Caddy."""
+        results = self.kill_app()
+
+        # Re-sync Caddy to drop dead routes
+        try:
+            caddy = m.mod('caddy')()
+            caddy_result = caddy.sync()
+            results['caddy'] = caddy_result
+        except Exception as e:
+            results['caddy'] = {'error': str(e)}
+
+        return results
+
     def serve(self, port=None, app_port=None, dev=True):
         """Start both the FastAPI bridge API and the Next.js app as separate PM2 processes."""
         return self.serve_app(app_port=app_port, dev=dev)
@@ -669,6 +697,8 @@ class Mod:
             compile       - Compile contracts
             test          - Run contract tests
             deploy        - Deploy contract (network=, key=, name=, symbol=)
+            start         - Start everything (API + App + Caddy)
+            stop          - Stop everything (API + App + Caddy re-sync)
             serve         - Start API + App (both)
             kill          - Stop API + App (both)
             serve_api     - Start FastAPI bridge API only
@@ -720,6 +750,8 @@ class Mod:
                 symbol=kwargs.get('symbol', 'BRG'),
                 initial_supply=int(kwargs.get('initial_supply', 0)),
             ),
+            'start': lambda: self.start(dev=kwargs.get('dev', True)),
+            'stop': lambda: self.stop(),
             'serve': lambda: self.serve(
                 port=kwargs.get('port'),
                 app_port=kwargs.get('app_port'),

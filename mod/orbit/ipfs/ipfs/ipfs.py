@@ -22,11 +22,18 @@ class  IpfsClient:
     _daemon_proc = None
     _pidfile = os.path.expanduser('~/.ipfs/daemon.pid')
     _timeout = 10
+    _shared_url = None  # class-level connection cache
 
     def __init__(self, url: str = None, autostart: bool = True):
+        cls = type(self)
+        if not url and cls._shared_url:
+            self.url = cls._shared_url
+            self.connected = True
+            return
         if autostart:
             self.ensure_ipfs_running()
         self.set_conn(url)
+        cls._shared_url = self.url
 
     def _post(self, path: str, **kwargs):
         """Make a POST request to the IPFS API with timeout."""

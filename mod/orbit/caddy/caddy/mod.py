@@ -79,41 +79,42 @@ class Mod:
             print(f'Skipped (not live): {", ".join(sorted(dead))}')
         return modules
 
-    def _module_routes(self, modules, proxy_prefix):
-        """Build /proxy/{mod}/app and /proxy/{mod}/api handle blocks."""
+    def _module_routes(self, modules):
+        """Build /{mod}/api/* and /{mod}/* handle blocks.
+
+        API routes come first (more specific) with uri strip_prefix so
+        FastAPI receives clean paths.  App routes use a named matcher to
+        match both /{mod} and /{mod}/* so the basePath works naturally.
+        """
         lines = []
         for name in sorted(modules):
             app_port = modules[name].get('app_port')
             api_port = modules[name].get('api_port')
-            if app_port:
-                path = f'/{proxy_prefix}/{name}/app'
-                lines.append(f'    handle {path}/* {{')
-                lines.append(f'        uri strip_prefix {path}')
-                lines.append(f'        reverse_proxy localhost:{app_port}')
-                lines.append(f'    }}')
             if api_port:
-                path = f'/{proxy_prefix}/{name}/api'
-                lines.append(f'    handle {path}/* {{')
-                lines.append(f'        uri strip_prefix {path}')
+                lines.append(f'    @{name}_api path /{name}/api /{name}/api/*')
+                lines.append(f'    handle @{name}_api {{')
+                lines.append(f'        uri strip_prefix /{name}/api')
                 lines.append(f'        reverse_proxy localhost:{api_port}')
+                lines.append(f'    }}')
+            if app_port:
+                lines.append(f'    @{name} path /{name} /{name}/*')
+                lines.append(f'    handle @{name} {{')
+                lines.append(f'        reverse_proxy localhost:{app_port}')
                 lines.append(f'    }}')
         return lines
 
     def generate(self, domain='modc2.com', app_port=3000, api_port=8000,
-                 admin_port=2099, proxy_prefix='proxy', check_ports=True):
+                 admin_port=2099, check_ports=True, **kwargs):
         """Generate Caddyfile from module config.json urls.
 
         All routing lives under a single domain:
-          domain/proxy/api          → main API (localhost:api_port)
-          domain/proxy/{mod}/app    → module app port
-          domain/proxy/{mod}/api    → module api port
-          domain/*                  → main app (localhost:app_port)
+          domain/{mod}/api/*  → module api port  (prefix stripped)
+          domain/{mod}/*      → module app port  (basePath preserved)
+          domain/*            → main app (localhost:app_port)
         """
         modules = self._scan()
         if check_ports:
             modules = self._filter_live(modules)
-
-        api_prefix = f'/{proxy_prefix}/api'
 
         lines = [
             '{',
@@ -121,13 +122,8 @@ class Mod:
             '}',
             '',
             f'{domain} {{',
-            # Main API: /proxy/api/* → localhost:api_port
-            f'    handle {api_prefix}/* {{',
-            f'        uri strip_prefix {api_prefix}',
-            f'        reverse_proxy localhost:{api_port}',
-            f'    }}',
-            # Module routes: /proxy/{mod}/app/*, /proxy/{mod}/api/*
-            *self._module_routes(modules, proxy_prefix),
+            # Module routes: /{mod}/api/*, /{mod}/*
+            *self._module_routes(modules),
             # Default fallback: main app
             f'    handle /* {{',
             f'        reverse_proxy localhost:{app_port}',

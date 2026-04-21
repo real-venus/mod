@@ -156,7 +156,9 @@ class Mod:
 
         try:
             import mod as m
-            if provider in ('ipfs', 'filecoin'):
+            if provider == 'localfs':
+                client = m.mod('localfs')()
+            elif provider in ('ipfs', 'filecoin'):
                 client = m.mod('ipfs')()
             elif provider == 'lighthouse':
                 client = m.mod('lighthouse')()
@@ -293,6 +295,143 @@ class Mod:
                 )
                 synced.append({'source_id': mod.get('id'), 'target_id': new_id, 'name': mod['name']})
         return synced
+
+    # ── Mods directory (local module registry) ─────────────────────────────
+
+    @property
+    def mods_path(self):
+        """Path to the local mods directory (registry/mods/)."""
+        return os.path.join(os.path.dirname(__file__), '..', 'mods')
+
+    def mods_tree(self, depth=2) -> dict:
+        """List all modules in the mods directory. Returns {owner/name: path}."""
+        mods_dir = os.path.realpath(self.mods_path)
+        if not os.path.isdir(mods_dir):
+            return {}
+        tree = {}
+        for owner in sorted(os.listdir(mods_dir)):
+            owner_dir = os.path.join(mods_dir, owner)
+            if not os.path.isdir(owner_dir) or owner.startswith('.'):
+                continue
+            for mod_name in sorted(os.listdir(owner_dir)):
+                mod_dir = os.path.join(owner_dir, mod_name)
+                if not os.path.isdir(mod_dir) or mod_name.startswith('.'):
+                    continue
+                tree[f'{owner}/{mod_name}'] = mod_dir
+        return tree
+
+    def root_hash(self) -> dict:
+        """Compute the root hash of all mods in the local mods directory.
+
+        Walks registry/mods/, hashes every file, builds a Merkle-like tree,
+        and returns the root CID plus the file tree.
+
+        Returns:
+            {'root': <cid>, 'tree': {owner/mod/file: <hash>}, 'n_files': int, 'n_mods': int}
+        """
+        import hashlib
+        mods_dir = os.path.realpath(self.mods_path)
+        if not os.path.isdir(mods_dir):
+            return {'root': None, 'tree': {}, 'n_files': 0, 'n_mods': 0}
+
+        file_hashes = {}
+        mod_set = set()
+        for dirpath, dirnames, filenames in os.walk(mods_dir):
+            dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+            for fname in sorted(filenames):
+                if fname.startswith('.'):
+                    continue
+                fpath = os.path.join(dirpath, fname)
+                relpath = os.path.relpath(fpath, mods_dir)
+                with open(fpath, 'rb') as f:
+                    file_hashes[relpath] = hashlib.sha256(f.read()).hexdigest()
+                # track unique owner/mod pairs
+                parts = relpath.split(os.sep)
+                if len(parts) >= 2:
+                    mod_set.add(f'{parts[0]}/{parts[1]}')
+
+        # root = hash of sorted file hashes (deterministic)
+        root_data = json.dumps(file_hashes, sort_keys=True)
+        root = hashlib.sha256(root_data.encode()).hexdigest()
+        return {
+            'root': root,
+            'tree': file_hashes,
+            'n_files': len(file_hashes),
+            'n_mods': len(mod_set),
+        }
+
+    def commit_root(self, backend=None, storage=None, **kw) -> dict:
+        """Compute the mods root hash and commit it to the registry.
+
+        Stores the full file hash tree on the storage provider, then registers
+        a '_mods_root' entry in the backend with the root hash and data URI.
+
+        Returns:
+            {'root': <sha256>, 'data_uri': <storage_uri>, 'mod_id': <id>, 'n_files': int, 'n_mods': int}
+        """
+        info = self.root_hash()
+        if not info['root']:
+            return {'error': 'no mods found', **info}
+
+        # upload the file tree to storage
+        data_uri = self._upload_json({
+            'root': info['root'],
+            'tree': info['tree'],
+            'n_files': info['n_files'],
+            'n_mods': info['n_mods'],
+        }, storage=storage)
+
+        # register as _mods_root in the backend
+        mod_id = self._get_backend(backend).register('_mods_root', data_uri, **kw)
+
+        return {
+            'root': info['root'],
+            'data_uri': data_uri,
+            'mod_id': mod_id,
+            'n_files': info['n_files'],
+            'n_mods': info['n_mods'],
+        }
+
+    def verify_root(self, expected_root=None, **kw) -> dict:
+        """Verify the current mods directory matches a committed root hash.
+
+        If no expected_root is given, fetches the latest committed one.
+
+        Returns:
+            {'valid': bool, 'current_root': <hash>, 'expected_root': <hash>, 'diff': [...]}
+        """
+        current = self.root_hash()
+        if expected_root is None:
+            # fetch latest committed root from backend
+            committed = self.get('_mods_root', **kw)
+            if not committed:
+                return {'valid': False, 'error': 'no committed root found', 'current_root': current['root']}
+            resolved = self.resolve(committed['data'])
+            expected_root = resolved['root']
+
+        valid = current['root'] == expected_root
+        diff = []
+        if not valid and expected_root:
+            # attempt to resolve committed tree for diff
+            try:
+                committed = self.get('_mods_root', **kw)
+                resolved = self.resolve(committed['data'])
+                committed_tree = resolved.get('tree', {})
+                all_files = set(current['tree'].keys()) | set(committed_tree.keys())
+                for f in sorted(all_files):
+                    cur = current['tree'].get(f)
+                    exp = committed_tree.get(f)
+                    if cur != exp:
+                        diff.append({'file': f, 'current': cur, 'expected': exp})
+            except Exception:
+                pass
+
+        return {
+            'valid': valid,
+            'current_root': current['root'],
+            'expected_root': expected_root,
+            'diff': diff,
+        }
 
     def backends(self):
         """List available backends."""

@@ -387,7 +387,7 @@ class Registry:
         clone_url = url
         if '/' in url and len(url.split('/')) == 2 and 'github.com' not in url:
             clone_url = f'https://github.com/{url}'
-        orbit = 'orbit' if self.is_owner(key) else 'portal'
+        orbit = 'orbit' if self.is_owner(key) else 'mods'
         dirpath = m.paths['orbit'][orbit]
         modpath = os.path.join(dirpath, key, name)
         if os.path.exists(modpath):
@@ -425,7 +425,7 @@ class Registry:
             mod_name = mod_info['name']
             content = self.get(mod_info['content'])
             owner_key = mod_info.get('key', self.key_address(key))
-            orbit = 'orbit' if self.is_owner(owner_key) else 'portal'
+            orbit = 'orbit' if self.is_owner(owner_key) else 'mods'
             modpath = os.path.join(m.paths['orbit'][orbit], owner_key, mod_name)
             for file, file_cid in content['data'].items():
                 file_content = self.get(file_cid)
@@ -456,7 +456,7 @@ class Registry:
             return info
 
         # Otherwise, write the config locally and register as a local mod
-        orbit = 'orbit' if self.is_owner(key) else 'portal'
+        orbit = 'orbit' if self.is_owner(key) else 'mods'
         modpath = os.path.join(m.paths['orbit'][orbit], key, name)
         os.makedirs(modpath, exist_ok=True)
         # Write the config.json
@@ -793,6 +793,107 @@ class Registry:
         if decrypt:
             registry = self.key.decrypt(registry)
         return registry
+
+    # --- Mods root hash (local filesystem integrity) ---
+
+    def mods_root_hash(self, update=True) -> Dict[str, Any]:
+        """Compute the root hash of all mods in registry/mods/.
+
+        Walks the mods directory, hashes every file with SHA-256,
+        then hashes the sorted file-hash map to produce a deterministic root.
+
+        Returns:
+            {'root': <sha256>, 'tree': {relpath: <sha256>}, 'n_files': int, 'n_mods': int}
+        """
+        import hashlib, json as _json
+        mods_dir = m.paths['orbit']['mods']
+        if not os.path.isdir(mods_dir):
+            return {'root': None, 'tree': {}, 'n_files': 0, 'n_mods': 0}
+
+        file_hashes = {}
+        mod_set = set()
+        for dirpath, dirnames, filenames in os.walk(mods_dir):
+            dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+            for fname in sorted(filenames):
+                if fname.startswith('.'):
+                    continue
+                fpath = os.path.join(dirpath, fname)
+                relpath = os.path.relpath(fpath, mods_dir)
+                with open(fpath, 'rb') as f:
+                    file_hashes[relpath] = hashlib.sha256(f.read()).hexdigest()
+                parts = relpath.split(os.sep)
+                if len(parts) >= 2:
+                    mod_set.add(f'{parts[0]}/{parts[1]}')
+
+        root_data = _json.dumps(file_hashes, sort_keys=True)
+        root = hashlib.sha256(root_data.encode()).hexdigest()
+        return {'root': root, 'tree': file_hashes, 'n_files': len(file_hashes), 'n_mods': len(mod_set)}
+
+    def commit_mods_root(self, comment=None, update=True) -> Dict[str, Any]:
+        """Commit the current mods root hash to the store.
+
+        Computes the filesystem hash, stores the tree as a CID,
+        and saves the root entry for later verification.
+
+        Returns:
+            {'root': <sha256>, 'cid': <store_cid>, 'n_files': int, 'n_mods': int}
+        """
+        info = self.mods_root_hash()
+        if not info['root']:
+            return {'error': 'no mods found', **info}
+
+        payload = {
+            'root': info['root'],
+            'tree': self.put(info['tree']),
+            'n_files': info['n_files'],
+            'n_mods': info['n_mods'],
+            'comment': comment,
+            'time': m.time(),
+        }
+        cid = self.put(payload)
+
+        # store the latest root CID for quick lookup
+        root_path = self.path('mods_root.json')
+        prev = m.get(root_path, None)
+        payload['prev'] = prev
+        payload['cid'] = cid
+        m.put(root_path, payload)
+
+        return {'root': info['root'], 'cid': cid, 'n_files': info['n_files'], 'n_mods': info['n_mods']}
+
+    def verify_mods_root(self) -> Dict[str, Any]:
+        """Verify the current mods directory matches the last committed root hash.
+
+        Returns:
+            {'valid': bool, 'current': <hash>, 'committed': <hash>, 'changed_files': [...]}
+        """
+        current = self.mods_root_hash()
+        root_path = self.path('mods_root.json')
+        committed = m.get(root_path, None)
+        if not committed:
+            return {'valid': False, 'error': 'no committed root', 'current': current['root']}
+
+        valid = current['root'] == committed['root']
+        changed = []
+        if not valid:
+            try:
+                committed_tree = self.get(committed['tree'])
+                all_files = set(current['tree'].keys()) | set(committed_tree.keys())
+                for f in sorted(all_files):
+                    cur = current['tree'].get(f)
+                    exp = committed_tree.get(f)
+                    if cur != exp:
+                        status = 'added' if exp is None else ('removed' if cur is None else 'modified')
+                        changed.append({'file': f, 'status': status})
+            except Exception:
+                pass
+
+        return {
+            'valid': valid,
+            'current': current['root'],
+            'committed': committed['root'],
+            'changed_files': changed,
+        }
 
     def dp(self, path: str, key=None) -> str:
         key = self.key_address(key)

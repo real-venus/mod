@@ -57,7 +57,7 @@ class Gate:
         'mods', 'mod', 'info', 'txs', 'h', 'tasks', 'kill_task', 'reset_tasks',
         'users', 'call', 'schema', 'content', 'config', 'versions', 'edit',
         'reg', 'update', 'fork', 'new', 'rm', 'n', 'transfer', 'set_public',
-        'token', 'logs', 'namespace', 'serve', 'stop',
+        'token', 'logs', 'namespace', 'serve', 'stop', 'get', 'put',
         # Metering, billing, load balancing, paywall (mod paths)
         'meter', 'balancer', 'paywall',
         # Worker management (owner-only via RBAC)

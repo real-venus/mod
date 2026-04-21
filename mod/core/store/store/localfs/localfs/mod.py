@@ -707,19 +707,31 @@ class LocalFS:
         return f"LocalFS(storage_path={self.storage_path})"
     
 
+    _binding_cache = None   # class-level: None=unchecked, False=unavailable, module=available
+
     def ensure_bindings(self):
         """
         Ensure Rust bindings are available, attempt to compile if not.
         """
         if self.use_rust and self.rust is not None:
             return True
+        cls = type(self)
+        if cls._binding_cache is not None:
+            if cls._binding_cache is False:
+                self.use_rust = False
+                return False
+            self.rust = cls._binding_cache
+            self.use_rust = True
+            return True
         try:
             from . import localfs_rs
+            cls._binding_cache = localfs_rs
             self.rust = localfs_rs
             self.use_rust = True
             print("[localfs] Rust bindings are now available")
             return True
         except ImportError:
+            cls._binding_cache = False
             self.use_rust = False
             print("[localfs] Rust bindings not available, using pure Python")
             return False

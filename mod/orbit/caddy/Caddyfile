@@ -3,108 +3,176 @@
 }
 
 modc2.com {
-	handle /agent/app/* {
-		reverse_proxy localhost:3117
-	}
-	handle /agent/api/* {
+	@agent_api path /agent/api /agent/api/*
+	handle @agent_api {
+		uri strip_prefix /agent/api
 		reverse_proxy localhost:50117
 	}
-	handle /bloctime/app/* {
-		reverse_proxy localhost:8852
+	@agent path /agent /agent/*
+	handle @agent {
+		reverse_proxy localhost:3117
 	}
-	handle /bloctime/api/* {
+
+	@bloctime_api path /bloctime/api /bloctime/api/*
+	handle @bloctime_api {
+		uri strip_prefix /bloctime/api
 		reverse_proxy localhost:8851
 	}
-	handle /bridge/app/* {
-		reverse_proxy localhost:8841
+	@bloctime path /bloctime /bloctime/*
+	handle @bloctime {
+		reverse_proxy localhost:8852
 	}
-	handle /bridge/api/* {
+
+	@bridge_api path /bridge/api /bridge/api/*
+	handle @bridge_api {
+		uri strip_prefix /bridge/api
 		reverse_proxy localhost:8840
 	}
-	handle /claude/app/* {
-		reverse_proxy localhost:8821
+	@bridge path /bridge /bridge/*
+	handle @bridge {
+		reverse_proxy localhost:8841
 	}
-	handle /claude/api/* {
+
+	@claude_api path /claude/api /claude/api/*
+	handle @claude_api {
+		uri strip_prefix /claude/api
 		reverse_proxy localhost:8820
 	}
-	handle /claudegit/app/* {
-		reverse_proxy localhost:8831
+	@claude path /claude /claude/*
+	handle @claude {
+		reverse_proxy localhost:8821
 	}
-	handle /claudegit/api/* {
+
+	@claudegit_api path /claudegit/api /claudegit/api/*
+	handle @claudegit_api {
+		uri strip_prefix /claudegit/api
 		reverse_proxy localhost:8830
 	}
-	handle /goldfi/app/* {
-		reverse_proxy localhost:3095
+	@claudegit path /claudegit /claudegit/*
+	handle @claudegit {
+		reverse_proxy localhost:8831
 	}
-	handle /goldfi/api/* {
+
+	@goldfi_api path /goldfi/api /goldfi/api/*
+	handle @goldfi_api {
+		uri strip_prefix /goldfi/api
 		reverse_proxy localhost:50095
 	}
-	handle /hyperliquid/app/* {
-		reverse_proxy localhost:3919
+	@goldfi path /goldfi /goldfi/*
+	handle @goldfi {
+		reverse_proxy localhost:3095
 	}
-	handle /hyperliquid/api/* {
+
+	@hyperliquid_api path /hyperliquid/api /hyperliquid/api/*
+	handle @hyperliquid_api {
+		uri strip_prefix /hyperliquid/api
 		reverse_proxy localhost:8919
 	}
-	handle /ipfs/app/* {
-		reverse_proxy localhost:50080
+	@hyperliquid path /hyperliquid /hyperliquid/*
+	handle @hyperliquid {
+		reverse_proxy localhost:3919
 	}
-	handle /ipfs/api/* {
+
+	@ipfs_api path /ipfs/api /ipfs/api/*
+	handle @ipfs_api {
+		uri strip_prefix /ipfs/api
 		reverse_proxy localhost:50079
 	}
-	handle /latexhub/app/* {
-		reverse_proxy localhost:3200
+	@ipfs path /ipfs /ipfs/*
+	handle @ipfs {
+		reverse_proxy localhost:50080
 	}
-	handle /latexhub/api/* {
+
+	@latexhub_api path /latexhub/api /latexhub/api/*
+	handle @latexhub_api {
+		uri strip_prefix /latexhub/api
 		reverse_proxy localhost:50200
 	}
-	handle /openclaw/app/* {
-		reverse_proxy localhost:50121
+	@latexhub path /latexhub /latexhub/*
+	handle @latexhub {
+		reverse_proxy localhost:3200
 	}
-	handle /openclaw/api/* {
+
+	@openclaw_api path /openclaw/api /openclaw/api/*
+	handle @openclaw_api {
+		uri strip_prefix /openclaw/api
 		reverse_proxy localhost:50120
 	}
-	handle /polymarket/app/* {
-		reverse_proxy localhost:3091
+	@openclaw path /openclaw /openclaw/*
+	handle @openclaw {
+		reverse_proxy localhost:50121
 	}
-	handle /polymarket/api/* {
+
+	@polymarket_api path /polymarket/api /polymarket/api/*
+	handle @polymarket_api {
+		uri strip_prefix /polymarket/api
 		reverse_proxy localhost:50091
 	}
-	handle /prefi/app/* {
-		reverse_proxy localhost:8831
+	@polymarket path /polymarket /polymarket/*
+	handle @polymarket {
+		reverse_proxy localhost:3091
 	}
-	handle /prefi/api/* {
+
+	@prefi_api path /prefi/api /prefi/api/*
+	handle @prefi_api {
+		uri strip_prefix /prefi/api
 		reverse_proxy localhost:8830
 	}
-	handle /staketime/app/* {
-		reverse_proxy localhost:8850
+	@prefi path /prefi /prefi/*
+	handle @prefi {
+		reverse_proxy localhost:8831
 	}
-	handle /staketime/api/* {
+
+	@staketime_api path /staketime/api /staketime/api/*
+	handle @staketime_api {
+		uri strip_prefix /staketime/api
 		reverse_proxy localhost:8849
 	}
-	handle /tt/app/* {
+	@staketime path /staketime /staketime/*
+	handle @staketime {
 		reverse_proxy localhost:8850
 	}
-	handle /tt/api/* {
+
+	@tt_api path /tt/api /tt/api/*
+	handle @tt_api {
+		uri strip_prefix /tt/api
 		reverse_proxy localhost:8849
 	}
-	handle /uniswap/app/* {
-		reverse_proxy localhost:3088
+	@tt path /tt /tt/*
+	handle @tt {
+		reverse_proxy localhost:8850
 	}
-	handle /uniswap/api/* {
+
+	@uniswap_api path /uniswap/api /uniswap/api/*
+	handle @uniswap_api {
+		uri strip_prefix /uniswap/api
 		reverse_proxy localhost:50088
 	}
-	handle /vali/app/* {
-		reverse_proxy localhost:50101
+	@uniswap path /uniswap /uniswap/*
+	handle @uniswap {
+		reverse_proxy localhost:3088
 	}
-	handle /vali/api/* {
+
+	@vali_api path /vali/api /vali/api/*
+	handle @vali_api {
+		uri strip_prefix /vali/api
 		reverse_proxy localhost:50100
 	}
-	handle /zcash/app/* {
-		reverse_proxy localhost:3930
+	@vali path /vali /vali/*
+	handle @vali {
+		reverse_proxy localhost:50101
 	}
-	handle /zcash/api/* {
+
+	@zcash_api path /zcash/api /zcash/api/*
+	handle @zcash_api {
+		uri strip_prefix /zcash/api
 		reverse_proxy localhost:8930
 	}
+	@zcash path /zcash /zcash/*
+	handle @zcash {
+		reverse_proxy localhost:3930
+	}
+
 	handle /* {
 		reverse_proxy localhost:3000
 	}

@@ -317,6 +317,60 @@ class Mod:
             results.append(resp)
         return results
 
+    # ── Serve / Kill ──────────────────────────────────────────────
+
+    def _load_config(self):
+        cfg_path = os.path.join(self.dir, 'config.json')
+        if os.path.exists(cfg_path):
+            with open(cfg_path) as f:
+                return json.load(f)
+        return {'port': 50120, 'app_port': 50121}
+
+    def serve(self, port=None, app_port=None, dev=True, **kwargs):
+        """Start FastAPI API and Next.js app via PM2."""
+        self.kill()
+        cfg = self._load_config()
+        port = port or cfg.get('port', 50120)
+        app_port = app_port or cfg.get('app_port', 50121)
+        api_dir = os.path.join(self.dir, 'api')
+        app_dir = os.path.join(self.dir, 'app')
+
+        # Start API
+        api_cmd = ['python3', '-m', 'uvicorn', 'api:app',
+                    '--host', '0.0.0.0', '--port', str(port)]
+        if dev:
+            api_cmd.append('--reload')
+        subprocess.run(['pm2', 'delete', 'chutes.api'], capture_output=True)
+        subprocess.run(
+            ['pm2', 'start', api_cmd[0], '--name', 'chutes.api', '--'] + api_cmd[1:],
+            cwd=api_dir,
+            env={**os.environ, 'PYTHONPATH': os.path.expanduser('~/mod'), 'PORT': str(port)},
+        )
+
+        # Start App
+        app_cmd = ['npx', 'next', 'dev' if dev else 'start', '-p', str(app_port)]
+        subprocess.run(['pm2', 'delete', 'chutes.app'], capture_output=True)
+        subprocess.run(
+            ['pm2', 'start', app_cmd[0], '--name', 'chutes.app', '--'] + app_cmd[1:],
+            cwd=app_dir,
+            env={**os.environ, 'NEXT_PUBLIC_API_URL': f'http://localhost:{port}', 'PORT': str(app_port)},
+        )
+
+        return {
+            'api': f'http://localhost:{port}',
+            'app': f'http://localhost:{app_port}',
+            'processes': ['chutes.api', 'chutes.app'],
+        }
+
+    def kill(self, **kwargs):
+        """Stop chutes API and app PM2 processes."""
+        killed = []
+        for name in ['chutes.api', 'chutes.app']:
+            r = subprocess.run(['pm2', 'delete', name], capture_output=True, text=True)
+            if r.returncode == 0:
+                killed.append(name)
+        return {'killed': killed}
+
     # ── Configuration ────────────────────────────────────────────
 
     def set_api_key(self, api_key: str):
@@ -334,7 +388,7 @@ class Mod:
 
     def build(self, **kwargs):
         """Build the Rust engine via maturin."""
-        rs_dir = os.path.join(self.dir, '..', 'chutes-rs')
+        rs_dir = os.path.join(self.dir, 'chutes-rs')
         if not os.path.exists(rs_dir):
             return {'status': 'error', 'message': f'chutes-rs not found at {rs_dir}'}
         result = subprocess.run(

@@ -253,12 +253,12 @@ class Api:
             if not original_path or not os.path.exists(original_path):
                 return {'error': f'Module {mod} not found'}
             key_address = self._reg.key_address(key)
-            new_path = os.path.join(m.paths['orbit']['portal'], key_address, mod.replace('.', '/'))
+            new_path = os.path.join(m.paths['orbit']['mods'], key_address, mod.replace('.', '/'))
             os.makedirs(os.path.dirname(new_path), exist_ok=True)
             if os.path.exists(new_path):
                 shutil.rmtree(new_path)
             shutil.copytree(original_path, new_path)
-            m._tree.orbit('portal', update=True)
+            m._tree.orbit('mods', update=True)
             reg_result = self._reg.reg(mod=mod, key=key, comment=comment or f'forked from {mod}', public=public)
             self._record(user=key or key_address or '', fn=f'fork/{mod}', duration=time.time() - t0)
             return {
@@ -580,7 +580,7 @@ class Api:
         if key == self.key.address.lower():
             orbit = 'orbit'
         else:
-            orbit = 'portal'
+            orbit = 'mods'
         name = name or base.split('/')[-1]
         dirpath = m.paths["orbit"][orbit] + '/' + key + '/' + name.replace('.', '/')
         print(f'Creating new mod {name} at {dirpath} from base {base}')

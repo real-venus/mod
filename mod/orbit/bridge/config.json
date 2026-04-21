@@ -25,6 +25,8 @@
     },
     "fns": [
         "forward",
+        "start",
+        "stop",
         "health",
         "status",
         "owner",
@@ -51,5 +53,5 @@
         "serve_app",
         "kill_app"
     ],
-    "schema": "QmUZYAWnPQi1LJLZBHkfk88QumN38ywpoGhWfofSp7mjs4"
+    "schema": "Qmc77ALwtUg6YxHkhLjHdaxrCmYGadXuCGQ6Rgzgqr7E8V"
 }
