@@ -139,12 +139,22 @@ class Gate:
 
         # Determine if this is a module function call that should be sandboxed
         # Module calls have '/' (e.g., 'ssh/keys') and aren't in the unsandboxed set
-        is_module_call = '/' in fn and fn.split('/')[0] not in self.UNSANDBOXED_FNS
+        # Use actual_fn (leaf name) to check against whitelist
+        is_module_call = '/' in fn and actual_fn not in self.UNSANDBOXED_FNS
 
         t0 = time.time()
         status = 'success'
         try:
-            if is_module_call and fn not in self.UNSANDBOXED_FNS:
+            if fn in ('call', 'forward') and isinstance(params, dict) and '/' in str(params.get('fn', '')):
+                # Module call via 'call' wrapper — resolve and execute directly
+                # (gate already verified auth/public access above)
+                inner_fn = params['fn']
+                inner_params = params.get('params', {})
+                if isinstance(inner_params, str):
+                    inner_params = json.loads(inner_params)
+                fn_obj = self.get_fn_obj(inner_fn, mod=mod)
+                result = fn_obj(**inner_params) if callable(fn_obj) else fn_obj
+            elif is_module_call and actual_fn not in self.UNSANDBOXED_FNS:
                 # Execute in sandboxed subprocess
                 print(f'Gate: sandboxed execution for {fn}', color='yellow')
                 result = self.sandbox.run(fn_path=fn, params=params, timeout=120)
@@ -485,6 +495,7 @@ class Gate:
         'in_snapshot', 'get_total_balances',
         'get_claims', 'claims_array', 'has_claimed', 'unclaimed',
         'get_commitments', 'get_commitment',
+        'commit', 'update_commitment', 'claim',
     ]
     def ensure_role_map(self):
         """
