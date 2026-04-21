@@ -7,53 +7,15 @@ modc2.com {
         uri strip_prefix /proxy/api
         reverse_proxy localhost:8000
     }
-    handle /proxy/app/app/* {
-        uri strip_prefix /proxy/app/app
-        reverse_proxy localhost:3000
+    handle /bridge/* {
+        reverse_proxy localhost:8841
     }
-    handle /proxy/app/api/* {
-        uri strip_prefix /proxy/app/api
-        reverse_proxy localhost:8000
-    }
-    handle /proxy/bloctime/api/* {
-        uri strip_prefix /proxy/bloctime/api
-        reverse_proxy localhost:8851
-    }
-    handle /proxy/bridge/app/* {
-        uri strip_prefix /proxy/bridge/app
+    handle /bridge {
         reverse_proxy localhost:8841
     }
     handle /proxy/bridge/api/* {
         uri strip_prefix /proxy/bridge/api
         reverse_proxy localhost:8840
-    }
-    handle /proxy/claude/app/* {
-        uri strip_prefix /proxy/claude/app
-        reverse_proxy localhost:8821
-    }
-    handle /proxy/claudegit/app/* {
-        uri strip_prefix /proxy/claudegit/app
-        reverse_proxy localhost:8831
-    }
-    handle /proxy/claudegit/api/* {
-        uri strip_prefix /proxy/claudegit/api
-        reverse_proxy localhost:8830
-    }
-    handle /proxy/goldfi/api/* {
-        uri strip_prefix /proxy/goldfi/api
-        reverse_proxy localhost:50095
-    }
-    handle /proxy/polymarket/api/* {
-        uri strip_prefix /proxy/polymarket/api
-        reverse_proxy localhost:50091
-    }
-    handle /proxy/prefi/app/* {
-        uri strip_prefix /proxy/prefi/app
-        reverse_proxy localhost:8831
-    }
-    handle /proxy/prefi/api/* {
-        uri strip_prefix /proxy/prefi/api
-        reverse_proxy localhost:8830
     }
     handle /* {
         reverse_proxy localhost:3000

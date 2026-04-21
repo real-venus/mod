@@ -10,11 +10,20 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/bridge',
   output: 'standalone',
   reactStrictMode: true,
   swcMinify: true,
   env: {
-    NEXT_PUBLIC_API_URL: apiUrl,
+    NEXT_PUBLIC_API_URL: '/bridge/api',
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiUrl}/:path*`,
+      },
+    ];
   },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
