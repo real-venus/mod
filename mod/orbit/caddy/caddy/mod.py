@@ -16,6 +16,17 @@ class Mod:
     def __init__(self, caddyfile=None):
         self.caddyfile = caddyfile or CADDYFILE
 
+    def _caddy_in_docker(self):
+        """Check if Caddy is running as a Docker container."""
+        try:
+            result = self._run(
+                ['docker', 'inspect', '-f', '{{.State.Running}}', 'caddy'],
+                timeout=3,
+            )
+            return result.stdout.strip() == 'true'
+        except Exception:
+            return False
+
     def _port(self, url):
         try:
             return urlparse(url).port
@@ -71,11 +82,18 @@ class Mod:
                 app_url, api_url = urls.get('app'), urls.get('api')
                 if not app_url and not api_url:
                     continue
-                docker_host = self._docker_host(mod_dir)
+                mode = cfg.get('mode')
+                if mode == 'pm2':
+                    host = 'localhost'
+                elif mode == 'docker':
+                    host = self._docker_host(mod_dir) or 'localhost'
+                else:
+                    # No mode set: fall back to docker-compose sniffing
+                    host = self._docker_host(mod_dir) or 'localhost'
                 modules[name] = {
                     'app_port': self._port(app_url),
                     'api_port': self._port(api_url),
-                    'host': docker_host or 'localhost',
+                    'host': host,
                 }
         return modules
 
@@ -143,6 +161,15 @@ class Mod:
         if check_ports:
             modules = self._filter_live(modules)
 
+        # If Caddy runs in Docker, PM2 modules (localhost) need
+        # host.docker.internal to reach the host machine.
+        caddy_docker = self._caddy_in_docker()
+        if caddy_docker:
+            for info in modules.values():
+                if info.get('host') == 'localhost':
+                    info['host'] = 'host.docker.internal'
+        default_host = 'host.docker.internal' if caddy_docker else 'localhost'
+
         lines = [
             '{',
             f'    admin localhost:{admin_port}',
@@ -153,7 +180,7 @@ class Mod:
             *self._module_routes(modules),
             # Default fallback: main app
             f'    handle /* {{',
-            f'        reverse_proxy localhost:{app_port}',
+            f'        reverse_proxy {default_host}:{app_port}',
             f'    }}',
             '}',
             '',

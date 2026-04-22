@@ -546,7 +546,7 @@ class Mod:
         mode = mode or self.mode
         if prod:
             dev = False
-        results = self.serve_app(dev=dev, mode=mode)
+        results = self.serve_app(dev=dev, prod=prod, mode=mode)
 
         # Sync Caddy so /bridge/* and /bridge/api/* routes are live
         try:
@@ -757,6 +757,17 @@ class Mod:
                 'PORT': str(app_port),
             }
             next_bin = str(app_dir / 'node_modules' / '.bin' / 'next')
+
+            if not dev:
+                # Build Next.js for production before starting
+                print(f'Building Next.js app...')
+                build_result = subprocess.run(
+                    [next_bin, 'build'], cwd=str(app_dir),
+                    capture_output=True, text=True,
+                )
+                if build_result.returncode != 0:
+                    return {**results, 'error': f'next build failed: {build_result.stderr}'}
+
             cmd = [next_bin, 'dev' if dev else 'start', '-p', str(app_port)]
             self._pm2_start(name, cmd, cwd=str(app_dir), env=env)
             results['app'] = f'http://localhost:{app_port}'
