@@ -758,6 +758,8 @@ class Mod:
             }
             if dev:
                 env['NEXT_PUBLIC_API_URL'] = '/api/bridge'
+            else:
+                env['NEXT_PUBLIC_API_URL'] = 'https://api.modc2.com/bridge'
             next_bin = str(app_dir / 'node_modules' / '.bin' / 'next')
 
             if not dev:
