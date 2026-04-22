@@ -16,7 +16,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/bridge'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://modc2.com/api/bridge'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://modc2.com/bridge'
 
 interface CommitResult {

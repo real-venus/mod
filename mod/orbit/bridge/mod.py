@@ -770,10 +770,10 @@ class Mod:
             }
             if dev:
                 host_ip = self._get_host_ip()
-                env['NEXT_PUBLIC_API_URL'] = '/api/bridge'
+                env['NEXT_PUBLIC_API_URL'] = f'http://{host_ip}:{self.port}'
                 env['NEXT_PUBLIC_APP_URL'] = f'http://{host_ip}:{app_port}/bridge'
             else:
-                env['NEXT_PUBLIC_API_URL'] = '/api/bridge'
+                env['NEXT_PUBLIC_API_URL'] = 'https://modc2.com/api/bridge'
                 env['NEXT_PUBLIC_APP_URL'] = 'https://modc2.com/bridge'
             next_bin = str(app_dir / 'node_modules' / '.bin' / 'next')
 
