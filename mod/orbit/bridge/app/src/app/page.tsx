@@ -721,6 +721,11 @@ function BridgePageInner() {
         <div className="text-center text-xs text-white/15 uppercase tracking-wider py-4">
           Bridge Module
         </div>
+
+        {/* API URL debug */}
+        <div className="fixed bottom-3 right-3 text-[10px] font-mono text-white/20 bg-white/5 border border-white/10 rounded px-2 py-1">
+          API: {API_URL}
+        </div>
       </div>
     </div>
   )
