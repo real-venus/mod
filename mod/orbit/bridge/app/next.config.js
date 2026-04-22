@@ -18,7 +18,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NODE_ENV === 'production' ? 'https://api.modc2.com/bridge' : '/api/bridge',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://api.modc2.com/bridge',
   },
   async rewrites() {
     return [
