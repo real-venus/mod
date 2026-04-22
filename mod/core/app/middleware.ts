@@ -3,13 +3,16 @@ import { NextRequest, NextResponse } from 'next/server'
 /**
  * Federated routing middleware.
  *
- * Checks if the first path segment matches a registered module app server.
- * If so, rewrites the request to that module's server.
- * Otherwise, falls through to the main app's routing.
+ * Single gateway on port 3000:
+ *   /{mod}/*       → module app server  (basePath /{mod})
+ *   /api/{mod}/*   → module API server  (prefix stripped)
+ *
+ * Modules register via namespace. Main app routes are reserved.
  */
 
 interface AppEntry {
   url: string
+  api_url?: string
   owner: string
 }
 
@@ -17,7 +20,6 @@ let appNamespaceCache: Record<string, AppEntry> = {}
 let lastFetch = 0
 const CACHE_TTL = 5000
 
-// Use internal API URL for server-side namespace lookups (not the public proxy URL)
 const API_URL = process.env.API_URL_INTERNAL || 'http://localhost:8000'
 
 async function getAppNamespace(): Promise<Record<string, AppEntry>> {
@@ -34,7 +36,6 @@ async function getAppNamespace(): Promise<Record<string, AppEntry>> {
     if (res.ok) {
       const data = await res.json()
       const raw = data.result || data || {}
-      // Normalize: support both {name: {url, owner}} and legacy {name: url_string}
       const normalized: Record<string, AppEntry> = {}
       for (const [key, val] of Object.entries(raw)) {
         if (typeof val === 'string') {
@@ -52,68 +53,66 @@ async function getAppNamespace(): Promise<Record<string, AppEntry>> {
   return appNamespaceCache
 }
 
+// Main app's own /api/* routes — never proxy these to modules
+const RESERVED_API_ROUTES = new Set([
+  'proxy', 'logs', 'mods', 'mod-code', 'terminal',
+])
+
 // Routes that belong to the main app — never proxy these
 const MAIN_APP_ROUTES = new Set([
-  'api', '_next', 'favicon.ico',
-  // App pages
-  'mod', 'treasury', 'contracts', 'transactions', 'docs', 'chat',
-  'network', 'create', 'home', 'user', 'safe', 'wallet',
-  'key', 'quests', 'traders', 'jobs', 'buidl', 'cid', 'host', 'apps',
+  '_next', 'favicon.ico', 'api',
+  // App pages (from app/*/page.tsx)
+  'agent', 'apps', 'balancer', 'buidl', 'chain', 'chat', 'contracts',
+  'coplay', 'create', 'docs', 'home', 'jobs', 'mod', 'mods', 'network',
+  'quests', 'safe', 'traders', 'transactions', 'treasury', 'user',
+  'wallet', 'workers',
+  // Other top-level app routes
+  'key', 'cid', 'host',
   // App internals
   'client', 'components', 'config', 'context', 'header', 'images',
   'public', 'styles', 'themes', 'types', 'ui', 'utils',
 ])
 
 export async function middleware(request: NextRequest) {
-  let { pathname } = request.nextUrl
+  const { pathname } = request.nextUrl
 
-  // Strip /app prefix (Caddy proxies modc2.com/app/* → localhost:3000/app/*)
-  if (pathname === '/app' || pathname.startsWith('/app/')) {
-    pathname = pathname.slice(4) || '/'
-  }
+  // ── /api/{mod}/* → proxy to module API server ──
+  if (pathname.startsWith('/api/')) {
+    const rest = pathname.slice(5)
+    const slash = rest.indexOf('/')
+    const modName = slash === -1 ? rest : rest.slice(0, slash)
+    const apiPath = slash === -1 ? '/' : rest.slice(slash)
 
-  const segments = pathname.split('/').filter(Boolean)
+    if (RESERVED_API_ROUTES.has(modName)) return NextResponse.next()
 
-  if (segments.length === 0) {
-    if (request.nextUrl.pathname !== pathname) {
-      const url = request.nextUrl.clone()
-      url.pathname = pathname
-      return NextResponse.rewrite(url)
+    const namespace = await getAppNamespace()
+    const entry = namespace[modName]
+    if (entry?.api_url) {
+      const target = new URL(apiPath + request.nextUrl.search, entry.api_url)
+      return NextResponse.rewrite(target)
     }
     return NextResponse.next()
   }
 
-  const firstSegment = segments[0]
+  // ── /{mod}/* → proxy to module app server ──
+  const segments = pathname.split('/').filter(Boolean)
+  if (segments.length === 0) return NextResponse.next()
 
-  // Skip main app routes and Next.js internals
+  const firstSegment = segments[0]
   if (MAIN_APP_ROUTES.has(firstSegment) || firstSegment.startsWith('_')) {
-    if (request.nextUrl.pathname !== pathname) {
-      const url = request.nextUrl.clone()
-      url.pathname = pathname
-      return NextResponse.rewrite(url)
-    }
     return NextResponse.next()
   }
 
   const namespace = await getAppNamespace()
   const entry = namespace[firstSegment]
-
   if (entry?.url) {
-    // Rewrite to the module's server
-    // Module has basePath set to /{moduleName}, so forward full path
+    // Forward full /{mod}/... path — module basePath is /{mod}
     const target = new URL(pathname + request.nextUrl.search, entry.url)
     const response = NextResponse.rewrite(target)
-    // Pass ownership info as header so frontend can use it
     response.headers.set('x-mod-owner', entry.owner || '')
     return response
   }
 
-  // Not a registered module app — fall through to [mod] catch-all
-  if (request.nextUrl.pathname !== pathname) {
-    const url = request.nextUrl.clone()
-    url.pathname = pathname
-    return NextResponse.rewrite(url)
-  }
   return NextResponse.next()
 }
 

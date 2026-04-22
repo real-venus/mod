@@ -583,7 +583,7 @@ class Mod:
         mode = mode or self.mode
         if prod:
             dev = False
-        return self.serve_app(app_port=app_port, dev=dev, mode=mode)
+        return self.serve_app(app_port=app_port, dev=dev, prod=prod, mode=mode)
 
     def kill(self, mode=None):
         """Stop bridge services (PM2 or Docker)."""
@@ -659,7 +659,7 @@ class Mod:
         # Register in namespace
         try:
             ns = m.mod('server.namespace')()
-            ns.reg_app('bridge', f'http://localhost:{app_port}', owner='')
+            ns.reg_app('bridge', f'http://localhost:{app_port}', owner='', api_url=f'http://localhost:{self.port}')
         except Exception:
             pass
 
@@ -780,7 +780,7 @@ class Mod:
         # Register in app namespace so core middleware can route to bridge
         try:
             ns = m.mod('server.namespace')()
-            ns.reg_app('bridge', f'http://localhost:{app_port}', owner='')
+            ns.reg_app('bridge', f'http://localhost:{app_port}', owner='', api_url=f'http://localhost:{self.port}')
         except Exception:
             pass
 

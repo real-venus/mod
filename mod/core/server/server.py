@@ -52,6 +52,7 @@ class Server:
         return {'status': 'killed all', 'servers': servers}
     
     killall = kill_all
+    stop = kill
     
     
     def namespace(self, search: Optional[str] = None,  **kwargs) -> Dict[str, str]:
@@ -331,4 +332,4 @@ class Server:
         else:
             raise Exception(f'Unknown run_mode: {run_mode}. Only "flask" is supported.')
 
-
+    start = serve

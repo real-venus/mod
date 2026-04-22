@@ -53,10 +53,13 @@ class Namespace:
 
     # --- App Registry (separate Next.js app servers with ownership) ---
 
-    def reg_app(self, name: str, address: str, owner: str = None, port: int = None, path: str = '') -> Dict[str, Any]:
+    def reg_app(self, name: str, address: str, owner: str = None, port: int = None, path: str = '', api_url: str = None) -> Dict[str, Any]:
         """Register a module app server with its owner. Also marks as installed."""
         registry = self.store.get('app_registry.json', {})
-        registry[name] = {'url': address, 'owner': (owner or '').lower()}
+        entry = {'url': address, 'owner': (owner or '').lower()}
+        if api_url:
+            entry['api_url'] = api_url
+        registry[name] = entry
         self.store.put('app_registry.json', registry)
         # Also mark as installed (persists after stop)
         if port is None:

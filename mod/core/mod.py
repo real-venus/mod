@@ -1304,6 +1304,9 @@ class Mod:
     def kill(self, server: str = 'mod'):
         return self.fn('server/kill')(server)
 
+    stop = kill
+    start = serve
+
     def kill_all(self):
         return self.fn('server/killall')()
 
@@ -1372,7 +1375,7 @@ class Mod:
 
     # ── Start & Deploy ───────────────────────────────────────────────────
 
-    def start(self, mod=None):
+    def run_script(self, mod=None):
         """Find and execute the closest start.sh script."""
         path = self.abspath(self.dirpath(mod) if mod else os.getcwd())
         start_script = None

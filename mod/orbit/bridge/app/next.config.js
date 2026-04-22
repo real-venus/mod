@@ -13,7 +13,7 @@ if (!process.env.API_INTERNAL_URL) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  basePath: '/app/bridge',
+  basePath: '/bridge',
   output: 'standalone',
   reactStrictMode: true,
   swcMinify: true,
