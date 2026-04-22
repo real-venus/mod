@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/bridge'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://modc2.com/bridge'
 
 interface CommitResult {
   success?: boolean
@@ -724,7 +725,7 @@ function BridgePageInner() {
 
         {/* API URL debug */}
         <div className="fixed bottom-3 right-3 text-[10px] font-mono text-white/20 bg-white/5 border border-white/10 rounded px-2 py-1">
-          API: {API_URL}
+          API: {API_URL} | APP: {APP_URL}
         </div>
       </div>
     </div>

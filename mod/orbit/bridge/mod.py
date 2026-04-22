@@ -18,6 +18,7 @@ Served via core server with token auth (no custom server).
 import json
 import os
 import shutil
+import socket
 import time
 import subprocess
 from pathlib import Path
@@ -590,6 +591,17 @@ class Mod:
         mode = mode or self.mode
         return self.kill_app(mode=mode)
 
+    def _get_host_ip(self):
+        """Get the LAN IP of this host."""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('8.8.8.8', 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return '127.0.0.1'
+
     def _pm2_start(self, name, cmd, cwd=None, env=None):
         """Start a command as a PM2 process."""
         # Kill existing if present
@@ -756,10 +768,13 @@ class Mod:
             env = {
                 'PORT': str(app_port),
             }
+            # API always proxied through Next.js rewrites
+            env['NEXT_PUBLIC_API_URL'] = '/api/bridge'
             if dev:
-                env['NEXT_PUBLIC_API_URL'] = '/api/bridge'
+                host_ip = self._get_host_ip()
+                env['NEXT_PUBLIC_APP_URL'] = f'http://{host_ip}:{app_port}/bridge'
             else:
-                env['NEXT_PUBLIC_API_URL'] = 'https://api.modc2.com/bridge'
+                env['NEXT_PUBLIC_APP_URL'] = 'https://modc2.com/bridge'
             next_bin = str(app_dir / 'node_modules' / '.bin' / 'next')
 
             if not dev:
@@ -780,6 +795,7 @@ class Mod:
             results['app'] = None
 
         results['dev'] = dev
+        results['app_url'] = env.get('NEXT_PUBLIC_APP_URL', '')
 
         # Register in app namespace so core middleware can route to bridge
         try:
