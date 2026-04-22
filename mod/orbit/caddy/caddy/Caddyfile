@@ -3,32 +3,86 @@
 }
 
 modc2.com {
-    @app_api path /app/api /app/api/*
+    @agent_api path /api/agent /api/agent/*
+    handle @agent_api {
+        uri strip_prefix /api/agent
+        reverse_proxy agent-api:50117
+    }
+    @agent_app path /app/agent /app/agent/*
+    handle @agent_app {
+        reverse_proxy agent-api:3117
+    }
+    @app_api path /api/app /api/app/*
     handle @app_api {
-        uri strip_prefix /app/api
-        reverse_proxy localhost:8000
+        uri strip_prefix /api/app
+        reverse_proxy app:8000
     }
-    @app path /app /app/*
-    handle @app {
-        reverse_proxy localhost:3000
+    @app_app path /app/app /app/app/*
+    handle @app_app {
+        reverse_proxy app:3000
     }
-    @bridge_api path /bridge/api /bridge/api/*
+    @bloctime_api path /api/bloctime /api/bloctime/*
+    handle @bloctime_api {
+        uri strip_prefix /api/bloctime
+        reverse_proxy bloctime:8851
+    }
+    @bloctime_app path /app/bloctime /app/bloctime/*
+    handle @bloctime_app {
+        reverse_proxy bloctime:8852
+    }
+    @bridge_api path /api/bridge /api/bridge/*
     handle @bridge_api {
-        uri strip_prefix /bridge/api
-        reverse_proxy localhost:8840
+        uri strip_prefix /api/bridge
+        reverse_proxy bridge:8840
     }
-    @bridge path /bridge /bridge/*
-    handle @bridge {
-        reverse_proxy localhost:8841
+    @bridge_app path /app/bridge /app/bridge/*
+    handle @bridge_app {
+        reverse_proxy bridge:8841
     }
-    @claude_api path /claude/api /claude/api/*
+    @claude_api path /api/claude /api/claude/*
     handle @claude_api {
-        uri strip_prefix /claude/api
-        reverse_proxy localhost:8820
+        uri strip_prefix /api/claude
+        reverse_proxy claude:8820
     }
-    @claude path /claude /claude/*
-    handle @claude {
-        reverse_proxy localhost:8821
+    @claude_app path /app/claude /app/claude/*
+    handle @claude_app {
+        reverse_proxy claude:8821
+    }
+    @ipfs_api path /api/ipfs /api/ipfs/*
+    handle @ipfs_api {
+        uri strip_prefix /api/ipfs
+        reverse_proxy ipfs:50079
+    }
+    @ipfs_app path /app/ipfs /app/ipfs/*
+    handle @ipfs_app {
+        reverse_proxy ipfs:50080
+    }
+    @latexhub_api path /api/latexhub /api/latexhub/*
+    handle @latexhub_api {
+        uri strip_prefix /api/latexhub
+        reverse_proxy latexhub-api:50200
+    }
+    @latexhub_app path /app/latexhub /app/latexhub/*
+    handle @latexhub_app {
+        reverse_proxy latexhub-api:3200
+    }
+    @openclaw_api path /api/openclaw /api/openclaw/*
+    handle @openclaw_api {
+        uri strip_prefix /api/openclaw
+        reverse_proxy openclaw:50120
+    }
+    @openclaw_app path /app/openclaw /app/openclaw/*
+    handle @openclaw_app {
+        reverse_proxy openclaw:50121
+    }
+    @polymarket_api path /api/polymarket /api/polymarket/*
+    handle @polymarket_api {
+        uri strip_prefix /api/polymarket
+        reverse_proxy base:50091
+    }
+    @polymarket_app path /app/polymarket /app/polymarket/*
+    handle @polymarket_app {
+        reverse_proxy base:3091
     }
     handle /* {
         reverse_proxy localhost:3000

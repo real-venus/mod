@@ -31,6 +31,22 @@ class Mod:
         except (ConnectionRefusedError, OSError, socket.timeout):
             return False
 
+    def _docker_host(self, module_dir):
+        """Extract container_name from docker-compose if present."""
+        for fname in ('docker-compose.yaml', 'docker-compose.yml'):
+            dc_path = os.path.join(module_dir, fname)
+            if not os.path.isfile(dc_path):
+                continue
+            try:
+                with open(dc_path) as f:
+                    for line in f:
+                        stripped = line.strip()
+                        if stripped.startswith('container_name:'):
+                            return stripped.split(':', 1)[1].strip().strip('"').strip("'")
+            except Exception:
+                pass
+        return None
+
     def _scan(self):
         """Scan orbit/ and core/ config.json files for urls.app and urls.api."""
         modules = {}
@@ -39,7 +55,8 @@ class Mod:
             if not os.path.isdir(search):
                 continue
             for name in sorted(os.listdir(search)):
-                cfg_path = os.path.join(search, name, 'config.json')
+                mod_dir = os.path.join(search, name)
+                cfg_path = os.path.join(mod_dir, 'config.json')
                 if not os.path.isfile(cfg_path):
                     continue
                 try:
@@ -54,25 +71,33 @@ class Mod:
                 app_url, api_url = urls.get('app'), urls.get('api')
                 if not app_url and not api_url:
                     continue
+                docker_host = self._docker_host(mod_dir)
                 modules[name] = {
                     'app_port': self._port(app_url),
                     'api_port': self._port(api_url),
+                    'host': docker_host or 'localhost',
                 }
         return modules
 
     def _filter_live(self, modules):
-        """Remove modules with no live ports, null out dead individual ports."""
+        """Remove modules with no live ports, null out dead individual ports.
+
+        Docker-hosted modules (host != localhost) skip liveness checks
+        since their ports aren't directly reachable from the host.
+        """
         dead = []
-        for name, ports in modules.items():
-            app_live = self._live(ports.get('app_port'))
-            api_live = self._live(ports.get('api_port'))
+        for name, info in modules.items():
+            if info.get('host', 'localhost') != 'localhost':
+                continue
+            app_live = self._live(info.get('app_port'))
+            api_live = self._live(info.get('api_port'))
             if not app_live and not api_live:
                 dead.append(name)
             else:
                 if not app_live:
-                    ports['app_port'] = None
+                    info['app_port'] = None
                 if not api_live:
-                    ports['api_port'] = None
+                    info['api_port'] = None
         for name in dead:
             del modules[name]
         if dead:
@@ -80,26 +105,28 @@ class Mod:
         return modules
 
     def _module_routes(self, modules):
-        """Build /{mod}/api/* and /{mod}/* handle blocks.
+        """Build /api/{mod}/* and /app/{mod}/* handle blocks.
 
-        API routes come first (more specific) with uri strip_prefix so
-        FastAPI receives clean paths.  App routes use a named matcher to
-        match both /{mod} and /{mod}/* so the basePath works naturally.
+        API routes use uri strip_prefix so FastAPI receives clean paths.
+        App routes preserve the path so Next.js basePath (/app/{mod}) works.
+        Docker-hosted modules use their container name instead of localhost.
         """
         lines = []
         for name in sorted(modules):
-            app_port = modules[name].get('app_port')
-            api_port = modules[name].get('api_port')
+            info = modules[name]
+            host = info.get('host', 'localhost')
+            app_port = info.get('app_port')
+            api_port = info.get('api_port')
             if api_port:
-                lines.append(f'    @{name}_api path /{name}/api /{name}/api/*')
+                lines.append(f'    @{name}_api path /api/{name} /api/{name}/*')
                 lines.append(f'    handle @{name}_api {{')
-                lines.append(f'        uri strip_prefix /{name}/api')
-                lines.append(f'        reverse_proxy localhost:{api_port}')
+                lines.append(f'        uri strip_prefix /api/{name}')
+                lines.append(f'        reverse_proxy {host}:{api_port}')
                 lines.append(f'    }}')
             if app_port:
-                lines.append(f'    @{name} path /{name} /{name}/*')
-                lines.append(f'    handle @{name} {{')
-                lines.append(f'        reverse_proxy localhost:{app_port}')
+                lines.append(f'    @{name}_app path /app/{name} /app/{name}/*')
+                lines.append(f'    handle @{name}_app {{')
+                lines.append(f'        reverse_proxy {host}:{app_port}')
                 lines.append(f'    }}')
         return lines
 

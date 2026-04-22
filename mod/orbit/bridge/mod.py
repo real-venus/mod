@@ -46,6 +46,7 @@ class Mod:
         self.signer_key = self.config.get('signer_key', '')
         self.port = int(self.config.get('port', 8840))
         self.app_port = int(self.config.get('app_port', 8841))
+        self.mode = self.config.get('mode', 'pm2')
 
         # Chain config from contracts.{network}
         net_cfg = self.config.get('contracts', {}).get(self.network, {})
@@ -540,9 +541,12 @@ class Mod:
         except Exception as e:
             return {'error': f'Deploy failed: {str(e)}'}
 
-    def start(self, dev=True):
+    def start(self, dev=True, prod=False, mode=None):
         """Start everything: bridge API, Next.js app, and sync Caddy routing."""
-        results = self.serve_app(dev=dev)
+        mode = mode or self.mode
+        if prod:
+            dev = False
+        results = self.serve_app(dev=dev, mode=mode)
 
         # Sync Caddy so /bridge/* and /bridge/api/* routes are live
         try:
@@ -554,9 +558,10 @@ class Mod:
 
         return results
 
-    def stop(self):
+    def stop(self, mode=None):
         """Stop bridge API, Next.js app, and re-sync Caddy."""
-        results = self.kill_app()
+        mode = mode or self.mode
+        results = self.kill_app(mode=mode)
 
         # Re-sync Caddy to drop dead routes
         try:
@@ -568,13 +573,22 @@ class Mod:
 
         return results
 
-    def serve(self, port=None, app_port=None, dev=True):
-        """Start both the FastAPI bridge API and the Next.js app as separate PM2 processes."""
-        return self.serve_app(app_port=app_port, dev=dev)
+    def serve(self, port=None, app_port=None, dev=True, prod=False, mode=None):
+        """Start bridge API + Next.js app via PM2 or Docker.
 
-    def kill(self):
-        """Stop both bridge.api and bridge.app PM2 processes."""
-        return self.kill_app()
+        Args:
+            mode: 'pm2' (default) or 'docker'
+            prod: shorthand for dev=False
+        """
+        mode = mode or self.mode
+        if prod:
+            dev = False
+        return self.serve_app(app_port=app_port, dev=dev, mode=mode)
+
+    def kill(self, mode=None):
+        """Stop bridge services (PM2 or Docker)."""
+        mode = mode or self.mode
+        return self.kill_app(mode=mode)
 
     def _pm2_start(self, name, cmd, cwd=None, env=None):
         """Start a command as a PM2 process."""
@@ -605,8 +619,86 @@ class Mod:
         result = subprocess.run(['pm2', 'delete', name], capture_output=True, text=True)
         return result.returncode == 0
 
-    def serve_api(self, port=None, reload=True):
+    # ━━ Docker Mode ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    def _docker_serve(self, dev=True, build=True):
+        """Build and start the bridge Docker container.
+
+        Uses docker-compose.yaml in module dir. The container runs both
+        the FastAPI API and Next.js app via scripts/entrypoint.sh.
+        DEV=1 env var enables hot-reload; DEV=0 runs production build.
+        """
+        # Ensure modnet network exists
+        subprocess.run(
+            ['docker', 'network', 'create', 'modnet'],
+            capture_output=True, text=True,
+        )
+
+        env = {**os.environ, 'DEV': '1' if dev else '0'}
+
+        cmd = ['docker', 'compose', 'up', '-d']
+        if build:
+            cmd.append('--build')
+
+        result = subprocess.run(
+            cmd,
+            cwd=str(self.module_dir),
+            capture_output=True, text=True,
+            env=env,
+        )
+
+        if result.returncode != 0:
+            return {
+                'error': f'Docker failed: {result.stderr}',
+                'stdout': result.stdout,
+            }
+
+        port = self.port
+        app_port = self.app_port
+
+        # Register in namespace
+        try:
+            ns = m.mod('server.namespace')()
+            ns.reg_app('bridge', f'http://localhost:{app_port}', owner='')
+        except Exception:
+            pass
+
+        return {
+            'mode': 'docker',
+            'container': 'bridge',
+            'api': f'http://localhost:{port}',
+            'app': f'http://localhost:{app_port}',
+            'dev': dev,
+        }
+
+    def _docker_kill(self):
+        """Stop and remove the bridge Docker container."""
+        result = subprocess.run(
+            ['docker', 'compose', 'down'],
+            cwd=str(self.module_dir),
+            capture_output=True, text=True,
+        )
+        return {
+            'mode': 'docker',
+            'killed': ['bridge'] if result.returncode == 0 else [],
+            'success': result.returncode == 0,
+        }
+
+    def logs(self, tail=100, follow=False):
+        """Show bridge container logs."""
+        cmd = ['docker', 'logs', 'bridge', '--tail', str(tail)]
+        if follow:
+            cmd.append('--follow')
+            return os.system(' '.join(cmd))
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.stdout + result.stderr
+
+    # ━━ PM2 Mode ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    def serve_api(self, port=None, reload=True, prod=False):
         """Start the FastAPI bridge API as bridge.api PM2 process."""
+        if prod:
+            reload = False
         port = int(port or self.port)
         name = 'bridge.api'
 
@@ -640,8 +732,14 @@ class Mod:
         success = self._pm2_kill('bridge.api')
         return {'killed': ['bridge.api'] if success else [], 'success': success}
 
-    def serve_app(self, app_port=None, dev=True):
-        """Start bridge.api and bridge.app as separate PM2 processes."""
+    def serve_app(self, app_port=None, dev=True, prod=False, mode=None):
+        """Start bridge.api and bridge.app via PM2 or Docker."""
+        mode = mode or self.mode
+        if prod:
+            dev = False
+        if mode == 'docker':
+            return self._docker_serve(dev=dev)
+
         app_port = int(app_port or self.app_port)
         results = {}
 
@@ -677,8 +775,11 @@ class Mod:
 
         return results
 
-    def kill_app(self):
-        """Stop bridge.api and bridge.app PM2 processes."""
+    def kill_app(self, mode=None):
+        """Stop bridge services (PM2 or Docker)."""
+        mode = mode or self.mode
+        if mode == 'docker':
+            return self._docker_kill()
         killed = []
         if self._pm2_kill('bridge.api'):
             killed.append('bridge.api')
@@ -706,10 +807,11 @@ class Mod:
             deploy        - Deploy contract (network=, key=, name=, symbol=)
             start         - Start everything (API + App + Caddy)
             stop          - Stop everything (API + App + Caddy re-sync)
-            serve         - Start API + App (both)
-            kill          - Stop API + App (both)
-            serve_api     - Start FastAPI bridge API only
-            kill_api      - Stop FastAPI bridge API only
+            serve         - Start API + App (docker by default)
+            kill          - Stop API + App
+            logs          - Show container logs (tail=, follow=)
+            serve_api     - Start FastAPI bridge API only (PM2)
+            kill_api      - Stop FastAPI bridge API only (PM2)
             serve_app     - Start API + Next.js app
             kill_app      - Stop API + Next.js app
         """
@@ -757,24 +859,33 @@ class Mod:
                 symbol=kwargs.get('symbol', 'BRG'),
                 initial_supply=int(kwargs.get('initial_supply', 0)),
             ),
-            'start': lambda: self.start(dev=kwargs.get('dev', True)),
-            'stop': lambda: self.stop(),
+            'start': lambda: self.start(dev=kwargs.get('dev', True), prod=kwargs.get('prod', False), mode=kwargs.get('mode')),
+            'stop': lambda: self.stop(mode=kwargs.get('mode')),
             'serve': lambda: self.serve(
                 port=kwargs.get('port'),
                 app_port=kwargs.get('app_port'),
                 dev=kwargs.get('dev', True),
+                prod=kwargs.get('prod', False),
+                mode=kwargs.get('mode'),
             ),
-            'kill': lambda: self.kill(),
+            'kill': lambda: self.kill(mode=kwargs.get('mode')),
+            'logs': lambda: self.logs(
+                tail=int(kwargs.get('tail', 100)),
+                follow=kwargs.get('follow', False),
+            ),
             'serve_api': lambda: self.serve_api(
                 port=kwargs.get('port'),
                 reload=kwargs.get('reload', True),
+                prod=kwargs.get('prod', False),
             ),
             'kill_api': lambda: self.kill_api(),
             'serve_app': lambda: self.serve_app(
                 app_port=kwargs.get('app_port'),
                 dev=kwargs.get('dev', True),
+                prod=kwargs.get('prod', False),
+                mode=kwargs.get('mode'),
             ),
-            'kill_app': lambda: self.kill_app(),
+            'kill_app': lambda: self.kill_app(mode=kwargs.get('mode')),
         }
 
         if not action or action not in actions:

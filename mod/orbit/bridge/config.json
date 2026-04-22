@@ -53,5 +53,6 @@
         "serve_app",
         "kill_app"
     ],
-    "schema": "QmPogBBv8Nk4T6fe3w7AdcoxijmTx4tdkbZbCCppNdAFjR"
+    "mode": "pm2",
+    "schema": "QmXsPi25S9NQkVquCwg8Gdh6Jqb4tMBicZAqczLYPvdyQU"
 }

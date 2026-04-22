@@ -23,14 +23,14 @@ modc2.com {
 		reverse_proxy localhost:8852
 	}
 
-	@bridge_api path /bridge/api /bridge/api/*
+	@bridge_api path /api/bridge /api/bridge/*
 	handle @bridge_api {
-		uri strip_prefix /bridge/api
-		reverse_proxy localhost:8840
+		uri strip_prefix /api/bridge
+		reverse_proxy bridge:8840
 	}
-	@bridge path /bridge /bridge/*
-	handle @bridge {
-		reverse_proxy localhost:8841
+	@bridge_app path /app/bridge /app/bridge/*
+	handle @bridge_app {
+		reverse_proxy bridge:8841
 	}
 
 	@claude_api path /claude/api /claude/api/*

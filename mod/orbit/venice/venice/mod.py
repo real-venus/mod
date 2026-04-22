@@ -45,7 +45,7 @@ class Mod:
         url='https://api.venice.ai/api/v1',
         timeout=None,
         prompt=None,
-        model='deepseek-v3.2',
+        model='kimi-2.6',
         max_retries=10,
         path='~/.mod/model/venice',
         key=None,
