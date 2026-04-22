@@ -1,11 +1,11 @@
 const fs = require('fs')
 const path = require('path')
 
-// Read API URL from config.json urls map (mod protocol)
-let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8840'
+// Internal backend URL for Next.js rewrites (dev proxy to FastAPI)
+let apiUrl = 'http://localhost:8840'
 try {
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf-8'))
-  if (config.urls?.api) apiUrl = config.urls.api
+  if (config.port) apiUrl = `http://localhost:${config.port}`
 } catch {}
 
 /** @type {import('next').NextConfig} */

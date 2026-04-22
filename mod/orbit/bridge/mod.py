@@ -649,7 +649,6 @@ class Mod:
         if (app_dir / 'package.json').exists():
             name = 'bridge.app'
             env = {
-                'NEXT_PUBLIC_API_URL': f'http://localhost:{self.port}',
                 'PORT': str(app_port),
             }
             cmd = ['npx', 'next', 'dev' if dev else 'start', '-p', str(app_port)]
