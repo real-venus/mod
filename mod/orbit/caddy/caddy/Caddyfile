@@ -10,13 +10,25 @@ modc2.com {
     }
     @app path /app /app/*
     handle @app {
-        uri strip_prefix /app
         reverse_proxy localhost:3000
     }
     @bridge_api path /bridge/api /bridge/api/*
     handle @bridge_api {
         uri strip_prefix /bridge/api
         reverse_proxy localhost:8840
+    }
+    @bridge path /bridge /bridge/*
+    handle @bridge {
+        reverse_proxy localhost:8841
+    }
+    @claude_api path /claude/api /claude/api/*
+    handle @claude_api {
+        uri strip_prefix /claude/api
+        reverse_proxy localhost:8820
+    }
+    @claude path /claude /claude/*
+    handle @claude {
+        reverse_proxy localhost:8821
     }
     handle /* {
         reverse_proxy localhost:3000

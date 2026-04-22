@@ -17,6 +17,7 @@ Served via core server with token auth (no custom server).
 
 import json
 import os
+import shutil
 import time
 import subprocess
 from pathlib import Path
@@ -586,10 +587,16 @@ class Mod:
             idx = pm2_cmd.index('--')
             pm2_cmd.insert(idx, cwd)
             pm2_cmd.insert(idx, '--cwd')
+        # Ensure the active node bin dir is on PATH for child processes
+        run_env = {**os.environ, **(env or {})}
+        node_bin = shutil.which('node')
+        if node_bin:
+            node_dir = str(Path(node_bin).resolve().parent)
+            run_env['PATH'] = node_dir + ':' + run_env.get('PATH', '')
         result = subprocess.run(
             pm2_cmd,
             capture_output=True, text=True,
-            env={**os.environ, **(env or {})}
+            env=run_env,
         )
         return result.returncode == 0
 
@@ -651,7 +658,8 @@ class Mod:
             env = {
                 'PORT': str(app_port),
             }
-            cmd = ['npx', 'next', 'dev' if dev else 'start', '-p', str(app_port)]
+            next_bin = str(app_dir / 'node_modules' / '.bin' / 'next')
+            cmd = [next_bin, 'dev' if dev else 'start', '-p', str(app_port)]
             self._pm2_start(name, cmd, cwd=str(app_dir), env=env)
             results['app'] = f'http://localhost:{app_port}'
             results['pm2_app'] = name
