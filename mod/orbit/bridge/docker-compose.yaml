@@ -10,7 +10,6 @@ services:
       - .:/root/mod/mod/orbit/bridge
       - bridge_node_modules:/root/mod/mod/orbit/bridge/app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=https://api.modc2.com/bridge
       - DEV=1
     restart: unless-stopped
 

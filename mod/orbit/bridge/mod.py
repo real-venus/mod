@@ -768,12 +768,12 @@ class Mod:
             env = {
                 'PORT': str(app_port),
             }
-            # API always proxied through Next.js rewrites
-            env['NEXT_PUBLIC_API_URL'] = '/api/bridge'
             if dev:
                 host_ip = self._get_host_ip()
+                env['NEXT_PUBLIC_API_URL'] = '/api/bridge'
                 env['NEXT_PUBLIC_APP_URL'] = f'http://{host_ip}:{app_port}/bridge'
             else:
+                env['NEXT_PUBLIC_API_URL'] = '/api/bridge'
                 env['NEXT_PUBLIC_APP_URL'] = 'https://modc2.com/bridge'
             next_bin = str(app_dir / 'node_modules' / '.bin' / 'next')
 
