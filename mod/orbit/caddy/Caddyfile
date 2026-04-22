@@ -92,6 +92,11 @@ api.modc2.com {
         respond 204
     }
 
+    handle /bridge/* {
+        uri strip_prefix /bridge
+        reverse_proxy {$PM2_HOST:localhost}:8840
+    }
+
     handle /* {
         reverse_proxy {$PM2_HOST:localhost}:8000
     }

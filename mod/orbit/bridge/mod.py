@@ -756,6 +756,8 @@ class Mod:
             env = {
                 'PORT': str(app_port),
             }
+            if dev:
+                env['NEXT_PUBLIC_API_URL'] = '/api/bridge'
             next_bin = str(app_dir / 'node_modules' / '.bin' / 'next')
 
             if not dev:
@@ -763,7 +765,7 @@ class Mod:
                 print(f'Building Next.js app...')
                 build_result = subprocess.run(
                     [next_bin, 'build'], cwd=str(app_dir),
-                    capture_output=True, text=True,
+                    capture_output=True, text=True, env={**os.environ, **env},
                 )
                 if build_result.returncode != 0:
                     return {**results, 'error': f'next build failed: {build_result.stderr}'}
