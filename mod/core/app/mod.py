@@ -7,10 +7,11 @@ class App:
         caddy = m.mod('caddy')()
         return caddy.serve(**kwargs)
     
-    def build(self, mod='app', api_url=None, **kwargs):
+    def build(self, mod='app', api_url=None, public_api_url=None, **kwargs):
         cwd = m.dirpath(mod)
-        api_url = api_url or 'https://modc2.com/proxy/api'
-        env = f'NEXT_PUBLIC_API_URL="{api_url}"'
+        api_url = api_url or 'http://localhost:8000'
+        public_api_url = public_api_url or api_url
+        env = f'API_URL_INTERNAL="{api_url}" NEXT_PUBLIC_API_URL="{public_api_url}"'
         return os.system(f'cd {cwd} && {env} npm run build')
 
     def install(self, mod='app', **kwargs):
@@ -23,22 +24,33 @@ class App:
             prod =False,
             build = False,
             api_port=8000,
+            public_api_url=None,
              **kwargs):
         self.install(mod=mod)
         m.serve('api', pm='pm.pm2')
+        # Start bridge API as a dependency
+        try:
+            bridge = m.mod('bridge')()
+            bridge.serve_api(prod=prod)
+        except Exception as e:
+            print(f'[app] bridge dependency skipped: {e}')
         cwd = m.dirpath(mod)
-        api_url = 'https://modc2.com/proxy/api' if prod else f'http://localhost:{api_port}'
+        api_url = f'http://localhost:{api_port}'
         if prod:
             if build:
-                result = self.build(mod=mod, api_url=api_url)
+                result = self.build(mod=mod, api_url=api_url, public_api_url=public_api_url)
                 if result != 0:
                     return f'Build failed with exit code {result}'
             cmd = f'npm run start -- -p {port}'
         else:
             cmd = f'npm run dev -- -p {port}'
         script_path = os.path.join(cwd, '_serve_app.sh')
+        script = f'#!/bin/bash\ncd {cwd}\nexport API_URL_INTERNAL="{api_url}"\n'
+        if public_api_url:
+            script += f'export NEXT_PUBLIC_API_URL="{public_api_url}"\n'
+        script += f'{cmd}\n'
         with open(script_path, 'w') as f:
-            f.write(f'#!/bin/bash\ncd {cwd}\nexport NEXT_PUBLIC_API_URL="{api_url}"\n{cmd}\n')
+            f.write(script)
         os.chmod(script_path, 0o755)
         pm2 = m.mod('pm.pm2')()
         if pm2.exists(mod):
@@ -50,12 +62,13 @@ class App:
                     interpreter='bash'
                     )
 
-    def prod(self, port=3000, mod='app', api_port=8000, api_url=None, **kwargs):
-        api_url = api_url or 'https://modc2.com/proxy/api'
-        result = self.build(mod=mod, api_url=api_url)
+    def prod(self, port=3000, mod='app', api_port=8000, api_url=None, domain='modc2.com', **kwargs):
+        api_url = api_url or f'http://localhost:{api_port}'
+        public_api_url = f'https://{domain}/api'
+        result = self.build(mod=mod, api_url=api_url, public_api_url=public_api_url)
         if result != 0:
             return f'Build failed with exit code {result}'
-        self.serve(port=port, mod=mod, prod=True, build=False, api_port=api_port, **kwargs)
+        self.serve(port=port, mod=mod, prod=True, build=False, api_port=api_port, public_api_url=public_api_url, **kwargs)
         caddy = m.mod('caddy')()
         return caddy.serve(app_port=port, api_port=api_port)
 
