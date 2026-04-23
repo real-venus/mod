@@ -240,3 +240,35 @@ m info mymod                     # verify it shows up
 ```
 
 The module is automatically discovered — no registration needed.
+
+## Serving Modules
+
+Any module can be served as an HTTP API. The core server auto-wraps public methods as `POST /{method_name}` endpoints.
+
+```bash
+# API only (default) — wraps module class as Flask endpoints
+m serve mymod
+m serve mymod.api    # explicit, same as above
+
+# API + Next.js frontend (if app/ exists in the module)
+m serve mymod.app
+```
+
+| Suffix | API Server | Next.js App | Use case |
+|--------|-----------|-------------|----------|
+| (none) | Yes | No | Pure API deployments |
+| `.api` | Yes | No | Explicit API-only |
+| `.app` | Yes | Yes | Full-stack module with frontend |
+
+Each public method becomes a POST endpoint that accepts JSON and returns `{"result": <value>}`:
+
+```bash
+curl -X POST http://localhost:8840/health \
+  -H "Content-Type: application/json" -d '{}'
+
+curl -X POST http://localhost:8840/in_snapshot \
+  -H "Content-Type: application/json" \
+  -d '{"address": "5HMfXz..."}'
+```
+
+Ports are read from the module's `config.json`. The API runs on `port`, the Next.js app on `app_port`.

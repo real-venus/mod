@@ -157,6 +157,29 @@ class Server:
             return
         setattr(self, name, mod)
 
+    def _serve_deps(self, mod):
+        """Start dependency modules listed in config.json 'deps' field."""
+        config = m.config(mod) or {}
+        deps = config.get('deps', [])
+        if not deps:
+            return
+        ns = self.namespace()
+        for dep in deps:
+            if dep in ns:
+                print(f'Dep {dep} already running', color='cyan')
+                continue
+            print(f'Starting dep: {dep}', color='green')
+            dep_port = self.get_port(None, mod=dep)
+            self.pm.forward(mod=dep, port=dep_port)
+        # Wait for deps to be reachable
+        for dep in deps:
+            if dep not in ns:
+                try:
+                    self.wait_for_server(dep, max_time=15)
+                    print(f'Dep {dep} ready', color='green')
+                except Exception as e:
+                    print(f'Dep {dep} failed to start: {e}', color='red')
+
     def _find_app_dir(self, mod_dir: Path) -> 'Path | None':
         """Find the Next.js app directory within a module (checks app/, src/app/)."""
         for candidate in [mod_dir / 'app', mod_dir / 'src' / 'app']:
@@ -187,6 +210,15 @@ class Server:
 
               ):
 
+        # Parse suffix: bridge.app → serve API + Next.js, bridge or bridge.api → API only
+        serve_app = False
+        original_mod = mod
+        if mod and '.' in mod:
+            base, suffix = mod.rsplit('.', 1)
+            if suffix in ('app', 'api'):
+                serve_app = suffix == 'app'
+                mod = base
+
         mod_obj = m.mod(mod)()
         if mod not in (None, 'mod') and 'serve' in type(mod_obj).__dict__:
             print(f'Mod {mod} has its own serve function, using it to serve the mod', color='green')
@@ -196,8 +228,12 @@ class Server:
         port = self.get_port(port, mod=mod)
         params = {**(params or {}), **extra_params}
         if remote:
-            return self.pm.forward(mod=mod, params=params, port=port, key=key)
-        
+            # Preserve .app/.api suffix so the spawned process knows what to serve
+            return self.pm.forward(mod=original_mod or mod, params=params, port=port, key=key)
+
+        # ── Start dependency modules ──
+        self._serve_deps(mod)
+
         name = mod
         if  self.tag_divider in mod:
             mod = mod.split(self.tag_divider)[0]
@@ -301,20 +337,21 @@ class Server:
                 result = json.loads(json.dumps(result, default=str))
             return {'result': result}
 
-        # ── Auto-serve Next.js app if the module has one ──
+        # ── Auto-serve Next.js app if .app suffix was used ──
         mod_dir = Path(m.dirpath(mod))
         app_dir = self._find_app_dir(mod_dir)
-        if app_dir and (app_dir / 'package.json').exists():
+        if serve_app and app_dir and (app_dir / 'package.json').exists():
             config = m.config(mod) or {}
             app_port = int(config.get('app_port', 0)) or (port + 1)
             log_dir = Path(f'/tmp/{name}')
             log_dir.mkdir(parents=True, exist_ok=True)
             app_env = os.environ.copy()
+            # API_URL_INTERNAL: used by Next.js middleware to proxy /api/* to Flask
             prod_api_url = os.environ.get('MOD_API_URL')
             if prod_api_url:
-                app_env['NEXT_PUBLIC_API_URL'] = f'{prod_api_url}/{name}'
+                app_env['API_URL_INTERNAL'] = f'{prod_api_url}/{name}'
             else:
-                app_env['NEXT_PUBLIC_API_URL'] = f'http://localhost:{port}'
+                app_env['API_URL_INTERNAL'] = f'http://localhost:{port}'
             app_env['PORT'] = str(app_port)
             app_log = open(log_dir / 'app.log', 'w')
             app_cmd = ['npx', 'next', 'dev', '-p', str(app_port)]

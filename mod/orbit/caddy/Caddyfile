@@ -75,6 +75,11 @@ modc2.com {
     handle @polymarket_app {
         reverse_proxy base:3091
     }
+    @main_api path /api /api/*
+    handle @main_api {
+        uri strip_prefix /api
+        reverse_proxy {$PM2_HOST:localhost}:8000
+    }
     handle /* {
         reverse_proxy {$PM2_HOST:localhost}:3000
     }

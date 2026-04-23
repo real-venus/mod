@@ -28,10 +28,15 @@ class App:
              **kwargs):
         self.install(mod=mod)
         m.serve('api', pm='pm.pm2')
-        # Start bridge API as a dependency
+        # Start bridge as a dependency (uses core server)
         try:
-            bridge = m.mod('bridge')()
-            bridge.serve_api(prod=prod)
+            m.serve('bridge', pm='pm.pm2')
+            # Register bridge in app namespace so middleware can route to it
+            ns = m.mod('server.namespace')()
+            bridge_cfg = m.config('bridge') or {}
+            bridge_port = bridge_cfg.get('port', 8840)
+            bridge_app_port = bridge_cfg.get('app_port', 8841)
+            ns.reg_app('bridge', f'http://localhost:{bridge_app_port}', owner='', api_url=f'http://localhost:{bridge_port}')
         except Exception as e:
             print(f'[app] bridge dependency skipped: {e}')
         cwd = m.dirpath(mod)

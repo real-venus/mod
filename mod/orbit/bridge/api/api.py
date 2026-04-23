@@ -13,9 +13,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 import mod as m
+import time
+import logging
+from collections import defaultdict, deque
 
 # Lazy singleton
 _bridge = None
@@ -27,27 +31,66 @@ def get_bridge():
     return _bridge
 
 
+IS_PRODUCTION = os.getenv('BRIDGE_ENV') == 'production'
+
 app = FastAPI(
     title="Bridge API",
     description="Substrate/Solana to EVM identity bridge",
     version="2.0.0",
+    debug=not IS_PRODUCTION,
 )
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error"}
+    )
+
+PRODUCTION_ORIGINS = [
+    'https://modc2.com',
+    'https://bridge.modc2.com',
+]
+DEV_ORIGINS = PRODUCTION_ORIGINS + [
+    'http://localhost:8841',
+    'http://localhost:3000',
+]
+ALLOWED_ORIGINS = os.getenv('BRIDGE_CORS_ORIGINS', '').split(',') if os.getenv('BRIDGE_CORS_ORIGINS') else (
+    PRODUCTION_ORIGINS if IS_PRODUCTION else DEV_ORIGINS
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Rate limiting
+rate_limit_store = defaultdict(lambda: deque())
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX_REQUESTS = 10
+
+def check_rate_limit(request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    requests = rate_limit_store[client_ip]
+    while requests and requests[0] < now - RATE_LIMIT_WINDOW:
+        requests.popleft()
+    if len(requests) >= RATE_LIMIT_MAX_REQUESTS:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Max 10 requests per minute.")
+    requests.append(now)
+    return True
+
 
 # ── Request models ──────────────────────────────────────────────
 
 class ClaimRequest(BaseModel):
-    auth_token: str = ""
-    recipient: str
     address: str
+    signature: str
+    timestamp: int
+    recipient: str = ""
 
 class CommitRequest(BaseModel):
     source_address: str
@@ -63,7 +106,7 @@ class UpdateCommitmentRequest(BaseModel):
 
 class DeleteClaimRequest(BaseModel):
     address: str
-    caller: Optional[str] = None
+    auth_token: str
 
 class DeployRequest(BaseModel):
     network: str = "testnet"
@@ -108,8 +151,18 @@ def in_snapshot(address: str):
     return get_bridge().in_snapshot(address)
 
 @app.get("/balances")
-def balances():
-    return get_bridge().get_total_balances()
+def balances(request: Request, page: int = 0, limit: int = 500):
+    check_rate_limit(request)
+    if limit > 100:
+        raise HTTPException(status_code=403, detail="Bulk queries (limit > 100) require authentication.")
+    all_balances = get_bridge().get_total_balances()
+    if limit > 1000:
+        limit = 1000
+    items = list(all_balances.items())
+    start = page * limit
+    end = start + limit
+    paged = dict(items[start:end])
+    return {"balances": paged, "total": len(items), "page": page, "limit": limit}
 
 @app.post("/get_total_balances")
 def get_total_balances_post():
@@ -121,7 +174,10 @@ def get_total_balances_post():
 
 @app.post("/claim")
 def claim(req: ClaimRequest):
-    result = get_bridge().claim(req.auth_token, req.recipient, req.address)
+    result = get_bridge().claim(
+        address=req.address, signature=req.signature,
+        recipient=req.recipient or None, timestamp=req.timestamp,
+    )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
@@ -149,9 +205,20 @@ def claims_array():
 
 @app.post("/delete_claim")
 def delete_claim(req: DeleteClaimRequest):
-    result = get_bridge().delete_claim(req.address, req.caller)
+    result = get_bridge().delete_claim(req.address, auth_token=req.auth_token)
     if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
+        raise HTTPException(status_code=403, detail=result["error"])
+    return result
+
+class ResetRequest(BaseModel):
+    auth_token: str
+
+@app.post("/reset")
+def reset(req: ResetRequest):
+    """Reset all bridge data. Requires admin auth. For testing only."""
+    result = get_bridge().reset(auth_token=req.auth_token)
+    if "error" in result:
+        raise HTTPException(status_code=403, detail=result["error"])
     return result
 
 
@@ -222,25 +289,6 @@ def deploy(req: DeployRequest):
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
-
-
-# ── Generic forward ─────────────────────────────────────────────
-
-@app.post("/forward")
-async def forward(request: Request):
-    """Generic forward — call any public bridge method by name."""
-    body = await request.json()
-    action = body.pop("action", body.pop("fn", None))
-    if not action:
-        raise HTTPException(status_code=400, detail="action or fn required")
-    bridge = get_bridge()
-    if not hasattr(bridge, action) or action.startswith("_"):
-        raise HTTPException(status_code=404, detail=f"unknown action: {action}")
-    fn = getattr(bridge, action)
-    if not callable(fn):
-        return {"result": fn}
-    result = fn(**body)
-    return {"result": result}
 
 
 if __name__ == "__main__":

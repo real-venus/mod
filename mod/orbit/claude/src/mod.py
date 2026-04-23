@@ -32,7 +32,7 @@ class Mod:
         'get_version', 'restore_version', 'health', 'modules',
         'folders', 'suggest_folders',
         'set_owner', 'get_owner', 'is_owner', 'serve',
-        'kill', 'kill_port', 'status',
+        'kill', 'kill_port', 'status', 'scan', 'fix',
     ]
 
     def __init__(self, api_url: str = None, app_url: str = None,
@@ -1035,6 +1035,408 @@ class Mod:
 
         results["total"] = results["passed"] + results["failed"]
         return results
+
+    # ── security scan ──────────────────────────────────────────────
+
+    _scan_goal = """
+You are a senior security auditor performing a comprehensive code review.
+Systematically scan the repository for security vulnerabilities.
+
+CHECK FOR:
+- Hardcoded secrets, API keys, private keys, passwords, tokens
+- Command injection, SQL injection, XSS, path traversal
+- Unsafe deserialization, insecure file operations
+- Smart contract vulnerabilities (reentrancy, overflow, access control)
+- Insecure configurations (CORS, debug mode, permissive permissions)
+- Missing authentication or authorization checks
+- Exposed sensitive endpoints or debug routes
+- Dependency vulnerabilities (known CVEs in imports)
+- Unsafe use of eval, exec, subprocess with user input
+- Information leakage (stack traces, verbose errors, .env files)
+
+METHODOLOGY:
+1. First understand the repo structure and file types
+2. Search for patterns: passwords, secrets, keys, tokens, eval, exec, subprocess
+3. Read critical files: configs, env files, auth modules, API routes, contracts
+4. Analyze each finding for actual exploitability (not just pattern matches)
+
+OUTPUT:
+You MUST output ONLY a JSON object (no markdown, no explanation) with this exact structure:
+{"findings": [{"severity": "critical|high|medium|low|info", "category": "secrets|injection|xss|access_control|config|contract|dependency|crypto|info_leak|other", "title": "short description", "description": "detailed explanation with exploitation scenario", "file": "relative/path", "line": null, "recommendation": "how to fix"}]}
+"""
+
+    def scan(self, mod=None, path=None, key=None, model='sonnet', steps=None, **kwargs):
+        """
+        Run a security scan on a module or repo using Claude CLI.
+
+        Usage: m claude/scan bridge
+               m claude/scan path=/some/repo
+
+        Args:
+            mod: module name to scan (e.g. 'bridge', 'agent')
+            path: repo path to scan (defaults to ~/mod/)
+            key: key name for reviewer identity
+            model: claude model (sonnet, opus, haiku)
+        """
+        if mod:
+            path = m.dp(mod)
+        path = path or os.path.expanduser('~/mod')
+        path = os.path.abspath(os.path.expanduser(path))
+        key = key or 'test'
+
+        if not os.path.isdir(path):
+            return {'error': f'path not found: {path}'}
+
+        wallet = self._scan_resolve_wallet(key)
+        print(f'[scan] reviewer: {wallet}')
+        print(f'[scan] scanning: {path}')
+        print(f'[scan] model: {model}')
+
+        context = self._scan_gather_context(path)
+        prompt = self._scan_build_prompt(context)
+
+        ts = time.time()
+        raw = self._run_cli(prompt, path=path, model=model,
+                            output_format="text", stream_output=True)
+        elapsed = round(time.time() - ts, 1)
+
+        findings = self._scan_parse_output(raw)
+        print(f'[scan] found {len(findings)} findings in {elapsed}s')
+
+        metadata = {
+            'timestamp': int(time.time()),
+            'reviewer': wallet,
+            'key': key,
+            'model': model,
+            'repo': path,
+            'elapsed_seconds': elapsed,
+            'stats': self._scan_compute_stats(findings),
+        }
+
+        # sign report with reviewer key
+        sig = self._scan_sign_report(key, metadata, findings)
+        if sig:
+            metadata['signature'] = sig
+
+        report_dir = self._scan_write_report(path, wallet, findings, metadata)
+
+        return {
+            'reviewer': wallet,
+            'repo': path,
+            'findings': findings,
+            'stats': metadata['stats'],
+            'report_dir': str(report_dir),
+            'elapsed': elapsed,
+            'signature': sig,
+        }
+
+    def _scan_resolve_wallet(self, key):
+        try:
+            return m.key(key).address
+        except Exception:
+            return key
+
+    def _scan_sign_report(self, key, metadata, findings):
+        """Sign the report hash with the reviewer's key."""
+        import hashlib
+        try:
+            k = m.key(key)
+            payload = json.dumps({
+                'timestamp': metadata['timestamp'],
+                'reviewer': metadata['reviewer'],
+                'repo': metadata['repo'],
+                'stats': metadata['stats'],
+            }, sort_keys=True)
+            report_hash = hashlib.sha256(payload.encode()).hexdigest()
+            sig = k.sign(report_hash.encode())
+            return sig.hex() if isinstance(sig, bytes) else str(sig)
+        except Exception as e:
+            print(f'[scan] could not sign report: {e}')
+            return None
+
+    def _scan_gather_context(self, path):
+        context = {'path': path, 'file_types': {}, 'total_files': 0, 'structure': []}
+        skip_dirs = {'.git', 'node_modules', '__pycache__', '.next', 'venv',
+                     'env', '.env', 'dist', 'build', '.security', 'target'}
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
+            for fname in files:
+                context['total_files'] += 1
+                ext = Path(fname).suffix.lower()
+                if ext:
+                    context['file_types'][ext] = context['file_types'].get(ext, 0) + 1
+                rel = os.path.relpath(os.path.join(root, fname), path)
+                if len(context['structure']) < 100:
+                    context['structure'].append(rel)
+        return context
+
+    def _scan_build_prompt(self, context):
+        parts = [
+            self._scan_goal,
+            f"\nRepository path: {context['path']}",
+            f"Total files: {context['total_files']}",
+            f"File types: {json.dumps(context['file_types'], indent=2)}",
+            f"\nSample structure (first 100 files):",
+        ]
+        for f in context['structure']:
+            parts.append(f"  {f}")
+        parts.append(
+            "\nPerform a thorough security scan. Focus on high-impact vulnerabilities first. "
+            "Output ONLY the JSON findings object, nothing else."
+        )
+        return '\n'.join(parts)
+
+    def _scan_parse_output(self, raw):
+        if not raw:
+            return []
+        text = raw if isinstance(raw, str) else json.dumps(raw)
+        # extract JSON from output (may have surrounding text)
+        start = text.find('{"findings"')
+        if start == -1:
+            start = text.find('"findings"')
+            if start != -1:
+                start = text.rfind('{', 0, start)
+        if start == -1:
+            return []
+        depth = 0
+        end = start
+        for i in range(start, len(text)):
+            if text[i] == '{':
+                depth += 1
+            elif text[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    end = i + 1
+                    break
+        try:
+            data = json.loads(text[start:end])
+            findings = data.get('findings', [])
+            return findings if isinstance(findings, list) else [findings]
+        except (json.JSONDecodeError, ValueError):
+            return []
+
+    def _scan_compute_stats(self, findings):
+        stats = {'total': len(findings), 'by_severity': {}, 'by_category': {}}
+        for f in findings:
+            if not isinstance(f, dict):
+                continue
+            sev = f.get('severity', 'unknown')
+            cat = f.get('category', 'other')
+            stats['by_severity'][sev] = stats['by_severity'].get(sev, 0) + 1
+            stats['by_category'][cat] = stats['by_category'].get(cat, 0) + 1
+        return stats
+
+    def _scan_write_report(self, path, wallet, findings, metadata):
+        security_dir = Path(path) / '.security' / wallet
+        security_dir.mkdir(parents=True, exist_ok=True)
+
+        report = {**metadata, 'findings': findings}
+        report_path = security_dir / 'report.json'
+        with open(report_path, 'w') as f:
+            json.dump(report, f, indent=2, default=str)
+        print(f'[scan] wrote {report_path}')
+
+        summary = self._scan_build_summary(findings, metadata)
+        summary_path = security_dir / 'summary.md'
+        with open(summary_path, 'w') as f:
+            f.write(summary)
+        print(f'[scan] wrote {summary_path}')
+
+        return security_dir
+
+    def _scan_build_summary(self, findings, metadata):
+        lines = [
+            "# Security Scan Report",
+            "",
+            f"**Repo:** `{metadata['repo']}`",
+            f"**Reviewer:** `{metadata['reviewer']}`",
+            f"**Model:** `{metadata['model']}`",
+            f"**Date:** {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(metadata['timestamp']))}",
+            f"**Duration:** {metadata['elapsed_seconds']}s",
+        ]
+        if metadata.get('signature'):
+            lines.append(f"**Signature:** `{metadata['signature'][:32]}...`")
+        lines += [
+            "",
+            "## Summary",
+            "",
+            f"Total findings: **{metadata['stats']['total']}**",
+            "",
+        ]
+        if metadata['stats'].get('by_severity'):
+            lines.append("| Severity | Count |")
+            lines.append("|----------|-------|")
+            for sev in ['critical', 'high', 'medium', 'low', 'info']:
+                count = metadata['stats']['by_severity'].get(sev, 0)
+                if count:
+                    lines.append(f"| {sev} | {count} |")
+            lines.append("")
+        if findings:
+            lines.append("## Findings")
+            lines.append("")
+            for i, f in enumerate(findings, 1):
+                if not isinstance(f, dict):
+                    continue
+                sev = f.get('severity', 'unknown').upper()
+                title = f.get('title', 'Untitled')
+                lines.append(f"### {i}. [{sev}] {title}")
+                lines.append("")
+                if f.get('file'):
+                    loc = f['file']
+                    if f.get('line'):
+                        loc += f":{f['line']}"
+                    lines.append(f"**Location:** `{loc}`")
+                if f.get('category'):
+                    lines.append(f"**Category:** {f['category']}")
+                lines.append("")
+                if f.get('description'):
+                    lines.append(f.get('description'))
+                    lines.append("")
+                if f.get('recommendation'):
+                    lines.append(f"> **Fix:** {f['recommendation']}")
+                    lines.append("")
+                lines.append("---")
+                lines.append("")
+        else:
+            lines.append("No findings detected.")
+            lines.append("")
+        return '\n'.join(lines)
+
+    # ── security fix ──────────────────────────────────────────────
+
+    _fix_goal = """
+You are a senior security engineer. Fix the security vulnerability described below.
+
+RULES:
+- Make the MINIMAL change needed to fix the issue
+- Do NOT refactor surrounding code or add unrelated improvements
+- Do NOT add comments explaining the fix unless the logic is non-obvious
+- Preserve existing code style and patterns
+- If the fix requires a new dependency, mention it but still apply the code change
+
+FINDING:
+Severity: {severity}
+Category: {category}
+Title: {title}
+File: {file}
+Line: {line}
+Description: {description}
+Recommendation: {recommendation}
+
+Apply the fix now. Edit only the affected file(s).
+"""
+
+    def fix(self, mod=None, path=None, key=None, model='sonnet',
+            severity=None, index=None, **kwargs):
+        """
+        Fix security findings from a previous scan. Runs scan first if needed.
+
+        Usage: m claude/fix bridge
+               m claude/fix path=/some/repo
+               m claude/fix bridge severity=high
+               m claude/fix bridge index=0
+
+        Args:
+            mod: module name to fix (e.g. 'bridge', 'agent')
+            path: repo path (defaults to ~/mod/)
+            key: key name for reviewer identity
+            model: claude model (sonnet, opus, haiku)
+            severity: only fix findings of this severity (critical, high, medium, low)
+            index: fix a single finding by index (0-based)
+        """
+        if mod:
+            path = m.dp(mod)
+        path = path or os.path.expanduser('~/mod')
+        path = os.path.abspath(os.path.expanduser(path))
+        key = key or 'test'
+
+        if not os.path.isdir(path):
+            return {'error': f'path not found: {path}'}
+
+        wallet = self._scan_resolve_wallet(key)
+
+        # load existing scan or run one
+        findings = self._fix_load_findings(path, wallet)
+        if findings is None:
+            print('[fix] no scan data found, running scan first...')
+            result = self.scan(mod=mod, path=path, key=key, model=model, **kwargs)
+            if 'error' in result:
+                return result
+            findings = result.get('findings', [])
+
+        if not findings:
+            return {'fixed': 0, 'message': 'no findings to fix'}
+
+        # filter by severity
+        if severity:
+            severity = severity.lower()
+            findings = [f for f in findings if f.get('severity', '').lower() == severity]
+            if not findings:
+                return {'fixed': 0, 'message': f'no {severity} findings to fix'}
+            print(f'[fix] filtered to {len(findings)} {severity} findings')
+
+        # filter by index
+        if index is not None:
+            index = int(index)
+            if index < 0 or index >= len(findings):
+                return {'error': f'index {index} out of range (0-{len(findings)-1})'}
+            findings = [findings[index]]
+            print(f'[fix] fixing finding #{index}')
+
+        print(f'[fix] fixing {len(findings)} findings in {path}')
+        print(f'[fix] model: {model}')
+
+        fixed = []
+        failed = []
+        for i, finding in enumerate(findings):
+            if not isinstance(finding, dict):
+                continue
+            title = finding.get('title', 'untitled')
+            sev = finding.get('severity', 'unknown')
+            print(f'\n[fix] ({i+1}/{len(findings)}) [{sev}] {title}')
+
+            prompt = self._fix_goal.format(
+                severity=sev,
+                category=finding.get('category', 'other'),
+                title=title,
+                file=finding.get('file', 'unknown'),
+                line=finding.get('line') or 'unknown',
+                description=finding.get('description', ''),
+                recommendation=finding.get('recommendation', ''),
+            )
+
+            try:
+                self._run_cli(prompt, path=path, model=model,
+                              output_format="text", stream_output=True)
+                fixed.append(finding)
+                print(f'[fix] done: {title}')
+            except Exception as e:
+                failed.append({'finding': title, 'error': str(e)})
+                print(f'[fix] failed: {title} — {e}')
+
+        print(f'\n[fix] complete: {len(fixed)} fixed, {len(failed)} failed')
+        return {
+            'fixed': len(fixed),
+            'failed': len(failed),
+            'details': {
+                'fixed': [f.get('title') for f in fixed],
+                'failed': failed,
+            },
+        }
+
+    def _fix_load_findings(self, path, wallet):
+        """Load findings from existing scan report, or return None."""
+        report_path = Path(path) / '.security' / wallet / 'report.json'
+        if not report_path.exists():
+            return None
+        try:
+            with open(report_path) as f:
+                data = json.load(f)
+            findings = data.get('findings', [])
+            print(f'[fix] loaded {len(findings)} findings from {report_path}')
+            return findings
+        except (json.JSONDecodeError, IOError):
+            return None
 
     def __repr__(self):
         server = "connected" if self._server_available() else "offline"

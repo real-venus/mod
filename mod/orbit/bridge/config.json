@@ -9,7 +9,6 @@
         "app": "http://localhost:8841"
     },
     "owner": "5HMfXz6ZmU2kph5VJMyV7VE91SoPKNkX5cugnsdhkfWPRJXN",
-    "signer_key": "",
     "network": "testnet",
     "contracts": {
         "testnet": {
@@ -24,13 +23,11 @@
         }
     },
     "fns": [
-        "forward",
-        "start",
-        "stop",
         "health",
         "status",
         "owner",
         "contract_info",
+        "store_abi",
         "in_snapshot",
         "get_total_balances",
         "claim",
@@ -45,14 +42,8 @@
         "get_commitment",
         "compile",
         "test",
-        "deploy",
-        "serve",
-        "kill",
-        "serve_api",
-        "kill_api",
-        "serve_app",
-        "kill_app"
+        "deploy"
     ],
     "mode": "pm2",
-    "schema": "QmfXK6eZfYEjKXntzt7y6BPXnmN9EFhHgMoNQWPUTuBC2S"
+    "schema": "QmR5ctFkfrJ4Hpyzoe79A1qGvd1818SeJPeCm8W46PoJmW"
 }

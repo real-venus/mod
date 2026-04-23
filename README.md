@@ -92,7 +92,7 @@ mod/
 │   ├── utils.py        # networking, async, system helpers
 │   ├── chain/          # Solidity contracts (StakeTime protocol)
 │   ├── app/            # Next.js frontend
-│   ├── api/            # FastAPI backend with auto-routing
+│   ├── api/            # module registry, IPFS, blockchain ops
 │   ├── server/         # process management
 │   ├── store/          # encrypted KV store (AES-256)
 │   ├── key/            # key management (ED25519, ECDSA, SR25519)
@@ -187,7 +187,8 @@ m code <mod>                  # view source
 m dp <mod>                    # get module directory path
 
 # servers
-m serve <mod>                 # start module server
+m serve <mod>                 # start API server (wraps module class)
+m serve <mod>.app             # start API + Next.js frontend
 m servers                     # list running servers
 m kill <mod>                  # stop server
 m restart <mod>               # restart server

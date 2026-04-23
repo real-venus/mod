@@ -7,10 +7,7 @@ services:
       - "8840:8840"
       - "8841:8841"
     volumes:
-      - .:/root/mod/mod/orbit/bridge
       - bridge_node_modules:/root/mod/mod/orbit/bridge/app/node_modules
-    environment:
-      - DEV=1
     restart: unless-stopped
 
 networks:

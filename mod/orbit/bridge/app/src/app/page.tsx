@@ -16,8 +16,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://modc2.com/api/bridge'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://modc2.com/bridge'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://modc2.com/api/bridge' : 'http://localhost:8840')
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === 'production' ? 'https://modc2.com/bridge' : 'http://localhost:3000')
 
 interface CommitResult {
   success?: boolean
@@ -106,6 +106,9 @@ function BridgePageInner() {
 
   const [editingAddress, setEditingAddress] = useState<string | null>(null)
   const [editEvmAddress, setEditEvmAddress] = useState('')
+
+  // ── Network state ─────────────────────────────────────────────
+  const [network, setNetwork] = useState<'testnet' | 'mainnet'>('testnet')
 
   // ── Helpers ─────────────────────────────────────────────────────
   const formatAddress = (addr: string) =>
@@ -339,6 +342,24 @@ function BridgePageInner() {
           >
             <LinkIcon className="w-4 h-4 inline mr-1.5 -mt-0.5" />
             Commit
+          </button>
+        </div>
+
+        {/* Network Selector */}
+        <div className="flex items-center gap-2">
+          <button
+            className="px-4 py-2 rounded-lg border text-xs font-bold uppercase tracking-wider transition-colors border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+          >
+            Testnet
+          </button>
+          <button
+            disabled
+            className="relative px-4 py-2 rounded-lg border text-xs font-bold uppercase tracking-wider border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed"
+          >
+            Mainnet
+            <span className="absolute -top-2 -right-2 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400/80 border border-amber-500/30">
+              Soon
+            </span>
           </button>
         </div>
 
@@ -723,10 +744,12 @@ function BridgePageInner() {
           Bridge Module
         </div>
 
-        {/* API URL debug */}
-        <div className="fixed bottom-3 right-3 text-[10px] font-mono text-white/20 bg-white/5 border border-white/10 rounded px-2 py-1">
-          API: {API_URL} | APP: {APP_URL}
-        </div>
+        {/* API URL debug — dev only */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="fixed bottom-3 right-3 text-[10px] font-mono text-white/20 bg-white/5 border border-white/10 rounded px-2 py-1">
+            API: {API_URL} | APP: {APP_URL}
+          </div>
+        )}
       </div>
     </div>
   )

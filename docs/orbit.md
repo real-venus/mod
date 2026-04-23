@@ -30,7 +30,7 @@ The orbit ecosystem contains 200+ pluggable modules. Each module lives in `mod/o
 
 | Module | Description |
 |--------|------------|
-| `bridge` | Sr25519 → EVM token bridge — verify Substrate signatures, mint ERC20 tokens |
+| `bridge` | Substrate/Solana → EVM identity bridge — snapshot claims, on-chain commitments |
 | `uniswap` | Uniswap V3 multichain strategy engine (Rust backend) — DCA, limit orders, momentum, copy trading |
 | `safe` | Gnosis Safe multisig integration |
 | `eth` | Ethereum utilities |
@@ -185,33 +185,34 @@ ipfs.valid_cid('QmXyz...')  # True/False
 
 ---
 
-### bridge — Token Bridge
+### bridge — Identity Bridge
 
-Cross-chain bridge for Substrate (Sr25519) users to claim ERC20 tokens on EVM.
+Substrate/Solana to EVM identity bridge with snapshot-based token claims and on-chain commitments. Served via the core server (`m.serve('bridge')`) — no custom API needed.
 
 ```python
 bridge = m.mod('bridge')()
 
-# Claim tokens (verify sr25519 sig, mint ERC20)
-bridge.claim(auth_token='signed_token', recipient='0xEVM_ADDRESS')
+# Check snapshot
+bridge.in_snapshot(address='5Substrate...')
 
-# Process claims (owner)
-bridge.process_claim(address='5Substrate...', recipient='0x...', amount=100)
+# Commit identity (sign "commit {evmAddr}" with source wallet)
+bridge.commit(source_address='5Sub...', evm_address='0x...', signature='0x...', source_type='substrate')
 
-# Batch process
-bridge.batch_process_claims()
+# Claim tokens
+bridge.claim(auth_token='token', recipient='0xEVM...', address='5Sub...')
 
-# Check unclaimed
-bridge.unclaimed()
-
-# Burn (reverse bridge)
-bridge.burn(address='0x...', amount=50)
+# Check status
+bridge.has_claimed(address='5Sub...')
+bridge.unclaimed(address='5Sub...')
+bridge.status()
 
 # Deploy contracts
-bridge.deploy()
+bridge.deploy(network='testnet')
 ```
 
-**Architecture**: Balances from snapshots (`snapshot/*.json`), claims tracked in `~/.mod/bridge`.
+**Architecture**: Balances from snapshots (`snapshot/*.json`), claims tracked in `~/.bridge/claims.json`, commitments in `~/.bridge/commitments.json`. On-chain: BridgeableToken (ERC20 + Ownable) on Base Sepolia.
+
+**Serve**: `m serve bridge` (API only) or `m serve bridge.app` (API + Next.js frontend).
 
 ---
 

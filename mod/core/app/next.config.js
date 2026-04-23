@@ -9,12 +9,7 @@ const nextConfig = {
     serverComponentsExternalPackages: ['node-pty'],
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/proxy/:path*',
-        destination: `${API_URL}/:path*`,
-      },
-    ];
+    return [];
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {

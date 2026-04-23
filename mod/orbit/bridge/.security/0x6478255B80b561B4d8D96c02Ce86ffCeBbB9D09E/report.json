@@ -1,0 +1,155 @@
+{
+  "timestamp": 1776980546,
+  "reviewer": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
+  "key": "test",
+  "model": "sonnet",
+  "repo": "/Users/broski/mod/mod/orbit/bridge",
+  "elapsed_seconds": 148.5,
+  "stats": {
+    "total": 14,
+    "by_severity": {
+      "critical": 2,
+      "high": 3,
+      "medium": 4,
+      "low": 2,
+      "info": 3
+    },
+    "by_category": {
+      "access_control": 3,
+      "crypto": 1,
+      "contract": 3,
+      "config": 4,
+      "info_leak": 1,
+      "injection": 1,
+      "dependency": 1
+    }
+  },
+  "findings": [
+    {
+      "severity": "critical",
+      "category": "access_control",
+      "title": "API claim endpoint missing signature parameter enables token theft",
+      "description": "While mod.py claim() function was fixed to require signature validation (line 225-226), the FastAPI endpoint /claim (api/api.py:140-145) uses ClaimRequest model that only has 'address' and 'recipient' fields (line 59-61). The endpoint calls bridge.claim(address=req.address, recipient=req.recipient) WITHOUT passing signature parameter. This means signature validation is bypassed at the API layer. Any attacker can call POST /claim with {\"address\": \"victim_address\", \"recipient\": \"attacker_evm\"} to steal tokens from any committed address. The fix in mod.py is ineffective because the API never provides the signature.",
+      "file": "api/api.py",
+      "line": 142,
+      "recommendation": "Add signature and timestamp fields to ClaimRequest model. Update /claim endpoint to pass these to bridge.claim(). Frontend must collect user signature via wallet. Example: ClaimRequest should have signature:str and timestamp:int fields, and endpoint should call bridge.claim(address=req.address, signature=req.signature, recipient=req.recipient, timestamp=req.timestamp)."
+    },
+    {
+      "severity": "critical",
+      "category": "crypto",
+      "title": "Commitment replay protection uses signature hash instead of commitment data",
+      "description": "The _verify_signature() function (line 440-461) implements replay protection by hashing commit_data (source_address:evm_address:source_type) and checking if it was used before. However, signature malleability in sr25519/ed25519 allows generating multiple valid signatures for the same message. While the current implementation hashes commitment data (not signature), an attacker can bypass this by using a different source_type value or modifying the evm_address slightly, then changing it back via update_commitment(). The hash check happens before signature verification, so timing attacks may be possible.",
+      "file": "mod.py",
+      "line": 441,
+      "recommendation": "Add a server-side nonce per source_address. Store (source_address, nonce) pairs and increment on each commitment. Hash tuple including nonce: keccak256(source_address + evm_address + source_type + nonce). This prevents any replay even with signature malleability. Also ensure hash check happens AFTER signature verification to prevent timing leaks."
+    },
+    {
+      "severity": "high",
+      "category": "contract",
+      "title": "Centralized owner EOA controls unlimited minting/burning without timelock enforcement",
+      "description": "BridgeableToken contract has timelock functions (queueMint/executeMint at lines 74-113) but ALSO has immediate bridgeMint/bridgeBurn functions (lines 121-130, 183-189) with no delay. Owner (controlled by BRIDGE_SIGNER_KEY env var) can mint infinite tokens or burn from any address instantly. The timelock provides no protection since owner can bypass via direct mint/burn. If BRIDGE_SIGNER_KEY leaks, attacker gains immediate full token supply control. Smart contract inherits Ownable (line 13) but never calls renounceOwnership() in deployment flow despite having setOwnerless() function (line 63).",
+      "file": "contracts/Bridge.sol",
+      "line": 121,
+      "recommendation": "Remove immediate bridgeMint/bridgeBurn functions entirely - force ALL operations through timelock queue. Or use multisig (Gnosis Safe 3-of-5) as owner instead of EOA. Add SUPPLY_CAP enforcement in constructor and validate against snapshot totals. Implement automatic setOwnerless() call after migration period with on-chain governance vote trigger."
+    },
+    {
+      "severity": "high",
+      "category": "config",
+      "title": "CORS allows credentials with localhost origins enabling CSRF attacks",
+      "description": "CORS middleware (api/api.py lines 48-54) sets allow_credentials=True with DEV_ORIGINS including 'http://localhost:8841' and 'http://localhost:3000' (lines 41-44). If user runs local dev server while also having production bridge open, malicious JS on localhost:3000 can make authenticated cross-origin requests to production API. No CSRF tokens protect state-changing operations. IS_PRODUCTION check (line 36) only filters origins if BRIDGE_ENV=production is set, but default is DEV mode. Combined with missing signature validation in /claim endpoint, this enables complete token theft via CSRF.",
+      "file": "api/api.py",
+      "line": 51,
+      "recommendation": "Remove localhost origins from ALLOWED_ORIGINS in production. Change default to IS_PRODUCTION=True unless explicitly DEV mode. Add CSRF token validation for all POST endpoints using FastAPI-CSRF. Use environment variable BRIDGE_CORS_ORIGINS to override, not fallback to DEV. Implement SameSite=Strict cookies if session-based auth is added. Validate BRIDGE_ENV is set in production deployments."
+    },
+    {
+      "severity": "high",
+      "category": "access_control",
+      "title": "Smart contract commit() function only checks onlyOwner instead of signature verification",
+      "description": "The commit() function in BridgeableToken (lines 230-241) is marked onlyOwner, meaning only the backend signer can post commitments on-chain. However, this creates centralization risk - the backend (controlled by BRIDGE_SIGNER_KEY) must be trusted to validate signatures off-chain before posting. If the backend is compromised or has a bug bypassing signature checks, attacker can commit arbitrary source->EVM mappings on-chain. Users cannot independently verify on-chain that their source address actually signed the commitment. The contract should verify sr25519/ed25519 signatures directly via precompile or oracle.",
+      "file": "contracts/Bridge.sol",
+      "line": 230,
+      "recommendation": "Implement on-chain signature verification for sr25519 (use Substrate signature precompile if available on Base) or move to optimistic verification with fraud proofs. Allow users to dispute invalid commitments within a challenge window. Add commitment timestamps and require proofs to include block height. Consider using Chainlink oracle to verify signatures off-chain and post attestations."
+    },
+    {
+      "severity": "medium",
+      "category": "contract",
+      "title": "Timelock executeAfter can be frontrun to censor operations",
+      "description": "The queueMint/queueBurn functions (lines 74-93, 139-158) set executeAfter = block.timestamp + 24 hours, but executeMint/executeBurn (lines 99-113, 164-175) allow ANYONE to execute after delay. An attacker can monitor the mempool, see a legitimate executeMint() transaction, and frontrun it with their own executeMint() call. While this doesn't steal funds (tokens still go to correct recipient), it allows censorship. Attacker can frontrun all executions, then ransom the user to actually execute. Also, if multiple operations are queued with same (to, amount, bridgeId), only first can execute due to op.executed flag.",
+      "file": "contracts/Bridge.sol",
+      "line": 99,
+      "recommendation": "Add access control to executeMint/executeBurn - only allow original queuer or designated executor role. Use EIP-712 signatures requiring user consent to execute. Add explicit cancellation function for queued operations with onlyOwner restriction. Generate unique operationIds including block.number not just timestamp to prevent collisions."
+    },
+    {
+      "severity": "medium",
+      "category": "info_leak",
+      "title": "Bulk snapshot scraping via paginated /balances endpoint",
+      "description": "GET /balances endpoint (api/api.py:122-130) returns paginated snapshot data with default limit=500, max=1000 per request. No rate limiting, authentication, or abuse protection. With total_addresses in status response, attacker can calculate total pages needed (e.g. 56000 addresses / 1000 = 56 requests) and scrape entire snapshot dataset. This exposes all holder addresses and balances for targeted phishing, social engineering, or frontrunning claims. Combined with public commitments (GET /commitments at line 196), attacker builds complete source->EVM->balance mapping.",
+      "file": "api/api.py",
+      "line": 122,
+      "recommendation": "Add rate limiting via slowapi (10 requests/min per IP for /balances). Require authentication for limit > 100. Serve snapshots as static IPFS content hash instead of live database queries. Implement pagination cursors instead of offset to prevent scraping automation. Log bulk access patterns and alert on suspicious behavior."
+    },
+    {
+      "severity": "medium",
+      "category": "injection",
+      "title": "Symlink path traversal in _ensure_hardhat() despite validation",
+      "description": "The _ensure_hardhat() function (mod.py:548-569) creates symlinks for node_modules and hardhat.config.js. Lines 555-558 validate paths using str().startswith(str(mod_root)) which is vulnerable to partial path matches (e.g. /mod_root2/ passes check for /mod_root/). While module_dir is derived from __file__ (not user input), a sophisticated attacker who can write to the filesystem or create symlinks could potentially poison the module path. The validation uses string prefix matching rather than canonical path comparison.",
+      "file": "mod.py",
+      "line": 555,
+      "recommendation": "Use os.path.commonpath([mod_root, bridge_dir]) and verify it equals str(mod_root.resolve()). Call .resolve() on all paths before comparison to follow symlinks. Add check: if bridge_dir.resolve().is_relative_to(mod_root.resolve()). Use atomic symlink operations (unlink + symlink in try/except). Add integrity checks on symlink targets before using them."
+    },
+    {
+      "severity": "medium",
+      "category": "config",
+      "title": "Hardcoded production API URL in frontend defaults to modc2.com",
+      "description": "Frontend page.tsx (line 19) sets API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://modc2.com/api/bridge'. If NEXT_PUBLIC_API_URL is not set during build, app defaults to production API even in development. Developers testing locally may accidentally create commitments/claims on production chain. The entrypoint.sh script (lines 32-33) only sets these in non-DEV mode, but frontend build may happen before environment is set. Same issue with APP_URL at line 20.",
+      "file": "app/src/app/page.tsx",
+      "line": 19,
+      "recommendation": "Use build-time environment variable validation. In next.config.js, require NEXT_PUBLIC_API_URL is set for production builds. Default to localhost in development: const API_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8840' : undefined). Fail build if undefined in production. Use separate .env.development and .env.production files with dotenv."
+    },
+    {
+      "severity": "low",
+      "category": "access_control",
+      "title": "BRIDGE_ADMIN_KEY not validated at startup allows silent operation failures",
+      "description": "The delete_claim() function (mod.py:298-308) requires BRIDGE_ADMIN_KEY environment variable via _verify_owner_token() (line 318). However, there's no startup validation ensuring BRIDGE_ADMIN_KEY is configured. If admin forgets to set env var, delete operations silently fail with 'Valid owner auth_token required' error. No warning in logs, health endpoint, or startup checks. health() response (lines 113-120) doesn't indicate admin capabilities are disabled. This could cause operational issues when trying to remove fraudulent claims.",
+      "file": "mod.py",
+      "line": 46,
+      "recommendation": "Add startup validation in __init__(): if not os.environ.get('BRIDGE_ADMIN_KEY'): logger.warning('BRIDGE_ADMIN_KEY not set - admin operations disabled'). Add 'admin_enabled': bool(os.environ.get('BRIDGE_ADMIN_KEY')) to health() response. Document required environment variables in README. Add deployment checklist validating all critical env vars are set before production launch."
+    },
+    {
+      "severity": "low",
+      "category": "contract",
+      "title": "QueuedOperation struct allows duplicate bridgeId across operations",
+      "description": "The QueuedOperation struct (lines 25-32) uses bridgeId as a string identifier for tracking operations. However, operationId is generated via keccak256(to, amount, bridgeId, timestamp, isMint) (line 78). If two operations have identical (to, amount, bridgeId) but different timestamps, they get unique operationIds but share the same bridgeId. Events (MintQueued, BurnQueued) emit bridgeId but not operationId. Off-chain indexers cannot uniquely identify operations using only bridgeId from events. This makes reconciliation between queue events and execution events difficult.",
+      "file": "contracts/Bridge.sol",
+      "line": 28,
+      "recommendation": "Include operationId in MintQueued/BurnQueued events for unique identification. Or generate bridgeId from operationId hash. Add indexed operationId to events for efficient log filtering. Document that bridgeId is user-provided identifier (not unique) while operationId is system-generated unique ID."
+    },
+    {
+      "severity": "info",
+      "category": "dependency",
+      "title": "OpenZeppelin contracts v4.9.3 outdated, missing security patches in v5.x",
+      "description": "package.json (line 11) specifies '@openzeppelin/contracts@^4.9.3'. OpenZeppelin v5.x is available with security improvements, gas optimizations, and bug fixes. While 4.9.x is stable LTS, it lacks recent security advisories fixes. Known issues in 4.x include ERC20Permit signature replay edge cases and GovernorCompatibilityBravo reentrancy. The ^4.9.3 specifier prevents automatic upgrades to v5. Base chain may have optimized precompiles for v5 patterns.",
+      "file": "package.json",
+      "line": 11,
+      "recommendation": "Upgrade to @openzeppelin/contracts@^5.0.0. Review migration guide at https://docs.openzeppelin.com/contracts/5.x/upgrades. Run full test suite (npx hardhat test) after upgrade. Pay attention to breaking changes in Ownable (constructor vs initializer), AccessControl, and ERC20. Consider using @openzeppelin/contracts-upgradeable if proxy patterns needed. Subscribe to OpenZeppelin security advisories."
+    },
+    {
+      "severity": "info",
+      "category": "config",
+      "title": "Docker compose DEV=1 enables volume mounts exposing source code",
+      "description": "docker-compose.yaml (line 13) sets DEV=1 and mounts entire directory as volume (line 10: .:/root/mod/mod/orbit/bridge). Intended for development hot-reload, but if this compose file is used in production, it exposes source code and allows modifications outside container isolation. Combined with write permissions, an attacker gaining container access could modify mounted source and persist changes to host. The entrypoint.sh script (line 28) checks DEV flag but doesn't prevent volume mount risks.",
+      "file": "docker-compose.yaml",
+      "line": 13,
+      "recommendation": "Split into docker-compose.dev.yml (with volumes, DEV=1) and docker-compose.yml (COPY only in Dockerfile, DEV=0). Add CI/CD validation rejecting DEV=1 in production builds. Use read-only volumes if mount is necessary: .:/root/mod/mod/orbit/bridge:ro. Document clearly that docker-compose.yaml is for development only. Provide docker-compose.prod.yml for production deployments."
+    },
+    {
+      "severity": "info",
+      "category": "config",
+      "title": "Entrypoint script symlinks data directory without validation",
+      "description": "The entrypoint.sh script (lines 14-16) creates ./data directory and symlinks it to /root/.bridge for persistent storage. This allows data to persist across container restarts when directory is volume-mounted. However, if ./data is pre-existing with malicious content (e.g., crafted claims.json with exploits), the symlink makes it active. No validation of data integrity or format before symlinking. An attacker who gains write access to mounted ./data can inject malicious claims or commitments that the API will load.",
+      "file": "scripts/entrypoint.sh",
+      "line": 16,
+      "recommendation": "Add data directory validation before symlinking. Check claims.json and commitments.json are valid JSON and contain expected schema. Use a migration script that validates and sanitizes existing data. Add integrity checksums (SHA256) for critical data files. Consider using a database with proper ACLs instead of JSON files for production. Implement data backup/restore with version control."
+    }
+  ]
+}

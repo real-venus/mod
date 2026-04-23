@@ -76,22 +76,27 @@ const MAIN_APP_ROUTES = new Set([
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // ── /api/{mod}/* → proxy to module API server ──
+  // ── /api/* → route to module API or main Flask backend ──
   if (pathname.startsWith('/api/')) {
     const rest = pathname.slice(5)
     const slash = rest.indexOf('/')
     const modName = slash === -1 ? rest : rest.slice(0, slash)
     const apiPath = slash === -1 ? '/' : rest.slice(slash)
 
+    // Next.js own API routes — let Next.js handle them
     if (RESERVED_API_ROUTES.has(modName)) return NextResponse.next()
 
+    // Check if first segment is a registered module
     const namespace = await getAppNamespace()
     const entry = namespace[modName]
     if (entry?.api_url) {
       const target = new URL(apiPath + request.nextUrl.search, entry.api_url)
       return NextResponse.rewrite(target)
     }
-    return NextResponse.next()
+
+    // Everything else → main Flask API backend
+    const target = new URL('/' + rest + request.nextUrl.search, API_URL)
+    return NextResponse.rewrite(target)
   }
 
   // ── /{mod}/* → proxy to module app server ──

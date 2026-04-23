@@ -171,7 +171,7 @@ MOD Protocol bridges the gap between on-chain economics and off-chain developmen
     arrow/.style={-{Stealth[length=3mm]}, thick, gray}
 ]
     \node[layer] (L5) at (0,5)   {\textbf{Layer 5: Frontend} -- Next.js 14 + TypeScript + ethers.js v6};
-    \node[layer] (L4) at (0,3.5) {\textbf{Layer 4: Service} -- FastAPI async endpoints + module registry + IPFS};
+    \node[layer] (L4) at (0,3.5) {\textbf{Layer 4: Service} -- Flask server auto-wrapping modules + registry + IPFS};
     \node[layer] (L3) at (0,2)   {\textbf{Layer 3: Modules} -- 204 composable Python orbit modules};
     \node[layer] (L2) at (0,0.5) {\textbf{Layer 2: Chain} -- BlocTime + StakeTime Protocol (Solidity 0.8.20, Base)};
     \node[layer] (L1) at (0,-1)  {\textbf{Layer 1: Core} -- mod.py framework engine (crypto, storage, routing)};
@@ -199,7 +199,7 @@ The protocol operates a circular economic flow:
 
 \subsection{Core Framework: mod.py}
 
-The framework engine (\texttt{mod/core/mod.py}) is composed from focused mixins---\texttt{FsMixin} (path \& file utilities), \texttt{DeployMixin} (server, Docker, deployment), and \texttt{FactoryMixin} (new, fork, clone, rm operations)---providing the following subsystems:
+The framework engine (\texttt{mod/core/mod.py}) is a single unified class providing the following subsystems:
 
 \begin{table}[H]
 \centering
@@ -639,19 +639,28 @@ Infrastructure & 140+ & \texttt{web}, \texttt{mcp}, \texttt{modal}, \texttt{comp
 \begin{enumerate}
     \item \textbf{Discover}: \texttt{mod.py} scans \texttt{orbit/} for anchor files ($O(n)$ at startup, cached).
     \item \textbf{Load}: \texttt{m.mod('name')} imports and instantiates (lazy, $O(1)$).
-    \item \textbf{Serve}: \texttt{m serve name} auto-generates a FastAPI server for the module.
+    \item \textbf{Serve}: \texttt{m serve name} wraps the module class in a Flask server---each public method becomes a \texttt{POST /method} endpoint. No custom API code needed.
     \item \textbf{Register}: \texttt{api.reg('name')} uploads to IPFS + writes to \texttt{Registry.sol}.
     \item \textbf{Invoke}: \texttt{m.fn('name/function')(args)} executes locally.
     \item \textbf{Monetize}: Remote calls route through Market $\to$ Debit $\to$ fee to Treasury.
 \end{enumerate}
 
-\subsection{Full-Stack Module Applications}
-
-Select modules ship as complete applications with their own frontend, API, and smart contracts:
+The serve command supports suffixes to control deployment scope:
 
 \begin{itemize}
-    \item \textbf{BlocTime App}: Next.js + FastAPI staking dashboard. Users stake NativeToken, view positions, claim rewards. Ports 8851 (API) / 8852 (frontend).
-    \item \textbf{EmbedCode}: Code embedding and execution platform. Next.js frontend with Tailwind CSS, FastAPI backend for code processing and deployment.
+    \item \texttt{m serve bridge} or \texttt{m serve bridge.api} --- API server only (default).
+    \item \texttt{m serve bridge.app} --- API server + Next.js frontend (if \texttt{app/} directory exists).
+\end{itemize}
+
+Modules declare dependencies via the \texttt{deps} field in \texttt{config.json}; dependent modules are started automatically before the main server.
+
+\subsection{Full-Stack Module Applications}
+
+Select modules ship as complete applications with their own frontend, API, and smart contracts. Serving with the \texttt{.app} suffix launches both the API and the Next.js frontend:
+
+\begin{itemize}
+    \item \textbf{BlocTime App}: Next.js staking dashboard. Users stake NativeToken, view positions, claim rewards. Ports 8851 (API) / 8852 (frontend). Served via \texttt{m serve bloctime.app}.
+    \item \textbf{Bridge}: Substrate/Solana-to-EVM identity bridge. Snapshot claims with cryptographic commitments. Ports 8840 (API) / 8841 (frontend). Served via \texttt{m serve bridge.app}.
 \end{itemize}
 
 \subsection{IPFS-Backed Registry}

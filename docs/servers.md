@@ -28,40 +28,61 @@ m kill api
 
 When you serve a module:
 
-1. The framework loads the module and inspects its functions
-2. A Flask app is created with each function as a POST endpoint
+1. The framework loads the module and inspects its public methods
+2. A Flask app is created with each method as a `POST /{method_name}` endpoint
 3. The server is started via PM2 (or Docker)
 4. The server registers itself in the service registry
-5. Functions are accessible at `POST http://localhost:{port}/{function_name}`
+5. Methods are accessible at `POST http://localhost:{port}/{method_name}`
 
 ### Endpoint Format
 
-Each public function becomes a POST endpoint that accepts JSON:
+Each public method becomes a POST endpoint that accepts JSON:
 
 ```bash
-# Module function: agent.forward(query="hello", steps=5)
-# Becomes: POST /forward
+# Module method: bridge.health() → POST /health
+curl -X POST http://localhost:8840/health \
+  -H "Content-Type: application/json" -d '{}'
 
-curl -X POST http://localhost:8000/forward \
+# Module method: bridge.in_snapshot(address="5H...") → POST /in_snapshot
+curl -X POST http://localhost:8840/in_snapshot \
   -H "Content-Type: application/json" \
-  -d '{"query": "hello", "steps": 5}'
+  -d '{"address": "5HMfXz..."}'
 ```
 
-Every server also exposes:
-- `GET /info` — module info and schema
-- Health check endpoints
+Response format: `{"result": <return_value>}`
+
+### Serve Suffixes: `.app` and `.api`
+
+Use suffixes to control what gets served:
+
+```bash
+# API only (default) — wraps module class as Flask endpoints
+m serve bridge
+m serve bridge.api    # explicit, same as above
+
+# API + Next.js frontend — also starts the app/ Next.js if present
+m serve bridge.app
+```
+
+| Suffix | API Server | Next.js App | Use case |
+|--------|-----------|-------------|----------|
+| (none) | Yes | No | Pure API deployments |
+| `.api` | Yes | No | Explicit API-only |
+| `.app` | Yes | Yes | Full-stack module with frontend |
+
+The API always runs on the module's `port` from config.json. The Next.js app runs on `app_port` (or `port + 1` if not set).
 
 ## Server Options
 
 ```python
 m.serve(
-    mod='api',           # Module name
-    port=8000,           # Port (auto-assigned if not specified)
+    mod='bridge',        # Module name (with optional .app/.api suffix)
+    port=8840,           # Port (auto-read from config.json if not specified)
     remote=False,        # Enable remote access
     pm='pm2',            # Process manager ('pm2' or 'docker')
     fns=None,            # Specific functions to expose (None = all)
-    run_mode='server',   # Run mode
-    paywall=False,       # Enable payment gating
+    run_mode='flask',    # Run mode
+    paywall=None,        # Enable payment gating
 )
 ```
 

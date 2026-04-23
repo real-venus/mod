@@ -8,23 +8,24 @@ their source address to an EVM address on Base.
 Flow:
   1. Check snapshot  — in_snapshot(address) -> balance
   2. Commit identity — sign "commit {evmAddr}" -> commit()
-  3. Claim tokens    — claim(auth_token, recipient)
+  3. Claim tokens    — claim(address) (requires verified commitment)
 
 On-chain: BridgeableToken (ERC20 + Ownable) on Base Sepolia.
 Storage:  ~/.bridge/claims.json, ~/.bridge/commitments.json
-Served via core server with token auth (no custom server).
+Served via core server (m.serve('bridge')) — no custom API needed.
 """
 
 import json
 import os
-import shutil
-import socket
 import time
 import subprocess
+import logging
 from pathlib import Path
 from typing import Dict, Optional, Any
 from web3 import Web3
 import mod as m
+
+logger = logging.getLogger(__name__)
 
 
 class Mod:
@@ -39,15 +40,15 @@ class Mod:
         # Paths
         self.claims_path = self.store_dir / 'claims.json'
         self.commitments_path = self.store_dir / 'commitments.json'
+        self.used_sigs_path = self.store_dir / 'used_signatures.json'
         self.snapshot_dir = self.module_dir / 'snapshot'
 
         # Config
         self.owner_address = self.config.get('owner', '')
         self.network = self.config.get('network', 'testnet')
-        self.signer_key = self.config.get('signer_key', '')
+        self.signer_key = os.environ.get('BRIDGE_SIGNER_KEY', '')
         self.port = int(self.config.get('port', 8840))
         self.app_port = int(self.config.get('app_port', 8841))
-        self.mode = self.config.get('mode', 'pm2')
 
         # Chain config from contracts.{network}
         net_cfg = self.config.get('contracts', {}).get(self.network, {})
@@ -65,6 +66,9 @@ class Mod:
         # Snapshot data (loaded once, normalize from raw units)
         raw = self._load_snapshot('total_balances.json')
         self._total_balances = {addr: float(val) / 1e9 for addr, val in raw.items()}
+
+        if not os.environ.get('BRIDGE_ADMIN_KEY'):
+            logger.warning('BRIDGE_ADMIN_KEY not set - admin operations disabled')
 
     def _load_config(self):
         config_path = self.module_dir / 'config.json'
@@ -101,6 +105,15 @@ class Mod:
     def _save_commitments(self, commitments):
         self._save_json(self.commitments_path, commitments)
 
+    def _load_used_sigs(self) -> set:
+        data = self._load_json(self.used_sigs_path, [])
+        return set(data) if isinstance(data, list) else set()
+
+    def _save_used_sig(self, sig_hash: str):
+        used = self._load_used_sigs()
+        used.add(sig_hash)
+        self._save_json(self.used_sigs_path, list(used))
+
     # ━━ Health & Status ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def health(self):
@@ -110,6 +123,7 @@ class Mod:
             'module': 'bridge',
             'snapshot_addresses': len(self._total_balances),
             'claims': len(self._load_claims()),
+            'admin_key_configured': bool(os.environ.get('BRIDGE_ADMIN_KEY')),
         }
 
     def status(self):
@@ -202,18 +216,42 @@ class Mod:
 
     # ━━ Claims ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    def claim(self, auth_token: str, recipient: str, address: str = None) -> dict:
+    def claim(self, address: str, signature: str = None, recipient: str = None, **kwargs) -> dict:
         """Process a token claim.
 
+        Requires a verified commitment for the source address AND proof of ownership.
+        The caller must sign 'claim {timestamp}' with the source address to prove ownership.
+
         Args:
-            auth_token: authentication token (for gated mode)
-            recipient: EVM address to receive tokens
-            address: source address (required in standalone mode)
+            address: source address (must have a verified commitment)
+            signature: hex signature of 'claim {timestamp}' proving ownership
+            recipient: EVM address — must match committed evm_address
         """
-        if not recipient:
-            return {'error': 'Recipient address required'}
         if not address:
             return {'error': 'Source address required'}
+        if not signature:
+            return {'error': 'Signature required to prove ownership of source address'}
+
+        # Require a verified commitment (proves ownership via signature)
+        commitments = self._load_commitments()
+        commitment = commitments.get(address)
+        if not commitment:
+            return {'error': f'No verified commitment for {address}. Commit first.'}
+
+        source_type = commitment.get('source_type')
+        timestamp = kwargs.get('timestamp', int(time.time()))
+
+        try:
+            valid = self._verify_claim_signature(address, signature, timestamp, source_type)
+        except Exception as e:
+            return {'error': f'Signature verification failed: {str(e)}'}
+        if not valid:
+            return {'error': 'Invalid signature — caller does not own source address'}
+
+        committed_evm = commitment.get('evm_address', '')
+        if recipient and recipient.lower() != committed_evm.lower():
+            return {'error': 'Recipient does not match committed EVM address'}
+        recipient = committed_evm
 
         total = float(self._total_balances.get(address, 0))
         if total <= 0:
@@ -240,7 +278,6 @@ class Mod:
             'amount': amount,
             'recipient': recipient,
             'from': address,
-            'tx_hash': f'0x{os.urandom(32).hex()}',
         }
 
     def has_claimed(self, address: str) -> dict:
@@ -265,16 +302,45 @@ class Mod:
         """Return all claims as a dict."""
         return self._load_claims()
 
-    def delete_claim(self, address: str, caller: str = None) -> dict:
-        """Delete a claim (owner only)."""
-        if caller and caller != self.owner_address:
-            return {'error': 'Only owner can delete claims'}
+    def delete_claim(self, address: str, auth_token: str = None) -> dict:
+        """Delete a claim (owner only, verified server-side)."""
+        caller = self._verify_owner_token(auth_token)
+        if not caller:
+            return {'error': 'Valid owner auth_token required'}
         claims = self._load_claims()
         if address not in claims:
             return {'error': f'No claim found for {address}'}
         del claims[address]
         self._save_claims(claims)
         return {'success': True, 'deleted': address}
+
+    def reset(self, auth_token: str = None) -> dict:
+        """Reset all bridge data (claims, commitments, used signatures).
+
+        Requires admin auth via BRIDGE_ADMIN_KEY. For testing only.
+        """
+        caller = self._verify_owner_token(auth_token)
+        if not caller:
+            return {'error': 'Valid admin auth_token required'}
+
+        self._save_json(self.claims_path, {})
+        self._save_json(self.commitments_path, {})
+        self._save_json(self.used_sigs_path, [])
+
+        return {'success': True, 'reset': ['claims', 'commitments', 'used_signatures']}
+
+    def _verify_owner_token(self, token: str) -> Optional[str]:
+        """Verify admin access via BRIDGE_ADMIN_KEY env var.
+
+        Uses a server-side secret rather than client-provided identity.
+        Set BRIDGE_ADMIN_KEY in your environment for admin operations.
+        """
+        if not token:
+            return None
+        admin_key = os.environ.get('BRIDGE_ADMIN_KEY', '')
+        if admin_key and token == admin_key:
+            return self.owner_address
+        return None
 
     # ━━ Commitments ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -336,6 +402,7 @@ class Mod:
         """Update an existing commitment to a new EVM address.
 
         Requires a fresh signature proving continued ownership.
+        The caller must sign "commit {new_evm_address}" with their source wallet.
         """
         if not source_address or not evm_address or not signature:
             return {'error': 'source_address, evm_address, and signature are required'}
@@ -343,8 +410,20 @@ class Mod:
             return {'error': 'source_type must be substrate or solana'}
 
         commitments = self._load_commitments()
-        if source_address not in commitments:
+        existing = commitments.get(source_address)
+        if not existing:
             return {'error': f'No existing commitment for {source_address}'}
+
+        if existing.get('source_type') != source_type:
+            return {'error': 'source_type does not match original commitment'}
+
+        if evm_address.lower() == existing.get('evm_address', '').lower():
+            return {'error': 'New EVM address is the same as current'}
+
+        # Check the address hasn't already claimed (can't change after claim)
+        claims = self._load_claims()
+        if source_address in claims:
+            return {'error': 'Cannot update commitment after claim'}
 
         try:
             valid = self._verify_signature(source_address, signature, evm_address, source_type)
@@ -353,16 +432,13 @@ class Mod:
         if not valid:
             return {'error': 'Invalid signature'}
 
-        old_evm = commitments[source_address].get('evm_address', '')
-        chain_result = self._post_commitment_onchain(source_address, evm_address, source_type)
-
+        previous_evm = existing.get('evm_address', '')
         commitments[source_address] = {
             'source_address': source_address,
             'evm_address': evm_address,
             'source_type': source_type,
             'timestamp': time.time(),
-            'chain': chain_result,
-            'previous_evm': old_evm,
+            'previous_evm': previous_evm,
         }
         self._save_commitments(commitments)
 
@@ -370,9 +446,8 @@ class Mod:
             'success': True,
             'source_address': source_address,
             'evm_address': evm_address,
-            'previous_evm': old_evm,
             'source_type': source_type,
-            'chain': chain_result,
+            'previous_evm': previous_evm,
         }
 
     def get_commitments(self) -> dict:
@@ -389,19 +464,65 @@ class Mod:
     # ━━ Signature Verification ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def _verify_signature(self, source_address, signature, evm_address, source_type):
-        """Verify "commit {evm_address}" was signed by source_address."""
+        """Verify "commit {evm_address}" was signed by source_address.
+
+        Includes replay protection — each commitment can only be used once.
+        """
+        import hashlib
+        commit_data = f'{source_address}:{evm_address}:{source_type}'.encode('utf-8')
+        commit_hash = hashlib.sha256(commit_data).hexdigest()
+        if commit_hash in self._load_used_sigs():
+            raise ValueError('Commitment already used (replay rejected)')
+
         message = f'commit {evm_address}'.encode('utf-8')
         sig_bytes = bytes.fromhex(signature.replace('0x', ''))
 
+        valid = False
         if source_type == 'substrate':
             key = m.mod('key.sr25519')
             pub = key.resolve_public_key(address=source_address)
-            return key.verify_data(sig_bytes, message, pub)
+            valid = key.verify_data(sig_bytes, message, pub)
         elif source_type == 'solana':
             key = m.mod('key.solana')
             pub = key.resolve_public_key(address=source_address)
-            return key.verify_data(sig_bytes, message, pub)
-        return False
+            valid = key.verify_data(sig_bytes, message, pub)
+
+        if valid:
+            self._save_used_sig(commit_hash)
+        return valid
+
+    def _verify_claim_signature(self, source_address, signature, timestamp, source_type):
+        """Verify "claim {timestamp}" was signed by source_address.
+
+        Includes replay protection — each claim signature can only be used once.
+        Timestamp must be within 5 minutes to prevent old signatures being reused.
+        """
+        import hashlib
+        now = int(time.time())
+        if abs(now - timestamp) > 300:
+            raise ValueError('Timestamp too old or too far in future (must be within 5 minutes)')
+
+        claim_data = f'{source_address}:claim:{timestamp}'.encode('utf-8')
+        claim_hash = hashlib.sha256(claim_data).hexdigest()
+        if claim_hash in self._load_used_sigs():
+            raise ValueError('Claim signature already used (replay rejected)')
+
+        message = f'claim {timestamp}'.encode('utf-8')
+        sig_bytes = bytes.fromhex(signature.replace('0x', ''))
+
+        valid = False
+        if source_type == 'substrate':
+            key = m.mod('key.sr25519')
+            pub = key.resolve_public_key(address=source_address)
+            valid = key.verify_data(sig_bytes, message, pub)
+        elif source_type == 'solana':
+            key = m.mod('key.solana')
+            pub = key.resolve_public_key(address=source_address)
+            valid = key.verify_data(sig_bytes, message, pub)
+
+        if valid:
+            self._save_used_sig(claim_hash)
+        return valid
 
     # ━━ On-Chain ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -457,8 +578,19 @@ class Mod:
 
     def _ensure_hardhat(self):
         """Symlink node_modules and hardhat config from chain root."""
-        bridge_dir = self._chain_bridge_dir()
-        chain_dir = self._chain_dir()
+        bridge_dir = self._chain_bridge_dir().resolve()
+        chain_dir = self._chain_dir().resolve()
+        mod_root = Path(__file__).parent.parent.parent.parent.resolve()
+
+        bridge_real = Path(os.path.realpath(bridge_dir))
+        chain_real = Path(os.path.realpath(chain_dir))
+        mod_root_real = Path(os.path.realpath(mod_root))
+
+        # Validate paths are within the mod tree
+        if os.path.commonpath([mod_root_real, bridge_real]) != str(mod_root_real):
+            raise ValueError(f'bridge_dir outside mod tree: {bridge_dir}')
+        if os.path.commonpath([mod_root_real, chain_real]) != str(mod_root_real):
+            raise ValueError(f'chain_dir outside mod tree: {chain_dir}')
 
         local_nm = bridge_dir / 'node_modules'
         chain_nm = chain_dir / 'node_modules'
@@ -541,392 +673,3 @@ class Mod:
             }
         except Exception as e:
             return {'error': f'Deploy failed: {str(e)}'}
-
-    def start(self, dev=True, prod=False, mode=None):
-        """Start everything: bridge API, Next.js app, and sync Caddy routing."""
-        mode = mode or self.mode
-        if prod:
-            dev = False
-        results = self.serve_app(dev=dev, prod=prod, mode=mode)
-
-        # Sync Caddy so /bridge/* and /bridge/api/* routes are live
-        try:
-            caddy = m.mod('caddy')()
-            caddy_result = caddy.sync()
-            results['caddy'] = caddy_result
-        except Exception as e:
-            results['caddy'] = {'error': str(e)}
-
-        return results
-
-    def stop(self, mode=None):
-        """Stop bridge API, Next.js app, and re-sync Caddy."""
-        mode = mode or self.mode
-        results = self.kill_app(mode=mode)
-
-        # Re-sync Caddy to drop dead routes
-        try:
-            caddy = m.mod('caddy')()
-            caddy_result = caddy.sync()
-            results['caddy'] = caddy_result
-        except Exception as e:
-            results['caddy'] = {'error': str(e)}
-
-        return results
-
-    def serve(self, port=None, app_port=None, dev=True, prod=False, mode=None):
-        """Start bridge API + Next.js app via PM2 or Docker.
-
-        Args:
-            mode: 'pm2' (default) or 'docker'
-            prod: shorthand for dev=False
-        """
-        mode = mode or self.mode
-        if prod:
-            dev = False
-        return self.serve_app(app_port=app_port, dev=dev, prod=prod, mode=mode)
-
-    def kill(self, mode=None):
-        """Stop bridge services (PM2 or Docker)."""
-        mode = mode or self.mode
-        return self.kill_app(mode=mode)
-
-    def _get_host_ip(self):
-        """Get the LAN IP of this host."""
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(('8.8.8.8', 80))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
-        except Exception:
-            return '127.0.0.1'
-
-    def _pm2_start(self, name, cmd, cwd=None, env=None):
-        """Start a command as a PM2 process."""
-        # Kill existing if present
-        subprocess.run(['pm2', 'delete', name], capture_output=True, text=True)
-        pm2_cmd = ['pm2', 'start', cmd[0], '--name', name, '--']
-        pm2_cmd.extend(cmd[1:])
-        if cwd:
-            # Insert --cwd before the -- separator
-            idx = pm2_cmd.index('--')
-            pm2_cmd.insert(idx, cwd)
-            pm2_cmd.insert(idx, '--cwd')
-        # Ensure the active node bin dir is on PATH for child processes
-        run_env = {**os.environ, **(env or {})}
-        node_bin = shutil.which('node')
-        if node_bin:
-            node_dir = str(Path(node_bin).resolve().parent)
-            run_env['PATH'] = node_dir + ':' + run_env.get('PATH', '')
-        result = subprocess.run(
-            pm2_cmd,
-            capture_output=True, text=True,
-            env=run_env,
-        )
-        return result.returncode == 0
-
-    def _pm2_kill(self, name):
-        """Kill a PM2 process by name."""
-        result = subprocess.run(['pm2', 'delete', name], capture_output=True, text=True)
-        return result.returncode == 0
-
-    # ━━ Docker Mode ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    def _docker_serve(self, dev=True, build=True):
-        """Build and start the bridge Docker container.
-
-        Uses docker-compose.yaml in module dir. The container runs both
-        the FastAPI API and Next.js app via scripts/entrypoint.sh.
-        DEV=1 env var enables hot-reload; DEV=0 runs production build.
-        """
-        # Ensure modnet network exists
-        subprocess.run(
-            ['docker', 'network', 'create', 'modnet'],
-            capture_output=True, text=True,
-        )
-
-        env = {**os.environ, 'DEV': '1' if dev else '0'}
-
-        cmd = ['docker', 'compose', 'up', '-d']
-        if build:
-            cmd.append('--build')
-
-        result = subprocess.run(
-            cmd,
-            cwd=str(self.module_dir),
-            capture_output=True, text=True,
-            env=env,
-        )
-
-        if result.returncode != 0:
-            return {
-                'error': f'Docker failed: {result.stderr}',
-                'stdout': result.stdout,
-            }
-
-        port = self.port
-        app_port = self.app_port
-
-        # Register in namespace
-        try:
-            ns = m.mod('server.namespace')()
-            ns.reg_app('bridge', f'http://localhost:{app_port}', owner='', api_url=f'http://localhost:{self.port}')
-        except Exception:
-            pass
-
-        return {
-            'mode': 'docker',
-            'container': 'bridge',
-            'api': f'http://localhost:{port}',
-            'app': f'http://localhost:{app_port}',
-            'dev': dev,
-        }
-
-    def _docker_kill(self):
-        """Stop and remove the bridge Docker container."""
-        result = subprocess.run(
-            ['docker', 'compose', 'down'],
-            cwd=str(self.module_dir),
-            capture_output=True, text=True,
-        )
-        return {
-            'mode': 'docker',
-            'killed': ['bridge'] if result.returncode == 0 else [],
-            'success': result.returncode == 0,
-        }
-
-    def logs(self, tail=100, follow=False):
-        """Show bridge container logs."""
-        cmd = ['docker', 'logs', 'bridge', '--tail', str(tail)]
-        if follow:
-            cmd.append('--follow')
-            return os.system(' '.join(cmd))
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        return result.stdout + result.stderr
-
-    # ━━ PM2 Mode ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    def serve_api(self, port=None, reload=True, prod=False):
-        """Start the FastAPI bridge API as bridge.api PM2 process."""
-        if prod:
-            reload = False
-        port = int(port or self.port)
-        name = 'bridge.api'
-
-        api_dir = self.module_dir / 'api'
-        if not (api_dir / 'api.py').exists():
-            return {'error': 'api/api.py not found'}
-
-        mod_root = str(self.module_dir.parent.parent.parent)
-        env = {
-            'PYTHONPATH': f"{mod_root}:{self.module_dir}:{os.environ.get('PYTHONPATH', '')}",
-            'PORT': str(port),
-        }
-
-        cmd = [
-            'python3', '-m', 'uvicorn', 'api:app',
-            '--host', '0.0.0.0', '--port', str(port),
-            '--app-dir', str(api_dir),
-        ]
-        if reload:
-            cmd.append('--reload')
-
-        self._pm2_start(name, cmd, env=env)
-        return {
-            'api': f'http://localhost:{port}',
-            'pm2': name,
-            'docs': f'http://localhost:{port}/docs',
-        }
-
-    def kill_api(self):
-        """Stop the bridge.api PM2 process."""
-        success = self._pm2_kill('bridge.api')
-        return {'killed': ['bridge.api'] if success else [], 'success': success}
-
-    def serve_app(self, app_port=None, dev=True, prod=False, mode=None):
-        """Start bridge.api and bridge.app via PM2 or Docker."""
-        mode = mode or self.mode
-        if prod:
-            dev = False
-        if mode == 'docker':
-            return self._docker_serve(dev=dev)
-
-        app_port = int(app_port or self.app_port)
-        results = {}
-
-        self.kill_app()
-
-        # Start API
-        api_result = self.serve_api(port=self.port, reload=dev)
-        results.update(api_result)
-
-        # Start Next.js app
-        app_dir = self.module_dir / 'app'
-        if (app_dir / 'package.json').exists():
-            name = 'bridge.app'
-            env = {
-                'PORT': str(app_port),
-            }
-            if dev:
-                host_ip = self._get_host_ip()
-                env['NEXT_PUBLIC_API_URL'] = f'http://{host_ip}:{self.port}'
-                env['NEXT_PUBLIC_APP_URL'] = f'http://{host_ip}:{app_port}/bridge'
-            else:
-                env['NEXT_PUBLIC_API_URL'] = 'https://modc2.com/api/bridge'
-                env['NEXT_PUBLIC_APP_URL'] = 'https://modc2.com/bridge'
-            next_bin = str(app_dir / 'node_modules' / '.bin' / 'next')
-
-            if not dev:
-                # Build Next.js for production before starting
-                print(f'Building Next.js app...')
-                build_result = subprocess.run(
-                    [next_bin, 'build'], cwd=str(app_dir),
-                    capture_output=True, text=True, env={**os.environ, **env},
-                )
-                if build_result.returncode != 0:
-                    return {**results, 'error': f'next build failed: {build_result.stderr}'}
-
-            cmd = [next_bin, 'dev' if dev else 'start', '-p', str(app_port)]
-            self._pm2_start(name, cmd, cwd=str(app_dir), env=env)
-            results['app'] = f'http://localhost:{app_port}'
-            results['pm2_app'] = name
-        else:
-            results['app'] = None
-
-        results['dev'] = dev
-        results['app_url'] = env.get('NEXT_PUBLIC_APP_URL', '')
-
-        # Register in app namespace so core middleware can route to bridge
-        try:
-            ns = m.mod('server.namespace')()
-            ns.reg_app('bridge', f'http://localhost:{app_port}', owner='', api_url=f'http://localhost:{self.port}')
-        except Exception:
-            pass
-
-        return results
-
-    def kill_app(self, mode=None):
-        """Stop bridge services (PM2 or Docker)."""
-        mode = mode or self.mode
-        if mode == 'docker':
-            return self._docker_kill()
-        killed = []
-        if self._pm2_kill('bridge.api'):
-            killed.append('bridge.api')
-        if self._pm2_kill('bridge.app'):
-            killed.append('bridge.app')
-        return {'killed': killed}
-
-    def forward(self, action=None, **kwargs):
-        """CLI entry point: bridge <action> [args]
-
-        Actions:
-            status        - Aggregate stats
-            health        - Service health check
-            contract_info - Contract details + ABI CID
-            store_abi     - Store ABI in localfs
-            in_snapshot   - Check address in snapshot (address=)
-            claim         - Process token claim (auth_token=, recipient=, address=)
-            has_claimed   - Check if address claimed (address=)
-            unclaimed     - Unclaimed balance (address=)
-            claims        - All claims
-            commit        - Commit identity (source_address=, evm_address=, signature=, source_type=)
-            commitments   - All commitments
-            compile       - Compile contracts
-            test          - Run contract tests
-            deploy        - Deploy contract (network=, key=, name=, symbol=)
-            start         - Start everything (API + App + Caddy)
-            stop          - Stop everything (API + App + Caddy re-sync)
-            serve         - Start API + App (docker by default)
-            kill          - Stop API + App
-            logs          - Show container logs (tail=, follow=)
-            serve_api     - Start FastAPI bridge API only (PM2)
-            kill_api      - Stop FastAPI bridge API only (PM2)
-            serve_app     - Start API + Next.js app
-            kill_app      - Stop API + Next.js app
-        """
-        actions = {
-            'status': lambda: self.status(),
-            'health': lambda: self.health(),
-            'owner': lambda: self.owner(),
-            'contract_info': lambda: self.contract_info(),
-            'store_abi': lambda: self.store_abi(),
-            'in_snapshot': lambda: self.in_snapshot(kwargs.get('address', '')),
-            'balances': lambda: self.get_total_balances(),
-            'claim': lambda: self.claim(
-                kwargs.get('auth_token', ''),
-                kwargs.get('recipient', ''),
-                kwargs.get('address'),
-            ),
-            'has_claimed': lambda: self.has_claimed(kwargs.get('address', '')),
-            'unclaimed': lambda: self.unclaimed(kwargs.get('address', '')),
-            'claims': lambda: self.get_claims(),
-            'claims_array': lambda: self.claims_array(),
-            'delete_claim': lambda: self.delete_claim(
-                kwargs.get('address', ''),
-                kwargs.get('caller'),
-            ),
-            'commit': lambda: self.commit(
-                kwargs.get('source_address', ''),
-                kwargs.get('evm_address', ''),
-                kwargs.get('signature', ''),
-                kwargs.get('source_type', ''),
-            ),
-            'update_commitment': lambda: self.update_commitment(
-                kwargs.get('source_address', ''),
-                kwargs.get('evm_address', ''),
-                kwargs.get('signature', ''),
-                kwargs.get('source_type', ''),
-            ),
-            'commitments': lambda: self.get_commitments(),
-            'commitment': lambda: self.get_commitment(kwargs.get('source_address', '')),
-            'compile': lambda: self.compile(),
-            'test': lambda: self.test(),
-            'deploy': lambda: self.deploy(
-                network=kwargs.get('network', 'testnet'),
-                key=kwargs.get('key'),
-                name=kwargs.get('name', 'Bridge Token'),
-                symbol=kwargs.get('symbol', 'BRG'),
-                initial_supply=int(kwargs.get('initial_supply', 0)),
-            ),
-            'start': lambda: self.start(dev=kwargs.get('dev', True), prod=kwargs.get('prod', False), mode=kwargs.get('mode')),
-            'stop': lambda: self.stop(mode=kwargs.get('mode')),
-            'serve': lambda: self.serve(
-                port=kwargs.get('port'),
-                app_port=kwargs.get('app_port'),
-                dev=kwargs.get('dev', True),
-                prod=kwargs.get('prod', False),
-                mode=kwargs.get('mode'),
-            ),
-            'kill': lambda: self.kill(mode=kwargs.get('mode')),
-            'logs': lambda: self.logs(
-                tail=int(kwargs.get('tail', 100)),
-                follow=kwargs.get('follow', False),
-            ),
-            'serve_api': lambda: self.serve_api(
-                port=kwargs.get('port'),
-                reload=kwargs.get('reload', True),
-                prod=kwargs.get('prod', False),
-            ),
-            'kill_api': lambda: self.kill_api(),
-            'serve_app': lambda: self.serve_app(
-                app_port=kwargs.get('app_port'),
-                dev=kwargs.get('dev', True),
-                prod=kwargs.get('prod', False),
-                mode=kwargs.get('mode'),
-            ),
-            'kill_app': lambda: self.kill_app(mode=kwargs.get('mode')),
-        }
-
-        if not action or action not in actions:
-            return {
-                'module': 'bridge',
-                'description': self.description,
-                'actions': list(actions.keys()),
-                'status': self.status(),
-                'contract': self.contract_info(),
-            }
-
-        return actions[action]()
-

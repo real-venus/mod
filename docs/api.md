@@ -1,6 +1,6 @@
 # API Server
 
-The API server (`mod/core/api/`) is a FastAPI application that serves as the central hub for module registration, IPFS content management, version control, and blockchain operations.
+The API server (`mod/core/api/`) is the central module for module registration, IPFS content management, version control, and blockchain operations. Like all modules, it is served via the core Flask server (`m.serve('api')`).
 
 ## Starting the API
 
