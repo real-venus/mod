@@ -1,155 +1,121 @@
 {
-  "timestamp": 1776980546,
+  "timestamp": 1777038413,
   "reviewer": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
   "key": "test",
   "model": "sonnet",
   "repo": "/Users/broski/mod/mod/orbit/bridge",
-  "elapsed_seconds": 148.5,
+  "elapsed_seconds": 121.0,
   "stats": {
-    "total": 14,
+    "total": 10,
     "by_severity": {
-      "critical": 2,
-      "high": 3,
+      "critical": 1,
+      "high": 2,
       "medium": 4,
       "low": 2,
-      "info": 3
+      "info": 1
     },
     "by_category": {
-      "access_control": 3,
-      "crypto": 1,
-      "contract": 3,
-      "config": 4,
-      "info_leak": 1,
+      "secrets": 1,
+      "access_control": 2,
+      "contract": 1,
       "injection": 1,
+      "crypto": 1,
+      "config": 2,
+      "info_leak": 1,
       "dependency": 1
     }
   },
+  "signature": "db8d6ba3f43a02a49818990373de34838cac0a91c4feeb908fa1f8c4791d478d6ad8deda051ef80f3198dcd8bb8a34d7edbf0b0e5c78cf8eca8c8d287930761f01",
   "findings": [
     {
       "severity": "critical",
-      "category": "access_control",
-      "title": "API claim endpoint missing signature parameter enables token theft",
-      "description": "While mod.py claim() function was fixed to require signature validation (line 225-226), the FastAPI endpoint /claim (api/api.py:140-145) uses ClaimRequest model that only has 'address' and 'recipient' fields (line 59-61). The endpoint calls bridge.claim(address=req.address, recipient=req.recipient) WITHOUT passing signature parameter. This means signature validation is bypassed at the API layer. Any attacker can call POST /claim with {\"address\": \"victim_address\", \"recipient\": \"attacker_evm\"} to steal tokens from any committed address. The fix in mod.py is ineffective because the API never provides the signature.",
-      "file": "api/api.py",
-      "line": 142,
-      "recommendation": "Add signature and timestamp fields to ClaimRequest model. Update /claim endpoint to pass these to bridge.claim(). Frontend must collect user signature via wallet. Example: ClaimRequest should have signature:str and timestamp:int fields, and endpoint should call bridge.claim(address=req.address, signature=req.signature, recipient=req.recipient, timestamp=req.timestamp)."
-    },
-    {
-      "severity": "critical",
-      "category": "crypto",
-      "title": "Commitment replay protection uses signature hash instead of commitment data",
-      "description": "The _verify_signature() function (line 440-461) implements replay protection by hashing commit_data (source_address:evm_address:source_type) and checking if it was used before. However, signature malleability in sr25519/ed25519 allows generating multiple valid signatures for the same message. While the current implementation hashes commitment data (not signature), an attacker can bypass this by using a different source_type value or modifying the evm_address slightly, then changing it back via update_commitment(). The hash check happens before signature verification, so timing attacks may be possible.",
+      "category": "secrets",
+      "title": "Private key loaded from environment variable in production code",
+      "description": "mod.py:536 loads private keys directly from environment using `m.key(self.signer_key).private_key` where `self.signer_key` is set from `BRIDGE_SIGNER_KEY` env var (line 49). This private key signs all on-chain commitment transactions. If the server is compromised or environment variables leak (verbose errors, process listings, container inspection), an attacker gains full control of the signer account and can post arbitrary commitments on-chain, draining funds or redirecting user allocations. The key is stored in plaintext in environment and accessed frequently, increasing exposure surface. No key rotation mechanism exists.",
       "file": "mod.py",
-      "line": 441,
-      "recommendation": "Add a server-side nonce per source_address. Store (source_address, nonce) pairs and increment on each commitment. Hash tuple including nonce: keccak256(source_address + evm_address + source_type + nonce). This prevents any replay even with signature malleability. Also ensure hash check happens AFTER signature verification to prevent timing leaks."
-    },
-    {
-      "severity": "high",
-      "category": "contract",
-      "title": "Centralized owner EOA controls unlimited minting/burning without timelock enforcement",
-      "description": "BridgeableToken contract has timelock functions (queueMint/executeMint at lines 74-113) but ALSO has immediate bridgeMint/bridgeBurn functions (lines 121-130, 183-189) with no delay. Owner (controlled by BRIDGE_SIGNER_KEY env var) can mint infinite tokens or burn from any address instantly. The timelock provides no protection since owner can bypass via direct mint/burn. If BRIDGE_SIGNER_KEY leaks, attacker gains immediate full token supply control. Smart contract inherits Ownable (line 13) but never calls renounceOwnership() in deployment flow despite having setOwnerless() function (line 63).",
-      "file": "contracts/Bridge.sol",
-      "line": 121,
-      "recommendation": "Remove immediate bridgeMint/bridgeBurn functions entirely - force ALL operations through timelock queue. Or use multisig (Gnosis Safe 3-of-5) as owner instead of EOA. Add SUPPLY_CAP enforcement in constructor and validate against snapshot totals. Implement automatic setOwnerless() call after migration period with on-chain governance vote trigger."
-    },
-    {
-      "severity": "high",
-      "category": "config",
-      "title": "CORS allows credentials with localhost origins enabling CSRF attacks",
-      "description": "CORS middleware (api/api.py lines 48-54) sets allow_credentials=True with DEV_ORIGINS including 'http://localhost:8841' and 'http://localhost:3000' (lines 41-44). If user runs local dev server while also having production bridge open, malicious JS on localhost:3000 can make authenticated cross-origin requests to production API. No CSRF tokens protect state-changing operations. IS_PRODUCTION check (line 36) only filters origins if BRIDGE_ENV=production is set, but default is DEV mode. Combined with missing signature validation in /claim endpoint, this enables complete token theft via CSRF.",
-      "file": "api/api.py",
-      "line": 51,
-      "recommendation": "Remove localhost origins from ALLOWED_ORIGINS in production. Change default to IS_PRODUCTION=True unless explicitly DEV mode. Add CSRF token validation for all POST endpoints using FastAPI-CSRF. Use environment variable BRIDGE_CORS_ORIGINS to override, not fallback to DEV. Implement SameSite=Strict cookies if session-based auth is added. Validate BRIDGE_ENV is set in production deployments."
+      "line": 536,
+      "recommendation": "Use a proper key management service (AWS KMS, HashiCorp Vault, GCP Secret Manager) with envelope encryption. Never store private keys in environment variables. Implement key rotation policies. For Ethereum signing, use EIP-1193 compliant remote signers or hardware wallets (Ledger/Trezor) via web3.py's EIP-712 typed data signing. Add audit logging for all key access. Consider using multi-sig wallets for bridge operations requiring multiple approvals."
     },
     {
       "severity": "high",
       "category": "access_control",
-      "title": "Smart contract commit() function only checks onlyOwner instead of signature verification",
-      "description": "The commit() function in BridgeableToken (lines 230-241) is marked onlyOwner, meaning only the backend signer can post commitments on-chain. However, this creates centralization risk - the backend (controlled by BRIDGE_SIGNER_KEY) must be trusted to validate signatures off-chain before posting. If the backend is compromised or has a bug bypassing signature checks, attacker can commit arbitrary source->EVM mappings on-chain. Users cannot independently verify on-chain that their source address actually signed the commitment. The contract should verify sr25519/ed25519 signatures directly via precompile or oracle.",
-      "file": "contracts/Bridge.sol",
-      "line": 230,
-      "recommendation": "Implement on-chain signature verification for sr25519 (use Substrate signature precompile if available on Base) or move to optimistic verification with fraud proofs. Allow users to dispute invalid commitments within a challenge window. Add commitment timestamps and require proofs to include block height. Consider using Chainlink oracle to verify signatures off-chain and post attestations."
+      "title": "Admin authentication uses weak bearer token without encryption or rotation",
+      "description": "mod.py:332-343 implements admin authentication by comparing a client-provided token against `BRIDGE_ADMIN_KEY` from environment (plain string comparison). This secret is transmitted in API requests (api.py:109, 208, 214, 217-219) over HTTPS, but: (1) No token hashing/encryption - stored plaintext in env; (2) No token rotation mechanism - same key forever; (3) No rate limiting on auth attempts; (4) Token exposed in API request bodies which may be logged; (5) No session management - stateless checks mean compromised token stays valid indefinitely; (6) test_bridge.py hardcodes 'test_admin_key' visible in repo. If HTTPS is compromised (MITM, TLS downgrade) or logs capture request bodies, attacker gains permanent admin access to delete claims (theft) and reset all bridge data (DoS).",
+      "file": "mod.py",
+      "line": 332,
+      "recommendation": "Replace bearer token auth with proper authentication: (1) Use JWT tokens with short expiration (15 min) and refresh tokens; (2) Hash admin secrets with bcrypt/argon2 before storage; (3) Implement token rotation every 90 days with grace period; (4) Add rate limiting (5 attempts/hour) on admin endpoints; (5) Use API keys with scoped permissions instead of single master key; (6) Store tokens in secure secret manager, not env vars; (7) Add audit logging for all admin actions with IP/timestamp; (8) Consider OAuth2 with client credentials flow for service accounts."
     },
     {
-      "severity": "medium",
+      "severity": "high",
       "category": "contract",
-      "title": "Timelock executeAfter can be frontrun to censor operations",
-      "description": "The queueMint/queueBurn functions (lines 74-93, 139-158) set executeAfter = block.timestamp + 24 hours, but executeMint/executeBurn (lines 99-113, 164-175) allow ANYONE to execute after delay. An attacker can monitor the mempool, see a legitimate executeMint() transaction, and frontrun it with their own executeMint() call. While this doesn't steal funds (tokens still go to correct recipient), it allows censorship. Attacker can frontrun all executions, then ransom the user to actually execute. Also, if multiple operations are queued with same (to, amount, bridgeId), only first can execute due to op.executed flag.",
+      "title": "Smart contract owner has unlimited mint/burn authority with no timelock or multi-sig",
+      "description": "Bridge.sol:123-142 (bridgeMint) and Bridge.sol:194-210 (bridgeBurn) allow the contract owner to mint unlimited tokens to any address or burn from any address instantly. The contract has a TIMELOCK_DELAY (24h) for queueMint/queueBurn but the direct bridgeMint/bridgeBurn functions bypass this entirely (onlyOwner modifier only). If the owner's private key (same as BRIDGE_SIGNER_KEY loaded in mod.py:536) is compromised, an attacker can: (1) Mint infinite tokens to themselves, crashing token value; (2) Burn all user balances, stealing funds; (3) Front-run legitimate claims by minting to attacker addresses. No governance, no multi-sig, no emergency pause. The owner can renounce ownership (line 65-67) but this permanently locks mint/burn, breaking the bridge. SUPPLY_CAP can limit mints but doesn't prevent burns.",
       "file": "contracts/Bridge.sol",
-      "line": 99,
-      "recommendation": "Add access control to executeMint/executeBurn - only allow original queuer or designated executor role. Use EIP-712 signatures requiring user consent to execute. Add explicit cancellation function for queued operations with onlyOwner restriction. Generate unique operationIds including block.number not just timestamp to prevent collisions."
-    },
-    {
-      "severity": "medium",
-      "category": "info_leak",
-      "title": "Bulk snapshot scraping via paginated /balances endpoint",
-      "description": "GET /balances endpoint (api/api.py:122-130) returns paginated snapshot data with default limit=500, max=1000 per request. No rate limiting, authentication, or abuse protection. With total_addresses in status response, attacker can calculate total pages needed (e.g. 56000 addresses / 1000 = 56 requests) and scrape entire snapshot dataset. This exposes all holder addresses and balances for targeted phishing, social engineering, or frontrunning claims. Combined with public commitments (GET /commitments at line 196), attacker builds complete source->EVM->balance mapping.",
-      "file": "api/api.py",
-      "line": 122,
-      "recommendation": "Add rate limiting via slowapi (10 requests/min per IP for /balances). Require authentication for limit > 100. Serve snapshots as static IPFS content hash instead of live database queries. Implement pagination cursors instead of offset to prevent scraping automation. Log bulk access patterns and alert on suspicious behavior."
+      "line": 123,
+      "recommendation": "Implement multi-signature wallet (Gnosis Safe) as contract owner requiring M-of-N approvals. Enforce timelock for ALL mint/burn operations (remove direct bridgeMint/bridgeBurn, use only queued operations). Add emergency pause mechanism with separate guardian role. Implement total supply caps AND per-address mint limits. Add on-chain commitment verification to prevent unauthorized mints - verify cryptographic proofs match snapshot data. Use OpenZeppelin Governor for decentralized governance. Consider migrating to native bridge (Connext, LayerZero) to remove centralized owner. Add monitoring/alerting for large mints/burns. Separate minting authority from burning authority using AccessControl roles."
     },
     {
       "severity": "medium",
       "category": "injection",
-      "title": "Symlink path traversal in _ensure_hardhat() despite validation",
-      "description": "The _ensure_hardhat() function (mod.py:548-569) creates symlinks for node_modules and hardhat.config.js. Lines 555-558 validate paths using str().startswith(str(mod_root)) which is vulnerable to partial path matches (e.g. /mod_root2/ passes check for /mod_root/). While module_dir is derived from __file__ (not user input), a sophisticated attacker who can write to the filesystem or create symlinks could potentially poison the module path. The validation uses string prefix matching rather than canonical path comparison.",
+      "title": "Subprocess commands with user-controlled cwd parameter enable path traversal",
+      "description": "mod.py:609-616 (compile) and mod.py:625-634 (test) execute hardhat commands via subprocess.run with cwd set to `self._chain_bridge_dir()` which resolves relative paths. While _ensure_hardhat() validates paths are within mod_root (lines 590-594), the symlink creation at line 598 (`os.symlink(str(chain_nm), str(local_nm))`) and file copy at line 604 (`shutil.copy2`) operate on resolved paths that could be manipulated if an attacker controls the module_dir. If bridge module is loaded from outside the expected tree or symlinks are compromised, subprocess could execute hardhat in attacker-controlled directories, leading to arbitrary code execution via malicious hardhat.config.js or package.json scripts (e.g., npm install hooks). No input validation on returned paths.",
       "file": "mod.py",
-      "line": 555,
-      "recommendation": "Use os.path.commonpath([mod_root, bridge_dir]) and verify it equals str(mod_root.resolve()). Call .resolve() on all paths before comparison to follow symlinks. Add check: if bridge_dir.resolve().is_relative_to(mod_root.resolve()). Use atomic symlink operations (unlink + symlink in try/except). Add integrity checks on symlink targets before using them."
+      "line": 609,
+      "recommendation": "Validate all paths are canonical (os.path.realpath) AND within expected prefix before any filesystem operations. Use allowlist of permitted directories. Avoid symlinks entirely - copy dependencies instead. Add integrity checks on hardhat.config.js and package.json before execution (checksum/signature verification). Run subprocess commands in sandbox/container with restricted filesystem access. Use absolute paths only, never relative. Implement CSP-style restrictions on executable code paths. Consider using Docker containers for isolated compilation rather than host subprocess."
+    },
+    {
+      "severity": "medium",
+      "category": "access_control",
+      "title": "Unauthenticated /balances endpoint allows bulk data extraction with minimal rate limiting",
+      "description": "api.py:154-165 exposes /balances (GET) with pagination but only enforces rate limiting (10 req/min) without authentication. The limit check (line 156-157) blocks requests with limit>100 but an attacker can make 10 requests/min with limit=100, extracting 1000 addresses/min or 60k addresses/hour. For a snapshot with 2000+ addresses, full data can be scraped in ~20 minutes. This enables: (1) Competitive intelligence - identifying all eligible wallets; (2) Phishing campaigns targeting snapshot addresses; (3) Frontrunning - monitor unclaimed addresses and claim before legitimate users; (4) DoS via rate limit exhaustion. Rate limiting is per-IP (line 76) which is bypassable via VPN/proxy rotation. No authentication required for bulk queries despite holding valuable PII (wallet addresses + balances).",
+      "file": "api/api.py",
+      "line": 154,
+      "recommendation": "Require API key authentication for bulk queries (limit>10). Implement exponential backoff on rate limits. Add CAPTCHA for anonymous requests. Use distributed rate limiting (Redis) instead of in-memory dict to prevent bypass via multiple server instances. Log all bulk queries with IP/timestamp for abuse detection. Consider pagination token system requiring sequential access (preventing parallel scraping). Add allowlist of trusted IPs for automated access. Implement honeypot endpoints to detect scrapers. For production, move snapshot data behind authenticated API and only expose balance lookup per-address (not bulk). Use GraphQL with query complexity limits instead of REST."
+    },
+    {
+      "severity": "medium",
+      "category": "crypto",
+      "title": "Signature replay protection relies on local storage without distributed consensus",
+      "description": "mod.py:466-492 (_verify_signature) and mod.py:494-525 (_verify_claim_signature) implement replay protection by storing used signature hashes in local JSON file (used_signatures.json). In a distributed deployment (multiple API servers, Docker containers, load balancer), each instance maintains separate local storage. An attacker can: (1) Submit same signed commitment to different server instances simultaneously; (2) Replay signatures across server restarts if used_sigs is not persisted in shared storage; (3) Bypass replay checks during server failover/migration. The hash is computed from source_address+evm_address+timestamp (lines 472-473, 505-506) but timestamps can be manipulated within the 5-minute window (line 502-503). No nonce or monotonic counter.",
+      "file": "mod.py",
+      "line": 466,
+      "recommendation": "Use distributed key-value store (Redis, DynamoDB) for replay protection with atomic check-and-set operations. Implement monotonic nonce per source address instead of timestamp-based signatures. Add signature expiration metadata (signed timestamp) verified on-chain. Use Merkle tree of used signatures with periodic on-chain anchoring for verifiability. In multi-instance deployments, use distributed locks (etcd, Consul) during signature verification. Add signature metadata to on-chain commitments (store hash on BridgeableToken contract). Consider EIP-712 typed data signatures with domain separation and chain ID to prevent cross-chain replay. Implement idempotency keys in API requests."
     },
     {
       "severity": "medium",
       "category": "config",
-      "title": "Hardcoded production API URL in frontend defaults to modc2.com",
-      "description": "Frontend page.tsx (line 19) sets API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://modc2.com/api/bridge'. If NEXT_PUBLIC_API_URL is not set during build, app defaults to production API even in development. Developers testing locally may accidentally create commitments/claims on production chain. The entrypoint.sh script (lines 32-33) only sets these in non-DEV mode, but frontend build may happen before environment is set. Same issue with APP_URL at line 20.",
-      "file": "app/src/app/page.tsx",
-      "line": 19,
-      "recommendation": "Use build-time environment variable validation. In next.config.js, require NEXT_PUBLIC_API_URL is set for production builds. Default to localhost in development: const API_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8840' : undefined). Fail build if undefined in production. Use separate .env.development and .env.production files with dotenv."
+      "title": "CORS configuration defaults to development mode with localhost origins in production",
+      "description": "api.py:34 sets IS_PRODUCTION based on BRIDGE_ENV=='production' but defaults to development mode if env var is not set. Lines 51-61 define ALLOWED_ORIGINS including localhost:8841 and localhost:3000 in DEV_ORIGINS. If BRIDGE_ENV is not explicitly set in production deployment (Dockerfile line 1-20 has no ENV directive), the API defaults to IS_PRODUCTION=False and accepts requests from http://localhost origins, enabling CSRF attacks from malicious local services/extensions. The CORS middleware (lines 62-68) allows credentials and all methods/headers. An attacker with local access (malware, browser extension, compromised localhost service) can make authenticated requests to steal admin tokens or trigger claims.",
+      "file": "api/api.py",
+      "line": 34,
+      "recommendation": "Change default to IS_PRODUCTION=True and require explicit BRIDGE_ENV=development opt-in for dev mode. Remove all localhost origins from production builds at compile time. Add environment variable validation at startup - fail fast if BRIDGE_ENV is unset in production images. Use separate config files (config.prod.json, config.dev.json) loaded based on env. Implement SameSite=Strict cookies for any session-based auth. Add CSRF token validation via FastAPI-CSRF middleware. Set strict CORS origin validation using regex patterns, not string lists. Add Content-Security-Policy headers. In Dockerfile, add ENV BRIDGE_ENV=production before CMD."
     },
     {
       "severity": "low",
-      "category": "access_control",
-      "title": "BRIDGE_ADMIN_KEY not validated at startup allows silent operation failures",
-      "description": "The delete_claim() function (mod.py:298-308) requires BRIDGE_ADMIN_KEY environment variable via _verify_owner_token() (line 318). However, there's no startup validation ensuring BRIDGE_ADMIN_KEY is configured. If admin forgets to set env var, delete operations silently fail with 'Valid owner auth_token required' error. No warning in logs, health endpoint, or startup checks. health() response (lines 113-120) doesn't indicate admin capabilities are disabled. This could cause operational issues when trying to remove fraudulent claims.",
-      "file": "mod.py",
-      "line": 46,
-      "recommendation": "Add startup validation in __init__(): if not os.environ.get('BRIDGE_ADMIN_KEY'): logger.warning('BRIDGE_ADMIN_KEY not set - admin operations disabled'). Add 'admin_enabled': bool(os.environ.get('BRIDGE_ADMIN_KEY')) to health() response. Document required environment variables in README. Add deployment checklist validating all critical env vars are set before production launch."
+      "category": "info_leak",
+      "title": "Debug mode enabled in production exposes verbose error messages and stack traces",
+      "description": "api.py:40 sets FastAPI debug=not IS_PRODUCTION, and since IS_PRODUCTION defaults to False (line 34), debug mode is enabled unless explicitly disabled. Debug mode in FastAPI: (1) Returns full stack traces in HTTP 500 errors; (2) Enables /docs and /redoc endpoints exposing full API schema; (3) Shows local variables in tracebacks; (4) May leak file paths, environment variable names, database queries. Combined with default dev CORS (localhost origins), this enables reconnaissance. An attacker can trigger errors (invalid signatures, missing params) to map internal code structure, discover env var names (BRIDGE_ADMIN_KEY, BRIDGE_SIGNER_KEY), identify vulnerable dependencies from import paths.",
+      "file": "api/api.py",
+      "line": 40,
+      "recommendation": "Set debug=False explicitly in production, not derived from environment. Remove /docs and /redoc endpoints in production builds (set openapi_url=None). Implement custom exception handlers that sanitize all error responses - return generic 'Internal server error' without details. Log full errors server-side only with sanitization of secrets. Add exception monitoring (Sentry, Rollbar) with PII scrubbing. Disable stack traces in HTTP responses. Use separate error messages for dev/prod - detailed in dev, generic in prod. Add security headers (X-Content-Type-Options, X-Frame-Options). Implement error rate limiting to prevent error-driven enumeration attacks."
     },
     {
       "severity": "low",
-      "category": "contract",
-      "title": "QueuedOperation struct allows duplicate bridgeId across operations",
-      "description": "The QueuedOperation struct (lines 25-32) uses bridgeId as a string identifier for tracking operations. However, operationId is generated via keccak256(to, amount, bridgeId, timestamp, isMint) (line 78). If two operations have identical (to, amount, bridgeId) but different timestamps, they get unique operationIds but share the same bridgeId. Events (MintQueued, BurnQueued) emit bridgeId but not operationId. Off-chain indexers cannot uniquely identify operations using only bridgeId from events. This makes reconciliation between queue events and execution events difficult.",
-      "file": "contracts/Bridge.sol",
-      "line": 28,
-      "recommendation": "Include operationId in MintQueued/BurnQueued events for unique identification. Or generate bridgeId from operationId hash. Add indexed operationId to events for efficient log filtering. Document that bridgeId is user-provided identifier (not unique) while operationId is system-generated unique ID."
-    },
-    {
-      "severity": "info",
       "category": "dependency",
-      "title": "OpenZeppelin contracts v4.9.3 outdated, missing security patches in v5.x",
-      "description": "package.json (line 11) specifies '@openzeppelin/contracts@^4.9.3'. OpenZeppelin v5.x is available with security improvements, gas optimizations, and bug fixes. While 4.9.x is stable LTS, it lacks recent security advisories fixes. Known issues in 4.x include ERC20Permit signature replay edge cases and GovernorCompatibilityBravo reentrancy. The ^4.9.3 specifier prevents automatic upgrades to v5. Base chain may have optimized precompiles for v5 patterns.",
-      "file": "package.json",
-      "line": 11,
-      "recommendation": "Upgrade to @openzeppelin/contracts@^5.0.0. Review migration guide at https://docs.openzeppelin.com/contracts/5.x/upgrades. Run full test suite (npx hardhat test) after upgrade. Pay attention to breaking changes in Ownable (constructor vs initializer), AccessControl, and ERC20. Consider using @openzeppelin/contracts-upgradeable if proxy patterns needed. Subscribe to OpenZeppelin security advisories."
+      "title": "Frontend dependencies have known security vulnerabilities - Next.js 14.0.4 and others outdated",
+      "description": "app/package.json specifies next@14.0.4 (Dec 2023), but current stable is 14.x with security patches. Known CVEs in Next.js 14.0.x line include: (1) Server-side request forgery (SSRF) via Image Optimization API; (2) XSS in next/image component; (3) Path traversal in static file serving. Additionally, react@18.2.0 and react-dom@18.2.0 are outdated (current 18.3.x has patches for concurrent rendering bugs). framer-motion@10.16.16 has prototype pollution CVE. The app/page.tsx uses dynamic imports and client-side wallet interactions which increase attack surface. While no direct exploits are visible, running outdated packages increases risk of 0-day exploitation.",
+      "file": "app/package.json",
+      "line": null,
+      "recommendation": "Upgrade to Next.js 14.2.x or latest stable 15.x. Update react/react-dom to 18.3.x. Run npm audit fix and review all moderate/high vulnerabilities. Implement automated dependency scanning in CI/CD (Dependabot, Renovate, Snyk). Add pre-commit hooks running npm audit. Pin exact versions (remove ^ and ~) for security-critical packages. Subscribe to security advisories for all direct dependencies. Test thoroughly after updates - pay attention to breaking changes in Next.js image optimization, routing, and middleware."
     },
     {
       "severity": "info",
       "category": "config",
-      "title": "Docker compose DEV=1 enables volume mounts exposing source code",
-      "description": "docker-compose.yaml (line 13) sets DEV=1 and mounts entire directory as volume (line 10: .:/root/mod/mod/orbit/bridge). Intended for development hot-reload, but if this compose file is used in production, it exposes source code and allows modifications outside container isolation. Combined with write permissions, an attacker gaining container access could modify mounted source and persist changes to host. The entrypoint.sh script (line 28) checks DEV flag but doesn't prevent volume mount risks.",
-      "file": "docker-compose.yaml",
-      "line": 13,
-      "recommendation": "Split into docker-compose.dev.yml (with volumes, DEV=1) and docker-compose.yml (COPY only in Dockerfile, DEV=0). Add CI/CD validation rejecting DEV=1 in production builds. Use read-only volumes if mount is necessary: .:/root/mod/mod/orbit/bridge:ro. Document clearly that docker-compose.yaml is for development only. Provide docker-compose.prod.yml for production deployments."
-    },
-    {
-      "severity": "info",
-      "category": "config",
-      "title": "Entrypoint script symlinks data directory without validation",
-      "description": "The entrypoint.sh script (lines 14-16) creates ./data directory and symlinks it to /root/.bridge for persistent storage. This allows data to persist across container restarts when directory is volume-mounted. However, if ./data is pre-existing with malicious content (e.g., crafted claims.json with exploits), the symlink makes it active. No validation of data integrity or format before symlinking. An attacker who gains write access to mounted ./data can inject malicious claims or commitments that the API will load.",
-      "file": "scripts/entrypoint.sh",
-      "line": 16,
-      "recommendation": "Add data directory validation before symlinking. Check claims.json and commitments.json are valid JSON and contain expected schema. Use a migration script that validates and sanitizes existing data. Add integrity checksums (SHA256) for critical data files. Consider using a database with proper ACLs instead of JSON files for production. Implement data backup/restore with version control."
+      "title": "Timestamp-based replay protection has 5-minute window allowing signature reuse",
+      "description": "mod.py:502-503 validates claim signature timestamps must be within 5 minutes (300 seconds) of current time. This creates a vulnerability window where: (1) Attacker intercepts valid signature during transmission; (2) Replays signature to different server instances within 5-minute window (multi-instance deployment without shared used_sigs); (3) User generates signature on compromised client, attacker captures and replays immediately. While signature hashes are stored (line 507-508), the 5-minute window is operationally long. No challenge-response protocol. Timestamp is client-provided (kwargs.get('timestamp')) and only validated for range, not against server time drift.",
+      "file": "mod.py",
+      "line": 502,
+      "recommendation": "Reduce timestamp window to 60 seconds for claim signatures. Implement server-issued challenge tokens for signature requests - client must request challenge, sign challenge+timestamp, submit within short window. Use nonces instead of timestamps for replay protection - server generates unique nonce per request, client signs nonce, server marks nonce as used atomically. Add server time sync validation (reject if client clock skew >30s). For commitments, use EIP-712 typed data with explicit deadline field signed by user. Add sequence numbers to user accounts. In multi-instance deployments, use distributed cache (Redis) with TTL for recent signature hashes."
     }
   ]
 }

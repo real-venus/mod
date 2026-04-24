@@ -12,14 +12,17 @@ class Mod:
     """
 
     PM2_NAME = "mod-dns"
+    PM2_APP = "mod-dns-app"
     BINARY = "mod-dns"
 
     def __init__(self):
         self.root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.rust_dir = os.path.join(self.root, "mod-dns")
+        self.app_dir = os.path.join(self.root, "app")
         self.binary_path = os.path.join(self.rust_dir, "target", "release", self.BINARY)
         self.api_port = 5380
-        self.dns_port = 5353
+        self.app_port = 5382
+        self.dns_port = 15353
         self.p2p_port = 5381
         self.api_url = f"http://localhost:{self.api_port}"
 
@@ -54,8 +57,8 @@ class Mod:
         return {"status": "ok", "binary": self.binary_path}
 
     def serve(self, zone="modc2.com", dns_port=None, api_port=None, p2p_port=None,
-              bootstrap_peers=None, bind="0.0.0.0", build=True):
-        """Build (if needed) and start the DNS server via PM2."""
+              bootstrap_peers=None, bind="0.0.0.0", build=True, app=True):
+        """Build (if needed) and start the DNS server + app via PM2."""
         if build and not os.path.exists(self.binary_path):
             result = self.build()
             if result.get("status") != "ok":
@@ -88,7 +91,7 @@ class Mod:
         self.api_port = api_port
         self.api_url = f"http://localhost:{api_port}"
 
-        return {
+        out = {
             "status": "ok" if result.returncode == 0 else "error",
             "pm2": self.PM2_NAME,
             "dns_port": dns_port,
@@ -97,12 +100,52 @@ class Mod:
             "zone": zone,
         }
 
+        # Start Next.js app
+        if app and os.path.isdir(self.app_dir):
+            app_result = self.serve_app()
+            out["app_port"] = self.app_port
+            out["app"] = app_result.get("status", "error")
+
+        return out
+
+    def serve_app(self, port=None):
+        """Start the Next.js app via PM2."""
+        port = port or self.app_port
+        self._run(["pm2", "delete", self.PM2_APP])
+
+        # Install deps if needed
+        if not os.path.isdir(os.path.join(self.app_dir, "node_modules")):
+            self._run(["npm", "install"], cwd=self.app_dir, timeout=120)
+
+        result = self._run([
+            "pm2", "start", "npx",
+            "--name", self.PM2_APP,
+            "--", "next", "dev", "-p", str(port),
+        ], cwd=self.app_dir)
+
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "pm2": self.PM2_APP,
+            "app_port": port,
+            "url": f"http://localhost:{port}/dns",
+        }
+
     def kill(self):
-        """Stop the DNS server."""
+        """Stop the DNS server and app."""
         result = self._run(["pm2", "delete", self.PM2_NAME])
+        app_result = self._run(["pm2", "delete", self.PM2_APP])
         return {
             "status": "killed" if result.returncode == 0 else "not_running",
             "pm2": self.PM2_NAME,
+            "app": "killed" if app_result.returncode == 0 else "not_running",
+        }
+
+    def kill_app(self):
+        """Stop just the Next.js app."""
+        result = self._run(["pm2", "delete", self.PM2_APP])
+        return {
+            "status": "killed" if result.returncode == 0 else "not_running",
+            "pm2": self.PM2_APP,
         }
 
     def status(self):

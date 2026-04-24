@@ -36,14 +36,17 @@
         "claims_array",
         "get_claims",
         "delete_claim",
+        "reset",
         "commit",
         "update_commitment",
         "get_commitments",
         "get_commitment",
         "compile",
         "test",
-        "deploy"
+        "deploy",
+        "serve",
+        "kill"
     ],
     "mode": "pm2",
-    "schema": "QmR5ctFkfrJ4Hpyzoe79A1qGvd1818SeJPeCm8W46PoJmW"
+    "schema": "QmXKM5LGc27KtKYuYZwbogGoeVNojhTWvBDq6uzrpjPzjy"
 }

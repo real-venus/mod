@@ -210,8 +210,9 @@ class Server:
 
               ):
 
-        # Parse suffix: bridge.app → serve API + Next.js, bridge or bridge.api → API only
-        serve_app = False
+        # Parse suffix: bridge.app → serve API + Next.js, bridge.api → API only
+        # No suffix → auto-detect: serve app if app/ dir exists
+        serve_app = None  # None = auto-detect
         original_mod = mod
         if mod and '.' in mod:
             base, suffix = mod.rsplit('.', 1)
@@ -337,10 +338,13 @@ class Server:
                 result = json.loads(json.dumps(result, default=str))
             return {'result': result}
 
-        # ── Auto-serve Next.js app if .app suffix was used ──
+        # ── Auto-serve Next.js app if .app suffix or app/ dir detected ──
         mod_dir = Path(m.dirpath(mod))
         app_dir = self._find_app_dir(mod_dir)
-        if serve_app and app_dir and (app_dir / 'package.json').exists():
+        has_app = app_dir and (app_dir / 'package.json').exists()
+        if serve_app is None:
+            serve_app = has_app
+        if serve_app and has_app:
             config = m.config(mod) or {}
             app_port = int(config.get('app_port', 0)) or (port + 1)
             log_dir = Path(f'/tmp/{name}')

@@ -305,6 +305,29 @@ class TestCommitments:
         result = bridge.update_commitment('', EVM_ADDR, 'sig', 'substrate')
         assert 'error' in result
 
+    def test_update_commitment_after_claim(self, bridge):
+        """Cannot update commitment after claiming."""
+        _add_commitment(bridge, ADDR2)
+        bridge._verify_claim_signature = MagicMock(return_value=True)
+        bridge.claim(address=ADDR2, signature='sig', timestamp=int(time.time()))
+        result = bridge.update_commitment(ADDR2, '0x1111111111111111111111111111111111111111', 'sig', 'substrate')
+        assert 'error' in result
+        assert 'after claim' in result['error']
+
+    def test_update_commitment_same_address(self, bridge):
+        """Cannot update to same EVM address."""
+        _add_commitment(bridge, ADDR2, EVM_ADDR)
+        result = bridge.update_commitment(ADDR2, EVM_ADDR, 'sig', 'substrate')
+        assert 'error' in result
+        assert 'same' in result['error']
+
+    def test_update_commitment_type_mismatch(self, bridge):
+        """source_type must match original."""
+        _add_commitment(bridge, ADDR2, EVM_ADDR, 'substrate')
+        result = bridge.update_commitment(ADDR2, '0x1111111111111111111111111111111111111111', 'sig', 'solana')
+        assert 'error' in result
+        assert 'source_type' in result['error']
+
 
 # ── Contract Info ───────────────────────────────────────────────
 

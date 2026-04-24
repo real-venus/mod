@@ -11,22 +11,26 @@ if (!process.env.API_INTERNAL_URL) {
   } catch {}
 }
 
+// basePath only when proxied behind the main app (e.g. NEXT_PUBLIC_BASE_PATH=/bridge)
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  basePath: '/bridge',
+  ...(basePath ? { basePath } : {}),
   output: 'standalone',
   reactStrictMode: true,
   swcMinify: true,
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://modc2.com/api/bridge',
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://modc2.com/bridge',
+    NEXT_PUBLIC_BASE_PATH: basePath,
   },
   async rewrites() {
     return [
       {
         source: '/api/bridge/:path*',
         destination: `${apiUrl}/:path*`,
-        basePath: false,
+        ...(basePath ? { basePath: false } : {}),
       },
     ];
   },

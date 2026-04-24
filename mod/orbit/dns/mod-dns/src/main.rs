@@ -19,8 +19,8 @@ struct Args {
     #[arg(long, value_delimiter = ',')]
     zone: Vec<String>,
 
-    /// DNS server port (UDP + TCP)
-    #[arg(long, default_value = "5353")]
+    /// DNS server port (UDP + TCP). Use 53 in production (requires root/CAP_NET_BIND_SERVICE).
+    #[arg(long, default_value = "15353")]
     dns_port: u16,
 
     /// HTTP API port
@@ -69,7 +69,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Ensure configured zones exist (create SOA if missing)
     for zone in &args.zone {
-        if store.get(zone, "@", records::RecordType::SOA)?.is_none() {
+        if store.get(zone, "@", records::RecordType::SOA).map_err(|e| anyhow::anyhow!(e))?.is_none() {
             let soa = records::DnsRecord::new(
                 "@".into(),
                 records::RecordType::SOA,
@@ -79,7 +79,7 @@ async fn main() -> anyhow::Result<()> {
                 3600,
                 store.node_id.clone(),
             );
-            store.put(zone, soa)?;
+            store.put(zone, soa).map_err(|e| anyhow::anyhow!(e))?;
 
             let ns = records::DnsRecord::new(
                 "@".into(),
@@ -88,7 +88,7 @@ async fn main() -> anyhow::Result<()> {
                 3600,
                 store.node_id.clone(),
             );
-            store.put(zone, ns)?;
+            store.put(zone, ns).map_err(|e| anyhow::anyhow!(e))?;
 
             info!(zone, "initialized zone with SOA + NS");
         }

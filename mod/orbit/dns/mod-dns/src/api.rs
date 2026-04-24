@@ -3,7 +3,7 @@ use crate::store::Store;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::Json;
-use axum::routing::{delete, get, put, post};
+use axum::routing::{delete, get, put};
 use axum::Router;
 use serde_json::{json, Value};
 use std::net::SocketAddr;

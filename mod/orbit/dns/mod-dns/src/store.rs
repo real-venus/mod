@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Sled-backed DNS record store with CRDT (last-write-wins) merge semantics.
 pub struct Store {

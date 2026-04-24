@@ -1,31 +1,36 @@
 use crate::records::RecordType as MyRecordType;
 use crate::store::Store;
-use hickory_proto::op::{Header, MessageType, OpCode, ResponseCode};
+use hickory_proto::op::{MessageType, OpCode, ResponseCode};
 use hickory_proto::rr::rdata::{self, SOA, MX, SRV, CAA, TXT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use tokio::net::{TcpListener, UdpSocket};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 pub async fn run(store: Arc<Store>, addr: SocketAddr, zones: Vec<String>) -> anyhow::Result<()> {
     let udp_store = store.clone();
     let tcp_store = store.clone();
     let udp_zones = zones.clone();
     let tcp_zones = zones;
-    let udp_addr = addr;
-    let tcp_addr = addr;
 
-    let udp = tokio::spawn(async move { run_udp(udp_store, udp_addr, udp_zones).await });
-    let tcp = tokio::spawn(async move { run_tcp(tcp_store, tcp_addr, tcp_zones).await });
+    info!(%addr, "DNS server starting (UDP + TCP)");
 
-    info!(%addr, "DNS server listening");
+    let udp = tokio::spawn(async move {
+        if let Err(e) = run_udp(udp_store, addr, udp_zones).await {
+            tracing::error!("DNS UDP error: {}", e);
+        }
+    });
 
-    tokio::select! {
-        r = udp => { r??; }
-        r = tcp => { r??; }
-    }
+    let tcp = tokio::spawn(async move {
+        if let Err(e) = run_tcp(tcp_store, addr, tcp_zones).await {
+            tracing::error!("DNS TCP error: {}", e);
+        }
+    });
+
+    // Wait for both — they run forever under normal conditions
+    let _ = tokio::join!(udp, tcp);
     Ok(())
 }
 
@@ -326,18 +331,26 @@ fn to_dns_record(
                 return None;
             }
             let issuer_critical: bool = parts[0] != "0";
-            let tag = parts[1].to_string();
-            let value = parts[2].trim_matches('"').to_string();
-            RData::CAA(CAA::new_issue(
-                issuer_critical,
-                None, // tag handled below
-                vec![],
-            ))
-            // CAA is complex; use a simpler approach
+            let tag = parts[1];
+            let caa_value = parts[2].trim_matches('"');
+            match tag {
+                "issue" | "issuewild" => {
+                    let issuer_name = if caa_value.is_empty() {
+                        None
+                    } else {
+                        Some(Name::from_ascii(ensure_dot(caa_value)).ok()?)
+                    };
+                    if tag == "issuewild" {
+                        RData::CAA(CAA::new_issuewild(issuer_critical, issuer_name, vec![]))
+                    } else {
+                        RData::CAA(CAA::new_issue(issuer_critical, issuer_name, vec![]))
+                    }
+                }
+                _ => return None, // iodef and other tags not yet supported
+            }
         }
     };
 
-    // Skip CAA for now if the simplified version doesn't work
     let mut record = Record::from_rdata(name, rec.ttl, rdata);
     record.set_dns_class(DNSClass::IN);
     Some(record)

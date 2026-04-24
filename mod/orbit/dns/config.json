@@ -3,14 +3,18 @@
     "version": "0.1.0",
     "description": "Decentralized authoritative DNS server \u2014 P2P record sync via Kademlia DHT + GossipSub, no proprietary providers",
     "port": 5380,
-    "dns_port": 5353,
+    "app_port": 5382,
+    "dns_port": 15353,
     "p2p_port": 5381,
     "urls": {
-        "api": "http://localhost:5380"
+        "api": "http://localhost:5380",
+        "app": "http://localhost:5382"
     },
     "fns": [
         "serve",
+        "serve_app",
         "kill",
+        "kill_app",
         "status",
         "add",
         "remove",
@@ -88,5 +92,5 @@
             "docs": "Server stats (zones, records, peers, clock)"
         }
     },
-    "schema": "QmdJgmADsiTMVXmBcnievvQoZVFGg4KQ2YeckEEsrByYZ3"
+    "schema": "Qmb2W4nJttJFxogikQQtxsSs9va8irGpt4SJrzHroEaWQD"
 }

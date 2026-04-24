@@ -524,6 +524,107 @@ class Mod:
             self._save_used_sig(claim_hash)
         return valid
 
+    # ━━ Serve / Kill ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    def serve(self, **kwargs):
+        """Start the bridge API and Next.js app via PM2.
+
+        Logs: pm2 logs bridge.api / pm2 logs bridge.app
+        """
+        log_dir = Path('/tmp/bridge')
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        self.kill()
+        self._wait_ports_free([self.port, self.app_port])
+
+        api_dir = self.module_dir / 'api'
+        app_dir = self.module_dir / 'app'
+
+        import sys as _sys
+        python = _sys.executable
+
+        # ── API (uvicorn via pm2) ──────────────────────────
+        subprocess.run([
+            'pm2', 'start', python, '--name', 'bridge.api',
+            '--output', str(log_dir / 'api.log'),
+            '--error', str(log_dir / 'api.log'),
+            '--', '-m', 'uvicorn', 'api:app',
+            '--host', '0.0.0.0', '--port', str(self.port),
+        ], cwd=str(api_dir), capture_output=True)
+        print(f'[bridge] API started on :{self.port} (pm2: bridge.api)')
+
+        # ── App (Next.js via pm2) ──────────────────────────
+        result = {'api_port': self.port}
+        if app_dir.exists() and (app_dir / 'package.json').exists():
+            subprocess.run([
+                'pm2', 'start', 'npx', '--name', 'bridge.app',
+                '--output', str(log_dir / 'app.log'),
+                '--error', str(log_dir / 'app.log'),
+                '--', 'next', 'dev', '-p', str(self.app_port),
+            ], cwd=str(app_dir), env={
+                **os.environ,
+                'NEXT_PUBLIC_API_URL': f'http://localhost:{self.port}',
+            }, capture_output=True)
+            print(f'[bridge] App started on :{self.app_port} (pm2: bridge.app)')
+            result['app_port'] = self.app_port
+
+        return {'success': True, **result}
+
+    def _wait_ports_free(self, ports, timeout=5):
+        """Wait until all ports are free."""
+        import socket
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            all_free = True
+            for port in ports:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    if s.connect_ex(('127.0.0.1', port)) == 0:
+                        all_free = False
+                        break
+            if all_free:
+                return
+            time.sleep(0.3)
+
+    def _kill_port(self, port):
+        """Kill all processes listening on a port."""
+        killed = []
+        try:
+            result = subprocess.run(
+                ['lsof', '-ti', f':{port}'],
+                capture_output=True, text=True,
+            )
+            pids = [int(p) for p in result.stdout.strip().split('\n') if p.strip()]
+            for pid in pids:
+                try:
+                    os.kill(pid, 9)
+                    killed.append(pid)
+                except (ProcessLookupError, PermissionError):
+                    pass
+        except Exception:
+            pass
+        return killed
+
+    def kill(self, **kwargs):
+        """Stop the bridge API and app via PM2."""
+        killed = []
+
+        for name in ('bridge.api', 'bridge.app', 'bridge'):
+            result = subprocess.run(
+                ['pm2', 'delete', name],
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0:
+                killed.append(name)
+
+        # Clean up any orphans still on our ports
+        for port in (self.port, self.app_port):
+            for pid in self._kill_port(port):
+                killed.append(f'port {port} (pid {pid})')
+
+        if killed:
+            print(f'[bridge] Killed: {", ".join(killed)}')
+        return {'success': True, 'killed': killed}
+
     # ━━ On-Chain ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def _post_commitment_onchain(self, source_address, evm_address, source_type):

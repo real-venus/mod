@@ -1,9 +1,10 @@
 use crate::records::GossipMessage;
 use crate::store::Store;
+use futures::StreamExt;
 use libp2p::{
     gossipsub, identify, kad, mdns, noise,
     swarm::{NetworkBehaviour, SwarmEvent},
-    tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
+    tcp, yamux, Multiaddr, SwarmBuilder,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -11,7 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 #[derive(NetworkBehaviour)]
 struct DnsBehaviour {
@@ -41,8 +42,7 @@ pub async fn run(
             // Kademlia
             let peer_id = key.public().to_peer_id();
             let kad_store = kad::store::MemoryStore::new(peer_id);
-            let mut kad_config = kad::Config::default();
-            kad_config.set_protocol_names(vec![libp2p::StreamProtocol::new("/mod-dns/kad/1.0.0")]);
+            let kad_config = kad::Config::new(libp2p::StreamProtocol::new("/mod-dns/kad/1.0.0"));
             let kademlia = kad::Behaviour::with_config(peer_id, kad_store, kad_config);
 
             // GossipSub
