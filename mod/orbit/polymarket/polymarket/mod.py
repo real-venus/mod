@@ -103,6 +103,17 @@ class Polymarket(c.Mod):
         if not api_only:
             results['app'] = self._serve_app(app_port, dev=dev)
 
+        # Register in namespace so the gateway on :3000 can route to us
+        try:
+            ns = c.mod('server.namespace')()
+            ns.reg_app(
+                self.name,
+                f'http://localhost:{app_port}',
+                api_url=f'http://localhost:{api_port}',
+            )
+        except Exception:
+            pass
+
         return results
 
     def _serve_api(self, port=None, dev=True):
@@ -143,7 +154,7 @@ class Polymarket(c.Mod):
 
         script = os.path.join(cwd, '_serve.sh')
         with open(script, 'w') as f:
-            f.write(f'#!/bin/bash\ncd {cwd}\nexport NEXT_PUBLIC_API_URL=http://localhost:{self.api_port}\n{cmd}\n')
+            f.write(f'#!/bin/bash\ncd {cwd}\nexport NEXT_PUBLIC_API_URL=http://localhost:{self.api_port}\nexport NEXT_PUBLIC_BASE_PATH=/{self.name}\n{cmd}\n')
         os.chmod(script, 0o755)
 
         try:
@@ -175,6 +186,13 @@ class Polymarket(c.Mod):
                 results['app'] = 'killed'
         except Exception as e:
             results['error'] = str(e)
+        # Deregister from namespace
+        if service is None:
+            try:
+                ns = c.mod('server.namespace')()
+                ns.dereg_app(self.name)
+            except Exception:
+                pass
         return results
 
     def status(self):
@@ -333,7 +351,7 @@ class Polymarket(c.Mod):
         if e:
             return json.loads(e.search(query))
         url = f"{self.gamma_url}/public-search"
-        return self.session.get(url, params={"query": query}).json()
+        return self.session.get(url, params={"q": query}).json()
 
     def orderbook(self, token_id: str):
         """Get order book"""

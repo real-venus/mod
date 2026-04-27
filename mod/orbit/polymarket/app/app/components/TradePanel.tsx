@@ -61,7 +61,8 @@ export default function TradePanel({ market }: Props) {
         orderType: orderType === "MARKET" ? "FOK" : "GTC",
       };
 
-      const res = await fetch("/api/clob?path=order", {
+      const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
+      const res = await fetch(`${base}/api/clob?path=order`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

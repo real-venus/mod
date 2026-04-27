@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const GAMMA_API = "https://gamma-api.polymarket.com";
 const DATA_API = "https://data-api.polymarket.com";
 
-const DATA_PREFIXES = ["positions", "trades", "activity", "value", "holders", "v1/"];
+const DATA_PREFIXES = ["positions", "trades", "activity", "value", "holders", "users", "v1/"];
 
 function isDataEndpoint(endpoint: string): boolean {
   return DATA_PREFIXES.some((p) => endpoint === p || endpoint.startsWith(p));
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(url, {
       headers: { Accept: "application/json" },
-      next: { revalidate: 60 },
+      next: { revalidate: 15 },
     });
 
     if (!res.ok) {

@@ -45,10 +45,11 @@
         "models",
         "serve",
         "test",
+        "logs",
         "scan",
         "fix"
     ],
-    "schema": "QmSGmET39DC6fiankvKVLd4FuCp3GXtCJRhTMg7iNS2sEp",
+    "schema": "QmXUhkntexgLHKwWGUfwcP9vXjcCbEBBN8iWjjrZysrFTe",
     "endpoints": {
         "/health": {
             "method": "GET",

@@ -1,193 +1,185 @@
 """
-Routy - Multi-Website Router
+Routy - Local gateway that routes all mod apps and APIs.
 
-A Rust-based router for hosting multiple websites under a single domain
-with URL-based routing and resource limits.
+Reads from the mod server namespace registry and proxies:
+  /{name}/*       → app servers (keeps path prefix for Next.js basePath)
+  /api/{name}/*   → API servers (strips prefix)
 """
 
 import subprocess
 import requests
 import json
+import os
+import time
 from pathlib import Path
 
 
 class Mod:
-    description = """
-    Multi-website router with resource limits.
-
-    Features:
-    - Host multiple websites under one domain
-    - URL-based routing (/{website}/{path})
-    - CPU and memory monitoring
-    - Resource limits to prevent abuse
-    - Simple REST API for management
-    """
+    description = "Local gateway router — syncs from mod namespace, proxies apps + APIs."
 
     def __init__(self):
-        self.base_url = "http://localhost:3000"
+        self.base_url = "http://localhost:3001"
         self.routy_dir = Path(__file__).parent.parent
 
     def forward(self, **kwargs):
-        """Entry point - show status or perform action"""
         action = kwargs.get('action', 'status')
-
         if action == 'start':
             return self.start()
-        elif action == 'register':
-            return self.register(**kwargs)
+        elif action == 'sync':
+            return self.sync()
         elif action == 'list':
-            return self.list_websites()
+            return self.list()
         elif action == 'stats':
             return self.stats()
         else:
             return self.status()
 
-    def start(self):
-        """Start the Routy server"""
-        print("Starting Routy server...")
-        cmd = ["cargo", "run", "--release"]
-        subprocess.Popen(cmd, cwd=self.routy_dir)
-        return {"status": "started", "url": self.base_url}
+    # ── Core ──
 
-    def register(self, name=None, url=None, description=None, **kwargs):
-        """Register a new website"""
-        if not name or not url:
-            return {
-                "error": "name and url are required",
-                "example": "m.fn('routy/register')(name='myapp', url='http://localhost:8080')"
-            }
+    def start(self, build=True):
+        """Build and start the Routy binary, then sync from namespace."""
+        if build:
+            print("Building routy...")
+            result = subprocess.run(
+                ["cargo", "build", "--release"],
+                cwd=self.routy_dir,
+                capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                return {"error": "Build failed", "stderr": result.stderr}
 
-        payload = {
-            "name": name,
-            "target_url": url,
-            "description": description
-        }
+        # Kill existing
+        subprocess.run("lsof -ti:3001 | xargs kill -9", shell=True, capture_output=True)
+        time.sleep(0.3)
+
+        log_dir = Path("/tmp/routy")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = open(log_dir / "routy.log", "w")
+
+        print("Starting routy on :3000...")
+        subprocess.Popen(
+            ["cargo", "run", "--release"],
+            cwd=self.routy_dir,
+            stdout=log_file, stderr=subprocess.STDOUT
+        )
+
+        # Wait for it to come up
+        for _ in range(20):
+            time.sleep(0.3)
+            try:
+                r = requests.get(f"{self.base_url}/_api/stats", timeout=1)
+                if r.status_code == 200:
+                    break
+            except Exception:
+                pass
+
+        # Auto-sync from namespace
+        synced = self.sync()
+        return {"status": "running", "url": self.base_url, "synced": synced}
+
+    def sync(self):
+        """Pull all running services from mod namespace and register them in routy."""
+        import mod as m
+
+        ns = m.mod('server.namespace')()
+
+        # API servers: {name: "http://host:port"}
+        api_registry = ns.namespace() or {}
+
+        # App servers: read app_registry.json
+        store = m.mod('store')('~/.mod/server/registry')
+        app_registry = store.get('app_registry.json', {}) or {}
+
+        sync_data = {"apps": [], "apis": []}
+
+        for name, url in api_registry.items():
+            url = url.replace("0.0.0.0", "127.0.0.1")
+            sync_data["apis"].append({
+                "name": name,
+                "target_url": url,
+                "description": f"API: {name}"
+            })
+
+        for name, info in app_registry.items():
+            if isinstance(info, dict) and "url" in info:
+                sync_data["apps"].append({
+                    "name": name,
+                    "target_url": info["url"],
+                    "description": f"App: {name}"
+                })
 
         try:
-            response = requests.post(
+            r = requests.post(
+                f"{self.base_url}/_api/sync",
+                json=sync_data, timeout=5
+            )
+            result = r.json()
+            apps = len(sync_data["apps"])
+            apis = len(sync_data["apis"])
+            print(f"Synced {apps} apps + {apis} apis")
+            return result
+        except Exception as e:
+            return {"error": str(e)}
+
+    def register(self, name=None, url=None, description=None, website_type="app", **kwargs):
+        """Register a single service."""
+        if not name or not url:
+            return {"error": "name and url required"}
+        try:
+            r = requests.post(
                 f"{self.base_url}/_api/register",
-                json=payload,
+                json={"name": name, "target_url": url,
+                      "description": description, "website_type": website_type},
                 timeout=5
             )
-            return response.json()
+            return r.json()
         except Exception as e:
             return {"error": str(e)}
 
-    def list_websites(self):
-        """List all registered websites"""
+    def list(self):
+        """List all registered services."""
         try:
-            response = requests.get(f"{self.base_url}/_api/websites", timeout=5)
-            websites = response.json()
+            r = requests.get(f"{self.base_url}/_api/websites", timeout=5)
+            data = r.json()
+            apps = data.get("apps", [])
+            apis = data.get("apis", [])
 
-            if not websites:
-                return {"websites": [], "count": 0}
+            if apps:
+                print(f"\nApps ({len(apps)}):")
+                for w in apps:
+                    print(f"  /{w['name']:<20} -> {w['target_url']}")
 
-            print(f"\nRegistered Websites ({len(websites)}):")
-            print("-" * 60)
-            for w in websites:
-                print(f"  {w['name']:<20} → {w['target_url']}")
-                if w.get('description'):
-                    print(f"    {w['description']}")
-            print()
+            if apis:
+                print(f"\nAPIs ({len(apis)}):")
+                for w in apis:
+                    print(f"  /api/{w['name']:<16} -> {w['target_url']}")
 
-            return websites
+            if not apps and not apis:
+                print("No services registered. Run: m routy/sync")
+
+            return data
         except Exception as e:
-            return {"error": str(e)}
+            return {"error": str(e), "hint": "Is routy running? m routy/start"}
 
     def stats(self):
-        """Get system statistics"""
+        """Get routy stats."""
         try:
-            response = requests.get(f"{self.base_url}/_api/stats", timeout=5)
-            stats = response.json()
-
-            print(f"\nRouty Statistics:")
-            print("-" * 40)
-            print(f"  CPU Usage:       {stats['cpu_usage_percent']:.1f}%")
-            print(f"  Websites:        {stats['website_count']} / {stats['max_websites']}")
-            print(f"  CPU Limit:       {stats['cpu_limit_percent']}%")
-            print()
-
-            return stats
+            r = requests.get(f"{self.base_url}/_api/stats", timeout=5)
+            return r.json()
         except Exception as e:
             return {"error": str(e)}
 
     def status(self):
-        """Check if Routy is running"""
+        """Check if routy is running."""
         try:
-            response = requests.get(f"{self.base_url}/_api/stats", timeout=2)
-            if response.status_code == 200:
-                return {
-                    "status": "running",
-                    "url": self.base_url,
-                    "stats": response.json()
-                }
-        except:
-            return {
-                "status": "not running",
-                "hint": "Run: m.fn('routy/start')()"
-            }
+            r = requests.get(f"{self.base_url}/_api/stats", timeout=2)
+            if r.status_code == 200:
+                return {"status": "running", "url": self.base_url, **r.json()}
+        except Exception:
+            pass
+        return {"status": "not running", "hint": "m routy/start"}
 
-
-# Helper functions for direct access
-def start():
-    """Start Routy server"""
-    return Mod().start()
-
-
-def register(name, url, description=None):
-    """Register a website"""
-    return Mod().register(name=name, url=url, description=description)
-
-
-def list_websites():
-    """List all websites"""
-    return Mod().list_websites()
-
-
-def stats():
-    """Get statistics"""
-    return Mod().stats()
-
-    def serve(self, api_port=None, app_port=None):
-        """Start API server and app from config."""
-        import subprocess
-        from pathlib import Path
-
-        config = getattr(self, '_config', {})
-        api_port = api_port or config.get('port') or None
-        app_port = app_port or config.get('app_port') or None
-        root = os.path.join(os.path.dirname(__file__), '..')
-        log_dir = Path(f'/tmp/routy')
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        for p in [api_port, app_port]:
-            if p:
-                subprocess.run(f'lsof -ti:{p} | xargs kill -9', shell=True, capture_output=True)
-
-        results = {}
-
-        server_dir = os.path.join(root, 'server')
-        if os.path.exists(os.path.join(server_dir, 'server.py')) and api_port:
-            env = os.environ.copy()
-            env['PYTHONPATH'] = os.path.join(root, '..', '..', '..')
-            subprocess.Popen(
-                ['python3', '-m', 'uvicorn', 'server:app',
-                 '--host', '0.0.0.0', '--port', str(api_port), '--reload'],
-                cwd=server_dir, env=env,
-                stdout=open(log_dir / 'api.log', 'w'),
-                stderr=subprocess.STDOUT,
-            )
-            results['api'] = f'http://localhost:{api_port}'
-
-        app_dir = os.path.join(root, 'app')
-        if os.path.exists(os.path.join(app_dir, 'package.json')) and app_port:
-            subprocess.Popen(
-                ['npx', 'next', 'dev', '-p', str(app_port)],
-                cwd=app_dir,
-                stdout=open(log_dir / 'app.log', 'w'),
-                stderr=subprocess.STDOUT,
-            )
-            results['app'] = f'http://localhost:{app_port}'
-
-        return results
-
+    def kill(self):
+        """Stop routy."""
+        subprocess.run("lsof -ti:3001 | xargs kill -9", shell=True, capture_output=True)
+        return {"status": "killed"}

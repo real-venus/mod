@@ -27,7 +27,7 @@ fn default_host() -> String {
 }
 
 fn default_port() -> u16 {
-    3000
+    3001
 }
 
 fn default_max_websites() -> usize {

@@ -357,11 +357,16 @@ class Server:
             else:
                 app_env['API_URL_INTERNAL'] = f'http://localhost:{port}'
             app_env['PORT'] = str(app_port)
+            # basePath so the app routes behind /{name}
+            app_env['NEXT_PUBLIC_BASE_PATH'] = f'/{name}'
             app_log = open(log_dir / 'app.log', 'w')
             app_cmd = ['npx', 'next', 'dev', '-p', str(app_port)]
             subprocess.Popen(app_cmd, cwd=str(app_dir), env=app_env,
                              stdout=app_log, stderr=subprocess.STDOUT)
-            print(f'App started at http://localhost:{app_port} (log: {log_dir}/app.log)', color='green')
+            print(f'App started at http://localhost:{app_port}/{name} (log: {log_dir}/app.log)', color='green')
+            # Register app in namespace so the gateway middleware can route to it
+            self.registry.reg_app(name, f'http://localhost:{app_port}',
+                                  owner=self.key.address, api_url=f'http://localhost:{port}')
 
         self.registry.reg(name, f'http://0.0.0.0:{port}')
         if run_mode == 'flask':

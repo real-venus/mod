@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  BarChart, Bar, AreaChart, Area,
+  BarChart, Bar, AreaChart, Area, ComposedChart, Line,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import { API_URL } from './config'
@@ -10,9 +10,10 @@ import { API_URL } from './config'
 // ── Types ───────────────────────────────────────────────
 
 type Chain = 'ethereum' | 'arbitrum' | 'base' | 'polygon' | 'optimism'
-type View = 'pools' | 'tokens' | 'explore'
+type View = 'pools' | 'tokens' | 'explore' | 'copytrade'
 type PoolChartTab = 'volume' | 'tvl' | 'fees'
 type PoolDetailTab = 'charts' | 'swaps' | 'info'
+type TraderDetailTab = 'chart' | 'tokens' | 'swaps'
 
 interface Pool {
   id: string
@@ -50,6 +51,37 @@ interface PoolDay {
   volumeUSD: string
   tvlUSD: string
   feesUSD: string
+}
+
+interface TraderSummary {
+  address: string
+  trade_count: number
+  volume: number
+  pools_used: number
+  avg_trade_size: number
+}
+
+interface TraderPerformance {
+  address: string
+  chain: string
+  days: number
+  metrics: {
+    total_volume: number
+    trade_count: number
+    active_days: number
+    avg_trade_size: number
+    tokens_traded: number
+  }
+  daily: { date: string; volume: number; trades: number }[]
+  token_breakdown: { address: string; symbol: string; net_amount: number; usd_value: number }[]
+  swaps: any[]
+}
+
+interface WatchlistEntry {
+  address: string
+  label: string
+  added_at: string
+  chain: string
 }
 
 // ── Helpers ─────────────────────────────────────────────
@@ -177,6 +209,16 @@ export default function Home() {
   const [chainOpen, setChainOpen] = useState(false)
   const chainRef = useRef<HTMLDivElement>(null)
 
+  // Copy Trade state
+  const [traders, setTraders] = useState<TraderSummary[]>([])
+  const [loadingTraders, setLoadingTraders] = useState(false)
+  const [traderDays, setTraderDays] = useState(7)
+  const [selectedTrader, setSelectedTrader] = useState<TraderPerformance | null>(null)
+  const [loadingTraderDetail, setLoadingTraderDetail] = useState(false)
+  const [traderDetailTab, setTraderDetailTab] = useState<TraderDetailTab>('chart')
+  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
+  const [addressLookup, setAddressLookup] = useState('')
+
   // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -221,11 +263,66 @@ export default function Home() {
     setLoading(false)
   }, [chain, source])
 
+  // ── Copy Trade fetching ──────────────────────────────────
+
+  const fetchTraders = useCallback(async (update = false) => {
+    setLoadingTraders(true); setError('')
+    try {
+      const data = await apiFetch(
+        `/traders?chain=${chain}&days=${traderDays}&min_trades=5&limit=30&source=${source}&update=${update}`,
+        180000
+      )
+      setTraders(data)
+    } catch (e: any) { setError(e.message) }
+    setLoadingTraders(false)
+  }, [chain, traderDays, source])
+
+  const fetchWatchlist = useCallback(async () => {
+    try {
+      const data = await apiFetch(`/watchlist?chain=${chain}`)
+      setWatchlist(data)
+    } catch { setWatchlist([]) }
+  }, [chain])
+
+  const openTrader = useCallback(async (address: string) => {
+    setLoadingTraderDetail(true); setError(''); setTraderDetailTab('chart')
+    try {
+      const data = await apiFetch(`/trader/${address}?chain=${chain}&days=30`, 180000)
+      setSelectedTrader(data)
+    } catch (e: any) { setError(e.message); setSelectedTrader(null) }
+    setLoadingTraderDetail(false)
+  }, [chain])
+
+  const toggleWatchlist = useCallback(async (address: string, label = '') => {
+    const isWatched = watchlist.some(w => w.address === address.toLowerCase())
+    try {
+      if (isWatched) {
+        await fetch(`${API_URL}/watchlist/${address}?chain=${chain}`, { method: 'DELETE' })
+      } else {
+        await fetch(`${API_URL}/watchlist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chain, address, label }),
+        })
+      }
+    } catch {}
+    fetchWatchlist()
+  }, [chain, watchlist, fetchWatchlist])
+
+  const handleAddressLookup = () => {
+    const addr = addressLookup.trim()
+    if (addr.startsWith('0x') && addr.length === 42) {
+      openTrader(addr)
+    }
+  }
+
   useEffect(() => {
     setSelectedPool(null)
+    setSelectedTrader(null)
     if (view === 'pools') fetchPools()
     else if (view === 'tokens') fetchTokens()
-  }, [view, chain, fetchPools, fetchTokens])
+    else if (view === 'copytrade') { fetchTraders(); fetchWatchlist() }
+  }, [view, chain, fetchPools, fetchTokens, fetchTraders, fetchWatchlist])
 
   // ── Pool Detail ────────────────────────────────────────
 
@@ -663,6 +760,212 @@ export default function Home() {
     )
   }
 
+  // ── Trader Detail View ─────────────────────────────────
+
+  if (selectedTrader && view === 'copytrade') {
+    const t = selectedTrader
+    const isWatched = watchlist.some(w => w.address === t.address)
+    const traderChartData = t.daily.map((d, i, arr) => ({
+      date: d.date,
+      volume: d.volume,
+      trades: d.trades,
+      cumulative: arr.slice(0, i + 1).reduce((s, x) => s + x.volume, 0),
+    }))
+
+    return (
+      <main className="max-w-7xl mx-auto p-4 sm:p-6">
+        <button onClick={() => setSelectedTrader(null)}
+          className="btn btn-ghost text-sm mb-4 inline-flex items-center gap-2">
+          ← Back to traders
+        </button>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-white font-mono">{fmtAddr(t.address)}</h1>
+              <span className="text-xs px-2 py-1 rounded-full font-medium bg-blue-500/15 text-blue-400 capitalize">
+                {t.chain}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm text-slate-400 font-mono">{t.address}</span>
+              <button onClick={() => handleCopy(t.address)}
+                className="text-xs text-slate-500 hover:text-uni-pink transition-colors">
+                {copied === t.address ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+          <button onClick={() => toggleWatchlist(t.address)}
+            className={`btn text-sm ${isWatched ? 'bg-uni-pink/20 text-uni-pink hover:bg-uni-pink/30' : 'btn-primary'}`}>
+            {isWatched ? 'Watching' : 'Add to Watchlist'}
+          </button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="card p-4">
+            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Volume (30d)</div>
+            <div className="text-xl font-bold text-white">{fmt(t.metrics.total_volume)}</div>
+          </div>
+          <div className="card p-4">
+            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Trades</div>
+            <div className="text-xl font-bold text-white">{t.metrics.trade_count.toLocaleString()}</div>
+          </div>
+          <div className="card p-4">
+            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Active Days</div>
+            <div className="text-xl font-bold text-white">{t.metrics.active_days}</div>
+          </div>
+          <div className="card p-4">
+            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Avg Trade</div>
+            <div className="text-xl font-bold text-white">{fmt(t.metrics.avg_trade_size)}</div>
+          </div>
+        </div>
+
+        {/* Detail Tabs */}
+        <div className="flex items-center gap-2 mb-4">
+          {(['chart', 'tokens', 'swaps'] as TraderDetailTab[]).map(tab => (
+            <button key={tab} onClick={() => setTraderDetailTab(tab)}
+              className={`tab ${traderDetailTab === tab ? 'tab-active' : 'tab-inactive'}`}>
+              {tab === 'chart' ? '30-Day Chart' : tab === 'tokens' ? `Tokens (${t.token_breakdown.length})` : `Swaps (${t.swaps.length})`}
+            </button>
+          ))}
+        </div>
+
+        {/* Chart Tab */}
+        {traderDetailTab === 'chart' && (
+          <div className="card p-4 sm:p-6">
+            {traderChartData.length === 0 ? (
+              <div className="text-center py-16 text-slate-500">No daily data available</div>
+            ) : (
+              <>
+                <h3 className="text-sm font-medium text-slate-300 mb-4">Daily Volume & Cumulative</h3>
+                <ResponsiveContainer width="100%" height={320}>
+                  <ComposedChart data={traderChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }}
+                      tickFormatter={d => {
+                        const parts = d.split('-')
+                        return `${parts[1]}/${parts[2]}`
+                      }} />
+                    <YAxis yAxisId="left" tick={{ fill: '#64748b', fontSize: 11 }} tickFormatter={v => fmt(v, 0)} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fill: '#64748b', fontSize: 11 }} tickFormatter={v => fmt(v, 0)} />
+                    <Tooltip
+                      contentStyle={{ background: '#131a2a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number, name: string) => [fmt(v), name === 'volume' ? 'Daily Volume' : name === 'cumulative' ? 'Cumulative' : 'Trades']} />
+                    <Bar yAxisId="left" dataKey="volume" fill="#FC72FF" radius={[4, 4, 0, 0]} opacity={0.8} />
+                    <Line yAxisId="right" type="monotone" dataKey="cumulative" stroke="#22c55e" strokeWidth={2} dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+                <div className="flex items-center gap-6 mt-3 text-xs text-slate-500">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-uni-pink inline-block" /> Daily Volume</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-green-500 inline-block" /> Cumulative</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Tokens Tab */}
+        {traderDetailTab === 'tokens' && (
+          <div className="card overflow-x-auto">
+            {t.token_breakdown.length === 0 ? (
+              <div className="text-center py-16 text-slate-500">No token data</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Token</th>
+                    <th>Net Amount</th>
+                    <th>USD Value</th>
+                    <th>Direction</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {t.token_breakdown.map((tok, i) => (
+                    <tr key={tok.address || i}>
+                      <td>
+                        <span className="text-white font-medium">{tok.symbol}</span>
+                        <div className="text-[11px] text-slate-500 font-mono cursor-pointer hover:text-uni-pink"
+                          onClick={() => handleCopy(tok.address)}>
+                          {copied === tok.address ? 'Copied!' : fmtAddr(tok.address)}
+                        </div>
+                      </td>
+                      <td className={`font-mono text-sm ${tok.net_amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {tok.net_amount >= 0 ? '+' : ''}{tok.net_amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                      </td>
+                      <td className="text-white">{tok.usd_value > 0 ? fmt(tok.usd_value) : '-'}</td>
+                      <td>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          tok.net_amount > 0 ? 'bg-green-500/15 text-green-400' : tok.net_amount < 0 ? 'bg-red-500/15 text-red-400' : 'bg-slate-500/15 text-slate-400'
+                        }`}>
+                          {tok.net_amount > 0 ? 'Accumulated' : tok.net_amount < 0 ? 'Sold' : 'Neutral'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* Swaps Tab */}
+        {traderDetailTab === 'swaps' && (
+          <div className="card overflow-x-auto">
+            {t.swaps.length === 0 ? (
+              <div className="text-center py-16 text-slate-500">No swaps found</div>
+            ) : (
+              <>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Block</th>
+                      <th>Pair</th>
+                      <th>Amount0</th>
+                      <th>Amount1</th>
+                      <th>USD</th>
+                      <th>Tx</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...t.swaps].reverse().map((s: any, i: number) => {
+                      const d0 = parseInt(s.token0?.decimals || '18')
+                      const d1 = parseInt(s.token1?.decimals || '18')
+                      const a0 = s.amount0 / (10 ** d0)
+                      const a1 = s.amount1 / (10 ** d1)
+                      return (
+                        <tr key={s.tx + '-' + s.logIndex + '-' + i}>
+                          <td className="text-xs text-slate-400 font-mono">{s.block?.toLocaleString()}</td>
+                          <td className="text-white font-medium text-sm">{s.pair || '-'}</td>
+                          <td className={`font-mono text-sm ${a0 < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                            {a0 < 0 ? '' : '+'}{a0.toFixed(4)}
+                          </td>
+                          <td className={`font-mono text-sm ${a1 < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                            {a1 < 0 ? '' : '+'}{a1.toFixed(4)}
+                          </td>
+                          <td className="text-white">{s.usd_value ? fmt(s.usd_value) : '-'}</td>
+                          <td>
+                            <span className="font-mono text-xs text-slate-500 cursor-pointer hover:text-uni-pink"
+                              onClick={() => handleCopy(s.tx)}>
+                              {copied === s.tx ? 'Copied!' : fmtAddr(s.tx)}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                <div className="p-3 text-xs text-slate-500 border-t border-uni-border">
+                  Showing last {t.swaps.length} swaps | 30 days | {t.chain}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </main>
+    )
+  }
+
   // ── Main View ──────────────────────────────────────────
 
   return (
@@ -706,10 +1009,13 @@ export default function Home() {
 
       {/* Navigation */}
       <div className="flex items-center gap-2 mb-4">
-        {(['pools', 'tokens', 'explore'] as View[]).map(v => (
-          <button key={v} onClick={() => setView(v)}
+        {(['pools', 'tokens', 'explore', 'copytrade'] as View[]).map(v => (
+          <button key={v} onClick={() => {
+            if (v === 'copytrade' && view !== 'copytrade') setChain('base')
+            setView(v)
+          }}
             className={`tab ${view === v ? 'tab-active' : 'tab-inactive'}`}>
-            {v === 'pools' ? 'Pools' : v === 'tokens' ? 'Tokens' : 'Explorer'}
+            {v === 'pools' ? 'Pools' : v === 'tokens' ? 'Tokens' : v === 'explore' ? 'Explorer' : 'Copy Trade'}
           </button>
         ))}
         <div className="flex-1" />
@@ -721,9 +1027,9 @@ export default function Home() {
           <option value="rpc">RPC</option>
         </select>
         {view !== 'explore' && (
-          <button onClick={() => view === 'pools' ? fetchPools(true) : fetchTokens(true)}
-            disabled={loading} className="btn btn-ghost text-xs">
-            {loading ? '...' : 'Refresh'}
+          <button onClick={() => view === 'pools' ? fetchPools(true) : view === 'tokens' ? fetchTokens(true) : fetchTraders(true)}
+            disabled={loading || loadingTraders} className="btn btn-ghost text-xs">
+            {loading || loadingTraders ? '...' : 'Refresh'}
           </button>
         )}
       </div>
@@ -1016,6 +1322,122 @@ export default function Home() {
           {!exploring && !exploreResult && (
             <div className="card p-8 text-center text-slate-500">
               Click &quot;Start Scan&quot; to discover pools and tokens from recent blocks
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Copy Trade View ──────────────────────────────── */}
+      {view === 'copytrade' && (
+        <div>
+          {/* Search + Controls */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+            <div className="relative flex-1 max-w-md">
+              <input
+                type="text"
+                value={addressLookup}
+                onChange={e => setAddressLookup(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddressLookup()}
+                placeholder="Look up trader by address (0x...)"
+                className="w-full bg-uni-card border border-uni-border rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-uni-pink placeholder:text-slate-500 font-mono"
+              />
+            </div>
+            <button onClick={handleAddressLookup} disabled={loadingTraderDetail}
+              className="btn btn-primary text-sm">
+              {loadingTraderDetail ? 'Loading...' : 'Look Up'}
+            </button>
+            <select value={traderDays} onChange={e => { setTraderDays(parseInt(e.target.value)); }}
+              className="text-xs">
+              <option value={1}>1 day</option>
+              <option value={3}>3 days</option>
+              <option value={7}>7 days</option>
+              <option value={14}>14 days</option>
+              <option value={30}>30 days</option>
+            </select>
+          </div>
+
+          {/* Watchlist */}
+          {watchlist.length > 0 && (
+            <div className="card p-4 mb-4">
+              <div className="text-xs text-slate-400 uppercase tracking-wider mb-3">Watchlist</div>
+              <div className="flex flex-wrap gap-2">
+                {watchlist.map(w => (
+                  <button key={w.address}
+                    onClick={() => openTrader(w.address)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-uni-pink/10 border border-uni-pink/20 hover:border-uni-pink/40 transition-colors text-sm">
+                    <span className="font-mono text-uni-pink">{fmtAddr(w.address)}</span>
+                    {w.label && <span className="text-slate-400">{w.label}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top Traders */}
+          <div className="card p-4 mb-2">
+            <h3 className="text-sm font-medium text-white mb-1">Top Traders</h3>
+            <p className="text-xs text-slate-500 mb-0">
+              Most active traders on {chain} over the last {traderDays} day{traderDays > 1 ? 's' : ''} by volume. Click to view 30-day performance.
+            </p>
+          </div>
+
+          {loadingTraders ? (
+            <div className="flex items-center justify-center py-16 text-slate-400">
+              <div className="w-5 h-5 border-2 border-uni-pink border-t-transparent rounded-full animate-spin mr-2" />
+              Discovering top traders on {chain}... (this may take a moment)
+            </div>
+          ) : traders.length === 0 ? (
+            <div className="card p-8 text-center text-slate-500">
+              No traders found. Try increasing the time range or check that the backend is running.
+            </div>
+          ) : (
+            <div className="card overflow-x-auto">
+              <table>
+                <thead>
+                  <tr>
+                    <th className="w-8 text-center">#</th>
+                    <th>Address</th>
+                    <th>Volume</th>
+                    <th>Trades</th>
+                    <th>Pools</th>
+                    <th>Avg Size</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {traders.map((tr, i) => {
+                    const isWatched = watchlist.some(w => w.address === tr.address)
+                    return (
+                      <tr key={tr.address} className="cursor-pointer group" onClick={() => openTrader(tr.address)}>
+                        <td className="text-center text-xs text-slate-500">{i + 1}</td>
+                        <td>
+                          <span className="font-mono text-white group-hover:text-uni-pink transition-colors">
+                            {fmtAddr(tr.address)}
+                          </span>
+                          {isWatched && (
+                            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-uni-pink/15 text-uni-pink">watching</span>
+                          )}
+                        </td>
+                        <td className="text-white font-medium">{fmt(tr.volume)}</td>
+                        <td>{tr.trade_count.toLocaleString()}</td>
+                        <td className="text-slate-400">{tr.pools_used}</td>
+                        <td>{fmt(tr.avg_trade_size)}</td>
+                        <td>
+                          <button onClick={e => { e.stopPropagation(); toggleWatchlist(tr.address) }}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${
+                              isWatched ? 'text-uni-pink hover:text-red-400' : 'text-slate-500 hover:text-uni-pink'
+                            }`}>
+                            {isWatched ? 'Unwatch' : 'Watch'}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div className="p-3 text-xs text-slate-500 border-t border-uni-border">
+                {traders.length} traders | {traderDays}d window | {chain}
+              </div>
             </div>
           )}
         </div>

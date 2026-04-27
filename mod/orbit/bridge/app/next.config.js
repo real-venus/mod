@@ -12,7 +12,7 @@ if (!process.env.API_INTERNAL_URL) {
 }
 
 // basePath only when proxied behind the main app (e.g. NEXT_PUBLIC_BASE_PATH=/bridge)
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/bridge'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

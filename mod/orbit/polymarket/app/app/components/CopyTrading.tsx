@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetchTopTraders, fetchWalletTrades, fetchPositions, formatVolume, formatPnl, TopTrader } from "../lib/polymarket";
+import {
+  fetchTopTraders, fetchWalletTrades, fetchPositions,
+  formatVolume, formatPnl, TopTrader,
+  CATEGORIES, CategorySlug, matchTraderCategory,
+} from "../lib/polymarket";
 import { shortAddress } from "../lib/auth";
 import { PolymarketTrade, PolymarketPosition } from "../lib/types";
 import TraderProfile from "./TraderProfile";
@@ -13,6 +17,7 @@ export default function CopyTrading() {
   const [loading, setLoading] = useState(true);
   const [traderSort, setTraderSort] = useState<TraderSort>("volume");
   const [searchQuery, setSearchQuery] = useState("");
+  const [category, setCategory] = useState<CategorySlug>("");
 
   // Selected trader state
   const [selectedTrader, setSelectedTrader] = useState<TopTrader | null>(null);
@@ -85,8 +90,9 @@ export default function CopyTrading() {
 
   const sortedTraders = [...traders]
     .filter((t) => {
-      if (!searchQuery.trim()) return true;
-      return t.address.toLowerCase().includes(searchQuery.toLowerCase());
+      if (searchQuery.trim() && !t.address.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (category && !matchTraderCategory(t.marketTitles, category)) return false;
+      return true;
     })
     .sort((a, b) => {
       switch (traderSort) {
@@ -166,6 +172,24 @@ export default function CopyTrading() {
           >
             RELOAD
           </button>
+        </div>
+
+        {/* Category filter */}
+        <div className="flex flex-wrap items-center gap-1 mt-2">
+          <span className="text-[6px] text-pixel-gray mr-1">SPECIALTY:</span>
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat.slug}
+              onClick={() => setCategory(cat.slug)}
+              className={`pixel-btn text-[6px] ${
+                category === cat.slug
+                  ? "border-pixel-amber text-pixel-amber bg-pixel-amber/10"
+                  : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
       </div>
 

@@ -189,7 +189,7 @@ export function AgentPanel() {
   })
   const [editingDir, setEditingDir] = useState(false)
   const [dirInput, setDirInput] = useState(workDir)
-  const [modules, setModules] = useState<string[]>([])
+  const [modules, setModules] = useState<{ name: string; path: string; display: string; category: string; description?: string; fns?: string[]; has_config?: boolean }[]>([])
   const [dirSelectedIdx, setDirSelectedIdx] = useState(-1)
   const [starting, setStarting] = useState(false)
   const [startMsg, setStartMsg] = useState<string | null>(null)
@@ -275,7 +275,13 @@ export function AgentPanel() {
     agentFetch('/modules')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.modules) setModules([...new Set(data.modules.map((m: any) => typeof m === 'string' ? m : m.name))] as string[])
+        if (data?.modules) {
+          const seen = new Set<string>()
+          const rich = data.modules
+            .map((m: any) => typeof m === 'string' ? { name: m, path: '', display: m, category: 'orbit' } : { name: m.name, path: m.path || '', display: m.display || m.path || m.name, category: m.category || 'orbit', description: m.description, fns: m.fns, has_config: m.has_config })
+            .filter((m: any) => { if (seen.has(m.name + m.category)) return false; seen.add(m.name + m.category); return true })
+          setModules(rich)
+        }
       })
       .catch(() => {})
   }, [agentFetch, isAgentSidebarOpen])
@@ -626,7 +632,7 @@ export function AgentPanel() {
               onKeyDown={e => {
                 const searchTerm = dirInput.trim().toLowerCase()
                 const filtered = searchTerm
-                  ? modules.filter(m => m.toLowerCase().includes(searchTerm))
+                  ? modules.filter(m => m.name.toLowerCase().includes(searchTerm))
                   : modules
                 if (e.key === 'ArrowDown') {
                   e.preventDefault()
@@ -637,7 +643,7 @@ export function AgentPanel() {
                 } else if (e.key === 'Enter') {
                   e.preventDefault()
                   if (dirSelectedIdx >= 0 && filtered[dirSelectedIdx]) {
-                    setWorkDir(`/Users/broski/mod/mod/orbit/${filtered[dirSelectedIdx]}`)
+                    setWorkDir(filtered[dirSelectedIdx].path || filtered[dirSelectedIdx].display)
                     setEditingDir(false)
                     setDirSelectedIdx(-1)
                   } else if (dirInput.trim()) {
@@ -670,7 +676,7 @@ export function AgentPanel() {
         {editingDir && modules.length > 0 && (() => {
           const searchTerm = dirInput.trim().toLowerCase()
           const filtered = searchTerm
-            ? modules.filter(m => m.toLowerCase().includes(searchTerm))
+            ? modules.filter(m => m.name.toLowerCase().includes(searchTerm))
             : modules
           if (filtered.length === 0 && searchTerm) return (
             <div
@@ -697,43 +703,58 @@ export function AgentPanel() {
                 border: '1px solid var(--border-color)',
                 borderTop: 'none',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                maxHeight: '240px',
+                maxHeight: '280px',
               }}
             >
               {filtered.map((mod, idx) => {
                 const isSelected = idx === dirSelectedIdx
-                const matchIdx = searchTerm ? mod.toLowerCase().indexOf(searchTerm) : -1
+                const matchIdx = searchTerm ? mod.name.toLowerCase().indexOf(searchTerm) : -1
+                const displayPath = mod.display.replace(/^\/Users\/\w+\//, '~/')
+                const fnCount = mod.fns?.length || 0
                 return (
                   <button
-                    key={mod}
+                    key={`${mod.category}-${mod.name}`}
                     onMouseDown={(e) => {
                       e.preventDefault()
-                      setWorkDir(`/Users/broski/mod/mod/orbit/${mod}`)
+                      setWorkDir(mod.path || mod.display)
                       setEditingDir(false)
                       setDirSelectedIdx(-1)
                     }}
                     onMouseEnter={() => setDirSelectedIdx(idx)}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-all"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all"
                     style={{
                       background: isSelected ? 'var(--hover-bg)' : 'transparent',
                       borderBottom: '1px solid var(--border-color)',
                     }}
                   >
-                    <FolderOpen size={10} style={{ color: isSelected ? 'var(--accent-primary)' : 'var(--text-tertiary)', flexShrink: 0 }} />
+                    <FolderOpen size={11} style={{ color: isSelected ? 'var(--accent-primary)' : 'var(--text-tertiary)', flexShrink: 0 }} />
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-[11px] font-mono truncate" style={{ color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                        {searchTerm && matchIdx >= 0 ? (
-                          <>
-                            {mod.slice(0, matchIdx)}
-                            <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{mod.slice(matchIdx, matchIdx + searchTerm.length)}</span>
-                            {mod.slice(matchIdx + searchTerm.length)}
-                          </>
-                        ) : (
-                          <span style={{ fontWeight: 700 }}>{mod}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono font-bold truncate" style={{ color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                          {searchTerm && matchIdx >= 0 ? (
+                            <>
+                              {mod.name.slice(0, matchIdx)}
+                              <span style={{ color: 'var(--accent-primary)' }}>{mod.name.slice(matchIdx, matchIdx + searchTerm.length)}</span>
+                              {mod.name.slice(matchIdx + searchTerm.length)}
+                            </>
+                          ) : mod.name}
+                        </span>
+                        <span className="text-[8px] font-mono px-1 py-px rounded" style={{
+                          color: mod.category === 'core' ? '#f59e0b' : '#10b981',
+                          background: mod.category === 'core' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
+                          border: `1px solid ${mod.category === 'core' ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)'}`,
+                          flexShrink: 0,
+                        }}>
+                          {mod.category}
+                        </span>
+                        {fnCount > 0 && (
+                          <span className="text-[8px] font-mono" style={{ color: 'var(--text-tertiary)', opacity: 0.5, flexShrink: 0 }}>
+                            {fnCount} fn
+                          </span>
                         )}
-                      </span>
-                      <span className="text-[9px] font-mono truncate" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }}>
-                        ~/mod/mod/orbit/{mod}
+                      </div>
+                      <span className="text-[9px] font-mono truncate" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>
+                        {displayPath}
                       </span>
                     </div>
                   </button>

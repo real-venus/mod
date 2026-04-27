@@ -1,0 +1,6 @@
+{
+    "name": "routy",
+    "port": 3001,
+    "description": "Local gateway router \u2014 proxies all mod apps and APIs",
+    "schema": "QmdMMKsXPcE7zJyfbxRnLvT6fwxqeaieuaN27AEUxdWvdF"
+}

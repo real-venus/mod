@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import dynamic from 'next/dynamic'
 import { toast } from 'react-toastify'
 import {
   ArrowsRightLeftIcon,
@@ -755,4 +754,4 @@ function BridgePageInner() {
   )
 }
 
-export default dynamic(() => Promise.resolve(BridgePageInner), { ssr: false })
+export default BridgePageInner

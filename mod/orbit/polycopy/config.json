@@ -1,4 +1,7 @@
 {
+    "name": "polycopy",
+    "port": 50130,
+    "app_port": 3130,
     "chains": [
         {
             "chain_id": 8453,
@@ -119,5 +122,5 @@
     "auto_discover": false,
     "min_score": 70.0,
     "poll_interval_ms": 4000,
-    "schema": "QmWwaiD7kun7ujRuxyRjYUhJ3TisVMRdg7FgVymHvXoD8g"
+    "schema": "QmaBZvdbWMYCMspzfPeG8zoYHmt1YN44xHi2EngpZhoi6E"
 }

@@ -2,10 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { PolymarketMarket } from "../lib/types";
-import { fetchMarkets, searchMarkets } from "../lib/polymarket";
+import {
+  fetchMarkets,
+  fetchMarketsByCategory,
+  searchMarkets,
+  CATEGORIES,
+  CategorySlug,
+} from "../lib/polymarket";
 import MarketCard from "./MarketCard";
 
 type SortMode = "volume" | "liquidity" | "end_date_min";
+const PAGE_SIZE = 20;
 
 interface Props {
   onSelectMarket?: (market: PolymarketMarket) => void;
@@ -13,34 +20,45 @@ interface Props {
 }
 
 export default function MarketsGrid({ onSelectMarket, selectedMarket }: Props) {
-  const [markets, setMarkets] = useState<PolymarketMarket[]>([]);
+  const [allMarkets, setAllMarkets] = useState<PolymarketMarket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("volume");
+  const [category, setCategory] = useState<CategorySlug>("");
+  const [page, setPage] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = search.trim()
-        ? await searchMarkets(search.trim(), 40)
-        : await fetchMarkets(40, sort);
-      setMarkets(data);
+      let data: PolymarketMarket[];
+      if (search.trim()) {
+        data = await searchMarkets(search.trim(), 100);
+      } else if (category) {
+        data = await fetchMarketsByCategory(category, 100);
+      } else {
+        data = await fetchMarkets(100, sort);
+      }
+      setAllMarkets(data);
+      setPage(0);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "LOAD FAILED");
     }
     setLoading(false);
-  }, [search, sort]);
+  }, [search, sort, category]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const totalPages = Math.ceil(allMarkets.length / PAGE_SIZE);
+  const pageMarkets = allMarkets.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   return (
     <div className="space-y-3">
       {/* Controls */}
-      <div className="pixel-panel p-3">
+      <div className="pixel-panel p-3 space-y-3">
         <div className="flex flex-col md:flex-row md:items-center gap-3">
           <div className="flex-1">
             <input
@@ -73,6 +91,23 @@ export default function MarketsGrid({ onSelectMarket, selectedMarket }: Props) {
             RELOAD
           </button>
         </div>
+
+        {/* Category filters */}
+        <div className="flex flex-wrap items-center gap-1">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat.slug}
+              onClick={() => setCategory(cat.slug)}
+              className={`pixel-btn text-[6px] ${
+                category === cat.slug
+                  ? "border-pixel-amber text-pixel-amber bg-pixel-amber/10"
+                  : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && (
@@ -102,10 +137,13 @@ export default function MarketsGrid({ onSelectMarket, selectedMarket }: Props) {
             <span className="text-[7px] text-pixel-gray-light tracking-widest">
               PREDICTION MARKETS
             </span>
-            <span className="text-[6px] text-pixel-gray">{markets.length} LOADED</span>
+            <span className="text-[6px] text-pixel-gray">
+              {allMarkets.length} TOTAL
+              {totalPages > 1 && ` \u2022 PAGE ${page + 1}/${totalPages}`}
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {markets.map((market) => (
+            {pageMarkets.map((market) => (
               <MarketCard
                 key={market.id}
                 market={market}
@@ -114,6 +152,39 @@ export default function MarketsGrid({ onSelectMarket, selectedMarket }: Props) {
               />
             ))}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="pixel-btn text-[7px] border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                PREV
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i)}
+                  className={`pixel-btn text-[7px] w-7 ${
+                    page === i
+                      ? "border-pixel-green text-pixel-green bg-pixel-green/10"
+                      : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page === totalPages - 1}
+                className="pixel-btn text-[7px] border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                NEXT
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

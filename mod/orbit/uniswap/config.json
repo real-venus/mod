@@ -15,6 +15,12 @@
         "get_tokens",
         "get_pool_day_data",
         "explore",
+        "get_trader_swaps",
+        "get_trader_performance",
+        "get_top_traders",
+        "add_watchlist",
+        "remove_watchlist",
+        "get_watchlist",
         "chains",
         "serve",
         "kill",
@@ -26,5 +32,5 @@
         "health",
         "test"
     ],
-    "schema": "QmUVEn1yhh2qKZnbyhp7An4FZ4PeoWm5gWwcBfFhE1wkwY"
+    "schema": "QmaLvHJvBKtALfJyPPGZfRYGQpMV7DtfvPyscTs9dEWJWQ"
 }

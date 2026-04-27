@@ -31,7 +31,7 @@ Endpoints:
     GET  /scrape/traders      - filtered active traders
 
 Usage:
-    uvicorn api:app --host 0.0.0.0 --port 50130 --reload
+    uvicorn api.api:app --host 0.0.0.0 --port 50130 --reload
 """
 import asyncio
 import json
@@ -44,9 +44,9 @@ from typing import Optional, List
 
 # ── paths ───────────────────────────────────────────────────────────
 
-src_dir = os.path.join(os.path.dirname(__file__), '..')
-module_root = os.path.join(src_dir, '..')
-sys.path.insert(0, src_dir)
+mod_dir = os.path.join(os.path.dirname(__file__), '..')
+module_root = os.path.join(mod_dir, '..')
+sys.path.insert(0, mod_dir)
 sys.path.insert(0, module_root)
 
 # ── config ──────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ class ScrapeRequest(BaseModel):
 
 def _need_engine():
     if not HAS_ENGINE:
-        return {'error': 'polycopy_rs not built — run: cd src/polycopy-rs && maturin develop --release'}
+        return {'error': 'polycopy_rs not built — run: cd polycopy/polycopy-rs && maturin develop --release'}
     return None
 
 # ── engine routes ───────────────────────────────────────────────────

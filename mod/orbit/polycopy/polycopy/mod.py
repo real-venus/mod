@@ -16,9 +16,12 @@ Usage:
 import asyncio
 import json
 import os
+import subprocess
 
-SRC_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(SRC_DIR)
+import mod as c
+
+MOD_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(MOD_DIR)
 
 DEFAULT_CHAINS = [
     {
@@ -98,8 +101,15 @@ class Mod:
     Rust-powered core with PyO3 bindings for speed.
     """
 
+    name = 'polycopy'
+    api_port = 50130
+    app_port = 3130
+
     def __init__(self, config_path=None, **kwargs):
         self.dir = ROOT_DIR
+        self._dir = ROOT_DIR
+        self._mod_dir = MOD_DIR
+        self._app_dir = os.path.join(ROOT_DIR, 'app')
         self.config_path = config_path or os.path.join(ROOT_DIR, 'config.json')
         self.config = self._load_config()
         self.config.update({k: v for k, v in kwargs.items() if v is not None})
@@ -127,7 +137,7 @@ class Mod:
             except ImportError:
                 raise RuntimeError(
                     "polycopy_rs not built. Run:\n"
-                    f"  cd {os.path.join(SRC_DIR, 'polycopy-rs')}\n"
+                    f"  cd {os.path.join(MOD_DIR, 'polycopy-rs')}\n"
                     "  maturin develop --release"
                 )
 
@@ -151,6 +161,8 @@ class Mod:
             'build': self.build,
             'scrape': self.scrape,
             'top_traders': self.top_traders,
+            'serve': self.serve,
+            'kill': self.kill,
         }
         fn = commands.get(cmd, self.status)
         return fn(**kwargs)
@@ -267,7 +279,7 @@ class Mod:
     # ── build ───────────────────────────────────────────────────────
 
     def build(self, **kwargs):
-        rs_dir = os.path.join(SRC_DIR, 'polycopy-rs')
+        rs_dir = os.path.join(MOD_DIR, 'polycopy-rs')
         if not os.path.exists(rs_dir):
             return {'error': f'Rust crate not found at {rs_dir}'}
         ret = os.system(f'cd {rs_dir} && maturin develop --release')
@@ -383,6 +395,111 @@ class Mod:
             if c['name'] == name.lower():
                 return c['chain_id']
         return None
+
+    # ── serve / kill (PM2) ─────────────────────────────────────────
+
+    def serve(self, api_port=None, app_port=None, dev=True, api_only=False, app_only=False, **kwargs):
+        """Start the polycopy API server and/or Next.js app via PM2.
+
+        Args:
+            api_port:  API server port (default 50130)
+            app_port:  Next.js app port (default 3130)
+            dev:       run in dev mode (default True)
+            api_only:  only start the API server
+            app_only:  only start the Next.js app
+        """
+        api_port = api_port or self.api_port
+        app_port = app_port or self.app_port
+        results = {}
+
+        if not app_only:
+            results['api'] = self._serve_api(api_port, dev=dev)
+
+        if not api_only:
+            results['app'] = self._serve_app(app_port, dev=dev)
+
+        return results
+
+    def _serve_api(self, port=None, dev=True):
+        port = port or self.api_port
+        cwd = self._mod_dir
+
+        if dev:
+            cmd = f'uvicorn api.api:app --host 0.0.0.0 --port {port} --reload'
+        else:
+            cmd = f'uvicorn api.api:app --host 0.0.0.0 --port {port}'
+
+        script = os.path.join(cwd, '_serve.sh')
+        with open(script, 'w') as f:
+            f.write(f'#!/bin/bash\ncd {cwd}\n{cmd}\n')
+        os.chmod(script, 0o755)
+
+        try:
+            pm2 = c.mod('pm.pm2')()
+            name = 'polycopy-api'
+            if pm2.exists(name):
+                pm2.kill(name, remove_script=False)
+            pm2.start_script(name=name, script_path=script, cwd=cwd, interpreter='bash')
+            return {'status': 'running', 'port': port, 'manager': 'pm2', 'name': name}
+        except Exception:
+            proc = subprocess.Popen(['bash', script], cwd=cwd)
+            return {'status': 'running', 'port': port, 'manager': 'subprocess', 'pid': proc.pid}
+
+    def _serve_app(self, port=None, dev=True):
+        port = port or self.app_port
+        cwd = self._app_dir
+
+        if not os.path.exists(os.path.join(cwd, 'node_modules')):
+            subprocess.run(['npm', 'install'], cwd=cwd, capture_output=True)
+
+        cmd = f'npm run {"dev" if dev else "start"} -- -p {port}'
+
+        script = os.path.join(cwd, '_serve.sh')
+        with open(script, 'w') as f:
+            f.write(f'#!/bin/bash\ncd {cwd}\nexport NEXT_PUBLIC_API_URL=http://localhost:{self.api_port}\n{cmd}\n')
+        os.chmod(script, 0o755)
+
+        try:
+            pm2 = c.mod('pm.pm2')()
+            name = 'polycopy-app'
+            if pm2.exists(name):
+                pm2.kill(name, remove_script=False)
+            pm2.start_script(name=name, script_path=script, cwd=cwd, interpreter='bash')
+            return {'status': 'running', 'port': port, 'manager': 'pm2', 'name': name}
+        except Exception:
+            proc = subprocess.Popen(['bash', script], cwd=cwd)
+            return {'status': 'running', 'port': port, 'manager': 'subprocess', 'pid': proc.pid}
+
+    def kill(self, service=None, **kwargs):
+        """Stop running services.
+
+        Args:
+            service: 'api', 'app', or None (both)
+        """
+        results = {}
+        try:
+            pm2 = c.mod('pm.pm2')()
+            if service in (None, 'api') and pm2.exists('polycopy-api'):
+                pm2.kill('polycopy-api')
+                results['api'] = 'killed'
+            if service in (None, 'app') and pm2.exists('polycopy-app'):
+                pm2.kill('polycopy-app')
+                results['app'] = 'killed'
+        except Exception as e:
+            results['error'] = str(e)
+        return results
+
+    def service_status(self, **kwargs):
+        """Check if PM2 services are running."""
+        results = {'api_port': self.api_port, 'app_port': self.app_port}
+        try:
+            pm2 = c.mod('pm.pm2')()
+            results['api'] = 'running' if pm2.exists('polycopy-api') else 'stopped'
+            results['app'] = 'running' if pm2.exists('polycopy-app') else 'stopped'
+        except Exception:
+            results['api'] = 'unknown'
+            results['app'] = 'unknown'
+        return results
 
     def __repr__(self):
         running = False

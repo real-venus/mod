@@ -1,7 +1,15 @@
 """Polymarket API — FastAPI server backed by polymarket-rs Rust engine."""
 
 import os
+import sys
+import importlib.util
 from typing import Optional, List
+
+# Ensure the mod framework is importable (not the local mod.py)
+_fw_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
+_local_dir = os.path.abspath(os.path.dirname(__file__))
+sys.path = [p for p in sys.path if os.path.abspath(p) != _local_dir]
+sys.path.insert(0, _fw_root)
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,10 +24,15 @@ _mod = None
 def get_mod():
     global _mod
     if _mod is None:
-        from polymarket.mod import Polymarket
+        # Load local mod.py via importlib to avoid naming conflict with framework
+        spec = importlib.util.spec_from_file_location(
+            "polymarket_mod", os.path.join(_local_dir, "mod.py")
+        )
+        pm = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pm)
         pk = os.environ.get("POLYMARKET_PRIVATE_KEY")
         db = os.environ.get("POLYMARKET_DB_PATH")
-        _mod = Polymarket(private_key=pk, db_path=db)
+        _mod = pm.Polymarket(private_key=pk, db_path=db)
     return _mod
 
 

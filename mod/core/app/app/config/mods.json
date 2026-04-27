@@ -14,28 +14,28 @@
     }
   },
   {
-    "cid": "QmQMo4HPbUSpnznxwZPHNsk5smwcdGP7eGxHJTLD6tDx1r",
+    "cid": "QmfNeD91D4gBjAmZqeZHjXy1fAev2J5CADuGW7WGroWUVo",
     "content": "QmXm3sf2GieS4Ecwtq6Ksp6Y6mBjxhMFJAAXRUqZauBaDy",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "claude",
     "prev": null,
-    "schema": "QmSGmET39DC6fiankvKVLd4FuCp3GXtCJRhTMg7iNS2sEp",
-    "updated": 1777042132.7638981,
+    "schema": "QmdwKVb2c1XyEMAWL8iTkxxYUpZAPeVuKg7XYoZV6AJcUt",
+    "updated": 1777057308.58447,
     "url": {
       "api": "http://localhost:8820",
       "app": "http://localhost:8821"
     }
   },
   {
-    "cid": "QmW35JHBvrGSbuHkcRhLRtYXUB9KTQDhffZj2NWQyU2nuT",
+    "cid": "QmWH9VigtLCEkpEkV6gpyvYMHmsv6dhbrZqKztiSgjaVVu",
     "content": "QmSEAWVpiP71SBiSbGFJT9HSESW4NRgVhMcdXcyjS69nyc",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "bridge",
     "prev": null,
-    "schema": "QmXKM5LGc27KtKYuYZwbogGoeVNojhTWvBDq6uzrpjPzjy",
-    "updated": 1777042132.650483,
+    "schema": "QmVNVffEGvo9f6RLtwV8RU8NBQLRD91nuFAiSL9tB3ZYmk",
+    "updated": 1777057308.446729,
     "url": {
       "api": "http://localhost:8840",
       "app": "http://localhost:8841"

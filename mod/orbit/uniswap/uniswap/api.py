@@ -35,6 +35,12 @@ class SaveRequest(BaseModel):
     chain: str = 'ethereum'
 
 
+class WatchlistRequest(BaseModel):
+    chain: str = 'base'
+    address: str
+    label: str = ''
+
+
 @app.get("/health")
 def health():
     return get_mod().health()
@@ -235,6 +241,78 @@ def explore(
             yield f"data: {json.dumps(msg, default=str)}\n\n"
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
+
+
+# ── Copy Trading ──────────────────────────────────────────
+
+
+@app.get("/traders")
+def top_traders(
+    chain: str = Query('base'),
+    days: int = Query(7, ge=1, le=90),
+    min_trades: int = Query(5, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100),
+    source: str = Query('auto'),
+    update: bool = Query(False),
+):
+    try:
+        return get_mod().get_top_traders(chain, days, min_trades, limit, source=source, update=update)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/trader/{address}")
+def trader_performance(
+    address: str,
+    chain: str = Query('base'),
+    days: int = Query(30, ge=1, le=90),
+    update: bool = Query(False),
+):
+    try:
+        result = get_mod().get_trader_performance(chain, address, days, update=update)
+        if not result or result.get('metrics', {}).get('trade_count', 0) == 0:
+            raise HTTPException(404, "No trades found for this address")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/trader/{address}/swaps")
+def trader_swaps(
+    address: str,
+    chain: str = Query('base'),
+    days: int = Query(30, ge=1, le=90),
+    limit: int = Query(500, ge=1, le=5000),
+    source: str = Query('auto'),
+    update: bool = Query(False),
+):
+    try:
+        return get_mod().get_trader_swaps(chain, address, days, limit, source=source, update=update)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/watchlist")
+def watchlist(chain: str = Query('base')):
+    return get_mod().get_watchlist(chain)
+
+
+@app.post("/watchlist")
+def add_to_watchlist(req: WatchlistRequest):
+    try:
+        return get_mod().add_watchlist(req.chain, req.address, req.label)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.delete("/watchlist/{address}")
+def remove_from_watchlist(address: str, chain: str = Query('base')):
+    try:
+        return get_mod().remove_watchlist(chain, address)
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 
 @app.get("/test")

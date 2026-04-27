@@ -39,6 +39,11 @@ modc2.com {
     handle @claude_app {
         reverse_proxy claude:8821
     }
+    @dns_api path /api/dns /api/dns/*
+    handle @dns_api {
+        uri strip_prefix /api/dns
+        reverse_proxy {$PM2_HOST:localhost}:5380
+    }
     @ipfs_api path /api/ipfs /api/ipfs/*
     handle @ipfs_api {
         uri strip_prefix /api/ipfs

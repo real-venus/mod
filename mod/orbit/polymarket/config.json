@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "description": "Polymarket prediction market \u2014 trading, data, scraping, backtesting (Rust-powered)",
     "port": 50091,
+    "app_port": 3091,
     "urls": {
         "api": "http://localhost:50091",
         "app": "http://localhost:3091"
@@ -50,7 +51,7 @@
         "status",
         "test"
     ],
-    "schema": "QmTYW1hvxPsdFAr5ZmtSPjm6VS7Cxep1jtq716i9aYCdao",
+    "schema": "QmYHybQsyh9eczMVvo2WDPcJcWBxpe3jeKzbzy2jCTFPb6",
     "endpoints": {
         "/health": {
             "method": "GET",

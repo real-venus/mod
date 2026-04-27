@@ -148,6 +148,9 @@ class Mod:
         'chains': 86400,       # 1 day — static
         'health': 60,
         'token_info': 86400,   # 1 day — token metadata is static
+        'trader_swaps': 120,       # 2 min
+        'trader_performance': 300, # 5 min
+        'top_traders': 600,        # 10 min
     }
 
     CHAINS = {
@@ -302,8 +305,8 @@ class Mod:
         self.api_key = api_key or os.getenv('THEGRAPH_API_KEY', '')
         self.hypersync_key = os.getenv('ENVIO_API_KEY', '')
         self._dir = Path(__file__).parent.parent
-        self.data_dir = self._dir / 'data'
-        self.data_dir.mkdir(exist_ok=True)
+        self.data_dir = Path.home() / '.mod' / 'uniswap'
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir = self.data_dir / 'cache'
         self.cache_dir.mkdir(exist_ok=True)
         # round-robin iterators per chain
@@ -907,6 +910,78 @@ class Mod:
 
         return all_logs
 
+    def _get_swap_logs_by_sender(self, chain, sender_address, from_block=None, to_block='latest', batch_size=2000):
+        """Fetch Swap event logs filtered by sender (topics[1]) via RPC."""
+        if from_block is None:
+            from_block = self._estimate_block_at(chain, 30 * 86400)
+
+        current_block = self._get_block_number(chain) if to_block == 'latest' else to_block
+        padded = '0x' + sender_address.lower().replace('0x', '').zfill(64)
+        all_logs = []
+        start = from_block
+
+        log_filter = {'topics': [self.SWAP_TOPIC, padded]}
+
+        while start <= current_block:
+            end = min(start + batch_size, current_block)
+            log_filter['fromBlock'] = hex(start)
+            log_filter['toBlock'] = hex(end)
+            try:
+                logs = self._rpc_call(chain, 'eth_getLogs', [log_filter])
+                if logs:
+                    all_logs.extend(logs)
+            except Exception:
+                if batch_size > 100:
+                    batch_size = batch_size // 2
+                    continue
+            start = end + 1
+
+        return all_logs
+
+    def _hypersync_get_swaps_by_sender(self, chain, sender_address, days=30):
+        """Fetch swap logs for a specific sender via HyperSync topic filtering."""
+        from_block = self._estimate_block_at(chain, days * 86400)
+        padded = '0x' + sender_address.lower().replace('0x', '').zfill(64)
+        all_logs = []
+        cursor = from_block
+
+        url = self.CHAINS[chain].get('hypersync')
+        if not url:
+            raise Exception(f"No HyperSync endpoint for {chain}")
+
+        for _ in range(100):
+            query = {
+                'from_block': cursor,
+                'logs': [{
+                    'topics': [[self.SWAP_TOPIC], [padded]],
+                }],
+                'field_selection': {
+                    'log': ['address', 'data', 'topic0', 'topic1', 'topic2', 'topic3',
+                            'block_number', 'transaction_hash', 'log_index'],
+                },
+            }
+            headers = {'Content-Type': 'application/json'}
+            if self.hypersync_key:
+                headers['Authorization'] = f'Bearer {self.hypersync_key}'
+            try:
+                r = requests.post(f'{url}/query', json=query, headers=headers, timeout=30)
+                r.raise_for_status()
+                body = r.json()
+                logs = body.get('data', [])
+                if isinstance(logs, dict):
+                    logs = logs.get('logs', [])
+                if not logs:
+                    break
+                all_logs.extend(logs)
+                last_block = max(int(l.get('block_number', 0)) for l in logs)
+                cursor = last_block + 1
+                if len(logs) < 1000:
+                    break
+            except Exception:
+                break
+
+        return all_logs
+
     def _parse_swap_log(self, log):
         """Decode a raw Swap event log into readable dict."""
         data = log.get('data', '0x')
@@ -1260,6 +1335,298 @@ class Mod:
             'rpcs': len(v['rpcs']),
             'hypersync': bool(v.get('hypersync')),
         } for k, v in self.CHAINS.items()}
+
+    # ── Copy Trading ─────────────────────────────────────────
+
+    def get_trader_swaps(self, chain='base', address='', days=30, limit=500, source='auto', update=False):
+        """Get all Uniswap V3 swaps initiated by a specific address. Cached 2 min."""
+        address = address.lower().strip()
+        if not address.startswith('0x') or len(address) != 42:
+            raise ValueError(f"Invalid address: {address}")
+
+        ck = dict(chain=chain, address=address, days=days, limit=limit, source=source)
+        if not update:
+            cached = self._cache_get('trader_swaps', **ck)
+            if cached is not self._CACHE_MISS:
+                return cached
+
+        # Fetch raw logs filtered by sender
+        raw_logs = []
+        if source in ('auto', 'hypersync'):
+            try:
+                hs_logs = self._hypersync_get_swaps_by_sender(chain, address, days)
+                for l in hs_logs:
+                    raw_logs.append({
+                        'address': l.get('address', ''),
+                        'data': l.get('data', '0x'),
+                        'topics': [l.get(f'topic{i}', '') for i in range(4)],
+                        'blockNumber': hex(l.get('block_number', 0)) if isinstance(l.get('block_number'), int) else l.get('block_number', '0x0'),
+                        'transactionHash': l.get('transaction_hash', ''),
+                        'logIndex': hex(l.get('log_index', 0)) if isinstance(l.get('log_index'), int) else l.get('log_index', '0x0'),
+                    })
+            except Exception:
+                raw_logs = []
+
+        if not raw_logs and source in ('auto', 'rpc'):
+            from_block = self._estimate_block_at(chain, days * 86400)
+            raw_logs = self._get_swap_logs_by_sender(chain, address, from_block=from_block)
+
+        # Parse and enrich
+        parsed = [self._parse_swap_log(l) for l in raw_logs]
+        parsed = [s for s in parsed if s is not None]
+
+        # Enrich with token info + USD
+        pool_cache = {}  # pool_addr -> (token0_info, token1_info, t0_addr, t1_addr)
+        enriched = []
+        for swap in parsed:
+            pool_addr = swap['pool']
+            if pool_addr not in pool_cache:
+                try:
+                    t0_addr = self._decode_address(self._eth_call(chain, pool_addr, self.SEL['token0']))
+                    t1_addr = self._decode_address(self._eth_call(chain, pool_addr, self.SEL['token1']))
+                    t0 = self._get_token_info(chain, t0_addr)
+                    t1 = self._get_token_info(chain, t1_addr)
+                    pool_cache[pool_addr] = (t0, t1, t0_addr, t1_addr)
+                except Exception:
+                    pool_cache[pool_addr] = None
+            pc = pool_cache[pool_addr]
+            if pc is None:
+                continue
+
+            t0, t1, t0_addr, t1_addr = pc
+            d0 = int(t0.get('decimals', '18'))
+            d1 = int(t1.get('decimals', '18'))
+            usd = self._estimate_swap_usd(chain, t0_addr, t1_addr, swap['amount0'], swap['amount1'], d0, d1)
+
+            swap['token0'] = t0
+            swap['token1'] = t1
+            swap['pair'] = f"{t0.get('symbol', '?')}/{t1.get('symbol', '?')}"
+            swap['usd_value'] = round(usd, 2)
+            enriched.append(swap)
+
+        result = enriched[-limit:] if limit and len(enriched) > limit else enriched
+        self._cache_set('trader_swaps', result, **ck)
+        return result
+
+    def get_trader_performance(self, chain='base', address='', days=30, update=False):
+        """Compute 30-day trading performance metrics for an address. Cached 5 min."""
+        address = address.lower().strip()
+        ck = dict(chain=chain, address=address, days=days)
+        if not update:
+            cached = self._cache_get('trader_performance', **ck)
+            if cached is not self._CACHE_MISS:
+                return cached
+
+        swaps = self.get_trader_swaps(chain, address, days, limit=10000, update=update)
+        if not swaps:
+            return {'address': address, 'chain': chain, 'days': days,
+                    'metrics': {'total_volume': 0, 'trade_count': 0, 'active_days': 0,
+                                'avg_trade_size': 0, 'tokens_traded': 0},
+                    'daily': [], 'token_breakdown': [], 'swaps': []}
+
+        # Block-to-date estimation
+        current_block = self._get_block_number(chain)
+        current_ts = time.time()
+        bt = self.CHAINS[chain]['block_time']
+
+        total_volume = 0.0
+        daily_buckets = {}
+        token_flows = {}
+        tokens_set = set()
+
+        for swap in swaps:
+            usd = swap.get('usd_value', 0)
+            total_volume += usd
+
+            # Estimate timestamp from block
+            blocks_ago = current_block - swap['block']
+            est_ts = current_ts - (blocks_ago * bt)
+            day_key = datetime.utcfromtimestamp(est_ts).strftime('%Y-%m-%d')
+
+            if day_key not in daily_buckets:
+                daily_buckets[day_key] = {'date': day_key, 'volume': 0.0, 'trades': 0}
+            daily_buckets[day_key]['volume'] += usd
+            daily_buckets[day_key]['trades'] += 1
+
+            # Track net token flows
+            t0 = swap.get('token0', {})
+            t1 = swap.get('token1', {})
+            t0_addr = t0.get('id', '')
+            t1_addr = t1.get('id', '')
+            d0 = int(t0.get('decimals', '18'))
+            d1 = int(t1.get('decimals', '18'))
+            tokens_set.add(t0.get('symbol', '?'))
+            tokens_set.add(t1.get('symbol', '?'))
+
+            if t0_addr and t0_addr not in token_flows:
+                token_flows[t0_addr] = {'symbol': t0.get('symbol', '?'), 'net_raw': 0, 'decimals': d0}
+            if t1_addr and t1_addr not in token_flows:
+                token_flows[t1_addr] = {'symbol': t1.get('symbol', '?'), 'net_raw': 0, 'decimals': d1}
+            if t0_addr:
+                token_flows[t0_addr]['net_raw'] += swap['amount0']
+            if t1_addr:
+                token_flows[t1_addr]['net_raw'] += swap['amount1']
+
+        # Build daily series (sorted, fill gaps)
+        daily = sorted(daily_buckets.values(), key=lambda d: d['date'])
+        for d in daily:
+            d['volume'] = round(d['volume'], 2)
+
+        # Build token breakdown with current USD values
+        eth_price = self._get_eth_price(chain)
+        weth = self.WETH.get(chain, '').lower()
+        token_breakdown = []
+        for addr, flow in token_flows.items():
+            net_human = flow['net_raw'] / (10 ** flow['decimals'])
+            usd_value = 0.0
+            if addr.lower() in self.STABLECOINS:
+                usd_value = abs(net_human)
+            elif addr.lower() == weth and eth_price > 0:
+                usd_value = abs(net_human) * eth_price
+            token_breakdown.append({
+                'address': addr,
+                'symbol': flow['symbol'],
+                'net_amount': round(net_human, 6),
+                'usd_value': round(usd_value, 2),
+            })
+        token_breakdown.sort(key=lambda t: t['usd_value'], reverse=True)
+
+        trade_count = len(swaps)
+        result = {
+            'address': address,
+            'chain': chain,
+            'days': days,
+            'metrics': {
+                'total_volume': round(total_volume, 2),
+                'trade_count': trade_count,
+                'active_days': len(daily_buckets),
+                'avg_trade_size': round(total_volume / trade_count, 2) if trade_count else 0,
+                'tokens_traded': len(tokens_set),
+            },
+            'daily': daily,
+            'token_breakdown': token_breakdown,
+            'swaps': swaps[-50:],  # last 50 for display
+        }
+        self._cache_set('trader_performance', result, **ck)
+        return result
+
+    def get_top_traders(self, chain='base', days=7, min_trades=5, limit=20, source='auto', update=False):
+        """Discover top traders by volume from recent swap data. Cached 10 min."""
+        ck = dict(chain=chain, days=days, min_trades=min_trades, limit=limit, source=source)
+        if not update:
+            cached = self._cache_get('top_traders', **ck)
+            if cached is not self._CACHE_MISS:
+                return cached
+
+        # Phase 1: Fetch all swaps
+        all_swaps = self.get_swaps(chain, days, limit=10000, source=source, update=update)
+        if not all_swaps:
+            return []
+
+        # Phase 2: Group by sender, count trades (cheap — no RPC)
+        traders = {}
+        for swap in all_swaps:
+            sender = swap.get('sender', '')
+            if not sender or sender == '0x' + '0' * 40:
+                continue
+            if sender not in traders:
+                traders[sender] = {'address': sender, 'trade_count': 0, 'pools': set(), 'swaps': []}
+            traders[sender]['trade_count'] += 1
+            traders[sender]['pools'].add(swap.get('pool', ''))
+            traders[sender]['swaps'].append(swap)
+
+        # Phase 3: Filter by min_trades, take top candidates by count
+        qualified = {a: t for a, t in traders.items() if t['trade_count'] >= min_trades}
+        by_count = sorted(qualified.values(), key=lambda t: t['trade_count'], reverse=True)[:limit * 3]
+
+        # Phase 4: Enrich with USD volume (resolve pools)
+        pool_tokens = {}  # pool_addr -> (t0_addr, t1_addr, d0, d1)
+        for t in by_count:
+            t['volume'] = 0.0
+            for swap in t['swaps']:
+                pool_addr = swap.get('pool', '')
+                if pool_addr not in pool_tokens:
+                    try:
+                        t0_addr = self._decode_address(self._eth_call(chain, pool_addr, self.SEL['token0']))
+                        t1_addr = self._decode_address(self._eth_call(chain, pool_addr, self.SEL['token1']))
+                        t0 = self._get_token_info(chain, t0_addr)
+                        t1 = self._get_token_info(chain, t1_addr)
+                        d0 = int(t0.get('decimals', '18'))
+                        d1 = int(t1.get('decimals', '18'))
+                        pool_tokens[pool_addr] = (t0_addr, t1_addr, d0, d1)
+                    except Exception:
+                        pool_tokens[pool_addr] = None
+                pt = pool_tokens[pool_addr]
+                if pt is None:
+                    continue
+                t0_addr, t1_addr, d0, d1 = pt
+                usd = self._estimate_swap_usd(chain, t0_addr, t1_addr, swap.get('amount0', 0), swap.get('amount1', 0), d0, d1)
+                t['volume'] += usd
+
+        # Phase 5: Sort by volume, serialize
+        by_count.sort(key=lambda t: t['volume'], reverse=True)
+        result = []
+        for t in by_count[:limit]:
+            result.append({
+                'address': t['address'],
+                'trade_count': t['trade_count'],
+                'volume': round(t['volume'], 2),
+                'pools_used': len(t['pools']),
+                'avg_trade_size': round(t['volume'] / t['trade_count'], 2) if t['trade_count'] else 0,
+            })
+
+        self._cache_set('top_traders', result, **ck)
+        return result
+
+    # ── Watchlist ─────────────────────────────────────────────
+
+    def add_watchlist(self, chain='base', address='', label=''):
+        """Add a trader address to the watchlist."""
+        address = address.lower().strip()
+        path = self.data_dir / f'watchlist_{chain}.json'
+        watchlist = []
+        if path.exists():
+            try:
+                watchlist = json.loads(path.read_text())
+            except (json.JSONDecodeError, Exception):
+                watchlist = []
+        for entry in watchlist:
+            if entry['address'] == address:
+                entry['label'] = label or entry.get('label', '')
+                path.write_text(json.dumps(watchlist, indent=2))
+                return {'status': 'updated', 'address': address, 'label': entry['label']}
+        watchlist.append({
+            'address': address,
+            'label': label,
+            'added_at': datetime.now().isoformat(),
+            'chain': chain,
+        })
+        path.write_text(json.dumps(watchlist, indent=2))
+        return {'status': 'added', 'address': address, 'label': label}
+
+    def remove_watchlist(self, chain='base', address=''):
+        """Remove a trader address from the watchlist."""
+        address = address.lower().strip()
+        path = self.data_dir / f'watchlist_{chain}.json'
+        if not path.exists():
+            return {'status': 'not_found'}
+        watchlist = json.loads(path.read_text())
+        original_len = len(watchlist)
+        watchlist = [e for e in watchlist if e['address'] != address]
+        if len(watchlist) == original_len:
+            return {'status': 'not_found'}
+        path.write_text(json.dumps(watchlist, indent=2))
+        return {'status': 'removed', 'address': address}
+
+    def get_watchlist(self, chain='base'):
+        """Get the trader watchlist for a chain."""
+        path = self.data_dir / f'watchlist_{chain}.json'
+        if not path.exists():
+            return []
+        try:
+            return json.loads(path.read_text())
+        except (json.JSONDecodeError, Exception):
+            return []
 
     # ── LocalFS Storage ──────────────────────────────────────
 

@@ -32,7 +32,7 @@ class Mod:
         'get_version', 'restore_version', 'health', 'modules',
         'folders', 'suggest_folders',
         'set_owner', 'get_owner', 'is_owner', 'serve',
-        'kill', 'kill_port', 'status', 'scan', 'fix',
+        'kill', 'kill_port', 'status', 'logs', 'scan', 'fix',
     ]
 
     def __init__(self, api_url: str = None, app_url: str = None,
@@ -896,12 +896,41 @@ class Mod:
         return results
 
     def logs(self, service='both', lines=100):
-        """View logs for API and/or app servers.
+        """View logs for API/app servers or background tasks.
+
+        Usage: c claude/logs              — show server logs
+               c claude/logs fix_1234     — show background task log
+               c claude/logs api          — show API server log only
 
         Args:
-            service: 'api', 'app', or 'both' (default)
+            service: 'api', 'app', 'both', or a task_id (e.g. 'fix_1234567890')
             lines: Number of lines to show (default 100)
         """
+        # check if service is a background task ID
+        bg_log_dir = os.path.join(self._module_dir(), '.logs')
+        task_log = os.path.join(bg_log_dir, f"{service}.log")
+        if os.path.exists(task_log):
+            pid_file = os.path.join(bg_log_dir, f"{service}.pid")
+            status = "unknown"
+            pid = None
+            if os.path.exists(pid_file):
+                with open(pid_file) as pf:
+                    pid = int(pf.read().strip())
+                status = self.bg_status(pid)
+
+            tail = subprocess.run(
+                ['tail', '-n', str(lines), task_log],
+                capture_output=True, text=True,
+            )
+            return {
+                'task_id': service,
+                'status': status,
+                'pid': pid,
+                'log_file': task_log,
+                'output': tail.stdout,
+            }
+
+        # server logs
         log_dir = Path('/tmp/claude')
         results = {}
         for svc in (['api', 'app'] if service == 'both' else [service]):
@@ -1327,14 +1356,18 @@ Apply the fix now. Edit only the affected file(s).
 """
 
     def fix(self, mod=None, path=None, key=None, model='sonnet',
-            severity=None, index=None, **kwargs):
+            severity=None, index=None, bg=True, **kwargs):
         """
         Fix security findings from a previous scan. Runs scan first if needed.
+        Runs in background by default — returns task_id and log path.
 
-        Usage: m claude/fix bridge
-               m claude/fix path=/some/repo
-               m claude/fix bridge severity=high
-               m claude/fix bridge index=0
+        Usage: c claude/fix bridge
+               c claude/fix path=/some/repo
+               c claude/fix bridge severity=high
+               c claude/fix bridge index=0
+               c claude/fix bridge bg=false   # run in foreground
+
+        View logs: c claude/logs <task_id>
 
         Args:
             mod: module name to fix (e.g. 'bridge', 'agent')
@@ -1343,7 +1376,13 @@ Apply the fix now. Edit only the affected file(s).
             model: claude model (sonnet, opus, haiku)
             severity: only fix findings of this severity (critical, high, medium, low)
             index: fix a single finding by index (0-based)
+            bg: run in background (default True)
         """
+        # background mode — fork and return immediately
+        if bg:
+            return self._fix_bg(mod=mod, path=path, key=key, model=model,
+                                severity=severity, index=index, **kwargs)
+
         if mod:
             path = m.dp(mod)
         path = path or os.path.expanduser('~/mod')
@@ -1423,6 +1462,53 @@ Apply the fix now. Edit only the affected file(s).
                 'failed': failed,
             },
         }
+
+    def _fix_bg(self, mod=None, path=None, key=None, model='sonnet',
+                severity=None, index=None, **kwargs):
+        """Fork fix to a background process. Returns task_id + log path."""
+        log_dir = os.path.join(self._module_dir(), '.logs')
+        os.makedirs(log_dir, exist_ok=True)
+
+        ts = int(time.time())
+        task_id = f"fix_{ts}"
+        log_file = os.path.join(log_dir, f"{task_id}.log")
+
+        # build CLI args
+        cmd_parts = ['c', 'claude/fix']
+        if mod:
+            cmd_parts.append(str(mod))
+        cmd_parts.append('bg=false')
+        if path:
+            cmd_parts.append(f'path={path}')
+        if key:
+            cmd_parts.append(f'key={key}')
+        if model and model != 'sonnet':
+            cmd_parts.append(f'model={model}')
+        if severity:
+            cmd_parts.append(f'severity={severity}')
+        if index is not None:
+            cmd_parts.append(f'index={index}')
+
+        with open(log_file, 'w') as lf:
+            lf.write(f'[fix] task {task_id} started at {time.ctime()}\n')
+            lf.write(f'[fix] cmd: {" ".join(cmd_parts)}\n\n')
+            lf.flush()
+            proc = subprocess.Popen(
+                cmd_parts, stdout=lf, stderr=lf,
+                env=os.environ.copy(), start_new_session=True
+            )
+
+        # write pid file for status tracking
+        pid_file = os.path.join(log_dir, f"{task_id}.pid")
+        with open(pid_file, 'w') as pf:
+            pf.write(str(proc.pid))
+
+        print(f'[fix] background task started: {task_id}')
+        print(f'[fix] pid: {proc.pid}')
+        print(f'[fix] view logs:  c claude/logs {task_id}')
+        print(f'[fix] tail live:  tail -f {log_file}')
+
+        return {"task_id": task_id, "pid": proc.pid, "log_file": log_file}
 
     def _fix_load_findings(self, path, wallet):
         """Load findings from existing scan report, or return None."""
