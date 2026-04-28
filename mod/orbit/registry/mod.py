@@ -72,7 +72,7 @@ class Mod:
             return self._backends[name]
 
         if name == 'offchain':
-            from .offchain import OffchainRegistry
+            from .registry.offchain import OffchainRegistry
             cfg = self._config.get('offchain', {})
             backend = OffchainRegistry(storage_path=cfg.get('storage_path'))
 

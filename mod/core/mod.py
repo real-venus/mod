@@ -1231,6 +1231,15 @@ class Mod:
         subprocess.run(['git', 'push'], cwd=path, check=True)
         return {'msg': f'Pushed to {path} with comment: {comment}'}
 
+    def pull(self, mod=None):
+        path = self.dp(mod, relative=True)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f'Path {path} does not exist')
+        subprocess.run(['git', 'stash'], cwd=path, check=True)
+        subprocess.run(['git', 'pull'], cwd=path, check=True)
+        subprocess.run(['git', 'stash', 'pop'], cwd=path)
+        return {'msg': f'Pulled {path}'}
+
     def tool(self, tool_name: str = 'cmd', *args, **kwargs) -> Any:
         return self.mod(tool_name)(*args, **kwargs).forward
 
