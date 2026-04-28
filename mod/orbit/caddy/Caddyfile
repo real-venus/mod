@@ -74,11 +74,11 @@ modc2.com {
     @polymarket_api path /api/polymarket /api/polymarket/*
     handle @polymarket_api {
         uri strip_prefix /api/polymarket
-        reverse_proxy base:50091
+        reverse_proxy {$PM2_HOST:localhost}:50091
     }
     @polymarket_app path /polymarket /polymarket/*
     handle @polymarket_app {
-        reverse_proxy base:3091
+        reverse_proxy {$PM2_HOST:localhost}:3091
     }
     @staketime_api path /api/staketime /api/staketime/*
     handle @staketime_api {
