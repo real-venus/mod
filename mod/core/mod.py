@@ -1227,7 +1227,9 @@ class Mod:
         if safety:
             self.confirm(f'Are you sure you want to push to {path} with comment: {comment}?')
         subprocess.run(['git', 'add', '.'], cwd=path, check=True)
-        subprocess.run(['git', 'commit', '-m', comment], cwd=path, check=True)
+        result = subprocess.run(['git', 'commit', '-m', comment], cwd=path)
+        if result.returncode != 0:
+            return {'msg': f'Nothing to commit in {path}'}
         subprocess.run(['git', 'push'], cwd=path, check=True)
         return {'msg': f'Pushed to {path} with comment: {comment}'}
 
