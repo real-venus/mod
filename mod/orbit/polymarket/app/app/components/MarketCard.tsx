@@ -22,57 +22,68 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
   return (
     <div
       onClick={() => onSelect?.(market)}
-      className={`pixel-panel p-3 cursor-pointer transition-all hover:border-pixel-green/60 ${
-        selected ? "border-pixel-cyan !shadow-[0_0_0_1px_#00ffff44,inset_0_0_30px_#00ffff08]" : ""
+      className={`pixel-panel p-4 cursor-pointer transition-all group ${
+        selected
+          ? "border-pixel-white !shadow-[inset_3px_3px_0_#666,inset_-3px_-3px_0_#000,0_0_0_1px_#fff]"
+          : "hover:border-pixel-gray-light"
       }`}
     >
-      {/* Category + End Date */}
-      <div className="flex items-center justify-between mb-2">
-        {market.category && (
-          <span className="pixel-badge border-pixel-blue text-pixel-blue">
-            {market.category.toUpperCase().slice(0, 12)}
-          </span>
-        )}
-        <span className="text-[6px] text-pixel-gray">{endDate}</span>
-      </div>
-
-      {/* Question */}
-      <div className="text-pixel-white text-[7px] leading-relaxed mb-3 line-clamp-2 min-h-[2rem]">
-        {market.question}
-      </div>
-
-      {/* YES / NO pixel bars - Mario power-up style */}
-      <div className="space-y-2 mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[6px] text-pixel-white w-5">YES</span>
-          <div className="pixel-bar flex-1">
-            <div
-              className="pixel-bar-fill bg-pixel-white/90"
-              style={{ width: `${yesPct}%` }}
-            />
+      {/* Row layout: question | bars | stats */}
+      <div className="flex items-center gap-4 md:gap-6">
+        {/* Left: Question + Meta */}
+        <div className="flex-1 min-w-0">
+          <div className="text-pixel-white text-[12px] leading-relaxed mb-2 line-clamp-2">
+            {market.question}
           </div>
-          <span className="text-[7px] text-pixel-white glow-green w-10 text-right font-mono">
-            {yesPct}⭐
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[6px] text-pixel-gray w-5">NO</span>
-          <div className="pixel-bar flex-1">
-            <div
-              className="pixel-bar-fill bg-pixel-gray/60"
-              style={{ width: `${noPct}%` }}
-            />
+          <div className="flex items-center gap-2">
+            {market.category && (
+              <span className="pixel-badge border-pixel-border text-pixel-gray-light">
+                {market.category.toUpperCase().slice(0, 12)}
+              </span>
+            )}
+            <span className="text-[9px] text-pixel-gray">{endDate}</span>
           </div>
-          <span className="text-[7px] text-pixel-gray glow-red w-10 text-right font-mono">
-            {noPct}⭐
-          </span>
         </div>
-      </div>
 
-      {/* Footer stats */}
-      <div className="flex items-center justify-between text-[6px] text-pixel-gray-light pt-2 border-t border-pixel-border/40">
-        <span className="sprite-coin">{formatVolume(market.volume)}</span>
-        <span>LIQ {formatVolume(market.liquidity)}</span>
+        {/* Center: YES / NO bars */}
+        <div className="hidden sm:block w-48 md:w-64 shrink-0 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-pixel-gray-light w-7">YES</span>
+            <div className="pixel-bar flex-1">
+              <div
+                className="pixel-bar-fill bg-pixel-white/80"
+                style={{ width: `${yesPct}%` }}
+              />
+            </div>
+            <span className="text-[11px] text-pixel-white w-10 text-right font-mono">
+              {yesPct}%
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-pixel-gray w-7">NO</span>
+            <div className="pixel-bar flex-1">
+              <div
+                className="pixel-bar-fill bg-pixel-gray/50"
+                style={{ width: `${noPct}%` }}
+              />
+            </div>
+            <span className="text-[11px] text-pixel-gray w-10 text-right font-mono">
+              {noPct}%
+            </span>
+          </div>
+        </div>
+
+        {/* Mobile: compact percentage */}
+        <div className="sm:hidden shrink-0 text-center">
+          <div className="text-sm text-pixel-white font-mono">{yesPct}%</div>
+          <div className="text-[9px] text-pixel-gray">YES</div>
+        </div>
+
+        {/* Right: Stats */}
+        <div className="shrink-0 text-right space-y-1 min-w-[80px]">
+          <div className="text-[11px] text-pixel-white sprite-coin">{formatVolume(market.volume)}</div>
+          <div className="text-[9px] text-pixel-gray">LIQ {formatVolume(market.liquidity)}</div>
+        </div>
       </div>
     </div>
   );

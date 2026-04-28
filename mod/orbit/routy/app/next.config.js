@@ -1,5 +1,5 @@
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/routy'
-const apiUrl = process.env.ROUTY_API_URL || 'http://localhost:3001'
+const apiUrl = process.env.ROUTY_API_URL || 'http://localhost:3000'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

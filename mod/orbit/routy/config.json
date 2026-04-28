@@ -1,9 +1,9 @@
 {
     "name": "routy",
-    "port": 3001,
+    "port": 3000,
     "app_port": 3002,
     "description": "Local gateway router \u2014 proxies all mod apps and APIs",
-    "schema": "QmbbmKVohqGXHPtXWFcZk7ZsViRcAdQQHt6vXJyDg41K4f",
+    "schema": "QmZ39oiSEyao8HBy41qXWiiS75aPPHGpxEs23k4wUJ82og",
     "storage_types": [
         "ipfs",
         "hippius",

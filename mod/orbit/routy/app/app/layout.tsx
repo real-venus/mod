@@ -1,8 +1,9 @@
+import type { Metadata } from 'next'
 import './globals.css'
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'routy',
-  description: 'Local gateway router',
+  description: 'Local gateway router — unified proxy for all mod apps and APIs',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -15,7 +15,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             host: "0.0.0.0".to_string(),
-            port: 3001,
+            port: 3000,
             max_websites: 100,
             cpu_limit_percent: 90.0,
             memory_limit_mb: 2048,

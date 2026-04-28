@@ -11,11 +11,18 @@ import { PolymarketTrade, PolymarketPosition } from "../lib/types";
 import TraderProfile from "./TraderProfile";
 
 type TraderSort = "volume" | "pnl" | "winRate" | "positions";
+type SortDir = "asc" | "desc";
+
+function SortArrow({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) return <span className="text-pixel-gray/40 ml-1">-</span>;
+  return <span className="ml-1">{dir === "desc" ? "\u25BC" : "\u25B2"}</span>;
+}
 
 export default function CopyTrading() {
   const [traders, setTraders] = useState<TopTrader[]>([]);
   const [loading, setLoading] = useState(true);
   const [traderSort, setTraderSort] = useState<TraderSort>("volume");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [searchQuery, setSearchQuery] = useState("");
   const [category, setCategory] = useState<CategorySlug>("");
 
@@ -69,6 +76,15 @@ export default function CopyTrading() {
     });
   };
 
+  const handleSort = (col: TraderSort) => {
+    if (traderSort === col) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setTraderSort(col);
+      setSortDir("desc");
+    }
+  };
+
   const selectTrader = async (trader: TopTrader) => {
     setSelectedTrader(trader);
     setProfileLoading(true);
@@ -77,7 +93,6 @@ export default function CopyTrading() {
         fetchWalletTrades(trader.address, 200),
         fetchPositions(trader.address),
       ]);
-      // Filter to last 30 days
       const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
       setTraderTrades(trades.filter((t) => t.timestamp >= thirtyDaysAgo));
       setTraderPositions(positions);
@@ -95,13 +110,14 @@ export default function CopyTrading() {
       return true;
     })
     .sort((a, b) => {
+      let cmp = 0;
       switch (traderSort) {
-        case "volume": return b.volume - a.volume;
-        case "pnl": return b.pnl - a.pnl;
-        case "winRate": return b.winRate - a.winRate;
-        case "positions": return b.positions - a.positions;
-        default: return 0;
+        case "volume": cmp = a.volume - b.volume; break;
+        case "pnl": cmp = a.pnl - b.pnl; break;
+        case "winRate": cmp = a.winRate - b.winRate; break;
+        case "positions": cmp = a.positions - b.positions; break;
       }
+      return sortDir === "desc" ? -cmp : cmp;
     });
 
   if (selectedTrader) {
@@ -118,31 +134,41 @@ export default function CopyTrading() {
     );
   }
 
+  const columns: { key: TraderSort; label: string; align: "left" | "right" }[] = [
+    { key: "volume", label: "VOLUME", align: "right" },
+    { key: "pnl", label: "P&L", align: "right" },
+    { key: "winRate", label: "WIN%", align: "right" },
+    { key: "positions", label: "POS", align: "right" },
+  ];
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="pixel-panel p-3">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 border-2 border-pixel-magenta flex items-center justify-center">
-              <span className="text-[8px] text-pixel-magenta">CP</span>
+      <div className="pixel-panel p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 border-2 border-pixel-white flex items-center justify-center">
+              <span className="text-[13px] text-pixel-white">T</span>
             </div>
-            <span className="text-[8px] text-pixel-magenta glow-magenta tracking-wider">
-              COPY TRADING
-            </span>
+            <div>
+              <span className="text-sm text-pixel-white glow-green tracking-wider">
+                TOP TRADERS
+              </span>
+              <div className="text-[10px] text-pixel-gray mt-1">LEADERBOARD - 30 DAY</div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="pixel-badge border-pixel-amber text-pixel-amber">
-              30D HISTORY
+          <div className="flex items-center gap-3">
+            <span className="pixel-badge border-pixel-white text-pixel-white">
+              30D
             </span>
-            <span className="text-[6px] text-pixel-gray">
+            <span className="text-[11px] text-pixel-gray">
               {watchlist.size} WATCHING
             </span>
           </div>
         </div>
 
-        {/* Search + Sort */}
-        <div className="flex flex-col md:flex-row gap-2">
+        {/* Search */}
+        <div className="flex flex-col md:flex-row gap-3">
           <input
             type="text"
             value={searchQuery}
@@ -150,40 +176,23 @@ export default function CopyTrading() {
             placeholder="SEARCH BY ADDRESS..."
             className="pixel-input flex-1"
           />
-          <div className="flex items-center gap-1">
-            <span className="text-[6px] text-pixel-gray mr-1">SORT:</span>
-            {(["volume", "pnl", "winRate", "positions"] as TraderSort[]).map((s) => (
-              <button
-                key={s}
-                onClick={() => setTraderSort(s)}
-                className={`pixel-btn text-[6px] ${
-                  traderSort === s
-                    ? "border-pixel-magenta text-pixel-magenta bg-pixel-magenta/10"
-                    : "border-pixel-border text-pixel-gray"
-                }`}
-              >
-                {s === "winRate" ? "WIN%" : s.toUpperCase()}
-              </button>
-            ))}
-          </div>
           <button
             onClick={load}
-            className="pixel-btn border-pixel-green text-pixel-green bg-pixel-green/10"
+            className="pixel-btn border-pixel-white text-pixel-white bg-pixel-white/10"
           >
             RELOAD
           </button>
         </div>
 
         {/* Category filter */}
-        <div className="flex flex-wrap items-center gap-1 mt-2">
-          <span className="text-[6px] text-pixel-gray mr-1">SPECIALTY:</span>
+        <div className="flex flex-wrap items-center gap-2 mt-3">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.slug}
               onClick={() => setCategory(cat.slug)}
-              className={`pixel-btn text-[6px] ${
+              className={`pixel-btn text-[9px] px-2.5 py-1 ${
                 category === cat.slug
-                  ? "border-pixel-amber text-pixel-amber bg-pixel-amber/10"
+                  ? "border-pixel-white text-pixel-white bg-pixel-white/10"
                   : "border-pixel-border text-pixel-gray hover:text-pixel-white"
               }`}
             >
@@ -195,8 +204,8 @@ export default function CopyTrading() {
 
       {/* Watchlist */}
       {watchlist.size > 0 && (
-        <div className="pixel-panel-amber p-3">
-          <div className="text-[7px] text-pixel-amber glow-amber mb-2 tracking-wider">
+        <div className="pixel-panel p-5">
+          <div className="text-[12px] text-pixel-white glow-green mb-3 tracking-wider">
             WATCHLIST
           </div>
           <div className="flex flex-wrap gap-2">
@@ -206,12 +215,12 @@ export default function CopyTrading() {
                 <button
                   key={addr}
                   onClick={() => trader && selectTrader(trader)}
-                  className="pixel-btn border-pixel-amber text-pixel-amber text-[6px] flex items-center gap-1"
+                  className="pixel-btn border-pixel-white text-pixel-white text-[10px] flex items-center gap-2"
                 >
-                  <div className="w-1.5 h-1.5 bg-pixel-amber" />
+                  <div className="w-2 h-2 bg-pixel-white" />
                   {shortAddress(addr)}
                   {trader && (
-                    <span className={trader.pnl >= 0 ? "text-pixel-green" : "text-pixel-red"}>
+                    <span className={trader.pnl >= 0 ? "text-pixel-white" : "text-pixel-gray"}>
                       {formatPnl(trader.pnl)}
                     </span>
                   )}
@@ -223,15 +232,15 @@ export default function CopyTrading() {
       )}
 
       {loading ? (
-        <div className="pixel-panel p-8 text-center">
-          <div className="text-[8px] text-pixel-magenta animate-pulse glow-magenta">
+        <div className="pixel-panel p-12 text-center">
+          <div className="text-sm text-pixel-white animate-pulse glow-green">
             DISCOVERING TOP TRADERS...
           </div>
-          <div className="mt-3 flex justify-center gap-1">
+          <div className="mt-4 flex justify-center gap-2">
             {[...Array(6)].map((_, i) => (
               <div
                 key={i}
-                className="w-3 h-3 border border-pixel-magenta/40"
+                className="w-3 h-3 border border-pixel-white/40"
                 style={{
                   animation: `blink 1.5s step-end infinite`,
                   animationDelay: `${i * 200}ms`,
@@ -243,22 +252,37 @@ export default function CopyTrading() {
       ) : sortedTraders.length > 0 ? (
         <>
           <div className="flex items-center justify-between px-1">
-            <span className="text-[7px] text-pixel-gray-light tracking-widest">
+            <span className="text-[12px] text-pixel-gray-light tracking-widest">
               TOP TRADERS
             </span>
-            <span className="text-[6px] text-pixel-gray">{sortedTraders.length} FOUND</span>
+            <span className="text-[11px] text-pixel-gray">{sortedTraders.length} FOUND</span>
           </div>
 
-          <div className="pixel-panel overflow-hidden">
-            <table className="pixel-table">
+          <div className="pixel-panel overflow-x-auto">
+            <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "700px" }}>
+              <colgroup>
+                <col style={{ width: "40px" }} />
+                <col style={{ width: "150px" }} />
+                <col style={{ width: "110px" }} />
+                <col style={{ width: "110px" }} />
+                <col style={{ width: "80px" }} />
+                <col style={{ width: "70px" }} />
+                <col style={{ width: "100px" }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <th className="w-8">#</th>
+                  <th>#</th>
                   <th>ADDRESS</th>
-                  <th className="text-right">VOLUME</th>
-                  <th className="text-right">P&L</th>
-                  <th className="text-right">WIN%</th>
-                  <th className="text-right">POS</th>
+                  {columns.map((col) => (
+                    <th
+                      key={col.key}
+                      className={`sortable ${traderSort === col.key ? "sorted" : ""} text-${col.align}`}
+                      onClick={() => handleSort(col.key)}
+                    >
+                      {col.label}
+                      <SortArrow active={traderSort === col.key} dir={sortDir} />
+                    </th>
+                  ))}
                   <th className="text-center">ACTION</th>
                 </tr>
               </thead>
@@ -275,8 +299,8 @@ export default function CopyTrading() {
                       <td className="text-pixel-gray font-mono">{i + 1}</td>
                       <td>
                         <div className="flex items-center gap-2">
-                          {isWatching && <div className="w-1.5 h-1.5 bg-pixel-amber" />}
-                          <span className="text-pixel-green glow-green font-mono">
+                          {isWatching && <div className="w-2 h-2 bg-pixel-white shrink-0" />}
+                          <span className="text-pixel-white glow-green font-mono">
                             {shortAddress(trader.address)}
                           </span>
                         </div>
@@ -284,10 +308,10 @@ export default function CopyTrading() {
                       <td className="text-right text-pixel-white font-mono">
                         {formatVolume(trader.volume)}
                       </td>
-                      <td className={`text-right font-mono ${isProfit ? "text-pixel-green" : "text-pixel-red"}`}>
+                      <td className={`text-right font-mono ${isProfit ? "text-pixel-white" : "text-pixel-gray"}`}>
                         {formatPnl(trader.pnl)}
                       </td>
-                      <td className={`text-right font-mono ${trader.winRate >= 50 ? "text-pixel-green" : "text-pixel-red"}`}>
+                      <td className={`text-right font-mono ${trader.winRate >= 50 ? "text-pixel-white" : "text-pixel-gray"}`}>
                         {trader.winRate.toFixed(1)}%
                       </td>
                       <td className="text-right text-pixel-gray-light font-mono">
@@ -299,10 +323,10 @@ export default function CopyTrading() {
                             e.stopPropagation();
                             toggleWatch(trader.address);
                           }}
-                          className={`pixel-btn text-[5px] ${
+                          className={`pixel-btn text-[10px] px-2.5 py-1 ${
                             isWatching
-                              ? "border-pixel-amber text-pixel-amber bg-pixel-amber/10"
-                              : "border-pixel-border text-pixel-gray hover:border-pixel-green hover:text-pixel-green"
+                              ? "border-pixel-white text-pixel-white bg-pixel-white/10"
+                              : "border-pixel-border text-pixel-gray hover:border-pixel-white hover:text-pixel-white"
                           }`}
                         >
                           {isWatching ? "WATCHING" : "WATCH"}
@@ -316,7 +340,7 @@ export default function CopyTrading() {
           </div>
         </>
       ) : (
-        <div className="pixel-panel p-8 text-center text-[7px] text-pixel-gray">
+        <div className="pixel-panel p-12 text-center text-[12px] text-pixel-gray">
           NO TRADERS FOUND
         </div>
       )}

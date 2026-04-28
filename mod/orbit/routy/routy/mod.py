@@ -23,7 +23,7 @@ class Mod:
     _sync_worker_running = False
 
     def __init__(self):
-        self.port = 3001
+        self.port = 3000
         self.app_port = 3002
         self.base_url = f"http://localhost:{self.port}"
         self.routy_dir = Path(__file__).parent.parent

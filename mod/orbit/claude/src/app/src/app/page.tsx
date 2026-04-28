@@ -58,6 +58,27 @@ interface Personality {
   builtin?: boolean;
 }
 
+// ── Routy Types ──────────────────────────────────────────────────────
+
+interface RoutyWebsite {
+  name: string;
+  target_url: string;
+  description: string | null;
+  storage_type: string | null;
+  cid: string | null;
+  created_at: number;
+}
+
+interface RoutyStats {
+  cpu_usage_percent: number;
+  apps: number;
+  apis: number;
+  total: number;
+  max_websites: number;
+}
+
+const ROUTY_API = "http://localhost:3000";
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function timeSince(ts: number): string {
@@ -275,6 +296,15 @@ export default function Home() {
   const [apiLoading, setApiLoading] = useState(false);
   const [apiMethod, setApiMethod] = useState<string>("GET");
 
+  // Routy gateway state
+  const [routyApps, setRoutyApps] = useState<RoutyWebsite[]>([]);
+  const [routyApis, setRoutyApis] = useState<RoutyWebsite[]>([]);
+  const [routyStats, setRoutyStats] = useState<RoutyStats | null>(null);
+  const [routyConnected, setRoutyConnected] = useState(false);
+  const [routySyncing, setRoutySyncing] = useState(false);
+  const [routySearch, setRoutySearch] = useState("");
+  const [routyTab, setRoutyTab] = useState<"all" | "apps" | "apis">("all");
+
   // Direct config from /config endpoint (fallback)
   const [directConfig, setDirectConfig] = useState<any>(null);
 
@@ -484,6 +514,55 @@ export default function Home() {
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
+
+  // Routy gateway: fetch services + stats
+  const refreshRouty = useCallback(async () => {
+    try {
+      const [ws, st] = await Promise.all([
+        fetch(`${ROUTY_API}/_api/websites`).then(r => r.json()),
+        fetch(`${ROUTY_API}/_api/stats`).then(r => r.json()),
+      ]);
+      setRoutyApps(ws.apps || []);
+      setRoutyApis(ws.apis || []);
+      setRoutyStats(st);
+      setRoutyConnected(true);
+    } catch {
+      setRoutyConnected(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshRouty();
+    const id = setInterval(refreshRouty, 5000);
+    return () => clearInterval(id);
+  }, [refreshRouty]);
+
+  const syncRouty = async () => {
+    setRoutySyncing(true);
+    try {
+      await fetch(`${ROUTY_API}/_api/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      await new Promise(r => setTimeout(r, 400));
+      await refreshRouty();
+    } catch {}
+    setRoutySyncing(false);
+  };
+
+  const routyFiltered = (() => {
+    const q = routySearch.toLowerCase();
+    const filterFn = (w: RoutyWebsite) =>
+      w.name.toLowerCase().includes(q) ||
+      (w.description?.toLowerCase().includes(q) ?? false) ||
+      w.target_url.toLowerCase().includes(q);
+    const taggedApps = routyApps.filter(filterFn).map(w => ({ ...w, _type: "app" as const }));
+    const taggedApis = routyApis.filter(filterFn).map(w => ({ ...w, _type: "api" as const }));
+    if (routyTab === "apps") return taggedApps;
+    if (routyTab === "apis") return taggedApis;
+    return [...taggedApps, ...taggedApis];
+  })();
 
   // Apply theme to document root
   useEffect(() => {
@@ -4829,6 +4908,145 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto">
           {sidebarView === "overview" && (
             <div className="p-4 flex flex-col gap-4">
+
+              {/* ── Routy Gateway ──────────────────────── */}
+              <div className="border rounded" style={{ borderColor: routyConnected ? "color-mix(in srgb, var(--crt-blue) 25%, transparent)" : "var(--border-color)", background: "var(--bg-tint)" }}>
+                <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "var(--border-color)" }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] uppercase font-bold" style={{ color: "var(--crt-blue)", letterSpacing: "0.02em" }}>GATEWAY</span>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: routyConnected ? "var(--crt-green)" : "var(--crt-red)", boxShadow: routyConnected ? "0 0 6px var(--crt-green)" : "0 0 6px var(--crt-red)" }} />
+                    <span className="text-[10px]" style={{ color: routyConnected ? "var(--crt-green)" : "var(--crt-red)" }}>
+                      {routyConnected ? "online" : "offline"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={syncRouty}
+                    disabled={routySyncing || !routyConnected}
+                    className="text-[10px] px-2 py-0.5 rounded-sm border uppercase font-bold transition-all hover:brightness-125"
+                    style={{
+                      borderColor: routySyncing ? "var(--border-color)" : "color-mix(in srgb, var(--crt-blue) 40%, transparent)",
+                      color: routySyncing ? "var(--text-tertiary)" : "var(--crt-blue)",
+                      background: "color-mix(in srgb, var(--crt-blue) 6%, transparent)",
+                      opacity: routySyncing || !routyConnected ? 0.5 : 1,
+                    }}
+                  >
+                    {routySyncing ? "syncing..." : "sync"}
+                  </button>
+                </div>
+
+                {/* Stats row */}
+                {routyStats && (
+                  <div className="px-3 pt-2 pb-1 grid grid-cols-4 gap-2">
+                    {[
+                      { label: "apps", value: routyStats.apps, color: "var(--crt-green)" },
+                      { label: "apis", value: routyStats.apis, color: "var(--crt-blue)" },
+                      { label: "total", value: routyStats.total, color: "var(--crt-amber)" },
+                      { label: "cpu", value: `${routyStats.cpu_usage_percent.toFixed(0)}%`, color: routyStats.cpu_usage_percent > 80 ? "var(--crt-red)" : routyStats.cpu_usage_percent > 50 ? "var(--crt-amber)" : "var(--crt-green)" },
+                    ].map(s => (
+                      <div key={s.label} className="p-2 rounded border" style={{ borderColor: "var(--border-color)", background: "var(--bg-secondary)" }}>
+                        <div className="text-[18px] font-bold" style={{ color: s.color, letterSpacing: "-0.02em" }}>{s.value}</div>
+                        <div className="text-[10px] uppercase mt-0.5" style={{ color: "var(--text-tertiary)", letterSpacing: "0.04em" }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search + tabs */}
+                <div className="px-3 py-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={routySearch}
+                    onChange={e => setRoutySearch(e.target.value)}
+                    placeholder="search services..."
+                    className="flex-1 px-2 py-1 text-[12px] bg-transparent border rounded-sm outline-none"
+                    style={{ borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+                  />
+                  <div className="flex items-center border rounded-sm overflow-hidden" style={{ borderColor: "var(--border-color)" }}>
+                    {(["all", "apps", "apis"] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setRoutyTab(t)}
+                        className="text-[10px] px-2 py-1 uppercase font-bold transition-all"
+                        style={{
+                          background: routyTab === t ? "var(--bg-secondary)" : "transparent",
+                          color: routyTab === t ? "var(--text-primary)" : "var(--text-tertiary)",
+                          borderRight: t !== "apis" ? "1px solid var(--border-color)" : "none",
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Services list */}
+                <div className="px-3 pb-3 flex flex-col gap-1.5" style={{ maxHeight: 360, overflowY: "auto" }}>
+                  {!routyConnected ? (
+                    <div className="text-center py-6 text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+                      routy gateway not reachable on :3000
+                    </div>
+                  ) : routyFiltered.length === 0 ? (
+                    <div className="text-center py-6 text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+                      {routySearch ? `no services match "${routySearch}"` : "no services registered"}
+                    </div>
+                  ) : (
+                    routyFiltered.map(w => {
+                      const isApp = w._type === "app";
+                      const route = isApp ? `/${w.name}/` : `/api/${w.name}/`;
+                      return (
+                        <div
+                          key={`${w._type}-${w.name}`}
+                          className="p-2.5 rounded border transition-all hover:brightness-110 cursor-default"
+                          style={{
+                            borderColor: "var(--border-color)",
+                            background: "var(--bg-secondary)",
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-bold" style={{ color: "var(--text-primary)" }}>{w.name}</span>
+                              <span
+                                className="text-[9px] px-1.5 py-0.5 rounded-sm uppercase font-bold"
+                                style={{
+                                  color: isApp ? "var(--crt-green)" : "var(--crt-blue)",
+                                  background: isApp ? "color-mix(in srgb, var(--crt-green) 10%, transparent)" : "color-mix(in srgb, var(--crt-blue) 10%, transparent)",
+                                  border: `1px solid ${isApp ? "color-mix(in srgb, var(--crt-green) 25%, transparent)" : "color-mix(in srgb, var(--crt-blue) 25%, transparent)"}`,
+                                  letterSpacing: "0.05em",
+                                }}
+                              >
+                                {w._type}
+                              </span>
+                            </div>
+                            <a
+                              href={`${ROUTY_API}${route}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] font-mono transition-opacity hover:opacity-70"
+                              style={{ color: isApp ? "var(--crt-green)" : "var(--crt-blue)", textDecoration: "none" }}
+                            >
+                              {route} &rarr;
+                            </a>
+                          </div>
+                          {w.description && (
+                            <p className="text-[11px] mb-1" style={{ color: "var(--text-tertiary)" }}>{w.description}</p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <code className="text-[10px] px-1 py-0.5 rounded" style={{ color: "var(--text-tertiary)", background: "var(--bg-primary)" }}>
+                              {w.target_url}
+                            </code>
+                            {w.storage_type && (
+                              <span className="text-[9px] px-1 py-0.5 rounded uppercase font-bold" style={{ color: "var(--crt-amber)", background: "color-mix(in srgb, var(--crt-amber) 8%, transparent)" }}>
+                                {w.storage_type}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               {/* Status Cards - only show if module has API or App */}
               {(info?.api_url || info?.app_url) && (
               <div className={`grid gap-3 ${info?.api_url && info?.app_url ? "grid-cols-2" : "grid-cols-1"}`}>
