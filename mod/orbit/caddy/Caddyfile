@@ -33,25 +33,16 @@ modc2.com {
     @claude_api path /api/claude /api/claude/*
     handle @claude_api {
         uri strip_prefix /api/claude
-        reverse_proxy claude:8820
+        reverse_proxy {$PM2_HOST:localhost}:8820
     }
     @claude_app path /claude /claude/*
     handle @claude_app {
-        reverse_proxy claude:8821
+        reverse_proxy {$PM2_HOST:localhost}:8821
     }
     @dns_api path /api/dns /api/dns/*
     handle @dns_api {
         uri strip_prefix /api/dns
         reverse_proxy {$PM2_HOST:localhost}:5380
-    }
-    @ipfs_api path /api/ipfs /api/ipfs/*
-    handle @ipfs_api {
-        uri strip_prefix /api/ipfs
-        reverse_proxy ipfs:50079
-    }
-    @ipfs_app path /ipfs /ipfs/*
-    handle @ipfs_app {
-        reverse_proxy ipfs:50080
     }
     @latexhub_api path /api/latexhub /api/latexhub/*
     handle @latexhub_api {
