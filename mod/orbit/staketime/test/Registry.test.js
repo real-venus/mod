@@ -4,8 +4,8 @@ const { mine } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("Registry", function () {
   let registry, govToken;
-  let subnet1, staking1, consensus1;
-  let subnet2, staking2, consensus2;
+  let mod1, staking1, consensus1;
+  let mod2, staking2, consensus2;
   let owner, user1, user2;
 
   const MAX_LOCK_BLOCKS = 100000;
@@ -14,32 +14,40 @@ describe("Registry", function () {
   const IMMUNITY_PERIOD = 20;
   const REGISTRATION_COST = ethers.parseEther("1000");
 
-  async function deploySubnetStack(name, symbol) {
-    const Subnet = await ethers.getContractFactory("Subnet");
-    const sub = await Subnet.deploy(name, symbol, ethers.parseEther("1000000"));
-    await sub.waitForDeployment();
+  async function deployModStack(name, symbol) {
+    const ModToken = await ethers.getContractFactory("Mod");
+    const mod = await ModToken.deploy(name, symbol);
+    await mod.waitForDeployment();
+
+    // Mint tokens for testing
+    await mod.setMinter(owner.address);
+    await mod.mint(owner.address, ethers.parseEther("1000000"));
 
     const StakeTime = await ethers.getContractFactory("StakeTime");
     const st = await StakeTime.deploy(
-      await sub.getAddress(), MAX_LOCK_BLOCKS, MAX_STAKERS, DEFAULT_COMMISSION_BPS
+      await mod.getAddress(), MAX_LOCK_BLOCKS, MAX_STAKERS, DEFAULT_COMMISSION_BPS
     );
     await st.waitForDeployment();
 
-    return { subnet: sub, staking: st, consensus: st };
+    return { mod, staking: st, consensus: st };
   }
 
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
 
-    const Subnet = await ethers.getContractFactory("Subnet");
-    govToken = await Subnet.deploy("Governance", "GOV", ethers.parseEther("10000000"));
+    const ModToken = await ethers.getContractFactory("Mod");
+    govToken = await ModToken.deploy("Governance", "GOV");
     await govToken.waitForDeployment();
 
-    const s1 = await deploySubnetStack("Net1", "N1");
-    subnet1 = s1.subnet; staking1 = s1.staking; consensus1 = s1.consensus;
+    // Mint governance tokens for testing
+    await govToken.setMinter(owner.address);
+    await govToken.mint(owner.address, ethers.parseEther("10000000"));
 
-    const s2 = await deploySubnetStack("Net2", "N2");
-    subnet2 = s2.subnet; staking2 = s2.staking; consensus2 = s2.consensus;
+    const s1 = await deployModStack("Net1", "N1");
+    mod1 = s1.mod; staking1 = s1.staking; consensus1 = s1.consensus;
+
+    const s2 = await deployModStack("Net2", "N2");
+    mod2 = s2.mod; staking2 = s2.staking; consensus2 = s2.consensus;
 
     const Registry = await ethers.getContractFactory("Registry");
     registry = await Registry.deploy(IMMUNITY_PERIOD, await govToken.getAddress(), REGISTRATION_COST);
@@ -53,17 +61,17 @@ describe("Registry", function () {
     await govToken.connect(user2).approve(await registry.getAddress(), ethers.MaxUint256);
   });
 
-  // ── Helper: register both subnets and get STT by staking ────────────
+  // ── Helper: register both mods and get STT by staking ─────────────
 
-  async function registerBothSubnets() {
-    await registry.registerSubnet("sub1", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
-    await registry.registerSubnet("sub2", await subnet2.getAddress(), await staking2.getAddress(), await consensus2.getAddress());
+  async function registerBothMods() {
+    await registry.registerMod("mod1", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
+    await registry.registerMod("mod2", await mod2.getAddress(), await staking2.getAddress(), await consensus2.getAddress());
   }
 
-  async function getSTT(staking, subnet, sttToken, user, amount) {
-    // Transfer subnet tokens to user, approve staking, stake to get STT
-    await subnet.transfer(user.address, amount);
-    await subnet.connect(user).approve(await staking.getAddress(), amount);
+  async function getSTT(staking, mod, sttToken, user, amount) {
+    // Transfer mod tokens to user, approve staking, stake to get STT
+    await mod.transfer(user.address, amount);
+    await mod.connect(user).approve(await staking.getAddress(), amount);
     // Register a validator first if needed
     try {
       await staking.registerValidatorAdmin("boost-val", 1, 1000);
@@ -75,13 +83,13 @@ describe("Registry", function () {
   // ── Registration ────────────────────────────────────────────────────
 
   describe("Registration", function () {
-    it("registers a subnet and locks governance token", async function () {
+    it("registers a mod and locks governance token", async function () {
       const balBefore = await govToken.balanceOf(owner.address);
       await expect(
-        registry.registerSubnet("genesis", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress())
-      ).to.emit(registry, "SubnetRegistered");
+        registry.registerMod("genesis", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress())
+      ).to.emit(registry, "ModRegistered");
 
-      expect(await registry.getSubnetCount()).to.equal(1);
+      expect(await registry.getModCount()).to.equal(1);
 
       const balAfter = await govToken.balanceOf(owner.address);
       expect(balBefore - balAfter).to.equal(REGISTRATION_COST);
@@ -89,67 +97,67 @@ describe("Registry", function () {
       expect(await registry.getLockedStake(0)).to.equal(REGISTRATION_COST);
     });
 
-    it("registers multiple subnets", async function () {
-      await registerBothSubnets();
-      expect(await registry.getSubnetCount()).to.equal(2);
+    it("registers multiple mods", async function () {
+      await registerBothMods();
+      expect(await registry.getModCount()).to.equal(2);
       expect(await govToken.balanceOf(await registry.getAddress())).to.equal(REGISTRATION_COST * BigInt(2));
     });
 
-    it("rejects zero subnet address", async function () {
+    it("rejects zero mod_token address", async function () {
       await expect(
-        registry.registerSubnet("bad", ethers.ZeroAddress, await staking1.getAddress(), await consensus1.getAddress())
-      ).to.be.revertedWith("zero subnet");
+        registry.registerMod("bad", ethers.ZeroAddress, await staking1.getAddress(), await consensus1.getAddress())
+      ).to.be.revertedWith("zero mod_token");
     });
 
     it("rejects zero staking address", async function () {
       await expect(
-        registry.registerSubnet("bad", await subnet1.getAddress(), ethers.ZeroAddress, await consensus1.getAddress())
+        registry.registerMod("bad", await mod1.getAddress(), ethers.ZeroAddress, await consensus1.getAddress())
       ).to.be.revertedWith("zero staking");
     });
 
     it("reverts without governance token approval", async function () {
       const [, , , user3] = await ethers.getSigners();
       await expect(
-        registry.connect(user3).registerSubnet("bad", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress())
+        registry.connect(user3).registerMod("bad", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress())
       ).to.be.reverted;
     });
 
     it("assigns sequential IDs", async function () {
-      await registerBothSubnets();
-      const s1 = await registry.getSubnet(0);
-      const s2 = await registry.getSubnet(1);
-      expect(s1.name).to.equal("sub1");
-      expect(s2.name).to.equal("sub2");
+      await registerBothMods();
+      const m1 = await registry.getMod(0);
+      const m2 = await registry.getMod(1);
+      expect(m1.name).to.equal("mod1");
+      expect(m2.name).to.equal("mod2");
     });
 
-    it("tracks owner subnets", async function () {
-      await registry.registerSubnet("sub1", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
-      await registry.connect(user1).registerSubnet("sub2", await subnet2.getAddress(), await staking2.getAddress(), await consensus2.getAddress());
+    it("tracks owner mods", async function () {
+      await registry.registerMod("mod1", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
+      await registry.connect(user1).registerMod("mod2", await mod2.getAddress(), await staking2.getAddress(), await consensus2.getAddress());
 
-      const ownerSubs = await registry.getOwnerSubnets(owner.address);
-      const user1Subs = await registry.getOwnerSubnets(user1.address);
-      expect(ownerSubs.length).to.equal(1);
-      expect(user1Subs.length).to.equal(1);
+      const ownerMods = await registry.getOwnerMods(owner.address);
+      const user1Mods = await registry.getOwnerMods(user1.address);
+      expect(ownerMods.length).to.equal(1);
+      expect(user1Mods.length).to.equal(1);
     });
   });
 
-  // ── Views ──────────────────────────────────────────────────────────
+  // ── Views ───────────────────────────────────────────────────────────
 
   describe("Views", function () {
     beforeEach(async function () {
-      await registerBothSubnets();
+      await registerBothMods();
     });
 
-    it("getSubnet returns correct data", async function () {
-      const s = await registry.getSubnet(0);
-      expect(s.name).to.equal("sub1");
-      expect(s.subnet).to.equal(await subnet1.getAddress());
-      expect(s.staking).to.equal(await staking1.getAddress());
-      expect(s.active).to.be.true;
+    it("getMod returns correct data", async function () {
+      const m = await registry.getMod(0);
+      expect(m.name).to.equal("mod1");
+      expect(m.mod_token).to.equal(await mod1.getAddress());
+      expect(m.staking).to.equal(await staking1.getAddress());
+      expect(m.active).to.be.true;
     });
 
-    it("getAllSubnets returns all active subnets", async function () {
-      const all = await registry.getAllSubnets();
+    it("getAllMods returns all active mods", async function () {
+      const all = await registry.getAllMods();
       expect(all.length).to.equal(2);
     });
 
@@ -158,16 +166,16 @@ describe("Registry", function () {
     });
   });
 
-  // ── Immunity ──────────────────────────────────────────────────────
+  // ── Immunity ────────────────────────────────────────────────────────
 
   describe("Immunity", function () {
-    it("new subnets are immune", async function () {
-      await registry.registerSubnet("sub1", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
+    it("new mods are immune", async function () {
+      await registry.registerMod("mod1", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
       expect(await registry.isImmune(0)).to.be.true;
     });
 
-    it("subnets lose immunity after period", async function () {
-      await registry.registerSubnet("sub1", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
+    it("mods lose immunity after period", async function () {
+      await registry.registerMod("mod1", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
       await mine(IMMUNITY_PERIOD + 1);
       expect(await registry.isImmune(0)).to.be.false;
     });
@@ -184,53 +192,53 @@ describe("Registry", function () {
     });
   });
 
-  // ── Deregistration ────────────────────────────────────────────────
+  // ── Deregistration ──────────────────────────────────────────────────
 
   describe("Deregistration", function () {
     it("owner can deregister and get locked tokens back", async function () {
-      await registry.registerSubnet("sub1", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
+      await registry.registerMod("mod1", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
       const balBefore = await govToken.balanceOf(owner.address);
 
-      await expect(registry.deregisterSubnet(0))
-        .to.emit(registry, "SubnetDeregistered");
+      await expect(registry.deregisterMod(0))
+        .to.emit(registry, "ModDeregistered");
 
-      expect(await registry.getSubnetCount()).to.equal(0);
-      const s = await registry.getSubnet(0);
-      expect(s.active).to.be.false;
+      expect(await registry.getModCount()).to.equal(0);
+      const m = await registry.getMod(0);
+      expect(m.active).to.be.false;
 
       const balAfter = await govToken.balanceOf(owner.address);
       expect(balAfter - balBefore).to.equal(REGISTRATION_COST);
     });
 
-    it("subnet owner can deregister their own", async function () {
-      await registry.connect(user1).registerSubnet("sub1", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
+    it("mod owner can deregister their own", async function () {
+      await registry.connect(user1).registerMod("mod1", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
       const balBefore = await govToken.balanceOf(user1.address);
-      await registry.connect(user1).deregisterSubnet(0);
-      expect(await registry.getSubnetCount()).to.equal(0);
+      await registry.connect(user1).deregisterMod(0);
+      expect(await registry.getModCount()).to.equal(0);
 
       const balAfter = await govToken.balanceOf(user1.address);
       expect(balAfter - balBefore).to.equal(REGISTRATION_COST);
     });
 
     it("non-owner cannot deregister others", async function () {
-      await registry.registerSubnet("sub1", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
+      await registry.registerMod("mod1", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
       await expect(
-        registry.connect(user1).deregisterSubnet(0)
+        registry.connect(user1).deregisterMod(0)
       ).to.be.revertedWith("not authorized");
     });
   });
 
-  // ── Bonding Curve: Boost ──────────────────────────────────────────
+  // ── Bonding Curve: Boost ────────────────────────────────────────────
 
   describe("Bonding Curve Boost", function () {
     beforeEach(async function () {
-      await registerBothSubnets();
+      await registerBothMods();
     });
 
-    it("boostSubnet deposits STT and mints shares", async function () {
+    it("boostMod deposits STT and mints shares", async function () {
       const sttAddr = await staking1.getAddress();
       const amount = ethers.parseEther("100");
-      await getSTT(staking1, subnet1, staking1, user1, amount);
+      await getSTT(staking1, mod1, staking1, user1, amount);
 
       // Approve registry to spend STT
       await staking1.connect(user1).approve(await registry.getAddress(), amount);
@@ -239,13 +247,13 @@ describe("Registry", function () {
       expect(sttBal).to.be.gte(amount);
 
       await expect(
-        registry.connect(user1).boostSubnet(0, sttAddr, amount)
+        registry.connect(user1).boostMod(0, sttAddr, amount)
       ).to.emit(registry, "Boosted");
 
       const shares = await registry.getUserShares(0, user1.address);
       expect(shares).to.be.gt(0);
-      expect(await registry.subnetBloctime(0)).to.equal(amount);
-      expect(await registry.subnetTotalShares(0)).to.equal(shares);
+      expect(await registry.modBloctime(0)).to.equal(amount);
+      expect(await registry.modTotalShares(0)).to.equal(shares);
     });
 
     it("share price increases with each purchase (bonding curve)", async function () {
@@ -253,15 +261,15 @@ describe("Registry", function () {
       const amount = ethers.parseEther("100");
 
       // User1 buys first
-      await getSTT(staking1, subnet1, staking1, user1, amount);
+      await getSTT(staking1, mod1, staking1, user1, amount);
       await staking1.connect(user1).approve(await registry.getAddress(), amount);
-      await registry.connect(user1).boostSubnet(0, sttAddr, amount);
+      await registry.connect(user1).boostMod(0, sttAddr, amount);
       const shares1 = await registry.getUserShares(0, user1.address);
 
       // User2 buys second (same amount, should get fewer shares)
-      await getSTT(staking1, subnet1, staking1, user2, amount);
+      await getSTT(staking1, mod1, staking1, user2, amount);
       await staking1.connect(user2).approve(await registry.getAddress(), amount);
-      await registry.connect(user2).boostSubnet(0, sttAddr, amount);
+      await registry.connect(user2).boostMod(0, sttAddr, amount);
       const shares2 = await registry.getUserShares(0, user2.address);
 
       // Early buyer gets more shares per STT
@@ -271,9 +279,9 @@ describe("Registry", function () {
     it("sellBoost returns STT", async function () {
       const sttAddr = await staking1.getAddress();
       const amount = ethers.parseEther("100");
-      await getSTT(staking1, subnet1, staking1, user1, amount);
+      await getSTT(staking1, mod1, staking1, user1, amount);
       await staking1.connect(user1).approve(await registry.getAddress(), amount);
-      await registry.connect(user1).boostSubnet(0, sttAddr, amount);
+      await registry.connect(user1).boostMod(0, sttAddr, amount);
 
       const shares = await registry.getUserShares(0, user1.address);
       const balBefore = await staking1.balanceOf(user1.address);
@@ -285,7 +293,7 @@ describe("Registry", function () {
       const balAfter = await staking1.balanceOf(user1.address);
       expect(balAfter).to.be.gt(balBefore);
       expect(await registry.getUserShares(0, user1.address)).to.equal(0);
-      expect(await registry.subnetTotalShares(0)).to.equal(0);
+      expect(await registry.modTotalShares(0)).to.equal(0);
     });
 
     it("rejects invalid STT token", async function () {
@@ -293,16 +301,16 @@ describe("Registry", function () {
       // govToken is NOT a valid STT token
       await govToken.approve(await registry.getAddress(), amount);
       await expect(
-        registry.boostSubnet(0, await govToken.getAddress(), amount)
+        registry.boostMod(0, await govToken.getAddress(), amount)
       ).to.be.revertedWith("invalid STT token");
     });
 
-    it("rejects boost on inactive subnet", async function () {
-      await registry.deregisterSubnet(0);
+    it("rejects boost on inactive mod", async function () {
+      await registry.deregisterMod(0);
       const sttAddr = await staking1.getAddress();
       await expect(
-        registry.boostSubnet(0, sttAddr, 1)
-      ).to.be.revertedWith("subnet not active");
+        registry.boostMod(0, sttAddr, 1)
+      ).to.be.revertedWith("mod not active");
     });
 
     it("cannot sell more shares than owned", async function () {
@@ -318,9 +326,9 @@ describe("Registry", function () {
       const amount = ethers.parseEther("100");
 
       // Deposit STT from staking1
-      await getSTT(staking1, subnet1, staking1, user1, amount);
+      await getSTT(staking1, mod1, staking1, user1, amount);
       await staking1.connect(user1).approve(await registry.getAddress(), amount);
-      await registry.connect(user1).boostSubnet(0, stt1Addr, amount);
+      await registry.connect(user1).boostMod(0, stt1Addr, amount);
 
       const shares = await registry.getUserShares(0, user1.address);
 
@@ -336,35 +344,35 @@ describe("Registry", function () {
 
       const sttAddr = await staking1.getAddress();
       const amount = ethers.parseEther("500");
-      await getSTT(staking1, subnet1, staking1, user1, amount);
+      await getSTT(staking1, mod1, staking1, user1, amount);
       await staking1.connect(user1).approve(await registry.getAddress(), amount);
-      await registry.connect(user1).boostSubnet(0, sttAddr, amount);
+      await registry.connect(user1).boostMod(0, sttAddr, amount);
 
       const scoreAfter = await registry.getStakeScore(0);
       expect(scoreAfter).to.equal(REGISTRATION_COST + amount);
     });
 
-    it("multi-STT: deposit STT from subnet A to boost subnet B", async function () {
-      // User1 gets STT from staking1 (subnet A) and boosts subnet B (id=1)
+    it("multi-STT: deposit STT from mod A to boost mod B", async function () {
+      // User1 gets STT from staking1 (mod A) and boosts mod B (id=1)
       const stt1Addr = await staking1.getAddress();
       const amount = ethers.parseEther("200");
-      await getSTT(staking1, subnet1, staking1, user1, amount);
+      await getSTT(staking1, mod1, staking1, user1, amount);
       await staking1.connect(user1).approve(await registry.getAddress(), amount);
 
       await expect(
-        registry.connect(user1).boostSubnet(1, stt1Addr, amount)
+        registry.connect(user1).boostMod(1, stt1Addr, amount)
       ).to.emit(registry, "Boosted");
 
-      expect(await registry.subnetBloctime(1)).to.equal(amount);
+      expect(await registry.modBloctime(1)).to.equal(amount);
       expect(await registry.sttReserves(1, stt1Addr)).to.equal(amount);
     });
   });
 
-  // ── Bonding Curve Views ───────────────────────────────────────────
+  // ── Bonding Curve Views ─────────────────────────────────────────────
 
   describe("Bonding Curve Views", function () {
     beforeEach(async function () {
-      await registerBothSubnets();
+      await registerBothMods();
     });
 
     it("getBoostPrice returns cost for shares", async function () {
@@ -397,23 +405,23 @@ describe("Registry", function () {
     });
   });
 
-  // ── Weakest Subnet ────────────────────────────────────────────────
+  // ── Weakest Mod ─────────────────────────────────────────────────────
 
-  describe("Weakest Subnet with Bloctime", function () {
+  describe("Weakest Mod with Bloctime", function () {
     it("weakest is the one with least bloctime + locked", async function () {
-      await registerBothSubnets();
+      await registerBothMods();
 
-      // Boost subnet 0 with STT
+      // Boost mod 0 with STT
       const sttAddr = await staking1.getAddress();
       const amount = ethers.parseEther("500");
-      await getSTT(staking1, subnet1, staking1, user1, amount);
+      await getSTT(staking1, mod1, staking1, user1, amount);
       await staking1.connect(user1).approve(await registry.getAddress(), amount);
-      await registry.connect(user1).boostSubnet(0, sttAddr, amount);
+      await registry.connect(user1).boostMod(0, sttAddr, amount);
 
       await mine(IMMUNITY_PERIOD + 1);
 
-      // Subnet 1 has no bloctime, only locked GOV — it's weakest
-      const [weakId, , found] = await registry.getWeakestSubnet();
+      // Mod 1 has no bloctime, only locked GOV — it's weakest
+      const [weakId, , found] = await registry.getWeakestMod();
       expect(found).to.be.true;
       expect(weakId).to.equal(1);
 
@@ -422,24 +430,24 @@ describe("Registry", function () {
       expect(score0).to.be.gt(score1);
     });
 
-    it("skips immune subnets when finding weakest", async function () {
-      await registry.registerSubnet("sub1", await subnet1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
+    it("skips immune mods when finding weakest", async function () {
+      await registry.registerMod("mod1", await mod1.getAddress(), await staking1.getAddress(), await consensus1.getAddress());
       await mine(IMMUNITY_PERIOD + 1);
-      await registry.registerSubnet("sub2", await subnet2.getAddress(), await staking2.getAddress(), await consensus2.getAddress());
+      await registry.registerMod("mod2", await mod2.getAddress(), await staking2.getAddress(), await consensus2.getAddress());
 
-      const [weakId, , found] = await registry.getWeakestSubnet();
+      const [weakId, , found] = await registry.getWeakestMod();
       expect(found).to.be.true;
       expect(weakId).to.equal(0);
     });
 
-    it("returns not found when all subnets are immune", async function () {
-      await registerBothSubnets();
-      const [, , found] = await registry.getWeakestSubnet();
+    it("returns not found when all mods are immune", async function () {
+      await registerBothMods();
+      const [, , found] = await registry.getWeakestMod();
       expect(found).to.be.false;
     });
   });
 
-  // ── Registration cost admin ───────────────────────────────────────
+  // ── Registration cost admin ─────────────────────────────────────────
 
   describe("Registration cost admin", function () {
     it("owner can update registration cost", async function () {
@@ -455,16 +463,16 @@ describe("Registry", function () {
     });
   });
 
-  // ── getAllSubnets after deregistration ─────────────────────────────
+  // ── getAllMods after deregistration ──────────────────────────────────
 
-  describe("getAllSubnets after deregistration", function () {
-    it("excludes deregistered subnets", async function () {
-      await registerBothSubnets();
-      await registry.deregisterSubnet(0);
+  describe("getAllMods after deregistration", function () {
+    it("excludes deregistered mods", async function () {
+      await registerBothMods();
+      await registry.deregisterMod(0);
 
-      const all = await registry.getAllSubnets();
+      const all = await registry.getAllMods();
       expect(all.length).to.equal(1);
-      expect(all[0].name).to.equal("sub2");
+      expect(all[0].name).to.equal("mod2");
     });
   });
 });

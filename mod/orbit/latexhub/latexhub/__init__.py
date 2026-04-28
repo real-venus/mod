@@ -1,1 +1,1 @@
-from .latexhub import LatexHub
+from .mod import Mod

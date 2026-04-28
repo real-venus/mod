@@ -41,30 +41,30 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
         {market.question}
       </div>
 
-      {/* YES / NO pixel bars */}
+      {/* YES / NO pixel bars - Mario power-up style */}
       <div className="space-y-2 mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-[6px] text-pixel-green w-5">YES</span>
+          <span className="text-[6px] text-pixel-white w-5">YES</span>
           <div className="pixel-bar flex-1">
             <div
-              className="pixel-bar-fill bg-pixel-green/50"
+              className="pixel-bar-fill bg-pixel-white/90"
               style={{ width: `${yesPct}%` }}
             />
           </div>
-          <span className="text-[7px] text-pixel-green glow-green w-8 text-right font-mono">
-            {yesPct}c
+          <span className="text-[7px] text-pixel-white glow-green w-10 text-right font-mono">
+            {yesPct}⭐
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[6px] text-pixel-red w-5">NO</span>
+          <span className="text-[6px] text-pixel-gray w-5">NO</span>
           <div className="pixel-bar flex-1">
             <div
-              className="pixel-bar-fill bg-pixel-red/40"
+              className="pixel-bar-fill bg-pixel-gray/60"
               style={{ width: `${noPct}%` }}
             />
           </div>
-          <span className="text-[7px] text-pixel-red glow-red w-8 text-right font-mono">
-            {noPct}c
+          <span className="text-[7px] text-pixel-gray glow-red w-10 text-right font-mono">
+            {noPct}⭐
           </span>
         </div>
       </div>

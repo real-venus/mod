@@ -6,7 +6,6 @@ import {
   fetchMarkets,
   fetchMarketsByCategory,
   searchMarkets,
-  CATEGORIES,
   CategorySlug,
 } from "../lib/polymarket";
 import MarketCard from "./MarketCard";
@@ -17,15 +16,21 @@ const PAGE_SIZE = 20;
 interface Props {
   onSelectMarket?: (market: PolymarketMarket) => void;
   selectedMarket?: PolymarketMarket | null;
+  search: string;
+  sort: SortMode;
+  category: CategorySlug;
+  fromDate: string;
+  toDate: string;
+  reloadKey: number;
 }
 
-export default function MarketsGrid({ onSelectMarket, selectedMarket }: Props) {
+export default function MarketsGrid({
+  onSelectMarket, selectedMarket,
+  search, sort, category, fromDate, toDate, reloadKey,
+}: Props) {
   const [allMarkets, setAllMarkets] = useState<PolymarketMarket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortMode>("volume");
-  const [category, setCategory] = useState<CategorySlug>("");
   const [page, setPage] = useState(0);
 
   const load = useCallback(async () => {
@@ -38,7 +43,17 @@ export default function MarketsGrid({ onSelectMarket, selectedMarket }: Props) {
       } else if (category) {
         data = await fetchMarketsByCategory(category, 100);
       } else {
-        data = await fetchMarkets(100, sort);
+        data = await fetchMarkets(100, sort, fromDate, toDate);
+      }
+      // Client-side date filtering for search/category results
+      if (fromDate || toDate) {
+        data = data.filter((m) => {
+          if (!m.endDate) return true;
+          const end = m.endDate.split("T")[0];
+          if (fromDate && end < fromDate) return false;
+          if (toDate && end > toDate) return false;
+          return true;
+        });
       }
       setAllMarkets(data);
       setPage(0);
@@ -46,7 +61,8 @@ export default function MarketsGrid({ onSelectMarket, selectedMarket }: Props) {
       setError(e instanceof Error ? e.message : "LOAD FAILED");
     }
     setLoading(false);
-  }, [search, sort, category]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, sort, category, fromDate, toDate, reloadKey]);
 
   useEffect(() => {
     load();
@@ -57,59 +73,6 @@ export default function MarketsGrid({ onSelectMarket, selectedMarket }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Controls */}
-      <div className="pixel-panel p-3 space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <div className="flex-1">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="SEARCH MARKETS..."
-              className="pixel-input w-full"
-            />
-          </div>
-          <div className="flex items-center gap-1">
-            {(["volume", "liquidity", "end_date_min"] as SortMode[]).map((s) => (
-              <button
-                key={s}
-                onClick={() => setSort(s)}
-                className={`pixel-btn text-[6px] ${
-                  sort === s
-                    ? "border-pixel-cyan text-pixel-cyan bg-pixel-cyan/10"
-                    : "border-pixel-border text-pixel-gray hover:text-pixel-white"
-                }`}
-              >
-                {s === "end_date_min" ? "ENDING" : s.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={load}
-            className="pixel-btn border-pixel-green text-pixel-green bg-pixel-green/10"
-          >
-            RELOAD
-          </button>
-        </div>
-
-        {/* Category filters */}
-        <div className="flex flex-wrap items-center gap-1">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.slug}
-              onClick={() => setCategory(cat.slug)}
-              className={`pixel-btn text-[6px] ${
-                category === cat.slug
-                  ? "border-pixel-amber text-pixel-amber bg-pixel-amber/10"
-                  : "border-pixel-border text-pixel-gray hover:text-pixel-white"
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {error && (
         <div className="pixel-panel-red p-3 text-[7px] text-pixel-red text-center">
           ERROR: {error}

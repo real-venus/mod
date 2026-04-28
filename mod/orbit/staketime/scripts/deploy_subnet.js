@@ -1,5 +1,5 @@
 /**
- * Deploy a single subnet: Subnet ERC20 + Staking + Consensus + register in Registry.
+ * Deploy a single mod: Mod ERC20 + Staking + Consensus + register in Registry.
  *
  * Supports consensus types: yuma (default), linear, staked
  *
@@ -17,7 +17,6 @@ async function main() {
   const {
     name,
     symbol,
-    initialSupply = "1000000",
     maxLockBlocks = 100000,
     maxStakersPerValidator = 100,
     defaultCommissionBps = 1000,
@@ -37,23 +36,22 @@ async function main() {
   }
 
   const [deployer] = await hre.ethers.getSigners();
-  console.log(`Deploying subnet "${name}" (${symbol}) [${consensusType}] with: ${deployer.address}`);
+  console.log(`Deploying mod "${name}" (${symbol}) [${consensusType}] with: ${deployer.address}`);
 
   let nonce = await deployer.getNonce();
   const send = (opts) => ({ ...opts, nonce: nonce++ });
 
-  // 1. Deploy Subnet ERC20
-  const supply = hre.ethers.parseEther(initialSupply);
-  const Subnet = await hre.ethers.getContractFactory("Subnet");
-  const subnet = await Subnet.deploy(name, symbol, supply, send({}));
-  await subnet.waitForDeployment();
-  const subnetAddress = await subnet.getAddress();
-  console.log(`Subnet token deployed: ${subnetAddress}`);
+  // 1. Deploy Mod ERC20 (zero initial supply)
+  const ModToken = await hre.ethers.getContractFactory("Mod");
+  const modToken = await ModToken.deploy(name, symbol, send({}));
+  await modToken.waitForDeployment();
+  const modTokenAddress = await modToken.getAddress();
+  console.log(`Mod token deployed: ${modTokenAddress}`);
 
   // 2. Deploy StakeTime (ERC20 + staking)
   const StakeTime = await hre.ethers.getContractFactory("StakeTime");
   const staking = await StakeTime.deploy(
-    subnetAddress,
+    modTokenAddress,
     maxLockBlocks,
     maxStakersPerValidator,
     defaultCommissionBps,
@@ -77,12 +75,12 @@ async function main() {
   if (consensusType === "yuma") {
     // Yuma has an extra decayBps parameter
     consensus = await Factory.deploy(
-      subnetAddress, stakingAddress, emRate, decayBps, epochLength, send({})
+      modTokenAddress, stakingAddress, emRate, decayBps, epochLength, send({})
     );
   } else {
     // Linear and Staked share the same constructor
     consensus = await Factory.deploy(
-      subnetAddress, stakingAddress, emRate, epochLength, send({})
+      modTokenAddress, stakingAddress, emRate, epochLength, send({})
     );
   }
   await consensus.waitForDeployment();
@@ -90,7 +88,7 @@ async function main() {
   console.log(`${factoryName} deployed: ${consensusAddress}`);
 
   // 4. Set consensus as minter
-  await (await subnet.setMinter(consensusAddress, send({}))).wait();
+  await (await modToken.setMinter(consensusAddress, send({}))).wait();
   console.log(`Minter set to ${factoryName}`);
 
   // 5. Register in Registry
@@ -98,7 +96,7 @@ async function main() {
   const registry = Registry.attach(registryAddress);
 
   const govTokenAddr = await registry.governanceToken();
-  const GovToken = await hre.ethers.getContractFactory("Subnet");
+  const GovToken = await hre.ethers.getContractFactory("Mod");
   const govToken = GovToken.attach(govTokenAddr);
 
   const cost = await registry.registrationCost();
@@ -107,18 +105,17 @@ async function main() {
     console.log(`Approved ${hre.ethers.formatEther(cost)} GOV for registration`);
   }
 
-  const tx = await registry.registerSubnet(name, subnetAddress, stakingAddress, consensusAddress, send({}));
+  const tx = await registry.registerMod(name, modTokenAddress, stakingAddress, consensusAddress, send({}));
   const receipt = await tx.wait();
-  console.log(`Subnet registered in Registry (tx: ${receipt.hash})`);
+  console.log(`Mod registered in Registry (tx: ${receipt.hash})`);
 
   const result = {
-    subnet: subnetAddress,
+    mod: modTokenAddress,
     staking: stakingAddress,
     consensus: consensusAddress,
     consensusType,
     name,
     symbol,
-    initialSupply,
     maxLockBlocks,
     maxStakersPerValidator,
     defaultCommissionBps,

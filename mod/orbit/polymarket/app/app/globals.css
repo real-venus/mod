@@ -5,21 +5,21 @@
 @tailwind utilities;
 
 :root {
-  --bg: #1a1a2e;
-  --fg: #00ff41;
+  --bg: #000000;
+  --fg: #ffffff;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #0f3460 #1a1a2e;
+  scrollbar-color: #333333 #000000;
   image-rendering: pixelated;
 }
 
 *::-webkit-scrollbar { width: 8px; }
-*::-webkit-scrollbar-track { background: #1a1a2e; }
+*::-webkit-scrollbar-track { background: #000000; }
 *::-webkit-scrollbar-thumb {
-  background: #0f3460;
-  border: 2px solid #1a1a2e;
+  background: #333333;
+  border: 2px solid #000000;
 }
 
 body {
@@ -28,7 +28,7 @@ body {
   font-family: "Press Start 2P", monospace;
 }
 
-/* CRT scanline overlay */
+/* Game Boy style scanline overlay */
 .crt-overlay {
   pointer-events: none;
   position: fixed;
@@ -38,14 +38,14 @@ body {
   background:
     repeating-linear-gradient(
       0deg,
-      rgba(0, 0, 0, 0.06) 0px,
-      rgba(0, 0, 0, 0.06) 1px,
+      rgba(0, 0, 0, 0.1) 0px,
+      rgba(0, 0, 0, 0.1) 1px,
       transparent 1px,
-      transparent 3px
+      transparent 2px
     );
 }
 
-/* CRT screen curvature */
+/* Game Boy screen effect */
 .crt-screen {
   position: relative;
 }
@@ -56,48 +56,46 @@ body {
   border-radius: 8px;
   pointer-events: none;
   box-shadow:
-    inset 0 0 80px rgba(0, 255, 65, 0.03),
-    inset 0 0 200px rgba(0, 0, 0, 0.3);
+    inset 0 0 80px rgba(255, 255, 255, 0.02),
+    inset 0 0 200px rgba(0, 0, 0, 0.4);
   z-index: 1;
 }
 
-/* Pixel glow effects */
-.glow-green { text-shadow: 0 0 4px #00ff41, 0 0 8px #00ff4166; }
-.glow-cyan { text-shadow: 0 0 4px #00ffff, 0 0 8px #00ffff66; }
-.glow-amber { text-shadow: 0 0 4px #ffd700, 0 0 8px #ffd70066; }
-.glow-red { text-shadow: 0 0 4px #ff0040, 0 0 8px #ff004066; }
-.glow-magenta { text-shadow: 0 0 4px #ff00ff, 0 0 8px #ff00ff66; }
+/* Pixel glow effects - Mario style */
+.glow-green { text-shadow: 2px 2px 0 #000000; }
+.glow-cyan { text-shadow: 2px 2px 0 #000000; }
+.glow-amber { text-shadow: 2px 2px 0 #000000; }
+.glow-red { text-shadow: 2px 2px 0 #666666; }
+.glow-magenta { text-shadow: 2px 2px 0 #000000; }
 
-/* Pixel panel border */
+/* Pixel panel border - Mario block style */
 .pixel-panel {
-  border: 2px solid #0f3460;
-  box-shadow:
-    0 0 0 1px #00ff4122,
-    inset 0 0 30px rgba(0, 255, 65, 0.02);
-  background: #16213e;
+  border: 3px solid #ffffff;
+  box-shadow: inset 3px 3px 0 #333333, inset -3px -3px 0 #000000;
+  background: #1a1a1a;
 }
 
 .pixel-panel-cyan {
-  border: 2px solid #008b8b;
-  box-shadow: 0 0 0 1px #00ffff22, inset 0 0 30px rgba(0, 255, 255, 0.02);
-  background: #16213e;
+  border: 3px solid #cccccc;
+  box-shadow: inset 3px 3px 0 #666666, inset -3px -3px 0 #000000;
+  background: #1a1a1a;
 }
 
 .pixel-panel-amber {
-  border: 2px solid #b8960f;
-  box-shadow: 0 0 0 1px #ffd70022, inset 0 0 30px rgba(255, 215, 0, 0.02);
-  background: #16213e;
+  border: 3px solid #ffffff;
+  box-shadow: inset 3px 3px 0 #999999, inset -3px -3px 0 #000000;
+  background: #1a1a1a;
 }
 
 .pixel-panel-red {
-  border: 2px solid #aa0028;
-  box-shadow: 0 0 0 1px #ff004022, inset 0 0 30px rgba(255, 0, 64, 0.02);
-  background: #16213e;
+  border: 3px solid #333333;
+  box-shadow: inset 3px 3px 0 #111111, inset -3px -3px 0 #000000;
+  background: #0a0a0a;
 }
 
-/* Pixel button */
+/* Pixel button - Mario style */
 .pixel-btn {
-  border: 2px solid;
+  border: 3px solid #ffffff;
   padding: 6px 12px;
   font-family: "Press Start 2P", monospace;
   font-size: 8px;
@@ -106,45 +104,64 @@ body {
   cursor: pointer;
   transition: all 0.1s;
   position: relative;
+  box-shadow: inset -3px -3px 0 #000000, inset 3px 3px 0 #666666;
 }
 .pixel-btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 2px 2px 0 currentColor;
+  transform: translate(-2px, -2px);
+  box-shadow: inset -3px -3px 0 #000000, inset 3px 3px 0 #999999, 3px 3px 0 #333333;
 }
 .pixel-btn:active {
-  transform: translate(1px, 1px);
-  box-shadow: none;
+  transform: translate(0, 0);
+  box-shadow: inset 3px 3px 0 #000000, inset -3px -3px 0 #666666;
 }
 
 /* Pixel input */
 .pixel-input {
-  background: #0f0f1a;
-  border: 2px solid #0f3460;
+  background: #000000;
+  border: 3px solid #666666;
   padding: 8px 12px;
   font-family: "Press Start 2P", monospace;
   font-size: 8px;
-  color: #00ff41;
+  color: #ffffff;
   outline: none;
+  box-shadow: inset 2px 2px 0 #000000;
 }
 .pixel-input:focus {
-  border-color: #00ff41;
-  box-shadow: 0 0 0 1px #00ff4144;
+  border-color: #ffffff;
+  box-shadow: inset 2px 2px 0 #000000, 0 0 0 2px #333333;
 }
 .pixel-input::placeholder {
-  color: #666680;
+  color: #666666;
 }
 
-/* 8-bit progress bar */
+/* Force pixel font on native date input internals */
+.pixel-input[type="date"]::-webkit-datetime-edit,
+.pixel-input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.pixel-input[type="date"]::-webkit-datetime-edit-text,
+.pixel-input[type="date"]::-webkit-datetime-edit-month-field,
+.pixel-input[type="date"]::-webkit-datetime-edit-day-field,
+.pixel-input[type="date"]::-webkit-datetime-edit-year-field {
+  font-family: "Press Start 2P", monospace;
+  color: #ffffff;
+}
+.pixel-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+/* 8-bit progress bar - Mario pipe style */
 .pixel-bar {
   height: 12px;
-  background: #0f0f1a;
-  border: 2px solid #0f3460;
+  background: #000000;
+  border: 2px solid #666666;
   position: relative;
   overflow: hidden;
+  box-shadow: inset 2px 2px 0 #0a0a0a;
 }
 .pixel-bar-fill {
   height: 100%;
   transition: width 0.3s steps(20);
+  border-right: 2px solid #333333;
 }
 
 /* Retro table */
@@ -155,16 +172,16 @@ body {
 .pixel-table th {
   text-align: left;
   padding: 8px;
-  color: #9999aa;
-  border-bottom: 2px solid #0f3460;
+  color: #999999;
+  border-bottom: 2px solid #333333;
   letter-spacing: 1px;
 }
 .pixel-table td {
   padding: 6px 8px;
-  border-bottom: 1px solid #0f346033;
+  border-bottom: 1px solid #1a1a1a;
 }
 .pixel-table tr:hover td {
-  background: #00ff4108;
+  background: #1a1a1a;
 }
 
 /* 8-bit badge */
@@ -180,24 +197,33 @@ body {
 /* Recharts overrides */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
-  stroke: #0f3460 !important;
+  stroke: #333333 !important;
 }
 .recharts-text {
-  fill: #9999aa !important;
+  fill: #999999 !important;
   font-family: "Press Start 2P", monospace !important;
   font-size: 7px !important;
 }
 
-/* Pixel sprite decorations */
+/* Pixel sprite decorations - Mario coin */
 .sprite-coin::before {
   content: "";
   display: inline-block;
   width: 12px; height: 12px;
-  background: #ffd700;
-  border: 1px solid #b8960f;
-  box-shadow: inset -2px -2px 0 #b8960f, inset 2px 2px 0 #ffe44d;
+  background:
+    linear-gradient(90deg,
+      #000 0%, #000 2px,
+      #fff 2px, #fff 4px,
+      #000 4px, #000 6px,
+      #fff 6px, #fff 8px,
+      #000 8px, #000 10px,
+      #fff 10px, #fff 12px
+    );
+  border: 2px solid #ffffff;
+  box-shadow: inset 2px 2px 0 #666666, inset -2px -2px 0 #000000;
   margin-right: 4px;
   vertical-align: middle;
+  border-radius: 50%;
 }
 
 /* Animated cursor */
@@ -208,4 +234,88 @@ body {
 .pixel-cursor::after {
   content: "_";
   animation: cursor-blink 1s step-end infinite;
+}
+
+/* Mario-style question block */
+.mario-block {
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border: 2px solid #000000;
+  position: relative;
+  box-shadow: inset 2px 2px 0 #cccccc, inset -2px -2px 0 #666666;
+}
+
+.mario-block::after {
+  content: "?";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Press Start 2P", monospace;
+  font-size: 10px;
+  color: #000000;
+}
+
+/* Mario pipe decoration */
+.mario-pipe {
+  width: 20px;
+  height: 30px;
+  background: #666666;
+  border: 2px solid #ffffff;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  box-shadow: inset 2px 2px 0 #999999, inset -2px -2px 0 #333333;
+}
+
+.mario-pipe::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: #999999;
+  border-bottom: 2px solid #ffffff;
+}
+
+/* Mario mushroom */
+.mario-mushroom {
+  width: 16px;
+  height: 16px;
+  background:
+    radial-gradient(circle at 30% 30%, #ffffff 20%, transparent 20%),
+    radial-gradient(circle at 70% 30%, #ffffff 20%, transparent 20%),
+    #000000;
+  border: 2px solid #ffffff;
+  border-radius: 50% 50% 0 0;
+}
+
+/* Brick block pattern */
+.brick-pattern {
+  background-image:
+    repeating-linear-gradient(0deg, #333333 0px, #333333 1px, transparent 1px, transparent 8px),
+    repeating-linear-gradient(90deg, #333333 0px, #333333 1px, transparent 1px, transparent 16px);
+}
+
+/* Star power animation */
+@keyframes star-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.mario-star {
+  animation: star-spin 2s linear infinite;
+}
+
+/* Ground pattern like Mario level */
+.mario-ground {
+  background-image:
+    repeating-linear-gradient(90deg,
+      #000 0px, #000 2px,
+      #fff 2px, #fff 4px,
+      #000 4px, #000 6px,
+      #fff 6px, #fff 8px
+    );
+  height: 4px;
 }

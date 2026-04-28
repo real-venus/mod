@@ -16,7 +16,7 @@
         "kill",
         "test"
     ],
-    "schema": "QmQjsN2rfBnazFNDnf3SWau3bLepRzF5ABtBQ5n43DBc7u",
+    "schema": "QmQUCT6MfJFKdrWaxyDzHRk6MaLhRtjg6bcTJWtQeRrCRd",
     "urls": {
         "api": "http://localhost:8930",
         "app": "http://localhost:3930"

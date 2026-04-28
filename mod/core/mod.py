@@ -580,7 +580,8 @@ class Mod:
         return inspect.getsource(obj)
 
     def claude(self, *text, obj=None, **kwargs) -> str:
-        return self.fn('claude/forward')(text=' '.join(text), obj=obj, **kwargs)
+        kwargs.setdefault('path', os.path.expanduser('~/mod'))
+        return self.fn('claude/forward')(query=' '.join(text), obj=obj, **kwargs)
 
     def _has_hidden(self, relpath: str) -> bool:
         """Check if any path component is a hidden file/folder (starts with '.')."""
@@ -1275,6 +1276,42 @@ class Mod:
 
     def epoch(self, *args, **kwargs):
         return self.fn('vali/epoch')(*args, **kwargs)
+
+    # ── Background Jobs ─────────────────────────────────────────────────
+
+    def jobs(self):
+        """List all background jobs."""
+        import json as _json
+        from pathlib import Path as _Path
+        job_dir = _Path('/tmp/mod_jobs')
+        if not job_dir.exists():
+            return []
+        jobs = []
+        for f in sorted(job_dir.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                jobs.append(_json.loads(f.read_text()))
+            except Exception:
+                pass
+        return jobs
+
+    def job(self, job_id: str = None):
+        """Get a background job by ID. With no args, lists all jobs."""
+        import json as _json
+        from pathlib import Path as _Path
+        if not job_id:
+            return self.jobs()
+        job_dir = _Path('/tmp/mod_jobs')
+        # Match by prefix
+        matches = list(job_dir.glob(f'{job_id}*.json'))
+        if not matches:
+            return {'error': f'No job found matching {job_id}'}
+        data = _json.loads(matches[0].read_text())
+        # Also attach last 20 lines of log if available
+        log_path = matches[0].with_suffix('.log')
+        if log_path.exists():
+            lines = log_path.read_text().splitlines()
+            data['log_tail'] = lines[-20:] if len(lines) > 20 else lines
+        return data
 
     # ── Server & Deploy ──────────────────────────────────────────────────
 

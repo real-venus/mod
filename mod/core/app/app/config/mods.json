@@ -1,27 +1,27 @@
 [
   {
-    "cid": "QmWQZKAMCUjHqjBAPB5a6vmfrJEsz7ZwiZjDpqbAmmBbUa",
+    "cid": "QmZkUVgNQ8GZi6mCvm1FZ8dxmTDcMrefST24SMgHMMd4tu",
     "content": "QmVyNa3oVFgmMYHGXpVWiTdsdS5Hf9Cg1xXpNaMvGeVQKf",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "uniswap",
     "prev": null,
-    "schema": "QmUVEn1yhh2qKZnbyhp7An4FZ4PeoWm5gWwcBfFhE1wkwY",
-    "updated": 1776640379.4243908,
+    "schema": "Qmazc6DYX44W53d846JcU8KAt3zaFipfknFTdz4zMTGPz8",
+    "updated": 1777327296.863111,
     "url": {
       "api": "http://localhost:50088",
       "app": "http://localhost:3088"
     }
   },
   {
-    "cid": "QmfNeD91D4gBjAmZqeZHjXy1fAev2J5CADuGW7WGroWUVo",
+    "cid": "Qmb7TaCNTH4iF2GHBwT2hJJs7xPgse9cbr4sLZya5K6nss",
     "content": "QmXm3sf2GieS4Ecwtq6Ksp6Y6mBjxhMFJAAXRUqZauBaDy",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "claude",
     "prev": null,
-    "schema": "QmdwKVb2c1XyEMAWL8iTkxxYUpZAPeVuKg7XYoZV6AJcUt",
-    "updated": 1777057308.58447,
+    "schema": "QmatjabAaFtYjFkNpLM5qyYXp5wAwPxdJ7UC1wn7oSrLoD",
+    "updated": 1777354087.2739148,
     "url": {
       "api": "http://localhost:8820",
       "app": "http://localhost:8821"
@@ -42,14 +42,14 @@
     }
   },
   {
-    "cid": "QmcT1vRQxovf1tJp2tCsYv98QTU7Wn3jgo9wwyGEmTdUh5",
-    "content": "QmNUAzrbsNH2vHjK7QJ1nVGrVqw9fdeF2qrLtjZtR56vtw",
+    "cid": "QmZ3SXFDWSe5V2v6WhzkHEhrFcLQ6TbwvFqorGQ3w7ku1n",
+    "content": "QmTp9KjLF8MBK9rK3iGz86VG2FDeYueW94GYfNH2BQqMud",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "api",
-    "prev": null,
-    "schema": "QmULtqyXS5Sbk2ghtDGWbV4J27uYZwnvwG3AME9abuUcCW",
-    "updated": 1776641260.615912,
+    "prev": "QmcT1vRQxovf1tJp2tCsYv98QTU7Wn3jgo9wwyGEmTdUh5",
+    "schema": "QmR3dZuhn5YHPYVEUv1CVqLatk4HT5zPy5B4bNoN9TvebG",
+    "updated": 1777159303.660903,
     "url": "http://0.0.0.0:8000"
   },
   {
@@ -67,40 +67,40 @@
     }
   },
   {
-    "cid": "QmWP8dNV8zf3W1xjdLo3n5EjwpagXkwWScuFV1UfXP56gG",
+    "cid": "QmTtNoNPtiSxqezJvMbodUdr1DLf1f4fNQEhPV7JHb8Dsf",
     "content": "QmYXYKZRwrBcTaDyecg1FcuxS4HPrS8BhbpCuDCh364k1y",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "polymarket",
     "prev": null,
-    "schema": "QmTYW1hvxPsdFAr5ZmtSPjm6VS7Cxep1jtq716i9aYCdao",
-    "updated": 1776880446.0277162,
+    "schema": "QmU8RmbovJxnY3iXS8H2nVZ9xkfLJegQbkMUrX4hBh9GEg",
+    "updated": 1777327298.100095,
     "url": {
       "api": "http://localhost:50091",
       "app": "http://localhost:3091"
     }
   },
   {
-    "cid": "QmZeGx83ZGXJVZBPJdcR4XgWPcv9rgdVi94SnSgz9JZCxJ",
+    "cid": "Qmbs42KxCWZqcrQD26psySnapQoyuvvzW4NN5mXJM2piC2",
     "content": "QmVftpWyKsmUeUbAyh2cagnf3D4xov3ownzi5xqR7DC1W9",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "mod",
     "prev": null,
-    "schema": "QmNgtfTwpLsMxh8rWukXthCwC1Cw1UZ1ad8bNfKt6LK7v1",
-    "updated": 1776880433.92341,
+    "schema": "QmeaKuNtWgFECkKjQHAHBefVtuGnhciRUqjmM86PuGRD1d",
+    "updated": 1777327294.5361578,
     "url": null
   },
   {
-    "cid": "QmWornKEs7UehSbK9qfqRCzTAYEqvk54NkJSSZmwwMTDpN",
+    "cid": "QmZjHzQLPyHGPkkVZhhuvBBKKJPH7HcaUv3uJ5wsy8PjAn",
     "content": "QmcNh9P5nFiof2uZGm2Zqhg7KmHSd6QHHtQbK8Q8Mnq21U",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "polycopy",
     "prev": null,
-    "schema": "QmWwaiD7kun7ujRuxyRjYUhJ3TisVMRdg7FgVymHvXoD8g",
-    "updated": 1776718613.087408,
-    "url": null
+    "schema": "QmaBZvdbWMYCMspzfPeG8zoYHmt1YN44xHi2EngpZhoi6E",
+    "updated": 1777160316.7695072,
+    "url": "http://0.0.0.0:50073"
   },
   {
     "cid": "QmTwYmNdrPWDDVwLVvrMKkYCSM25pEJk3itb8XMXrYNvKt",
@@ -128,6 +128,20 @@
     }
   },
   {
+    "cid": "QmWecySAipStwDozw85FG6QKwWyWb49iYabLdRRsxhX31y",
+    "content": "QmYBgpJQshe5KtaMAGMxpiSn3gpAJ9RWogcgKjr5TVnDmL",
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "name": "latexhub",
+    "prev": null,
+    "schema": "QmWWjfjEAcarSMqjsiBsY18ZZxz898duMX81uvFZi52JbC",
+    "updated": 1777315611.6667168,
+    "url": {
+      "api": "http://localhost:50200",
+      "app": "http://localhost:3200"
+    }
+  },
+  {
     "cid": "QmSFfsrLuVWVwgF5i81odFZEDPpxKJrQGfNtSNMzNDmuip",
     "content": "QmbCn2JhnDFi9wxPLaL96e5JGSKcHJSofkVyhJ2PVLXUYt",
     "created": null,
@@ -150,16 +164,18 @@
     "url": null
   },
   {
-    "cid": null,
-    "content": null,
+    "cid": "QmahjZddyX77XiAfQYXnF6JTqpfts36WXDZJChqw2fexQa",
+    "content": "QmNn6NbfWRB1jwTLss3mvXPraq9FAfRjU7GbcEyMYnSd4G",
     "created": null,
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
-    "name": "3m",
-    "path": "/Users/broski/mod/mod/orbit/3m",
-    "schema": null,
-    "updated": null,
-    "url": null
+    "key": "0x8844ae091c02bcb2b200cb01b28e9a31333918c2",
+    "name": "staketime",
+    "prev": null,
+    "schema": "Qmcn87P4VPpUUNycGfhSnoYnhm9nQ7GjNq7Xey6NnThUMo",
+    "updated": 1777327139.0161998,
+    "url": {
+      "api": "http://localhost:8849",
+      "app": "http://localhost:8850"
+    }
   },
   {
     "cid": null,
@@ -1108,6 +1124,20 @@
     "cid": null,
     "content": null,
     "created": null,
+    "desc": "Query free AI models from OpenRouter or Venice",
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "query",
+    "path": "/Users/broski/mod/mod/orbit/query",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "desc": "Local gateway router — proxies all mod apps and APIs",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "routy",
@@ -1246,18 +1276,6 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
-    "name": "3world",
-    "path": "/Users/broski/mod/mod/orbit/3world",
-    "schema": null,
-    "updated": null,
-    "url": null
-  },
-  {
-    "cid": null,
-    "content": null,
-    "created": null,
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
     "name": "addmod",
     "path": "/Users/broski/mod/mod/orbit/addmod",
     "schema": null,
@@ -1275,6 +1293,22 @@
     "schema": null,
     "updated": null,
     "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "desc": "Bittensor subnet — miners generate YC-style startup ideas, validators judge them",
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "bitevo",
+    "path": "/Users/broski/mod/mod/orbit/bitevo",
+    "schema": null,
+    "updated": null,
+    "url": {
+      "api": "http://localhost:50120",
+      "app": "http://localhost:50121"
+    }
   },
   {
     "cid": null,
@@ -1427,6 +1461,18 @@
     "local": true,
     "name": "https:",
     "path": "/Users/broski/mod/mod/orbit/https:",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "local1",
+    "path": "/Users/broski/mod/mod/orbit/local1",
     "schema": null,
     "updated": null,
     "url": null
@@ -1654,18 +1700,6 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
-    "name": "3market",
-    "path": "/Users/broski/mod/mod/orbit/3market",
-    "schema": null,
-    "updated": null,
-    "url": null
-  },
-  {
-    "cid": null,
-    "content": null,
-    "created": null,
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
     "name": "amisafe",
     "path": "/Users/broski/mod/mod/orbit/amisafe",
     "schema": null,
@@ -1846,6 +1880,30 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
+    "name": "hippius",
+    "path": "/Users/broski/mod/mod/orbit/hippius",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "kastore",
+    "path": "/Users/broski/mod/mod/orbit/kastore",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
     "name": "lmarena",
     "path": "/Users/broski/mod/mod/orbit/lmarena",
     "schema": null,
@@ -1953,6 +2011,19 @@
     "cid": null,
     "content": null,
     "created": null,
+    "desc": "Anchor CIDs from IPFS/Filecoin/Hippius/LocalFS onto Bitcoin, Kaspa, and Bittensor",
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "bitstore",
+    "path": "/Users/broski/mod/mod/orbit/bitstore",
+    "schema": null,
+    "updated": null,
+    "url": {}
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "bloctime",
@@ -2040,22 +2111,6 @@
     "cid": null,
     "content": null,
     "created": null,
-    "desc": "Local filesystem LaTeX document storage, compilation, and management hub.",
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
-    "name": "latexhub",
-    "path": "/Users/broski/mod/mod/orbit/latexhub",
-    "schema": null,
-    "updated": null,
-    "url": {
-      "api": "http://localhost:50200",
-      "app": "http://localhost:3200"
-    }
-  },
-  {
-    "cid": null,
-    "content": null,
-    "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "localgov",
@@ -2075,6 +2130,22 @@
     "schema": null,
     "updated": null,
     "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "desc": "Multi-chain multisig wallet — Base (Safe), TAO (Substrate pallet), Solana (Squads)",
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "multisig",
+    "path": "/Users/broski/mod/mod/orbit/multisig",
+    "schema": null,
+    "updated": null,
+    "url": {
+      "api": "http://localhost:50100",
+      "app": "http://localhost:3100"
+    }
   },
   {
     "cid": null,
@@ -2124,6 +2195,18 @@
     "local": true,
     "name": "registry",
     "path": "/Users/broski/mod/mod/orbit/registry",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "revoloco",
+    "path": "/Users/broski/mod/mod/orbit/revoloco",
     "schema": null,
     "updated": null,
     "url": null
@@ -2440,21 +2523,6 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
-    "name": "staketime",
-    "path": "/Users/broski/mod/mod/orbit/staketime",
-    "schema": null,
-    "updated": null,
-    "url": {
-      "api": "http://localhost:8849",
-      "app": "http://localhost:8850"
-    }
-  },
-  {
-    "cid": null,
-    "content": null,
-    "created": null,
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
     "name": "substrate",
     "path": "/Users/broski/mod/mod/orbit/substrate",
     "schema": null,
@@ -2551,6 +2619,18 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
+    "name": "neartensor",
+    "path": "/Users/broski/mod/mod/orbit/neartensor",
+    "schema": null,
+    "updated": null,
+    "url": {}
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
     "name": "protonmail",
     "path": "/Users/broski/mod/mod/orbit/protonmail",
     "schema": null,
@@ -2605,6 +2685,22 @@
     "schema": null,
     "updated": null,
     "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "desc": "Forkable module template with ensure_env, health checks, and CID registry tracking",
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "basebuilder",
+    "path": "/Users/broski/mod/mod/orbit/basebuilder",
+    "schema": null,
+    "updated": null,
+    "url": {
+      "api": "http://localhost:50200",
+      "app": "http://localhost:50201"
+    }
   },
   {
     "cid": null,

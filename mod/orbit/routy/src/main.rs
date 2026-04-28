@@ -82,16 +82,17 @@ async fn root_handler(State(state): State<AppState>) -> impl IntoResponse {
     let cpu = state.monitor.get_cpu_usage().await;
 
     let app_rows = if apps.is_empty() {
-        "<tr><td colspan=\"3\" style=\"color:#888\">No apps registered</td></tr>".to_string()
+        "<tr><td colspan=\"5\" style=\"color:#888\">No apps registered</td></tr>".to_string()
     } else {
         apps.iter()
             .map(|w| {
+                let storage = w.storage_type.as_deref().unwrap_or("-");
+                let cid_short = w.cid.as_deref().map(|c| if c.len() > 12 { &c[..12] } else { c }).unwrap_or("-");
                 format!(
-                    "<tr><td><a href=\"/{}/\">{}</a></td><td><code>{}</code></td><td>{}</td></tr>",
-                    w.name,
-                    w.name,
-                    w.target_url,
-                    w.description.as_deref().unwrap_or("")
+                    "<tr><td><a href=\"/{}/\">{}</a></td><td><code>{}</code></td><td>{}</td><td><code>{}</code></td><td><code>{}</code></td></tr>",
+                    w.name, w.name, w.target_url,
+                    w.description.as_deref().unwrap_or(""),
+                    storage, cid_short
                 )
             })
             .collect::<Vec<_>>()
@@ -99,14 +100,17 @@ async fn root_handler(State(state): State<AppState>) -> impl IntoResponse {
     };
 
     let api_rows = if apis.is_empty() {
-        "<tr><td colspan=\"3\" style=\"color:#888\">No APIs registered</td></tr>".to_string()
+        "<tr><td colspan=\"5\" style=\"color:#888\">No APIs registered</td></tr>".to_string()
     } else {
         apis.iter()
             .map(|w| {
+                let storage = w.storage_type.as_deref().unwrap_or("-");
+                let cid_short = w.cid.as_deref().map(|c| if c.len() > 12 { &c[..12] } else { c }).unwrap_or("-");
                 format!(
-                    "<tr><td><a href=\"/api/{}/\">{}</a></td><td><code>{}</code></td><td>{}</td></tr>",
+                    "<tr><td><a href=\"/api/{}/\">{}</a></td><td><code>{}</code></td><td>{}</td><td><code>{}</code></td><td><code>{}</code></td></tr>",
                     w.name, w.name, w.target_url,
-                    w.description.as_deref().unwrap_or("")
+                    w.description.as_deref().unwrap_or(""),
+                    storage, cid_short
                 )
             })
             .collect::<Vec<_>>()
@@ -158,14 +162,14 @@ async fn root_handler(State(state): State<AppState>) -> impl IntoResponse {
 
     <h2>Apps &mdash; /{{name}}/*</h2>
     <table>
-        <tr><th>name</th><th>target</th><th>description</th></tr>
+        <tr><th>name</th><th>target</th><th>description</th><th>storage</th><th>cid</th></tr>
         {}
     </table>
 
     <div class="api-section">
         <h2>APIs &mdash; /api/{{name}}/*</h2>
         <table>
-            <tr><th>name</th><th>target</th><th>description</th></tr>
+            <tr><th>name</th><th>target</th><th>description</th><th>storage</th><th>cid</th></tr>
             {}
         </table>
     </div>

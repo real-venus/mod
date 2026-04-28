@@ -31,7 +31,7 @@ class Mod:
         'bg', 'bg_status', 'bg_list', 'snapshot', 'changelog',
         'get_version', 'restore_version', 'health', 'modules',
         'folders', 'suggest_folders',
-        'set_owner', 'get_owner', 'is_owner', 'serve',
+        'set_owner', 'get_owner', 'is_owner', 'ensure_env', 'serve',
         'kill', 'kill_port', 'status', 'logs', 'scan', 'fix',
     ]
 
@@ -840,10 +840,87 @@ class Mod:
         router = m.mod('model.openrouter')()
         return router.models(search=search)
 
+    # ── environment ──────────────────────────────────────────────
+
+    def ensure_env(self, app_dir: str = None, api_dir: str = None):
+        """Ensure runtime dependencies are installed for app and API.
+
+        Checks node_modules for Next.js app and Rust binary for API.
+        Installs/builds if missing. Called automatically by serve().
+        """
+        results = {}
+        mod_dir = Path(self._module_dir())
+        app_dir = Path(app_dir) if app_dir else mod_dir / 'src' / 'app'
+        api_dir = Path(api_dir) if api_dir else mod_dir / 'src' / 'api'
+
+        # ── App: node_modules ──
+        if (app_dir / 'package.json').exists():
+            if not (app_dir / 'node_modules').is_dir():
+                print('[claude] node_modules missing — running npm install')
+                r = subprocess.run(
+                    ['npm', 'install'], cwd=str(app_dir),
+                    capture_output=True, text=True, timeout=120,
+                )
+                if r.returncode != 0:
+                    results['app_install'] = {'ok': False, 'error': r.stderr[-500:]}
+                    print(f'[claude] npm install failed: {r.stderr[-200:]}')
+                else:
+                    results['app_install'] = {'ok': True}
+                    print('[claude] npm install done')
+            else:
+                results['app_install'] = {'ok': True, 'cached': True}
+
+        # ── API: Rust binary ──
+        binary = api_dir / 'target' / 'release' / 'claude-jobs'
+        if (api_dir / 'Cargo.toml').exists() and not binary.exists():
+            print('[claude] API binary missing — running cargo build --release')
+            r = subprocess.run(
+                ['cargo', 'build', '--release'], cwd=str(api_dir),
+                capture_output=True, text=True, timeout=300,
+            )
+            if r.returncode != 0:
+                results['api_build'] = {'ok': False, 'error': r.stderr[-500:]}
+                print(f'[claude] cargo build failed: {r.stderr[-200:]}')
+            else:
+                results['api_build'] = {'ok': True}
+                print('[claude] cargo build done')
+        else:
+            results['api_build'] = {'ok': True, 'cached': True}
+
+        return results
+
+    def _check_service(self, url: str, retries: int = 20, interval: float = 0.5) -> bool:
+        """Poll a URL until it responds or retries are exhausted."""
+        for _ in range(retries):
+            try:
+                req = urllib.request.Request(url, method='GET')
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    if resp.status < 500:
+                        return True
+            except Exception:
+                pass
+            time.sleep(interval)
+        return False
+
+    def _tail_log(self, log_path: str, lines: int = 30) -> str:
+        """Read the last N lines of a log file."""
+        try:
+            r = subprocess.run(
+                ['tail', '-n', str(lines), log_path],
+                capture_output=True, text=True,
+            )
+            return r.stdout
+        except Exception:
+            return ''
+
     # ── serve ─────────────────────────────────────────────────────
 
     def serve(self, api_port=None, app_port=None, dev=True):
-        """Start the claude API (Rust job server) and Next.js app."""
+        """Start the claude API (Rust job server) and Next.js app.
+
+        Ensures dependencies are installed, starts both services,
+        verifies they come up, and registers in the namespace.
+        """
         api_port = int(api_port or self.config.get('port', 8820))
         app_port = int(app_port or self.config.get('app_port', 8821))
         log_dir = Path('/tmp/claude')
@@ -854,9 +931,14 @@ class Mod:
 
         api_url = f'http://localhost:{api_port}'
         app_url = f'http://localhost:{app_port}'
+        app_dir = Path(self._module_dir()) / 'src' / 'app'
+        api_dir = Path(self._module_dir()) / 'src' / 'api'
+
+        # ── Ensure environment before starting ──
+        env_result = self.ensure_env(app_dir=str(app_dir), api_dir=str(api_dir))
+        results['env'] = env_result
 
         # ── API (Rust job server) ──
-        api_dir = Path(self._module_dir()) / 'src' / 'api'
         start_sh = api_dir / 'start.sh'
         if start_sh.exists():
             api_log = open(log_dir / 'api.log', 'w')
@@ -868,10 +950,10 @@ class Mod:
             results['api_log'] = str(log_dir / 'api.log')
 
         # ── App (Next.js) ──
-        app_dir = Path(self._module_dir()) / 'src' / 'app'
         if (app_dir / 'package.json').exists():
             app_env = os.environ.copy()
             app_env['NEXT_PUBLIC_API_URL'] = api_url
+            app_env['NEXT_PUBLIC_BASE_PATH'] = '/claude'
             app_env['PORT'] = str(app_port)
             app_log = open(log_dir / 'app.log', 'w')
             app_cmd = ['npx', 'next', 'dev' if dev else 'start', '-p', str(app_port)]
@@ -882,12 +964,91 @@ class Mod:
             results['app'] = app_url
             results['app_log'] = str(log_dir / 'app.log')
 
+        # ── Verify services come up ──
+        checks = {}
+        if 'api' in results:
+            api_live = self._check_service(f'{api_url}/health')
+            checks['api'] = {'live': api_live}
+            if not api_live:
+                tail = self._tail_log(str(log_dir / 'api.log'))
+                checks['api']['error'] = tail
+                print(f'[claude] API failed to start on :{api_port}')
+                if tail:
+                    print(tail[-300:])
+            else:
+                print(f'[claude] API live on :{api_port}')
+
+        if 'app' in results:
+            app_live = self._check_service(f'{app_url}/claude')
+            checks['app'] = {'live': app_live}
+            if not app_live:
+                tail = self._tail_log(str(log_dir / 'app.log'))
+                checks['app']['error'] = tail
+                print(f'[claude] App failed to start on :{app_port}')
+                # ── Auto-recover: reinstall deps and retry once ──
+                if not env_result.get('app_install', {}).get('cached'):
+                    pass  # already freshly installed, don't retry
+                else:
+                    print('[claude] retrying — reinstalling node_modules')
+                    import shutil
+                    nm = app_dir / 'node_modules'
+                    if nm.is_dir():
+                        shutil.rmtree(str(nm), ignore_errors=True)
+                    self.ensure_env(app_dir=str(app_dir))
+                    # kill stale process on the port and restart
+                    subprocess.run(['lsof', '-ti', f':{app_port}'],
+                                   capture_output=True, text=True)
+                    app_log2 = open(log_dir / 'app.log', 'w')
+                    subprocess.Popen(
+                        app_cmd, cwd=str(app_dir), env=app_env,
+                        stdout=app_log2, stderr=subprocess.STDOUT,
+                    )
+                    app_live = self._check_service(f'{app_url}/claude')
+                    checks['app']['retry'] = True
+                    checks['app']['live'] = app_live
+                    if app_live:
+                        print(f'[claude] App recovered on :{app_port}')
+                    else:
+                        tail = self._tail_log(str(log_dir / 'app.log'))
+                        checks['app']['error'] = tail
+                        print(f'[claude] App still failing after retry')
+            else:
+                print(f'[claude] App live on :{app_port}')
+
+        results['checks'] = checks
+
+        # ── Register in app namespace so gateway routes /claude → here ──
+        try:
+            registry = m.mod('server.namespace')()
+            registry.reg('claude', api_url)
+            registry.reg_app('claude', app_url,
+                             owner=self.key.address, api_url=api_url)
+        except Exception as e:
+            print(f'[claude] namespace registration failed: {e}')
+
+        # ── Snapshot + update CID in registry ──
+        all_live = all(c.get('live') for c in checks.values())
+        if all_live:
+            try:
+                snap = self.snapshot(description='deploy')
+                cid = snap.get('cid')
+                if cid:
+                    reg = m.mod('registry')()
+                    reg.register('claude', {'schema': cid, 'urls': {'api': api_url, 'app': app_url}},
+                                 storage='ipfs')
+                    results['cid'] = cid
+                    print(f'[claude] CID registered: {cid[:16]}...')
+            except Exception as e:
+                print(f'[claude] CID registration skipped: {e}')
+
         # ── Save urls to config ──
         try:
             cfg = self._load_config()
             cfg.setdefault('urls', {})
             cfg['urls']['api'] = api_url
             cfg['urls']['app'] = app_url
+            if results.get('cid'):
+                cfg['schema'] = results['cid']
             self._save_config(cfg)
         except Exception:
             pass

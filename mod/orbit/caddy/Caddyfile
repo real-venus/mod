@@ -80,6 +80,33 @@ modc2.com {
     handle @polymarket_app {
         reverse_proxy base:3091
     }
+    @staketime_api path /api/staketime /api/staketime/*
+    handle @staketime_api {
+        uri strip_prefix /api/staketime
+        reverse_proxy {$PM2_HOST:localhost}:8849
+    }
+    @staketime_app path /staketime /staketime/*
+    handle @staketime_app {
+        reverse_proxy {$PM2_HOST:localhost}:8850
+    }
+    @tt_api path /api/tt /api/tt/*
+    handle @tt_api {
+        uri strip_prefix /api/tt
+        reverse_proxy {$PM2_HOST:localhost}:8849
+    }
+    @tt_app path /tt /tt/*
+    handle @tt_app {
+        reverse_proxy {$PM2_HOST:localhost}:8850
+    }
+    @uniswap_api path /api/uniswap /api/uniswap/*
+    handle @uniswap_api {
+        uri strip_prefix /api/uniswap
+        reverse_proxy {$PM2_HOST:localhost}:50088
+    }
+    @uniswap_app path /uniswap /uniswap/*
+    handle @uniswap_app {
+        reverse_proxy {$PM2_HOST:localhost}:3088
+    }
     @main_api path /api /api/*
     handle @main_api {
         uri strip_prefix /api

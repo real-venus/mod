@@ -5,15 +5,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "../Subnet.sol";
+import "../mod/Mod.sol";
 import "../staking/Staking.sol";
 import "../inflation/IInflationCurve.sol";
 
 /**
  * @title Consensus
- * @dev Abstract base for consensus modules that rotate a Subnet token.
+ * @dev Abstract base for consensus modules that rotate a Mod token.
  *
- *      Each epoch the consensus module mints new Subnet tokens as emissions
+ *      Each epoch the consensus module mints new Mod tokens as emissions
  *      and distributes them to validators (commission) and stakers
  *      (proportional to STT). Concrete implementations define scoring,
  *      proposer selection, and distribution behavior.
@@ -60,7 +60,7 @@ abstract contract Consensus is ReentrancyGuard, Ownable {
 
     // ── State ────────────────────────────────────────────────────────────────
 
-    Subnet public subnet;
+    Mod public mod_token;
     Staking public staking;
     ConsensusState public consensus;
     IInflationCurve public inflationCurve; // optional — address(0) means flat emissionRate
@@ -72,12 +72,12 @@ abstract contract Consensus is ReentrancyGuard, Ownable {
     // ── Constructor ──────────────────────────────────────────────────────────
 
     constructor(
-        address _subnet,
+        address _mod,
         address _staking,
         uint256 _emissionRate,
         uint64  _epochLength
     ) {
-        subnet = Subnet(_subnet);
+        mod_token = Mod(_mod);
         staking = Staking(_staking);
 
         consensus = ConsensusState({
@@ -155,7 +155,7 @@ abstract contract Consensus is ReentrancyGuard, Ownable {
         uint256 amount = stakerRewards[msg.sender];
         require(amount > 0, "nothing to claim");
         stakerRewards[msg.sender] = 0;
-        IERC20(address(subnet)).safeTransfer(msg.sender, amount);
+        IERC20(address(mod_token)).safeTransfer(msg.sender, amount);
     }
 
     function claimValidatorRewards(string calldata key, address to) external {
@@ -178,7 +178,7 @@ abstract contract Consensus is ReentrancyGuard, Ownable {
         require(amount > 0, "nothing to claim");
         validatorBalances[kh] = 0;
 
-        IERC20(address(subnet)).safeTransfer(to, amount);
+        IERC20(address(mod_token)).safeTransfer(to, amount);
         emit ValidatorRewardClaimed(kh, to, amount);
     }
 
@@ -186,10 +186,10 @@ abstract contract Consensus is ReentrancyGuard, Ownable {
 
     /**
      * @dev Mint and distribute a validator's emission share between commission
-     *      and stakers. Mints fresh Subnet tokens for emissions.
+     *      and stakers. Mints fresh Mod tokens for emissions.
      */
     function _distributeValidatorShare(bytes32 kh, uint256 validatorShare) internal returns (uint256) {
-        subnet.mint(address(this), validatorShare);
+        mod_token.mint(address(this), validatorShare);
 
         ValidatorScore storage s = scores[kh];
         uint256 totalSTT = staking.getValidatorTotalMintedByHash(kh);

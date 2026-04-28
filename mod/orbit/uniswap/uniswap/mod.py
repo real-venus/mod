@@ -910,8 +910,10 @@ class Mod:
 
         return all_logs
 
-    def _get_swap_logs_by_sender(self, chain, sender_address, from_block=None, to_block='latest', batch_size=2000):
-        """Fetch Swap event logs filtered by sender (topics[1]) via RPC."""
+    def _get_swap_logs_by_sender(self, chain, sender_address, from_block=None, to_block='latest', batch_size=10000):
+        """Fetch Swap event logs filtered by sender (topics[1]) via RPC.
+        Uses larger batch size since sender-filtered queries return few results per batch.
+        """
         if from_block is None:
             from_block = self._estimate_block_at(chain, 30 * 86400)
 
@@ -931,7 +933,7 @@ class Mod:
                 if logs:
                     all_logs.extend(logs)
             except Exception:
-                if batch_size > 100:
+                if batch_size > 500:
                     batch_size = batch_size // 2
                     continue
             start = end + 1
@@ -1511,62 +1513,85 @@ class Mod:
         return result
 
     def get_top_traders(self, chain='base', days=7, min_trades=5, limit=20, source='auto', update=False):
-        """Discover top traders by volume from recent swap data. Cached 10 min."""
+        """Discover top traders by trade count from recent swap data. Cached 10 min.
+
+        Uses direct RPC log scanning with a capped block range for speed.
+        Scans ~5K recent blocks, groups by sender, resolves USD only for
+        known pools (WETH/stablecoin) to keep response fast.
+        """
         ck = dict(chain=chain, days=days, min_trades=min_trades, limit=limit, source=source)
         if not update:
             cached = self._cache_get('top_traders', **ck)
             if cached is not self._CACHE_MISS:
                 return cached
 
-        # Phase 1: Fetch all swaps
-        all_swaps = self.get_swaps(chain, days, limit=10000, source=source, update=update)
-        if not all_swaps:
+        # Phase 1: Fetch swap logs directly (capped for speed)
+        bt = self.CHAINS[chain]['block_time']
+        target_blocks = int(days * 86400 / bt)
+        scan_blocks = min(target_blocks, 5000)
+        current_block = self._get_block_number(chain)
+        from_block = current_block - scan_blocks
+
+        raw_logs = self._get_swap_logs(chain, from_block=from_block, batch_size=2000)
+        if not raw_logs:
             return []
 
-        # Phase 2: Group by sender, count trades (cheap — no RPC)
+        # Phase 2: Parse and group by sender (no extra RPC)
         traders = {}
-        for swap in all_swaps:
-            sender = swap.get('sender', '')
+        for log in raw_logs:
+            parsed = self._parse_swap_log(log)
+            if not parsed:
+                continue
+            sender = parsed.get('sender', '')
             if not sender or sender == '0x' + '0' * 40:
                 continue
             if sender not in traders:
                 traders[sender] = {'address': sender, 'trade_count': 0, 'pools': set(), 'swaps': []}
             traders[sender]['trade_count'] += 1
-            traders[sender]['pools'].add(swap.get('pool', ''))
-            traders[sender]['swaps'].append(swap)
+            traders[sender]['pools'].add(parsed.get('pool', ''))
+            traders[sender]['swaps'].append(parsed)
 
-        # Phase 3: Filter by min_trades, take top candidates by count
-        qualified = {a: t for a, t in traders.items() if t['trade_count'] >= min_trades}
-        by_count = sorted(qualified.values(), key=lambda t: t['trade_count'], reverse=True)[:limit * 3]
+        # Phase 3: Filter by min_trades, sort by count
+        qualified = [t for t in traders.values() if t['trade_count'] >= min_trades]
+        qualified.sort(key=lambda t: t['trade_count'], reverse=True)
+        top = qualified[:limit]
 
-        # Phase 4: Enrich with USD volume (resolve pools)
-        pool_tokens = {}  # pool_addr -> (t0_addr, t1_addr, d0, d1)
-        for t in by_count:
+        # Phase 4: Quick USD estimation using only known pools (no RPC resolution)
+        # Resolve only the top few pools by frequency to estimate volume
+        pool_freq = {}
+        for t in top:
+            for p in t['pools']:
+                pool_freq[p] = pool_freq.get(p, 0) + 1
+        top_pools = sorted(pool_freq.keys(), key=lambda p: pool_freq[p], reverse=True)[:15]
+
+        pool_tokens = {}
+        for pool_addr in top_pools:
+            try:
+                t0_addr = self._decode_address(self._eth_call(chain, pool_addr, self.SEL['token0']))
+                t1_addr = self._decode_address(self._eth_call(chain, pool_addr, self.SEL['token1']))
+                t0 = self._get_token_info(chain, t0_addr)
+                t1 = self._get_token_info(chain, t1_addr)
+                d0 = int(t0.get('decimals', '18'))
+                d1 = int(t1.get('decimals', '18'))
+                pool_tokens[pool_addr] = (t0_addr, t1_addr, d0, d1)
+            except Exception:
+                pass
+
+        for t in top:
             t['volume'] = 0.0
             for swap in t['swaps']:
-                pool_addr = swap.get('pool', '')
-                if pool_addr not in pool_tokens:
-                    try:
-                        t0_addr = self._decode_address(self._eth_call(chain, pool_addr, self.SEL['token0']))
-                        t1_addr = self._decode_address(self._eth_call(chain, pool_addr, self.SEL['token1']))
-                        t0 = self._get_token_info(chain, t0_addr)
-                        t1 = self._get_token_info(chain, t1_addr)
-                        d0 = int(t0.get('decimals', '18'))
-                        d1 = int(t1.get('decimals', '18'))
-                        pool_tokens[pool_addr] = (t0_addr, t1_addr, d0, d1)
-                    except Exception:
-                        pool_tokens[pool_addr] = None
-                pt = pool_tokens[pool_addr]
+                pt = pool_tokens.get(swap.get('pool', ''))
                 if pt is None:
                     continue
                 t0_addr, t1_addr, d0, d1 = pt
-                usd = self._estimate_swap_usd(chain, t0_addr, t1_addr, swap.get('amount0', 0), swap.get('amount1', 0), d0, d1)
+                usd = self._estimate_swap_usd(chain, t0_addr, t1_addr,
+                                              swap.get('amount0', 0), swap.get('amount1', 0), d0, d1)
                 t['volume'] += usd
 
-        # Phase 5: Sort by volume, serialize
-        by_count.sort(key=lambda t: t['volume'], reverse=True)
+        # Phase 5: Sort by volume (then count as tiebreaker), serialize
+        top.sort(key=lambda t: (t['volume'], t['trade_count']), reverse=True)
         result = []
-        for t in by_count[:limit]:
+        for t in top[:limit]:
             result.append({
                 'address': t['address'],
                 'trade_count': t['trade_count'],

@@ -15,7 +15,7 @@ import "../Consensus.sol";
  *      Selection: Weighted random — probability of producing a block is
  *      proportional to blocktimeScore / totalBlocktime.
  *
- *      Distribution: Each epoch, fresh Subnet tokens are minted and split
+ *      Distribution: Each epoch, fresh Mod tokens are minted and split
  *      across validators proportional to their blocktime score. Per validator,
  *      commission goes to the validator and the rest to stakers by STT.
  */
@@ -24,12 +24,12 @@ contract ConsensusYuma is Consensus {
     uint256 public decayBps; // basis points (500 = 5%)
 
     constructor(
-        address _subnet,
+        address _mod,
         address _stakeTime,
         uint256 _emissionRate,
         uint256 _decayBps,
         uint64  _epochLength
-    ) Consensus(_subnet, _stakeTime, _emissionRate, _epochLength) {
+    ) Consensus(_mod, _stakeTime, _emissionRate, _epochLength) {
         require(_decayBps < 10000, "decay must be < 100%");
         decayBps = _decayBps;
     }

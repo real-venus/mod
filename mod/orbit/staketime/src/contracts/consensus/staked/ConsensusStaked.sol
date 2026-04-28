@@ -14,7 +14,7 @@ import "../Consensus.sol";
  *
  *      Selection: Weighted random by STT staked on each live validator.
  *
- *      Distribution: Fresh Subnet tokens minted and split proportional
+ *      Distribution: Fresh Mod tokens minted and split proportional
  *      to STT staked. Per validator, commission goes to validator,
  *      rest to stakers by STT.
  */
@@ -24,11 +24,11 @@ contract ConsensusStaked is Consensus {
     uint64 public currentEpoch;
 
     constructor(
-        address _subnet,
+        address _mod,
         address _stakeTime,
         uint256 _emissionRate,
         uint64  _epochLength
-    ) Consensus(_subnet, _stakeTime, _emissionRate, _epochLength) {
+    ) Consensus(_mod, _stakeTime, _emissionRate, _epochLength) {
         currentEpoch = 1; // start at 1 so default 0 means "never checked in"
     }
 

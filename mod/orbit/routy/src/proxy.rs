@@ -26,7 +26,7 @@ pub async fn proxy_request(
     let path = path.trim_start_matches('/');
     let query = uri.query().map(|q| format!("?{}", q)).unwrap_or_default();
     let target_url = if path.is_empty() {
-        format!("{}/{}", base_url, query.trim_start_matches('?'))
+        format!("{}{}", base_url, query)
     } else {
         format!("{}/{}{}", base_url, path, query)
     };
@@ -70,9 +70,14 @@ pub async fn proxy_request(
 
     let mut response_builder = Response::builder().status(parts.status);
 
-    // Forward all response headers
+    // Forward response headers, skipping hop-by-hop headers
+    // (we collected the body so transfer-encoding/content-length are wrong)
     for (name, value) in parts.headers.iter() {
-        response_builder = response_builder.header(name, value);
+        let key = name.as_str();
+        match key {
+            "transfer-encoding" | "content-length" | "connection" | "keep-alive" => continue,
+            _ => { response_builder = response_builder.header(name, value); }
+        }
     }
 
     let response = response_builder

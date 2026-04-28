@@ -17,6 +17,8 @@ class Api:
     threads = {}
 
     _worker_started = False
+    _config_cache = {}
+    _config_cache_time = {}
 
     def __init__(self, key=None, store=None, auth='auth.base'):
         store = store or m.config('api').get('store', 'localfs')
@@ -31,6 +33,8 @@ class Api:
         if not Api._worker_started:
             Api._worker_started = True
             self._reg.start_worker(interval=300)
+            # Start config scanner worker
+            self.threads['config_scanner'] = m.thread(self._config_scanner_worker)
 
     def _record(self, user: str, fn: str, duration: float, status: str = 'success', **kw):
         """Record usage in the meter if available."""
@@ -40,11 +44,272 @@ class Api:
             except Exception:
                 pass
 
+    def _config_scanner_worker(self):
+        """Worker that scans module configs every 1 second and updates registry/routes.
+
+        Uses caching to avoid redundant config reads and only syncs when changes detected.
+        """
+        import threading
+        while True:
+            try:
+                time.sleep(1)  # Scan every 1 second
+                self._scan_and_sync_configs()
+            except Exception as e:
+                m.print(f'Config scanner error: {e}', color='red')
+
+    def _scan_and_sync_configs(self):
+        """Scan all module configs, detect changes, and sync to registry/routy."""
+        import hashlib
+
+        # Get all local modules
+        try:
+            local_mods = m.tree.orbit('orbit') or {}
+        except Exception:
+            return
+
+        changed_mods = []
+        current_time = time.time()
+
+        for mod_name, mod_path in local_mods.items():
+            try:
+                config_path = os.path.join(mod_path, 'config.json')
+                if not os.path.exists(config_path):
+                    continue
+
+                # Get file modification time
+                mod_time = os.path.getmtime(config_path)
+
+                # Check cache
+                cache_key = f'{mod_name}:mtime'
+                cached_mtime = Api._config_cache_time.get(cache_key)
+
+                if cached_mtime and cached_mtime == mod_time:
+                    # Config hasn't changed, skip
+                    continue
+
+                # Read and hash config
+                with open(config_path, 'r') as f:
+                    config_data = f.read()
+
+                config_hash = hashlib.sha256(config_data.encode()).hexdigest()
+
+                # Check if hash changed
+                hash_cache_key = f'{mod_name}:hash'
+                cached_hash = Api._config_cache.get(hash_cache_key)
+
+                if cached_hash != config_hash:
+                    # Config changed - parse and check for registry/routing updates
+                    try:
+                        config = json.loads(config_data)
+
+                        # Update cache
+                        Api._config_cache[hash_cache_key] = config_hash
+                        Api._config_cache_time[cache_key] = mod_time
+
+                        # Check if module has API/app URLs or endpoints that need routing
+                        needs_routing = (
+                            config.get('port') or
+                            config.get('app_port') or
+                            config.get('urls') or
+                            config.get('endpoints') or
+                            config.get('routes')
+                        )
+
+                        if needs_routing:
+                            changed_mods.append({
+                                'name': mod_name,
+                                'config': config,
+                                'path': mod_path
+                            })
+                    except json.JSONDecodeError:
+                        pass
+            except Exception:
+                continue
+
+        # Sync changed modules to routy
+        if changed_mods:
+            self._sync_to_routy(changed_mods)
+
+    def _sync_to_routy(self, changed_mods):
+        """Sync changed module configs to routy router."""
+        try:
+            # Check if routy is running
+            import requests
+            routy_url = 'http://localhost:3001'
+
+            sync_data = {'apps': [], 'apis': []}
+
+            # Get all namespace/registry data once
+            try:
+                ns = self.registry.namespace() or {}
+            except Exception:
+                ns = {}
+
+            try:
+                app_store = m.mod('store')('~/.mod/server/registry')
+                app_reg = app_store.get('app_registry.json', {}) or {}
+            except Exception:
+                app_reg = {}
+
+            for mod_info in changed_mods:
+                name = mod_info['name']
+                config = mod_info['config']
+
+                # Check API namespace
+                if name in ns:
+                    url = ns[name].replace('0.0.0.0', '127.0.0.1')
+                    # Extract storage info from config
+                    storage_type = config.get('storage_type')
+                    cid = config.get('schema') or config.get('cid')
+
+                    sync_data['apis'].append({
+                        'name': name,
+                        'target_url': url,
+                        'storage_type': storage_type,
+                        'cid': cid,
+                    })
+
+                # Check app registry
+                if name in app_reg and isinstance(app_reg[name], dict):
+                    if 'url' in app_reg[name]:
+                        storage_type = config.get('storage_type')
+                        cid = config.get('schema') or config.get('cid')
+
+                        sync_data['apps'].append({
+                            'name': name,
+                            'target_url': app_reg[name]['url'],
+                            'storage_type': storage_type,
+                            'cid': cid,
+                        })
+
+            # Send sync request if there's data
+            if sync_data['apps'] or sync_data['apis']:
+                try:
+                    requests.post(
+                        f'{routy_url}/_api/sync',
+                        json=sync_data,
+                        timeout=2
+                    )
+                    m.print(f'Synced {len(sync_data["apis"])} APIs + {len(sync_data["apps"])} apps to routy', color='green')
+                except requests.RequestException:
+                    pass  # Routy not running or unavailable
+
+            # Also register discovered endpoints/routes
+            self._register_endpoints(changed_mods)
+        except Exception as e:
+            m.print(f'Routy sync error: {e}', color='yellow')
+
+    def _register_endpoints(self, changed_mods):
+        """Register discovered endpoints from config.json to router/registry."""
+        for mod_info in changed_mods:
+            name = mod_info['name']
+            config = mod_info['config']
+
+            # Register explicit endpoints
+            endpoints = config.get('endpoints', [])
+            if endpoints and isinstance(endpoints, list):
+                for endpoint in endpoints:
+                    if isinstance(endpoint, str):
+                        # Cache endpoint info
+                        cache_key = f'{name}:endpoint:{endpoint}'
+                        Api._config_cache[cache_key] = {
+                            'mod': name,
+                            'endpoint': endpoint,
+                            'discovered_at': time.time()
+                        }
+
+            # Register explicit routes
+            routes = config.get('routes', {})
+            if routes and isinstance(routes, dict):
+                for route_path, route_target in routes.items():
+                    # Cache route info
+                    cache_key = f'{name}:route:{route_path}'
+                    Api._config_cache[cache_key] = {
+                        'mod': name,
+                        'path': route_path,
+                        'target': route_target,
+                        'discovered_at': time.time()
+                    }
+
+    def get_discovered_endpoints(self, mod: str = None) -> Dict[str, Any]:
+        """Get all discovered endpoints from cached config data.
+
+        Args:
+            mod: Optional module name filter
+
+        Returns:
+            Dict of discovered endpoints and routes
+        """
+        endpoints = {}
+        routes = {}
+
+        for key, value in Api._config_cache.items():
+            if ':endpoint:' in key:
+                if mod is None or key.startswith(f'{mod}:'):
+                    mod_name = value.get('mod')
+                    endpoint = value.get('endpoint')
+                    if mod_name not in endpoints:
+                        endpoints[mod_name] = []
+                    endpoints[mod_name].append(endpoint)
+
+            elif ':route:' in key:
+                if mod is None or key.startswith(f'{mod}:'):
+                    mod_name = value.get('mod')
+                    path = value.get('path')
+                    target = value.get('target')
+                    if mod_name not in routes:
+                        routes[mod_name] = {}
+                    routes[mod_name][path] = target
+
+        return {
+            'endpoints': endpoints,
+            'routes': routes,
+            'cache_size': len(Api._config_cache),
+            'last_scan': max([v.get('discovered_at', 0) for v in Api._config_cache.values() if isinstance(v, dict) and 'discovered_at' in v], default=0)
+        }
+
     @property
     def router(self):
         if not hasattr(self, '_router'):
             self._router = m.mod('router')()
         return self._router
+
+    @property
+    def registry(self):
+        """Lazy accessor for server.namespace."""
+        if not hasattr(self, '_registry'):
+            self._registry = m.mod('server.namespace')()
+        return self._registry
+
+    def run_job(self, fn: str, params: dict = None, remote: bool = False,
+                timeout: int = 300, wait: bool = True, **kwargs) -> Dict[str, Any]:
+        """Execute a function locally or remotely via worker pool.
+
+        Args:
+            fn: Function path like 'mod/function'
+            params: Parameters dict
+            remote: If True, execute on worker pool; if False, try local first
+            timeout: Timeout in seconds
+            wait: If True, block until result ready; if False, return task info
+            **kwargs: Additional parameters
+
+        Returns:
+            Task result or task info dict
+        """
+        params = params or {}
+        params.update(kwargs)
+
+        # Route through router which handles local vs remote execution
+        return self.router.call(fn=fn, params=params, wait=wait, timeout=timeout)
+
+    def submit_job(self, fn: str, params: dict = None, **kwargs) -> str:
+        """Submit a job for async execution and return task CID.
+
+        Returns:
+            Task CID for tracking
+        """
+        task = self.run_job(fn, params=params, wait=False, **kwargs)
+        return task.get('cid')
 
     def forward(self, **kwargs):
         return {

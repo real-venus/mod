@@ -43,6 +43,7 @@ class Server:
             self.pm.kill(s)
             self.registry.dereg(s)
             killed.append(s)
+        self._sync_routy()
         return {'status': 'killed', 'killed': killed}
     
     def kill_all(self):
@@ -179,6 +180,32 @@ class Server:
                     print(f'Dep {dep} ready', color='green')
                 except Exception as e:
                     print(f'Dep {dep} failed to start: {e}', color='red')
+
+    def _sync_routy(self):
+        """Non-blocking sync to routy gateway (if running)."""
+        import threading
+        def _do():
+            try:
+                import requests as _req
+                ns = self.registry.namespace() or {}
+                store = m.mod('store')('~/.mod/server/registry')
+                app_reg = store.get('app_registry.json', {}) or {}
+                sync_data = {'apps': [], 'apis': []}
+                for name, url in ns.items():
+                    sync_data['apis'].append({
+                        'name': name,
+                        'target_url': url.replace('0.0.0.0', '127.0.0.1'),
+                    })
+                for name, info in app_reg.items():
+                    if isinstance(info, dict) and 'url' in info:
+                        sync_data['apps'].append({
+                            'name': name,
+                            'target_url': info['url'],
+                        })
+                _req.post('http://localhost:3001/_api/sync', json=sync_data, timeout=3)
+            except Exception:
+                pass
+        threading.Thread(target=_do, daemon=True).start()
 
     def _find_app_dir(self, mod_dir: Path) -> 'Path | None':
         """Find the Next.js app directory within a module (checks app/, src/app/)."""
@@ -369,6 +396,7 @@ class Server:
                                   owner=self.key.address, api_url=f'http://localhost:{port}')
 
         self.registry.reg(name, f'http://0.0.0.0:{port}')
+        self._sync_routy()
         if run_mode == 'flask':
             self.app.run(
                 host="0.0.0.0",

@@ -8,6 +8,8 @@ pub struct Website {
     pub name: String,
     pub target_url: String,
     pub description: Option<String>,
+    pub storage_type: Option<String>,
+    pub cid: Option<String>,
     pub created_at: i64,
 }
 
@@ -16,6 +18,8 @@ pub struct RegisterRequest {
     pub name: String,
     pub target_url: String,
     pub description: Option<String>,
+    pub storage_type: Option<String>,
+    pub cid: Option<String>,
     #[serde(default = "default_type")]
     pub website_type: String,
 }
@@ -60,6 +64,8 @@ impl WebsiteRegistry {
             name: req.name.clone(),
             target_url: req.target_url,
             description: req.description,
+            storage_type: req.storage_type,
+            cid: req.cid,
             created_at: chrono::Utc::now().timestamp(),
         };
 

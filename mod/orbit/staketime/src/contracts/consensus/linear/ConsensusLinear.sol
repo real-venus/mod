@@ -13,18 +13,18 @@ import "../Consensus.sol";
  *      Selection: Weighted random by checkin count — validators that
  *      check in more often produce more blocks.
  *
- *      Distribution: Fresh Subnet tokens minted and split proportional
+ *      Distribution: Fresh Mod tokens minted and split proportional
  *      to checkin count. Per validator, commission goes to validator,
  *      rest to stakers by STT.
  */
 contract ConsensusLinear is Consensus {
 
     constructor(
-        address _subnet,
+        address _mod,
         address _stakeTime,
         uint256 _emissionRate,
         uint64  _epochLength
-    ) Consensus(_subnet, _stakeTime, _emissionRate, _epochLength) {}
+    ) Consensus(_mod, _stakeTime, _emissionRate, _epochLength) {}
 
     // ── Consensus Overrides ──────────────────────────────────────────────────
 

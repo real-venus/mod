@@ -353,6 +353,7 @@ class Router:
         """
         Send the function task request to the appropriate mod Mod and function.
         Uses SandboxWorker for local execution to isolate module code.
+        Supports remote job execution via namespace registry lookup.
         """
         task['status'] = 'running'
         assert '/' in task['fn'], "Function name must be in the format 'mod/fn'"
@@ -364,15 +365,20 @@ class Router:
         m.put(path, task)
         client = m.mod('client')()
         try:
-            url = self.namespace.get(mod, None)
+            # Check namespace for remote execution
+            url = self._get_remote_url(mod)
             if url != None:
                 # Remote call - no sandbox needed, goes over HTTP
+                print(f'RemoteJob: {task["fn"]} -> {url}', )
+                task['remote'] = True
+                task['remote_url'] = url
                 result = client.call(url + '/' + fn, params=params, timeout=task['timeout'])
             else:
                 # Local execution - use worker pool
                 cid = task.get('cid')
                 timeout = min(task.get('timeout', 120), 300)  # Cap at 5 min
                 print(f'WorkerPool: executing {task["fn"]} (cid={cid})', )
+                task['remote'] = False
                 result = self.pool.run(
                     fn_path=task['fn'],
                     params=params,
@@ -400,6 +406,38 @@ class Router:
         task['cost'] = self.get_cost(task)
         m.put(path, task)
         return task['cid']
+
+    def _get_remote_url(self, mod: str) -> str:
+        """Get remote URL for a module from namespace registry.
+
+        Supports both API namespace and app namespace lookups.
+        Uses caching to avoid repeated lookups.
+
+        Args:
+            mod: Module name to lookup
+
+        Returns:
+            Remote URL if found, None otherwise
+        """
+        # Check API namespace first
+        url = self.namespace.get(mod, None)
+        if url:
+            return url
+
+        # Check app namespace via server.namespace
+        try:
+            ns = m.mod('server.namespace')()
+            app_ns = ns.app_namespace()
+            if mod in app_ns:
+                # App namespace stores full info dict
+                app_info = app_ns.get(mod, {})
+                if isinstance(app_info, dict):
+                    return app_info.get('url') or app_info.get('api_url')
+                return app_info
+        except Exception:
+            pass
+
+        return None
 
     @property
     def store(self):

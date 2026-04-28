@@ -61,12 +61,12 @@ contract ConsensusPriv is Consensus {
     // ── Constructor ─────────────────────────────────────────────────────────
 
     constructor(
-        address _subnet,
+        address _mod,
         address _stakeTime,
         address _token,
         uint256 _emissionRate,
         uint64  _epochLength
-    ) Consensus(_subnet, _stakeTime, _emissionRate, _epochLength) {
+    ) Consensus(_mod, _stakeTime, _emissionRate, _epochLength) {
         token = IERC20(_token);
         commitTree = new CommitmentTree();
         currentEpoch = 1;
@@ -151,7 +151,7 @@ contract ConsensusPriv is Consensus {
             uint256 share = perCheckin;
 
             // Mint and store reward for this nullifier
-            subnet.mint(address(this), share);
+            mod_token.mint(address(this), share);
             nullifierRewards[nul] += share;
             totalDistributed += share;
         }
@@ -193,7 +193,7 @@ contract ConsensusPriv is Consensus {
             }
         }
         require(total > 0, "nothing to claim");
-        IERC20(address(subnet)).safeTransfer(msg.sender, total);
+        IERC20(address(mod_token)).safeTransfer(msg.sender, total);
     }
 
     // ── Merkle Verification ─────────────────────────────────────────────────

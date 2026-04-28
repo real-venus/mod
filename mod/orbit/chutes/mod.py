@@ -56,13 +56,15 @@ class Mod:
     # ── Primary Entry Point ──────────────────────────────────────
 
     def forward(self, message: str = None, model: str = None,
-                stream: bool = False, **kwargs) -> Union[str, Iterator[str]]:
+                stream: bool = False, system_prompt: str = None,
+                **kwargs) -> Union[str, Iterator[str]]:
         """Default entry - simple chat completion."""
         if not message:
             return self.list_chutes()
         messages = [{'role': 'user', 'content': message}]
-        if 'system' in kwargs:
-            messages.insert(0, {'role': 'system', 'content': kwargs.pop('system')})
+        system = system_prompt or kwargs.pop('system', None)
+        if system:
+            messages.insert(0, {'role': 'system', 'content': system})
         result = self.chat(messages, model=model, stream=stream, **kwargs)
         if stream:
             return result
