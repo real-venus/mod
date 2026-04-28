@@ -2,8 +2,8 @@ import os
 import mod as m
 
 class Mod:
-    description = """key"""
-    path = r'/Users/broski/mod/mod/core/key'
+    description = """l2"""
+    path = r'/Users/broski/mod/mod/orbit/l2'
 
     def forward(self, **kwargs):
         """Default entry point."""
@@ -12,7 +12,7 @@ class Mod:
     def info(self):
         """Return module info."""
         return {
-            'name': 'key',
+            'name': 'l2',
             'description': self.description,
             'path': self.path,
             'files': os.listdir(self.path),
