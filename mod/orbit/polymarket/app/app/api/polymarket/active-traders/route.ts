@@ -4,8 +4,14 @@ const DATA_API = "https://data-api.polymarket.com";
 const PAGE = 50; // upstream caps each leaderboard page at 50
 
 type LbEntry = { proxyWallet?: string; vol?: number; pnl?: number };
-type Trade = { timestamp?: number };
-type Position = { pnl?: number; market?: string };
+type Trade = { timestamp?: number; usdcSize?: number; size?: number; price?: number };
+type Position = {
+  cashPnl?: number;
+  realizedPnl?: number;
+  pnl?: number;
+  title?: string;
+  market?: string;
+};
 type Trader = {
   address: string;
   volume: number;
@@ -110,15 +116,33 @@ export async function GET(req: NextRequest) {
     const recent = trades.filter((tr) => Number(tr.timestamp || 0) >= cutoffSec);
     if (recent.length < minTrades) return null;
     t.recentTrades = recent.length;
+    // Compute window volume from actual trades — the leaderboard's vol
+    // field is stale/zero for some traders even when they're trading.
+    const windowVolume = recent.reduce(
+      (s, tr) => s + Number(tr.usdcSize ?? Number(tr.size || 0) * Number(tr.price || 0)),
+      0,
+    );
+    t.volume = Math.max(t.volume, windowVolume);
 
     const positions = Array.isArray(positionsRaw) ? positionsRaw : [];
     t.positions = positions.length;
-    t.marketTitles = positions.map((p) => p.market || "").filter(Boolean).slice(0, 20);
-    const withPnl = positions.filter((p) => Number(p.pnl || 0) !== 0);
-    if (withPnl.length > 0) {
+    t.marketTitles = positions
+      .map((p) => p.title || p.market || "")
+      .filter(Boolean)
+      .slice(0, 20);
+    // Win rate: only count positions with realized (closed) P&L. cashPnl
+    // would also include unrealized gains on open positions, which can
+    // produce a 100% win rate on a trader who's actually deeply negative
+    // for the period — the /positions endpoint only returns currently
+    // OPEN positions, masking past losses.
+    const realizedOf = (p: Position) => Number(p.realizedPnl ?? 0);
+    const closed = positions.filter((p) => realizedOf(p) !== 0);
+    if (closed.length > 0) {
       t.winRate = Math.round(
-        (withPnl.filter((p) => Number(p.pnl || 0) > 0).length / withPnl.length) * 100,
+        (closed.filter((p) => realizedOf(p) > 0).length / closed.length) * 100,
       );
+    } else {
+      t.winRate = -1; // sentinel: no closed positions to score
     }
     return t;
   });

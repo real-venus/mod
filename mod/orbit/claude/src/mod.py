@@ -1138,6 +1138,26 @@ class Mod:
 
     # ── environment ──────────────────────────────────────────────
 
+    def _install_rustup(self) -> Optional[str]:
+        """Install rustup non-interactively and return path to cargo, or None on failure."""
+        cargo_bin = os.path.expanduser('~/.cargo/bin/cargo')
+        if os.path.exists(cargo_bin):
+            return cargo_bin
+        print('[claude] cargo missing — installing rustup (this may take a minute)')
+        try:
+            r = subprocess.run(
+                ['sh', '-c', 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal'],
+                capture_output=True, text=True, timeout=600,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+            print(f'[claude] rustup install failed: {e}')
+            return None
+        if r.returncode != 0 or not os.path.exists(cargo_bin):
+            print(f'[claude] rustup install failed: {r.stderr[-200:]}')
+            return None
+        print('[claude] rustup installed')
+        return cargo_bin
+
     def ensure_env(self, app_dir: str = None, api_dir: str = None):
         """Ensure runtime dependencies are installed for app and API.
 
@@ -1153,33 +1173,53 @@ class Mod:
         if (app_dir / 'package.json').exists():
             if not (app_dir / 'node_modules').is_dir():
                 print('[claude] node_modules missing — running npm install')
-                r = subprocess.run(
-                    ['npm', 'install'], cwd=str(app_dir),
-                    capture_output=True, text=True, timeout=120,
-                )
-                if r.returncode != 0:
-                    results['app_install'] = {'ok': False, 'error': r.stderr[-500:]}
-                    print(f'[claude] npm install failed: {r.stderr[-200:]}')
+                try:
+                    r = subprocess.run(
+                        ['npm', 'install'], cwd=str(app_dir),
+                        capture_output=True, text=True, timeout=120,
+                    )
+                except FileNotFoundError:
+                    results['app_install'] = {'ok': False, 'error': 'npm not found in PATH'}
+                    print('[claude] npm install failed: npm not found in PATH')
                 else:
-                    results['app_install'] = {'ok': True}
-                    print('[claude] npm install done')
+                    if r.returncode != 0:
+                        results['app_install'] = {'ok': False, 'error': r.stderr[-500:]}
+                        print(f'[claude] npm install failed: {r.stderr[-200:]}')
+                    else:
+                        results['app_install'] = {'ok': True}
+                        print('[claude] npm install done')
             else:
                 results['app_install'] = {'ok': True, 'cached': True}
 
         # ── API: Rust binary ──
         binary = api_dir / 'target' / 'release' / 'claude-jobs'
         if (api_dir / 'Cargo.toml').exists() and not binary.exists():
-            print('[claude] API binary missing — running cargo build --release')
-            r = subprocess.run(
-                ['cargo', 'build', '--release'], cwd=str(api_dir),
-                capture_output=True, text=True, timeout=300,
+            import shutil
+            cargo = shutil.which('cargo') or (
+                os.path.expanduser('~/.cargo/bin/cargo')
+                if os.path.exists(os.path.expanduser('~/.cargo/bin/cargo')) else None
             )
-            if r.returncode != 0:
-                results['api_build'] = {'ok': False, 'error': r.stderr[-500:]}
-                print(f'[claude] cargo build failed: {r.stderr[-200:]}')
+            if not cargo:
+                cargo = self._install_rustup()
+            if not cargo:
+                results['api_build'] = {'ok': False, 'error': 'cargo not found and rustup install failed'}
             else:
-                results['api_build'] = {'ok': True}
-                print('[claude] cargo build done')
+                print('[claude] API binary missing — running cargo build --release')
+                try:
+                    r = subprocess.run(
+                        [cargo, 'build', '--release'], cwd=str(api_dir),
+                        capture_output=True, text=True, timeout=600,
+                    )
+                except FileNotFoundError:
+                    results['api_build'] = {'ok': False, 'error': 'cargo not found in PATH'}
+                    print('[claude] cargo build failed: cargo not found in PATH')
+                else:
+                    if r.returncode != 0:
+                        results['api_build'] = {'ok': False, 'error': r.stderr[-500:]}
+                        print(f'[claude] cargo build failed: {r.stderr[-200:]}')
+                    else:
+                        results['api_build'] = {'ok': True}
+                        print('[claude] cargo build done')
         else:
             results['api_build'] = {'ok': True, 'cached': True}
 

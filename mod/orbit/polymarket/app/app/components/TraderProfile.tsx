@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import { TopTrader, formatVolume, formatPnl, timeAgo } from "../lib/polymarket";
 import { shortAddress } from "@/lib/auth";
 import { PolymarketTrade, PolymarketPosition } from "../lib/types";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar,
+} from "recharts";
 
 interface Props {
   trader: TopTrader;
@@ -14,6 +16,7 @@ interface Props {
   watching: boolean;
   onToggleWatch: () => void;
   onBack: () => void;
+  days?: number;
 }
 
 type PosSort = "market" | "size" | "avgPrice" | "currentPrice" | "pnlUsd";
@@ -33,7 +36,9 @@ export default function TraderProfile({
   watching,
   onToggleWatch,
   onBack,
+  days = 30,
 }: Props) {
+  const dayLabel = `${days}D`;
   const [posSort, setPosSort] = useState<PosSort>("pnlUsd");
   const [posSortDir, setPosSortDir] = useState<SortDir>("desc");
   const [tradeSort, setTradeSort] = useState<TradeSort>("timestamp");
@@ -49,33 +54,67 @@ export default function TraderProfile({
     else { setTradeSort(col); setTradeSortDir("desc"); }
   };
 
-  // Compute 30-day P&L curve
-  const pnlCurve = useMemo(() => {
-    if (!trades.length) return [];
+  const cutoffMs = useMemo(() => Date.now() - days * 24 * 60 * 60 * 1000, [days]);
+
+  // Replay full trade history with avg-cost (FIFO-style) bookkeeping to
+  // compute the *realized* P&L on each SELL. Trades without enough cost
+  // basis (BUYs older than what /activity returned) are best-effort.
+  const tradesWithRealized = useMemo(() => {
     const sorted = [...trades].sort((a, b) => a.timestamp - b.timestamp);
-    let cumPnl = 0;
-    const dayMap = new Map<string, { pnl: number; count: number }>();
-
-    for (const t of sorted) {
-      const day = new Date(t.timestamp).toLocaleDateString([], { month: "short", day: "numeric" });
-      const existing = dayMap.get(day) || { pnl: 0, count: 0 };
-      existing.pnl += t.pnl;
-      existing.count += 1;
-      dayMap.set(day, existing);
-    }
-
-    const points: { date: string; pnl: number; trades: number }[] = [];
-    for (const [date, { pnl, count }] of dayMap) {
-      cumPnl += pnl;
-      points.push({ date, pnl: Math.round(cumPnl * 100) / 100, trades: count });
-    }
-    return points;
+    const book = new Map<string, { size: number; cost: number }>();
+    return sorted.map((t) => {
+      const key = t.conditionId || t.market;
+      const pos = book.get(key) || { size: 0, cost: 0 };
+      let realized = 0;
+      if (t.side === "BUY") {
+        pos.cost += t.price * t.size;
+        pos.size += t.size;
+      } else if (pos.size > 0) {
+        const avgCost = pos.cost / pos.size;
+        const sold = Math.min(t.size, pos.size);
+        realized = (t.price - avgCost) * sold;
+        pos.cost -= avgCost * sold;
+        pos.size -= sold;
+      }
+      book.set(key, pos);
+      return { ...t, realized };
+    });
   }, [trades]);
 
-  // Daily trade activity
+  const tradesInWindow = useMemo(
+    () => tradesWithRealized.filter((t) => t.timestamp >= cutoffMs),
+    [tradesWithRealized, cutoffMs],
+  );
+
+  // Cumulative realized P&L over the window — one point per trade so we
+  // can mark BUY/SELL nodes on the curve. Cumulative pnl only changes on
+  // SELLs (BUYs have realized=0), but we keep BUY points to draw markers.
+  const pnlCurve = useMemo(() => {
+    if (!tradesInWindow.length) return [];
+    const sorted = [...tradesInWindow].sort((a, b) => a.timestamp - b.timestamp);
+    let cum = 0;
+    return sorted.map((t, i) => {
+      cum += t.realized;
+      return {
+        i,
+        ts: t.timestamp,
+        date: new Date(t.timestamp).toLocaleDateString([], { month: "short", day: "numeric" }),
+        time: new Date(t.timestamp).toLocaleString([], {
+          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+        }),
+        pnl: Math.round(cum * 100) / 100,
+        side: t.side,
+        realized: t.realized,
+        market: t.market,
+        size: t.size,
+        price: t.price,
+      };
+    });
+  }, [tradesInWindow]);
+
   const dailyActivity = useMemo(() => {
     const dayMap = new Map<string, { buys: number; sells: number; volume: number }>();
-    for (const t of trades) {
+    for (const t of tradesInWindow) {
       const day = new Date(t.timestamp).toLocaleDateString([], { month: "short", day: "numeric" });
       const existing = dayMap.get(day) || { buys: 0, sells: 0, volume: 0 };
       if (t.side === "BUY") existing.buys++;
@@ -84,18 +123,57 @@ export default function TraderProfile({
       dayMap.set(day, existing);
     }
     return Array.from(dayMap.entries()).map(([date, data]) => ({ date, ...data }));
-  }, [trades]);
+  }, [tradesInWindow]);
 
-  // Win/loss stats
   const stats = useMemo(() => {
-    const wins = trades.filter((t) => t.pnl > 0).length;
-    const losses = trades.filter((t) => t.pnl < 0).length;
-    const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
-    const avgTrade = trades.length ? totalPnl / trades.length : 0;
-    const biggestWin = trades.length ? Math.max(...trades.map((t) => t.pnl)) : 0;
-    const biggestLoss = trades.length ? Math.min(...trades.map((t) => t.pnl)) : 0;
-    return { wins, losses, totalPnl, avgTrade, biggestWin, biggestLoss };
-  }, [trades]);
+    const sells = tradesInWindow.filter((t) => t.side === "SELL");
+    const wins = sells.filter((t) => t.realized > 0).length;
+    const losses = sells.filter((t) => t.realized < 0).length;
+    const totalPnl = tradesInWindow.reduce((s, t) => s + t.realized, 0);
+    const avgTrade = sells.length ? totalPnl / sells.length : 0;
+    const biggestWin = sells.length ? Math.max(...sells.map((t) => t.realized)) : 0;
+    const biggestLoss = sells.length ? Math.min(...sells.map((t) => t.realized)) : 0;
+    const winRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : -1;
+    return { wins, losses, totalPnl, avgTrade, biggestWin, biggestLoss, winRate };
+  }, [tradesInWindow]);
+
+  // Per-market realized results inside the window.
+  // "Closed in window" = market had SELL activity in the window AND
+  // size sold ≥ size bought across the window (round-trip closed).
+  const closedInWindow = useMemo(() => {
+    const byMarket = new Map<string, {
+      conditionId: string;
+      market: string;
+      outcome: string;
+      bought: number;
+      sold: number;
+      realized: number;
+      lastTs: number;
+      tradeCount: number;
+    }>();
+    for (const t of tradesInWindow) {
+      const key = t.conditionId || t.market;
+      const entry = byMarket.get(key) || {
+        conditionId: t.conditionId,
+        market: t.market,
+        outcome: t.outcome || "",
+        bought: 0,
+        sold: 0,
+        realized: 0,
+        lastTs: 0,
+        tradeCount: 0,
+      };
+      if (t.side === "BUY") entry.bought += t.size;
+      else entry.sold += t.size;
+      entry.realized += t.realized;
+      entry.lastTs = Math.max(entry.lastTs, t.timestamp);
+      entry.tradeCount += 1;
+      byMarket.set(key, entry);
+    }
+    return Array.from(byMarket.values())
+      .filter((m) => m.realized !== 0 || m.sold > 0)
+      .sort((a, b) => b.realized - a.realized);
+  }, [tradesInWindow]);
 
   const sortedPositions = useMemo(() => {
     return [...positions].sort((a, b) => {
@@ -112,18 +190,18 @@ export default function TraderProfile({
   }, [positions, posSort, posSortDir]);
 
   const sortedTrades = useMemo(() => {
-    return [...trades].sort((a, b) => {
+    return [...tradesInWindow].sort((a, b) => {
       let cmp = 0;
       switch (tradeSort) {
         case "timestamp": cmp = a.timestamp - b.timestamp; break;
         case "market": cmp = a.market.localeCompare(b.market); break;
         case "price": cmp = a.price - b.price; break;
         case "size": cmp = (a.size * a.price) - (b.size * b.price); break;
-        case "pnl": cmp = a.pnl - b.pnl; break;
+        case "pnl": cmp = a.realized - b.realized; break;
       }
       return tradeSortDir === "desc" ? -cmp : cmp;
     });
-  }, [trades, tradeSort, tradeSortDir]);
+  }, [tradesInWindow, tradeSort, tradeSortDir]);
 
   return (
     <div className="space-y-4">
@@ -166,7 +244,7 @@ export default function TraderProfile({
       {loading ? (
         <div className="pixel-panel p-12 text-center">
           <div className="text-sm text-pixel-white animate-pulse glow-green">
-            LOADING 30-DAY HISTORY...
+            {`LOADING ${dayLabel} HISTORY...`}
           </div>
         </div>
       ) : (
@@ -174,9 +252,9 @@ export default function TraderProfile({
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
-              { label: "30D P&L", value: formatPnl(stats.totalPnl), highlight: stats.totalPnl >= 0 },
-              { label: "WIN RATE", value: `${trader.winRate.toFixed(1)}%`, highlight: trader.winRate >= 50 },
-              { label: "TRADES", value: trades.length.toString(), highlight: true },
+              { label: `${dayLabel} P&L`, value: formatPnl(stats.totalPnl), highlight: stats.totalPnl >= 0 },
+              { label: "WIN RATE", value: stats.winRate < 0 ? "—" : `${stats.winRate}%`, highlight: stats.winRate >= 50 },
+              { label: "TRADES", value: tradesInWindow.length.toString(), highlight: true },
               { label: "VOLUME", value: formatVolume(trader.volume), highlight: true },
               { label: "AVG TRADE", value: formatPnl(stats.avgTrade), highlight: stats.avgTrade >= 0 },
               { label: "POSITIONS", value: positions.length.toString(), highlight: true },
@@ -196,10 +274,10 @@ export default function TraderProfile({
           {pnlCurve.length > 0 && (
             <div className="pixel-panel p-5">
               <div className="text-[12px] text-pixel-gray-light tracking-wider mb-4">
-                30-DAY P&L CURVE
+                {`${dayLabel} P&L CURVE`}
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={pnlCurve}>
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={pnlCurve} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#ffffff" stopOpacity={0.2} />
@@ -208,23 +286,46 @@ export default function TraderProfile({
                   </defs>
                   <XAxis
                     dataKey="date"
-                    tick={{ fontSize: 10, fill: "#666666" }}
+                    tick={{ fontSize: 9, fill: "#666666" }}
                     axisLine={{ stroke: "#333333" }}
                     tickLine={false}
+                    minTickGap={40}
                   />
                   <YAxis
-                    tick={{ fontSize: 10, fill: "#666666" }}
+                    tick={{ fontSize: 9, fill: "#666666" }}
                     axisLine={{ stroke: "#333333" }}
                     tickLine={false}
-                    tickFormatter={(v: number) => `$${v}`}
+                    tickFormatter={(v: number) => (Math.abs(v) >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`)}
                   />
                   <Tooltip
+                    cursor={{ stroke: "#444", strokeDasharray: "2 2" }}
                     contentStyle={{
                       background: "#1a1a1a",
                       border: "2px solid #333333",
                       fontFamily: "'Press Start 2P'",
                       fontSize: "10px",
                       color: "#ffffff",
+                    }}
+                    content={(props: { active?: boolean; payload?: Array<{ payload: { time: string; pnl: number; side: string; realized: number; size: number; price: number; market: string } }> }) => {
+                      if (!props.active || !props.payload?.length) return null;
+                      const p = props.payload[0].payload;
+                      return (
+                        <div style={{ background: "#1a1a1a", border: "2px solid #333", padding: 8, fontSize: 10, color: "#fff", lineHeight: 1.5 }}>
+                          <div style={{ color: "#999" }}>{p.time}</div>
+                          <div style={{ color: p.side === "BUY" ? "#aaa" : "#fff" }}>
+                            {p.side} {p.size.toFixed(0)} @ {Math.round(p.price * 100)}c
+                          </div>
+                          {p.side === "SELL" && (
+                            <div style={{ color: p.realized >= 0 ? "#fff" : "#888" }}>
+                              {p.realized >= 0 ? "+" : ""}${p.realized.toFixed(2)}
+                            </div>
+                          )}
+                          <div style={{ color: "#fff" }}>CUM ${p.pnl.toFixed(2)}</div>
+                          <div style={{ color: "#666", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {p.market}
+                          </div>
+                        </div>
+                      );
                     }}
                   />
                   <Area
@@ -233,9 +334,34 @@ export default function TraderProfile({
                     stroke="#ffffff"
                     fill="url(#pnlGrad)"
                     strokeWidth={2}
+                    isAnimationActive={false}
+                    dot={(dotProps: { cx?: number; cy?: number; payload?: { side: string } }) => {
+                      const { cx, cy, payload } = dotProps;
+                      if (cx == null || cy == null || !payload) {
+                        return <g />;
+                      }
+                      if (payload.side === "BUY") {
+                        return (
+                          <circle cx={cx} cy={cy} r={2.5} fill="#444" stroke="#888" strokeWidth={1} />
+                        );
+                      }
+                      return (
+                        <rect x={cx - 3} y={cy - 3} width={6} height={6} fill="#fff" stroke="#000" strokeWidth={1} />
+                      );
+                    }}
+                    activeDot={{ r: 5, fill: "#fff", stroke: "#000", strokeWidth: 2 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              <div className="flex items-center gap-4 mt-2 text-[10px] text-pixel-gray">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 bg-pixel-gray-light/40 rounded-full border border-pixel-gray" /> BUY
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 bg-pixel-white" /> SELL
+                </div>
+                <div className="ml-auto">{pnlCurve.length} TRADES</div>
+              </div>
             </div>
           )}
 
@@ -289,6 +415,62 @@ export default function TraderProfile({
               </div>
             </div>
           </div>
+
+          {/* Closed/Realized Results in Window */}
+          {closedInWindow.length > 0 && (
+            <div className="pixel-panel overflow-hidden">
+              <div className="px-5 py-4 border-b-2 border-pixel-border flex items-center justify-between">
+                <span className="text-[12px] text-pixel-gray-light tracking-wider">
+                  {`${dayLabel} CLOSED RESULTS (PER MARKET)`}
+                </span>
+                <span className="text-[11px] text-pixel-gray">{closedInWindow.length} MARKETS</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "640px" }}>
+                  <colgroup>
+                    <col style={{ width: "44%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "22%" }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>MARKET</th>
+                      <th className="text-right">BOUGHT</th>
+                      <th className="text-right">SOLD</th>
+                      <th className="text-right">TRADES</th>
+                      <th className="text-right">REALIZED</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {closedInWindow.map((m) => {
+                      const profit = m.realized >= 0;
+                      return (
+                        <tr key={m.conditionId}>
+                          <td className="text-pixel-white truncate" title={m.market}>
+                            {m.market || m.conditionId.slice(0, 12)}
+                          </td>
+                          <td className="text-right text-pixel-gray-light font-mono">
+                            {m.bought.toFixed(0)}
+                          </td>
+                          <td className="text-right text-pixel-gray-light font-mono">
+                            {m.sold.toFixed(0)}
+                          </td>
+                          <td className="text-right text-pixel-gray-light font-mono">
+                            {m.tradeCount}
+                          </td>
+                          <td className={`text-right font-mono ${profit ? "text-pixel-white" : "text-pixel-gray"}`}>
+                            {profit ? "+" : ""}${m.realized.toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Current Positions */}
           {positions.length > 0 && (
@@ -370,13 +552,13 @@ export default function TraderProfile({
           )}
 
           {/* Recent Trades */}
-          {trades.length > 0 && (
+          {tradesInWindow.length > 0 && (
             <div className="pixel-panel overflow-hidden">
               <div className="px-5 py-4 border-b-2 border-pixel-border flex items-center justify-between">
                 <span className="text-[12px] text-pixel-gray-light tracking-wider">
-                  30-DAY TRADE LOG
+                  {`${dayLabel} TRADE LOG`}
                 </span>
-                <span className="text-[11px] text-pixel-gray">{trades.length} TRADES</span>
+                <span className="text-[11px] text-pixel-gray">{tradesInWindow.length} TRADES</span>
               </div>
               <div className="max-h-[500px] overflow-y-auto overflow-x-auto">
                 <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "600px" }}>
@@ -434,8 +616,10 @@ export default function TraderProfile({
                         <td className="text-right text-pixel-white font-mono">
                           ${(trade.size * trade.price).toFixed(2)}
                         </td>
-                        <td className={`text-right font-mono ${trade.pnl >= 0 ? "text-pixel-white" : "text-pixel-gray"}`}>
-                          {trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}
+                        <td className={`text-right font-mono ${trade.realized >= 0 ? "text-pixel-white" : "text-pixel-gray"}`}>
+                          {trade.side === "BUY"
+                            ? "—"
+                            : `${trade.realized >= 0 ? "+" : ""}$${trade.realized.toFixed(2)}`}
                         </td>
                       </tr>
                     ))}
@@ -445,9 +629,9 @@ export default function TraderProfile({
             </div>
           )}
 
-          {trades.length === 0 && positions.length === 0 && (
+          {tradesInWindow.length === 0 && positions.length === 0 && (
             <div className="pixel-panel p-12 text-center">
-              <div className="text-sm text-pixel-gray mb-2">NO 30-DAY DATA</div>
+              <div className="text-sm text-pixel-gray mb-2">{`NO ${dayLabel} DATA`}</div>
               <div className="text-[11px] text-pixel-gray-light">
                 THIS TRADER HAS NO RECENT ACTIVITY
               </div>

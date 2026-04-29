@@ -56,9 +56,11 @@ export default function Home() {
         daysAgo={tab === "copy" ? tradersDaysAgo : daysAgo}
         onDaysAgoChange={setDaysAgo}
         onReload={() => setReloadKey((k) => k + 1)}
-        showFilters={tab === "markets"}
+        showFilters={tab === "markets" || tab === "copy"}
+        showSort={tab === "markets"}
         showDaysFilter={tab === "markets" || tab === "copy"}
         daysOptions={tab === "copy" ? tradersDaysOptions : undefined}
+        searchPlaceholder={tab === "copy" ? "SEARCH BY ADDRESS..." : "SEARCH MARKETS..."}
       />
 
       {/* Tab Navigation */}
@@ -124,7 +126,12 @@ export default function Home() {
       {/* COPY TRADE TAB */}
       {tab === "copy" && (
         <div className="p-4">
-          <CopyTrading days={Number(tradersDaysAgo)} reloadKey={reloadKey} />
+          <CopyTrading
+            days={Number(tradersDaysAgo)}
+            reloadKey={reloadKey}
+            search={search}
+            category={category}
+          />
         </div>
       )}
 

@@ -18,8 +18,10 @@ interface HeaderProps {
   onDaysAgoChange: (v: string) => void;
   onReload: () => void;
   showFilters?: boolean;
+  showSort?: boolean;
   showDaysFilter?: boolean;
   daysOptions?: { label: string; value: string }[];
+  searchPlaceholder?: string;
 }
 
 export default function Header({
@@ -29,10 +31,13 @@ export default function Header({
   daysAgo, onDaysAgoChange,
   onReload,
   showFilters = true,
+  showSort,
   showDaysFilter,
   daysOptions,
+  searchPlaceholder,
 }: HeaderProps) {
   const _showDays = showDaysFilter ?? showFilters;
+  const _showSort = showSort ?? showFilters;
   const _daysOptions = daysOptions ?? [
     { label: "CURRENT", value: "" },
     { label: "7D", value: "7" },
@@ -96,7 +101,7 @@ export default function Header({
               type="text"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="SEARCH MARKETS..."
+              placeholder={searchPlaceholder || "SEARCH MARKETS..."}
               className="pixel-input w-full text-[10px] px-3 py-1.5"
             />
           </div>
@@ -158,7 +163,7 @@ export default function Header({
       {/* Row 2: Sort + Categories + Reload */}
       {showFilters && <div className="max-w-[1920px] mx-auto px-4 py-1.5 flex items-center gap-2 border-t border-pixel-border/50 overflow-x-auto">
         {/* Sort buttons */}
-        {(["volume", "liquidity", "end_date_min"] as SortMode[]).map((s) => (
+        {_showSort && (["volume", "liquidity", "end_date_min"] as SortMode[]).map((s) => (
           <button
             key={s}
             onClick={() => onSortChange(s)}
@@ -172,7 +177,7 @@ export default function Header({
           </button>
         ))}
 
-        <div className="w-[2px] h-3 bg-pixel-border shrink-0" />
+        {_showSort && <div className="w-[2px] h-3 bg-pixel-border shrink-0" />}
 
         {/* Category filters */}
         {CATEGORIES.map((cat) => (

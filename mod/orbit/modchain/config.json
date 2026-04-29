@@ -1,0 +1,6 @@
+{
+  "router": {
+    "url": "http://localhost:8080"
+  },
+  "contracts": {}
+}

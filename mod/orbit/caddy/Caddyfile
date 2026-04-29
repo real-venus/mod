@@ -30,19 +30,9 @@ modc2.com {
     handle @bridge_app {
         reverse_proxy {$PM2_HOST:localhost}:8841
     }
-    @claude_api path /api/claude /api/claude/*
-    handle @claude_api {
-        uri strip_prefix /api/claude
-        reverse_proxy {$PM2_HOST:localhost}:8820
-    }
     @claude_app path /claude /claude/*
     handle @claude_app {
         reverse_proxy {$PM2_HOST:localhost}:8821
-    }
-    @dns_api path /api/dns /api/dns/*
-    handle @dns_api {
-        uri strip_prefix /api/dns
-        reverse_proxy {$PM2_HOST:localhost}:5380
     }
     @latexhub_api path /api/latexhub /api/latexhub/*
     handle @latexhub_api {
@@ -70,33 +60,6 @@ modc2.com {
     @polymarket_app path /polymarket /polymarket/*
     handle @polymarket_app {
         reverse_proxy {$PM2_HOST:localhost}:3091
-    }
-    @staketime_api path /api/staketime /api/staketime/*
-    handle @staketime_api {
-        uri strip_prefix /api/staketime
-        reverse_proxy {$PM2_HOST:localhost}:8849
-    }
-    @staketime_app path /staketime /staketime/*
-    handle @staketime_app {
-        reverse_proxy {$PM2_HOST:localhost}:8850
-    }
-    @tt_api path /api/tt /api/tt/*
-    handle @tt_api {
-        uri strip_prefix /api/tt
-        reverse_proxy {$PM2_HOST:localhost}:8849
-    }
-    @tt_app path /tt /tt/*
-    handle @tt_app {
-        reverse_proxy {$PM2_HOST:localhost}:8850
-    }
-    @uniswap_api path /api/uniswap /api/uniswap/*
-    handle @uniswap_api {
-        uri strip_prefix /api/uniswap
-        reverse_proxy {$PM2_HOST:localhost}:50088
-    }
-    @uniswap_app path /uniswap /uniswap/*
-    handle @uniswap_app {
-        reverse_proxy {$PM2_HOST:localhost}:3088
     }
     @main_api path /api /api/*
     handle @main_api {

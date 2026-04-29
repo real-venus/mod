@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 const GAMMA_API = "https://gamma-api.polymarket.com";
 const DATA_API = "https://data-api.polymarket.com";
+const CLOB_API = "https://clob.polymarket.com";
 
 const DATA_PREFIXES = ["positions", "trades", "activity", "value", "holders", "users", "v1/"];
+const CLOB_PREFIXES = ["prices-history", "book", "books", "midpoint", "midpoints", "price"];
 
-function isDataEndpoint(endpoint: string): boolean {
-  return DATA_PREFIXES.some((p) => endpoint === p || endpoint.startsWith(p));
+function pickBase(endpoint: string): string {
+  if (DATA_PREFIXES.some((p) => endpoint === p || endpoint.startsWith(p))) return DATA_API;
+  if (CLOB_PREFIXES.some((p) => endpoint === p || endpoint.startsWith(p))) return CLOB_API;
+  return GAMMA_API;
 }
 
 export async function GET(req: NextRequest) {
@@ -18,8 +22,7 @@ export async function GET(req: NextRequest) {
     if (k !== "endpoint") params.set(k, v);
   });
 
-  const baseUrl = isDataEndpoint(endpoint) ? DATA_API : GAMMA_API;
-  const url = `${baseUrl}/${endpoint}?${params.toString()}`;
+  const url = `${pickBase(endpoint)}/${endpoint}?${params.toString()}`;
 
   try {
     const res = await fetch(url, {

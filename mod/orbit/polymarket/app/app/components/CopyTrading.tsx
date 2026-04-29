@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   fetchTopTraders, fetchWalletTrades, fetchPositions,
   formatVolume, formatPnl, TopTrader,
-  CATEGORIES, CategorySlug, matchTraderCategory,
+  CategorySlug, matchTraderCategory,
 } from "../lib/polymarket";
 import { shortAddress } from "@/lib/auth";
 import { PolymarketTrade, PolymarketPosition } from "../lib/types";
@@ -21,15 +21,20 @@ function SortArrow({ active, dir }: { active: boolean; dir: SortDir }) {
 interface CopyTradingProps {
   days?: number;
   reloadKey?: number;
+  search?: string;
+  category?: CategorySlug;
 }
 
-export default function CopyTrading({ days = 7, reloadKey = 0 }: CopyTradingProps = {}) {
+export default function CopyTrading({
+  days = 7,
+  reloadKey = 0,
+  search = "",
+  category = "",
+}: CopyTradingProps = {}) {
   const [traders, setTraders] = useState<TopTrader[]>([]);
   const [loading, setLoading] = useState(true);
   const [traderSort, setTraderSort] = useState<TraderSort>("volume");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [category, setCategory] = useState<CategorySlug>("");
 
   // Selected trader state
   const [selectedTrader, setSelectedTrader] = useState<TopTrader | null>(null);
@@ -94,12 +99,13 @@ export default function CopyTrading({ days = 7, reloadKey = 0 }: CopyTradingProp
     setSelectedTrader(trader);
     setProfileLoading(true);
     try {
+      // Pass the full trade history so TraderProfile can replay it for
+      // FIFO/avg-cost realized P&L; it filters to `days` for display.
       const [trades, positions] = await Promise.all([
-        fetchWalletTrades(trader.address, 200),
+        fetchWalletTrades(trader.address, 500),
         fetchPositions(trader.address),
       ]);
-      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-      setTraderTrades(trades.filter((t) => t.timestamp >= thirtyDaysAgo));
+      setTraderTrades(trades);
       setTraderPositions(positions);
     } catch {
       setTraderTrades([]);
@@ -110,7 +116,7 @@ export default function CopyTrading({ days = 7, reloadKey = 0 }: CopyTradingProp
 
   const sortedTraders = [...traders]
     .filter((t) => {
-      if (searchQuery.trim() && !t.address.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (search.trim() && !t.address.toLowerCase().includes(search.toLowerCase())) return false;
       if (category && !matchTraderCategory(t.marketTitles, category)) return false;
       return true;
     })
@@ -135,6 +141,7 @@ export default function CopyTrading({ days = 7, reloadKey = 0 }: CopyTradingProp
         watching={watchlist.has(selectedTrader.address)}
         onToggleWatch={() => toggleWatch(selectedTrader.address)}
         onBack={() => setSelectedTrader(null)}
+        days={days}
       />
     );
   }
@@ -172,39 +179,6 @@ export default function CopyTrading({ days = 7, reloadKey = 0 }: CopyTradingProp
           </div>
         </div>
 
-        {/* Search */}
-        <div className="flex flex-col md:flex-row gap-3">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="SEARCH BY ADDRESS..."
-            className="pixel-input flex-1"
-          />
-          <button
-            onClick={load}
-            className="pixel-btn border-pixel-white text-pixel-white bg-pixel-white/10"
-          >
-            RELOAD
-          </button>
-        </div>
-
-        {/* Category filter */}
-        <div className="flex flex-wrap items-center gap-2 mt-3">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.slug}
-              onClick={() => setCategory(cat.slug)}
-              className={`pixel-btn text-[9px] px-2.5 py-1 ${
-                category === cat.slug
-                  ? "border-pixel-white text-pixel-white bg-pixel-white/10"
-                  : "border-pixel-border text-pixel-gray hover:text-pixel-white"
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Watchlist */}
@@ -264,15 +238,15 @@ export default function CopyTrading({ days = 7, reloadKey = 0 }: CopyTradingProp
           </div>
 
           <div className="pixel-panel overflow-x-auto">
-            <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "700px" }}>
+            <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "760px" }}>
               <colgroup>
-                <col style={{ width: "40px" }} />
-                <col style={{ width: "150px" }} />
-                <col style={{ width: "110px" }} />
-                <col style={{ width: "110px" }} />
-                <col style={{ width: "80px" }} />
-                <col style={{ width: "70px" }} />
-                <col style={{ width: "100px" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "16%" }} />
+                <col style={{ width: "16%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "19%" }} />
               </colgroup>
               <thead>
                 <tr>
@@ -317,7 +291,7 @@ export default function CopyTrading({ days = 7, reloadKey = 0 }: CopyTradingProp
                         {formatPnl(trader.pnl)}
                       </td>
                       <td className={`text-right font-mono ${trader.winRate >= 50 ? "text-pixel-white" : "text-pixel-gray"}`}>
-                        {trader.winRate.toFixed(1)}%
+                        {trader.winRate < 0 ? "—" : `${trader.winRate.toFixed(0)}%`}
                       </td>
                       <td className="text-right text-pixel-gray-light font-mono">
                         {trader.positions}
