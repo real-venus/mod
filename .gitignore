@@ -311,4 +311,7 @@ Thumbs.db
 .windsurf
 .ipfs
 
+# Auto-generated serve scripts (machine-specific paths)
+**/_serve.sh
+
 mod/mods/ipfs-service

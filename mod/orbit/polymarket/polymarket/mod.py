@@ -82,7 +82,7 @@ class Polymarket(c.Mod):
     #  SERVE
     # ═══════════════════════════════════
 
-    def serve(self, api_port=None, app_port=None, dev=True, api_only=False, app_only=False):
+    def serve(self, api_port=None, app_port=None, dev=True, api_only=False, app_only=False, gateway=False, base_path=None):
         """
         Start the Polymarket server (FastAPI) and/or the Next.js app.
 
@@ -92,16 +92,23 @@ class Polymarket(c.Mod):
             dev:       run in dev mode (default True)
             api_only:  only start the API server
             app_only:  only start the Next.js app
+            gateway:   set True when running behind the mod gateway (sets basePath)
+            base_path: explicit basePath override (e.g. "/polymarket")
         """
         api_port = api_port or self.api_port
         app_port = app_port or self.app_port
+
+        # Only set basePath when behind gateway or explicitly provided
+        if base_path is None:
+            base_path = f'/{self.name}' if gateway else ''
+
         results = {}
 
         if not app_only:
             results['api'] = self._serve_api(api_port, dev=dev)
 
         if not api_only:
-            results['app'] = self._serve_app(app_port, dev=dev)
+            results['app'] = self._serve_app(app_port, dev=dev, base_path=base_path)
 
         # Register in namespace so the gateway on :3000 can route to us
         try:
@@ -142,7 +149,7 @@ class Polymarket(c.Mod):
             proc = subprocess.Popen(['bash', script], cwd=cwd)
             return {'status': 'running', 'port': port, 'manager': 'subprocess', 'pid': proc.pid}
 
-    def _serve_app(self, port=None, dev=True):
+    def _serve_app(self, port=None, dev=True, base_path=''):
         """Start the Next.js app (app/ lives at project root)"""
         port = port or self.app_port
         cwd = self._app_dir
@@ -154,7 +161,7 @@ class Polymarket(c.Mod):
 
         script = os.path.join(cwd, '_serve.sh')
         with open(script, 'w') as f:
-            f.write(f'#!/bin/bash\ncd {cwd}\nexport NEXT_PUBLIC_API_URL=http://localhost:{self.api_port}\nexport NEXT_PUBLIC_BASE_PATH=/{self.name}\n{cmd}\n')
+            f.write(f'#!/bin/bash\ncd {cwd}\nexport NEXT_PUBLIC_API_URL=http://localhost:{self.api_port}\nexport NEXT_PUBLIC_BASE_PATH={base_path}\n{cmd}\n')
         os.chmod(script, 0o755)
 
         try:
