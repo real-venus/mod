@@ -339,10 +339,14 @@ class Mod:
     # ── CLI (no server needed) ────────────────────────────────────
 
     def _find_claude(self) -> str:
+        mod_dir = self._module_dir()
         # prefer local install in module node_modules
-        local_bin = os.path.join(self._module_dir(), 'node_modules', '.bin', 'claude')
-        if os.path.isfile(local_bin) and os.access(local_bin, os.X_OK):
-            return local_bin
+        for candidate in [
+            os.path.join(mod_dir, 'node_modules', '.bin', 'claude'),
+            os.path.join(mod_dir, 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'),
+        ]:
+            if os.path.isfile(candidate):
+                return candidate
         # fall back to global
         result = subprocess.run(["which", "claude"], capture_output=True, text=True)
         if result.returncode != 0:
@@ -354,8 +358,9 @@ class Mod:
         """Run Claude CLI directly (blocking). Used when background=False."""
         claude = self._find_claude()
         work_dir = path or self.default_path
-        cmd = [claude, "--print", "--model", model, "--output-format", output_format,
-               "--dangerously-skip-permissions", query]
+        base = ['node', claude] if claude.endswith('.js') else [claude]
+        cmd = base + ["--print", "--model", model, "--output-format", output_format,
+                      "--dangerously-skip-permissions", query]
         env = os.environ.copy()
 
         if stream_output:
@@ -555,8 +560,9 @@ class Mod:
 
         ts = int(time.time())
         log_file = os.path.join(log_dir, f"job_{ts}.log")
-        cmd = [claude, "--print", "--model", model, "--output-format", "text",
-               "--dangerously-skip-permissions", prompt]
+        base = ['node', claude] if claude.endswith('.js') else [claude]
+        cmd = base + ["--print", "--model", model, "--output-format", "text",
+                      "--dangerously-skip-permissions", prompt]
 
         with open(log_file, 'w') as lf:
             proc = subprocess.Popen(
@@ -999,9 +1005,15 @@ class Mod:
             if r.returncode != 0:
                 print(f'[install] npm install failed: {r.stderr[-300:]}')
                 return {'ok': False, 'error': r.stderr}
-            # verify
-            r2 = subprocess.run([local_bin, '--version'], capture_output=True, text=True, timeout=10)
-            ver = r2.stdout.strip() if r2.returncode == 0 else 'unknown'
+            # verify — find the actual binary (npx fallback if .bin symlink missing)
+            ver = 'unknown'
+            if os.path.isfile(local_bin):
+                r2 = subprocess.run([local_bin, '--version'], capture_output=True, text=True, timeout=10)
+                ver = r2.stdout.strip() if r2.returncode == 0 else 'unknown'
+            else:
+                r2 = subprocess.run(['npx', 'claude', '--version'],
+                                    cwd=mod_dir, capture_output=True, text=True, timeout=10)
+                ver = r2.stdout.strip() if r2.returncode == 0 else 'installed'
             print(f'[install] installed claude {ver} → {mod_dir}/node_modules/')
             results['steps'].append({'name': 'npm_install', 'ok': True, 'version': ver})
 
