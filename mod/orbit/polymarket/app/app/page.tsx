@@ -160,11 +160,11 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t-2 border-pixel-border mx-4 mt-8 pt-4 pb-8">
         <div className="flex items-center justify-between text-[10px] text-pixel-gray">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <span className="text-pixel-white">POLYMARKET</span>
-            <span className="text-pixel-border">|</span>
+            <div className="w-[2px] h-3 bg-pixel-border" />
             <span>PREDICTION MARKETS</span>
-            <span className="text-pixel-border">|</span>
+            <div className="w-[2px] h-3 bg-pixel-border" />
             <span>POLYGON</span>
           </div>
           <div className="flex items-center gap-2">

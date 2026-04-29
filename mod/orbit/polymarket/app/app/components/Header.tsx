@@ -49,11 +49,11 @@ export default function Header({
             <div className="absolute -bottom-[2px] -left-[2px] w-1 h-1 bg-pixel-black" />
             <div className="absolute -bottom-[2px] -right-[2px] w-1 h-1 bg-pixel-black" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-pixel-white text-[13px] glow-green tracking-wider leading-tight">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-pixel-white text-[13px] glow-green tracking-wider">
               POLYMARKET
             </span>
-            <span className="text-pixel-gray text-[8px] tracking-widest leading-tight">
+            <span className="text-pixel-gray text-[8px] tracking-widest">
               TRADING TERMINAL
             </span>
           </div>
@@ -97,14 +97,14 @@ export default function Header({
         )}
 
         {/* Status */}
-        <div className="hidden lg:flex items-center gap-3 text-[10px] text-pixel-gray-light shrink-0">
+        <div className="hidden lg:flex items-center gap-4 text-[10px] text-pixel-gray-light shrink-0">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 bg-pixel-white animate-pulse" />
             <span className="text-pixel-white">ONLINE</span>
           </div>
-          <span className="text-pixel-border">|</span>
+          <div className="w-[2px] h-3 bg-pixel-border" />
           <span className="text-pixel-white glow-amber">{dateStr}</span>
-          <span className="text-pixel-border">|</span>
+          <div className="w-[2px] h-3 bg-pixel-border" />
           <span>POLYGON</span>
         </div>
 
@@ -166,7 +166,7 @@ export default function Header({
           </button>
         ))}
 
-        <span className="text-pixel-border text-[10px] shrink-0">|</span>
+        <div className="w-[2px] h-3 bg-pixel-border shrink-0" />
 
         {/* Category filters */}
         {CATEGORIES.map((cat) => (
@@ -183,7 +183,7 @@ export default function Header({
           </button>
         ))}
 
-        <span className="text-pixel-border text-[10px] shrink-0">|</span>
+        <div className="w-[2px] h-3 bg-pixel-border shrink-0" />
 
         <button
           onClick={onReload}

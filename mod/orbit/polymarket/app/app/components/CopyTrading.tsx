@@ -255,7 +255,7 @@ export default function CopyTrading() {
             <span className="text-[12px] text-pixel-gray-light tracking-widest">
               TOP TRADERS
             </span>
-            <span className="text-[11px] text-pixel-gray">{sortedTraders.length} FOUND</span>
+            <span className="text-[11px] text-pixel-gray ml-4">{sortedTraders.length} FOUND</span>
           </div>
 
           <div className="pixel-panel overflow-x-auto">
