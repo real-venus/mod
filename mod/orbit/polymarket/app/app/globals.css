@@ -1,8 +1,75 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
+/* Declare fallback layer FIRST so it has lowest priority in the cascade.
+   When Tailwind compiles: utilities layer > fallback layer (Tailwind wins).
+   When Tailwind fails:    fallback layer is the only layer (layout works). */
+@layer fallback;
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer fallback {
+  /* Header rows */
+  header > div {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 16px;
+    flex-wrap: wrap;
+  }
+  header > div:last-child {
+    gap: 8px;
+    overflow-x: auto;
+    padding: 6px 16px;
+  }
+
+  /* Tab navigation */
+  header + div > div {
+    display: flex;
+    align-items: center;
+  }
+  header + div > div > button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+  }
+
+  /* Content sections */
+  main > div { max-width: 1920px; margin: 0 auto; }
+  main > div > div { padding: 16px; }
+
+  /* Pixel panels — flex layout for inner content */
+  .pixel-panel > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .pixel-panel > div > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .pixel-panel > table { width: 100%; }
+
+  /* Progress bars */
+  .pixel-bar { flex: 1; min-width: 0; }
+
+  /* Inputs */
+  input.pixel-input { width: 100%; box-sizing: border-box; }
+
+  /* Footer */
+  footer > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+}
 
 :root {
   --bg: #000000;

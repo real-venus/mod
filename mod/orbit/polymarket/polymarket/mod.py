@@ -155,7 +155,12 @@ class Polymarket(c.Mod):
         cwd = self._app_dir
 
         if not os.path.exists(os.path.join(cwd, 'node_modules')):
-            subprocess.run(['npm', 'install'], cwd=cwd, capture_output=True)
+            print("Installing npm dependencies...")
+            result = subprocess.run(['npm', 'install'], cwd=cwd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"npm install failed: {result.stderr}")
+            elif not os.path.exists(os.path.join(cwd, 'node_modules', 'tailwindcss')):
+                print("WARNING: tailwindcss not found after npm install — CSS will be broken")
 
         cmd = f'npm run {"dev" if dev else "start"} -- -p {port}'
 
