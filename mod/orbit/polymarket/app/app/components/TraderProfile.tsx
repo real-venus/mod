@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { TopTrader, formatVolume, formatPnl, timeAgo } from "../lib/polymarket";
-import { shortAddress } from "../lib/auth";
+import { shortAddress } from "@/lib/auth";
 import { PolymarketTrade, PolymarketPosition } from "../lib/types";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 

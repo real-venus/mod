@@ -6,7 +6,7 @@ import {
   formatVolume, formatPnl, TopTrader,
   CATEGORIES, CategorySlug, matchTraderCategory,
 } from "../lib/polymarket";
-import { shortAddress } from "../lib/auth";
+import { shortAddress } from "@/lib/auth";
 import { PolymarketTrade, PolymarketPosition } from "../lib/types";
 import TraderProfile from "./TraderProfile";
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { shortAddress } from "../lib/auth";
+import { shortAddress } from "@/lib/auth";
 import { CATEGORIES, CategorySlug } from "../lib/polymarket";
 
 type SortMode = "volume" | "liquidity" | "end_date_min";

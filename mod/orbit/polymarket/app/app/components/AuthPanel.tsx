@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "../context/AuthContext";
-import { shortAddress } from "../lib/auth";
+import { shortAddress } from "@/lib/auth";
 
 export default function AuthPanel() {
   const { auth, connect, authenticate, error, loading, hasWallet } = useAuth();
