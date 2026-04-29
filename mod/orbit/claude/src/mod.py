@@ -31,7 +31,8 @@ class Mod:
         'bg', 'bg_status', 'bg_list', 'snapshot', 'changelog',
         'get_version', 'restore_version', 'health', 'modules',
         'folders', 'suggest_folders',
-        'set_owner', 'get_owner', 'is_owner', 'ensure_env', 'serve',
+        'set_owner', 'get_owner', 'is_owner', 'ensure_env',
+        'install', 'setup', 'serve',
         'kill', 'kill_port', 'status', 'logs', 'scan', 'fix',
     ]
 
@@ -338,9 +339,14 @@ class Mod:
     # ── CLI (no server needed) ────────────────────────────────────
 
     def _find_claude(self) -> str:
+        # prefer local install in module node_modules
+        local_bin = os.path.join(self._module_dir(), 'node_modules', '.bin', 'claude')
+        if os.path.isfile(local_bin) and os.access(local_bin, os.X_OK):
+            return local_bin
+        # fall back to global
         result = subprocess.run(["which", "claude"], capture_output=True, text=True)
         if result.returncode != 0:
-            raise RuntimeError("claude CLI not found — install with: npm install -g @anthropic-ai/claude-code")
+            raise RuntimeError("claude CLI not found — install with: m claude/install")
         return result.stdout.strip()
 
     def _run_cli(self, query: str, path: str = None, model: str = "sonnet",
@@ -839,6 +845,284 @@ class Mod:
         """List models available via OpenRouter."""
         router = m.mod('model.openrouter')()
         return router.models(search=search)
+
+    # ── remote setup ─────────────────────────────────────────────
+
+    def _ssh_cmd(self, host: str, key_path: str = None) -> list:
+        """Build base SSH command list."""
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'ConnectTimeout=10']
+        if key_path:
+            cmd += ['-i', os.path.expanduser(key_path)]
+        cmd.append(host)
+        return cmd
+
+    def _ssh(self, host: str, cmd: str, key_path: str = None,
+             timeout: int = 60) -> tuple:
+        """Run a command over SSH. Returns (ok, stdout, stderr)."""
+        r = subprocess.run(
+            self._ssh_cmd(host, key_path) + [cmd],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        return r.returncode == 0, r.stdout.strip(), r.stderr.strip()
+
+    def _ssh_source_nvm(self, cmd: str) -> str:
+        """Wrap a command so nvm-installed binaries are on PATH."""
+        return f'export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; {cmd}'
+
+    def install(self, host: str = None, key_path: str = None, **kwargs) -> dict:
+        """Install Claude CLI locally or on a remote host.
+
+        Without args: installs via npm and prompts for auth token.
+        With host: installs on remote host over SSH.
+
+        Usage:
+            m claude/install              # local install + auth setup
+            m claude/install user@myserver # remote install
+        """
+        if not host:
+            return self._install_local(**kwargs)
+
+        print(f'[install] installing claude on {host}...')
+        ok, out, err = self._ssh(host, 'npm install -g @anthropic-ai/claude-code',
+                                 key_path=key_path, timeout=120)
+        if not ok:
+            # retry with nvm sourced
+            ok, out, err = self._ssh(
+                host, self._ssh_source_nvm('npm install -g @anthropic-ai/claude-code'),
+                key_path=key_path, timeout=120,
+            )
+        if not ok:
+            print(f'[install] failed: {err}')
+            return {'ok': False, 'error': err, 'host': host}
+
+        # verify
+        ok, ver, _ = self._ssh(host, self._ssh_source_nvm('claude --version'),
+                               key_path=key_path)
+        print(f'[install] done — claude {ver}' if ok else '[install] installed but version check failed')
+        return {'ok': True, 'host': host, 'version': ver if ok else None}
+
+    def setup(self, host: str = None, key_path: str = None, **kwargs) -> dict:
+        """Ensure Claude CLI is installed on a remote host via SSH.
+
+        Checks connectivity, node/npm, installs claude if missing,
+        checks for ANTHROPIC_API_KEY.
+
+        Args:
+            host: SSH target (e.g. 'user@1.2.3.4' or 'myserver')
+            key_path: path to SSH key (optional, uses default if omitted)
+
+        Usage:
+            m claude/setup user@myserver
+            m claude/setup user@myserver key_path=~/.ssh/id_ed25519
+        """
+        if not host:
+            return {'error': 'host required — e.g. m claude/setup user@myserver'}
+
+        results = {'host': host, 'steps': []}
+
+        # 1. connectivity
+        print(f'[setup] connecting to {host}...')
+        ok, _, err = self._ssh(host, 'echo ok', key_path=key_path)
+        if not ok:
+            return {'error': f'SSH connection failed: {err}', 'host': host}
+        results['steps'].append({'name': 'ssh_connect', 'ok': True})
+        print(f'[setup] connected')
+
+        # 2. node
+        ok, node_ver, _ = self._ssh(host, self._ssh_source_nvm('node --version'), key_path=key_path)
+        if not ok:
+            print(f'[setup] node not found — installing via nvm...')
+            install_cmd = (
+                'curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash '
+                '&& export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" '
+                '&& nvm install --lts'
+            )
+            ok, _, err = self._ssh(host, install_cmd, key_path=key_path, timeout=120)
+            if not ok:
+                return {'error': f'Failed to install node: {err}', 'host': host, 'steps': results['steps']}
+            results['steps'].append({'name': 'node_install', 'ok': True})
+            print(f'[setup] node installed')
+        else:
+            results['steps'].append({'name': 'node', 'ok': True, 'version': node_ver})
+            print(f'[setup] node {node_ver}')
+
+        # 3. claude — check, install if missing
+        ok, ver, _ = self._ssh(host, self._ssh_source_nvm('claude --version'), key_path=key_path)
+        if ok:
+            results['steps'].append({'name': 'claude', 'ok': True, 'version': ver})
+            print(f'[setup] claude {ver}')
+        else:
+            r = self.install(host=host, key_path=key_path)
+            results['steps'].append({'name': 'claude_install', 'ok': r.get('ok', False),
+                                     'version': r.get('version')})
+            if not r.get('ok'):
+                return {'error': r.get('error'), 'host': host, 'steps': results['steps']}
+
+        # 4. ANTHROPIC_API_KEY
+        ok, has_key, _ = self._ssh(host, 'test -n "$ANTHROPIC_API_KEY" && echo yes || echo no',
+                                   key_path=key_path)
+        if has_key == 'yes':
+            results['steps'].append({'name': 'api_key', 'ok': True})
+            print(f'[setup] ANTHROPIC_API_KEY set')
+        else:
+            results['steps'].append({'name': 'api_key', 'ok': False,
+                                     'warning': 'ANTHROPIC_API_KEY not set'})
+            print(f'[setup] warning: ANTHROPIC_API_KEY not set on remote')
+
+        # 5. final verify
+        ok, ver, _ = self._ssh(host, self._ssh_source_nvm('claude --version'), key_path=key_path)
+        results['claude_version'] = ver if ok else None
+        results['ready'] = ok
+        print(f'[setup] ready — claude {ver} on {host}' if ok else '[setup] not ready')
+
+        return results
+
+    def _install_local(self, **kwargs) -> dict:
+        """Install Claude Code locally into the module's node_modules."""
+        results = {'steps': []}
+        mod_dir = self._module_dir()
+
+        # 1. check if already installed locally
+        local_bin = os.path.join(mod_dir, 'node_modules', '.bin', 'claude')
+        if os.path.isfile(local_bin) and os.access(local_bin, os.X_OK):
+            r = subprocess.run([local_bin, '--version'], capture_output=True, text=True, timeout=10)
+            ver = r.stdout.strip() if r.returncode == 0 else 'unknown'
+            print(f'[install] claude already installed locally: {ver}')
+            results['steps'].append({'name': 'check', 'ok': True, 'version': ver})
+        else:
+            print('[install] installing @anthropic-ai/claude-code locally...')
+            r = subprocess.run(
+                ['npm', 'install', '@anthropic-ai/claude-code'],
+                cwd=mod_dir, capture_output=True, text=True, timeout=120,
+            )
+            if r.returncode != 0:
+                print(f'[install] npm install failed: {r.stderr[-300:]}')
+                return {'ok': False, 'error': r.stderr}
+            # verify
+            r2 = subprocess.run([local_bin, '--version'], capture_output=True, text=True, timeout=10)
+            ver = r2.stdout.strip() if r2.returncode == 0 else 'unknown'
+            print(f'[install] installed claude {ver} → {mod_dir}/node_modules/')
+            results['steps'].append({'name': 'npm_install', 'ok': True, 'version': ver})
+
+        # 2. check for existing auth
+        token = self._read_keychain_token()
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if token:
+            print(f'[install] auth token found in keychain ({token[:8]}...{token[-4:]})')
+            results['steps'].append({'name': 'auth', 'ok': True, 'exists': True})
+        elif api_key:
+            print(f'[install] ANTHROPIC_API_KEY already set in env ({api_key[:8]}...)')
+            results['steps'].append({'name': 'auth', 'ok': True, 'env_key': True})
+        else:
+            print('')
+            print('[install] no credentials found. pick one:')
+            print('')
+            print('  1) paste auth token  — from a machine already logged in:')
+            print('     run `m claude/_authtoken` on that machine, copy the token')
+            print('')
+            print('  2) set API key       — paste your ANTHROPIC_API_KEY')
+            print('     (get one at https://console.anthropic.com/settings/keys)')
+            print('')
+            print('  3) skip              — press Enter, run `claude login` later')
+            print('')
+            try:
+                choice = input('[install] enter token, API key, or press Enter to skip:\n> ').strip()
+            except (EOFError, KeyboardInterrupt):
+                choice = ''
+            if choice:
+                # detect API key (sk-ant-...) vs auth token
+                if choice.startswith('sk-ant-'):
+                    # write to shell profile
+                    profile = self._detect_shell_profile()
+                    export_line = f'\nexport ANTHROPIC_API_KEY="{choice}"\n'
+                    with open(profile, 'a') as f:
+                        f.write(export_line)
+                    os.environ['ANTHROPIC_API_KEY'] = choice
+                    print(f'[install] API key saved to {profile}')
+                    print(f'[install] run `source {profile}` or open a new terminal')
+                    results['steps'].append({'name': 'auth', 'ok': True, 'method': 'api_key'})
+                else:
+                    ok = self._write_keychain_token(choice)
+                    if ok:
+                        print('[install] auth token saved to keychain')
+                        results['steps'].append({'name': 'auth', 'ok': True, 'method': 'token'})
+                    else:
+                        print('[install] failed to save token — run `claude login` to authenticate')
+                        results['steps'].append({'name': 'auth', 'ok': False})
+            else:
+                print('[install] skipped — run `claude login` to authenticate')
+                results['steps'].append({'name': 'auth', 'ok': False, 'skipped': True})
+
+        results['ok'] = True
+        return results
+
+    def _authtoken(self, token: str = None, **kwargs) -> dict:
+        """Get or set the Claude Code auth token (macOS Keychain).
+
+        Without args: reads and displays the current token for transfer.
+        With token arg: writes the token to keychain.
+
+        Usage:
+            m claude/_authtoken               # show current token
+            m claude/_authtoken <token>       # set token from another machine
+        """
+        if token:
+            ok = self._write_keychain_token(token)
+            if ok:
+                print(f'[authtoken] saved to keychain ({token[:8]}...{token[-4:]})')
+                return {'ok': True, 'action': 'set'}
+            return {'ok': False, 'error': 'failed to write to keychain'}
+
+        current = self._read_keychain_token()
+        if current:
+            print(f'[authtoken] {current}')
+            return {'ok': True, 'token': current}
+        print('[authtoken] no token found — run `claude login` first')
+        return {'ok': False, 'error': 'no token in keychain'}
+
+    def _detect_shell_profile(self) -> str:
+        """Return the user's shell profile path."""
+        shell = os.environ.get('SHELL', '/bin/zsh')
+        home = os.path.expanduser('~')
+        if 'zsh' in shell:
+            return os.path.join(home, '.zshrc')
+        return os.path.join(home, '.bashrc')
+
+    def _read_keychain_token(self) -> Optional[str]:
+        """Read Claude Code credentials from macOS Keychain."""
+        try:
+            r = subprocess.run(
+                ['security', 'find-generic-password',
+                 '-s', 'Claude Code-credentials', '-w'],
+                capture_output=True, text=True, timeout=10,
+            )
+            if r.returncode == 0 and r.stdout.strip():
+                return r.stdout.strip()
+        except Exception:
+            pass
+        return None
+
+    def _write_keychain_token(self, token: str) -> bool:
+        """Write Claude Code credentials to macOS Keychain."""
+        try:
+            # delete existing entry first (ignore errors if not found)
+            subprocess.run(
+                ['security', 'delete-generic-password',
+                 '-s', 'Claude Code-credentials'],
+                capture_output=True, text=True, timeout=10,
+            )
+            # add new entry
+            r = subprocess.run(
+                ['security', 'add-generic-password',
+                 '-s', 'Claude Code-credentials',
+                 '-a', os.environ.get('USER', 'claude'),
+                 '-w', token],
+                capture_output=True, text=True, timeout=10,
+            )
+            return r.returncode == 0
+        except Exception:
+            return False
 
     # ── environment ──────────────────────────────────────────────
 
