@@ -102,13 +102,13 @@ export default function MarketsGrid({
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between px-1">
+          <div className="flex items-center justify-between px-1 mb-1">
             <span className="text-[11px] text-pixel-gray-light tracking-widest">
               PREDICTION MARKETS
             </span>
-            <span className="text-[10px] text-pixel-gray">
-              {allMarkets.length} TOTAL
-              {totalPages > 1 && ` \u2022 PAGE ${page + 1}/${totalPages}`}
+            <span className="text-[10px] text-pixel-gray font-mono">
+              {allMarkets.length}{" "}TOTAL
+              {totalPages > 1 && ` · PG ${page + 1}/${totalPages}`}
             </span>
           </div>
           <div className="grid grid-cols-1 gap-3">

@@ -57,14 +57,14 @@ export default function Home() {
               onClick={() => setTab(t.id)}
               className={`px-5 py-3 flex items-center gap-2.5 border-b-2 transition-all ${
                 tab === t.id
-                  ? `text-pixel-${t.color} border-pixel-${t.color} bg-pixel-${t.color}/5`
+                  ? "text-pixel-white border-pixel-white bg-pixel-panel"
                   : "text-pixel-gray border-transparent hover:text-pixel-white hover:border-pixel-border"
               }`}
             >
               <div
                 className={`w-5 h-5 border flex items-center justify-center text-[9px] ${
                   tab === t.id
-                    ? `border-pixel-${t.color} text-pixel-${t.color}`
+                    ? "border-pixel-white text-pixel-white"
                     : "border-pixel-border text-pixel-gray"
                 }`}
               >
@@ -94,11 +94,6 @@ export default function Home() {
           {selectedMarket && (
             <div className="max-w-2xl mx-auto">
               <TradePanel market={selectedMarket} />
-            </div>
-          )}
-          {!auth.authenticated && !selectedMarket && (
-            <div className="max-w-md mx-auto">
-              <AuthPanel />
             </div>
           )}
           <MarketsGrid
