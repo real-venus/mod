@@ -51,7 +51,7 @@
         "status",
         "test"
     ],
-    "schema": "QmWuwotoMyqBFRDEU6KDuJXuo6zagpnUyptJ3eEkFiuX7h",
+    "schema": "QmQRPZMPGmrX36R72HjVDphwKo247ESJ2V29yor2DiDMS9",
     "endpoints": {
         "/health": {
             "method": "GET",

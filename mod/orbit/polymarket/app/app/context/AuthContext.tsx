@@ -7,6 +7,7 @@ import { detectWallet, connectWallet, deriveClobApiKey } from "../lib/auth";
 interface AuthContextValue {
   auth: AuthState;
   connect: () => Promise<void>;
+  disconnect: () => void;
   authenticate: () => Promise<void>;
   error: string | null;
   loading: boolean;
@@ -24,6 +25,7 @@ const defaultAuth: AuthState = {
 const AuthContext = createContext<AuthContextValue>({
   auth: defaultAuth,
   connect: async () => {},
+  disconnect: () => {},
   authenticate: async () => {},
   error: null,
   loading: false,
@@ -57,6 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const disconnect = useCallback(() => {
+    setAuth(defaultAuth);
+    setError(null);
+  }, []);
+
   const authenticate = useCallback(async () => {
     if (!auth.address) return;
     setError(null);
@@ -72,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [auth.address]);
 
   return (
-    <AuthContext.Provider value={{ auth, connect, authenticate, error, loading, hasWallet }}>
+    <AuthContext.Provider value={{ auth, connect, disconnect, authenticate, error, loading, hasWallet }}>
       {children}
     </AuthContext.Provider>
   );
