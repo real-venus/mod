@@ -9,7 +9,7 @@
     "contracts": {
         "near_testnet": {}
     },
-    "schema": "QmfZQ1e3VrHeRWbLaqfnXiV9ifLcxWRjncHTQ6x7QSuEyT",
+    "schema": "QmfGBiSUqQzhAB9DaeBiSN9eo7g1MNdjyu2tV1EMyVPmq3",
     "endpoints": {
         "GET /status": "Deployment status",
         "GET /subnets": "List all registered subnets",

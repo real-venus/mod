@@ -18,6 +18,8 @@ interface HeaderProps {
   onDaysAgoChange: (v: string) => void;
   onReload: () => void;
   showFilters?: boolean;
+  showDaysFilter?: boolean;
+  daysOptions?: { label: string; value: string }[];
 }
 
 export default function Header({
@@ -27,7 +29,16 @@ export default function Header({
   daysAgo, onDaysAgoChange,
   onReload,
   showFilters = true,
+  showDaysFilter,
+  daysOptions,
 }: HeaderProps) {
+  const _showDays = showDaysFilter ?? showFilters;
+  const _daysOptions = daysOptions ?? [
+    { label: "CURRENT", value: "" },
+    { label: "7D", value: "7" },
+    { label: "14D", value: "14" },
+    { label: "30D", value: "30" },
+  ];
   const { auth, hasWallet, connect, disconnect, authenticate, error, loading } = useAuth();
   const [dateStr, setDateStr] = useState("----.--.--");
   const [showAuth, setShowAuth] = useState(false);
@@ -60,14 +71,9 @@ export default function Header({
         </div>
 
         {/* Time range filter */}
-        {showFilters && (
+        {_showDays && (
           <div className="hidden md:flex items-center gap-1 shrink-0">
-            {[
-              { label: "CURRENT", value: "" },
-              { label: "7D", value: "7" },
-              { label: "14D", value: "14" },
-              { label: "30D", value: "30" },
-            ].map((opt) => (
+            {_daysOptions.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => onDaysAgoChange(opt.value)}

@@ -26,6 +26,17 @@ export default function Home() {
   const [daysAgo, setDaysAgo] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
+  const tradersDaysOptions = [
+    { label: "1D", value: "1" },
+    { label: "7D", value: "7" },
+    { label: "14D", value: "14" },
+    { label: "30D", value: "30" },
+  ];
+
+  // The days filter is shared across markets and traders tabs, but
+  // each tab has its own valid set of values. Coerce on tab switch.
+  const tradersDaysAgo = daysAgo && daysAgo !== "" ? daysAgo : "7";
+
   const tabs: { id: Tab; label: string; icon: string; color: string }[] = [
     { id: "markets", label: "MARKETS", icon: "M", color: "white" },
     { id: "copy", label: "TRADERS", icon: "T", color: "white" },
@@ -42,10 +53,12 @@ export default function Home() {
         onSortChange={setSort}
         category={category}
         onCategoryChange={setCategory}
-        daysAgo={daysAgo}
+        daysAgo={tab === "copy" ? tradersDaysAgo : daysAgo}
         onDaysAgoChange={setDaysAgo}
         onReload={() => setReloadKey((k) => k + 1)}
         showFilters={tab === "markets"}
+        showDaysFilter={tab === "markets" || tab === "copy"}
+        daysOptions={tab === "copy" ? tradersDaysOptions : undefined}
       />
 
       {/* Tab Navigation */}
@@ -111,7 +124,7 @@ export default function Home() {
       {/* COPY TRADE TAB */}
       {tab === "copy" && (
         <div className="p-4">
-          <CopyTrading />
+          <CopyTrading days={Number(tradersDaysAgo)} reloadKey={reloadKey} />
         </div>
       )}
 

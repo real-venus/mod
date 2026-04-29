@@ -1,1 +1,15 @@
-{"data": {"name": "modify", "version": "1.0.0", "description": "Agent-powered module modifier. Applies suggestions, freeform instructions, and converts folders into mod protocol modules.", "fns": ["forward", "modify_folder", "apply_suggestions", "suggest_and_apply", "ensure_urls", "ensure_serve", "test"], "schema": "Qma9MVFjnxY7pwmAc9fMPquw8u2XDnEzpHfbr68XcmvTum"}, "encrypted": false, "timestamp": 1776540738.99599}
+{
+    "name": "modify",
+    "version": "1.0.0",
+    "description": "Agent-powered module modifier. Applies suggestions, freeform instructions, and converts folders into mod protocol modules.",
+    "fns": [
+        "forward",
+        "modify_folder",
+        "apply_suggestions",
+        "suggest_and_apply",
+        "ensure_urls",
+        "ensure_serve",
+        "test"
+    ],
+    "schema": "QmRD7omY9JNS2jrKE9bmLvCnjKVoVoj8CvDMarmGRpJodh"
+}

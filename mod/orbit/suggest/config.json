@@ -1,1 +1,11 @@
-{"data": {"name": "suggest", "version": "1.0.0", "description": "Agent-powered module analyzer that generates suggestions for improvements, fixes, and features.", "fns": ["forward", "batch", "test"], "schema": "QmUFyJoQonPohvUmVRchYCECC48d1VccF6mqd5YohHxv3P"}, "encrypted": false, "timestamp": 1776540740.045224}
+{
+    "name": "suggest",
+    "version": "1.0.0",
+    "description": "Agent-powered module analyzer that generates suggestions for improvements, fixes, and features.",
+    "fns": [
+        "forward",
+        "batch",
+        "test"
+    ],
+    "schema": "QmWGk5js22RmWidygzUvjRawNDj1bdpZZUzU6ism2kwREP"
+}

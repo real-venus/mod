@@ -1,1 +1,27 @@
-{"data": {"engine": {"port": 8420, "rpc_url": "https://sepolia.base.org", "chain_id": 84532, "log_level": "info"}, "contracts": {"EvoToken": {"address": "", "contract": "EvoToken"}, "HubExchange": {"address": "", "contract": "HubExchange"}, "EvoRegistry": {"address": "", "contract": "EvoRegistry"}, "TokenFactory": {"address": "", "contract": "TokenFactory"}}, "schema": "QmPKtQxaTdU9PRCnvL64VTRsiPrXPHLxEREK3x2H6vBJQx"}, "encrypted": false, "timestamp": 1776540739.902806}
+{
+    "engine": {
+        "port": 8420,
+        "rpc_url": "https://sepolia.base.org",
+        "chain_id": 84532,
+        "log_level": "info"
+    },
+    "contracts": {
+        "EvoToken": {
+            "address": "",
+            "contract": "EvoToken"
+        },
+        "HubExchange": {
+            "address": "",
+            "contract": "HubExchange"
+        },
+        "EvoRegistry": {
+            "address": "",
+            "contract": "EvoRegistry"
+        },
+        "TokenFactory": {
+            "address": "",
+            "contract": "TokenFactory"
+        }
+    },
+    "schema": "QmUnTXuyvpyT8uwCfZk4op5xtYjBZVj33YuKUDrmSGrFvL"
+}

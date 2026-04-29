@@ -1,1 +1,28 @@
-{"data": {"name": "openclaw", "version": "1.0.0", "description": "OpenClaw agent platform \u2014 import, load, and run AI agents in Docker", "port": 50120, "gateway_port": 18789, "urls": {"api": "http://localhost:50120", "app": "http://localhost:50121"}, "fns": ["setup", "kill", "restart", "status", "agents", "agent", "import_agent", "export_agent", "send", "forward", "gateway", "config", "logs", "test"], "schema": "QmP6fqbznFK6V3G7FVHZQepmxjpzvbnsCmoX6dpT3E9Qd2"}, "encrypted": false, "timestamp": 1776540740.205985}
+{
+    "name": "openclaw",
+    "version": "1.0.0",
+    "description": "OpenClaw agent platform \u2014 import, load, and run AI agents in Docker",
+    "port": 50120,
+    "gateway_port": 18789,
+    "urls": {
+        "api": "http://localhost:50120",
+        "app": "http://localhost:50121"
+    },
+    "fns": [
+        "setup",
+        "kill",
+        "restart",
+        "status",
+        "agents",
+        "agent",
+        "import_agent",
+        "export_agent",
+        "send",
+        "forward",
+        "gateway",
+        "config",
+        "logs",
+        "test"
+    ],
+    "schema": "Qmc3qHe2yChYyxHUnhu3oe81LgHarF1CgeVHEFG8rw7h5g"
+}

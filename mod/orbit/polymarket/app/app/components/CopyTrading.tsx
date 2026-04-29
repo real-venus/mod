@@ -18,7 +18,12 @@ function SortArrow({ active, dir }: { active: boolean; dir: SortDir }) {
   return <span className="ml-1">{dir === "desc" ? "\u25BC" : "\u25B2"}</span>;
 }
 
-export default function CopyTrading() {
+interface CopyTradingProps {
+  days?: number;
+  reloadKey?: number;
+}
+
+export default function CopyTrading({ days = 7, reloadKey = 0 }: CopyTradingProps = {}) {
   const [traders, setTraders] = useState<TopTrader[]>([]);
   const [loading, setLoading] = useState(true);
   const [traderSort, setTraderSort] = useState<TraderSort>("volume");
@@ -50,17 +55,17 @@ export default function CopyTrading() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchTopTraders(30);
+      const data = await fetchTopTraders(250, { daysWindow: days, minTradesPerDay: 1 });
       setTraders(data);
     } catch {
       setTraders([]);
     }
     setLoading(false);
-  }, []);
+  }, [days]);
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, reloadKey]);
 
   // Save watchlist
   useEffect(() => {
@@ -154,12 +159,12 @@ export default function CopyTrading() {
               <span className="text-sm text-pixel-white glow-green tracking-wider">
                 TOP TRADERS
               </span>
-              <div className="text-[10px] text-pixel-gray mt-1">LEADERBOARD - 30 DAY</div>
+              <div className="text-[10px] text-pixel-gray mt-1">{`ACTIVE TRADERS - ${days} DAY (1+/DAY)`}</div>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="pixel-badge border-pixel-white text-pixel-white">
-              30D
+              {`${days}D`}
             </span>
             <span className="text-[11px] text-pixel-gray">
               {watchlist.size} WATCHING

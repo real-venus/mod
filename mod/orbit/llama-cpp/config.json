@@ -1,1 +1,5 @@
-{"data": {"name": "llama-cpp", "description": "Local LLM inference via llama.cpp \u2014 CPU and Metal (Apple Silicon GPU/ANE)", "schema": "QmXPg6T9KsBJFUhHK7CSKZTzgg5kNCSntjgS31vLALP7eQ"}, "encrypted": false, "timestamp": 1776540740.8853261}
+{
+    "name": "llama-cpp",
+    "description": "Local LLM inference via llama.cpp \u2014 CPU and Metal (Apple Silicon GPU/ANE)",
+    "schema": "QmR4gw17428Z3H5ce8zu8X2mk9tcW5Gn6zUrEqr1gvyf4x"
+}

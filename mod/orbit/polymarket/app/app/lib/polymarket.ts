@@ -191,73 +191,30 @@ function normalizeMarkets(raw: unknown): PolymarketMarket[] {
 
 // ── Trader / User data ──────────────────────────────────────────
 
-export async function fetchTopTraders(count: number = 30): Promise<TopTrader[]> {
-  // Fetch PNL and VOL leaderboards for the last month, merge
-  const limit = Math.min(count, 50);
-  const [pnlData, volData] = await Promise.all([
-    polyApi("v1/leaderboard", { timePeriod: "MONTH", orderBy: "PNL", limit: limit.toString() }).catch(() => []),
-    polyApi("v1/leaderboard", { timePeriod: "MONTH", orderBy: "VOL", limit: limit.toString() }).catch(() => []),
-  ]);
-
-  const pnlList = Array.isArray(pnlData) ? pnlData : [];
-  const volList = Array.isArray(volData) ? volData : [];
-
-  const traderMap = new Map<string, TopTrader>();
-
-  for (const entry of pnlList) {
-    const e = entry as Record<string, unknown>;
-    const addr = String(e.proxyWallet || "").toLowerCase();
-    if (!addr || addr === "undefined") continue;
-    traderMap.set(addr, {
-      address: addr,
-      volume: Number(e.vol || 0),
-      pnl: Number(e.pnl || 0),
-      winRate: 0,
-      positions: 0,
-      marketTitles: [],
-    });
-  }
-
-  for (const entry of volList) {
-    const e = entry as Record<string, unknown>;
-    const addr = String(e.proxyWallet || "").toLowerCase();
-    if (!addr || addr === "undefined") continue;
-    const existing = traderMap.get(addr);
-    if (existing) {
-      existing.volume = Math.max(existing.volume, Number(e.vol || 0));
-    } else {
-      traderMap.set(addr, {
-        address: addr,
-        volume: Number(e.vol || 0),
-        pnl: Number(e.pnl || 0),
-        winRate: 0,
-        positions: 0,
-        marketTitles: [],
-      });
-    }
-  }
-
-  // Enrich with position counts (parallel, best-effort)
-  const traders = Array.from(traderMap.values());
-  const enriched = await Promise.all(
-    traders.map(async (t) => {
-      try {
-        const positions = await fetchPositions(t.address);
-        t.positions = positions.length;
-        t.marketTitles = positions.map((p) => p.market).filter(Boolean);
-        // Calculate win rate from positions with P&L data
-        const withPnl = positions.filter((p) => p.pnlUsd !== 0);
-        if (withPnl.length > 0) {
-          t.winRate = Math.round((withPnl.filter((p) => p.pnlUsd > 0).length / withPnl.length) * 100);
-        }
-      } catch {}
-      return t;
-    }),
-  );
-
-  return enriched
-    .sort((a, b) => b.pnl - a.pnl)
-    .slice(0, count);
+export async function fetchTopTraders(
+  candidatePool: number = 250,
+  options: { daysWindow?: number; minTradesPerDay?: number } = {},
+): Promise<TopTrader[]> {
+  // Delegates to the server-side route which paginates the WEEK leaderboard,
+  // fetches each candidate's trades + positions, and filters by activity.
+  const { daysWindow = 7, minTradesPerDay = 1 } = options;
+  const qs = new URLSearchParams({
+    days: String(daysWindow),
+    minPerDay: String(minTradesPerDay),
+    pool: String(candidatePool),
+  });
+  const res = await fetch(`${BASE}/api/polymarket/active-traders?${qs}`);
+  if (!res.ok) throw new Error(`active-traders ${res.status}`);
+  const data = await res.json();
+  const traders = Array.isArray(data?.traders) ? data.traders : [];
+  return traders.map((t: Record<string, unknown>) => ({
+    address: String(t.address || ""),
+    volume: Number(t.volume || 0),
+    pnl: Number(t.pnl || 0),
+    winRate: Number(t.winRate || 0),
+    positions: Number(t.positions || 0),
+    marketTitles: Array.isArray(t.marketTitles) ? (t.marketTitles as string[]) : [],
+  }));
 }
 
 export async function fetchWalletTrades(address: string, limit: number = 200): Promise<PolymarketTrade[]> {
