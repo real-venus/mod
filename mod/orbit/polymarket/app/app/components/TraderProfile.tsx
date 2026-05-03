@@ -28,6 +28,19 @@ function SortArrow({ active, dir }: { active: boolean; dir: SortDir }) {
   return <span className="ml-1">{dir === "desc" ? "\u25BC" : "\u25B2"}</span>;
 }
 
+type CurvePoint = {
+  i: number;
+  ts: number;
+  date: string;
+  time: string;
+  pnl: number;
+  side: "BUY" | "SELL" | "MARK";
+  realized: number;
+  market: string;
+  size: number;
+  price: number;
+};
+
 export default function TraderProfile({
   trader,
   trades,
@@ -58,14 +71,26 @@ export default function TraderProfile({
 
   // Replay full trade history with avg-cost (FIFO-style) bookkeeping to
   // compute the *realized* P&L on each SELL. Trades without enough cost
-  // basis (BUYs older than what /activity returned) are best-effort.
+  // basis (BUYs older than what /activity returned) are flagged as
+  // hasBasis=false so the UI can show "—" instead of a misleading $0.
+  //
+  // Fallback: if a SELL has no in-book BUY but the trader still holds an
+  // open position in that market, use the position's avgPrice as the cost
+  // basis. /positions only reports CURRENTLY OPEN positions, so this only
+  // helps for markets the trader hasn't fully exited.
   const tradesWithRealized = useMemo(() => {
+    const seedAvgPrice = new Map<string, number>();
+    for (const p of positions) {
+      const key = p.conditionId || p.market;
+      if (key && p.avgPrice > 0) seedAvgPrice.set(key, p.avgPrice);
+    }
     const sorted = [...trades].sort((a, b) => a.timestamp - b.timestamp);
     const book = new Map<string, { size: number; cost: number }>();
     return sorted.map((t) => {
       const key = t.conditionId || t.market;
       const pos = book.get(key) || { size: 0, cost: 0 };
       let realized = 0;
+      let hasBasis = true;
       if (t.side === "BUY") {
         pos.cost += t.price * t.size;
         pos.size += t.size;
@@ -75,34 +100,84 @@ export default function TraderProfile({
         realized = (t.price - avgCost) * sold;
         pos.cost -= avgCost * sold;
         pos.size -= sold;
+      } else if (seedAvgPrice.has(key)) {
+        // SELL with no BUYs in our trade window — fall back to the
+        // trader's current avgPrice from their open-position record.
+        realized = (t.price - (seedAvgPrice.get(key) || 0)) * t.size;
+      } else {
+        hasBasis = false;
       }
       book.set(key, pos);
-      return { ...t, realized };
+      return { ...t, realized, hasBasis };
     });
-  }, [trades]);
+  }, [trades, positions]);
 
   const tradesInWindow = useMemo(
     () => tradesWithRealized.filter((t) => t.timestamp >= cutoffMs),
     [tradesWithRealized, cutoffMs],
   );
 
-  // Cumulative realized P&L over the window — one point per trade so we
-  // can mark BUY/SELL nodes on the curve. Cumulative pnl only changes on
-  // SELLs (BUYs have realized=0), but we keep BUY points to draw markers.
-  const pnlCurve = useMemo(() => {
+  // Mark-to-market cumulative P&L, one point per trade, plus a final "NOW"
+  // mark that revalues any still-open inventory at current position prices.
+  //
+  // MTM = cumulative cash flow + value of held inventory at last known price.
+  //   BUY  → cash -= px*sz, inventory += sz (instantaneous Δ MTM = 0)
+  //   SELL → cash += px*sz, inventory -= sz, also re-marks remaining
+  //          inventory of that market to the new fill price
+  // We use realized-only for the per-trade tooltip number, but plot MTM so
+  // the curve actually moves with BUYs (price discovery on inventory) — a
+  // realized-only curve sits flat at $0 for traders who mostly bought in
+  // the window, which made the chart look empty.
+  const pnlCurve = useMemo((): CurvePoint[] => {
     if (!tradesInWindow.length) return [];
     const sorted = [...tradesInWindow].sort((a, b) => a.timestamp - b.timestamp);
-    let cum = 0;
-    return sorted.map((t, i) => {
-      cum += t.realized;
+
+    // Prefer the trader's current position curPrice as the mark for any
+    // market they still hold — this makes BUYs in open positions
+    // immediately reflect their forward-looking P&L instead of staying
+    // pinned at $0 until the next sell.
+    const curByKey = new Map<string, number>();
+    for (const p of positions) {
+      const key = p.conditionId || p.market;
+      if (key && p.currentPrice > 0) curByKey.set(key, p.currentPrice);
+    }
+
+    const inv = new Map<string, number>();      // remaining size per market
+    const lastPx = new Map<string, number>();   // last-seen price per market
+    let cash = 0;
+    const markFor = (key: string) =>
+      curByKey.get(key) ?? lastPx.get(key) ?? 0;
+
+    const fmtDate = (ts: number) =>
+      new Date(ts).toLocaleDateString([], { month: "short", day: "numeric" });
+    const fmtTime = (ts: number) =>
+      new Date(ts).toLocaleString([], {
+        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+      });
+
+    const points: CurvePoint[] = sorted.map((t, i) => {
+      const key = t.conditionId || t.market;
+      if (t.side === "BUY") {
+        cash -= t.price * t.size;
+        inv.set(key, (inv.get(key) || 0) + t.size);
+      } else {
+        cash += t.price * t.size;
+        inv.set(key, (inv.get(key) || 0) - t.size);
+      }
+      lastPx.set(key, t.price);
+
+      let invValue = 0;
+      for (const [k, s] of inv) {
+        if (s !== 0) invValue += s * markFor(k);
+      }
+      const mtm = cash + invValue;
+
       return {
         i,
         ts: t.timestamp,
-        date: new Date(t.timestamp).toLocaleDateString([], { month: "short", day: "numeric" }),
-        time: new Date(t.timestamp).toLocaleString([], {
-          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-        }),
-        pnl: Math.round(cum * 100) / 100,
+        date: fmtDate(t.timestamp),
+        time: fmtTime(t.timestamp),
+        pnl: Math.round(mtm * 100) / 100,
         side: t.side,
         realized: t.realized,
         market: t.market,
@@ -110,7 +185,36 @@ export default function TraderProfile({
         price: t.price,
       };
     });
-  }, [tradesInWindow]);
+
+    // Append a final "NOW" point so the chart shows the latest mark even
+    // when no trade has happened in the last few hours — uses the same
+    // markFor() lookup as the per-trade points.
+    let nowInvValue = 0;
+    let hasOpenInventory = false;
+    for (const [k, s] of inv) {
+      if (Math.abs(s) < 1e-9) continue;
+      nowInvValue += s * markFor(k);
+      hasOpenInventory = true;
+    }
+    if (hasOpenInventory) {
+      const nowTs = Date.now();
+      const nowMtm = cash + nowInvValue;
+      points.push({
+        i: points.length,
+        ts: nowTs,
+        date: fmtDate(nowTs),
+        time: "NOW",
+        pnl: Math.round(nowMtm * 100) / 100,
+        side: "MARK",
+        realized: 0,
+        market: "",
+        size: 0,
+        price: 0,
+      });
+    }
+
+    return points;
+  }, [tradesInWindow, positions]);
 
   const dailyActivity = useMemo(() => {
     const dayMap = new Map<string, { buys: number; sells: number; volume: number }>();
@@ -126,13 +230,18 @@ export default function TraderProfile({
   }, [tradesInWindow]);
 
   const stats = useMemo(() => {
-    const sells = tradesInWindow.filter((t) => t.side === "SELL");
-    const wins = sells.filter((t) => t.realized > 0).length;
-    const losses = sells.filter((t) => t.realized < 0).length;
-    const totalPnl = tradesInWindow.reduce((s, t) => s + t.realized, 0);
-    const avgTrade = sells.length ? totalPnl / sells.length : 0;
-    const biggestWin = sells.length ? Math.max(...sells.map((t) => t.realized)) : 0;
-    const biggestLoss = sells.length ? Math.min(...sells.map((t) => t.realized)) : 0;
+    // Only count SELLs where we actually have a cost basis. SELLs whose
+    // matching BUY pre-dates our 500-trade history have hasBasis=false
+    // and would otherwise pollute every stat with an artificial $0.
+    const scoredSells = tradesInWindow.filter(
+      (t) => t.side === "SELL" && t.hasBasis,
+    );
+    const wins = scoredSells.filter((t) => t.realized > 0).length;
+    const losses = scoredSells.filter((t) => t.realized < 0).length;
+    const totalPnl = scoredSells.reduce((s, t) => s + t.realized, 0);
+    const avgTrade = scoredSells.length ? totalPnl / scoredSells.length : 0;
+    const biggestWin = scoredSells.length ? Math.max(...scoredSells.map((t) => t.realized)) : 0;
+    const biggestLoss = scoredSells.length ? Math.min(...scoredSells.map((t) => t.realized)) : 0;
     const winRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : -1;
     return { wins, losses, totalPnl, avgTrade, biggestWin, biggestLoss, winRate };
   }, [tradesInWindow]);
@@ -165,7 +274,7 @@ export default function TraderProfile({
       };
       if (t.side === "BUY") entry.bought += t.size;
       else entry.sold += t.size;
-      entry.realized += t.realized;
+      if (t.side === "SELL" && t.hasBasis) entry.realized += t.realized;
       entry.lastTs = Math.max(entry.lastTs, t.timestamp);
       entry.tradeCount += 1;
       byMarket.set(key, entry);
@@ -251,31 +360,70 @@ export default function TraderProfile({
         <>
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {[
-              { label: `${dayLabel} P&L`, value: formatPnl(stats.totalPnl), highlight: stats.totalPnl >= 0 },
-              { label: "WIN RATE", value: stats.winRate < 0 ? "—" : `${stats.winRate}%`, highlight: stats.winRate >= 50 },
-              { label: "TRADES", value: tradesInWindow.length.toString(), highlight: true },
-              { label: "VOLUME", value: formatVolume(trader.volume), highlight: true },
-              { label: "AVG TRADE", value: formatPnl(stats.avgTrade), highlight: stats.avgTrade >= 0 },
-              { label: "POSITIONS", value: positions.length.toString(), highlight: true },
-            ].map((stat) => (
-              <div key={stat.label} className="pixel-panel p-4 text-center">
-                <div className="text-[10px] text-pixel-gray tracking-wider mb-2">
-                  {stat.label}
+            {([
+              { label: `${dayLabel} P&L`, value: formatPnl(stats.totalPnl), tone: stats.totalPnl > 0 ? "good" : stats.totalPnl < 0 ? "bad" : "neutral" },
+              { label: "WIN RATE", value: stats.winRate < 0 ? "—" : `${stats.winRate}%`, tone: stats.winRate < 0 ? "neutral" : stats.winRate >= 50 ? "good" : "bad" },
+              { label: "TRADES", value: tradesInWindow.length.toString(), tone: "neutral" },
+              { label: "VOLUME", value: formatVolume(trader.volume), tone: "neutral" },
+              { label: "AVG TRADE", value: formatPnl(stats.avgTrade), tone: stats.avgTrade > 0 ? "good" : stats.avgTrade < 0 ? "bad" : "neutral" },
+              { label: "POSITIONS", value: positions.length.toString(), tone: "neutral" },
+            ] as const).map((stat) => {
+              const valueClass =
+                stat.tone === "good" ? "text-green-400" :
+                stat.tone === "bad" ? "text-red-400" :
+                "text-pixel-white glow-green";
+              return (
+                <div key={stat.label} className="pixel-panel p-4 text-center">
+                  <div className="text-[10px] text-pixel-gray tracking-wider mb-2">
+                    {stat.label}
+                  </div>
+                  <div className={`text-sm ${valueClass}`}>
+                    {stat.value}
+                  </div>
                 </div>
-                <div className={`text-sm ${stat.highlight ? "text-pixel-white glow-green" : "text-pixel-gray"}`}>
-                  {stat.value}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* P&L Chart */}
-          {pnlCurve.length > 0 && (
+          {pnlCurve.length > 0 ? (
             <div className="pixel-panel p-5">
-              <div className="text-[12px] text-pixel-gray-light tracking-wider mb-4">
-                {`${dayLabel} P&L CURVE`}
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                <div className="text-[12px] text-pixel-gray-light tracking-wider">
+                  {`${dayLabel} P&L CURVE (MTM)`}
+                </div>
+                <div className={`text-[11px] font-mono ${
+                  pnlCurve[pnlCurve.length - 1].pnl > 0 ? "text-green-400" :
+                  pnlCurve[pnlCurve.length - 1].pnl < 0 ? "text-red-400" :
+                  "text-pixel-gray-light"
+                }`}>
+                  {formatPnl(pnlCurve[pnlCurve.length - 1].pnl)}
+                </div>
               </div>
+              {(() => {
+                // Show the actual data range so window changes that don't
+                // visibly change the curve (because the trader has no
+                // trades older than the new window) are obvious.
+                const tsList = tradesInWindow.map((t) => t.timestamp);
+                if (!tsList.length) return null;
+                const minTs = Math.min(...tsList);
+                const maxTs = Math.max(...tsList);
+                const fmt = (ts: number) =>
+                  new Date(ts).toLocaleString([], {
+                    month: "short", day: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  });
+                const spanMs = maxTs - minTs;
+                const spanLabel =
+                  spanMs < 3600_000 ? `${Math.round(spanMs / 60_000)}m`
+                  : spanMs < 86400_000 ? `${(spanMs / 3600_000).toFixed(1)}h`
+                  : `${(spanMs / 86400_000).toFixed(1)}d`;
+                return (
+                  <div className="text-[10px] text-pixel-gray mb-3 font-mono">
+                    {tradesInWindow.length} TRADES · {fmt(minTs)} → {fmt(maxTs)} · SPANS {spanLabel}
+                  </div>
+                );
+              })()}
               <ResponsiveContainer width="100%" height={260}>
                 <AreaChart data={pnlCurve} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                   <defs>
@@ -285,16 +433,32 @@ export default function TraderProfile({
                     </linearGradient>
                   </defs>
                   <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 9, fill: "#666666" }}
-                    axisLine={{ stroke: "#333333" }}
-                    tickLine={false}
-                    minTickGap={40}
+                    dataKey="ts"
+                    type="number"
+                    domain={["dataMin", "dataMax"]}
+                    tick={{ fontSize: 9, fill: "#aaaaaa" }}
+                    axisLine={{ stroke: "#666666" }}
+                    tickLine={{ stroke: "#666666" }}
+                    minTickGap={50}
+                    tickFormatter={(t: number) => {
+                      const d = new Date(t);
+                      // Pick a sensible time/date format based on the
+                      // overall span (in ms) of the visible data.
+                      const span = pnlCurve.length > 1
+                        ? pnlCurve[pnlCurve.length - 1].ts - pnlCurve[0].ts
+                        : 0;
+                      if (span < 86400_000) {
+                        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                      }
+                      return d.toLocaleDateString([], { month: "short", day: "numeric" });
+                    }}
                   />
                   <YAxis
-                    tick={{ fontSize: 9, fill: "#666666" }}
-                    axisLine={{ stroke: "#333333" }}
-                    tickLine={false}
+                    domain={["auto", "auto"]}
+                    tick={{ fontSize: 9, fill: "#aaaaaa" }}
+                    axisLine={{ stroke: "#666666" }}
+                    tickLine={{ stroke: "#666666" }}
+                    width={56}
                     tickFormatter={(v: number) => (Math.abs(v) >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`)}
                   />
                   <Tooltip
@@ -309,61 +473,93 @@ export default function TraderProfile({
                     content={(props: { active?: boolean; payload?: Array<{ payload: { time: string; pnl: number; side: string; realized: number; size: number; price: number; market: string } }> }) => {
                       if (!props.active || !props.payload?.length) return null;
                       const p = props.payload[0].payload;
+                      const isMark = p.side === "MARK";
                       return (
                         <div style={{ background: "#1a1a1a", border: "2px solid #333", padding: 8, fontSize: 10, color: "#fff", lineHeight: 1.5 }}>
                           <div style={{ color: "#999" }}>{p.time}</div>
-                          <div style={{ color: p.side === "BUY" ? "#aaa" : "#fff" }}>
-                            {p.side} {p.size.toFixed(0)} @ {Math.round(p.price * 100)}c
+                          {isMark ? (
+                            <div style={{ color: "#fff" }}>MARK TO MARKET</div>
+                          ) : (
+                            <>
+                              <div style={{ color: p.side === "BUY" ? "#aaa" : "#fff" }}>
+                                {p.side} {p.size.toFixed(0)} @ {Math.round(p.price * 100)}c
+                              </div>
+                              {p.side === "SELL" && (
+                                <div style={{ color: p.realized > 0 ? "#4ade80" : p.realized < 0 ? "#f87171" : "#999" }}>
+                                  {p.realized >= 0 ? "+" : ""}${p.realized.toFixed(2)}
+                                </div>
+                              )}
+                            </>
+                          )}
+                          <div style={{ color: p.pnl > 0 ? "#4ade80" : p.pnl < 0 ? "#f87171" : "#fff" }}>
+                            MTM {p.pnl >= 0 ? "+" : ""}${p.pnl.toFixed(2)}
                           </div>
-                          {p.side === "SELL" && (
-                            <div style={{ color: p.realized >= 0 ? "#fff" : "#888" }}>
-                              {p.realized >= 0 ? "+" : ""}${p.realized.toFixed(2)}
+                          {p.market && (
+                            <div style={{ color: "#666", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {p.market}
                             </div>
                           )}
-                          <div style={{ color: "#fff" }}>CUM ${p.pnl.toFixed(2)}</div>
-                          <div style={{ color: "#666", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {p.market}
-                          </div>
                         </div>
                       );
                     }}
                   />
                   <Area
-                    type="stepAfter"
+                    type="monotone"
                     dataKey="pnl"
                     stroke="#ffffff"
                     fill="url(#pnlGrad)"
                     strokeWidth={2}
                     isAnimationActive={false}
-                    dot={(dotProps: { cx?: number; cy?: number; payload?: { side: string } }) => {
+                    dot={(dotProps: { cx?: number; cy?: number; payload?: { side: string; realized: number } }) => {
                       const { cx, cy, payload } = dotProps;
                       if (cx == null || cy == null || !payload) {
                         return <g />;
+                      }
+                      if (payload.side === "MARK") {
+                        return (
+                          <circle cx={cx} cy={cy} r={4} fill="#1a1a1a" stroke="#ffffff" strokeWidth={2} />
+                        );
                       }
                       if (payload.side === "BUY") {
                         return (
                           <circle cx={cx} cy={cy} r={2.5} fill="#444" stroke="#888" strokeWidth={1} />
                         );
                       }
+                      const fill = payload.realized > 0 ? "#4ade80" : payload.realized < 0 ? "#f87171" : "#999";
                       return (
-                        <rect x={cx - 3} y={cy - 3} width={6} height={6} fill="#fff" stroke="#000" strokeWidth={1} />
+                        <rect x={cx - 3} y={cy - 3} width={6} height={6} fill={fill} stroke="#000" strokeWidth={1} />
                       );
                     }}
                     activeDot={{ r: 5, fill: "#fff", stroke: "#000", strokeWidth: 2 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              <div className="flex items-center gap-4 mt-2 text-[10px] text-pixel-gray">
+              <div className="flex items-center gap-4 mt-2 text-[10px] text-pixel-gray flex-wrap">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 bg-pixel-gray-light/40 rounded-full border border-pixel-gray" /> BUY
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-pixel-white" /> SELL
+                  <div className="w-2 h-2 bg-green-400" /> SELL +
                 </div>
-                <div className="ml-auto">{pnlCurve.length} TRADES</div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 bg-red-400" /> SELL -
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full border border-pixel-white" /> NOW (MTM)
+                </div>
+                <div className="ml-auto">{pnlCurve.length} POINTS</div>
               </div>
             </div>
-          )}
+          ) : positions.length > 0 ? (
+            <div className="pixel-panel p-5 text-center">
+              <div className="text-[12px] text-pixel-gray-light tracking-wider mb-2">
+                {`${dayLabel} P&L CURVE`}
+              </div>
+              <div className="text-[11px] text-pixel-gray">
+                NO TRADES IN WINDOW — SHOWING OPEN POSITIONS BELOW
+              </div>
+            </div>
+          ) : null}
 
           {/* Daily Activity */}
           {dailyActivity.length > 0 && (
@@ -404,13 +600,13 @@ export default function TraderProfile({
           <div className="grid grid-cols-2 gap-3">
             <div className="pixel-panel p-5 text-center">
               <div className="text-[11px] text-pixel-gray tracking-wider mb-2">BIGGEST WIN</div>
-              <div className="text-base text-pixel-white glow-green">
+              <div className="text-base text-green-400">
                 {formatPnl(stats.biggestWin)}
               </div>
             </div>
             <div className="pixel-panel-red p-5 text-center">
               <div className="text-[11px] text-pixel-gray tracking-wider mb-2">BIGGEST LOSS</div>
-              <div className="text-base text-pixel-gray-light">
+              <div className="text-base text-red-400">
                 {formatPnl(stats.biggestLoss)}
               </div>
             </div>
@@ -445,23 +641,30 @@ export default function TraderProfile({
                   </thead>
                   <tbody>
                     {closedInWindow.map((m) => {
-                      const profit = m.realized >= 0;
+                      // No realized activity in window = still entering (neutral).
+                      const isOpen = m.realized === 0;
+                      const profit = !isOpen && m.realized > 0;
+                      const pnlColor = isOpen
+                        ? "text-pixel-gray-light"
+                        : profit
+                        ? "text-green-400"
+                        : "text-red-400";
                       return (
                         <tr key={m.conditionId}>
                           <td className="text-pixel-white truncate" title={m.market}>
                             {m.market || m.conditionId.slice(0, 12)}
                           </td>
-                          <td className="text-right text-pixel-gray-light font-mono">
+                          <td className="num text-right text-pixel-gray-light font-mono">
                             {m.bought.toFixed(0)}
                           </td>
-                          <td className="text-right text-pixel-gray-light font-mono">
+                          <td className="num text-right text-pixel-gray-light font-mono">
                             {m.sold.toFixed(0)}
                           </td>
-                          <td className="text-right text-pixel-gray-light font-mono">
+                          <td className="num text-right text-pixel-gray-light font-mono">
                             {m.tradeCount}
                           </td>
-                          <td className={`text-right font-mono ${profit ? "text-pixel-white" : "text-pixel-gray"}`}>
-                            {profit ? "+" : ""}${m.realized.toFixed(2)}
+                          <td className={`num text-right font-mono ${pnlColor}`}>
+                            {isOpen ? "—" : `${profit ? "+" : ""}$${m.realized.toFixed(2)}`}
                           </td>
                         </tr>
                       );
@@ -591,38 +794,58 @@ export default function TraderProfile({
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedTrades.slice(0, 100).map((trade, i) => (
-                      <tr key={`${trade.id}-${i}`}>
-                        <td className="text-pixel-gray font-mono">
-                          {timeAgo(trade.timestamp)}
-                        </td>
-                        <td className="text-pixel-white truncate" title={trade.market}>
-                          {trade.market}
-                        </td>
-                        <td>
-                          <span
-                            className={`pixel-badge ${
-                              trade.side === "BUY"
-                                ? "border-pixel-white text-pixel-white"
-                                : "border-pixel-gray text-pixel-gray"
-                            }`}
+                    {sortedTrades.slice(0, 100).map((trade, i) => {
+                      // BUY = entering position (neutral); SELL = closing.
+                      // SELLs without cost basis (no matching BUY in our
+                      // 500-trade window and no open position to seed
+                      // avgPrice from) show "—" — a literal $0 would be a
+                      // bookkeeping artifact, not a real result.
+                      const isEntering = trade.side === "BUY";
+                      const showRealized = !isEntering && trade.hasBasis;
+                      const isProfit = showRealized && trade.realized > 0;
+                      const isLoss = showRealized && trade.realized < 0;
+                      const sideColor = isEntering
+                        ? "border-pixel-gray-light text-pixel-gray-light"
+                        : !showRealized
+                        ? "border-pixel-gray text-pixel-gray"
+                        : isProfit
+                        ? "border-green-400 text-green-400"
+                        : "border-red-400 text-red-400";
+                      const pnlColor = !showRealized
+                        ? "text-pixel-gray-light"
+                        : isProfit
+                        ? "text-green-400"
+                        : "text-red-400";
+                      return (
+                        <tr key={`${trade.id}-${i}`}>
+                          <td className="text-pixel-gray font-mono">
+                            {timeAgo(trade.timestamp)}
+                          </td>
+                          <td className="text-pixel-white truncate" title={trade.market}>
+                            {trade.market}
+                          </td>
+                          <td>
+                            <span className={`pixel-badge ${sideColor}`}>
+                              {trade.side}
+                            </span>
+                          </td>
+                          <td className="num text-right text-pixel-white font-mono">
+                            {Math.round(trade.price * 100)}c
+                          </td>
+                          <td className="num text-right text-pixel-white font-mono">
+                            ${(trade.size * trade.price).toFixed(2)}
+                          </td>
+                          <td
+                            className={`num text-right font-mono ${pnlColor}`}
+                            title={!showRealized && !isEntering ? "no cost basis in trade history" : undefined}
                           >
-                            {trade.side}
-                          </span>
-                        </td>
-                        <td className="text-right text-pixel-white font-mono">
-                          {Math.round(trade.price * 100)}c
-                        </td>
-                        <td className="text-right text-pixel-white font-mono">
-                          ${(trade.size * trade.price).toFixed(2)}
-                        </td>
-                        <td className={`text-right font-mono ${trade.realized >= 0 ? "text-pixel-white" : "text-pixel-gray"}`}>
-                          {trade.side === "BUY"
-                            ? "—"
-                            : `${trade.realized >= 0 ? "+" : ""}$${trade.realized.toFixed(2)}`}
-                        </td>
-                      </tr>
-                    ))}
+                            {!showRealized
+                              ? "—"
+                              : `${trade.realized >= 0 ? "+" : ""}$${trade.realized.toFixed(2)}`}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

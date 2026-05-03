@@ -12,7 +12,9 @@ import {
   switchNetwork,
 } from "../utils/wallet";
 
-const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820";
+const DEFAULT_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "/claude";
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || `/api${DEFAULT_BASE_PATH}`;
+const API_PORT = parseInt(process.env.NEXT_PUBLIC_API_PORT || "8820", 10);
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -1064,7 +1066,7 @@ export default function Home() {
         body: JSON.stringify({
           action: "start",
           type: "api",
-          port: parseInt(apiUrl.split(":").pop() || "8820"),
+          port: API_PORT,
           workDir: `${anchorDir.replace("~", process.env.HOME || "/Users/broski")}/mod/orbit/claude/api`,
         }),
       });
@@ -1077,7 +1079,7 @@ export default function Home() {
 
   const stopApiServer = useCallback(async () => {
     try {
-      const port = parseInt(apiUrl.split(":").pop() || "8820");
+      const port = API_PORT;
       await fetch("/api/service", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1103,7 +1105,7 @@ export default function Home() {
         body: JSON.stringify({
           action: "start",
           type: "api",
-          port: parseInt(apiUrl.split(":").pop() || "8820"),
+          port: API_PORT,
           workDir: apiDir,
         }),
       });

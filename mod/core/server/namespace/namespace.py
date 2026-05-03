@@ -13,6 +13,7 @@ class Namespace:
         registry = self.store.get(self.registry_path, {})
         registry[name] = address
         self.store.put(self.registry_path, registry)
+        self._caddy_sync()
         return {'status': 'success', 'name': name, 'address': address}
 
     def dereg(self, name: str) -> Dict[str, Any]:
@@ -23,6 +24,7 @@ class Namespace:
         if name in registry:
             del registry[name]
             self.store.put(self.registry_path, registry)
+            self._caddy_sync()
             return {'status': 'success', 'name': name}
         else:
             return {'status': 'error', 'name': name, 'error': 'not found'}

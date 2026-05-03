@@ -1,44 +1,28 @@
 {
-    "name": "hyperliquid",
-    "version": "1.0.0",
-    "description": "Hyperliquid DEX - market data, trading, vaults, and trader analytics",
-    "fns": [
-        "forward",
-        "serve",
-        "kill",
-        "status",
-        "fetch_market_data",
-        "fetch_orderbook",
-        "fetch_candles",
-        "fetch_all_mids",
-        "fetch_user_state",
-        "fetch_user_funding",
-        "place_order",
-        "market_order",
-        "cancel_order",
-        "cancel_all_orders",
-        "modify_order",
-        "get_open_orders",
-        "get_user_fills",
-        "get_position",
-        "get_balance",
-        "close_position",
-        "list_vaults",
-        "get_vault_details",
-        "get_vault_performance",
-        "get_top_vaults",
-        "deposit_to_vault",
-        "withdraw_from_vault",
-        "analyze_vault",
-        "get_leaderboard",
-        "get_user_profile",
-        "get_user_pnl_history",
-        "search_traders_by_volume",
-        "analyze_trader"
-    ],
-    "schema": "QmRrtAy5yt7s848fwgHwoawdUrXC2Sqe8JcqPVYDySKgN7",
-    "urls": {
-        "api": "http://localhost:8919",
-        "app": "http://localhost:3919"
-    }
+  "name": "hyperliquid",
+  "version": "0.2.0",
+  "description": "Hyperliquid copy-trading + indexes — Rust API, Next.js app, mod.py orchestrator",
+  "anchor": "src/mod.py",
+  "fns": [
+    "forward", "serve", "app", "api", "kill", "status", "build", "logs",
+    "top_traders", "analyze_trader", "leaderboard",
+    "list_indexes", "get_index", "create_index", "update_index",
+    "delete_index", "index_perf", "auto_index",
+    "list_follows", "create_follow", "update_follow", "delete_follow",
+    "pause_follow", "resume_follow", "list_signals",
+    "list_vaults", "vault_details", "vault_perf", "vault_intent"
+  ],
+  "ports": {
+    "api": 8919,
+    "app": 3919
+  },
+  "urls": {
+    "api": "http://localhost:8919",
+    "app": "http://localhost:3919"
+  },
+  "layout": {
+    "src/mod.py": "Python orchestrator (serve/kill/status/forward, calls Rust API)",
+    "src/api/": "Rust REST API (axum, tokio) — fast hot path",
+    "src/app/": "Next.js 14 app (copy-trade UI, indexes, vaults)"
+  }
 }

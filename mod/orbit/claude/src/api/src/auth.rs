@@ -124,29 +124,39 @@ pub async fn verify(
         challenges.remove(&addr);
     }
 
-    // If no owner is set, make this user the owner
-    let owner_path = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join(".mod")
-        .join("claude")
-        .join("owner.json");
-
-    let is_new_owner = if !owner_path.exists() {
-        // Create the directory if it doesn't exist
-        if let Some(parent) = owner_path.parent() {
-            std::fs::create_dir_all(parent).ok();
-        }
-
-        // Set this user as owner
-        let owner_data = serde_json::json!({ "owner": addr });
-        if let Ok(json_str) = serde_json::to_string_pretty(&owner_data) {
-            std::fs::write(&owner_path, json_str).ok();
-            true
-        } else {
+    // Owner gate: if an owner is already set, only the owner may sign in.
+    // If no owner is set yet, this user claims ownership.
+    let existing_owner = get_owner_address();
+    let is_new_owner = match existing_owner {
+        Some(owner) => {
+            if owner != addr {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    Json(serde_json::json!({
+                        "error": "Sign-in restricted to the Claude instance owner"
+                    })),
+                ));
+            }
             false
         }
-    } else {
-        false
+        None => {
+            let owner_path = dirs::home_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join(".mod")
+                .join("claude")
+                .join("owner.json");
+            if let Some(parent) = owner_path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
+            let owner_data = serde_json::json!({ "owner": addr });
+            match serde_json::to_string_pretty(&owner_data) {
+                Ok(json_str) => {
+                    std::fs::write(&owner_path, json_str).ok();
+                    true
+                }
+                Err(_) => false,
+            }
+        }
     };
 
     // Generate bearer token: address:timestamp:hmac

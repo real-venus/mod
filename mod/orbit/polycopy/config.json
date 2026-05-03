@@ -2,6 +2,10 @@
     "name": "polycopy",
     "port": 50130,
     "app_port": 3130,
+    "urls": {
+        "api": "http://localhost:50130",
+        "app": "http://localhost:3130"
+    },
     "chains": [
         {
             "chain_id": 8453,

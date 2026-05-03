@@ -35,7 +35,14 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await res.json();
-    return NextResponse.json(data);
+    // Per-trader data (activity/positions) is read-heavy: clicking the same
+    // trader twice should be instant. Browser cache + Next.js data cache
+    // (revalidate above) give us layered caching.
+    return NextResponse.json(data, {
+      headers: {
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+      },
+    });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "FETCH FAILED" },

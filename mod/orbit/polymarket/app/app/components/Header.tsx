@@ -2,48 +2,29 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useFilters, SortMode } from "../context/FiltersContext";
 import { shortAddress } from "@/lib/auth";
 import { CATEGORIES, CategorySlug } from "../lib/polymarket";
 
-type SortMode = "volume" | "liquidity" | "end_date_min";
-
 interface HeaderProps {
-  search: string;
-  onSearchChange: (v: string) => void;
-  sort: SortMode;
-  onSortChange: (v: SortMode) => void;
-  category: CategorySlug;
-  onCategoryChange: (v: CategorySlug) => void;
-  daysAgo: string;
-  onDaysAgoChange: (v: string) => void;
-  onReload: () => void;
-  showFilters?: boolean;
+  showSearch?: boolean;
   showSort?: boolean;
-  showDaysFilter?: boolean;
-  daysOptions?: { label: string; value: string }[];
+  showCategories?: boolean;
   searchPlaceholder?: string;
 }
 
 export default function Header({
-  search, onSearchChange,
-  sort, onSortChange,
-  category, onCategoryChange,
-  daysAgo, onDaysAgoChange,
-  onReload,
-  showFilters = true,
-  showSort,
-  showDaysFilter,
-  daysOptions,
-  searchPlaceholder,
+  showSearch = true,
+  showSort = true,
+  showCategories = true,
+  searchPlaceholder = "SEARCH MARKETS...",
 }: HeaderProps) {
-  const _showDays = showDaysFilter ?? showFilters;
-  const _showSort = showSort ?? showFilters;
-  const _daysOptions = daysOptions ?? [
-    { label: "CURRENT", value: "" },
-    { label: "7D", value: "7" },
-    { label: "14D", value: "14" },
-    { label: "30D", value: "30" },
-  ];
+  const {
+    search, setSearch,
+    sort, setSort,
+    category, setCategory,
+    reload,
+  } = useFilters();
   const { auth, hasWallet, connect, disconnect, authenticate, error, loading } = useAuth();
   const [dateStr, setDateStr] = useState("----.--.--");
   const [showAuth, setShowAuth] = useState(false);
@@ -52,10 +33,10 @@ export default function Header({
     setDateStr(new Date().toISOString().split("T")[0]);
   }, []);
 
+
   return (
     <header className="border-b-2 border-pixel-border bg-pixel-black/90 sticky top-0 z-50">
-      {/* Row 1: Logo + FROM/TO + Status + Wallet */}
-      <div className="max-w-[1920px] mx-auto px-4 h-14 flex items-center gap-4">
+      <div className="max-w-[1920px] mx-auto px-4 h-14 flex items-center gap-2">
         {/* Logo */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-10 h-10 border-2 border-pixel-white flex items-center justify-center bg-pixel-panel relative">
@@ -65,62 +46,81 @@ export default function Header({
             <div className="absolute -bottom-[2px] -left-[2px] w-1 h-1 bg-pixel-black" />
             <div className="absolute -bottom-[2px] -right-[2px] w-1 h-1 bg-pixel-black" />
           </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-pixel-white text-[13px] glow-green tracking-wider">
+          <div className="hidden md:flex flex-col gap-0.5">
+            <span className="text-pixel-white text-[12px] glow-green tracking-wider">
               POLYMARKET
             </span>
             <span className="text-pixel-gray text-[8px] tracking-widest">
-              TRADING TERMINAL
+              TERMINAL
             </span>
           </div>
         </div>
 
-        {/* Time range filter */}
-        {_showDays && (
-          <div className="hidden md:flex items-center gap-1 shrink-0">
-            {_daysOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => onDaysAgoChange(opt.value)}
-                className={`pixel-btn text-[9px] px-2 py-1 ${
-                  daysAgo === opt.value
-                    ? "border-pixel-green text-pixel-green bg-pixel-green/10"
-                    : "border-pixel-border text-pixel-gray hover:text-pixel-white"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Search */}
-        {showFilters && (
-          <div className="flex-1 min-w-0">
+        {showSearch && (
+          <div className="flex-1 min-w-[140px]">
             <input
               type="text"
               value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={searchPlaceholder || "SEARCH MARKETS..."}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
               className="pixel-input w-full text-[10px] px-3 py-1.5"
             />
           </div>
         )}
 
+        {/* CATEGORY — single-select dropdown right next to the search */}
+        {showCategories && (
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as CategorySlug)}
+            className="pixel-input text-[10px] px-2 py-1.5 shrink-0 w-[110px] cursor-pointer"
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c.slug} value={c.slug}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        )}
+
+
+        {/* SORT — dropdown (only on pages that need it) */}
+        {showSort && (
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortMode)}
+            className="pixel-input text-[10px] px-2 py-1.5 shrink-0 w-[110px] cursor-pointer"
+            title="Sort markets"
+          >
+            <option value="volume">VOLUME</option>
+            <option value="liquidity">LIQUIDITY</option>
+            <option value="end_date_min">ENDING SOON</option>
+          </select>
+        )}
+
+        {/* RELOAD */}
+        {(showSort || showCategories || showSearch) && (
+          <button
+            onClick={reload}
+            className="pixel-btn text-[9px] px-2 py-1.5 border-pixel-green text-pixel-green bg-pixel-green/10 shrink-0"
+            title="Reload"
+          >
+            ↻
+          </button>
+        )}
+
         {/* Status */}
-        <div className="hidden lg:flex items-center gap-4 text-[10px] text-pixel-gray-light shrink-0">
+        <div className="hidden xl:flex items-center gap-3 text-[10px] text-pixel-gray-light shrink-0 ml-auto">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 bg-pixel-white animate-pulse" />
             <span className="text-pixel-white">ONLINE</span>
           </div>
-          <div className="w-[2px] h-3 bg-pixel-border" />
           <span className="text-pixel-white glow-amber">{dateStr}</span>
-          <div className="w-[2px] h-3 bg-pixel-border" />
-          <span>POLYGON</span>
         </div>
 
         {/* Wallet / Auth */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 xl:ml-0 ml-auto">
           {auth.connected ? (
             <div className="flex items-center gap-2">
               {auth.authenticated ? (
@@ -135,7 +135,7 @@ export default function Header({
                   {loading ? "..." : "KEY"}
                 </button>
               )}
-              <div className="pixel-panel px-3 py-1.5 flex items-center gap-2">
+              <div className="pixel-panel px-2.5 py-1 flex items-center gap-1.5">
                 <div className="w-2 h-2 bg-pixel-green" />
                 <span className="text-pixel-green text-[10px] glow-green">
                   {shortAddress(auth.address || "")}
@@ -159,50 +159,6 @@ export default function Header({
           )}
         </div>
       </div>
-
-      {/* Row 2: Sort + Categories + Reload */}
-      {showFilters && <div className="max-w-[1920px] mx-auto px-4 py-1.5 flex items-center gap-2 border-t border-pixel-border/50 overflow-x-auto">
-        {/* Sort buttons */}
-        {_showSort && (["volume", "liquidity", "end_date_min"] as SortMode[]).map((s) => (
-          <button
-            key={s}
-            onClick={() => onSortChange(s)}
-            className={`pixel-btn text-[9px] px-2.5 py-1 shrink-0 ${
-              sort === s
-                ? "border-pixel-cyan text-pixel-cyan bg-pixel-cyan/10"
-                : "border-pixel-border text-pixel-gray hover:text-pixel-white"
-            }`}
-          >
-            {s === "end_date_min" ? "ENDING" : s.toUpperCase()}
-          </button>
-        ))}
-
-        {_showSort && <div className="w-[2px] h-3 bg-pixel-border shrink-0" />}
-
-        {/* Category filters */}
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.slug}
-            onClick={() => onCategoryChange(cat.slug)}
-            className={`pixel-btn text-[9px] px-2.5 py-1 shrink-0 ${
-              category === cat.slug
-                ? "border-pixel-amber text-pixel-amber bg-pixel-amber/10"
-                : "border-pixel-border text-pixel-gray hover:text-pixel-white"
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-
-        <div className="w-[2px] h-3 bg-pixel-border shrink-0" />
-
-        <button
-          onClick={onReload}
-          className="pixel-btn text-[9px] px-2.5 py-1 border-pixel-green text-pixel-green bg-pixel-green/10 shrink-0"
-        >
-          RELOAD
-        </button>
-      </div>}
 
       {/* Auth Panel Dropdown */}
       {showAuth && auth.connected && !auth.authenticated && (

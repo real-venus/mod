@@ -6,7 +6,6 @@ const nextConfig = {
   basePath,
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
-    NEXT_PUBLIC_API_URL: apiUrl,
   },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
@@ -15,7 +14,7 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/claude/:path*',
+        source: `/api${basePath}/:path*`,
         destination: `${apiUrl}/:path*`,
         basePath: false,
       },

@@ -135,141 +135,133 @@ class Mod:
     # ── Sync ──
 
     def sync(self, use_cache: bool = True):
-        """Pull all running services from mod namespace and register them in routy.
+        """Pull routes from module configs and the mod namespace, then register in routy.
 
-        Args:
-            use_cache: If True, use cached config data from API module scanner (faster)
+        Sources, merged in order (later wins):
+          1. Module config.json `urls.api` / `urls.app` (declared, always-on routes)
+          2. Live `server.namespace` registry (running API servers)
+          3. Live `app_registry.json` (running app servers)
+
+        So a module with `urls.api` / `urls.app` in its config is automatically
+        routed at `/{name}` and `/api/{name}` even before it is started; once it
+        starts, the live URL takes over.
         """
-        import mod as m
+        sync_data = {'apps': {}, 'apis': {}}
 
-        ns = m.mod('server.namespace')()
-
-        # API servers: {name: "http://host:port"}
-        api_registry = ns.namespace() or {}
-
-        # App servers: read app_registry.json
-        store = m.mod('store')('~/.mod/server/registry')
-        app_registry = store.get('app_registry.json', {}) or {}
-
-        sync_data = {'apps': [], 'apis': []}
-
-        # Use config cache if available (faster than reading files)
-        config_cache = {}
-        if use_cache:
-            try:
-                # Access the class-level cache from API module
-                from mod.core.api.mod import Api
-                config_cache = getattr(Api, '_config_cache', {})
-            except Exception:
-                pass
-
-        for name, url in api_registry.items():
-            url = url.replace('0.0.0.0', '127.0.0.1')
-
-            # Try to get config from cache first
-            config_hash_key = f'{name}:hash'
-            if config_hash_key in config_cache:
-                # Config is cached, load it more efficiently
-                try:
-                    cfg = m.config(name) or {}
-                except Exception:
-                    cfg = {}
-            else:
-                # Fallback to resolve_storage
-                st, cid = self._resolve_storage(m, name)
-                cfg = {'storage_type': st, 'cid': cid} if (st or cid) else {}
-
+        # 1. Config-derived routes — every orbit module with urls.api/urls.app.
+        for name, cfg in self._scan_configs().items():
+            urls = cfg.get('urls') or {}
+            api_url = urls.get('api') or cfg.get('api_url')
+            app_url = urls.get('app') or cfg.get('app_url')
             st = cfg.get('storage_type')
             cid = cfg.get('schema') or cfg.get('cid')
+            if cid and not st:
+                if cid.startswith('Qm'):
+                    st = 'ipfs'
+                elif cid.startswith('hippius:'):
+                    st = 'hippius'
+                    cid = cid[len('hippius:'):]
 
-            sync_data['apis'].append({
-                'name': name,
-                'target_url': url,
-                'description': f'API: {name}',
-                'storage_type': st,
-                'cid': cid,
-            })
-
-        for name, info in app_registry.items():
-            if isinstance(info, dict) and 'url' in info:
-                # Try cache first
-                config_hash_key = f'{name}:hash'
-                if config_hash_key in config_cache:
-                    try:
-                        cfg = m.config(name) or {}
-                    except Exception:
-                        cfg = {}
-                else:
-                    st, cid = self._resolve_storage(m, name)
-                    cfg = {'storage_type': st, 'cid': cid} if (st or cid) else {}
-
-                st = cfg.get('storage_type')
-                cid = cfg.get('schema') or cfg.get('cid')
-
-                sync_data['apps'].append({
+            if api_url:
+                sync_data['apis'][name] = {
                     'name': name,
-                    'target_url': info['url'],
+                    'target_url': api_url.replace('0.0.0.0', '127.0.0.1'),
+                    'description': f'API: {name}',
+                    'storage_type': st,
+                    'cid': cid,
+                }
+            if app_url:
+                sync_data['apps'][name] = {
+                    'name': name,
+                    'target_url': app_url.replace('0.0.0.0', '127.0.0.1'),
                     'description': f'App: {name}',
                     'storage_type': st,
                     'cid': cid,
-                })
+                }
+
+        # 2/3. Live registries override config-declared targets.
+        try:
+            import mod as m
+            ns = m.mod('server.namespace')()
+            api_registry = ns.namespace() or {}
+            store = m.mod('store')('~/.mod/server/registry')
+            app_registry = store.get('app_registry.json', {}) or {}
+        except Exception:
+            api_registry, app_registry = {}, {}
+
+        for name, url in api_registry.items():
+            entry = sync_data['apis'].get(name, {'name': name, 'description': f'API: {name}'})
+            entry['target_url'] = url.replace('0.0.0.0', '127.0.0.1')
+            sync_data['apis'][name] = entry
+
+        for name, info in app_registry.items():
+            if not (isinstance(info, dict) and 'url' in info):
+                continue
+            entry = sync_data['apps'].get(name, {'name': name, 'description': f'App: {name}'})
+            entry['target_url'] = info['url']
+            sync_data['apps'][name] = entry
+
+        payload = {'apps': list(sync_data['apps'].values()),
+                   'apis': list(sync_data['apis'].values())}
 
         try:
             r = requests.post(
                 f'{self.base_url}/_api/sync',
-                json=sync_data, timeout=5
+                json=payload, timeout=5
             )
             result = r.json()
-            apps = len(sync_data['apps'])
-            apis = len(sync_data['apis'])
-            print(f'Synced {apps} apps + {apis} apis (cached={use_cache and bool(config_cache)})')
+            apps = len(payload['apps'])
+            apis = len(payload['apis'])
+            print(f'Synced {apps} apps + {apis} apis')
             return result
         except Exception as e:
             return {'error': str(e)}
 
-    # ── Storage resolution ──
+    def _orbit_dir(self):
+        """Absolute path to the orbit modules directory."""
+        return str(self.routy_dir.parent)
 
-    def _resolve_storage(self, m, name):
-        """Resolve storage_type and cid from a module's config.json."""
-        try:
-            cfg = m.mod(name)().config if hasattr(m.mod(name)(), 'config') else {}
-            if not isinstance(cfg, dict):
-                cfg = {}
-        except Exception:
-            cfg = {}
-        # Check for explicit storage_type, fall back to schema CID
-        st = cfg.get('storage_type', None)
-        cid = cfg.get('schema', cfg.get('cid', None))
-        # Default storage type based on CID prefix
-        if cid and not st:
-            if cid.startswith('Qm'):
-                st = 'ipfs'
-            elif cid.startswith('hippius:'):
-                st = 'hippius'
-                cid = cid[len('hippius:'):]
-        return st, cid
+    def _scan_configs(self, m=None):
+        """Return {name: config_dict} for every orbit module that has a config.json."""
+        configs = {}
+        orbit_dir = self._orbit_dir()
+        if not os.path.isdir(orbit_dir):
+            return configs
+        for name in os.listdir(orbit_dir):
+            cfg_path = os.path.join(orbit_dir, name, 'config.json')
+            if not os.path.exists(cfg_path):
+                continue
+            try:
+                with open(cfg_path) as f:
+                    cfg = json.load(f)
+                if isinstance(cfg, dict):
+                    configs[name] = cfg
+            except Exception:
+                continue
+        return configs
 
     def _sync_worker(self):
         """Background worker that scans configs every 1 second and syncs routes.
 
-        Uses caching to avoid redundant config reads and syncs.
+        Hashes both the live registries AND each module's config.json mtime so a
+        config edit (e.g. adding `urls.api`) auto-propagates to routy.
         """
         import hashlib
         import mod as m
 
         while True:
             try:
-                time.sleep(1)  # Scan every 1 second
+                time.sleep(1)
 
-                # Check if routy is running (otherwise skip sync)
+                # Skip if routy isn't running
                 try:
                     r = requests.get(f'{self.base_url}/_api/stats', timeout=0.5)
                     if r.status_code != 200:
                         continue
                 except Exception:
-                    continue  # Routy not running
+                    continue
 
-                # Get namespace registries
+                # Live registries
                 try:
                     ns_obj = m.mod('server.namespace')()
                     api_registry = ns_obj.namespace() or {}
@@ -278,25 +270,32 @@ class Mod:
                 except Exception:
                     continue
 
-                # Check for changes using hash-based cache
-                registry_data = json.dumps({
-                    'apis': sorted(api_registry.items()),
-                    'apps': sorted(app_registry.items())
-                }, sort_keys=True)
-                registry_hash = hashlib.sha256(registry_data.encode()).hexdigest()
+                # Config mtimes — picks up edits to any module's urls.app/urls.api
+                config_mtimes = {}
+                try:
+                    orbit_dir = self._orbit_dir()
+                    if os.path.isdir(orbit_dir):
+                        for name in os.listdir(orbit_dir):
+                            cp = os.path.join(orbit_dir, name, 'config.json')
+                            if os.path.exists(cp):
+                                config_mtimes[name] = os.path.getmtime(cp)
+                except Exception:
+                    pass
 
-                # Check cache
-                cached_hash = Mod._config_cache.get('registry_hash')
-                if cached_hash == registry_hash:
-                    # No changes, skip sync
+                state = json.dumps({
+                    'apis': sorted(api_registry.items()),
+                    'apps': sorted(app_registry.items()),
+                    'configs': sorted(config_mtimes.items()),
+                }, sort_keys=True)
+                state_hash = hashlib.sha256(state.encode()).hexdigest()
+
+                if Mod._config_cache.get('registry_hash') == state_hash:
                     continue
 
-                # Registry changed - sync to routy
-                Mod._config_cache['registry_hash'] = registry_hash
+                Mod._config_cache['registry_hash'] = state_hash
                 self.sync()
 
-            except Exception as e:
-                # Silent failure - don't spam logs
+            except Exception:
                 pass
 
     # ── Management ──

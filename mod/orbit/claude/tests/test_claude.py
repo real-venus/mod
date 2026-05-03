@@ -840,7 +840,7 @@ class TestServe:
         app_call = [call for call in popen_calls if call.get('env', {}).get('NEXT_PUBLIC_BASE_PATH')]
         assert len(app_call) == 1, "Expected one Popen call with NEXT_PUBLIC_BASE_PATH"
         assert app_call[0]['env']['NEXT_PUBLIC_BASE_PATH'] == '/claude'
-        assert app_call[0]['env']['NEXT_PUBLIC_API_URL'] == 'http://localhost:8820'
+        assert app_call[0]['env']['NEXT_PUBLIC_API_PORT'] == '8820'
 
     def test_serve_custom_ports(self, c):
         """serve() respects custom port args for registration."""

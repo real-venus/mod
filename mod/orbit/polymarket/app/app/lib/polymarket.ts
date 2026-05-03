@@ -3,7 +3,9 @@ import { PolymarketMarket, PolymarketTrade, PolymarketPosition } from "./types";
 // ── Top Trader type ─────────────────────────────────────────────
 export interface TopTrader {
   address: string;
-  volume: number;
+  volume: number;        // total in-window USDC traded
+  buyVolume: number;     // in-window USDC on BUYs
+  sellVolume: number;    // in-window USDC on SELLs
   pnl: number;
   winRate: number;
   positions: number;
@@ -169,6 +171,20 @@ function normalizeMarkets(raw: unknown): PolymarketMarket[] {
       }
     } catch {}
 
+    let outcomes: string[] = ["Yes", "No"];
+    if (Array.isArray(m.outcomes)) {
+      outcomes = (m.outcomes as unknown[]).map(String);
+    } else if (typeof m.outcomes === "string") {
+      try { outcomes = JSON.parse(m.outcomes as string).map(String); } catch {}
+    }
+
+    let clobTokenIds: string[] | undefined;
+    if (Array.isArray(m.clobTokenIds)) {
+      clobTokenIds = (m.clobTokenIds as unknown[]).map(String);
+    } else if (typeof m.clobTokenIds === "string") {
+      try { clobTokenIds = JSON.parse(m.clobTokenIds as string).map(String); } catch {}
+    }
+
     return {
       id: String(m.id || m.condition_id || m.conditionId || ""),
       conditionId: String(m.condition_id || m.conditionId || m.id || ""),
@@ -178,21 +194,126 @@ function normalizeMarkets(raw: unknown): PolymarketMarket[] {
       volume: Number(m.volume || m.volumeNum || 0),
       liquidity: Number(m.liquidity || m.liquidityNum || 0),
       outcomePrices,
-      outcomes: Array.isArray(m.outcomes)
-        ? (m.outcomes as string[])
-        : ["Yes", "No"],
+      outcomes,
       active: m.active !== false,
       image: m.image as string | undefined,
       description: m.description as string | undefined,
       slug: m.slug as string | undefined,
+      clobTokenIds,
     };
   });
 }
 
+// ── Single-market + price-history fetching ──────────────────────
+
+export async function fetchMarketBySlug(slug: string): Promise<PolymarketMarket | null> {
+  const raw = await polyApi("markets", { slug }) as unknown;
+  const list = normalizeMarkets(raw);
+  return list[0] || null;
+}
+
+export interface PricePoint { t: number; p: number; }
+
+export async function fetchPriceHistory(
+  tokenId: string,
+  interval: "1h" | "6h" | "1d" | "1w" | "1m" | "max" = "1w",
+  fidelity = 60,
+): Promise<PricePoint[]> {
+  const raw = await polyApi("prices-history", {
+    market: tokenId,
+    interval,
+    fidelity: String(fidelity),
+  }) as { history?: { t: number; p: number }[] };
+  const arr = Array.isArray(raw?.history) ? raw.history : [];
+  return arr.map((x) => ({ t: Number(x.t), p: Number(x.p) }));
+}
+
 // ── Trader / User data ──────────────────────────────────────────
 
+export type ActiveTradersProgress =
+  | { phase: "leaderboard"; done: number; total: number }
+  | {
+      phase: "enrich";
+      done: number;
+      total: number;
+      kept: number;
+      hoursScraped: number;
+      hoursTarget: number;
+    };
+
+// Streaming variant: consumes the route's NDJSON stream and reports
+// per-phase progress before returning the final trader list. The route
+// also serves cache HITs through this same channel as a single result
+// event, so the caller doesn't need a separate cached-vs-cold path.
+//
+// onPartial fires whenever the server pushes an in-progress snapshot
+// of the leaderboard — used to populate the table while the rest of
+// the pipeline is still running.
+export async function fetchTopTradersStream(
+  candidatePool: number,
+  options: { daysWindow?: number; minTradesPerDay?: number },
+  onProgress: (p: ActiveTradersProgress) => void,
+  onPartial?: (traders: TopTrader[]) => void,
+): Promise<{ traders: TopTrader[]; source: "memory" | "disk" | "fresh" }> {
+  const { daysWindow = 7, minTradesPerDay = 1 } = options;
+  const qs = new URLSearchParams({
+    days: String(daysWindow),
+    minPerDay: String(minTradesPerDay),
+    pool: String(candidatePool),
+    stream: "1",
+  });
+  const res = await fetch(`${BASE}/api/polymarket/active-traders?${qs}`);
+  if (!res.ok || !res.body) throw new Error(`active-traders ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let traders: TopTrader[] = [];
+  let source: "memory" | "disk" | "fresh" = "fresh";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) !== -1) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let evt: Record<string, unknown>;
+      try { evt = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+      if (evt.type === "progress") {
+        onProgress(evt as unknown as ActiveTradersProgress);
+      } else if (evt.type === "partial" || evt.type === "result") {
+        const arr = Array.isArray(evt.traders) ? (evt.traders as Record<string, unknown>[]) : [];
+        const mapped = arr.map((t) => ({
+          address: String(t.address || ""),
+          volume: Number(t.volume || 0),
+          buyVolume: Number(t.buyVolume || 0),
+          sellVolume: Number(t.sellVolume || 0),
+          pnl: Number(t.pnl || 0),
+          winRate: Number(t.winRate || 0),
+          positions: Number(t.positions || 0),
+          marketTitles: Array.isArray(t.marketTitles) ? (t.marketTitles as string[]) : [],
+        }));
+        if (evt.type === "partial") {
+          onPartial?.(mapped);
+        } else {
+          traders = mapped;
+          if (typeof evt.source === "string") {
+            source = evt.source as "memory" | "disk" | "fresh";
+          }
+        }
+      } else if (evt.type === "error") {
+        throw new Error(String(evt.message || "stream error"));
+      }
+    }
+  }
+  return { traders, source };
+}
+
 export async function fetchTopTraders(
-  candidatePool: number = 250,
+  candidatePool: number = 1000,
   options: { daysWindow?: number; minTradesPerDay?: number } = {},
 ): Promise<TopTrader[]> {
   // Delegates to the server-side route which paginates the WEEK leaderboard,
@@ -210,11 +331,103 @@ export async function fetchTopTraders(
   return traders.map((t: Record<string, unknown>) => ({
     address: String(t.address || ""),
     volume: Number(t.volume || 0),
+    buyVolume: Number(t.buyVolume || 0),
+    sellVolume: Number(t.sellVolume || 0),
     pnl: Number(t.pnl || 0),
     winRate: Number(t.winRate || 0),
     positions: Number(t.positions || 0),
     marketTitles: Array.isArray(t.marketTitles) ? (t.marketTitles as string[]) : [],
   }));
+}
+
+// Paginate /activity for a user until we've got trades older than untilTs
+// (unix seconds) — i.e. until we've fully covered the requested time window.
+// For super-active traders we cap at MAX_TRADES so we don't fan out forever.
+//
+// onProgress fires after each page so the UI can stream partial results
+// and show how far back the data has reached.
+export interface FetchTradesProgress {
+  pages: number;
+  totalTrades: number;
+  oldestMs: number;        // 0 if we've not seen any trade yet
+  done: boolean;
+  partial: PolymarketTrade[];
+}
+
+export async function fetchWalletTradesUntil(
+  address: string,
+  untilTs: number,
+  onProgress?: (info: FetchTradesProgress) => void,
+  maxTrades = 10000,
+): Promise<PolymarketTrade[]> {
+  const PAGE = 1000;
+  const out: PolymarketTrade[] = [];
+  let oldestMs = 0;
+
+  for (let offset = 0; offset < maxTrades; offset += PAGE) {
+    const raw = await polyApi("activity", {
+      user: address,
+      limit: String(PAGE),
+      offset: String(offset),
+    }) as unknown;
+    if (!Array.isArray(raw) || raw.length === 0) {
+      onProgress?.({
+        pages: offset / PAGE,
+        totalTrades: out.length,
+        oldestMs,
+        done: true,
+        partial: out,
+      });
+      break;
+    }
+    const items = raw as Record<string, unknown>[];
+
+    let oldestSec = Number.POSITIVE_INFINITY;
+    for (const t of items) {
+      const ts = Number(t.timestamp || 0);
+      if (ts > 0 && ts < oldestSec) oldestSec = ts;
+      if (t.type !== "TRADE") continue;
+      const price = Number(t.price || 0);
+      const size = Number(t.size || 0);
+      const usdcSize = Number(t.usdcSize || price * size);
+      const side = String(t.side || "BUY").toUpperCase() as "BUY" | "SELL";
+      let timestamp = 0;
+      if (typeof t.timestamp === "number") {
+        timestamp = (t.timestamp as number) > 1e12
+          ? (t.timestamp as number)
+          : (t.timestamp as number) * 1000;
+      }
+      out.push({
+        id: String(t.transactionHash || ""),
+        market: String(t.title || t.slug || ""),
+        conditionId: String(t.conditionId || t.asset || ""),
+        side,
+        price,
+        size,
+        pnl: side === "SELL" ? usdcSize * 0.1 : 0,
+        timestamp,
+        outcome: t.outcome as string | undefined,
+      });
+    }
+
+    if (Number.isFinite(oldestSec)) oldestMs = oldestSec * 1000;
+
+    const reachedCutoff =
+      Number.isFinite(oldestSec) && oldestSec < untilTs;
+    const exhausted = items.length < PAGE;
+    const done = reachedCutoff || exhausted;
+
+    onProgress?.({
+      pages: offset / PAGE + 1,
+      totalTrades: out.length,
+      oldestMs,
+      done,
+      partial: out.slice(),
+    });
+
+    if (done) break;
+  }
+  return out;
 }
 
 export async function fetchWalletTrades(address: string, limit: number = 200): Promise<PolymarketTrade[]> {

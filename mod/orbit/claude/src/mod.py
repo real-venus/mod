@@ -361,6 +361,7 @@ class Mod:
         base = ['node', claude] if claude.endswith('.js') else [claude]
         cmd = base + ["--print", "--model", model, "--output-format", output_format,
                       "--dangerously-skip-permissions", query]
+                      
         env = os.environ.copy()
 
         if stream_output:
@@ -1288,8 +1289,10 @@ class Mod:
         # ── App (Next.js) ──
         if (app_dir / 'package.json').exists():
             app_env = os.environ.copy()
-            app_env['NEXT_PUBLIC_API_URL'] = api_url
+            # Frontend talks to the core gateway at /api/claude, not the API directly.
+            # NEXT_PUBLIC_API_PORT is only used for in-app start/stop service mgmt.
             app_env['NEXT_PUBLIC_BASE_PATH'] = '/claude'
+            app_env['NEXT_PUBLIC_API_PORT'] = str(api_port)
             app_env['PORT'] = str(app_port)
             app_log = open(log_dir / 'app.log', 'w')
             app_cmd = ['npx', 'next', 'dev' if dev else 'start', '-p', str(app_port)]

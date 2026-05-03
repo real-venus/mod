@@ -66,7 +66,7 @@ export default function CodeViewer({ filePath, workDir, apiUrl }: CodeViewerProp
     setError(null);
     try {
       const res = await fetch(
-        `${apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/content?path=${encodeURIComponent(filePath)}`
+        `${apiUrl || `/api${process.env.NEXT_PUBLIC_BASE_PATH || "/claude"}`}/files/content?path=${encodeURIComponent(filePath)}`
       );
       if (!res.ok) throw new Error("Failed to load file content");
       const data = await res.json();

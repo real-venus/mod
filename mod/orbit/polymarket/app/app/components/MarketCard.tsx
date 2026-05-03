@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { PolymarketMarket } from "../lib/types";
 import { formatVolume } from "../lib/polymarket";
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function MarketCard({ market, onSelect, selected }: Props) {
+  const router = useRouter();
   const yesPrice = market.outcomePrices[0] || 0;
   const noPrice = market.outcomePrices[1] || 1 - yesPrice;
   const yesPct = Math.round(yesPrice * 100);
@@ -19,9 +21,19 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
     ? new Date(market.endDate).toLocaleDateString([], { month: "short", day: "numeric" })
     : "---";
 
+  const handleClick = () => {
+    // If a parent provided onSelect we honor it (legacy inline-panel use),
+    // otherwise navigate to the dedicated market page.
+    if (onSelect) {
+      onSelect(market);
+    } else if (market.slug) {
+      router.push(`/markets/${market.slug}`);
+    }
+  };
+
   return (
     <div
-      onClick={() => onSelect?.(market)}
+      onClick={handleClick}
       className={`pixel-panel p-4 cursor-pointer transition-all group ${
         selected
           ? "border-pixel-white !shadow-[inset_3px_3px_0_#666,inset_-3px_-3px_0_#000,0_0_0_1px_#fff]"

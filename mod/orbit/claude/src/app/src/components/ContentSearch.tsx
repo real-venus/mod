@@ -62,7 +62,7 @@ export default function ContentSearch({ workDir, onFileSelect, isOpen, onClose, 
       });
 
       const res = await fetch(
-        `${apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/grep?${params}`
+        `${apiUrl || `/api${process.env.NEXT_PUBLIC_BASE_PATH || "/claude"}`}/files/grep?${params}`
       );
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();

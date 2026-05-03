@@ -214,6 +214,37 @@ class Server:
                 return candidate
         return None
 
+    def _persist_urls(self, mod: str, port: int, app_port: 'int | None' = None):
+        """Write the live api/app urls back to the module's config.json.
+
+        Routy and the caddy generator both scan config.json for `urls.api` /
+        `urls.app`, so persisting here means a freshly served module is
+        automatically reachable through the gateway (and inherits TLS via
+        Caddy) without any per-module wiring.
+        """
+        try:
+            mod_dir = Path(m.dirpath(mod))
+            cfg_path = mod_dir / 'config.json'
+            if not cfg_path.exists():
+                return
+            try:
+                cfg = json.loads(cfg_path.read_text())
+            except (json.JSONDecodeError, OSError):
+                return
+            if not isinstance(cfg, dict):
+                return
+            urls = cfg.get('urls') if isinstance(cfg.get('urls'), dict) else {}
+            urls['api'] = f'http://localhost:{port}'
+            if app_port:
+                urls['app'] = f'http://localhost:{app_port}'
+            cfg['urls'] = urls
+            cfg['port'] = port
+            if app_port:
+                cfg['app_port'] = app_port
+            cfg_path.write_text(json.dumps(cfg, indent=2))
+        except Exception as e:
+            print(f'Could not persist urls to {mod}/config.json: {e}', color='yellow')
+
     def get_fns(self, mod):
         config = m.config(mod)
         if config != None and 'fns' in config:
@@ -371,6 +402,7 @@ class Server:
         has_app = app_dir and (app_dir / 'package.json').exists()
         if serve_app is None:
             serve_app = has_app
+        app_port = None
         if serve_app and has_app:
             config = m.config(mod) or {}
             app_port = int(config.get('app_port', 0)) or (port + 1)
@@ -396,6 +428,10 @@ class Server:
                                   owner=self.key.address, api_url=f'http://localhost:{port}')
 
         self.registry.reg(name, f'http://0.0.0.0:{port}')
+        # Persist urls.api / urls.app to the module config so the caddy
+        # generator and routy worker auto-discover this module on their next
+        # scan — no per-module Caddy or routy wiring needed.
+        self._persist_urls(mod, port, app_port)
         self._sync_routy()
         if run_mode == 'flask':
             self.app.run(

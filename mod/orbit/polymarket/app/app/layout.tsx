@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
+import { FiltersProvider } from "./context/FiltersContext";
 
 export const metadata: Metadata = {
   title: "SUPER POLYMARKET BROS - Prediction Market Terminal",
@@ -16,10 +17,12 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-pixel antialiased bg-pixel-bg text-pixel-white min-h-screen">
         <AuthProvider>
-          <div className="crt-overlay" />
-          <div className="crt-screen min-h-screen">
-            <main>{children}</main>
-          </div>
+          <FiltersProvider>
+            <div className="crt-overlay" />
+            <div className="crt-screen min-h-screen">
+              <main>{children}</main>
+            </div>
+          </FiltersProvider>
         </AuthProvider>
       </body>
     </html>

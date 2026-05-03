@@ -50,7 +50,7 @@ export default function FileSearch({ workDir, onFileSelect, isOpen, onClose, api
     setLoading(true);
     try {
       const res = await fetch(
-        `${apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/search?path=${encodeURIComponent(workDir)}&query=${encodeURIComponent(query)}`
+        `${apiUrl || `/api${process.env.NEXT_PUBLIC_BASE_PATH || "/claude"}`}/files/search?path=${encodeURIComponent(workDir)}&query=${encodeURIComponent(query)}`
       );
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();

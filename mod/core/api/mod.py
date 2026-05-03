@@ -135,7 +135,7 @@ class Api:
         try:
             # Check if routy is running
             import requests
-            routy_url = 'http://localhost:3001'
+            routy_url = 'http://localhost:3000'
 
             sync_data = {'apps': [], 'apis': []}
 
@@ -840,21 +840,29 @@ class Api:
     def n(self, *args, **kwargs):
         return len(self.mods(*args, **kwargs))
 
-    def new(self, name='base2', base='base', key=None, update=True):
-        key = self._reg.key_address(key)
-        if key == self.key.address.lower():
-            orbit = 'orbit'
-        else:
-            orbit = 'mods'
-        name = name or base.split('/')[-1]
-        dirpath = m.paths["orbit"][orbit] + '/' + key + '/' + name.replace('.', '/')
-        print(f'Creating new mod {name} at {dirpath} from base {base}')
-        for k, v in m.content(base).items():
-            new_path = dirpath + '/' + k.replace(base, name)
-            m.put_text(new_path, v)
-        m._tree.orbit(orbit, update=True)
-        info = self._reg.reg(mod=name, key=key)
-        return {'name': name, 'path': dirpath, 'msg': 'Mod Created', 'base': base, 'cid': info.get('cid')}
+    def new(self, url: str, name: str = None, key=None, comment=None, **kwargs) -> Dict[str, Any]:
+        """Register a new module from a GitHub URL.
+
+        Usage:
+            c api/new https://github.com/user/repo
+            c api/new user/repo
+
+        Clones the repo into the local orbit, writes config.json provenance,
+        stores content + schema CIDs, and adds an entry to the registry.
+        """
+        if not isinstance(url, str) or not url.strip():
+            return {'error': 'GitHub URL required. Usage: c api/new {github_url}'}
+        url = url.strip()
+
+        is_github_full = 'github.com' in url
+        is_shorthand = '/' in url and len(url.split('/')) == 2 and 'github.com' not in url
+        if not (is_github_full or is_shorthand):
+            return {'error': f'Only GitHub URLs are supported. Got: {url!r}. Use https://github.com/user/repo or user/repo.'}
+
+        t0 = time.time()
+        info = self._reg.reg_git(url, name=name, key=key, comment=comment)
+        self._record(user=key or '', fn=f'new/{info.get("name", url)}', duration=time.time() - t0)
+        return info
 
     def dp(self, path: str, key=None) -> str:
         return self._reg.dp(path, key=key)

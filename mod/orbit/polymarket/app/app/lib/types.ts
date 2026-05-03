@@ -14,6 +14,7 @@ export interface PolymarketMarket {
   image?: string;
   description?: string;
   slug?: string;
+  clobTokenIds?: string[];
 }
 
 export interface PolymarketTrade {

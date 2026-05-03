@@ -18,6 +18,6 @@ if [ ! -d node_modules ]; then
     npm install || exit 1
 fi
 
-export NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}"
-echo "Starting app on port $PORT (API: $NEXT_PUBLIC_API_URL)..."
+export NEXT_PUBLIC_API_PORT="$API_PORT"
+echo "Starting app on port $PORT (API port: $API_PORT, fetches via /api/claude)..."
 exec npx next dev -p "$PORT"

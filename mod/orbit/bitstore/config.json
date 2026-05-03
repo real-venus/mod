@@ -25,6 +25,9 @@
         "BITCOIN_RPC": "http://user:pass@localhost:18332 (optional)",
         "KASPA_RPC": "http://localhost:16110 (optional)"
     },
-    "urls": {},
+    "urls": {
+        "api": "http://localhost:50130",
+        "app": "http://localhost:50131"
+    },
     "contracts": {}
 }

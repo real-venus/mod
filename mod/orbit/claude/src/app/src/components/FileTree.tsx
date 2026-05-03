@@ -164,7 +164,7 @@ export default function FileTree({ workDir, onFileSelect, selectedFile, apiUrl }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820"}/files/tree?path=${encodeURIComponent(workDir)}`);
+      const res = await fetch(`${apiUrl || `/api${process.env.NEXT_PUBLIC_BASE_PATH || "/claude"}`}/files/tree?path=${encodeURIComponent(workDir)}`);
       if (!res.ok) throw new Error("Failed to load file tree");
       const data = await res.json();
       setTree(data.tree || []);
