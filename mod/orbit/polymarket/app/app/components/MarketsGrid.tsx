@@ -11,7 +11,7 @@ import {
 import MarketCard from "./MarketCard";
 
 type SortMode = "volume" | "liquidity" | "end_date_min";
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 18;
 
 interface Props {
   onSelectMarket?: (market: PolymarketMarket) => void;
@@ -78,7 +78,7 @@ export default function MarketsGrid({
   const pageMarkets = allMarkets.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {error && (
         <div className="pixel-panel-red p-4 text-[11px] text-pixel-red text-center">
           ERROR: {error}
@@ -86,15 +86,15 @@ export default function MarketsGrid({
       )}
 
       {loading ? (
-        <div className="pixel-panel p-10 text-center">
-          <div className="text-[12px] text-pixel-green animate-pulse glow-green">
+        <div className="pixel-panel p-12 text-center">
+          <div className="text-[12px] text-pixel-white animate-pulse glow-green">
             LOADING MARKETS...
           </div>
-          <div className="mt-3 flex justify-center gap-1.5">
+          <div className="mt-4 flex justify-center gap-1.5">
             {[...Array(8)].map((_, i) => (
               <div
                 key={i}
-                className="w-2.5 h-2.5 bg-pixel-green/40"
+                className="w-2.5 h-2.5 bg-pixel-white/30"
                 style={{ animationDelay: `${i * 100}ms`, animation: "blink 1.5s step-end infinite" }}
               />
             ))}
@@ -102,16 +102,16 @@ export default function MarketsGrid({
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between px-1 mb-1">
-            <span className="text-[11px] text-pixel-gray-light tracking-widest">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[12px] text-pixel-white tracking-widest">
               PREDICTION MARKETS
             </span>
             <span className="text-[10px] text-pixel-gray font-mono">
-              {allMarkets.length}{" "}TOTAL
+              {allMarkets.length} TOTAL
               {totalPages > 1 && ` · PG ${page + 1}/${totalPages}`}
             </span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {pageMarkets.map((market) => (
               <MarketCard
                 key={market.id}
@@ -124,7 +124,7 @@ export default function MarketsGrid({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-3">
+            <div className="flex items-center justify-center gap-2 pt-4">
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
@@ -138,7 +138,7 @@ export default function MarketsGrid({
                   onClick={() => setPage(i)}
                   className={`pixel-btn text-[10px] w-8 ${
                     page === i
-                      ? "border-pixel-green text-pixel-green bg-pixel-green/10"
+                      ? "border-pixel-white text-pixel-white"
                       : "border-pixel-border text-pixel-gray hover:text-pixel-white"
                   }`}
                 >

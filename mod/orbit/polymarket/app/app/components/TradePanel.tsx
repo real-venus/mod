@@ -20,8 +20,8 @@ export default function TradePanel({ market }: Props) {
   if (!market) {
     return (
       <div className="pixel-panel p-6 text-center">
-        <div className="text-[10px] text-pixel-gray mb-2">SELECT A MARKET</div>
-        <div className="text-[7px] text-pixel-gray-light">
+        <div className="text-[11px] text-pixel-gray mb-2">SELECT A MARKET</div>
+        <div className="text-[9px] text-pixel-gray-light">
           CLICK ON ANY MARKET TO START TRADING
         </div>
         <div className="mt-4 flex justify-center">
@@ -93,18 +93,18 @@ export default function TradePanel({ market }: Props) {
     <div className="pixel-panel p-4 space-y-4">
       {/* Market info */}
       <div className="border-b border-pixel-border/40 pb-3">
-        <div className="text-[7px] text-pixel-white leading-relaxed mb-2">
+        <div className="text-[9px] text-pixel-white leading-relaxed mb-2">
           {market.question}
         </div>
-        <div className="flex items-center gap-3 text-[6px]">
-          <span className="text-pixel-green glow-green">
-            YES: {Math.round(yesPrice * 100)}c
+        <div className="flex items-center gap-3 text-[9px] font-mono">
+          <span className="text-pixel-white">
+            YES {Math.round(yesPrice * 100)}¢
           </span>
-          <span className="text-pixel-red glow-red">
-            NO: {Math.round(noPrice * 100)}c
+          <span className="text-pixel-gray-light">
+            NO {Math.round(noPrice * 100)}¢
           </span>
           <span className="text-pixel-gray">
-            VOL: {formatVolume(market.volume)}
+            {formatVolume(market.volume)}
           </span>
         </div>
       </div>
@@ -113,9 +113,9 @@ export default function TradePanel({ market }: Props) {
       <div className="flex gap-2">
         <button
           onClick={() => setSide("YES")}
-          className={`pixel-btn flex-1 text-[8px] ${
+          className={`pixel-btn flex-1 text-[9px] ${
             side === "YES"
-              ? "border-pixel-green text-pixel-green bg-pixel-green/15"
+              ? "border-pixel-white text-pixel-white bg-pixel-white/10"
               : "border-pixel-border text-pixel-gray"
           }`}
         >
@@ -123,9 +123,9 @@ export default function TradePanel({ market }: Props) {
         </button>
         <button
           onClick={() => setSide("NO")}
-          className={`pixel-btn flex-1 text-[8px] ${
+          className={`pixel-btn flex-1 text-[9px] ${
             side === "NO"
-              ? "border-pixel-red text-pixel-red bg-pixel-red/15"
+              ? "border-pixel-white text-pixel-white bg-pixel-white/10"
               : "border-pixel-border text-pixel-gray"
           }`}
         >
@@ -137,9 +137,9 @@ export default function TradePanel({ market }: Props) {
       <div className="flex gap-2">
         <button
           onClick={() => setOrderType("MARKET")}
-          className={`pixel-btn flex-1 text-[6px] ${
+          className={`pixel-btn flex-1 text-[8px] ${
             orderType === "MARKET"
-              ? "border-pixel-cyan text-pixel-cyan bg-pixel-cyan/10"
+              ? "border-pixel-white text-pixel-white bg-pixel-white/10"
               : "border-pixel-border text-pixel-gray"
           }`}
         >
@@ -147,9 +147,9 @@ export default function TradePanel({ market }: Props) {
         </button>
         <button
           onClick={() => setOrderType("LIMIT")}
-          className={`pixel-btn flex-1 text-[6px] ${
+          className={`pixel-btn flex-1 text-[8px] ${
             orderType === "LIMIT"
-              ? "border-pixel-amber text-pixel-amber bg-pixel-amber/10"
+              ? "border-pixel-white text-pixel-white bg-pixel-white/10"
               : "border-pixel-border text-pixel-gray"
           }`}
         >
@@ -159,7 +159,7 @@ export default function TradePanel({ market }: Props) {
 
       {/* Amount */}
       <div>
-        <label className="text-[6px] text-pixel-gray-light tracking-wider mb-1 block">
+        <label className="text-[8px] text-pixel-gray-light tracking-wider mb-1 block">
           AMOUNT (USDC)
         </label>
         <input
@@ -174,7 +174,7 @@ export default function TradePanel({ market }: Props) {
       {/* Limit price */}
       {orderType === "LIMIT" && (
         <div>
-          <label className="text-[6px] text-pixel-gray-light tracking-wider mb-1 block">
+          <label className="text-[8px] text-pixel-gray-light tracking-wider mb-1 block">
             LIMIT PRICE (CENTS)
           </label>
           <input
@@ -193,7 +193,7 @@ export default function TradePanel({ market }: Props) {
           <button
             key={v}
             onClick={() => setAmount(v.toString())}
-            className="pixel-btn flex-1 border-pixel-border text-pixel-gray text-[6px] hover:text-pixel-green hover:border-pixel-green/40"
+            className="pixel-btn flex-1 border-pixel-border text-pixel-gray text-[8px] hover:text-pixel-white hover:border-pixel-white"
           >
             ${v}
           </button>
@@ -202,18 +202,18 @@ export default function TradePanel({ market }: Props) {
 
       {/* Trade preview */}
       {amount && parseFloat(amount) > 0 && (
-        <div className="pixel-panel-cyan p-3 space-y-1 text-[6px]">
+        <div className="pixel-panel-cyan p-3 space-y-1.5 text-[8px]">
           <div className="flex justify-between">
-            <span className="text-pixel-gray">PRICE:</span>
-            <span className="text-pixel-cyan">{Math.round(currentPrice * 100)}c</span>
+            <span className="text-pixel-gray">PRICE</span>
+            <span className="text-pixel-white font-mono">{Math.round(currentPrice * 100)}¢</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-pixel-gray">SHARES:</span>
-            <span className="text-pixel-white">{shares.toFixed(2)}</span>
+            <span className="text-pixel-gray">SHARES</span>
+            <span className="text-pixel-white font-mono">{shares.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-pixel-gray">POTENTIAL:</span>
-            <span className="text-pixel-green glow-green">
+            <span className="text-pixel-gray">POTENTIAL</span>
+            <span className="text-pixel-white font-mono">
               +${potentialProfit.toFixed(2)}
             </span>
           </div>
@@ -238,7 +238,7 @@ export default function TradePanel({ market }: Props) {
       {/* Status */}
       {status && (
         <div
-          className={`text-[6px] text-center p-2 ${
+          className={`text-[8px] text-center p-2 ${
             status.startsWith("ERROR")
               ? "text-pixel-red pixel-panel-red"
               : status.includes("PLACED")

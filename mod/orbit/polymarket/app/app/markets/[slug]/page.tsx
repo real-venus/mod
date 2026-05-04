@@ -7,8 +7,7 @@ import {
   formatVolume,
 } from "../../lib/polymarket";
 import { PolymarketMarket } from "../../lib/types";
-import NavTabs from "../../components/NavTabs";
-import Header from "../../components/Header";
+import TopBar from "../../components/TopBar";
 import TradePanel from "../../components/TradePanel";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -133,21 +132,22 @@ export default function MarketPage() {
 
   return (
     <div className="max-w-[1920px] mx-auto">
-      <Header
-        showSearch
-        showSort={false}
-
-        showCategories={false}
-        searchPlaceholder="SEARCH MARKETS..."
-      />
-      <NavTabs />
+      <TopBar showSearch searchPlaceholder="SEARCH MARKETS..." />
       <div className="p-4 space-y-4">
-        <button
-          onClick={() => router.push("/markets")}
-          className="pixel-btn border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white text-[12px]"
-        >
-          ← MARKETS
-        </button>
+        {/* Back + title bar */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/markets")}
+            className="pixel-btn border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white text-[11px] px-2.5 py-1.5 shrink-0"
+          >
+            ←
+          </button>
+          {market && (
+            <div className="flex-1 min-w-0 text-pixel-white text-[14px] leading-relaxed truncate">
+              {market.question}
+            </div>
+          )}
+        </div>
 
         {marketLoading ? (
           <div className="pixel-panel p-12 text-center">
@@ -161,248 +161,227 @@ export default function MarketPage() {
           </div>
         ) : (
           <>
-            {/* Header */}
-            <div className="pixel-panel p-5">
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div className="flex-1 min-w-0">
-                  <div className="text-pixel-white text-[16px] glow-green leading-relaxed">
-                    {market.question}
-                  </div>
-                  {market.category && (
-                    <div className="mt-2 flex items-center gap-2 text-[10px]">
-                      <span className="pixel-badge border-pixel-amber text-pixel-amber">
-                        {market.category.toUpperCase()}
-                      </span>
-                      {market.endDate && (
-                        <span className="text-pixel-gray">
-                          ENDS{" "}
-                          {new Date(market.endDate).toLocaleDateString([], {
-                            month: "short", day: "numeric", year: "numeric",
-                          })}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right shrink-0 space-y-1">
-                  <div className="text-[10px] text-pixel-gray tracking-wider">VOLUME</div>
-                  <div className="text-[14px] text-pixel-white font-mono">
-                    {formatVolume(market.volume)}
-                  </div>
-                  <div className="text-[10px] text-pixel-gray tracking-wider mt-2">LIQUIDITY</div>
-                  <div className="text-[12px] text-pixel-gray-light font-mono">
-                    {formatVolume(market.liquidity)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Current odds for each outcome */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {/* Stats bar */}
+            <div className="pixel-panel px-4 py-3">
+              <div className="flex items-center gap-5 flex-wrap text-[10px] font-mono">
+                {/* Outcome odds */}
                 {market.outcomes.map((outcome, i) => {
                   const px = market.outcomePrices[i] ?? 0;
                   const pct = Math.round(px * 100);
                   const color = OUTCOME_COLORS[i % OUTCOME_COLORS.length];
                   return (
-                    <div
-                      key={outcome + i}
-                      className="pixel-panel p-3 flex items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className="w-2 h-2 shrink-0"
-                          style={{ background: color }}
-                        />
-                        <span className="text-[11px] text-pixel-white truncate">
-                          {outcome}
-                        </span>
-                      </div>
-                      <span className="text-[12px] text-pixel-white font-mono shrink-0">
-                        {pct}¢
-                      </span>
+                    <div key={outcome + i} className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 shrink-0" style={{ background: color }} />
+                      <span className="text-pixel-gray-light">{outcome}</span>
+                      <span className="text-pixel-white text-[11px]">{pct}¢</span>
                     </div>
                   );
                 })}
+                <div className="ml-auto flex items-center gap-5">
+                  {market.category && (
+                    <span className="pixel-badge border-pixel-border text-pixel-gray-light text-[9px]">
+                      {market.category.toUpperCase()}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-pixel-gray">VOL</span>
+                    <span className="text-pixel-white">{formatVolume(market.volume)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-pixel-gray">LIQ</span>
+                    <span className="text-pixel-gray-light">{formatVolume(market.liquidity)}</span>
+                  </div>
+                  {market.endDate && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-pixel-gray">ENDS</span>
+                      <span className="text-pixel-gray-light">
+                        {new Date(market.endDate).toLocaleDateString([], {
+                          month: "short", day: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Price chart */}
-            <div className="pixel-panel p-5">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <div className="text-[12px] text-pixel-gray-light tracking-wider">
-                  PRICE HISTORY
+            {/* Main content: chart left, trade panel right */}
+            <div className="flex gap-4 items-start flex-col lg:flex-row">
+              {/* Chart */}
+              <div className="pixel-panel p-4 flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <div className="text-[11px] text-pixel-gray-light tracking-wider">
+                    PRICE HISTORY
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {INTERVALS.map((iv) => (
+                      <button
+                        key={iv.key}
+                        onClick={() => setIntervalState(iv.key)}
+                        className={`pixel-btn text-[8px] px-2 py-0.5 ${
+                          interval === iv.key
+                            ? "border-pixel-green text-pixel-green bg-pixel-green/10"
+                            : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+                        }`}
+                      >
+                        {iv.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  {INTERVALS.map((iv) => (
-                    <button
-                      key={iv.key}
-                      onClick={() => setIntervalState(iv.key)}
-                      className={`pixel-btn text-[9px] px-2 py-1 ${
-                        interval === iv.key
-                          ? "border-pixel-green text-pixel-green bg-pixel-green/10"
-                          : "border-pixel-border text-pixel-gray hover:text-pixel-white"
-                      }`}
-                    >
-                      {iv.label}
-                    </button>
+
+                {chartLoading ? (
+                  <div className="h-[280px] flex items-center justify-center">
+                    <div className="text-[10px] text-pixel-gray animate-pulse">
+                      LOADING PRICE HISTORY...
+                    </div>
+                  </div>
+                ) : chartData.length === 0 ? (
+                  <div className="h-[280px] flex items-center justify-center">
+                    <div className="text-[10px] text-pixel-gray">NO PRICE DATA</div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={280}>
+                    {market.outcomes.length === 2 ? (
+                      <AreaChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="yesGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#ffffff" stopOpacity={0.25} />
+                            <stop offset="100%" stopColor="#ffffff" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="#222" vertical={false} />
+                        <XAxis
+                          dataKey="t"
+                          type="number"
+                          domain={["dataMin", "dataMax"]}
+                          scale="time"
+                          tick={{ fontSize: 9, fill: "#666" }}
+                          axisLine={{ stroke: "#333" }}
+                          tickLine={false}
+                          tickFormatter={fmtX}
+                          minTickGap={40}
+                        />
+                        <YAxis
+                          domain={[0, 1]}
+                          tick={{ fontSize: 9, fill: "#666" }}
+                          axisLine={{ stroke: "#333" }}
+                          tickLine={false}
+                          tickFormatter={(v: number) => `${Math.round(v * 100)}¢`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: "#1a1a1a",
+                            border: "2px solid #333",
+                            fontSize: 10,
+                            color: "#fff",
+                            fontFamily: "'Press Start 2P'",
+                          }}
+                          labelFormatter={(t: number) =>
+                            new Date(t * 1000).toLocaleString([], {
+                              month: "short", day: "numeric",
+                              hour: "2-digit", minute: "2-digit",
+                            })
+                          }
+                          formatter={(v: number, name: string) => [
+                            `${Math.round(v * 100)}¢`,
+                            market.outcomes[Number(name.replace("o", ""))] || name,
+                          ]}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="o0"
+                          stroke="#ffffff"
+                          fill="url(#yesGrad)"
+                          strokeWidth={2}
+                          isAnimationActive={false}
+                          connectNulls
+                        />
+                      </AreaChart>
+                    ) : (
+                      <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                        <CartesianGrid stroke="#222" vertical={false} />
+                        <XAxis
+                          dataKey="t"
+                          type="number"
+                          domain={["dataMin", "dataMax"]}
+                          scale="time"
+                          tick={{ fontSize: 9, fill: "#666" }}
+                          axisLine={{ stroke: "#333" }}
+                          tickLine={false}
+                          tickFormatter={fmtX}
+                          minTickGap={40}
+                        />
+                        <YAxis
+                          domain={[0, 1]}
+                          tick={{ fontSize: 9, fill: "#666" }}
+                          axisLine={{ stroke: "#333" }}
+                          tickLine={false}
+                          tickFormatter={(v: number) => `${Math.round(v * 100)}¢`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: "#1a1a1a",
+                            border: "2px solid #333",
+                            fontSize: 10,
+                            color: "#fff",
+                            fontFamily: "'Press Start 2P'",
+                          }}
+                          labelFormatter={(t: number) =>
+                            new Date(t * 1000).toLocaleString([], {
+                              month: "short", day: "numeric",
+                              hour: "2-digit", minute: "2-digit",
+                            })
+                          }
+                          formatter={(v: number, name: string) => [
+                            `${Math.round(v * 100)}¢`,
+                            market.outcomes[Number(name.replace("o", ""))] || name,
+                          ]}
+                        />
+                        {market.outcomes.map((_, i) => (
+                          <Line
+                            key={i}
+                            type="monotone"
+                            dataKey={`o${i}`}
+                            stroke={OUTCOME_COLORS[i % OUTCOME_COLORS.length]}
+                            strokeWidth={2}
+                            dot={false}
+                            isAnimationActive={false}
+                            connectNulls
+                          />
+                        ))}
+                      </LineChart>
+                    )}
+                  </ResponsiveContainer>
+                )}
+
+                {/* Outcome legend */}
+                <div className="mt-3 flex items-center gap-4 text-[10px] text-pixel-gray flex-wrap">
+                  {market.outcomes.map((outcome, i) => (
+                    <div key={outcome + i} className="flex items-center gap-1.5">
+                      <div
+                        className="w-2 h-2"
+                        style={{ background: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
+                      />
+                      <span>{outcome}</span>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              {chartLoading ? (
-                <div className="h-[320px] flex items-center justify-center">
-                  <div className="text-[12px] text-pixel-gray animate-pulse">
-                    LOADING PRICE HISTORY...
-                  </div>
-                </div>
-              ) : chartData.length === 0 ? (
-                <div className="h-[320px] flex items-center justify-center">
-                  <div className="text-[12px] text-pixel-gray">NO PRICE DATA</div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={320}>
-                  {market.outcomes.length === 2 ? (
-                    // Two-outcome (Yes/No) — use an area chart for the YES line
-                    // since the NO line is just 1 - YES and would be visually
-                    // redundant.
-                    <AreaChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="yesGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#ffffff" stopOpacity={0.25} />
-                          <stop offset="100%" stopColor="#ffffff" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="#222" vertical={false} />
-                      <XAxis
-                        dataKey="t"
-                        type="number"
-                        domain={["dataMin", "dataMax"]}
-                        scale="time"
-                        tick={{ fontSize: 9, fill: "#666" }}
-                        axisLine={{ stroke: "#333" }}
-                        tickLine={false}
-                        tickFormatter={fmtX}
-                        minTickGap={40}
-                      />
-                      <YAxis
-                        domain={[0, 1]}
-                        tick={{ fontSize: 9, fill: "#666" }}
-                        axisLine={{ stroke: "#333" }}
-                        tickLine={false}
-                        tickFormatter={(v: number) => `${Math.round(v * 100)}¢`}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          background: "#1a1a1a",
-                          border: "2px solid #333",
-                          fontSize: 10,
-                          color: "#fff",
-                          fontFamily: "'Press Start 2P'",
-                        }}
-                        labelFormatter={(t: number) =>
-                          new Date(t * 1000).toLocaleString([], {
-                            month: "short", day: "numeric",
-                            hour: "2-digit", minute: "2-digit",
-                          })
-                        }
-                        formatter={(v: number, name: string) => [
-                          `${Math.round(v * 100)}¢`,
-                          market.outcomes[Number(name.replace("o", ""))] || name,
-                        ]}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="o0"
-                        stroke="#ffffff"
-                        fill="url(#yesGrad)"
-                        strokeWidth={2}
-                        isAnimationActive={false}
-                        connectNulls
-                      />
-                    </AreaChart>
-                  ) : (
-                    // 3+ outcomes — line per outcome.
-                    <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                      <CartesianGrid stroke="#222" vertical={false} />
-                      <XAxis
-                        dataKey="t"
-                        type="number"
-                        domain={["dataMin", "dataMax"]}
-                        scale="time"
-                        tick={{ fontSize: 9, fill: "#666" }}
-                        axisLine={{ stroke: "#333" }}
-                        tickLine={false}
-                        tickFormatter={fmtX}
-                        minTickGap={40}
-                      />
-                      <YAxis
-                        domain={[0, 1]}
-                        tick={{ fontSize: 9, fill: "#666" }}
-                        axisLine={{ stroke: "#333" }}
-                        tickLine={false}
-                        tickFormatter={(v: number) => `${Math.round(v * 100)}¢`}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          background: "#1a1a1a",
-                          border: "2px solid #333",
-                          fontSize: 10,
-                          color: "#fff",
-                          fontFamily: "'Press Start 2P'",
-                        }}
-                        labelFormatter={(t: number) =>
-                          new Date(t * 1000).toLocaleString([], {
-                            month: "short", day: "numeric",
-                            hour: "2-digit", minute: "2-digit",
-                          })
-                        }
-                        formatter={(v: number, name: string) => [
-                          `${Math.round(v * 100)}¢`,
-                          market.outcomes[Number(name.replace("o", ""))] || name,
-                        ]}
-                      />
-                      {market.outcomes.map((_, i) => (
-                        <Line
-                          key={i}
-                          type="monotone"
-                          dataKey={`o${i}`}
-                          stroke={OUTCOME_COLORS[i % OUTCOME_COLORS.length]}
-                          strokeWidth={2}
-                          dot={false}
-                          isAnimationActive={false}
-                          connectNulls
-                        />
-                      ))}
-                    </LineChart>
-                  )}
-                </ResponsiveContainer>
-              )}
-
-              {/* Outcome legend */}
-              <div className="mt-3 flex items-center gap-3 text-[10px] text-pixel-gray flex-wrap">
-                {market.outcomes.map((outcome, i) => (
-                  <div key={outcome + i} className="flex items-center gap-1.5">
-                    <div
-                      className="w-2 h-2"
-                      style={{ background: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
-                    />
-                    <span>{outcome}</span>
-                  </div>
-                ))}
+              {/* Trade panel — sidebar on large screens */}
+              <div className="w-full lg:w-[320px] shrink-0">
+                <TradePanel market={market} />
               </div>
-            </div>
-
-            {/* Trade panel */}
-            <div className="max-w-2xl">
-              <TradePanel market={market} />
             </div>
 
             {/* Description */}
             {market.description && (
-              <div className="pixel-panel p-5">
-                <div className="text-[12px] text-pixel-gray-light tracking-wider mb-3">
+              <div className="pixel-panel p-4">
+                <div className="text-[11px] text-pixel-gray-light tracking-wider mb-3">
                   DESCRIPTION
                 </div>
-                <div className="text-[11px] text-pixel-gray leading-relaxed whitespace-pre-wrap">
+                <div className="text-[11px] text-pixel-gray leading-[1.8] whitespace-pre-wrap">
                   {market.description}
                 </div>
               </div>

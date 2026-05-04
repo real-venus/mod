@@ -254,7 +254,7 @@ body {
 .market-card {
   background: #111;
   border: 2px solid #222;
-  padding: 16px;
+  padding: 18px;
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
