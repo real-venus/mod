@@ -10,6 +10,7 @@ export interface TopTrader {
   winRate: number;
   positions: number;
   marketTitles: string[];
+  pnlCurve?: number[];   // ~12-point cumulative PnL over the window
 }
 
 // ── Formatting helpers ──────────────────────────────────────────
@@ -82,6 +83,14 @@ export function matchTraderCategory(marketTitles: string[], category: string): b
   if (!keywords) return false;
   const joined = marketTitles.join(" ").toLowerCase();
   return keywords.some((kw) => joined.includes(kw));
+}
+
+/** Match a trader against a free-text search query (address OR market titles). */
+export function matchTraderSearch(t: TopTrader, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.toLowerCase();
+  if (t.address.toLowerCase().includes(q)) return true;
+  return t.marketTitles.some((title) => title.toLowerCase().includes(q));
 }
 
 // ── Market fetching ─────────────────────────────────────────────
@@ -157,7 +166,7 @@ export async function searchMarkets(query: string, limit: number = 40): Promise<
 }
 
 function normalizeMarkets(raw: unknown): PolymarketMarket[] {
-  const items = Array.isArray(raw) ? raw : [];
+  const items = Array.isArray(raw) ? raw : (raw && typeof raw === "object" && "id" in (raw as Record<string, unknown>)) ? [raw] : [];
   return items.map((m: Record<string, unknown>) => {
     let outcomePrices: number[] = [0.5, 0.5];
     try {
@@ -295,6 +304,7 @@ export async function fetchTopTradersStream(
           winRate: Number(t.winRate || 0),
           positions: Number(t.positions || 0),
           marketTitles: Array.isArray(t.marketTitles) ? (t.marketTitles as string[]) : [],
+          pnlCurve: Array.isArray(t.pnlCurve) ? (t.pnlCurve as number[]) : undefined,
         }));
         if (evt.type === "partial") {
           onPartial?.(mapped);
@@ -337,6 +347,7 @@ export async function fetchTopTraders(
     winRate: Number(t.winRate || 0),
     positions: Number(t.positions || 0),
     marketTitles: Array.isArray(t.marketTitles) ? (t.marketTitles as string[]) : [],
+    pnlCurve: Array.isArray(t.pnlCurve) ? (t.pnlCurve as number[]) : undefined,
   }));
 }
 

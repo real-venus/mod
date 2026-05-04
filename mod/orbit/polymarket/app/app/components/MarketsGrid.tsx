@@ -111,7 +111,7 @@ export default function MarketsGrid({
               {totalPages > 1 && ` · PG ${page + 1}/${totalPages}`}
             </span>
           </div>
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {pageMarkets.map((market) => (
               <MarketCard
                 key={market.id}

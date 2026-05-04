@@ -1,75 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
-/* Declare fallback layer FIRST so it has lowest priority in the cascade.
-   When Tailwind compiles: utilities layer > fallback layer (Tailwind wins).
-   When Tailwind fails:    fallback layer is the only layer (layout works). */
-@layer fallback;
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@layer fallback {
-  /* Header rows */
-  header > div {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 0 16px;
-    flex-wrap: wrap;
-  }
-  header > div:last-child {
-    gap: 8px;
-    overflow-x: auto;
-    padding: 6px 16px;
-  }
-
-  /* Tab navigation */
-  header + div > div {
-    display: flex;
-    align-items: center;
-  }
-  header + div > div > button {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 20px;
-  }
-
-  /* Content sections */
-  main > div { max-width: 1920px; margin: 0 auto; }
-  main > div > div { padding: 16px; }
-
-  /* Pixel panels — flex layout for inner content */
-  .pixel-panel > div {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .pixel-panel > div > div {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .pixel-panel > table { width: 100%; }
-
-  /* Progress bars */
-  .pixel-bar { flex: 1; min-width: 0; }
-
-  /* Inputs */
-  input.pixel-input { width: 100%; box-sizing: border-box; }
-
-  /* Footer */
-  footer > div {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-}
 
 :root {
   --bg: #000000;
@@ -201,6 +134,26 @@ body {
   color: #666666;
 }
 
+/* Compact filter input — smaller padding for inline filter bars */
+.pixel-input-sm {
+  background: #0a0a0a;
+  border: 2px solid #444;
+  padding: 5px 8px;
+  font-family: "Press Start 2P", monospace;
+  font-size: 9px;
+  color: #ffffff;
+  outline: none;
+  box-shadow: inset 1px 1px 0 #000;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pixel-input-sm:focus {
+  border-color: #4ade80;
+  box-shadow: inset 1px 1px 0 #000, 0 0 6px rgba(74, 222, 128, 0.15);
+}
+.pixel-input-sm::placeholder {
+  color: #555;
+}
+
 /* Force pixel font on native date input internals */
 .pixel-input[type="date"]::-webkit-datetime-edit,
 .pixel-input[type="date"]::-webkit-datetime-edit-fields-wrapper,
@@ -271,7 +224,13 @@ body {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
-.pixel-table tr:hover td {
+.pixel-table tbody tr {
+  transition: background 0.1s;
+}
+.pixel-table tbody tr:nth-child(even) td {
+  background: #0d0d0d;
+}
+.pixel-table tbody tr:hover td {
   background: #1a1a1a;
 }
 .pixel-table thead.sticky th {
@@ -289,6 +248,43 @@ body {
   font-size: 9px;
   border: 1px solid;
   letter-spacing: 1px;
+}
+
+/* Market card — sleek vertical card */
+.market-card {
+  background: #111;
+  border: 2px solid #222;
+  padding: 16px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.market-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.4), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.market-card:hover {
+  border-color: #333;
+  background: #151515;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(74, 222, 128, 0.08);
+}
+.market-card:hover::before {
+  opacity: 1;
+}
+.market-card:active {
+  transform: translateY(0);
+}
+.market-card-selected {
+  border-color: #4ade80 !important;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.1), inset 0 0 30px rgba(74, 222, 128, 0.03);
 }
 
 /* Recharts overrides */
