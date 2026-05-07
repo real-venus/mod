@@ -338,7 +338,9 @@ class Mod:
         if not token:
             return None
         admin_key = os.environ.get('BRIDGE_ADMIN_KEY', '')
-        if admin_key and token == admin_key:
+        # Constant-time compare — protects against timing oracle on the admin key.
+        import hmac
+        if admin_key and hmac.compare_digest(token, admin_key):
             return self.owner_address
         return None
 
@@ -547,21 +549,35 @@ class Mod:
         api_dir = self.module_dir / 'api'
         app_dir = self.module_dir / 'app'
 
-        import sys as _sys
-        python = _sys.executable
-
         api_url = api_url or 'https://modc2.com/api/bridge'
         app_url = app_url or 'https://modc2.com/bridge'
 
-        # ── API (uvicorn via pm2) ──────────────────────────
+        # ── API (Rust / axum via pm2) ──────────────────────
+        binary = api_dir / 'target' / 'release' / 'bridge-api'
+        print(f'[bridge] Building Rust API ({api_dir})...')
+        build = subprocess.run(
+            ['cargo', 'build', '--release'],
+            cwd=str(api_dir), capture_output=True, text=True,
+        )
+        if build.returncode != 0:
+            print(f'[bridge] cargo build failed:\n{build.stdout}\n{build.stderr}')
+            return {'success': False, 'error': 'cargo build failed', 'stderr': build.stderr}
+        if not binary.exists():
+            return {'success': False, 'error': f'binary missing after build: {binary}'}
+
+        api_env = {
+            **os.environ,
+            'PORT': str(self.port),
+            'BRIDGE_DATA_DIR': str(self.store_dir),
+            'BRIDGE_SNAPSHOT_DIR': str(self.snapshot_dir),
+            'BRIDGE_ENV': 'production' if not dev else 'development',
+        }
         subprocess.run([
-            'pm2', 'start', python, '--name', 'bridge.api',
+            'pm2', 'start', str(binary), '--name', 'bridge.api',
             '--output', str(log_dir / 'api.log'),
             '--error', str(log_dir / 'api.log'),
-            '--', '-m', 'uvicorn', 'api:app',
-            '--host', '0.0.0.0', '--port', str(self.port),
-        ], cwd=str(api_dir), capture_output=True)
-        print(f'[bridge] API started on :{self.port} (pm2: bridge.api)')
+        ], cwd=str(api_dir), env=api_env, capture_output=True)
+        print(f'[bridge] API started on :{self.port} (pm2: bridge.api, Rust)')
 
         # ── App (Next.js via pm2) ──────────────────────────
         result = {'api_port': self.port}

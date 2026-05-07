@@ -67,6 +67,20 @@ async function api(fn: string, params: Record<string, any> = {}) {
   return data.result !== undefined ? data.result : data
 }
 
+// Paged GET — used for the snapshot loader. Fetches /balances?page=&limit= and
+// returns { balances, total }. Trailing slashes stripped to be reverse-proxy
+// safe (Caddy strips its own prefix; we don't want a double slash).
+async function apiGet(path: string): Promise<any> {
+  const res = await fetch(`${API_URL.replace(/\/$/, '')}${path}`, { method: 'GET' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || err.error || 'Request failed')
+  }
+  return res.json()
+}
+
+const SNAPSHOT_PAGE_SIZE = 1000
+
 function isValidEvmAddress(addr: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(addr.trim())
 }
@@ -123,40 +137,63 @@ function BridgePageInner() {
   }
 
   // ── Data fetching ───────────────────────────────────────────────
+  // Strategy: fetch the small things (status, claims, commitments) in parallel
+  // with the FIRST snapshot page so we can render almost immediately. Then
+  // background-fetch remaining pages and append. Avoids the ~6MB blob the old
+  // get_total_balances endpoint forces on every visitor.
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [statsData, balancesData, claimsData, commitmentsData] = await Promise.all([
+      const [statsData, firstPage, claimsData, commitmentsData] = await Promise.all([
         api('status').catch(() => null),
-        api('get_total_balances').catch(() => ({})),
+        apiGet(`/balances?page=0&limit=${SNAPSHOT_PAGE_SIZE}`).catch(() => ({ balances: {}, total: 0 })),
         api('get_claims').catch(() => ({})),
         api('get_commitments').catch(() => ({})),
       ])
+
       const claims = claimsData || {}
       const comms = commitmentsData || {}
       const claimedSet = new Set([...Object.keys(claims), ...Object.keys(comms)])
 
-      if (statsData) {
-        const claimedCount = claimedSet.size
-        const totalClaimed = Object.values(comms as Record<string, any>).reduce((sum: number, c: any) => {
-          const addr = c?.source_address || ''
-          return sum + Number((balancesData || {} as any)[addr] || 0)
-        }, 0) + statsData.total_claimed
-        setSnapshotStats({ ...statsData, claim_count: claimedCount, total_claimed: totalClaimed })
-      }
+      const buildEntries = (balances: Record<string, number>) =>
+        Object.entries(balances).map(([addr, bal]) => {
+          const comm = (comms as Record<string, CommitmentEntry>)[addr]
+          return {
+            address: addr,
+            balance: Number(bal),
+            claimed: claimedSet.has(addr),
+            evm_address: comm?.evm_address,
+            source_type: comm?.source_type,
+          } as SnapshotEntry
+        })
 
-      const entries: SnapshotEntry[] = Object.entries(balancesData || {}).map(([addr, bal]) => {
-        const comm = (comms as Record<string, CommitmentEntry>)[addr]
-        return {
-          address: addr,
-          balance: Number(bal),
-          claimed: claimedSet.has(addr),
-          evm_address: comm?.evm_address,
-          source_type: comm?.source_type,
-        }
-      })
-      setSnapshotEntries(entries)
+      // Render first page immediately.
+      const firstBalances = (firstPage?.balances || {}) as Record<string, number>
+      const total = Number(firstPage?.total || 0)
+      setSnapshotEntries(buildEntries(firstBalances))
       setCommitments(comms || {})
+
+      if (statsData) {
+        setSnapshotStats({
+          ...statsData,
+          claim_count: claimedSet.size,
+          total_claimed: statsData.total_claimed,
+        })
+      }
+      // First-paint complete — drop the spinner; remaining pages stream in.
+      setLoading(false)
+
+      // Background fill — fetch pages 1..N sequentially. Sequential keeps load
+      // light on the API and avoids fanning out N parallel requests if the
+      // snapshot grows into the millions later.
+      const totalPages = total > 0 ? Math.ceil(total / SNAPSHOT_PAGE_SIZE) : 0
+      let merged: Record<string, number> = { ...firstBalances }
+      for (let p = 1; p < totalPages; p++) {
+        const res = await apiGet(`/balances?page=${p}&limit=${SNAPSHOT_PAGE_SIZE}`).catch(() => null)
+        if (!res) break
+        merged = { ...merged, ...(res.balances || {}) }
+        setSnapshotEntries(buildEntries(merged))
+      }
     } catch { /* ignore */ }
     setLoading(false)
   }, [])
