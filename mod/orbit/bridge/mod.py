@@ -526,8 +526,15 @@ class Mod:
 
     # ━━ Serve / Kill ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    def serve(self, **kwargs):
+    def serve(self, dev=False, api_url=None, app_url=None, **kwargs):
         """Start the bridge API and Next.js app via PM2.
+
+        Args:
+            dev:     run Next.js in dev mode (default False — production build + start)
+            api_url: public API URL baked into the prod build
+                     (default https://modc2.com/api/bridge)
+            app_url: public app URL baked into the prod build
+                     (default https://modc2.com/bridge)
 
         Logs: pm2 logs bridge.api / pm2 logs bridge.app
         """
@@ -543,6 +550,9 @@ class Mod:
         import sys as _sys
         python = _sys.executable
 
+        api_url = api_url or 'https://modc2.com/api/bridge'
+        app_url = app_url or 'https://modc2.com/bridge'
+
         # ── API (uvicorn via pm2) ──────────────────────────
         subprocess.run([
             'pm2', 'start', python, '--name', 'bridge.api',
@@ -556,17 +566,46 @@ class Mod:
         # ── App (Next.js via pm2) ──────────────────────────
         result = {'api_port': self.port}
         if app_dir.exists() and (app_dir / 'package.json').exists():
-            subprocess.run([
-                'pm2', 'start', 'npx', '--name', 'bridge.app',
-                '--output', str(log_dir / 'app.log'),
-                '--error', str(log_dir / 'app.log'),
-                '--', 'next', 'dev', '-p', str(self.app_port),
-            ], cwd=str(app_dir), env={
-                **os.environ,
-                'NEXT_PUBLIC_API_URL': f'http://localhost:{self.port}',
-            }, capture_output=True)
-            print(f'[bridge] App started on :{self.app_port} (pm2: bridge.app)')
+            if dev:
+                app_env = {
+                    **os.environ,
+                    'NEXT_PUBLIC_API_URL': f'http://localhost:{self.port}',
+                }
+                subprocess.run([
+                    'pm2', 'start', 'npx', '--name', 'bridge.app',
+                    '--output', str(log_dir / 'app.log'),
+                    '--error', str(log_dir / 'app.log'),
+                    '--', 'next', 'dev', '-p', str(self.app_port),
+                ], cwd=str(app_dir), env=app_env, capture_output=True)
+                print(f'[bridge] App started on :{self.app_port} dev (pm2: bridge.app)')
+            else:
+                build_env = {
+                    **os.environ,
+                    'NODE_ENV': 'production',
+                    'NEXT_PUBLIC_API_URL': api_url,
+                    'NEXT_PUBLIC_APP_URL': app_url,
+                    'API_INTERNAL_URL': f'http://localhost:{self.port}',
+                }
+                print(f'[bridge] Building Next.js app (NEXT_PUBLIC_API_URL={api_url})...')
+                build = subprocess.run(
+                    ['npx', 'next', 'build'],
+                    cwd=str(app_dir), env=build_env,
+                    capture_output=True, text=True,
+                )
+                if build.returncode != 0:
+                    print(f'[bridge] Build failed:\n{build.stdout}\n{build.stderr}')
+                    return {'success': False, 'error': 'next build failed', 'stderr': build.stderr}
+
+                subprocess.run([
+                    'pm2', 'start', 'npx', '--name', 'bridge.app',
+                    '--output', str(log_dir / 'app.log'),
+                    '--error', str(log_dir / 'app.log'),
+                    '--', 'next', 'start', '-p', str(self.app_port),
+                ], cwd=str(app_dir), env=build_env, capture_output=True)
+                print(f'[bridge] App started on :{self.app_port} prod → {app_url} (pm2: bridge.app)')
             result['app_port'] = self.app_port
+            result['api_url'] = api_url
+            result['app_url'] = app_url
 
         return {'success': True, **result}
 
