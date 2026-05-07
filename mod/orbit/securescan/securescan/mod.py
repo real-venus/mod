@@ -108,14 +108,17 @@ class Mod:
 
     # ── Scan entry points ─────────────────────────────────────────
 
-    def forward(self, mod=None, path=None, repo=None, subdir=None, key=None, provider=None, model=None, steps=15, **kwargs):
+    def forward(self, mod=None, path=None, repo=None, subdir=None, key=None, reviewer=None,
+                provider=None, model=None, steps=15, **kwargs):
         """Default entry — dispatch to local scan or github scan based on args."""
         if repo:
-            return self.scan_github(repo, subdir=subdir, key=key, provider=provider, model=model, steps=steps, **kwargs)
-        return self.scan(mod=mod, path=path, key=key, provider=provider, model=model, steps=steps, **kwargs)
+            return self.scan_github(repo, subdir=subdir, key=key, reviewer=reviewer,
+                                    provider=provider, model=model, steps=steps, **kwargs)
+        return self.scan(mod=mod, path=path, key=key, reviewer=reviewer,
+                         provider=provider, model=model, steps=steps, **kwargs)
 
     def scan_github(self, repo: str, branch: str = None, subdir: str = None, scan_id: str = None,
-                    key=None, provider=None, model=None, steps=15, **kwargs):
+                    key=None, reviewer=None, provider=None, model=None, steps=15, **kwargs):
         """
         Clone a GitHub repository and run a security scan against it.
 
@@ -181,6 +184,7 @@ class Mod:
             result = self.scan(
                 path=str(scan_path),
                 key=key,
+                reviewer=reviewer,
                 provider=provider,
                 model=model,
                 steps=steps,
@@ -238,8 +242,14 @@ class Mod:
             return {'error': f'subdir is not a directory: {subdir!r}'}
         return candidate
 
-    def scan(self, mod=None, path=None, key=None, provider=None, model=None, steps=15, **kwargs):
-        """Run a security scan on a local repository or module."""
+    def scan(self, mod=None, path=None, key=None, reviewer=None,
+             provider=None, model=None, steps=15, **kwargs):
+        """Run a security scan on a local repository or module.
+
+        If `reviewer` is supplied (e.g. an EVM address from a connected wallet),
+        it is used directly as the reviewer identity. Otherwise the wallet
+        derived from `key` is used.
+        """
         if mod:
             path = m.dp(mod)
         path = path or os.path.expanduser('~/mod')
@@ -251,7 +261,7 @@ class Mod:
         if not os.path.isdir(path):
             return {'error': f'path not found: {path}'}
 
-        wallet = self._resolve_wallet(key)
+        wallet = self._validate_reviewer(reviewer) if reviewer else self._resolve_wallet(key)
         print(f'[securescan] reviewer: {wallet}', color='cyan')
         print(f'[securescan] scanning: {path}', color='cyan')
         print(f'[securescan] provider: {provider}', color='cyan')
@@ -277,7 +287,8 @@ class Mod:
         metadata = {
             'timestamp': int(time.time()),
             'reviewer': wallet,
-            'key': key,
+            'reviewer_source': 'wallet' if reviewer else 'key',
+            'key': None if reviewer else key,
             'model': model,
             'repo': path,
             'steps': steps,
@@ -547,6 +558,20 @@ class Mod:
             return m.key(key).address
         except Exception:
             return key
+
+    @staticmethod
+    def _validate_reviewer(reviewer: str) -> str:
+        """Accept a reviewer identity supplied externally (e.g. from a connected wallet).
+
+        Currently expects an EVM address (`0x` + 40 hex). Normalised to lowercase.
+        Raises ValueError on anything else so a junk value can't poison the report.
+        """
+        if not isinstance(reviewer, str):
+            raise ValueError(f'reviewer must be a string (got {type(reviewer).__name__})')
+        r = reviewer.strip()
+        if not re.fullmatch(r'0x[0-9a-fA-F]{40}', r):
+            raise ValueError(f'reviewer must be a 0x-prefixed 40-char hex address (got {reviewer!r})')
+        return r.lower()
 
     def _gather_context(self, path):
         context = {'path': path, 'file_types': {}, 'total_files': 0, 'structure': []}
