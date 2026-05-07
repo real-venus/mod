@@ -1,0 +1,415 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #000000;
+  --fg: #ffffff;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #333333 #000000;
+  image-rendering: pixelated;
+}
+
+*::-webkit-scrollbar { width: 8px; }
+*::-webkit-scrollbar-track { background: #000000; }
+*::-webkit-scrollbar-thumb {
+  background: #333333;
+  border: 2px solid #000000;
+}
+
+body {
+  color: var(--fg);
+  background: var(--bg);
+  font-family: "Press Start 2P", monospace;
+}
+
+/* Game Boy style scanline overlay */
+.crt-overlay {
+  pointer-events: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 9999;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.1) 0px,
+      rgba(0, 0, 0, 0.1) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+}
+
+/* Game Boy screen effect */
+.crt-screen {
+  position: relative;
+}
+.crt-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 80px rgba(255, 255, 255, 0.02),
+    inset 0 0 200px rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
+/* Pixel glow effects - Mario style */
+.glow-green { text-shadow: 2px 2px 0 #000000; }
+.glow-cyan { text-shadow: 2px 2px 0 #000000; }
+.glow-amber { text-shadow: 2px 2px 0 #000000; }
+.glow-red { text-shadow: 2px 2px 0 #666666; }
+.glow-magenta { text-shadow: 2px 2px 0 #000000; }
+
+/* Pixel panel border - Mario block style */
+.pixel-panel {
+  border: 3px solid #ffffff;
+  box-shadow: inset 3px 3px 0 #333333, inset -3px -3px 0 #000000;
+  background: #1a1a1a;
+}
+
+.pixel-panel-cyan {
+  border: 3px solid #cccccc;
+  box-shadow: inset 3px 3px 0 #666666, inset -3px -3px 0 #000000;
+  background: #1a1a1a;
+}
+
+.pixel-panel-amber {
+  border: 3px solid #ffffff;
+  box-shadow: inset 3px 3px 0 #999999, inset -3px -3px 0 #000000;
+  background: #1a1a1a;
+}
+
+.pixel-panel-red {
+  border: 3px solid #333333;
+  box-shadow: inset 3px 3px 0 #111111, inset -3px -3px 0 #000000;
+  background: #0a0a0a;
+}
+
+/* Pixel button - Mario style */
+.pixel-btn {
+  border: 3px solid #ffffff;
+  padding: 8px 16px;
+  font-family: "Press Start 2P", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.1s;
+  position: relative;
+  box-shadow: inset -3px -3px 0 #000000, inset 3px 3px 0 #666666;
+}
+.pixel-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: inset -3px -3px 0 #000000, inset 3px 3px 0 #999999, 3px 3px 0 #333333;
+}
+.pixel-btn:active {
+  transform: translate(0, 0);
+  box-shadow: inset 3px 3px 0 #000000, inset -3px -3px 0 #666666;
+}
+
+/* Pixel input */
+.pixel-input {
+  background: #000000;
+  border: 3px solid #666666;
+  padding: 10px 14px;
+  font-family: "Press Start 2P", monospace;
+  font-size: 11px;
+  color: #ffffff;
+  outline: none;
+  box-shadow: inset 2px 2px 0 #000000;
+}
+.pixel-input:focus {
+  border-color: #ffffff;
+  box-shadow: inset 2px 2px 0 #000000, 0 0 0 2px #333333;
+}
+.pixel-input::placeholder {
+  color: #666666;
+}
+
+/* Compact filter input — smaller padding for inline filter bars */
+.pixel-input-sm {
+  background: #0a0a0a;
+  border: 2px solid #444;
+  padding: 5px 8px;
+  font-family: "Press Start 2P", monospace;
+  font-size: 9px;
+  color: #ffffff;
+  outline: none;
+  box-shadow: inset 1px 1px 0 #000;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pixel-input-sm:focus {
+  border-color: #4ade80;
+  box-shadow: inset 1px 1px 0 #000, 0 0 6px rgba(74, 222, 128, 0.15);
+}
+.pixel-input-sm::placeholder {
+  color: #555;
+}
+
+/* Force pixel font on native date input internals */
+.pixel-input[type="date"]::-webkit-datetime-edit,
+.pixel-input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.pixel-input[type="date"]::-webkit-datetime-edit-text,
+.pixel-input[type="date"]::-webkit-datetime-edit-month-field,
+.pixel-input[type="date"]::-webkit-datetime-edit-day-field,
+.pixel-input[type="date"]::-webkit-datetime-edit-year-field {
+  font-family: "Press Start 2P", monospace;
+  color: #ffffff;
+}
+.pixel-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+/* 8-bit progress bar - Mario pipe style */
+.pixel-bar {
+  height: 12px;
+  background: #000000;
+  border: 2px solid #666666;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 2px 2px 0 #0a0a0a;
+}
+.pixel-bar-fill {
+  height: 100%;
+  transition: width 0.3s steps(20);
+  border-right: 2px solid #333333;
+}
+
+/* Retro table */
+.pixel-table {
+  font-size: 12px;
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.pixel-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: #999999;
+  border-bottom: 2px solid #333333;
+  letter-spacing: 1px;
+  font-size: 10px;
+  white-space: nowrap;
+  user-select: none;
+}
+.pixel-table th.sortable {
+  cursor: pointer;
+  transition: color 0.1s;
+}
+.pixel-table th.sortable:hover {
+  color: #ffffff;
+}
+.pixel-table th.sorted {
+  color: #ffffff;
+}
+.pixel-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #1a1a1a;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.pixel-table td.num,
+.pixel-table th.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+.pixel-table tbody tr {
+  transition: background 0.1s;
+}
+.pixel-table tbody tr:nth-child(even) td {
+  background: #0d0d0d;
+}
+.pixel-table tbody tr:hover td {
+  background: #1a1a1a;
+}
+.pixel-table thead.sticky th {
+  position: sticky;
+  top: 0;
+  background: #0a0a0a;
+  z-index: 1;
+}
+
+/* 8-bit badge */
+.pixel-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-family: "Press Start 2P", monospace;
+  font-size: 9px;
+  border: 1px solid;
+  letter-spacing: 1px;
+}
+
+/* Market card — sleek vertical card */
+.market-card {
+  background: #111;
+  border: 2px solid #222;
+  padding: 18px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.market-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.4), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.market-card:hover {
+  border-color: #333;
+  background: #151515;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(74, 222, 128, 0.08);
+}
+.market-card:hover::before {
+  opacity: 1;
+}
+.market-card:active {
+  transform: translateY(0);
+}
+.market-card-selected {
+  border-color: #4ade80 !important;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.1), inset 0 0 30px rgba(74, 222, 128, 0.03);
+}
+
+/* Recharts overrides */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #333333 !important;
+}
+.recharts-text {
+  fill: #999999 !important;
+  font-family: "Press Start 2P", monospace !important;
+  font-size: 7px !important;
+}
+
+/* Pixel sprite decorations - Mario coin */
+.sprite-coin::before {
+  content: "";
+  display: inline-block;
+  width: 12px; height: 12px;
+  background:
+    linear-gradient(90deg,
+      #000 0%, #000 2px,
+      #fff 2px, #fff 4px,
+      #000 4px, #000 6px,
+      #fff 6px, #fff 8px,
+      #000 8px, #000 10px,
+      #fff 10px, #fff 12px
+    );
+  border: 2px solid #ffffff;
+  box-shadow: inset 2px 2px 0 #666666, inset -2px -2px 0 #000000;
+  margin-right: 4px;
+  vertical-align: middle;
+  border-radius: 50%;
+}
+
+/* Animated cursor */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.pixel-cursor::after {
+  content: "_";
+  animation: cursor-blink 1s step-end infinite;
+}
+
+/* Mario-style question block */
+.mario-block {
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border: 2px solid #000000;
+  position: relative;
+  box-shadow: inset 2px 2px 0 #cccccc, inset -2px -2px 0 #666666;
+}
+
+.mario-block::after {
+  content: "?";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Press Start 2P", monospace;
+  font-size: 10px;
+  color: #000000;
+}
+
+/* Mario pipe decoration */
+.mario-pipe {
+  width: 20px;
+  height: 30px;
+  background: #666666;
+  border: 2px solid #ffffff;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  box-shadow: inset 2px 2px 0 #999999, inset -2px -2px 0 #333333;
+}
+
+.mario-pipe::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: #999999;
+  border-bottom: 2px solid #ffffff;
+}
+
+/* Mario mushroom */
+.mario-mushroom {
+  width: 16px;
+  height: 16px;
+  background:
+    radial-gradient(circle at 30% 30%, #ffffff 20%, transparent 20%),
+    radial-gradient(circle at 70% 30%, #ffffff 20%, transparent 20%),
+    #000000;
+  border: 2px solid #ffffff;
+  border-radius: 50% 50% 0 0;
+}
+
+/* Brick block pattern */
+.brick-pattern {
+  background-image:
+    repeating-linear-gradient(0deg, #333333 0px, #333333 1px, transparent 1px, transparent 8px),
+    repeating-linear-gradient(90deg, #333333 0px, #333333 1px, transparent 1px, transparent 16px);
+}
+
+/* Star power animation */
+@keyframes star-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.mario-star {
+  animation: star-spin 2s linear infinite;
+}
+
+/* Ground pattern like Mario level */
+.mario-ground {
+  background-image:
+    repeating-linear-gradient(90deg,
+      #000 0px, #000 2px,
+      #fff 2px, #fff 4px,
+      #000 4px, #000 6px,
+      #fff 6px, #fff 8px
+    );
+  height: 4px;
+}

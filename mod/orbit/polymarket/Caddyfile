@@ -1,0 +1,19 @@
+{
+    admin localhost:2091
+}
+
+:3000 {
+    @polymarket_api path /api/polymarket /api/polymarket/*
+    handle @polymarket_api {
+        uri strip_prefix /api/polymarket
+        reverse_proxy localhost:50091
+    }
+    @polymarket_app path /polymarket/QmTdqSNwtTavaPQcjKPZxEridBZZ6iGQZZHs21fBuc2tr5 /polymarket/QmTdqSNwtTavaPQcjKPZxEridBZZ6iGQZZHs21fBuc2tr5/*
+    handle @polymarket_app {
+        uri replace /polymarket/QmTdqSNwtTavaPQcjKPZxEridBZZ6iGQZZHs21fBuc2tr5 /polymarket 1
+        reverse_proxy localhost:3091
+    }
+    handle /* {
+        reverse_proxy localhost:3091
+    }
+}

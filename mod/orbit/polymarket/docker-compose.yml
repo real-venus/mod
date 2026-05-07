@@ -1,0 +1,9 @@
+services:
+  polymarket:
+    build: .
+    container_name: polymarket
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - GATEWAY_PORT=3000
