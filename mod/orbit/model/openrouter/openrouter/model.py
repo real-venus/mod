@@ -11,6 +11,7 @@ class OpenRouter:
 
     api_path = 'apikeys' # path to store api keys (relative to storage_path)
     env_varname = 'OPENROUTER_API_KEY' # environment variable name for api key
+    provider = 'openrouter'
 
     @classmethod
     def create(cls, copy_from=None, **kwargs):

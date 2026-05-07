@@ -1,36 +1,27 @@
 {
     "name": "uniswap",
-    "version": "1.0.0",
-    "description": "Uniswap V3 multi-chain connector \u2014 pools, swaps, tokens, history via The Graph",
     "port": 50088,
+    "app_port": 3088,
+    "description": "Uniswap V3 multi-chain trader scraper",
     "urls": {
         "api": "http://localhost:50088",
         "app": "http://localhost:3088"
     },
     "fns": [
-        "get_pools",
-        "get_pool",
-        "get_swaps",
-        "get_swaps_by_pool",
-        "get_tokens",
-        "get_pool_day_data",
-        "explore",
-        "get_trader_swaps",
-        "get_trader_performance",
-        "get_top_traders",
-        "add_watchlist",
-        "remove_watchlist",
-        "get_watchlist",
-        "chains",
         "serve",
         "kill",
-        "clear_cache",
-        "save_data",
-        "load_data",
-        "delete_data",
-        "list_saved",
-        "health",
-        "test"
+        "traders",
+        "trader",
+        "scrape",
+        "chains",
+        "health"
     ],
-    "schema": "QmcR4ptct9MVFzYZaAQhggQMwM64SpaG9r1HekRegKjo3Q"
+    "chains": [
+        "ethereum",
+        "arbitrum",
+        "base",
+        "polygon",
+        "optimism"
+    ],
+    "schema": "QmTXCw9sC1zbh4LPmzGEy1ZwGCdU54vfkFNL9a7wFkcqzp"
 }

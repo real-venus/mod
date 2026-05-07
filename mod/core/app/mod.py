@@ -1,12 +1,13 @@
 import mod as m
 import os
+import json
 
 class App:
-    
+
     def run_caddy(self, **kwargs):
         caddy = m.mod('caddy')()
         return caddy.serve(**kwargs)
-    
+
     def build(self, mod='app', api_url=None, public_api_url=None, **kwargs):
         cwd = m.dirpath(mod)
         api_url = api_url or 'http://localhost:8000'
@@ -17,6 +18,40 @@ class App:
     def install(self, mod='app', **kwargs):
         cwd = m.dirpath(mod)
         return os.system(f'cd {cwd} && npm install')
+
+    def _start_gateway(self, port, api_port, app_port):
+        """Start a Caddy gateway on `port` that routes /api to the API and everything else to the app."""
+        gateway_dir = os.path.expanduser('~/.mod/gateway')
+        os.makedirs(gateway_dir, exist_ok=True)
+        caddyfile_path = os.path.join(gateway_dir, 'Caddyfile')
+        caddyfile = (
+            '{\n'
+            '    admin off\n'
+            '}\n\n'
+            f':{port} {{\n'
+            '    @api path /api /api/*\n'
+            '    handle @api {\n'
+            '        uri strip_prefix /api\n'
+            f'        reverse_proxy localhost:{api_port}\n'
+            '    }\n'
+            '    handle {\n'
+            f'        reverse_proxy localhost:{app_port}\n'
+            '    }\n'
+            '}\n'
+        )
+        with open(caddyfile_path, 'w') as f:
+            f.write(caddyfile)
+        # Start Caddy via PM2 so it's managed alongside the other processes
+        script_path = os.path.join(gateway_dir, '_gateway.sh')
+        script = f'#!/bin/bash\ncaddy run --config {caddyfile_path}\n'
+        with open(script_path, 'w') as f:
+            f.write(script)
+        os.chmod(script_path, 0o755)
+        pm2 = m.mod('pm.pm2')()
+        if pm2.exists('gateway'):
+            pm2.kill('gateway', remove_script=False)
+        pm2.start_script(name='gateway', script_path=script_path, cwd=gateway_dir, interpreter='bash')
+        print(f'Gateway started on :{port} — /api → :{api_port}, / → :{app_port}')
 
     def serve(self,
             port=3000,
@@ -41,14 +76,16 @@ class App:
             print(f'[app] bridge dependency skipped: {e}')
         cwd = m.dirpath(mod)
         api_url = f'http://localhost:{api_port}'
+        # Next.js runs on port+1 internally; Caddy gateway owns the public port
+        app_port = port + 1
         if prod:
             if build:
                 result = self.build(mod=mod, api_url=api_url, public_api_url=public_api_url)
                 if result != 0:
                     return f'Build failed with exit code {result}'
-            cmd = f'npm run start -- -p {port}'
+            cmd = f'npm run start -- -p {app_port}'
         else:
-            cmd = f'npm run dev -- -p {port}'
+            cmd = f'npm run dev -- -p {app_port}'
         script_path = os.path.join(cwd, '_serve_app.sh')
         script = f'#!/bin/bash\ncd {cwd}\nexport API_URL_INTERNAL="{api_url}"\n'
         if public_api_url:
@@ -60,12 +97,14 @@ class App:
         pm2 = m.mod('pm.pm2')()
         if pm2.exists(mod):
             pm2.kill(mod, remove_script=False)
-        return pm2.start_script(
+        pm2.start_script(
                     name=mod,
                     script_path=script_path,
                     cwd=cwd,
                     interpreter='bash'
                     )
+        # Start Caddy gateway: port → /api→api_port, /→app_port
+        self._start_gateway(port=port, api_port=api_port, app_port=app_port)
 
     def prod(self, port=3000, mod='app', api_port=8000, api_url=None, domain='modc2.com', **kwargs):
         api_url = api_url or f'http://localhost:{api_port}'

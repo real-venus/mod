@@ -30,8 +30,39 @@ You write code ──> Register on-chain ──> Users call it ──> You get p
 
 ```bash
 git clone https://github.com/modc2/mod.git
-cd mod && pip install -e .
+cd mod
+./setup.sh        # installs node, pm2, rust, mod, commune
 ```
+
+## Deploy
+
+Three scripts standardize all deployment: `setup.sh`, `start.sh`, `stop.sh`.
+
+### Local
+
+```bash
+./setup.sh        # one-time: installs all dependencies
+./start.sh        # starts API + App via PM2
+./stop.sh         # stops all servers
+./stop.sh api     # stops a specific server
+```
+
+### Docker
+
+```bash
+./start.sh --docker              # build + run (image: mod, container: mod)
+./start.sh --docker myimg mycon  # custom image/container names
+./stop.sh --docker               # stops the mod container
+./stop.sh --docker mycon         # stops a specific container
+```
+
+### Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `setup.sh` | Installs node, pm2, rust, mod (editable), commune |
+| `start.sh` | Starts API + App locally, or `--docker` for containerized |
+| `stop.sh` | Stops all mod servers (PM2) or `--docker` for container |
 
 ## Usage
 

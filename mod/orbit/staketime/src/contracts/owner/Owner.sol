@@ -301,6 +301,44 @@ contract Owner {
         emit SignersUpdated(_signers.length, _threshold);
     }
 
+    function changeThreshold(uint256 _threshold) external onlySelf {
+        require(_threshold > 0 && _threshold <= signers.length, "invalid threshold");
+        threshold = _threshold;
+        emit SignersUpdated(signers.length, _threshold);
+    }
+
+    function addSigner(address signer, uint256 _threshold) external onlySelf {
+        require(signer != address(0), "zero signer");
+        require(!isSigner[signer], "already a signer");
+        require(_threshold > 0 && _threshold <= signers.length + 1, "invalid threshold");
+
+        isSigner[signer] = true;
+        signers.push(signer);
+        threshold = _threshold;
+
+        emit SignersUpdated(signers.length, _threshold);
+    }
+
+    function removeSigner(address signer, uint256 _threshold) external onlySelf {
+        require(isSigner[signer], "not a signer");
+        require(signers.length - 1 > 0, "cannot remove last signer");
+        require(_threshold > 0 && _threshold <= signers.length - 1, "invalid threshold");
+
+        isSigner[signer] = false;
+
+        // Swap-and-pop
+        for (uint256 i = 0; i < signers.length; i++) {
+            if (signers[i] == signer) {
+                signers[i] = signers[signers.length - 1];
+                signers.pop();
+                break;
+            }
+        }
+        threshold = _threshold;
+
+        emit SignersUpdated(signers.length, _threshold);
+    }
+
     function setTokenConfig(address _token, uint256 _quorumBps, uint256 _votingPeriod) external onlySelf {
         require(_token != address(0), "zero token");
         require(_quorumBps > 0 && _quorumBps <= 10000, "invalid quorum");

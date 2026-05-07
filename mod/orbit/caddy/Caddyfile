@@ -30,24 +30,6 @@ modc2.com {
     handle @bridge_app {
         reverse_proxy {$PM2_HOST:localhost}:8841
     }
-    @claude_api path /api/claude /api/claude/*
-    handle @claude_api {
-        uri strip_prefix /api/claude
-        reverse_proxy {$PM2_HOST:localhost}:8820
-    }
-    @claude_app path /claude /claude/*
-    handle @claude_app {
-        reverse_proxy {$PM2_HOST:localhost}:8821
-    }
-    @hyperliquid_api path /api/hyperliquid /api/hyperliquid/*
-    handle @hyperliquid_api {
-        uri strip_prefix /api/hyperliquid
-        reverse_proxy {$PM2_HOST:localhost}:8919
-    }
-    @hyperliquid_app path /hyperliquid /hyperliquid/*
-    handle @hyperliquid_app {
-        reverse_proxy {$PM2_HOST:localhost}:3919
-    }
     @latexhub_api path /api/latexhub /api/latexhub/*
     handle @latexhub_api {
         uri strip_prefix /api/latexhub
@@ -65,15 +47,6 @@ modc2.com {
     @openclaw_app path /openclaw /openclaw/*
     handle @openclaw_app {
         reverse_proxy openclaw:50121
-    }
-    @polymarket_api path /api/polymarket /api/polymarket/*
-    handle @polymarket_api {
-        uri strip_prefix /api/polymarket
-        reverse_proxy {$PM2_HOST:localhost}:50091
-    }
-    @polymarket_app path /polymarket /polymarket/*
-    handle @polymarket_app {
-        reverse_proxy {$PM2_HOST:localhost}:3091
     }
     @main_api path /api /api/*
     handle @main_api {

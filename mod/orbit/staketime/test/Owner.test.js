@@ -423,6 +423,107 @@ describe("Owner", function () {
     });
   });
 
+  // ── Signer Management (without redeployment) ─────────────────────
+
+  describe("Signer Management", function () {
+    beforeEach(async function () {
+      // Configure signers
+      const setSignersData = owner.interface.encodeFunctionData("setSigners", [
+        [signer1.address, signer2.address, signer3.address], 2
+      ]);
+      await owner.execute(await owner.getAddress(), setSignersData);
+
+      // Switch to multisig
+      const setTypeData = owner.interface.encodeFunctionData("setOwnerType", [1]);
+      await owner.execute(await owner.getAddress(), setTypeData);
+    });
+
+    it("multisig can change threshold via proposal", async function () {
+      const data = owner.interface.encodeFunctionData("changeThreshold", [3]);
+      await owner.connect(signer1).propose(await owner.getAddress(), data);
+      await owner.connect(signer1).approve(0);
+      await owner.connect(signer2).approve(0);
+
+      expect(await owner.threshold()).to.equal(3);
+    });
+
+    it("multisig can add a signer via proposal", async function () {
+      const data = owner.interface.encodeFunctionData("addSigner", [user1.address, 2]);
+      await owner.connect(signer1).propose(await owner.getAddress(), data);
+      await owner.connect(signer1).approve(0);
+      await owner.connect(signer2).approve(0);
+
+      expect(await owner.signerCount()).to.equal(4);
+      expect(await owner.isSigner(user1.address)).to.be.true;
+      expect(await owner.threshold()).to.equal(2);
+    });
+
+    it("multisig can remove a signer via proposal", async function () {
+      const data = owner.interface.encodeFunctionData("removeSigner", [signer3.address, 2]);
+      await owner.connect(signer1).propose(await owner.getAddress(), data);
+      await owner.connect(signer1).approve(0);
+      await owner.connect(signer2).approve(0);
+
+      expect(await owner.signerCount()).to.equal(2);
+      expect(await owner.isSigner(signer3.address)).to.be.false;
+      expect(await owner.threshold()).to.equal(2);
+    });
+
+    it("cannot remove last signer", async function () {
+      // First reduce to 1 signer by removing 2
+      const rm1 = owner.interface.encodeFunctionData("removeSigner", [signer2.address, 1]);
+      await owner.connect(signer1).propose(await owner.getAddress(), rm1);
+      await owner.connect(signer1).approve(0);
+      await owner.connect(signer2).approve(0);
+
+      const rm2 = owner.interface.encodeFunctionData("removeSigner", [signer3.address, 1]);
+      await owner.connect(signer1).propose(await owner.getAddress(), rm2);
+      await owner.connect(signer1).approve(1);
+
+      // Now only signer1 and signer3 left, threshold=1, try removing signer1
+      // Actually signer3 is still a signer. After rm1: [signer1, signer3] (swap-pop puts last in removed slot)
+      // After rm2 attempt: signer3 removed → [signer1] only, threshold=1 — should succeed
+      // Then try to remove signer1 (the last one) — should fail
+      const rm3 = owner.interface.encodeFunctionData("removeSigner", [signer1.address, 1]);
+      await owner.connect(signer1).propose(await owner.getAddress(), rm3);
+      await expect(
+        owner.connect(signer1).approve(2)
+      ).to.be.revertedWith("proposal execution failed");
+    });
+
+    it("contract address stays the same after signer changes", async function () {
+      const addressBefore = await owner.getAddress();
+
+      // Change signers
+      const data = owner.interface.encodeFunctionData("addSigner", [user1.address, 3]);
+      await owner.connect(signer1).propose(await owner.getAddress(), data);
+      await owner.connect(signer1).approve(0);
+      await owner.connect(signer2).approve(0);
+
+      const addressAfter = await owner.getAddress();
+      expect(addressAfter).to.equal(addressBefore);
+    });
+
+    it("rejects invalid threshold in changeThreshold", async function () {
+      // threshold > signerCount
+      const data = owner.interface.encodeFunctionData("changeThreshold", [5]);
+      await owner.connect(signer1).propose(await owner.getAddress(), data);
+      await owner.connect(signer1).approve(0);
+      await expect(
+        owner.connect(signer2).approve(0)
+      ).to.be.revertedWith("proposal execution failed");
+    });
+
+    it("rejects adding duplicate signer", async function () {
+      const data = owner.interface.encodeFunctionData("addSigner", [signer1.address, 2]);
+      await owner.connect(signer1).propose(await owner.getAddress(), data);
+      await owner.connect(signer1).approve(0);
+      await expect(
+        owner.connect(signer2).approve(0)
+      ).to.be.revertedWith("proposal execution failed");
+    });
+  });
+
   // ── Views ─────────────────────────────────────────────────────────
 
   describe("Views", function () {

@@ -275,18 +275,18 @@ async fn submit_job(
         }
     };
 
-    // Permission check: owner can edit anything, non-owners can only edit _outer/{their_address}/ modules
+    // Permission check: owner can edit anything, non-owners can only edit portal/{their_address}/ modules
     if !user_address.is_empty() && !auth::is_owner(&user_address) {
-        // Check work_dir — non-owners must work within _outer/{their_address}/
+        // Check work_dir — non-owners must work within portal/{their_address}/
         if let Some(ref work_dir) = req.work_dir {
             let normalized = work_dir.to_lowercase();
-            let user_outer = format!("_outer/{}", user_address.to_lowercase());
-            if !normalized.contains(&user_outer) {
+            let user_portal = format!("portal/{}", user_address.to_lowercase());
+            if !normalized.contains(&user_portal) {
                 return (
                     StatusCode::FORBIDDEN,
                     Json(json!({
                         "error": format!(
-                            "Permission denied: non-owners can only edit modules in _outer/{}/",
+                            "Permission denied: non-owners can only edit modules in portal/{}/",
                             user_address
                         )
                     })),
@@ -295,28 +295,28 @@ async fn submit_job(
             }
         }
 
-        // Check module_name — non-owners must target _outer/{their_address}/ modules
+        // Check module_name — non-owners must target portal/{their_address}/ modules
         if let Some(ref module_name) = req.module_name {
             let normalized = module_name.to_lowercase();
-            let user_prefix = format!("_outer/{}", user_address.to_lowercase());
-            if !normalized.starts_with(&user_prefix) && !normalized.starts_with("_outer/") {
+            let user_prefix = format!("portal/{}", user_address.to_lowercase());
+            if !normalized.starts_with(&user_prefix) && !normalized.starts_with("portal/") {
                 return (
                     StatusCode::FORBIDDEN,
                     Json(json!({
                         "error": format!(
-                            "Permission denied: non-owners can only create/edit modules under _outer/{}/",
+                            "Permission denied: non-owners can only create/edit modules under portal/{}/",
                             user_address
                         )
                     })),
                 )
                     .into_response();
             }
-            // If it starts with _outer/ but not their address, also block
-            if normalized.starts_with("_outer/") && !normalized.starts_with(&user_prefix) {
+            // If it starts with portal/ but not their address, also block
+            if normalized.starts_with("portal/") && !normalized.starts_with(&user_prefix) {
                 return (
                     StatusCode::FORBIDDEN,
                     Json(json!({
-                        "error": "Permission denied: you can only edit your own modules in _outer/"
+                        "error": "Permission denied: you can only edit your own modules in portal/"
                     })),
                 )
                     .into_response();

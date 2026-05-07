@@ -433,6 +433,10 @@ class Mod:
             'diff': diff,
         }
 
+    def start_worker(self, interval=300, **kw):
+        """Start a background sync worker (no-op for now)."""
+        pass
+
     def backends(self):
         """List available backends."""
         return ['offchain', 'evm', 'solana', 'near']

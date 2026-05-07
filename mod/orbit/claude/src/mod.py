@@ -31,7 +31,7 @@ class Mod:
         'bg', 'bg_status', 'bg_list', 'snapshot', 'changelog',
         'get_version', 'restore_version', 'health', 'modules',
         'folders', 'suggest_folders',
-        'set_owner', 'get_owner', 'is_owner', 'ensure_env',
+        'set_owner', 'get_owner', 'is_owner', 'permissions', 'ensure_env',
         'install', 'setup', 'serve',
         'kill', 'kill_port', 'status', 'logs', 'scan', 'fix',
     ]
@@ -154,6 +154,98 @@ class Mod:
                 f"  caller: {caller}\n"
                 f"  owner:  {owner}"
             )
+
+    def _portal_dir(self, address: str) -> str:
+        """Return the portal directory for a given address."""
+        return os.path.join(os.path.expanduser('~/mod/mod/orbit/portal'), address.lower())
+
+    def _user_allowed_modules(self, address: str) -> List[str]:
+        """List module names a non-owner user is allowed to edit (from portal/{address}/)."""
+        portal = self._portal_dir(address)
+        if not os.path.isdir(portal):
+            return []
+        return [d for d in os.listdir(portal)
+                if os.path.isdir(os.path.join(portal, d)) and not d.startswith('.')]
+
+    def _path_in_portal(self, path: str, address: str) -> bool:
+        """Check if a path is within the user's portal directory."""
+        try:
+            real_path = os.path.realpath(os.path.expanduser(path))
+            real_portal = os.path.realpath(self._portal_dir(address))
+            return real_path.startswith(real_portal + os.sep) or real_path == real_portal
+        except Exception:
+            return False
+
+    def require_permission(self, key=None, module: str = None, path: str = None,
+                           operation: str = "this operation"):
+        """Check if the caller has permission for the target module/path.
+
+        Owner: can edit anything (orbit, core, portal, etc.)
+        Non-owner: can only edit modules within portal/{their_address}/.
+
+        Args:
+            key: caller identity (address, Key, token, or None for self.key)
+            module: module name being edited (e.g. 'bridge', 'agent')
+            path: working directory path
+            operation: description for error messages
+        """
+        # owner can do anything
+        if self.is_owner(key):
+            return
+
+        caller_addr = self._resolve_address(key)
+
+        # check if path is within caller's portal
+        if path and self._path_in_portal(path, caller_addr):
+            return
+
+        # check if module name matches a portal module
+        if module:
+            allowed = self._user_allowed_modules(caller_addr)
+            # allow portal/{addr}/{module} style names
+            normalized = module.lower().replace('portal/', '').lstrip('/')
+            # strip the address prefix if present
+            addr_prefix = caller_addr.lower() + '/'
+            if normalized.startswith(addr_prefix):
+                normalized = normalized[len(addr_prefix):]
+            if normalized in [a.lower() for a in allowed]:
+                return
+
+        # no match — deny
+        caller_fmt = self._format_address(caller_addr)
+        portal_path = self._portal_dir(caller_addr)
+        allowed = self._user_allowed_modules(caller_addr)
+        allowed_str = ', '.join(allowed[:5]) if allowed else '(none)'
+        raise PermissionError(
+            f"Permission denied: '{operation}'\n"
+            f"  caller: {caller_fmt}\n"
+            f"  allowed modules: {allowed_str}\n"
+            f"  portal: {portal_path}\n"
+            f"  hint: non-owners can only edit modules in their portal directory"
+        )
+
+    def permissions(self, key=None) -> dict:
+        """Check what the caller is allowed to edit.
+
+        Returns role ('owner' or 'user'), address, and allowed modules.
+        Owner can edit all modules. Non-owners can only edit portal/{address}/ modules.
+        """
+        addr = self._resolve_address(key)
+        if self.is_owner(key):
+            return {
+                'role': 'owner',
+                'address': addr,
+                'can_edit': 'all',
+                'scope': ['orbit/*', 'core/*', 'portal/*'],
+            }
+        allowed = self._user_allowed_modules(addr)
+        return {
+            'role': 'user',
+            'address': addr,
+            'can_edit': 'portal_only',
+            'portal': self._portal_dir(addr),
+            'modules': allowed,
+        }
 
     # ── HTTP helpers ──────────────────────────────────────────────
 
@@ -313,10 +405,10 @@ class Mod:
             key:    caller address for permission check
         """
         query = query + " " + " ".join(extra_query)
-        self.require_owner(key, f"forward({query[:40]}...)")
-
         module_name = mod or kwargs.pop('module_name', None)
         path = m.dp(module_name) if module_name else kwargs.pop('path', self.default_path)
+        self.require_permission(key, module=module_name, path=path,
+                                operation=f"forward({query[:40]}...)")
 
         data = {
             "prompt": query,
@@ -412,17 +504,17 @@ class Mod:
     def generate_code(self, description: str, language: str = "python",
                       path: str = None, model: str = "sonnet",
                       key: str = None, **kwargs) -> str:
-        """Generate code from description. Write operation, requires owner."""
-        self.require_owner(key, "generate_code")
+        """Generate code from description. Write operation, requires permission."""
         work_dir = path or self.default_path
+        self.require_permission(key, path=work_dir, operation="generate_code")
         prompt = f"Generate {language} code: {description}"
         return self._run_cli(prompt, path=work_dir, model=model,
                              output_format="text", stream_output=False)
 
     def refactor(self, path: str, instructions: str = None,
                  model: str = "sonnet", key: str = None, **kwargs) -> str:
-        """Refactor code at path. Write operation, requires owner."""
-        self.require_owner(key, "refactor")
+        """Refactor code at path. Write operation, requires permission."""
+        self.require_permission(key, path=path, operation="refactor")
         prompt = f"Refactor the code. {instructions or 'Improve structure and readability.'}"
         return self._run_cli(prompt, path=path, model=model,
                              output_format="text", stream_output=False)
@@ -439,9 +531,9 @@ class Mod:
     def edit_file(self, file_path: str, instructions: str,
                   path: str = None, model: str = "sonnet",
                   key: str = None, **kwargs) -> str:
-        """Edit a file with instructions. Write operation, requires owner."""
-        self.require_owner(key, "edit_file")
+        """Edit a file with instructions. Write operation, requires permission."""
         work_dir = path or self.default_path
+        self.require_permission(key, path=work_dir, operation="edit_file")
         prompt = f"Edit the file {file_path}: {instructions}"
         return self._run_cli(prompt, path=work_dir, model=model,
                              output_format="text", stream_output=False)
@@ -599,16 +691,19 @@ class Mod:
     # ── module ops ────────────────────────────────────────────────
 
     def create_module(self, module_name: str, prompt: str,
-                      model: str = "sonnet", anchor_dir: str = None) -> dict:
-        """Create a new orbit module via background job."""
+                      model: str = "sonnet", anchor_dir: str = None,
+                      key: str = None) -> dict:
+        """Create a new orbit module via background job. Requires permission."""
+        self.require_permission(key, module=module_name, operation="create_module")
         return self.submit(prompt=prompt, model=model, module_name=module_name,
-                           creation_mode="new", anchor_dir=anchor_dir)
+                           creation_mode="new", anchor_dir=anchor_dir, key=key)
 
     def edit_module(self, module_name: str, prompt: str,
-                    model: str = "sonnet") -> dict:
-        """Edit an existing module via background job."""
+                    model: str = "sonnet", key: str = None) -> dict:
+        """Edit an existing module via background job. Requires permission."""
+        self.require_permission(key, module=module_name, operation="edit_module")
         return self.submit(prompt=prompt, model=model, module_name=module_name,
-                           creation_mode="edit")
+                           creation_mode="edit", key=key)
 
     # ── read-only helpers (API endpoints) ─────────────────────────
 
