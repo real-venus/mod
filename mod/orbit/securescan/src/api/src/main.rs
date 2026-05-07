@@ -116,6 +116,9 @@ struct ScanRequest {
     provider: Option<String>,
     model: Option<String>,
     key: Option<String>,
+    /// EVM address of the reviewer (from a connected wallet). When set, this
+    /// is recorded as the scan's reviewer instead of a key-derived wallet.
+    reviewer: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -140,6 +143,13 @@ async fn start_scan(
         }
     }
 
+    // Validate the reviewer (EVM address) at the edge so junk addresses can't
+    // get persisted and so we never shell out a malformed value.
+    let reviewer = match req.reviewer.as_deref() {
+        Some(r) => Some(validate_reviewer(r).map_err(ApiError::bad)?),
+        None => None,
+    };
+
     let scan_id = make_scan_id(&repo_url);
     let scan_dir = state.scans_dir.join(&scan_id);
     std::fs::create_dir_all(&scan_dir).map_err(|e| ApiError::internal(e.to_string()))?;
@@ -149,6 +159,7 @@ async fn start_scan(
         "repo": repo_url,
         "branch": req.branch,
         "subdir": req.subdir,
+        "reviewer": reviewer,
         "status": "queued",
         "started_at": now_ts(),
     });
@@ -161,6 +172,20 @@ async fn start_scan(
         repo: repo_url,
         status: "queued",
     }))
+}
+
+/// Validate an EVM-style reviewer address (`0x` + 40 hex chars). Returns the
+/// lowercased canonical form on success so the value persisted everywhere is
+/// consistent.
+fn validate_reviewer(r: &str) -> Result<String, &'static str> {
+    let t = r.trim();
+    if t.len() != 42 || !t.starts_with("0x") {
+        return Err("reviewer must be a 0x-prefixed 40-char hex address");
+    }
+    if !t[2..].chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err("reviewer must be a 0x-prefixed 40-char hex address");
+    }
+    Ok(t.to_ascii_lowercase())
 }
 
 fn validate_subdir(s: &str) -> Result<(), &'static str> {
@@ -246,6 +271,11 @@ fn spawn_scan_worker(scan_id: &str, repo_url: &str, req: &ScanRequest) {
     let provider = req.provider.clone();
     let model = req.model.clone();
     let key = req.key.clone();
+    // Reviewer was already validated in start_scan; re-validate defensively.
+    let reviewer = req
+        .reviewer
+        .as_deref()
+        .and_then(|r| validate_reviewer(r).ok());
 
     tokio::spawn(async move {
         let mut args: Vec<String> = vec![
@@ -269,6 +299,9 @@ fn spawn_scan_worker(scan_id: &str, repo_url: &str, req: &ScanRequest) {
         }
         if let Some(k) = key {
             args.push(format!("key={k}"));
+        }
+        if let Some(r) = reviewer {
+            args.push(format!("reviewer={r}"));
         }
 
         tracing::info!(scan_id = %scan_id, "spawning scan: m {}", args.join(" "));

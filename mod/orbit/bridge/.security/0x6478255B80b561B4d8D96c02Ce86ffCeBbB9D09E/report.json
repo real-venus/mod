@@ -1,56 +1,15 @@
 {
-  "timestamp": 1746662400,
+  "timestamp": 1778161602,
   "reviewer": "0x6478255B80b561B4d8D96c02Ce86ffCeBbB9D09E",
   "key": "test",
-  "model": "manual-audit",
+  "model": "anthropic/claude-sonnet-4",
   "repo": "/root/mod/mod/orbit/bridge",
-  "steps": null,
-  "elapsed_seconds": null,
+  "steps": 20,
+  "elapsed_seconds": 1.6,
   "stats": {
     "total": 0,
     "by_severity": {},
     "by_category": {}
   },
-  "findings": [],
-  "scope": {
-    "rust_api": "api/src/{main,config,crypto,ratelimit,routes/mod,state,store,validate}.rs",
-    "python_module": "mod.py",
-    "frontend": "app/src/app/page.tsx",
-    "ingress": "Caddyfile",
-    "contracts": "../../../core/chain/chain/mods/bridge/Bridge.sol (out of scope, unchanged)"
-  },
-  "methodology": [
-    "secret scan (env-only key sourcing — no hardcoded admin/signer keys)",
-    "injection scan (no shell=True, no eval/exec, list-form subprocess args, JSON parse via serde)",
-    "xss scan (React rendering, no dangerouslySetInnerHTML, toast uses text content)",
-    "access control (admin endpoints require BRIDGE_ADMIN_KEY via constant-time compare in both Python and Rust)",
-    "crypto review (schnorrkel sr25519 with substrate context + <Bytes> wrapper fallback; ed25519-dalek for Solana; SS58 checksum validated on decode)",
-    "replay protection (per-claim and per-commit signature digests stored in used_signatures.json; 5-minute timestamp window for claim sigs)",
-    "rate limiting (per-IP sliding window, X-Forwarded-For trusted only from loopback so Caddy passes real client IP without external spoof risk)",
-    "DoS surface (8KB body limit; rate-limited /balances and /get_total_balances; paged snapshot loader on the frontend)",
-    "data integrity (atomic file writes via tempfile + persist; in-memory state guarded by parking_lot RwLock)",
-    "info leakage (errors are JSON {error:string}; no stack traces; admin token never logged)"
-  ],
-  "fixes_applied_this_review": [
-    {
-      "issue": "Python admin token comparison used `==` (timing leak)",
-      "where": "mod.py:_verify_owner_token",
-      "fix": "switched to hmac.compare_digest"
-    },
-    {
-      "issue": "Rate limiter saw proxy IP (127.0.0.1) when running behind Caddy",
-      "where": "api/src/routes/mod.rs",
-      "fix": "client_ip() reads X-Forwarded-For but only when the connection originates from loopback — external clients can't spoof"
-    },
-    {
-      "issue": "/get_total_balances returned the entire 6MB snapshot with no rate limit (DoS surface)",
-      "where": "api/src/routes/mod.rs",
-      "fix": "added rate limiter to /get_total_balances; frontend migrated to paged /balances?page=&limit= so the legacy endpoint sees minimal traffic"
-    },
-    {
-      "issue": "Python API was the production server with weaker validation/replay surface",
-      "where": "api/api.py (removed)",
-      "fix": "replaced with Rust axum service: explicit length+charset validation, constant-time compare, atomic JSON writes, schnorrkel-based sr25519 verification, body size limit"
-    }
-  ]
+  "findings": []
 }
