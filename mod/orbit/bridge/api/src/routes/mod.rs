@@ -27,6 +27,7 @@ pub fn router() -> Router<AppState> {
         .route("/status", get(status).post(status))
         .route("/owner", get(owner))
         .route("/contract_info", get(contract_info))
+        .route("/audit", get(audit))
         // Snapshot
         .route("/in_snapshot/:address", get(in_snapshot))
         .route("/balances", get(balances).post(balances_post))
@@ -113,12 +114,16 @@ async fn health(State(state): State<AppState>) -> Json<serde_json::Value> {
 async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
     let total_owed: f64 = state.store.snapshot_total();
     let total_claimed: f64 = state.store.claims_total();
+    let total_committed: f64 = state.store.committed_balance_total();
+    let commitment_count = state.store.commitments_count();
     Json(json!({
         "total_addresses": state.store.snapshot_len(),
         "total_owed": total_owed,
         "total_claimed": total_claimed,
-        "total_unclaimed": total_owed - total_claimed,
+        "total_committed": total_committed,
+        "total_unclaimed": total_owed - total_claimed - total_committed,
         "claim_count": state.store.claims_count(),
+        "commitment_count": commitment_count,
     }))
 }
 
@@ -133,6 +138,20 @@ async fn contract_info(State(_state): State<AppState>) -> Json<serde_json::Value
         "network": "testnet",
         "abi_stored": false,
         "note": "contract_info served by orbit module — Rust API is read-only for chain metadata"
+    }))
+}
+
+async fn audit(State(state): State<AppState>) -> Json<serde_json::Value> {
+    // Public auditability surface — anyone can re-compute SHA-256 of
+    // snapshot/total_balances.json on disk and verify it matches `cid`.
+    Json(json!({
+        "snapshot": {
+            "cid": state.snapshot_audit.cid,
+            "updated_at": state.snapshot_audit.updated_at,
+            "bytes": state.snapshot_audit.bytes,
+            "addresses": state.store.snapshot_len(),
+            "algo": "sha256",
+        },
     }))
 }
 
@@ -156,6 +175,14 @@ pub struct PageParams {
     pub page: usize,
     #[serde(default)]
     pub limit: Option<usize>,
+    #[serde(default)]
+    pub q: Option<String>,
+    #[serde(default)]
+    pub sort_by: Option<String>,
+    #[serde(default)]
+    pub dir: Option<String>,
+    #[serde(default)]
+    pub claim_filter: Option<String>,
 }
 
 async fn balances(
@@ -165,17 +192,41 @@ async fn balances(
     Query(p): Query<PageParams>,
 ) -> Result<Json<serde_json::Value>, Response> {
     check_rate(&state, &headers, conn)?;
-    let limit = p.limit.unwrap_or(500).min(2000).max(1);
-    let (entries, total) = state.store.snapshot_page(p.page, limit);
+    let limit = p.limit.unwrap_or(50).min(2000).max(1);
+    let sort_by = p.sort_by.as_deref().unwrap_or("address");
+    let dir = p.dir.as_deref().unwrap_or("asc");
+    let claim_filter = p.claim_filter.as_deref().unwrap_or("all");
+    let (entries, total) = state.store.snapshot_filtered_page(
+        p.page,
+        limit,
+        p.q.as_deref(),
+        sort_by,
+        dir,
+        claim_filter,
+    );
+    // Preserve the existing { balances: { addr: bal } } shape while also
+    // returning a richer ordered list so the client can render directly
+    // without re-sorting.
     let balances: serde_json::Map<String, serde_json::Value> = entries
-        .into_iter()
-        .map(|(k, v)| (k, json!(v)))
+        .iter()
+        .map(|(k, v, _)| (k.clone(), json!(v)))
+        .collect();
+    let entries_array: Vec<serde_json::Value> = entries
+        .iter()
+        .map(|(addr, bal, claimed)| {
+            json!({ "address": addr, "balance": bal, "claimed": claimed })
+        })
         .collect();
     Ok(Json(json!({
         "balances": balances,
+        "entries": entries_array,
         "total": total,
         "page": p.page,
         "limit": limit,
+        "q": p.q.unwrap_or_default(),
+        "sort_by": sort_by,
+        "dir": dir,
+        "claim_filter": claim_filter,
     })))
 }
 

@@ -1,18 +1,43 @@
+"""
+securescan — agent-powered security scanner for any GitHub repository.
+
+Layout
+    securescan/
+      securescan/mod.py   ← this file (anchor, framework entry point)
+      src/
+        api/              ← FastAPI server (api.py)
+        app/              ← Next.js scanner UI
+
+Usage
+    import mod as m
+    s = m.mod('securescan')()
+    s.scan(mod='bridge')                          # local module
+    s.scan(path='/some/repo')                     # local path
+    s.scan_github('https://github.com/user/repo') # remote repo
+    s.serve()                                     # start API + UI
+"""
 
 import os
+import re
 import json
 import time
+import shutil
+import hashlib
+import tempfile
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+
 import mod as m
 print = m.print
 
 
 class Mod:
     description = """
-    Agent-powered security scanner for repositories.
-    Uses an AI agent to audit code for vulnerabilities, secrets, and misconfigurations.
-    Writes reports to .security/{reviewer_wallet}/ in the scanned repo.
+    Agent-powered security scanner. Scans any GitHub repository (or local path)
+    for vulnerabilities, secrets, and misconfigurations using an LLM agent.
+    Reports are written to .security/{reviewer_wallet}/ in the scanned repo,
+    and to ~/.securescan/scans/{scan_id}/ when the API is used.
     """
 
     goal = """
@@ -51,12 +76,25 @@ class Mod:
 
     skills = ['read', 'grep', 'glob', 'bash', 'think']
 
+    name = 'securescan'
+    api_port = 50092
+    app_port = 3092
+
     def __init__(self, key='test', provider='openrouter', model=None, **kwargs):
         self._agent = None
         self.key_name = key
         self.provider = provider
-        self.model = model  # None = use provider's default
-        self.module_dir = Path(__file__).parent
+        self.model = model
+        self._mod_dir = Path(__file__).parent                  # securescan/securescan/
+        self._dir = self._mod_dir.parent                       # securescan/
+        self._src_dir = self._dir / 'src'
+        self._api_dir = self._src_dir / 'api'
+        self._app_dir = self._src_dir / 'app'
+        self.store_dir = Path(os.path.expanduser('~/.securescan'))
+        self.scans_dir = self.store_dir / 'scans'
+        self.repos_dir = self.store_dir / 'repos'
+        for d in (self.scans_dir, self.repos_dir):
+            d.mkdir(parents=True, exist_ok=True)
 
     @property
     def agent(self):
@@ -68,22 +106,140 @@ class Mod:
             )
         return self._agent
 
-    def forward(self, mod=None, path=None, key=None, provider=None, model=None, steps=15, **kwargs):
-        """Scan a repo/module and write report to .security/{wallet}/."""
+    # ── Scan entry points ─────────────────────────────────────────
+
+    def forward(self, mod=None, path=None, repo=None, subdir=None, key=None, provider=None, model=None, steps=15, **kwargs):
+        """Default entry — dispatch to local scan or github scan based on args."""
+        if repo:
+            return self.scan_github(repo, subdir=subdir, key=key, provider=provider, model=model, steps=steps, **kwargs)
         return self.scan(mod=mod, path=path, key=key, provider=provider, model=model, steps=steps, **kwargs)
 
-    def scan(self, mod=None, path=None, key=None, provider=None, model=None, steps=15, **kwargs):
+    def scan_github(self, repo: str, branch: str = None, subdir: str = None, scan_id: str = None,
+                    key=None, provider=None, model=None, steps=15, **kwargs):
         """
-        Run a security scan on a repository or module.
+        Clone a GitHub repository and run a security scan against it.
 
         Args:
-            mod: module name to scan (e.g. 'bridge', 'agent')
-            path: repo path to scan (defaults to ~/mod/)
-            key: key name for reviewer identity (defaults to 'test')
-            provider: LLM provider ('openrouter' or 'venice')
-            model: LLM model name (defaults to provider's default)
-            steps: max agent steps
+            repo: GitHub URL or "owner/name" shorthand
+            branch: optional branch/ref to check out
+            subdir: optional path inside the repo to scan (e.g. "mod/orbit/bridge").
+                    Useful for monorepos where you want to audit a single module.
+            scan_id: optional pre-allocated scan id (used by API for status polling)
+            key, provider, model, steps: passed through to scan()
+
+        Returns:
+            Dict with scan results, including report paths.
         """
+        repo_url = self._normalize_github_url(repo)
+        if not repo_url:
+            return {'error': f'invalid github repo: {repo}'}
+
+        scan_id = scan_id or self._make_scan_id(repo_url, subdir=subdir, branch=branch)
+        scan_dir = self.scans_dir / scan_id
+        scan_dir.mkdir(parents=True, exist_ok=True)
+        clone_dir = self.repos_dir / scan_id
+
+        self._write_status(scan_dir, {
+            'scan_id': scan_id,
+            'repo': repo_url,
+            'branch': branch,
+            'subdir': subdir,
+            'status': 'cloning',
+            'started_at': int(time.time()),
+        })
+
+        # Clone (shallow)
+        try:
+            self._clone(repo_url, clone_dir, branch=branch)
+        except subprocess.CalledProcessError as e:
+            err = (e.stderr or b'').decode('utf-8', 'ignore') or str(e)
+            self._write_status(scan_dir, {
+                'scan_id': scan_id,
+                'repo': repo_url,
+                'status': 'error',
+                'error': f'clone failed: {err.strip()}',
+                'finished_at': int(time.time()),
+            }, merge=True)
+            return {'scan_id': scan_id, 'error': f'clone failed: {err.strip()}'}
+
+        # Resolve the scan target: full clone or a subdir within it.
+        scan_path = clone_dir
+        if subdir:
+            sub = self._resolve_subdir(clone_dir, subdir)
+            if isinstance(sub, dict) and 'error' in sub:
+                self._write_status(scan_dir, {
+                    'status': 'error',
+                    'error': sub['error'],
+                    'finished_at': int(time.time()),
+                }, merge=True)
+                return {'scan_id': scan_id, 'error': sub['error']}
+            scan_path = sub
+
+        self._write_status(scan_dir, {'status': 'scanning'}, merge=True)
+
+        try:
+            result = self.scan(
+                path=str(scan_path),
+                key=key,
+                provider=provider,
+                model=model,
+                steps=steps,
+                **kwargs,
+            )
+        except Exception as e:
+            self._write_status(scan_dir, {
+                'status': 'error',
+                'error': str(e),
+                'finished_at': int(time.time()),
+            }, merge=True)
+            raise
+
+        # Persist findings/report into the central scan dir as well
+        report = {
+            'scan_id': scan_id,
+            'repo': repo_url,
+            'branch': branch,
+            'subdir': subdir,
+            'reviewer': result.get('reviewer'),
+            'stats': result.get('stats', {}),
+            'findings': result.get('findings', []),
+            'elapsed_seconds': result.get('elapsed'),
+            'finished_at': int(time.time()),
+            'status': 'done',
+        }
+        with open(scan_dir / 'report.json', 'w') as f:
+            json.dump(report, f, indent=2, default=str)
+        self._write_status(scan_dir, report, merge=False)
+
+        # Optionally clean up the clone — keep it for now so the user can inspect.
+        return {**result, 'scan_id': scan_id, 'repo': repo_url, 'subdir': subdir}
+
+    def _resolve_subdir(self, clone_dir: Path, subdir: str):
+        """Resolve a subdir argument to an absolute path inside clone_dir.
+
+        Rejects path traversal (`..`, absolute paths, symlinks pointing outside
+        the clone) so a malicious `subdir` can't trick us into scanning host
+        filesystem locations.
+        """
+        if not isinstance(subdir, str) or not subdir.strip():
+            return {'error': 'subdir must be a non-empty string'}
+        sub = subdir.strip().lstrip('/')
+        if '..' in Path(sub).parts:
+            return {'error': f'subdir must not contain ".." (got: {subdir!r})'}
+        candidate = (clone_dir / sub).resolve()
+        clone_real = clone_dir.resolve()
+        try:
+            candidate.relative_to(clone_real)
+        except ValueError:
+            return {'error': f'subdir resolves outside the cloned repo: {subdir!r}'}
+        if not candidate.exists():
+            return {'error': f'subdir does not exist in repo: {subdir!r}'}
+        if not candidate.is_dir():
+            return {'error': f'subdir is not a directory: {subdir!r}'}
+        return candidate
+
+    def scan(self, mod=None, path=None, key=None, provider=None, model=None, steps=15, **kwargs):
+        """Run a security scan on a local repository or module."""
         if mod:
             path = m.dp(mod)
         path = path or os.path.expanduser('~/mod')
@@ -95,7 +251,6 @@ class Mod:
         if not os.path.isdir(path):
             return {'error': f'path not found: {path}'}
 
-        # resolve reviewer wallet address
         wallet = self._resolve_wallet(key)
         print(f'[securescan] reviewer: {wallet}', color='cyan')
         print(f'[securescan] scanning: {path}', color='cyan')
@@ -103,11 +258,9 @@ class Mod:
         if model:
             print(f'[securescan] model: {model}', color='cyan')
 
-        # gather repo context for the prompt
         context = self._gather_context(path)
         prompt = self._build_prompt(context)
 
-        # run agent
         ts = time.time()
         result = self.agent.run(
             query=prompt,
@@ -118,11 +271,9 @@ class Mod:
         )
         elapsed = round(time.time() - ts, 1)
 
-        # parse findings from agent output
         findings = self._parse_findings(result)
         print(f'[securescan] found {len(findings)} findings in {elapsed}s', color='yellow')
 
-        # build metadata
         metadata = {
             'timestamp': int(time.time()),
             'reviewer': wallet,
@@ -134,7 +285,6 @@ class Mod:
             'stats': self._compute_stats(findings),
         }
 
-        # write report
         report_dir = self.write_report(path, wallet, findings, metadata)
 
         return {
@@ -146,59 +296,262 @@ class Mod:
             'elapsed': elapsed,
         }
 
+    # ── Scan listing / retrieval (used by the API) ────────────────
+
+    def list_scans(self, limit: int = 100):
+        """List recent scans (most recent first)."""
+        out = []
+        if not self.scans_dir.exists():
+            return out
+        entries = sorted(
+            self.scans_dir.iterdir(),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for d in entries[:limit]:
+            status = self._read_status(d)
+            if status:
+                out.append(status)
+        return out
+
+    def get_scan(self, scan_id: str):
+        """Return the full status/report for a scan id."""
+        scan_dir = self.scans_dir / scan_id
+        return self._read_status(scan_dir)
+
+    def delete_scan(self, scan_id: str):
+        """Remove a scan's stored data."""
+        scan_dir = self.scans_dir / scan_id
+        clone_dir = self.repos_dir / scan_id
+        for d in (scan_dir, clone_dir):
+            if d.exists():
+                shutil.rmtree(d, ignore_errors=True)
+        return {'scan_id': scan_id, 'deleted': True}
+
     def write_report(self, path, wallet, findings, metadata):
         """Write scan results to {repo}/.security/{wallet}/."""
         security_dir = Path(path) / '.security' / wallet
         security_dir.mkdir(parents=True, exist_ok=True)
 
-        # report.json — full structured report
-        report = {
-            **metadata,
-            'findings': findings,
-        }
+        report = {**metadata, 'findings': findings}
         report_path = security_dir / 'report.json'
         with open(report_path, 'w') as f:
             json.dump(report, f, indent=2, default=str)
         print(f'[securescan] wrote {report_path}', color='green')
 
-        # summary.md — human-readable
-        summary = self._build_summary(findings, metadata)
         summary_path = security_dir / 'summary.md'
         with open(summary_path, 'w') as f:
-            f.write(summary)
+            f.write(self._build_summary(findings, metadata))
         print(f'[securescan] wrote {summary_path}', color='green')
 
         return security_dir
 
     def health(self):
-        """Health check."""
         return {'status': 'ok', 'module': 'securescan'}
 
     def status(self):
-        """Module status."""
         return {
             'module': 'securescan',
             'provider': self.provider,
             'model': self.model,
             'skills': self.skills,
+            'api_port': self.api_port,
+            'app_port': self.app_port,
         }
 
-    # ── Internal ──────────────────────────────────────────────
+    # ── Serve (API + Next.js app) ─────────────────────────────────
+
+    def serve(self, api_port=None, app_port=None, dev=True, api_only=False, app_only=False,
+              gateway=False, base_path=None):
+        """
+        Start the API server (FastAPI under src/api) and the scanner UI (Next.js under src/app).
+
+        Args:
+            api_port:  API server port (default 50092)
+            app_port:  Next.js app port (default 3092)
+            dev:       run in dev mode (default True)
+            api_only:  only start the API
+            app_only:  only start the UI
+            gateway:   set True when running behind the mod gateway
+            base_path: explicit basePath override (e.g. "/securescan")
+        """
+        api_port = api_port or self.api_port
+        app_port = app_port or self.app_port
+        if base_path is None:
+            base_path = f'/{self.name}' if gateway else ''
+
+        results = {}
+        if not app_only:
+            results['api'] = self._serve_api(api_port, dev=dev)
+        if not api_only:
+            results['app'] = self._serve_app(app_port, api_port=api_port, dev=dev, base_path=base_path)
+
+        try:
+            ns = m.mod('server.namespace')()
+            ns.reg_app(
+                self.name,
+                f'http://localhost:{app_port}',
+                api_url=f'http://localhost:{api_port}',
+            )
+        except Exception:
+            pass
+        return results
+
+    def kill(self, service=None):
+        """Stop running services. service='api'|'app'|None."""
+        results = {}
+        try:
+            pm2 = m.mod('pm.pm2')()
+            if service in (None, 'api') and pm2.exists('securescan-api'):
+                pm2.kill('securescan-api')
+                results['api'] = 'killed'
+            if service in (None, 'app') and pm2.exists('securescan-app'):
+                pm2.kill('securescan-app')
+                results['app'] = 'killed'
+        except Exception as e:
+            results['error'] = str(e)
+        if service is None:
+            try:
+                m.mod('server.namespace')().dereg_app(self.name)
+            except Exception:
+                pass
+        return results
+
+    def _serve_api(self, port, dev=True):
+        """Build (if needed) and start the Rust API server (src/api)."""
+        cwd = str(self._api_dir)
+        binary = self._api_dir / 'target' / 'release' / 'securescan-api'
+        if not binary.exists():
+            print('[securescan] building Rust API (cargo build --release)…', color='cyan')
+            r = subprocess.run(['cargo', 'build', '--release'], cwd=cwd,
+                               capture_output=True, text=True)
+            if r.returncode != 0:
+                print(f'[securescan] cargo build failed:\n{r.stderr}', color='red')
+                return {'status': 'error', 'error': 'cargo build failed', 'stderr': r.stderr}
+
+        script = os.path.join(cwd, '_serve.sh')
+        with open(script, 'w') as f:
+            f.write(
+                f'#!/bin/bash\ncd {cwd}\n'
+                f'export PORT={port}\n'
+                f'export RUST_LOG=${{RUST_LOG:-securescan_api=info,tower_http=info}}\n'
+                f'exec {binary}\n'
+            )
+        os.chmod(script, 0o755)
+        try:
+            pm2 = m.mod('pm.pm2')()
+            name = 'securescan-api'
+            if pm2.exists(name):
+                pm2.kill(name, remove_script=False)
+            pm2.start_script(name=name, script_path=script, cwd=cwd, interpreter='bash')
+            return {'status': 'running', 'port': port, 'manager': 'pm2', 'name': name, 'binary': str(binary)}
+        except Exception:
+            proc = subprocess.Popen(['bash', script], cwd=cwd)
+            return {'status': 'running', 'port': port, 'manager': 'subprocess', 'pid': proc.pid, 'binary': str(binary)}
+
+    def _serve_app(self, port, api_port, dev=True, base_path=''):
+        cwd = str(self._app_dir)
+        if not os.path.exists(os.path.join(cwd, 'node_modules')):
+            print('[securescan] installing npm dependencies…', color='cyan')
+            r = subprocess.run(['npm', 'install'], cwd=cwd, capture_output=True, text=True)
+            if r.returncode != 0:
+                print(f'[securescan] npm install failed: {r.stderr}', color='red')
+        cmd = f'npm run {"dev" if dev else "start"} -- -p {port}'
+        script = os.path.join(cwd, '_serve.sh')
+        with open(script, 'w') as f:
+            f.write(
+                f'#!/bin/bash\ncd {cwd}\n'
+                f'export NEXT_PUBLIC_API_URL=http://localhost:{api_port}\n'
+                f'export NEXT_PUBLIC_BASE_PATH={base_path}\n'
+                f'{cmd}\n'
+            )
+        os.chmod(script, 0o755)
+        try:
+            pm2 = m.mod('pm.pm2')()
+            name = 'securescan-app'
+            if pm2.exists(name):
+                pm2.kill(name, remove_script=False)
+            pm2.start_script(name=name, script_path=script, cwd=cwd, interpreter='bash')
+            return {'status': 'running', 'port': port, 'manager': 'pm2', 'name': name}
+        except Exception:
+            proc = subprocess.Popen(['bash', script], cwd=cwd)
+            return {'status': 'running', 'port': port, 'manager': 'subprocess', 'pid': proc.pid}
+
+    # ── Internal helpers ──────────────────────────────────────────
+
+    @staticmethod
+    def _normalize_github_url(repo: str) -> Optional[str]:
+        repo = (repo or '').strip().rstrip('/')
+        if not repo:
+            return None
+        if re.fullmatch(r'[\w.-]+/[\w.-]+', repo):
+            return f'https://github.com/{repo}.git'
+        m_url = re.fullmatch(r'(https?://github\.com/[\w.-]+/[\w.-]+?)(\.git)?', repo)
+        if m_url:
+            return m_url.group(1) + '.git'
+        if repo.startswith('git@github.com:'):
+            return repo if repo.endswith('.git') else repo + '.git'
+        return None
+
+    @staticmethod
+    def _make_scan_id(repo_url: str, subdir: str = None, branch: str = None) -> str:
+        # Include subdir/branch so distinct scans of the same repo don't collide.
+        seed = f'{repo_url}|{branch or ""}|{subdir or ""}|{time.time_ns()}'
+        h = hashlib.sha1(seed.encode()).hexdigest()[:12]
+        slug = re.sub(r'[^a-z0-9]+', '-', repo_url.lower()).strip('-')[-40:]
+        if subdir:
+            sub_slug = re.sub(r'[^a-z0-9]+', '-', subdir.lower()).strip('-')[:20]
+            if sub_slug:
+                slug = f'{slug}-{sub_slug}'
+        return f'{slug}-{h}'
+
+    def _clone(self, repo_url: str, dest: Path, branch: str = None):
+        if dest.exists():
+            shutil.rmtree(dest, ignore_errors=True)
+        cmd = ['git', 'clone', '--depth', '1']
+        if branch:
+            cmd += ['--branch', branch]
+        cmd += [repo_url, str(dest)]
+        subprocess.run(cmd, check=True, capture_output=True, timeout=180)
+
+    @staticmethod
+    def _write_status(scan_dir: Path, data: dict, merge: bool = False):
+        scan_dir.mkdir(parents=True, exist_ok=True)
+        path = scan_dir / 'status.json'
+        if merge and path.exists():
+            try:
+                with open(path) as f:
+                    existing = json.load(f)
+                existing.update(data)
+                data = existing
+            except Exception:
+                pass
+        with open(path, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+
+    @staticmethod
+    def _read_status(scan_dir: Path):
+        if not scan_dir.exists():
+            return None
+        path = scan_dir / 'status.json'
+        if not path.exists():
+            return None
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except Exception:
+            return None
 
     def _resolve_wallet(self, key):
-        """Get wallet address from key name."""
         try:
             return m.key(key).address
         except Exception:
             return key
 
     def _gather_context(self, path):
-        """Build a lightweight context summary of the repo."""
         context = {'path': path, 'file_types': {}, 'total_files': 0, 'structure': []}
-
         skip_dirs = {'.git', 'node_modules', '__pycache__', '.next', 'venv',
                      'env', '.env', 'dist', 'build', '.security'}
-
         for root, dirs, files in os.walk(path):
             dirs[:] = [d for d in dirs if d not in skip_dirs]
             for fname in files:
@@ -209,11 +562,9 @@ class Mod:
                 rel = os.path.relpath(os.path.join(root, fname), path)
                 if len(context['structure']) < 100:
                     context['structure'].append(rel)
-
         return context
 
     def _build_prompt(self, context):
-        """Build the scan prompt from repo context."""
         parts = [
             f"Security audit of repository at: {context['path']}",
             f"\nTotal files: {context['total_files']}",
@@ -222,7 +573,6 @@ class Mod:
         ]
         for f in context['structure']:
             parts.append(f"  {f}")
-
         parts.append(
             "\nPerform a thorough security scan. Focus on high-impact vulnerabilities first. "
             "Use grep to search for secrets and dangerous patterns, then read suspicious files. "
@@ -231,15 +581,12 @@ class Mod:
         return '\n'.join(parts)
 
     def _parse_findings(self, result):
-        """Extract structured findings from agent output."""
         findings = []
         if not result:
             return findings
-
         for step in result:
             if not isinstance(step, dict):
                 continue
-            # check finish step
             if step.get('tool', '').lower() == 'finish':
                 params = step.get('params', {})
                 if isinstance(params, dict):
@@ -251,17 +598,14 @@ class Mod:
                             findings.append(f)
                     elif params:
                         findings.append(params)
-            # check result fields
             if 'result' in step and isinstance(step['result'], dict):
                 if 'findings' in step['result']:
                     r = step['result']['findings']
                     if isinstance(r, list):
                         findings.extend(r)
-
         return findings
 
     def _compute_stats(self, findings):
-        """Compute summary statistics from findings."""
         stats = {'total': len(findings), 'by_severity': {}, 'by_category': {}}
         for f in findings:
             if not isinstance(f, dict):
@@ -273,23 +617,20 @@ class Mod:
         return stats
 
     def _build_summary(self, findings, metadata):
-        """Generate a markdown summary of the scan."""
         lines = [
-            f"# Security Scan Report",
-            f"",
+            "# Security Scan Report",
+            "",
             f"**Repo:** `{metadata['repo']}`",
             f"**Reviewer:** `{metadata['reviewer']}`",
             f"**Model:** `{metadata['model']}`",
             f"**Date:** {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(metadata['timestamp']))}",
             f"**Duration:** {metadata['elapsed_seconds']}s",
-            f"",
-            f"## Summary",
-            f"",
+            "",
+            "## Summary",
+            "",
             f"Total findings: **{metadata['stats']['total']}**",
-            f"",
+            "",
         ]
-
-        # severity breakdown
         if metadata['stats'].get('by_severity'):
             lines.append("| Severity | Count |")
             lines.append("|----------|-------|")
@@ -298,8 +639,6 @@ class Mod:
                 if count:
                     lines.append(f"| {sev} | {count} |")
             lines.append("")
-
-        # findings detail
         if findings:
             lines.append("## Findings")
             lines.append("")
@@ -329,5 +668,4 @@ class Mod:
         else:
             lines.append("No findings detected.")
             lines.append("")
-
         return '\n'.join(lines)

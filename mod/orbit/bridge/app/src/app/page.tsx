@@ -53,6 +53,14 @@ interface SnapshotStats {
   claim_count: number
 }
 
+interface SnapshotAudit {
+  cid: string
+  updated_at: number
+  bytes: number
+  addresses: number
+  algo: string
+}
+
 async function api(fn: string, params: Record<string, any> = {}) {
   const res = await fetch(`${API_URL}/${fn}`, {
     method: 'POST',
@@ -96,6 +104,7 @@ function BridgePageInner() {
   const [snapshotEntries, setSnapshotEntries] = useState<SnapshotEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [commitments, setCommitments] = useState<Record<string, CommitmentEntry>>({})
+  const [audit, setAudit] = useState<SnapshotAudit | null>(null)
 
   // ── Table state ─────────────────────────────────────────────────
   const [search, setSearch] = useState('')
@@ -182,6 +191,11 @@ function BridgePageInner() {
       }
       // First-paint complete — drop the spinner; remaining pages stream in.
       setLoading(false)
+
+      // Fire-and-forget audit info (CID + last-updated for the snapshot).
+      apiGet('/audit')
+        .then(a => a?.snapshot && setAudit(a.snapshot))
+        .catch(() => { /* footer just hides if unavailable */ })
 
       // Background fill — fetch pages 1..N sequentially. Sequential keeps load
       // light on the API and avoids fanning out N parallel requests if the
@@ -775,9 +789,27 @@ function BridgePageInner() {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="text-center text-xs text-white/15 uppercase tracking-wider py-4">
-          Bridge Module
+        {/* Footer — public audit surface. Anyone can re-hash the snapshot
+            file on disk and verify the CID matches. */}
+        <div className="text-center text-xs text-white/15 uppercase tracking-wider py-4 space-y-1">
+          <div>Bridge Module</div>
+          {audit && (
+            <div className="flex items-center justify-center gap-3 normal-case tracking-normal">
+              <button
+                onClick={() => copyToClipboard(audit.cid, 'CID')}
+                className="font-mono text-white/30 hover:text-white/60 transition-colors"
+                title={`${audit.algo}:${audit.cid}`}
+              >
+                cid {audit.cid.slice(0, 10)}…{audit.cid.slice(-6)}
+              </button>
+              <span className="text-white/15">·</span>
+              <span className="font-mono text-white/30" title={new Date(audit.updated_at * 1000).toISOString()}>
+                updated {new Date(audit.updated_at * 1000).toLocaleString()}
+              </span>
+              <span className="text-white/15">·</span>
+              <span className="font-mono text-white/30">{audit.addresses.toLocaleString()} addrs</span>
+            </div>
+          )}
         </div>
 
         {/* API URL debug — dev only */}

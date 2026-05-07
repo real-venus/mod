@@ -121,6 +121,77 @@ impl Store {
         (page, total)
     }
 
+    /// Filtered + sorted + paginated page of (address, balance, claimed) entries.
+    /// `claimed` here means "has a commitment or a claim" — surface for UI badges.
+    /// `claim_filter`: "all" | "claimed" | "unclaimed".
+    /// `sort_by`: "address" | "balance".  `dir`: "asc" | "desc".
+    /// Returns (page_entries, filtered_total).
+    pub fn snapshot_filtered_page(
+        &self,
+        page: usize,
+        limit: usize,
+        query: Option<&str>,
+        sort_by: &str,
+        dir: &str,
+        claim_filter: &str,
+    ) -> (Vec<(String, f64, bool)>, usize) {
+        let q = query
+            .map(|s| s.trim().to_lowercase())
+            .filter(|s| !s.is_empty());
+
+        let claims = self.claims.read();
+        let comms = self.commitments.read();
+        let is_claimed = |addr: &str| claims.contains_key(addr) || comms.contains_key(addr);
+
+        let mut entries: Vec<(String, f64, bool)> = self
+            .snapshot
+            .iter()
+            .filter(|(addr, _)| match &q {
+                Some(s) => addr.to_lowercase().contains(s),
+                None => true,
+            })
+            .map(|(k, v)| {
+                let claimed = is_claimed(k);
+                (k.clone(), *v, claimed)
+            })
+            .filter(|(_, _, claimed)| match claim_filter {
+                "claimed" => *claimed,
+                "unclaimed" => !*claimed,
+                _ => true,
+            })
+            .collect();
+
+        let asc = !dir.eq_ignore_ascii_case("desc");
+        match sort_by {
+            "balance" => {
+                entries.sort_by(|a, b| {
+                    let ord = a
+                        .1
+                        .partial_cmp(&b.1)
+                        .unwrap_or(std::cmp::Ordering::Equal);
+                    if asc { ord } else { ord.reverse() }
+                });
+            }
+            "claimed" => {
+                entries.sort_by(|a, b| {
+                    let ord = a.2.cmp(&b.2);
+                    if asc { ord } else { ord.reverse() }
+                });
+            }
+            _ => {
+                entries.sort_by(|a, b| {
+                    let ord = a.0.cmp(&b.0);
+                    if asc { ord } else { ord.reverse() }
+                });
+            }
+        }
+
+        let total = entries.len();
+        let start = page.saturating_mul(limit).min(total);
+        let end = (start + limit).min(total);
+        (entries[start..end].to_vec(), total)
+    }
+
     // ── Claims ──────────────────────────────────────────────
 
     pub fn has_claim(&self, addr: &str) -> bool {
@@ -173,6 +244,19 @@ impl Store {
         let mut g = self.commitments.write();
         g.insert(addr.to_string(), c);
         write_json_atomic(&self.commitments_path, &*g)
+    }
+
+    pub fn commitments_count(&self) -> usize {
+        self.commitments.read().len()
+    }
+
+    /// Sum of snapshot balances for addresses that have a commitment.
+    /// Used for the "committed" / pending-claim totals on the dashboard.
+    pub fn committed_balance_total(&self) -> f64 {
+        let g = self.commitments.read();
+        g.keys()
+            .filter_map(|addr| self.snapshot.get(addr).copied())
+            .sum()
     }
 
     // ── Used signatures (replay protection) ─────────────────

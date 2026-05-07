@@ -321,6 +321,27 @@ async fn admin_reset_clears_data() {
 }
 
 #[tokio::test]
+async fn audit_exposes_snapshot_cid_and_timestamp() {
+    let h = Harness::start().await;
+    let r: serde_json::Value = h
+        .client
+        .get(h.url("/audit"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let snap = &r["snapshot"];
+    let cid = snap["cid"].as_str().unwrap();
+    assert_eq!(cid.len(), 64, "sha256 hex should be 64 chars, got: {cid}");
+    assert!(snap["updated_at"].as_i64().unwrap() > 0);
+    assert!(snap["bytes"].as_u64().unwrap() > 0);
+    assert_eq!(snap["addresses"], 3);
+    assert_eq!(snap["algo"], "sha256");
+}
+
+#[tokio::test]
 async fn cors_blocks_disallowed_origin() {
     let h = Harness::start().await;
     // The CorsLayer only kicks in if attached to the router; integration
