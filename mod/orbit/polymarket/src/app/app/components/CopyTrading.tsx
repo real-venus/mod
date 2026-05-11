@@ -4,12 +4,11 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   fetchTopTradersStream, ActiveTradersProgress,
-  fetchTradersPage, PagedTradersResult,
+  fetchTradersPage,
   formatVolume, formatPnl, TopTrader,
-  CategorySlug, matchTraderCategory, matchTraderSearch,
+  CategorySlug, CATEGORIES,
+  matchTraderSearch, matchTraderCategory,
 } from "../lib/polymarket";
-import { SavedIndex } from "../lib/types";
-import { loadIndexes, saveIndex, updateIndex, setActiveIndexId } from "../lib/indexStore";
 import { shortAddress } from "@/lib/auth";
 import { useFilters, useFilterParams } from "../context/FiltersContext";
 
@@ -142,6 +141,10 @@ export default function CopyTrading({
 }: CopyTradingProps = {}) {
   const router = useRouter();
   const [traders, setTraders] = useState<TopTrader[]>([]);
+  // Full streamed dataset — used as a client-side fallback for search/category
+  // filtering while the server cache is cold (during streaming, or after a
+  // restart that wiped the cache).
+  const [streamedAll, setStreamedAll] = useState<TopTrader[]>([]);
   const [totalTraders, setTotalTraders] = useState(0);
   const [loading, setLoading] = useState(true);
   const [traderSort, setTraderSort] = useState<TraderSort>("pnl");
@@ -151,6 +154,7 @@ export default function CopyTrading({
 
   const {
     daysAgo, setDaysAgo,
+    category: ctxCategory, setCategory,
     minTrades, setMinTrades,
     minPerDay, setMinPerDay,
     minVolume, setMinVolume, minBuyVolume, setMinBuyVolume,
@@ -188,81 +192,6 @@ export default function CopyTrading({
 
   const [progress, setProgress] = useState<ActiveTradersProgress | null>(null);
   const [source, setSource] = useState<"memory" | "disk" | "fresh" | null>(null);
-
-  const [savedStrats, setSavedStrats] = useState<SavedIndex[]>([]);
-  const [pickerOpen, setPickerOpen] = useState<string | null>(null);
-  const [newStratName, setNewStratName] = useState("");
-  const [creatingInPicker, setCreatingInPicker] = useState(false);
-  const [addedFlash, setAddedFlash] = useState<string | null>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setSavedStrats(loadIndexes());
-  }, []);
-
-  // Close picker on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setPickerOpen(null);
-        setCreatingInPicker(false);
-        setNewStratName("");
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  // Derive which traders are in any strategy
-  const traderStrategyMap = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const idx of savedStrats) {
-      for (const t of idx.traders) {
-        const existing = map.get(t.address) || [];
-        existing.push(idx.name);
-        map.set(t.address, existing);
-      }
-    }
-    return map;
-  }, [savedStrats]);
-
-  const addToStrategy = (traderAddr: string, stratId: string) => {
-    const indexes = loadIndexes();
-    const idx = indexes.find((i) => i.id === stratId);
-    if (!idx) return;
-    if (idx.traders.some((t) => t.address === traderAddr)) return;
-    const count = idx.traders.length + 1;
-    const newWeight = Math.round(100 / count) / 100;
-    const traders = [...idx.traders, { address: traderAddr, weight: newWeight }];
-    updateIndex(stratId, { traders, updatedAt: Date.now() });
-    setSavedStrats(loadIndexes());
-    setPickerOpen(null);
-    setCreatingInPicker(false);
-    setNewStratName("");
-    setAddedFlash(traderAddr);
-    setTimeout(() => setAddedFlash(null), 1500);
-  };
-
-  const createStrategyAndAdd = (traderAddr: string, name: string) => {
-    if (!name.trim()) return;
-    const now = Date.now();
-    const idx: SavedIndex = {
-      id: now.toString(36),
-      name: name.trim(),
-      traders: [{ address: traderAddr, weight: 1 }],
-      backtestDays: 7,
-      createdAt: now,
-      updatedAt: now,
-    };
-    saveIndex(idx);
-    setActiveIndexId(idx.id);
-    setSavedStrats(loadIndexes());
-    setPickerOpen(null);
-    setCreatingInPicker(false);
-    setNewStratName("");
-    setAddedFlash(traderAddr);
-    setTimeout(() => setAddedFlash(null), 1500);
-  };
 
   const [refreshing, setRefreshing] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -328,17 +257,28 @@ export default function CopyTrading({
         const { traders: data, source: src } = await fetchTopTradersStream(
           2000,
           { daysWindow: days, minTradesPerDay },
-          (p) => setProgress(p),
+          (p) => {
+            setProgress(p);
+            // Trust the `kept` field from progress — partials are bandwidth-capped
+            // (top 500 by PnL), but `kept` reflects the true running total.
+            if (p.phase === "enrich" && typeof p.kept === "number" && p.kept > 0) {
+              setTotalTraders((prev) => Math.max(prev, p.kept));
+            }
+          },
           (partial) => {
-            // Show first page of partial results while streaming
+            // Keep the full partial for client-side filtering, and show
+            // first page in the table. Don't shrink visible total to the
+            // partial length — progress.kept is more authoritative.
+            setStreamedAll(partial);
             setTraders(partial.slice(0, PAGE_SIZE));
-            setTotalTraders(partial.length);
+            setTotalTraders((prev) => Math.max(prev, partial.length));
             setLoading(false);
           },
         );
-        // After stream completes, cache is now warm — switch to server-side pagination
+        // After stream completes, cache is warm — switch to server-side pagination
         setCacheWarm(true);
         setSource(src);
+        setStreamedAll(data);
         // Show all results (first page) — totalTraders reflects full dataset
         setTraders(data.slice(0, PAGE_SIZE));
         setTotalTraders(data.length);
@@ -363,6 +303,7 @@ export default function CopyTrading({
   // Fires when the pipeline parameters change (days window, min trades/day)
   useEffect(() => {
     setTraders([]);
+    setTotalTraders(0);
     setSource(null);
     setProgress(null);
     setCacheWarm(false);
@@ -374,11 +315,19 @@ export default function CopyTrading({
     })();
   }, [days, minTradesPerDay, reloadKey]);
 
-  // Re-fetch page when sort/filter/page changes (server-side)
+  // Re-fetch page when sort/filter/page changes (server-side). If the
+  // server cache went cold (e.g. API restarted) we transparently fall back
+  // to streaming so the next filter change has data to work against.
   useEffect(() => {
     if (!cacheWarm) return;
     pageRef.current = page;
-    loadPageRef.current({ pg: page });
+    (async () => {
+      const ok = await loadPageRef.current({ pg: page });
+      if (!ok) {
+        setCacheWarm(false);
+        await loadStreamRef.current();
+      }
+    })();
   }, [cacheWarm, page, traderSort, sortDir, search, category,
       minVolume, minPnl, minTrades, minBuyVolume, minSellVolume]);
 
@@ -388,8 +337,6 @@ export default function CopyTrading({
     const t = setInterval(() => { void loadPage({ pg: pageRef.current, silent: true }); }, 60_000);
     return () => clearInterval(t);
   }, [loadPage, cacheWarm]);
-
-  const refreshStrats = () => setSavedStrats(loadIndexes());
 
   const handleSort = (col: TraderSort) => {
     if (traderSort === col) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -401,10 +348,56 @@ export default function CopyTrading({
     router.push(`/traders/${addr}${filterQs ? `?${filterQs}` : ""}`);
   };
 
-  // When server-side pagination is active, traders already contains just the
-  // current page — no client-side filtering/sorting needed. For the "score"
-  // sort we still sort client-side since the formula is client-only.
+  // When the server cache is warm, `traders` already holds the filtered
+  // current page — no extra work needed (score sort is the one exception
+  // since the formula is client-only).
+  //
+  // When the cache is cold (initial load, during streaming, or after the
+  // API restarted) we filter+sort+paginate the streamed dataset on the
+  // client so the FILTERS panel produces an immediate visible effect
+  // instead of silently no-op'ing until the pipeline finishes.
+  const clientView = useMemo(() => {
+    if (cacheWarm) return null;
+    if (streamedAll.length === 0) return null;
+    const cat = category || "";
+    let list = streamedAll.filter((t) => {
+      if (search && !matchTraderSearch(t, search)) return false;
+      if (cat && !matchTraderCategory(t.marketTitles, cat)) return false;
+      const mv = Number(minVolume);
+      if (Number.isFinite(mv) && mv > 0 && t.volume < mv) return false;
+      const mp = Number(minPnl);
+      if (minPnl !== "" && Number.isFinite(mp) && t.pnl < mp) return false;
+      const mt = Number(minTrades);
+      if (minTrades !== "" && Number.isFinite(mt) && t.recentTrades < mt) return false;
+      const mbv = Number(minBuyVolume);
+      if (minBuyVolume !== "" && Number.isFinite(mbv) && t.buyVolume < mbv) return false;
+      const msv = Number(minSellVolume);
+      if (minSellVolume !== "" && Number.isFinite(msv) && t.sellVolume < msv) return false;
+      return true;
+    });
+    // Sort. When a category is selected, vibe-first (more in-category titles
+    // win), then by the primary metric — mirrors the server-side ordering.
+    const dir = sortDir === "desc" ? -1 : 1;
+    const inCat = (titles: string[]) => cat ? titles.filter((m) => matchTraderCategory([m], cat)).length : 0;
+    list = [...list].sort((a, b) => {
+      if (cat) {
+        const d = inCat(b.marketTitles) - inCat(a.marketTitles);
+        if (d !== 0) return d;
+      }
+      if (traderSort === "score") return dir * (scoreFor(a) - scoreFor(b));
+      if (traderSort === "volume") return dir * (a.volume - b.volume);
+      if (traderSort === "positions") return dir * (a.recentTrades - b.recentTrades);
+      return dir * (a.pnl - b.pnl); // default: pnl
+    });
+    return list;
+  }, [cacheWarm, streamedAll, search, category, minVolume, minPnl,
+      minTrades, minBuyVolume, minSellVolume, sortDir, traderSort, scoreFor]);
+
   const sortedTraders = useMemo(() => {
+    if (clientView) {
+      const start = page * PAGE_SIZE;
+      return clientView.slice(start, start + PAGE_SIZE);
+    }
     if (traderSort === "score" && cacheWarm) {
       return [...traders].sort((a, b) => {
         const cmp = scoreFor(a) - scoreFor(b);
@@ -412,13 +405,17 @@ export default function CopyTrading({
       });
     }
     return traders;
-  }, [traders, traderSort, sortDir, scoreFor, cacheWarm]);
+  }, [clientView, page, traders, traderSort, sortDir, scoreFor, cacheWarm]);
+
+  // When showing client-side filtered results, total reflects the filtered
+  // size, not the streamed length.
+  const visibleTotal = clientView ? clientView.length : totalTraders;
 
   // Reset page on filter/sort change
   useEffect(() => { setPage(0); }, [search, category, traderSort, sortDir,
     minVolume, minPnl, minTrades, minBuyVolume, minSellVolume]);
 
-  const totalPages = Math.max(1, Math.ceil(totalTraders / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(visibleTotal / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageTraders = sortedTraders;
 
@@ -454,6 +451,7 @@ export default function CopyTrading({
   ].filter((v) => v !== "").length
     + (minVolume !== "100" && minVolume !== "" ? 1 : 0)
     + (minPerDay !== "0" && minPerDay !== "" ? 1 : 0)
+    + (ctxCategory ? 1 : 0)
     + (formula !== DEFAULT_FORMULA ? 1 : 0);
 
   // Stats summary (computed from current page — approximate when paginated)
@@ -475,9 +473,9 @@ export default function CopyTrading({
               className="pixel-input-sm w-10 text-center font-mono text-[9px]" />
           </div>
 
-          {totalTraders > 0 && !loading && (
+          {visibleTotal > 0 && !loading && (
             <span className="text-[9px] text-pixel-gray font-mono shrink-0">
-              {totalTraders} traders
+              {visibleTotal} traders
             </span>
           )}
 
@@ -515,6 +513,29 @@ export default function CopyTrading({
         {/* ── Expandable advanced filters ── */}
         {showFilters && (
           <div className="border-t-2 border-pixel-border mt-2.5 pt-3 space-y-3">
+            {/* Semantic market category — filters traders (and their trades on
+                the profile page) by topic keywords. e.g. "CRYPTO" keeps only
+                BTC/ETH/SOL markets. */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[8px] text-pixel-gray tracking-wider shrink-0 mr-1">MARKET</span>
+              {CATEGORIES.map((c) => {
+                const active = ctxCategory === c.slug;
+                return (
+                  <button
+                    key={c.slug || "all"}
+                    onClick={() => setCategory(c.slug)}
+                    className={`pixel-btn text-[8px] px-2 py-0.5 transition-colors ${
+                      active
+                        ? "border-green-400 text-green-400 bg-green-400/10"
+                        : "border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white"
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-4 gap-y-2">
               {([
                 { label: "MIN VOLUME", value: minVolume, onChange: onDec(setMinVolume), ph: "100" },
@@ -553,7 +574,7 @@ export default function CopyTrading({
 
             {/* Reset all */}
             <div className="flex items-center justify-end">
-              <button onClick={() => { setDaysAgo(""); setMinTrades(""); setMinPerDay("0"); setMinVolume("100"); setMinBuyVolume(""); setMinSellVolume(""); setMinPnl(""); setFormula(DEFAULT_FORMULA); reload(); }}
+              <button onClick={() => { setDaysAgo(""); setCategory(""); setMinTrades(""); setMinPerDay("0"); setMinVolume("100"); setMinBuyVolume(""); setMinSellVolume(""); setMinPnl(""); setFormula(DEFAULT_FORMULA); reload(); }}
                 className="pixel-btn text-[8px] px-3 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-red-400 hover:text-red-400 transition-colors">
                 RESET ALL
               </button>
@@ -561,22 +582,6 @@ export default function CopyTrading({
           </div>
         )}
       </div>
-
-      {/* ── Strategy summary ── */}
-      {!compact && savedStrats.length > 0 && (
-        <div className="pixel-panel p-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[8px] text-pixel-gray tracking-wider mr-1">IN STRATS</span>
-            {savedStrats.map((idx) => (
-              <span key={idx.id} className="pixel-btn text-[8px] px-2 py-0.5 border-pixel-border text-pixel-gray cursor-default flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-green-400" />
-                {idx.name.toUpperCase()}
-                <span className="text-pixel-gray-light">{idx.traders.length}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── Progress ── */}
       {loading && (() => {
@@ -651,7 +656,6 @@ export default function CopyTrading({
                 {pageTraders.map((trader, i) => {
                   const rowNum = safePage * PAGE_SIZE + i + 1;
                   const pnlColor = trader.pnl > 0 ? "text-green-400" : trader.pnl < 0 ? "text-red-400" : "text-pixel-gray-light";
-                  const isInStrategy = traderStrategyMap.has(trader.address);
                   const sc = scoreFor(trader);
                   const scValid = Number.isFinite(sc);
                   const scCls = !scValid ? "text-pixel-gray" : sc > 0 ? "text-green-400" : sc < 0 ? "text-red-400" : "text-pixel-gray-light";
@@ -663,7 +667,6 @@ export default function CopyTrading({
                       </td>
                       <td>
                         <div className="flex items-center gap-1.5">
-                          {isInStrategy && <div className="w-1.5 h-1.5 bg-green-400 shrink-0" />}
                           <span className="text-pixel-white font-mono text-[10px] group-hover:text-green-400 transition-colors truncate">
                             {shortAddress(trader.address)}
                           </span>
@@ -698,95 +701,7 @@ export default function CopyTrading({
                               + ADD
                             </button>
                           )
-                        ) : addedFlash === trader.address ? (
-                          <span className="text-[8px] text-green-400 animate-pulse">ADDED</span>
-                        ) : (
-                          <div ref={pickerOpen === trader.address ? pickerRef : undefined} className="relative inline-block">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                refreshStrats();
-                                setPickerOpen(pickerOpen === trader.address ? null : trader.address);
-                                setCreatingInPicker(false);
-                                setNewStratName("");
-                              }}
-                              className={`pixel-btn text-[8px] px-2 py-0.5 transition-all ${
-                                traderStrategyMap.has(trader.address)
-                                  ? "border-green-400 text-green-400 bg-green-400/10"
-                                  : "border-pixel-border text-pixel-gray hover:border-pixel-white hover:text-pixel-white opacity-0 group-hover:opacity-100"
-                              }`}
-                            >
-                              {traderStrategyMap.has(trader.address)
-                                ? `IN ${traderStrategyMap.get(trader.address)!.length}`
-                                : "+ ADD"}
-                            </button>
-                            {pickerOpen === trader.address && (
-                              <div
-                                className="absolute z-50 right-0 top-full mt-1 pixel-panel border-2 border-pixel-border bg-pixel-black min-w-[160px] shadow-lg"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <div className="text-[7px] text-pixel-gray tracking-wider px-2 py-1.5 border-b border-pixel-border">
-                                  ADD TO STRAT
-                                </div>
-                                {savedStrats.length === 0 && !creatingInPicker && (
-                                  <div className="px-2 py-2 text-[8px] text-pixel-gray">NO STRATS YET</div>
-                                )}
-                                {savedStrats.map((idx) => {
-                                  const alreadyIn = idx.traders.some((t) => t.address === trader.address);
-                                  return (
-                                    <button
-                                      key={idx.id}
-                                      onClick={() => !alreadyIn && addToStrategy(trader.address, idx.id)}
-                                      disabled={alreadyIn}
-                                      className={`w-full text-left px-2 py-1.5 flex items-center justify-between text-[9px] transition-colors ${
-                                        alreadyIn
-                                          ? "text-pixel-gray cursor-default"
-                                          : "text-pixel-white hover:bg-pixel-white/5"
-                                      }`}
-                                    >
-                                      <span className="font-mono">{idx.name}</span>
-                                      <span className="text-[7px] text-pixel-gray">
-                                        {alreadyIn ? "IN" : `${idx.traders.length}`}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                                <div className="border-t border-pixel-border">
-                                  {creatingInPicker ? (
-                                    <div className="flex items-center gap-1 p-1.5">
-                                      <input
-                                        type="text"
-                                        autoFocus
-                                        value={newStratName}
-                                        onChange={(e) => setNewStratName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Enter" && newStratName.trim()) createStrategyAndAdd(trader.address, newStratName);
-                                          if (e.key === "Escape") { setCreatingInPicker(false); setNewStratName(""); }
-                                        }}
-                                        placeholder="NAME"
-                                        className="pixel-input-sm font-mono text-[8px] flex-1 py-0.5"
-                                        onClick={(e) => e.stopPropagation()}
-                                      />
-                                      <button
-                                        onClick={() => newStratName.trim() && createStrategyAndAdd(trader.address, newStratName)}
-                                        className="pixel-btn text-[7px] px-1.5 py-0.5 border-green-400 text-green-400"
-                                      >
-                                        GO
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => setCreatingInPicker(true)}
-                                      className="w-full text-left px-2 py-1.5 text-[9px] text-green-400 hover:bg-green-400/5 transition-colors"
-                                    >
-                                      + NEW STRAT
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        ) : null}
                       </td>
                     </tr>
                   );
@@ -800,7 +715,7 @@ export default function CopyTrading({
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-1 px-1">
               <span className="text-[8px] text-pixel-gray font-mono">
-                {safePage * PAGE_SIZE + 1}-{Math.min((safePage + 1) * PAGE_SIZE, totalTraders)} of {totalTraders}
+                {safePage * PAGE_SIZE + 1}-{Math.min((safePage + 1) * PAGE_SIZE, visibleTotal)} of {visibleTotal}
               </span>
               <div className="flex items-center gap-1">
                 <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={safePage === 0}

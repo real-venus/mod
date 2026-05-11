@@ -93,7 +93,10 @@ async fn active_traders(
             let result = pipeline.run_pipeline(days, min_per_day, pool, Some(tx.clone())).await;
             match result {
                 Ok(payload) => {
-                    pipeline.cache.set(&cache_key, payload.clone());
+                    // Don't poison the cache with empty results from upstream hiccups.
+                    if payload.count > 0 {
+                        pipeline.cache.set(&cache_key, payload.clone());
+                    }
                     let evt = serde_json::json!({
                         "type": "result",
                         "source": "fresh",
@@ -128,7 +131,9 @@ async fn active_traders(
     // Non-streaming cold miss: run pipeline synchronously
     match state.pipeline.run_pipeline(days, min_per_day, pool, None).await {
         Ok(payload) => {
-            state.pipeline.cache.set(&cache_key, payload.clone());
+            if payload.count > 0 {
+                state.pipeline.cache.set(&cache_key, payload.clone());
+            }
             Json(json!({
                 "count": payload.count,
                 "candidatePool": payload.candidate_pool,
@@ -160,11 +165,12 @@ fn apply_pagination(payload: &crate::types::AggPayload, q: &ActiveTradersQuery, 
                 || t.market_titles.iter().any(|m| m.to_lowercase().contains(&s))
         });
     }
-    if let Some(ref cat) = q.category {
-        let cat_lower = cat.to_lowercase();
-        traders.retain(|t| {
-            t.market_titles.iter().any(|m| m.to_lowercase().contains(&cat_lower))
-        });
+    // Semantic category filter — uses the keyword map (e.g. "crypto" matches
+    // "Bitcoin", "ETH", "SOL", …), not a literal substring match on the
+    // category slug.
+    let cat = q.category.as_deref().unwrap_or("").to_lowercase();
+    if !cat.is_empty() {
+        traders.retain(|t| crate::categories::trader_in_category(&t.market_titles, &cat));
     }
     if let Some(min_vol) = q.min_volume {
         if min_vol > 0.0 {
@@ -190,9 +196,21 @@ fn apply_pagination(payload: &crate::types::AggPayload, q: &ActiveTradersQuery, 
         }
     }
 
-    // Sort
+    // Sort. With a category selected, rank first by how many of the
+    // trader's market titles fall in the category — so the leaderboard
+    // surfaces traders heavily in the vibe before falling back to the
+    // primary metric (P&L / volume / etc.) as a tiebreaker.
     let dir: f64 = if order == "asc" { 1.0 } else { -1.0 };
+    let cat_sort = cat.clone();
     traders.sort_by(|a, b| {
+        if !cat_sort.is_empty() {
+            let a_match = crate::categories::title_match_count(&a.market_titles, &cat_sort);
+            let b_match = crate::categories::title_match_count(&b.market_titles, &cat_sort);
+            if a_match != b_match {
+                // Always more-in-category first, regardless of sort dir.
+                return b_match.cmp(&a_match);
+            }
+        }
         let cmp = match sort {
             "volume" => a.volume.partial_cmp(&b.volume),
             "positions" => a.positions.partial_cmp(&b.positions),

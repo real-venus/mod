@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TopTrader, formatVolume, formatPnl, timeAgo } from "../lib/polymarket";
+import { TopTrader, formatVolume, formatPnl, timeAgo, matchMarketCategory, CategorySlug } from "../lib/polymarket";
 import { shortAddress } from "@/lib/auth";
 import { PolymarketTrade, PolymarketPosition } from "../lib/types";
 import PnlChart from "./PnlChart";
@@ -18,6 +18,7 @@ interface Props {
   onBack: () => void;
   days?: number;
   searchFilter?: string;
+  categoryFilter?: CategorySlug;
 }
 
 type PosSort = "market" | "size" | "avgPrice" | "currentPrice" | "pnlUsd";
@@ -99,6 +100,7 @@ export default function TraderProfile({
   onBack,
   days = 30,
   searchFilter = "",
+  categoryFilter = "",
 }: Props) {
   const dayLabel = `${days}D`;
   const [posSort, setPosSort] = useState<PosSort>("pnlUsd");
@@ -190,14 +192,19 @@ export default function TraderProfile({
     [tradesWithRealized, cutoffMs],
   );
 
-  // Apply market-name search filter for trade-level filtering.
-  // All downstream consumers (stats, P&L curve, daily activity, trade log,
-  // closed results) use filteredTrades so the whole page is consistent.
+  // Apply market-name search + semantic-category filters for trade-level
+  // filtering. All downstream consumers (stats, P&L curve, daily activity,
+  // trade log, closed results) use filteredTrades so the whole page is
+  // consistent.
   const filteredTrades = useMemo(() => {
-    if (!searchFilter.trim()) return tradesInWindow;
-    const q = searchFilter.toLowerCase();
-    return tradesInWindow.filter((t) => t.market.toLowerCase().includes(q));
-  }, [tradesInWindow, searchFilter]);
+    const q = searchFilter.trim().toLowerCase();
+    if (!q && !categoryFilter) return tradesInWindow;
+    return tradesInWindow.filter((t) => {
+      if (q && !t.market.toLowerCase().includes(q)) return false;
+      if (categoryFilter && !matchMarketCategory(t.market, categoryFilter)) return false;
+      return true;
+    });
+  }, [tradesInWindow, searchFilter, categoryFilter]);
 
   // Mark-to-market cumulative P&L, one point per trade, plus a final "NOW"
   // mark that revalues any still-open inventory at current position prices.
@@ -368,12 +375,17 @@ export default function TraderProfile({
       .sort((a, b) => b.realized - a.realized);
   }, [filteredTrades]);
 
-  // Filter positions by search query so copy-trading targets only matching markets
+  // Filter positions by search + category so copy-trading targets only
+  // matching markets.
   const filteredPositions = useMemo(() => {
-    if (!searchFilter.trim()) return positions;
-    const q = searchFilter.toLowerCase();
-    return positions.filter((p) => p.market.toLowerCase().includes(q));
-  }, [positions, searchFilter]);
+    const q = searchFilter.trim().toLowerCase();
+    if (!q && !categoryFilter) return positions;
+    return positions.filter((p) => {
+      if (q && !p.market.toLowerCase().includes(q)) return false;
+      if (categoryFilter && !matchMarketCategory(p.market, categoryFilter)) return false;
+      return true;
+    });
+  }, [positions, searchFilter, categoryFilter]);
 
   const sortedPositions = useMemo(() => {
     return [...filteredPositions].sort((a, b) => {
@@ -486,10 +498,10 @@ export default function TraderProfile({
             {([
               { label: `${dayLabel} P&L`, value: formatPnl(stats.totalPnl), tone: stats.totalPnl > 0 ? "good" : stats.totalPnl < 0 ? "bad" : "neutral" },
               { label: "WIN RATE", value: stats.winRate < 0 ? "—" : `${stats.winRate}%`, tone: stats.winRate < 0 ? "neutral" : stats.winRate >= 50 ? "good" : "bad" },
-              { label: "TRADES", value: searchFilter.trim() ? `${filteredTrades.length}/${tradesInWindow.length}` : filteredTrades.length.toString(), tone: "neutral" },
+              { label: "TRADES", value: (searchFilter.trim() || categoryFilter) ? `${filteredTrades.length}/${tradesInWindow.length}` : filteredTrades.length.toString(), tone: "neutral" },
               { label: "VOLUME", value: formatVolume(filteredTrades.reduce((s, t) => s + t.size * t.price, 0)), tone: "neutral" },
               { label: "AVG TRADE", value: formatPnl(stats.avgTrade), tone: stats.avgTrade > 0 ? "good" : stats.avgTrade < 0 ? "bad" : "neutral" },
-              { label: "POSITIONS", value: searchFilter.trim() ? `${filteredPositions.length}/${positions.length}` : positions.length.toString(), tone: "neutral" },
+              { label: "POSITIONS", value: (searchFilter.trim() || categoryFilter) ? `${filteredPositions.length}/${positions.length}` : positions.length.toString(), tone: "neutral" },
             ] as const).map((stat) => {
               const valueClass =
                 stat.tone === "good" ? "text-green-400" :
@@ -537,14 +549,14 @@ export default function TraderProfile({
             {profileTab === "chart" ? (
               <div className="p-0">
                 {pnlCurve.length > 0 ? (
-                  <PnlChart points={pnlCurve} dayLabel={dayLabel} tradesInWindow={filteredTrades} filtered={!!searchFilter.trim()} />
+                  <PnlChart points={pnlCurve} dayLabel={dayLabel} tradesInWindow={filteredTrades} filtered={!!(searchFilter.trim() || categoryFilter)} />
                 ) : (
                   <div className="p-8 text-center">
                     <div className="text-[12px] text-pixel-gray-light tracking-wider mb-2">
                       {`${dayLabel} P&L CURVE`}
                     </div>
                     <div className="text-[11px] text-pixel-gray">
-                      {searchFilter.trim()
+                      {(searchFilter.trim() || categoryFilter)
                         ? "NO MATCHING TRADES — TRY A DIFFERENT FILTER"
                         : positions.length > 0
                         ? "NO TRADES IN WINDOW — SHOWING OPEN POSITIONS BELOW"
@@ -745,7 +757,7 @@ export default function TraderProfile({
                   CURRENT POSITIONS
                 </span>
                 <span className="text-[11px] text-pixel-gray">
-                  {searchFilter.trim()
+                  {(searchFilter.trim() || categoryFilter)
                     ? `${filteredPositions.length} / ${positions.length} OPEN`
                     : `${positions.length} OPEN`}
                 </span>

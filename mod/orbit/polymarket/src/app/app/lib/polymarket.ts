@@ -91,6 +91,16 @@ export function matchTraderCategory(marketTitles: string[], category: string): b
   return keywords.some((kw) => joined.includes(kw));
 }
 
+/** Match a single market title against a category's keywords. Empty/unknown
+ *  category returns true (no filter). */
+export function matchMarketCategory(marketTitle: string, category: string): boolean {
+  if (!category) return true;
+  const keywords = CATEGORY_KEYWORDS[category];
+  if (!keywords) return true;
+  const t = marketTitle.toLowerCase();
+  return keywords.some((kw) => t.includes(kw));
+}
+
 /** Match a trader against a free-text search query (address OR market titles). */
 export function matchTraderSearch(t: TopTrader, query: string): boolean {
   if (!query.trim()) return true;
@@ -570,7 +580,7 @@ export async function fetchWalletTradesUntil(
       if (t.type !== "TRADE") continue;
       const price = Number(t.price || 0);
       const size = Number(t.size || 0);
-      const usdcSize = Number(t.usdcSize || price * size);
+      if (!Number.isFinite(price) || !Number.isFinite(size) || size <= 0) continue;
       const side = String(t.side || "BUY").toUpperCase() as "BUY" | "SELL";
       let timestamp = 0;
       if (typeof t.timestamp === "number") {
@@ -578,6 +588,7 @@ export async function fetchWalletTradesUntil(
           ? (t.timestamp as number)
           : (t.timestamp as number) * 1000;
       }
+      if (timestamp <= 0) continue;
       out.push({
         id: String(t.transactionHash || ""),
         market: String(t.title || t.slug || ""),
@@ -585,7 +596,6 @@ export async function fetchWalletTradesUntil(
         side,
         price,
         size,
-        pnl: side === "SELL" ? usdcSize * 0.1 : 0,
         timestamp,
         outcome: t.outcome as string | undefined,
       });
@@ -634,13 +644,8 @@ export async function fetchWalletTrades(address: string, limit: number = 200): P
     .map((t: Record<string, unknown>) => {
       const price = Number(t.price || 0);
       const size = Number(t.size || 0);
-      const usdcSize = Number(t.usdcSize || price * size);
       const side = String(t.side || "BUY").toUpperCase() as "BUY" | "SELL";
 
-      // Estimate P&L from trade data
-      const pnl = side === "SELL" ? usdcSize * 0.1 : 0;
-
-      // Timestamp is unix seconds
       let timestamp = 0;
       if (typeof t.timestamp === "number") {
         timestamp = t.timestamp > 1e12 ? t.timestamp : t.timestamp * 1000;
@@ -653,11 +658,11 @@ export async function fetchWalletTrades(address: string, limit: number = 200): P
         side,
         price,
         size,
-        pnl,
         timestamp,
         outcome: t.outcome as string | undefined,
       };
-    });
+    })
+    .filter((t) => Number.isFinite(t.price) && Number.isFinite(t.size) && t.size > 0 && t.timestamp > 0);
 
   setCache(address, `trades_${limit}`, result);
   return result;
@@ -676,24 +681,31 @@ export async function fetchPositions(address: string): Promise<PolymarketPositio
 
   const positions = Array.isArray(raw) ? raw : [];
 
-  const result = positions.map((p: Record<string, unknown>) => {
-    const size = Number(p.size || 0);
-    const avgPrice = Number(p.avgPrice || 0);
-    const currentPrice = Number(p.curPrice || avgPrice);
-    const value = Number(p.currentValue || size * currentPrice);
-    const pnlUsd = Number(p.cashPnl || (currentPrice - avgPrice) * size);
+  const safe = (n: unknown, fallback = 0): number => {
+    const v = Number(n);
+    return Number.isFinite(v) ? v : fallback;
+  };
 
-    return {
-      conditionId: String(p.conditionId || p.asset || ""),
-      market: String(p.title || p.slug || ""),
-      outcome: String(p.outcome || "Yes"),
-      size,
-      avgPrice,
-      currentPrice,
-      value,
-      pnlUsd,
-    };
-  });
+  const result = positions
+    .map((p: Record<string, unknown>) => {
+      const size = safe(p.size);
+      const avgPrice = safe(p.avgPrice);
+      const currentPrice = safe(p.curPrice, avgPrice);
+      const value = safe(p.currentValue, size * currentPrice);
+      const pnlUsd = safe(p.cashPnl, (currentPrice - avgPrice) * size);
+
+      return {
+        conditionId: String(p.conditionId || p.asset || ""),
+        market: String(p.title || p.slug || ""),
+        outcome: String(p.outcome || "Yes"),
+        size,
+        avgPrice,
+        currentPrice,
+        value,
+        pnlUsd,
+      };
+    })
+    .filter((p) => p.conditionId && p.size > 0);
 
   setCache(address, "positions", result);
   return result;

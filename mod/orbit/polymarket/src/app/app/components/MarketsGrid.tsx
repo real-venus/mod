@@ -7,6 +7,7 @@ import {
   fetchMarketsByCategory,
   searchMarkets,
   CategorySlug,
+  matchMarketCategory,
 } from "../lib/polymarket";
 import MarketCard from "./MarketCard";
 
@@ -54,6 +55,15 @@ export default function MarketsGrid({
       // Filter out expired markets client-side as a safety net
       const now = new Date().toISOString();
       data = data.filter((m) => !m.endDate || m.endDate >= now);
+      // When both search and category are active, narrow the search results
+      // by the semantic category so all visible stats (count, pagination)
+      // reflect both filters at once.
+      if (search.trim() && category) {
+        data = data.filter((m) =>
+          matchMarketCategory(m.question || "", category) ||
+          matchMarketCategory(m.category || "", category),
+        );
+      }
       setAllMarkets(data);
       setPage(0);
     } catch (e: unknown) {

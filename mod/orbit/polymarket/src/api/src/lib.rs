@@ -2,6 +2,7 @@ pub mod routes;
 pub mod proxy;
 pub mod pipeline;
 pub mod cache;
+pub mod categories;
 pub mod types;
 
 use std::sync::Arc;

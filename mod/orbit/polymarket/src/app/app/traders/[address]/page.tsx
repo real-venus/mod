@@ -21,7 +21,7 @@ function TraderPageInner() {
   useUrlSync();
   const params = useParams();
   const router = useRouter();
-  const { daysAgo, search, setSearch, reloadKey } = useFilters();
+  const { daysAgo, search, setSearch, category, reloadKey } = useFilters();
   const days = Number(daysAgo) > 0 ? Number(daysAgo) : 7;
 
   // Clear search on mount — on the traders list, search finds traders by
@@ -192,6 +192,7 @@ function TraderPageInner() {
           onBack={() => router.back()}
           days={days}
           searchFilter={search}
+          categoryFilter={category}
         />
       </div>
     </div>
