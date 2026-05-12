@@ -45,7 +45,9 @@ pub async fn serve(manager: AppState, port: u16) {
             .route("/modules/:name", delete(delete_module))
             .route("/modules/:name/rename", put(rename_module))
             .route("/files/write", post(file_write))
-            .route("/kill", post(kill_process));
+            .route("/kill", post(kill_process))
+            .route("/whitelist", post(add_to_whitelist))
+            .route("/whitelist/:address", delete(remove_from_whitelist));
 
         if local_mode {
             println!("⚡ Local mode — auth disabled");
@@ -73,6 +75,7 @@ pub async fn serve(manager: AppState, port: u16) {
         .route("/changelog", get(get_changelog))
         .route("/versions/:version", get(get_version))
         .route("/owner", get(get_owner))
+        .route("/whitelist", get(get_whitelist))
         .route("/auth/role", get(get_role))
         .route(
             "/auth/challenge",
@@ -246,6 +249,68 @@ async fn get_role(Query(params): Query<RoleQuery>) -> impl IntoResponse {
 #[derive(Deserialize)]
 struct RoleQuery {
     address: String,
+}
+
+async fn get_whitelist() -> impl IntoResponse {
+    Json(json!({ "whitelist": auth::read_whitelist() }))
+}
+
+#[derive(Deserialize)]
+struct WhitelistAddRequest {
+    address: String,
+}
+
+fn require_owner(headers: &axum::http::HeaderMap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let caller = auth::extract_address_from_headers(headers).map_err(|e| (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({ "error": e })),
+    ))?;
+    if !auth::is_owner(&caller) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": "Owner-only: whitelist edits require the configured owner" })),
+        ));
+    }
+    Ok(())
+}
+
+async fn add_to_whitelist(
+    headers: axum::http::HeaderMap,
+    Json(req): Json<WhitelistAddRequest>,
+) -> impl IntoResponse {
+    if let Err(e) = require_owner(&headers) { return e.into_response(); }
+    let addr = req.address.trim().to_lowercase();
+    if !addr.starts_with("0x") || addr.len() != 42 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "address must be a 0x-prefixed 40-hex string" })),
+        ).into_response();
+    }
+    let mut list = auth::read_whitelist();
+    if !list.contains(&addr) {
+        list.push(addr.clone());
+        if let Err(e) = auth::write_whitelist(&list) {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e }))).into_response();
+        }
+    }
+    (StatusCode::OK, Json(json!({ "whitelist": list, "added": addr }))).into_response()
+}
+
+async fn remove_from_whitelist(
+    headers: axum::http::HeaderMap,
+    Path(address): Path<String>,
+) -> impl IntoResponse {
+    if let Err(e) = require_owner(&headers) { return e.into_response(); }
+    let target = address.trim().to_lowercase();
+    let before = auth::read_whitelist();
+    let after: Vec<String> = before.iter().filter(|a| *a != &target).cloned().collect();
+    if after.len() == before.len() {
+        return (StatusCode::NOT_FOUND, Json(json!({ "error": "address not in whitelist" }))).into_response();
+    }
+    if let Err(e) = auth::write_whitelist(&after) {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e }))).into_response();
+    }
+    (StatusCode::OK, Json(json!({ "whitelist": after, "removed": target }))).into_response()
 }
 
 async fn submit_job(
