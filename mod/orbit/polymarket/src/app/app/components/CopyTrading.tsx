@@ -11,6 +11,7 @@ import {
 } from "../lib/polymarket";
 import { shortAddress } from "@/lib/auth";
 import { useFilters, useFilterParams } from "../context/FiltersContext";
+import { loadIndexes, getActiveIndexId } from "../lib/indexStore";
 
 type TraderSort = "score" | "volume" | "pnl" | "positions";
 const DEFAULT_FORMULA = "pnl / volume";
@@ -195,6 +196,9 @@ export default function CopyTrading({
 
   const [refreshing, setRefreshing] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [stratFilter, setStratFilter] = useState(false);
+  const [stratAddrs, setStratAddrs] = useState<Set<string>>(new Set());
+  const [stratName, setStratName] = useState<string | null>(null);
   const inFlightRef = useRef(false);
   const pageRef = useRef(0);
 
@@ -373,6 +377,7 @@ export default function CopyTrading({
       if (minBuyVolume !== "" && Number.isFinite(mbv) && t.buyVolume < mbv) return false;
       const msv = Number(minSellVolume);
       if (minSellVolume !== "" && Number.isFinite(msv) && t.sellVolume < msv) return false;
+      if (stratFilter && stratAddrs.size > 0 && !stratAddrs.has(t.address.toLowerCase())) return false;
       return true;
     });
     // Sort. When a category is selected, vibe-first (more in-category titles
@@ -391,7 +396,8 @@ export default function CopyTrading({
     });
     return list;
   }, [cacheWarm, streamedAll, search, category, minVolume, minPnl,
-      minTrades, minBuyVolume, minSellVolume, sortDir, traderSort, scoreFor]);
+      minTrades, minBuyVolume, minSellVolume, sortDir, traderSort, scoreFor,
+      stratFilter, stratAddrs]);
 
   const sortedTraders = useMemo(() => {
     if (clientView) {
@@ -413,11 +419,31 @@ export default function CopyTrading({
 
   // Reset page on filter/sort change
   useEffect(() => { setPage(0); }, [search, category, traderSort, sortDir,
-    minVolume, minPnl, minTrades, minBuyVolume, minSellVolume]);
+    minVolume, minPnl, minTrades, minBuyVolume, minSellVolume, stratFilter]);
 
   const totalPages = Math.max(1, Math.ceil(visibleTotal / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
-  const pageTraders = sortedTraders;
+  const toggleStratFilter = useCallback(() => {
+    if (stratFilter) {
+      setStratFilter(false);
+      setStratAddrs(new Set());
+      setStratName(null);
+    } else {
+      const indexes = loadIndexes();
+      const activeId = getActiveIndexId();
+      const active = activeId ? indexes.find(i => i.id === activeId) : indexes[0];
+      if (active && active.traders.length > 0) {
+        setStratAddrs(new Set(active.traders.map(t => t.address.toLowerCase())));
+        setStratName(active.name);
+        setStratFilter(true);
+      }
+    }
+  }, [stratFilter]);
+
+  const pageTraders = useMemo(() => {
+    if (!stratFilter || stratAddrs.size === 0) return sortedTraders;
+    return sortedTraders.filter(t => stratAddrs.has(t.address.toLowerCase()));
+  }, [sortedTraders, stratFilter, stratAddrs]);
 
   const columns: { key: TraderSort; label: string }[] = [
     { key: "score", label: "SCORE" },
@@ -489,6 +515,23 @@ export default function CopyTrading({
               </span>
             )}
             {refreshing && <span className="text-[8px] text-green-400 animate-pulse">&#9679;</span>}
+
+            <button
+              onClick={toggleStratFilter}
+              className={`pixel-btn text-[9px] px-2 py-0.5 shrink-0 flex items-center gap-1.5 transition-colors ${
+                stratFilter
+                  ? "border-green-400 text-green-400 bg-green-400/10"
+                  : "border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white"
+              }`}
+              title={stratFilter ? `Showing traders in ${stratName}` : "Filter to active strategy traders"}
+            >
+              STRAT
+              {stratFilter && stratName && (
+                <span className="text-[7px] bg-green-500/20 text-green-400 px-1 py-px border border-green-500/40 max-w-[60px] truncate">
+                  {stratName}
+                </span>
+              )}
+            </button>
 
             <button
               onClick={() => setShowFilters((v) => !v)}

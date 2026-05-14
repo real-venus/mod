@@ -1,5 +1,21 @@
 use serde::{Deserialize, Serialize};
 
+/// Per-market breakdown of a trader's activity within the analysis window.
+/// Stored in memory cache only (`#[serde(skip)]` on parent) — used by
+/// `apply_pagination` to recompute aggregate stats when a search/category
+/// filter narrows the view to specific markets.
+#[derive(Debug, Clone)]
+pub struct MarketMetric {
+    pub title: String,
+    pub volume: f64,
+    pub buy_volume: f64,
+    pub sell_volume: f64,
+    pub pnl: f64,
+    pub trades: u32,
+    pub wins: u32,
+    pub sells: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Trader {
     pub address: String,
@@ -18,6 +34,9 @@ pub struct Trader {
     pub recent_trades: u32,
     #[serde(rename = "pnlCurve", skip_serializing_if = "Option::is_none")]
     pub pnl_curve: Option<Vec<f64>>,
+    /// Per-market metrics — memory-only, not serialized to JSON / disk cache.
+    #[serde(skip)]
+    pub market_metrics: Option<Vec<MarketMetric>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

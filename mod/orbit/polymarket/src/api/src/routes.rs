@@ -15,6 +15,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/health", get(health))
         .route("/active-traders", get(active_traders))
+        // Encrypted strat storage
+        .merge(crate::strats::router())
         // Proxy: all other endpoints go through the cache proxy
         .fallback(get(proxy::proxy_handler).post(proxy::proxy_handler))
 }
@@ -157,21 +159,61 @@ fn apply_pagination(payload: &crate::types::AggPayload, q: &ActiveTradersQuery, 
 
     let mut traders = payload.traders.clone();
 
-    // Filter
-    if let Some(ref search) = q.search {
-        let s = search.to_lowercase();
-        traders.retain(|t| {
-            t.address.contains(&s)
-                || t.market_titles.iter().any(|m| m.to_lowercase().contains(&s))
+    let search_lower = q.search.as_ref().map(|s| s.to_lowercase());
+    let cat = q.category.as_deref().unwrap_or("").to_lowercase();
+    let has_query = search_lower.is_some() || !cat.is_empty();
+
+    // When a search or category filter is active and per-market metrics are
+    // available, recompute each trader's aggregate stats from ONLY the
+    // matching markets. This lets users see e.g. a trader's crypto-specific
+    // P&L rather than their overall numbers.
+    if has_query {
+        traders.retain_mut(|t| {
+            if let Some(ref mm) = t.market_metrics {
+                // Filter to markets matching the query
+                let matching: Vec<_> = mm.iter().filter(|m| {
+                    let title_lower = m.title.to_lowercase();
+                    let search_ok = search_lower.as_ref().map_or(true, |s| {
+                        t.address.contains(s.as_str()) || title_lower.contains(s.as_str())
+                    });
+                    let cat_ok = cat.is_empty() || crate::categories::title_in_category(&m.title, &cat);
+                    search_ok && cat_ok
+                }).collect();
+
+                if matching.is_empty() && !search_lower.as_ref().map_or(false, |s| t.address.contains(s.as_str())) {
+                    return false; // no matching markets → drop trader
+                }
+
+                if !matching.is_empty() {
+                    // Recompute aggregate stats from matching markets
+                    t.volume = matching.iter().map(|m| m.volume).sum();
+                    t.buy_volume = matching.iter().map(|m| m.buy_volume).sum();
+                    t.sell_volume = matching.iter().map(|m| m.sell_volume).sum();
+                    t.pnl = matching.iter().map(|m| m.pnl).sum();
+                    t.recent_trades = matching.iter().map(|m| m.trades).sum();
+                    t.market_titles = matching.iter().map(|m| m.title.clone()).collect();
+                    let total_wins: u32 = matching.iter().map(|m| m.wins).sum();
+                    let total_sells: u32 = matching.iter().map(|m| m.sells).sum();
+                    t.win_rate = if total_sells > 0 {
+                        (total_wins as f64 / total_sells as f64 * 100.0).round()
+                    } else { -1.0 };
+                    t.pnl_curve = None; // curve reflects all trades, clear for consistency
+                }
+                true
+            } else {
+                // No per-market data (loaded from disk cache) — fall back to
+                // the original title-based filtering without recomputation.
+                let search_ok = search_lower.as_ref().map_or(true, |s| {
+                    t.address.contains(s.as_str())
+                        || t.market_titles.iter().any(|m| m.to_lowercase().contains(s.as_str()))
+                });
+                let cat_ok = cat.is_empty() || crate::categories::trader_in_category(&t.market_titles, &cat);
+                search_ok && cat_ok
+            }
         });
     }
-    // Semantic category filter — uses the keyword map (e.g. "crypto" matches
-    // "Bitcoin", "ETH", "SOL", …), not a literal substring match on the
-    // category slug.
-    let cat = q.category.as_deref().unwrap_or("").to_lowercase();
-    if !cat.is_empty() {
-        traders.retain(|t| crate::categories::trader_in_category(&t.market_titles, &cat));
-    }
+
+    // Numeric filters (applied on the recomputed stats when query is active)
     if let Some(min_vol) = q.min_volume {
         if min_vol > 0.0 {
             traders.retain(|t| t.volume >= min_vol);
@@ -207,7 +249,6 @@ fn apply_pagination(payload: &crate::types::AggPayload, q: &ActiveTradersQuery, 
             let a_match = crate::categories::title_match_count(&a.market_titles, &cat_sort);
             let b_match = crate::categories::title_match_count(&b.market_titles, &cat_sort);
             if a_match != b_match {
-                // Always more-in-category first, regardless of sort dir.
                 return b_match.cmp(&a_match);
             }
         }
@@ -223,7 +264,10 @@ fn apply_pagination(payload: &crate::types::AggPayload, q: &ActiveTradersQuery, 
 
     let total = traders.len();
     let start = (page * page_size) as usize;
-    let sliced: Vec<_> = traders.into_iter().skip(start).take(page_size as usize).collect();
+    // Strip market_metrics before serialization (release memory)
+    let sliced: Vec<_> = traders.into_iter().skip(start).take(page_size as usize)
+        .map(|mut t| { t.market_metrics = None; t })
+        .collect();
 
     json!({
         "traders": sliced,

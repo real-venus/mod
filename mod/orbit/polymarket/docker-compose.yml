@@ -3,7 +3,13 @@ services:
     build: .
     container_name: polymarket
     ports:
-      - "3000:3000"
+      - "${GATEWAY_PORT:-3000}:${GATEWAY_PORT:-3000}"
     restart: unless-stopped
+    volumes:
+      - polymarket-strats:/tmp/polymarket-strats
     environment:
-      - GATEWAY_PORT=3000
+      - GATEWAY_PORT=${GATEWAY_PORT:-3000}
+      - STRAT_HMAC_SECRET=${STRAT_HMAC_SECRET:-polymarket_strats_default_hmac_key_2024}
+
+volumes:
+  polymarket-strats:

@@ -8,7 +8,7 @@ GATEWAY_PORT="${GATEWAY_PORT:-3000}"
 echo "── polymarket docker ──"
 
 # ── Start Rust API ──
-PORT=$API_PORT /app/bin/polymarket-api &
+PORT=$API_PORT STRAT_HMAC_SECRET="${STRAT_HMAC_SECRET:-}" /app/bin/polymarket-api &
 API_PID=$!
 echo "API starting on :$API_PORT (pid $API_PID)"
 

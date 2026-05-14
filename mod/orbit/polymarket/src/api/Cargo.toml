@@ -29,6 +29,12 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 anyhow = "1"
 thiserror = "2"
 
+# Crypto (HMAC transport auth for strats)
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+
 # Concurrency
 dashmap = "6"
 parking_lot = "0.12"

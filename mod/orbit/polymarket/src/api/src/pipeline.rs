@@ -7,7 +7,7 @@ use parking_lot::RwLock;
 use serde_json::Value;
 
 use crate::cache::PipelineCache;
-use crate::types::{AggPayload, Trader};
+use crate::types::{AggPayload, MarketMetric, Trader};
 
 const DATA_API: &str = "https://data-api.polymarket.com";
 const PAGE_SIZE: u32 = 50;
@@ -155,6 +155,7 @@ impl PipelineState {
                     market_titles: vec![],
                     recent_trades: 0,
                     pnl_curve: None,
+                    market_metrics: None,
                 });
                 existing.volume = existing.volume.max(vol);
                 if pnl.abs() > existing.pnl.abs() {
@@ -324,6 +325,7 @@ async fn enrich_trader_with_url(
     trader.sell_volume = metrics.sell_volume;
     trader.pnl = metrics.pnl;
     trader.pnl_curve = Some(compute_pnl_curve(&all_trades, cutoff_sec));
+    trader.market_metrics = if metrics.per_market.is_empty() { None } else { Some(metrics.per_market) };
 
     // Extract unique market titles from trade data
     let mut seen_titles = std::collections::HashSet::new();
@@ -368,6 +370,7 @@ struct WindowMetrics {
     sell_volume: f64,
     pnl: f64,
     count: u32,
+    per_market: Vec<MarketMetric>,
 }
 
 fn compute_window_metrics(trades: &[Value], cutoff_sec: u64) -> WindowMetrics {
@@ -385,11 +388,16 @@ fn compute_window_metrics(trades: &[Value], cutoff_sec: u64) -> WindowMetrics {
     let mut sell_volume = 0.0f64;
     let mut count = 0u32;
 
+    // Per-market accumulator
+    struct MktAccum { volume: f64, buy_volume: f64, sell_volume: f64, pnl: f64, trades: u32, wins: u32, sells: u32 }
+    let mut per_market: HashMap<String, MktAccum> = HashMap::new();
+
     for t in sorted {
         let ts = normalize_ts(t);
         let in_window = ts >= cutoff_sec;
         let key = t.get("conditionId").or(t.get("asset"))
             .and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let title = t.get("title").and_then(|v| v.as_str()).unwrap_or("");
         let price = t.get("price").and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))).unwrap_or(0.0);
         let size = t.get("size").and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))).unwrap_or(0.0);
         let usdc_size = t.get("usdcSize").and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))).unwrap_or(price * size);
@@ -397,13 +405,14 @@ fn compute_window_metrics(trades: &[Value], cutoff_sec: u64) -> WindowMetrics {
 
         let pos = book.entry(key).or_insert((0.0, 0.0));
 
+        let mut realized = 0.0f64;
         if side == "BUY" {
             pos.1 += price * size; // cost
             pos.0 += size;         // size
         } else if side == "SELL" && pos.0 > 0.0 {
             let avg = pos.1 / pos.0;
             let sold = size.min(pos.0);
-            let realized = (price - avg) * sold;
+            realized = (price - avg) * sold;
             pos.1 -= avg * sold;
             pos.0 -= sold;
             if in_window {
@@ -418,8 +427,34 @@ fn compute_window_metrics(trades: &[Value], cutoff_sec: u64) -> WindowMetrics {
                 sell_volume += usdc_size;
             }
             count += 1;
+
+            // Per-market accumulation
+            if !title.is_empty() {
+                let mkt = per_market.entry(title.to_string()).or_insert(MktAccum {
+                    volume: 0.0, buy_volume: 0.0, sell_volume: 0.0,
+                    pnl: 0.0, trades: 0, wins: 0, sells: 0,
+                });
+                mkt.volume += usdc_size;
+                mkt.trades += 1;
+                mkt.pnl += realized;
+                if side == "BUY" {
+                    mkt.buy_volume += usdc_size;
+                } else if side == "SELL" {
+                    mkt.sell_volume += usdc_size;
+                    mkt.sells += 1;
+                    if price > 0.5 { mkt.wins += 1; }
+                }
+            }
         }
     }
+
+    let market_metrics: Vec<MarketMetric> = per_market.into_iter().map(|(title, m)| {
+        MarketMetric {
+            title, volume: m.volume, buy_volume: m.buy_volume,
+            sell_volume: m.sell_volume, pnl: m.pnl, trades: m.trades,
+            wins: m.wins, sells: m.sells,
+        }
+    }).collect();
 
     WindowMetrics {
         volume: buy_volume + sell_volume,
@@ -427,6 +462,7 @@ fn compute_window_metrics(trades: &[Value], cutoff_sec: u64) -> WindowMetrics {
         sell_volume,
         pnl,
         count,
+        per_market: market_metrics,
     }
 }
 
@@ -953,7 +989,7 @@ mod tests {
             address: "0xtest".to_string(),
             volume: 0.0, buy_volume: 0.0, sell_volume: 0.0,
             pnl: 0.0, win_rate: 0.0, positions: 0,
-            market_titles: vec![], recent_trades: 0, pnl_curve: None,
+            market_titles: vec![], recent_trades: 0, pnl_curve: None, market_metrics: None,
         };
 
         // Call with the mock server URL (override DATA_API)
@@ -984,7 +1020,7 @@ mod tests {
             address: "0xtest".to_string(),
             volume: 0.0, buy_volume: 0.0, sell_volume: 0.0,
             pnl: 0.0, win_rate: 0.0, positions: 0,
-            market_titles: vec![], recent_trades: 0, pnl_curve: None,
+            market_titles: vec![], recent_trades: 0, pnl_curve: None, market_metrics: None,
         };
 
         let cutoff = now - 86400;
@@ -1022,7 +1058,7 @@ mod tests {
             address: "0xtest".to_string(),
             volume: 0.0, buy_volume: 0.0, sell_volume: 0.0,
             pnl: 0.0, win_rate: 0.0, positions: 0,
-            market_titles: vec![], recent_trades: 0, pnl_curve: None,
+            market_titles: vec![], recent_trades: 0, pnl_curve: None, market_metrics: None,
         };
 
         let cutoff = now - 86400;
@@ -1047,14 +1083,14 @@ mod tests {
                     volume: 5000.0, buy_volume: 3000.0, sell_volume: 2000.0,
                     pnl: 150.0, win_rate: 65.0, positions: 10,
                     market_titles: vec!["Market A".into()], recent_trades: 10,
-                    pnl_curve: Some(vec![0.0; 12]),
+                    pnl_curve: Some(vec![0.0; 12]), market_metrics: None,
                 },
                 Trader {
                     address: "0xbbb".to_string(),
                     volume: 3000.0, buy_volume: 1500.0, sell_volume: 1500.0,
                     pnl: -50.0, win_rate: 40.0, positions: 5,
                     market_titles: vec![], recent_trades: 5,
-                    pnl_curve: None,
+                    pnl_curve: None, market_metrics: None,
                 },
             ],
         };
@@ -1092,7 +1128,7 @@ mod tests {
                 volume: 100.0, buy_volume: 60.0, sell_volume: 40.0,
                 pnl: 5.0, win_rate: 50.0, positions: 2,
                 market_titles: vec!["Test".into()], recent_trades: 2,
-                pnl_curve: Some(vec![1.0, 2.0, 3.0]),
+                pnl_curve: Some(vec![1.0, 2.0, 3.0]), market_metrics: None,
             }],
         };
 
@@ -1133,6 +1169,7 @@ mod tests {
             market_titles: vec!["Will BTC hit 100k?".into(), "US Election".into()],
             recent_trades: 42,
             pnl_curve: Some(vec![0.0, 5.0, 10.0, 8.0, 12.0, 15.0, 14.0, 18.0, 20.0, 22.0, 25.0, 30.0]),
+            market_metrics: None,
         };
         let json = serde_json::to_string(&trader).unwrap();
         let parsed: Trader = serde_json::from_str(&json).unwrap();
@@ -1157,7 +1194,7 @@ mod tests {
             volume: 0.0, buy_volume: 0.0, sell_volume: 0.0,
             pnl: 0.0, win_rate: 0.0, positions: 0,
             market_titles: vec![], recent_trades: 0,
-            pnl_curve: None,
+            pnl_curve: None, market_metrics: None,
         };
         let json = serde_json::to_string(&trader).unwrap();
         assert!(!json.contains("pnlCurve"), "pnlCurve should be omitted when None");

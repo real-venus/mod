@@ -19,11 +19,13 @@ export type CurvePoint = {
 };
 
 /* ── Pure SVG P&L Chart ── */
-export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = false }: {
+export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = false, highlightIndex, onHoverChange }: {
   points: CurvePoint[];
   dayLabel: string;
   tradesInWindow: { timestamp: number }[];
   filtered?: boolean;
+  highlightIndex?: number | null;
+  onHoverChange?: (idx: number | null) => void;
 }) {
   const W = 800, H = 260;
   const pad = { top: 20, right: 16, bottom: 40, left: 60 };
@@ -95,13 +97,15 @@ export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = 
         if (d < bestDist) { bestDist = d; best = i; }
       }
       setHovered(best);
+      onHoverChange?.(best);
     };
-    const onLeave = () => setHovered(null);
+    const onLeave = () => { setHovered(null); onHoverChange?.(null); };
     el.onmousemove = onMove;
     el.onmouseleave = onLeave;
   };
 
-  const hp = hovered !== null ? points[hovered] : null;
+  const activeIdx = hovered ?? highlightIndex ?? null;
+  const hp = activeIdx !== null && activeIdx >= 0 && activeIdx < points.length ? points[activeIdx] : null;
 
   return (
     <div className="pixel-panel p-5">
@@ -122,6 +126,13 @@ export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = 
             <stop offset="0%" stopColor="#ffffff" stopOpacity={0.15} />
             <stop offset="100%" stopColor="#ffffff" stopOpacity={0} />
           </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
         </defs>
         {/* Grid lines */}
         {yTicks.map((v, i) => (
@@ -148,8 +159,9 @@ export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = 
         <line x1={pad.left} y1={H - pad.bottom} x2={W - pad.right} y2={H - pad.bottom} stroke="#444" strokeWidth={1} />
         {/* Area fill */}
         <path d={areaPath} fill="url(#pnlFill)" />
-        {/* Line */}
-        <path d={linePath} fill="none" stroke="#fff" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {/* Line with glow */}
+        <path d={linePath} fill="none" stroke="#fff" strokeWidth={1} strokeOpacity={0.3} strokeLinejoin="round" strokeLinecap="round" filter="url(#glow)" />
+        <path d={linePath} fill="none" stroke="#fff" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
         {/* Dots */}
         {points.map((p, i) => {
           const x = toX(p.ts), y = toY(p.pnl);
@@ -173,7 +185,7 @@ export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = 
       {/* Tooltip */}
       {hp && (
         <div className="pixel-panel p-2 mt-1 text-[9px] font-mono flex items-center gap-3 flex-wrap">
-          <span className="text-pixel-gray">{hp.time}</span>
+          <span className="text-pixel-white font-bold">{hp.time}</span>
           {hp.side !== "MARK" && (
             <span className="text-pixel-white">{hp.side} {hp.size.toFixed(0)} @ {Math.round(hp.price * 100)}c</span>
           )}
@@ -195,22 +207,6 @@ export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = 
           {hp.market && <span className="text-pixel-gray truncate max-w-[200px]">{hp.market}</span>}
         </div>
       )}
-      {/* Legend */}
-      <div className="flex items-center gap-4 mt-2 text-[10px] text-pixel-gray flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 bg-pixel-gray-light/40 rounded-full border border-pixel-gray" /> BUY
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 bg-green-400" /> SELL +
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 bg-red-400" /> SELL -
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full border border-pixel-white" /> NOW (MTM)
-        </div>
-        <div className="ml-auto">{points.length} POINTS</div>
-      </div>
     </div>
   );
 }

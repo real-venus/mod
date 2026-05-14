@@ -596,6 +596,7 @@ export async function fetchWalletTradesUntil(
         side,
         price,
         size,
+        pnl: Number(t.pnl || 0),
         timestamp,
         outcome: t.outcome as string | undefined,
       });
@@ -651,6 +652,11 @@ export async function fetchWalletTrades(address: string, limit: number = 200): P
         timestamp = t.timestamp > 1e12 ? t.timestamp : t.timestamp * 1000;
       }
 
+      // Extract fee if available, otherwise calculate as 2% of trade value
+      const feeFromApi = Number(t.fee || t.feeAmount || t.tradeFee || 0);
+      const tradeValue = price * size;
+      const fee = feeFromApi > 0 ? feeFromApi : tradeValue * 0.02;
+
       return {
         id: String(t.transactionHash || ""),
         market: String(t.title || t.slug || ""),
@@ -658,8 +664,10 @@ export async function fetchWalletTrades(address: string, limit: number = 200): P
         side,
         price,
         size,
+        pnl: Number(t.pnl || 0),
         timestamp,
         outcome: t.outcome as string | undefined,
+        fee,
       };
     })
     .filter((t) => Number.isFinite(t.price) && Number.isFinite(t.size) && t.size > 0 && t.timestamp > 0);

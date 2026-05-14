@@ -9,7 +9,6 @@ const NAV = [
   { href: "/markets", label: "MARKETS" },
   { href: "/traders", label: "TRADERS" },
   { href: "/strats", label: "STRATS" },
-  { href: "/portfolio", label: "VAULT" },
 ];
 
 interface TopBarProps {

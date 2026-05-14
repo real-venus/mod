@@ -559,14 +559,14 @@ export default function TraderProfile({
                       {(searchFilter.trim() || categoryFilter)
                         ? "NO MATCHING TRADES — TRY A DIFFERENT FILTER"
                         : positions.length > 0
-                        ? "NO TRADES IN WINDOW — SHOWING OPEN POSITIONS BELOW"
+                        ? "NO TRADES IN WINDOW — CHECK POSITIONS TAB"
                         : "NO TRADE DATA"}
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              /* Trade tables for open / closed / all */
+              /* ── Trade tables for open / closed / all ── */
               sortedTrades.length > 0 ? (
                 <div className="max-h-[500px] overflow-y-auto overflow-x-auto">
                   <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "700px" }}>
@@ -739,89 +739,6 @@ export default function TraderProfile({
                           </td>
                           <td className={`num text-right font-mono ${pnlColor}`}>
                             {isOpen ? "—" : `${profit ? "+" : ""}$${m.realized.toFixed(2)}`}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Current Positions */}
-          {filteredPositions.length > 0 && (
-            <div className="pixel-panel overflow-hidden">
-              <div className="px-5 py-4 border-b-2 border-pixel-border flex items-center justify-between">
-                <span className="text-[12px] text-pixel-gray-light tracking-wider">
-                  CURRENT POSITIONS
-                </span>
-                <span className="text-[11px] text-pixel-gray">
-                  {(searchFilter.trim() || categoryFilter)
-                    ? `${filteredPositions.length} / ${positions.length} OPEN`
-                    : `${positions.length} OPEN`}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "600px" }}>
-                  <colgroup>
-                    <col style={{ width: "35%" }} />
-                    <col style={{ width: "55px" }} />
-                    <col style={{ width: "13%" }} />
-                    <col style={{ width: "13%" }} />
-                    <col style={{ width: "13%" }} />
-                    <col style={{ width: "14%" }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className={`sortable ${posSort === "market" ? "sorted" : ""}`} onClick={() => handlePosSort("market")}>
-                        MARKET <SortArrow active={posSort === "market"} dir={posSortDir} />
-                      </th>
-                      <th>SIDE</th>
-                      <th className={`sortable text-right ${posSort === "size" ? "sorted" : ""}`} onClick={() => handlePosSort("size")}>
-                        SIZE <SortArrow active={posSort === "size"} dir={posSortDir} />
-                      </th>
-                      <th className={`sortable text-right ${posSort === "avgPrice" ? "sorted" : ""}`} onClick={() => handlePosSort("avgPrice")}>
-                        AVG <SortArrow active={posSort === "avgPrice"} dir={posSortDir} />
-                      </th>
-                      <th className={`sortable text-right ${posSort === "currentPrice" ? "sorted" : ""}`} onClick={() => handlePosSort("currentPrice")}>
-                        NOW <SortArrow active={posSort === "currentPrice"} dir={posSortDir} />
-                      </th>
-                      <th className={`sortable text-right ${posSort === "pnlUsd" ? "sorted" : ""}`} onClick={() => handlePosSort("pnlUsd")}>
-                        P&L <SortArrow active={posSort === "pnlUsd"} dir={posSortDir} />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedPositions.map((pos, i) => {
-                      const isProfit = pos.pnlUsd >= 0;
-                      return (
-                        <tr key={`${pos.conditionId}-${i}`}>
-                          <td className="text-pixel-white truncate" title={pos.market}>
-                            {pos.market}
-                          </td>
-                          <td>
-                            <span
-                              className={`pixel-badge ${
-                                pos.outcome === "Yes"
-                                  ? "border-pixel-white text-pixel-white"
-                                  : "border-pixel-gray text-pixel-gray"
-                              }`}
-                            >
-                              {pos.outcome.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="text-right text-pixel-white font-mono">
-                            {pos.size.toFixed(1)}
-                          </td>
-                          <td className="text-right text-pixel-gray-light font-mono">
-                            {Math.round(pos.avgPrice * 100)}c
-                          </td>
-                          <td className="text-right text-pixel-white font-mono">
-                            {Math.round(pos.currentPrice * 100)}c
-                          </td>
-                          <td className={`text-right font-mono ${isProfit ? "text-pixel-white" : "text-pixel-gray"}`}>
-                            {isProfit ? "+" : ""}${pos.pnlUsd.toFixed(2)}
                           </td>
                         </tr>
                       );

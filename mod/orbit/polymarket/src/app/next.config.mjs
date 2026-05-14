@@ -8,6 +8,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: "/api/polymarket",
     NEXT_PUBLIC_BASE_PATH: basePath,
+    NEXT_PUBLIC_STRAT_HMAC_SECRET: process.env.NEXT_PUBLIC_STRAT_HMAC_SECRET || "",
   },
   async rewrites() {
     return [

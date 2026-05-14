@@ -11,15 +11,20 @@ export interface AnnotatedTrade extends PolymarketTrade {
 /**
  * Replay full trade history with FIFO bookkeeping.
  * Returns trades annotated with realized PnL per SELL.
+ * Pass cutoffMs to start fresh from that time (no seed basis from old positions).
  */
 export function computeFifoTrades(
   trades: PolymarketTrade[],
   positions: PolymarketPosition[],
+  cutoffMs?: number,
 ): AnnotatedTrade[] {
+  // Don't seed from positions if we're starting fresh
   const seedAvgPrice = new Map<string, number>();
-  for (const p of positions) {
-    const key = p.conditionId || p.market;
-    if (key && p.avgPrice > 0) seedAvgPrice.set(key, p.avgPrice);
+  if (!cutoffMs) {
+    for (const p of positions) {
+      const key = p.conditionId || p.market;
+      if (key && p.avgPrice > 0) seedAvgPrice.set(key, p.avgPrice);
+    }
   }
   const sorted = [...trades].sort((a, b) => a.timestamp - b.timestamp);
   type BuyLot = { price: number; size: number; ts: number };
@@ -238,4 +243,162 @@ export function buildCombinedPnlCurve(
   }
 
   return downsampled;
+}
+
+/**
+ * Build a combined PnL curve that shows individual trades from all traders.
+ * Each point represents an actual trade (BUY/SELL) or mark-to-market point.
+ * This allows you to see exactly which trades are happening across the strategy.
+ */
+export function buildTradeByTradeCombinedCurve(
+  traderData: {
+    address: string;
+    trades: AnnotatedTrade[];
+    positions: PolymarketPosition[];
+    weight: number;
+  }[],
+  cutoffMs: number,
+): CurvePoint[] {
+  // Collect all trades from all traders and merge chronologically
+  type TradeEvent = {
+    ts: number;
+    trade: AnnotatedTrade;
+    traderAddress: string;
+    weight: number;
+  };
+
+  const allEvents: TradeEvent[] = [];
+  for (const td of traderData) {
+    for (const trade of td.trades) {
+      if (trade.timestamp >= cutoffMs) {
+        allEvents.push({
+          ts: trade.timestamp,
+          trade,
+          traderAddress: td.traderAddress,
+          weight: td.weight,
+        });
+      }
+    }
+  }
+
+  // Sort chronologically
+  allEvents.sort((a, b) => a.ts - b.ts);
+
+  if (allEvents.length === 0) return [];
+
+  // Build combined portfolio state - track inventory and cash for each trader
+  const portfolios = new Map<string, {
+    cash: number;
+    inv: Map<string, number>;
+    lastPx: Map<string, number>;
+  }>();
+
+  for (const td of traderData) {
+    portfolios.set(td.traderAddress, {
+      cash: 0,
+      inv: new Map(),
+      lastPx: new Map(),
+    });
+  }
+
+  // Get current prices for mark-to-market
+  const curByKey = new Map<string, number>();
+  for (const td of traderData) {
+    for (const p of td.positions) {
+      const key = p.conditionId || p.market;
+      if (key && p.currentPrice > 0) curByKey.set(key, p.currentPrice);
+    }
+  }
+
+  const markFor = (key: string, traderAddr: string) => {
+    const portfolio = portfolios.get(traderAddr);
+    if (!portfolio) return 0;
+    return curByKey.get(key) ?? portfolio.lastPx.get(key) ?? 0;
+  };
+
+  const fmtDate = (ts: number) =>
+    new Date(ts).toLocaleDateString([], { month: "short", day: "numeric" });
+  const fmtTime = (ts: number) =>
+    new Date(ts).toLocaleString([], {
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+
+  const points: CurvePoint[] = [];
+
+  for (let i = 0; i < allEvents.length; i++) {
+    const event = allEvents[i];
+    const portfolio = portfolios.get(event.traderAddress)!;
+    const t = event.trade;
+    const key = t.conditionId || t.market;
+
+    // Update this trader's portfolio
+    if (t.side === "BUY") {
+      portfolio.cash -= t.price * t.size;
+      portfolio.inv.set(key, (portfolio.inv.get(key) || 0) + t.size);
+    } else {
+      portfolio.cash += t.price * t.size;
+      portfolio.inv.set(key, (portfolio.inv.get(key) || 0) - t.size);
+    }
+    portfolio.lastPx.set(key, t.price);
+
+    // Compute combined weighted PnL across all traders
+    let combinedPnl = 0;
+    for (const td of traderData) {
+      const p = portfolios.get(td.traderAddress)!;
+      let invValue = 0;
+      for (const [k, s] of p.inv) {
+        if (s !== 0) invValue += s * markFor(k, td.traderAddress);
+      }
+      const traderMtm = p.cash + invValue;
+      combinedPnl += traderMtm * td.weight;
+    }
+
+    points.push({
+      i,
+      ts: t.timestamp,
+      date: fmtDate(t.timestamp),
+      time: fmtTime(t.timestamp),
+      pnl: Math.round(combinedPnl * 100) / 100,
+      side: t.side,
+      realized: t.realized,
+      market: t.market,
+      size: t.size,
+      price: t.price,
+      buyPrice: t.buyPrice,
+      buyTimestamp: t.buyTimestamp,
+    });
+  }
+
+  // Add final NOW mark if there's open inventory
+  let hasOpenInv = false;
+  let nowPnl = 0;
+  for (const td of traderData) {
+    const p = portfolios.get(td.traderAddress)!;
+    let invValue = 0;
+    for (const [k, s] of p.inv) {
+      if (Math.abs(s) >= 1e-9) {
+        invValue += s * markFor(k, td.traderAddress);
+        hasOpenInv = true;
+      }
+    }
+    nowPnl += (p.cash + invValue) * td.weight;
+  }
+
+  if (hasOpenInv) {
+    const nowTs = Date.now();
+    points.push({
+      i: points.length,
+      ts: nowTs,
+      date: fmtDate(nowTs),
+      time: "NOW",
+      pnl: Math.round(nowPnl * 100) / 100,
+      side: "MARK",
+      realized: 0,
+      market: "",
+      size: 0,
+      price: 0,
+    });
+  }
+
+  return points;
 }

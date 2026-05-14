@@ -6,7 +6,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
-use polymarket_api::{AppState, ProxyCache, PipelineState};
+use polymarket_api::{AppState, ProxyCache, PipelineState, StratStore};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -30,10 +30,13 @@ async fn main() -> anyhow::Result<()> {
     let proxy_cache = Arc::new(ProxyCache::new(500));
     let pipeline = Arc::new(PipelineState::new(http.clone()));
 
+    let strat_store = Arc::new(StratStore::new());
+
     let state = AppState {
         http: http.clone(),
         proxy_cache: proxy_cache.clone(),
         pipeline: pipeline.clone(),
+        strat_store,
     };
 
     // Background warmup: traders pipeline
