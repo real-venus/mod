@@ -10,6 +10,7 @@ import PnlChart from "./PnlChart";
 import type { CurvePoint } from "./PnlChart";
 import { computeFifoTrades, buildPnlCurve, buildCombinedPnlCurve } from "../lib/pnlEngine";
 import { loadIndexes, saveIndex, deleteIndex, updateIndex, getActiveIndexId, setActiveIndexId } from "../lib/indexStore";
+import LivePanel from "./LivePanel";
 
 interface TraderSummary {
   address: string;
@@ -331,18 +332,24 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
 
   // ── Backtest ──
   const [backtestDays, setBacktestDays] = useState(3);
+  const [backtestDaysInput, setBacktestDaysInput] = useState("3");
   const [capital, setCapital] = useState(DEFAULT_CAPITAL);
   const [minTrade, setMinTrade] = useState(1);
   const [maxTrade, setMaxTrade] = useState(100);
   const [rebalancePeriod, setRebalancePeriod] = useState<number>(24); // hours
   const [rebalanceHour, setRebalanceHour] = useState<number>(0); // 0-23 (midnight default)
+  const [rebalanceMinutes, setRebalanceMinutes] = useState<number>(60); // minutes for live trading
   const [customDaysInput, setCustomDaysInput] = useState("");
   const [expandedTrader, setExpandedTrader] = useState<string | null>(null);
   const [showSimTrades, setShowSimTrades] = useState<Record<string, boolean>>({});
   const [simTradeLimit, setSimTradeLimit] = useState<Record<string, number>>({});
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Weights (local state, persisted on change) ──
   const [traderWeights, setTraderWeights] = useState<Record<string, number>>({});
+
+  // ── Mode toggle (TEST = backtest, LIVE = copy trading) ──
+  const [mode, setMode] = useState<"TEST" | "LIVE">("TEST");
 
   // Derive watchlist from active strategy (only enabled traders)
   const watchlist = useMemo(
@@ -411,6 +418,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     if (!activeIndex) {
       setTraderWeights({});
       setBacktestDays(3);
+      setBacktestDaysInput("3");
       return;
     }
     const w: Record<string, number> = {};
@@ -418,6 +426,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     setTraderWeights(w);
     if (activeIndex.backtestDays) {
       setBacktestDays(activeIndex.backtestDays);
+      setBacktestDaysInput(String(activeIndex.backtestDays));
       if (![3, 7, 14, 30].includes(activeIndex.backtestDays)) {
         setCustomDaysInput(String(activeIndex.backtestDays));
       } else {
@@ -429,6 +438,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     setMaxTrade(activeIndex.maxTrade ?? 100);
     setRebalancePeriod(activeIndex.rebalancePeriod ?? 24);
     setRebalanceHour(activeIndex.rebalanceHour ?? 0);
+    setRebalanceMinutes(activeIndex.rebalanceMinutes ?? 60);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex?.id]);
 
@@ -608,6 +618,13 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     }
   };
 
+  const updateRebalanceMinutes = (minutes: number) => {
+    setRebalanceMinutes(minutes);
+    if (activeIndex) {
+      updateIndex(activeIndex.id, { rebalanceMinutes: minutes, updatedAt: Date.now() });
+    }
+  };
+
   // ── Data fetching ──
   const fetchAll = useCallback(async (addresses: string[]) => {
     if (addresses.length === 0) {
@@ -655,7 +672,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     setLoading(false);
   }, []);
 
-  // Re-fetch when watchlist addresses actually change
+  // Re-fetch when watchlist addresses actually change or when manually refreshed
   useEffect(() => {
     if (watchlist.length === 0) {
       setLoading(false);
@@ -663,7 +680,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     }
     fetchAll(watchlist);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchlistKey]);
+  }, [watchlistKey, refreshKey]);
 
   // Listen for external strategy updates (e.g. trader added from the leaderboard)
   useEffect(() => {
@@ -1115,8 +1132,34 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
             </div>
           )}
 
-          {/* ── Backtest panel ── */}
+          {/* ── Mode Tabs ── */}
           {watchlist.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setMode("TEST")}
+                className={`pixel-btn text-[10px] px-4 py-1.5 ${
+                  mode === "TEST"
+                    ? "border-pixel-white text-pixel-white"
+                    : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
+                }`}
+              >
+                TEST
+              </button>
+              <button
+                onClick={() => setMode("LIVE")}
+                className={`pixel-btn text-[10px] px-4 py-1.5 ${
+                  mode === "LIVE"
+                    ? "border-pixel-white text-pixel-white"
+                    : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
+                }`}
+              >
+                LIVE
+              </button>
+            </div>
+          )}
+
+          {/* ── Backtest panel ── */}
+          {watchlist.length > 0 && mode === "TEST" && (
             <div className="pixel-panel p-3 space-y-2">
               {/* Header: days input + capital input + stats */}
               <div className="flex items-center justify-between gap-2">
@@ -1125,15 +1168,45 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                   <input
                     type="text"
                     inputMode="numeric"
-                    value={backtestDays}
+                    value={backtestDaysInput}
                     onChange={(e) => {
-                      const v = parseInt(e.target.value.replace(/[^0-9]/g, ""), 10);
-                      if (!isNaN(v) && v > 0) { updateBacktestDays(v); setCustomDaysInput(String(v)); }
+                      setBacktestDaysInput(e.target.value);
+                    }}
+                    onBlur={() => {
+                      const v = parseInt(backtestDaysInput, 10);
+                      if (!isNaN(v) && v > 0 && v <= 365) {
+                        updateBacktestDays(v);
+                        setBacktestDaysInput(String(v));
+                      } else {
+                        setBacktestDaysInput(String(backtestDays));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const v = parseInt(backtestDaysInput, 10);
+                        if (!isNaN(v) && v > 0 && v <= 365) {
+                          updateBacktestDays(v);
+                          setRefreshKey((k) => k + 1);
+                        }
+                      }
                     }}
                     onFocus={(e) => e.target.select()}
                     className="pixel-input-sm w-10 text-center font-mono text-[9px] border-pixel-border"
                   />
                   <span className="text-[8px] text-pixel-gray">DAYS</span>
+                  <button
+                    onClick={() => {
+                      const v = parseInt(backtestDaysInput, 10);
+                      if (!isNaN(v) && v > 0 && v <= 365) {
+                        updateBacktestDays(v);
+                      }
+                      setRefreshKey((k) => k + 1);
+                    }}
+                    className="pixel-btn text-[8px] px-2 py-0.5 border-green-400 text-green-400 hover:bg-green-400/10 transition-colors"
+                    title="Run backtest with current settings"
+                  >
+                    RUN
+                  </button>
                   <span className="text-pixel-border">|</span>
                   <span className="text-[8px] text-pixel-gray">$</span>
                   <input
@@ -1187,8 +1260,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
               </div>
 
               {/* Rebalancing settings */}
-              <div className="flex items-center gap-3 text-[8px] border-t border-pixel-border/30 pt-2">
-                <span className="text-pixel-gray tracking-wider">REBALANCE:</span>
+              <div className="flex items-center gap-3 text-[8px] border-t border-pixel-border/30 pt-2 flex-wrap">
+                <span className="text-pixel-gray tracking-wider">BACKTEST:</span>
                 <select
                   value={rebalancePeriod}
                   onChange={(e) => updateRebalancePeriod(Number(e.target.value))}
@@ -1214,13 +1287,16 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                   <option value={23}>23:00 (11PM)</option>
                 </select>
                 <span className="text-pixel-border ml-2">|</span>
-                <span className="text-pixel-gray">TRADING HOURS:</span>
+                <span className="text-pixel-gray">LIVE INTERVAL:</span>
                 <select
+                  value={rebalanceMinutes}
+                  onChange={(e) => updateRebalanceMinutes(Number(e.target.value))}
                   className="pixel-input-sm px-2 py-0.5 font-mono text-[8px] border-pixel-border bg-pixel-black"
                 >
-                  <option value="24/7">24/7</option>
-                  <option value="market">MARKET HOURS</option>
-                  <option value="extended">EXTENDED</option>
+                  <option value={15}>15MIN</option>
+                  <option value={60}>1H</option>
+                  <option value={240}>4H</option>
+                  <option value={1440}>24H</option>
                 </select>
               </div>
 
@@ -1275,256 +1351,11 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                   <span className="text-[9px] text-pixel-gray animate-pulse">LOADING...</span>
                 </div>
               ) : null}
-
-              {/* Per-trader breakdown */}
-              <div className="space-y-2">
-                {backtests.filter((bt) => bt.trades > 0).map((bt) => {
-                  const isExpanded = expandedTrader === bt.address;
-                  const w = traderWeights[bt.address] || 0;
-                  const wFrac = totalWeight > 0 ? w / totalWeight : 0;
-                  const weightedPnl = bt.estimatedPnl * wFrac;
-                  return (
-                    <div key={bt.address} className="pixel-panel overflow-hidden">
-                      <button
-                        onClick={() => setExpandedTrader(isExpanded ? null : bt.address)}
-                        className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-pixel-white/5 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="text-left">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); goToTrader(bt.address); }}
-                              className="text-[10px] text-pixel-white font-mono hover:text-green-400 transition-colors"
-                            >
-                              {shortAddress(bt.address)}
-                            </button>
-                            <div className="text-[8px] text-pixel-gray">
-                              {bt.trades} TRADES · {backtestDays}D
-                              <span className="text-yellow-400/60 ml-2">{w}%</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <div className="text-[8px] text-pixel-gray">BOUGHT</div>
-                            <div className="text-[10px] text-pixel-white font-mono">${bt.buyVolume.toFixed(0)}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[8px] text-pixel-gray">SOLD</div>
-                            <div className="text-[10px] text-pixel-white font-mono">${bt.sellVolume.toFixed(0)}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[8px] text-pixel-gray">OPEN</div>
-                            <div className="text-[10px] text-pixel-white font-mono">${bt.openValue.toFixed(0)}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[8px] text-pixel-gray">GROSS</div>
-                            <div className={`text-[10px] font-mono ${bt.estimatedPnl >= 0 ? "text-green-400/60" : "text-red-400/60"}`}>
-                              {formatPnl(bt.estimatedPnl)}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[8px] text-amber-400/70">COSTS</div>
-                            <div className="text-[9px] font-mono text-amber-400">
-                              -${(bt.totalFees + bt.totalGas).toFixed(0)}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[8px] text-pixel-gray">NET P&L</div>
-                            <div className={`text-[11px] font-mono ${bt.pnlAfterCosts >= 0 ? "text-green-400" : "text-red-400"}`}>
-                              {formatPnl(bt.pnlAfterCosts)}
-                            </div>
-                          </div>
-                          <div className="text-right border-l border-pixel-border pl-3">
-                            <div className="text-[8px] text-pixel-gray">{capitalLabel} ROI</div>
-                            <div className={`text-[11px] font-mono ${roiPerTrader(bt) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                              {formatPnl(roiPerTrader(bt))}
-                            </div>
-                          </div>
-                          <span className="text-[9px] text-pixel-gray ml-1">{isExpanded ? "[-]" : "[+]"}</span>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeTrader(bt.address); }}
-                            className="text-[9px] text-pixel-gray hover:text-red-400 transition-colors ml-1"
-                          >
-                            x
-                          </button>
-                        </div>
-                      </button>
-
-                      {isExpanded && bt.days.length > 0 && (
-                        <div className="border-t-2 border-pixel-border px-4 py-3">
-                          <div className="overflow-x-auto">
-                            <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "500px" }}>
-                              <colgroup>
-                                <col style={{ width: "65px" }} />
-                                <col style={{ width: "50px" }} />
-                                <col style={{ width: "80px" }} />
-                                <col style={{ width: "80px" }} />
-                                <col style={{ width: "80px" }} />
-                                <col style={{ width: "90px" }} />
-                              </colgroup>
-                              <thead>
-                                <tr>
-                                  <th>DATE</th>
-                                  <th className="text-right">TXS</th>
-                                  <th className="text-right">BOUGHT</th>
-                                  <th className="text-right">SOLD</th>
-                                  <th className="text-right">NET</th>
-                                  <th className="text-right">CUM. FLOW</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {bt.days.map((day) => (
-                                  <tr key={day.date}>
-                                    <td className="text-pixel-white font-mono">{day.date}</td>
-                                    <td className="text-right text-pixel-gray-light font-mono">{day.trades}</td>
-                                    <td className="text-right text-red-400/80 font-mono">-${day.buyVolume.toFixed(0)}</td>
-                                    <td className="text-right text-green-400/80 font-mono">+${day.sellVolume.toFixed(0)}</td>
-                                    <td className={`text-right font-mono ${day.netFlow >= 0 ? "text-green-400" : "text-red-400"}`}>
-                                      {day.netFlow >= 0 ? "+" : ""}${day.netFlow.toFixed(0)}
-                                    </td>
-                                    <td className={`text-right font-mono ${day.cumFlow >= 0 ? "text-green-400" : "text-red-400"}`}>
-                                      {day.cumFlow >= 0 ? "+" : ""}${day.cumFlow.toFixed(0)}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          {/* ── Simulated Trades (your mirror trades scaled to capital) ── */}
-                          {bt.simulatedTrades.length > 0 && (() => {
-                            const isOpen = showSimTrades[bt.address] ?? false;
-                            const limit = simTradeLimit[bt.address] ?? 50;
-                            const sorted = [...bt.simulatedTrades].sort((a, b) => b.timestamp - a.timestamp);
-                            const visible = sorted.slice(0, limit);
-                            const totalMirrorVol = bt.simulatedTrades.reduce((s, t) => s + t.mirrorNotional, 0);
-                            const totalMirrorFees = bt.simulatedTrades.reduce((s, t) => s + t.fee, 0);
-                            const totalMirrorGas = bt.simulatedTrades.reduce((s, t) => s + t.gas, 0);
-                            const mirrorBuys = bt.simulatedTrades.filter((t) => t.side === "BUY");
-                            const mirrorSells = bt.simulatedTrades.filter((t) => t.side === "SELL");
-                            const mirrorBuyVol = mirrorBuys.reduce((s, t) => s + t.mirrorNotional, 0);
-                            const mirrorSellVol = mirrorSells.reduce((s, t) => s + t.mirrorNotional, 0);
-
-                            return (
-                              <div className="mt-3 border-t border-pixel-border/50 pt-2">
-                                <button
-                                  onClick={() => setShowSimTrades((prev) => ({ ...prev, [bt.address]: !isOpen }))}
-                                  className="w-full flex items-center justify-between px-1 py-1 hover:bg-pixel-white/5 transition-colors"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-pixel-white tracking-wider">YOUR SIMULATED TRADES</span>
-                                    <span className="text-[8px] text-pixel-gray font-mono">({bt.simulatedTrades.length})</span>
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-[8px] text-pixel-gray font-mono">
-                                      {capitalLabel} VOL: ${totalMirrorVol.toFixed(0)}
-                                    </span>
-                                    <span className="text-[8px] text-pixel-gray">{isOpen ? "[-]" : "[+]"}</span>
-                                  </div>
-                                </button>
-
-                                {isOpen && (
-                                  <div className="mt-1">
-                                    {/* Summary bar */}
-                                    <div className="flex items-center gap-3 flex-wrap px-1 py-1.5 text-[8px] font-mono border-b border-pixel-border/30">
-                                      <span className="text-pixel-gray">BUYS:</span>
-                                      <span className="text-red-400/80">{mirrorBuys.length} (${mirrorBuyVol.toFixed(0)})</span>
-                                      <span className="text-pixel-gray">SELLS:</span>
-                                      <span className="text-green-400/80">{mirrorSells.length} (${mirrorSellVol.toFixed(0)})</span>
-                                      <span className="text-pixel-gray">FEES:</span>
-                                      <span className="text-amber-400">${totalMirrorFees.toFixed(2)}</span>
-                                      <span className="text-pixel-gray">GAS:</span>
-                                      <span className="text-amber-400">${totalMirrorGas.toFixed(2)}</span>
-                                    </div>
-
-                                    <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
-                                      <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "600px" }}>
-                                        <colgroup>
-                                          <col style={{ width: "70px" }} />
-                                          <col style={{ width: "30%" }} />
-                                          <col style={{ width: "45px" }} />
-                                          <col style={{ width: "70px" }} />
-                                          <col style={{ width: "70px" }} />
-                                          <col style={{ width: "50px" }} />
-                                          <col style={{ width: "50px" }} />
-                                          <col style={{ width: "60px" }} />
-                                        </colgroup>
-                                        <thead>
-                                          <tr>
-                                            <th>TIME</th>
-                                            <th>MARKET</th>
-                                            <th>SIDE</th>
-                                            <th className="text-right">TRADER $</th>
-                                            <th className="text-right">YOUR $</th>
-                                            <th className="text-right">PRICE</th>
-                                            <th className="text-right">FEE</th>
-                                            <th className="text-right">NET</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {visible.map((st, si) => {
-                                            const d = new Date(st.timestamp);
-                                            const time = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-                                            return (
-                                              <tr key={`${st.conditionId}-${st.timestamp}-${si}`}>
-                                                <td className="text-pixel-gray-light font-mono text-[8px]">{time}</td>
-                                                <td className="text-pixel-white truncate text-[8px]" title={st.market}>{st.market || st.conditionId.slice(0, 12)}</td>
-                                                <td>
-                                                  <span className={`pixel-badge text-[7px] ${st.side === "BUY" ? "border-red-400/60 text-red-400" : "border-green-400/60 text-green-400"}`}>
-                                                    {st.side}
-                                                  </span>
-                                                </td>
-                                                <td className="text-right text-pixel-gray font-mono text-[8px]">${st.traderNotional.toFixed(0)}</td>
-                                                <td className={`text-right font-mono text-[9px] ${st.side === "BUY" ? "text-red-400/80" : "text-green-400/80"}`}>
-                                                  {st.side === "BUY" ? "-" : "+"}${st.mirrorNotional.toFixed(2)}
-                                                </td>
-                                                <td className="text-right text-pixel-gray-light font-mono text-[8px]">
-                                                  {Math.round(st.traderPrice * 100)}c
-                                                </td>
-                                                <td className="text-right text-amber-400/70 font-mono text-[8px]">
-                                                  ${st.fee.toFixed(2)}
-                                                </td>
-                                                <td className={`text-right font-mono text-[8px] ${st.side === "SELL" ? "text-green-400" : "text-red-400"}`}>
-                                                  {st.side === "SELL" ? "+" : "-"}${st.netCost.toFixed(2)}
-                                                </td>
-                                              </tr>
-                                            );
-                                          })}
-                                        </tbody>
-                                      </table>
-                                    </div>
-
-                                    {sorted.length > limit && (
-                                      <div className="flex items-center justify-center py-2">
-                                        <button
-                                          onClick={() => setSimTradeLimit((prev) => ({ ...prev, [bt.address]: limit + 100 }))}
-                                          className="pixel-btn text-[8px] px-3 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white"
-                                        >
-                                          SHOW MORE ({sorted.length - limit} remaining)
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-                      {isExpanded && bt.days.length === 0 && (
-                        <div className="border-t-2 border-pixel-border px-4 py-4 text-center">
-                          <span className="text-[9px] text-pixel-gray">NO TRADES IN THE LAST {backtestDays} DAYS</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           )}
 
           {/* ── Trade feed — every trade with its P&L impact, linked to chart ── */}
-          {(() => {
+          {mode === "TEST" && (() => {
             const reversed = [...linkedTrades].reverse();
             const displayed = reversed.slice(0, indexTradeLimit);
             const finalPnl = linkedTrades.length > 0 ? linkedTrades[linkedTrades.length - 1].runningPnl : 0;
@@ -1678,6 +1509,9 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
               </div>
             );
           })()}
+
+          {/* ── Live Panel ── */}
+          {mode === "LIVE" && watchlist.length > 0 && <LivePanel />}
         </>
       )}
     </div>
