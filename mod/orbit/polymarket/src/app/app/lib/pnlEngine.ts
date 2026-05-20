@@ -9,6 +9,92 @@ export interface AnnotatedTrade extends PolymarketTrade {
 }
 
 /**
+ * Aggregate raw source-trader trades into rebalance-window deltas.
+ * Each bucket is (conditionId, windowStart). Within a bucket, BUYs and SELLs
+ * net out — only the residual position change is emitted, priced at the
+ * volume-weighted average price on the dominant side. Buckets that net to
+ * zero (entered and exited within the window) are dropped entirely, which is
+ * the realistic copy-trader outcome: never observed, never traded.
+ *
+ * `rebalancePeriodHours` is the window length. `rebalanceHour` is the
+ * intra-day offset (0–23) the schedule is anchored to in the user's local
+ * timezone. `rebalancePeriodHours <= 0` is a passthrough.
+ */
+export function aggregateToRebalanceWindows(
+  trades: PolymarketTrade[],
+  rebalancePeriodHours: number,
+  rebalanceHour: number,
+): PolymarketTrade[] {
+  if (rebalancePeriodHours <= 0) return trades;
+  const periodMs = rebalancePeriodHours * 3600_000;
+
+  // Anchor: most recent local-time `rebalanceHour` boundary at-or-before ts.
+  const anchorMs = (ts: number) => {
+    const d = new Date(ts);
+    d.setHours(rebalanceHour, 0, 0, 0);
+    if (d.getTime() > ts) d.setDate(d.getDate() - 1);
+    return d.getTime();
+  };
+
+  type Bucket = {
+    bucketStart: number;
+    market: string;
+    conditionId: string;
+    buyShares: number;
+    buyValue: number;
+    sellShares: number;
+    sellValue: number;
+  };
+  const buckets = new Map<string, Bucket>();
+
+  for (const t of trades) {
+    const anchor = anchorMs(t.timestamp);
+    const idx = Math.floor((t.timestamp - anchor) / periodMs);
+    const bucketStart = anchor + idx * periodMs;
+    const key = `${t.conditionId || t.market}:${bucketStart}`;
+    let b = buckets.get(key);
+    if (!b) {
+      b = {
+        bucketStart,
+        market: t.market,
+        conditionId: t.conditionId,
+        buyShares: 0, buyValue: 0,
+        sellShares: 0, sellValue: 0,
+      };
+      buckets.set(key, b);
+    }
+    if (t.side === "BUY") {
+      b.buyShares += t.size;
+      b.buyValue += t.price * t.size;
+    } else {
+      b.sellShares += t.size;
+      b.sellValue += t.price * t.size;
+    }
+  }
+
+  const out: PolymarketTrade[] = [];
+  for (const b of buckets.values()) {
+    const net = b.buyShares - b.sellShares;
+    if (Math.abs(net) < 1e-9) continue;
+    const executeAt = b.bucketStart + periodMs;
+    const isBuy = net > 0;
+    out.push({
+      id: `rebal:${b.conditionId || b.market}:${b.bucketStart}`,
+      market: b.market,
+      conditionId: b.conditionId,
+      side: isBuy ? "BUY" : "SELL",
+      size: Math.abs(net),
+      price: isBuy
+        ? (b.buyShares > 0 ? b.buyValue / b.buyShares : 0)
+        : (b.sellShares > 0 ? b.sellValue / b.sellShares : 0),
+      pnl: 0,
+      timestamp: executeAt,
+    });
+  }
+  return out.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
  * Replay full trade history with FIFO bookkeeping.
  * Returns trades annotated with realized PnL per SELL.
  * Pass cutoffMs to start fresh from that time (no seed basis from old positions).
@@ -274,7 +360,7 @@ export function buildTradeByTradeCombinedCurve(
         allEvents.push({
           ts: trade.timestamp,
           trade,
-          traderAddress: td.traderAddress,
+          traderAddress: td.address,
           weight: td.weight,
         });
       }
@@ -286,6 +372,24 @@ export function buildTradeByTradeCombinedCurve(
 
   if (allEvents.length === 0) return [];
 
+  // Filter out SELLs without a prior window BUY (copy-trader wouldn't hold those)
+  const windowBook = new Map<string, number>(); // "trader:conditionId" → shares
+  const filteredEvents: TradeEvent[] = [];
+  for (const event of allEvents) {
+    const t = event.trade;
+    const bk = `${event.traderAddress}:${t.conditionId || t.market}`;
+    if (t.side === "BUY") {
+      windowBook.set(bk, (windowBook.get(bk) || 0) + t.size);
+      filteredEvents.push(event);
+    } else {
+      const inv = windowBook.get(bk) || 0;
+      if (inv <= 1e-9) continue; // no window basis, skip
+      const sold = Math.min(t.size, inv);
+      windowBook.set(bk, inv - sold);
+      filteredEvents.push({ ...event, trade: { ...t, size: sold } });
+    }
+  }
+
   // Build combined portfolio state - track inventory and cash for each trader
   const portfolios = new Map<string, {
     cash: number;
@@ -294,7 +398,7 @@ export function buildTradeByTradeCombinedCurve(
   }>();
 
   for (const td of traderData) {
-    portfolios.set(td.traderAddress, {
+    portfolios.set(td.address, {
       cash: 0,
       inv: new Map(),
       lastPx: new Map(),
@@ -325,8 +429,8 @@ export function buildTradeByTradeCombinedCurve(
 
   const points: CurvePoint[] = [];
 
-  for (let i = 0; i < allEvents.length; i++) {
-    const event = allEvents[i];
+  for (let i = 0; i < filteredEvents.length; i++) {
+    const event = filteredEvents[i];
     const portfolio = portfolios.get(event.traderAddress)!;
     const t = event.trade;
     const key = t.conditionId || t.market;
@@ -344,10 +448,10 @@ export function buildTradeByTradeCombinedCurve(
     // Compute combined weighted PnL across all traders
     let combinedPnl = 0;
     for (const td of traderData) {
-      const p = portfolios.get(td.traderAddress)!;
+      const p = portfolios.get(td.address)!;
       let invValue = 0;
       for (const [k, s] of p.inv) {
-        if (s !== 0) invValue += s * markFor(k, td.traderAddress);
+        if (s !== 0) invValue += s * markFor(k, td.address);
       }
       const traderMtm = p.cash + invValue;
       combinedPnl += traderMtm * td.weight;
@@ -373,11 +477,11 @@ export function buildTradeByTradeCombinedCurve(
   let hasOpenInv = false;
   let nowPnl = 0;
   for (const td of traderData) {
-    const p = portfolios.get(td.traderAddress)!;
+    const p = portfolios.get(td.address)!;
     let invValue = 0;
     for (const [k, s] of p.inv) {
       if (Math.abs(s) >= 1e-9) {
-        invValue += s * markFor(k, td.traderAddress);
+        invValue += s * markFor(k, td.address);
         hasOpenInv = true;
       }
     }

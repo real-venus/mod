@@ -9,7 +9,7 @@ import mod as m
 
 class Store:
 
-    expose = ['get', 'put', 'ls']
+    expose = ['get', 'put', 'ls', 'serve', 'app', 'api', 'backends']
 
     def __init__(self, path='~/.mod/store', password=None, filetype='json', private=False):
         self.path = self.abspath(path)
@@ -18,6 +18,55 @@ class Store:
         self.key = self.get_key(password or 'mod_default_store_password')
         if self.private:
             self.encrypt_all()
+
+    # ── app / api launcher ───────────────────────────────────────────
+
+    def _module_root(self):
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def serve(self, no_app: bool = False, no_api: bool = False, **kw):
+        """Launch the FastAPI gateway + Next.js app for users to upload via MetaMask.
+        Returns the spawned process info (non-blocking)."""
+        import subprocess
+        script = os.path.join(self._module_root(), 'serve.sh')
+        if not os.path.exists(script):
+            return {'error': f'serve.sh not found at {script}'}
+        args = [script]
+        if no_app:
+            args.append('--no-app')
+        if no_api:
+            args.append('--no-api')
+        log_dir = os.environ.get('STORE_LOG_DIR', '/tmp/store')
+        os.makedirs(log_dir, exist_ok=True)
+        proc = subprocess.Popen(
+            args,
+            stdout=open(os.path.join(log_dir, 'serve.log'), 'a'),
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        return {
+            'pid': proc.pid,
+            'api': 'http://localhost:50150',
+            'app': 'http://localhost:50151',
+            'log': os.path.join(log_dir, 'serve.log'),
+        }
+
+    def app(self, **kw):
+        """Launch only the Next.js app."""
+        return self.serve(no_api=True)
+
+    def api(self, **kw):
+        """Launch only the FastAPI gateway."""
+        return self.serve(no_app=True)
+
+    def backends(self, **kw):
+        """List available backends (local + decentralized)."""
+        return {
+            'localfs': 'this Store class (key-value on disk)',
+            'filecoin': 'm store.filecoin/* — Lotus daemon + gateway (proxies orbit/filecoin)',
+            'hippius': 'm store.hippius/* — Substrate node + S3 gateway (proxies orbit/hippius)',
+            'unified': 'm dstore/* — filecoin + hippius with SIWE auth',
+        }
 
     # ── path helpers ─────────────────────────────────────────────────
 

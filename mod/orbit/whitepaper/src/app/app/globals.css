@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background: theme('colors.paper');
+  color: theme('colors.ink');
+}
+
+.prose-paper h1 { @apply text-4xl font-semibold tracking-tight mt-12 mb-4; }
+.prose-paper h2 { @apply text-2xl font-semibold mt-10 mb-3 text-[color:theme(colors.modblue)]; }
+.prose-paper h3 { @apply text-xl font-semibold mt-8 mb-2 text-[color:theme(colors.modblue)]/85; }
+.prose-paper p  { @apply leading-relaxed my-3 text-[15px]; }
+.prose-paper li { @apply leading-relaxed my-1 text-[15px]; }
+.prose-paper code { @apply font-mono text-[13px] bg-black/[0.04] px-1 py-0.5 rounded; }
+.prose-paper pre  { @apply font-mono text-[12.5px] bg-black/[0.04] p-4 rounded overflow-x-auto my-4; }
+.prose-paper table { @apply w-full text-sm my-4; }
+.prose-paper th, .prose-paper td { @apply border-b border-black/10 px-2 py-1 text-left align-top; }

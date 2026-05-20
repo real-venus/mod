@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  polymarket-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: polymarket-dev
+    ports:
+      - "${PORT:-4200}:4200"
+      - "${API_PORT:-4201}:4201"
+    volumes:
+      - ./src/app:/app/src/app:delegated
+      - ./src/api:/app/src/api:delegated
+      - ./config.json:/app/config.json:ro
+      - /app/src/app/node_modules
+      - /app/src/app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_STRAT_HMAC_SECRET=${STRAT_HMAC_SECRET:-polymarket_strats_default_hmac_key_2024}
+    restart: unless-stopped

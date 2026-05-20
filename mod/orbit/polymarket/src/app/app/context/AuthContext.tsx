@@ -104,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const creds = await deriveClobApiKey(auth.address);
       setAuth((prev) => ({ ...prev, clobCreds: creds, authenticated: true }));
     } catch (e: unknown) {
+      console.error("CLOB auth error:", e);
       setError(e instanceof Error ? e.message : "AUTH FAILED");
     } finally {
       setLoading(false);

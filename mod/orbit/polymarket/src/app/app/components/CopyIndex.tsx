@@ -8,7 +8,7 @@ import { shortAddress } from "@/lib/auth";
 import { useFilterParams } from "../context/FiltersContext";
 import PnlChart from "./PnlChart";
 import type { CurvePoint } from "./PnlChart";
-import { computeFifoTrades, buildPnlCurve, buildCombinedPnlCurve } from "../lib/pnlEngine";
+import { computeFifoTrades, buildPnlCurve, buildCombinedPnlCurve, aggregateToRebalanceWindows } from "../lib/pnlEngine";
 import { loadIndexes, saveIndex, deleteIndex, updateIndex, getActiveIndexId, setActiveIndexId } from "../lib/indexStore";
 import LivePanel from "./LivePanel";
 
@@ -76,11 +76,31 @@ function computeBacktest(
   windowDays: number,
   address: string,
   capital: number = DEFAULT_CAPITAL,
+  rebalancePeriodHours: number = 0,
+  rebalanceHour: number = 0,
 ): TraderBacktest {
   const cutoff = Date.now() - windowDays * 24 * 60 * 60 * 1000;
-  const windowTrades = trades
+  const replay = rebalancePeriodHours > 0
+    ? aggregateToRebalanceWindows(trades, rebalancePeriodHours, rebalanceHour)
+    : trades;
+  const allWindowTrades = replay
     .filter((t) => t.timestamp >= cutoff)
     .sort((a, b) => a.timestamp - b.timestamp);
+
+  // Filter out SELLs without a prior BUY in the window (copy-trader wouldn't hold those)
+  const windowInv = new Map<string, number>();
+  const windowTrades = allWindowTrades.filter((t) => {
+    const key = t.conditionId || t.market;
+    if (t.side === "BUY") {
+      windowInv.set(key, (windowInv.get(key) || 0) + t.size);
+      return true;
+    }
+    const inv = windowInv.get(key) || 0;
+    if (inv <= 1e-9) return false;
+    const sold = Math.min(t.size, inv);
+    windowInv.set(key, inv - sold);
+    return true;
+  });
 
   let buyVolume = 0;
   let sellVolume = 0;
@@ -133,7 +153,11 @@ function computeBacktest(
   const traderVol = Math.max(buyVolume, sellVolume, 1);
   const copyRatio = capital / traderVol;
   const totalNotional = (buyVolume + sellVolume) * copyRatio;
-  const totalFees = totalNotional * (TAKER_FEE_BPS / 10_000);
+  // Polymarket fee uses min(price, 1-price) per trade; approximate as avg ~40% of notional
+  const totalFees = windowTrades.reduce((sum, t) => {
+    const mirrorShares = t.size * copyRatio;
+    return sum + mirrorShares * Math.min(t.price, 1 - t.price) * (TAKER_FEE_BPS / 10_000);
+  }, 0);
   const totalGas = windowTrades.length * GAS_PER_TRADE_USD;
   // Scale PnL to simulated capital (matches the ROI metric)
   const scaledPnl = estimatedPnl * copyRatio;
@@ -144,7 +168,7 @@ function computeBacktest(
     const traderNotional = t.price * t.size;
     const mirrorNotional = Math.round(traderNotional * copyRatio * 100) / 100;
     const mirrorSize = Math.round(t.size * copyRatio * 100) / 100;
-    const fee = Math.round(mirrorNotional * (TAKER_FEE_BPS / 10_000) * 100) / 100;
+    const fee = Math.round(mirrorSize * Math.min(t.price, 1 - t.price) * (TAKER_FEE_BPS / 10_000) * 100) / 100;
     const gas = GAS_PER_TRADE_USD;
     const netCost = t.side === "BUY"
       ? Math.round((mirrorNotional + fee + gas) * 100) / 100
@@ -324,6 +348,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
   const [renameValue, setRenameValue] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
+  const chartPanelRef = useRef<HTMLDivElement>(null);
+
   // ── Data state ──
   const [traderData, setTraderData] = useState<Map<string, PolymarketPosition[]>>(new Map());
   const [traderTrades, setTraderTrades] = useState<Map<string, PolymarketTrade[]>>(new Map());
@@ -336,6 +362,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
   const [capital, setCapital] = useState(DEFAULT_CAPITAL);
   const [minTrade, setMinTrade] = useState(1);
   const [maxTrade, setMaxTrade] = useState(100);
+  const [maxTradesPerHour, setMaxTradesPerHour] = useState(10);
   const [rebalancePeriod, setRebalancePeriod] = useState<number>(24); // hours
   const [rebalanceHour, setRebalanceHour] = useState<number>(0); // 0-23 (midnight default)
   const [rebalanceMinutes, setRebalanceMinutes] = useState<number>(60); // minutes for live trading
@@ -348,8 +375,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
   // ── Weights (local state, persisted on change) ──
   const [traderWeights, setTraderWeights] = useState<Record<string, number>>({});
 
-  // ── Mode toggle (TEST = backtest, LIVE = copy trading) ──
-  const [mode, setMode] = useState<"TEST" | "LIVE">("TEST");
+  // ── Mode toggle (STRATS = manage, BACKTEST = test, LIVE = copy) ──
+  const [mode, setMode] = useState<"STRATS" | "BACKTEST" | "LIVE">("STRATS");
 
   // Derive watchlist from active strategy (only enabled traders)
   const watchlist = useMemo(
@@ -436,6 +463,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     setCapital(activeIndex.capital ?? DEFAULT_CAPITAL);
     setMinTrade(activeIndex.minTrade ?? 1);
     setMaxTrade(activeIndex.maxTrade ?? 100);
+    setMaxTradesPerHour(activeIndex.maxTradesPerHour ?? 10);
     setRebalancePeriod(activeIndex.rebalancePeriod ?? 24);
     setRebalanceHour(activeIndex.rebalanceHour ?? 0);
     setRebalanceMinutes(activeIndex.rebalanceMinutes ?? 60);
@@ -603,6 +631,14 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     }
   };
 
+  const updateMaxTradesPerHour = (max: number) => {
+    const clamped = Math.max(1, max);
+    setMaxTradesPerHour(clamped);
+    if (activeIndex) {
+      updateIndex(activeIndex.id, { maxTradesPerHour: clamped, updatedAt: Date.now() });
+    }
+  };
+
   // ── Rebalance settings (persist to strategy) ──
   const updateRebalancePeriod = (hours: number) => {
     setRebalancePeriod(hours);
@@ -763,9 +799,9 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     return watchlist.map((addr) => {
       const trades = traderTrades.get(addr) || [];
       const positions = traderData.get(addr) || [];
-      return computeBacktest(trades, positions, backtestDays, addr, capital);
+      return computeBacktest(trades, positions, backtestDays, addr, capital, rebalancePeriod, rebalanceHour);
     }).sort((a, b) => b.estimatedPnl - a.estimatedPnl);
-  }, [watchlist, traderTrades, traderData, backtestDays, capital]);
+  }, [watchlist, traderTrades, traderData, backtestDays, capital, rebalancePeriod, rebalanceHour]);
 
   const totalBacktestPnl = backtests.reduce((s, b) => s + b.estimatedPnl, 0);
   // Only sum weights of enabled traders
@@ -834,17 +870,20 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
   }, [activeIndex, weightedBacktestPnl, weightedPnlAfterCosts, combinedRoi1k, totalTradeCount, loading, backtests.length]);
 
   // ── Combined FIFO PnL curve (scaled to user's capital) ──
-  const combinedPnlCurve = useMemo((): CurvePoint[] => {
+  const combinedCurveData = useMemo((): { combined: CurvePoint[]; perTrader: { address: string; points: CurvePoint[]; weight: number }[] } => {
     if (watchlist.length === 0 || loading) return [];
     const cutoffMs = Date.now() - backtestDays * 24 * 60 * 60 * 1000;
     const traderCurves: { address: string; points: CurvePoint[]; weight: number }[] = [];
 
     for (const addr of watchlist) {
-      const trades = traderTrades.get(addr) || [];
+      const rawTrades = traderTrades.get(addr) || [];
       const positions = traderData.get(addr) || [];
-      if (trades.length === 0) continue;
+      if (rawTrades.length === 0) continue;
 
-      const annotated = computeFifoTrades(trades, positions, cutoffMs);
+      const replayTrades = rebalancePeriod > 0
+        ? aggregateToRebalanceWindows(rawTrades, rebalancePeriod, rebalanceHour)
+        : rawTrades;
+      const annotated = computeFifoTrades(replayTrades, positions, cutoffMs);
       const curve = buildPnlCurve(annotated, positions, cutoffMs);
       if (curve.length === 0) continue;
 
@@ -852,7 +891,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
       // Use max(buyVol, sellVol) as denominator — prevents amplification when
       // a trader mostly sells old positions in the window (tiny buyVol but huge PnL).
       const wFrac = totalWeight > 0 ? (traderWeights[addr] || 0) / totalWeight : 1 / watchlist.length;
-      const windowTrades = trades.filter((t) => t.timestamp >= cutoffMs);
+      const windowTrades = replayTrades.filter((t) => t.timestamp >= cutoffMs);
       const buyVol = windowTrades.filter((t) => t.side === "BUY").reduce((s, t) => s + t.price * t.size, 0);
       const sellVol = windowTrades.filter((t) => t.side === "SELL").reduce((s, t) => s + t.price * t.size, 0);
       const traderVol = Math.max(buyVol, sellVol, 1);
@@ -860,8 +899,21 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
       traderCurves.push({ address: addr, points: curve, weight: capitalScale });
     }
 
-    return buildCombinedPnlCurve(traderCurves);
-  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading]);
+    return { combined: buildCombinedPnlCurve(traderCurves), perTrader: traderCurves };
+  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour]);
+
+  const combinedPnlCurve = combinedCurveData.combined;
+
+  // Per-trader scaled MTM P&L from curves (consistent with chart)
+  const traderCurvePnl = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const tc of combinedCurveData.perTrader) {
+      if (tc.points.length === 0) continue;
+      const lastPnl = tc.points[tc.points.length - 1].pnl;
+      map.set(tc.address, Math.round(lastPnl * tc.weight * 100) / 100);
+    }
+    return map;
+  }, [combinedCurveData]);
 
   // ── Linked trades: every trade with its running P&L impact ──
   interface LinkedTrade {
@@ -871,6 +923,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     side: "BUY" | "SELL";
     amount: number;       // scaled to user capital ($)
     price: number;        // trade price (0-1)
+    fee: number;          // trading fee ($)
     realized: number;     // realized PnL on SELL (scaled)
     runningPnl: number;   // combined running P&L after this trade
     pnlDelta: number;     // change in P&L from previous trade
@@ -880,69 +933,98 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     if (watchlist.length === 0 || loading) return [];
     const cutoffMs = Date.now() - backtestDays * 86400_000;
 
-    const scaleMap = new Map<string, number>();
-    const traderPoints: { trader: string; points: CurvePoint[]; scale: number }[] = [];
+    // Build from raw trades directly (not curve points) to use conditionId for filtering
+    type RawEntry = {
+      ts: number; market: string; conditionId: string; trader: string;
+      side: "BUY" | "SELL"; size: number; price: number; realized: number; scale: number;
+    };
+    const allEntries: RawEntry[] = [];
 
     for (const addr of watchlist) {
-      const trades = traderTrades.get(addr) || [];
+      const rawTrades = traderTrades.get(addr) || [];
       const positions = traderData.get(addr) || [];
-      if (trades.length === 0) continue;
+      if (rawTrades.length === 0) continue;
 
-      const annotated = computeFifoTrades(trades, positions, cutoffMs);
-      const curve = buildPnlCurve(annotated, positions, cutoffMs);
-      if (curve.length === 0) continue;
+      const replayTrades = rebalancePeriod > 0
+        ? aggregateToRebalanceWindows(rawTrades, rebalancePeriod, rebalanceHour)
+        : rawTrades;
+      const annotated = computeFifoTrades(replayTrades, positions, cutoffMs);
+      const windowAnnotated = annotated.filter((t) => t.timestamp >= cutoffMs);
+      if (windowAnnotated.length === 0) continue;
 
       const wFrac = totalWeight > 0 ? (traderWeights[addr] || 0) / totalWeight : 1 / watchlist.length;
-      const windowTrades = trades.filter((t) => t.timestamp >= cutoffMs);
-      const buyVol = windowTrades.filter((t) => t.side === "BUY").reduce((s, t) => s + t.price * t.size, 0);
-      const sellVol = windowTrades.filter((t) => t.side === "SELL").reduce((s, t) => s + t.price * t.size, 0);
+      const buyVol = windowAnnotated.filter((t) => t.side === "BUY").reduce((s, t) => s + t.price * t.size, 0);
+      const sellVol = windowAnnotated.filter((t) => t.side === "SELL").reduce((s, t) => s + t.price * t.size, 0);
       const traderVol = Math.max(buyVol, sellVol, 1);
       const scale = (capital * wFrac) / traderVol;
 
-      scaleMap.set(addr, scale);
-      traderPoints.push({ trader: addr, points: curve, scale });
-    }
-
-    // Merge all non-MARK curve points with trader identity
-    const merged: { ts: number; market: string; trader: string; side: "BUY" | "SELL";
-      size: number; price: number; realized: number; traderPnl: number; scale: number }[] = [];
-
-    for (const { trader, points, scale } of traderPoints) {
-      for (const p of points) {
-        if (p.side === "MARK") continue;
-        merged.push({
-          ts: p.ts, market: p.market, trader, side: p.side,
-          size: p.size, price: p.price, realized: p.realized,
-          traderPnl: p.pnl, scale,
+      for (const t of windowAnnotated) {
+        allEntries.push({
+          ts: t.timestamp, market: t.market, conditionId: t.conditionId || t.market,
+          trader: addr, side: t.side, size: t.size, price: t.price,
+          realized: t.realized, scale,
         });
       }
     }
 
-    merged.sort((a, b) => a.ts - b.ts);
+    allEntries.sort((a, b) => a.ts - b.ts);
 
-    // Walk forward, computing combined running P&L at each trade
-    // For daily rebalancing: only use realized P&L from sells, ignore unrealized
-    let runningPnl = 0;
+    // Filter out SELLs without a prior BUY in the window (copy-trader wouldn't hold those)
+    const windowBook = new Map<string, number>(); // "trader:conditionId" → shares
+    const eligible = allEntries.filter((t) => {
+      const k = `${t.trader}:${t.conditionId}`;
+      if (t.side === "BUY") {
+        windowBook.set(k, (windowBook.get(k) || 0) + t.size);
+        return true;
+      }
+      const inv = windowBook.get(k) || 0;
+      if (inv <= 1e-9) return false;
+      const sold = Math.min(t.size, inv);
+      windowBook.set(k, inv - sold);
+      t.size = sold;
+      return true;
+    });
 
-    return merged.map((t) => {
-      // Only count realized P&L from sells (daily rebalancing assumption)
+    // Compute derived fields per trade (no running P&L yet — that comes after filters)
+    const derived = eligible.map((t) => {
       const realizedScaled = t.side === "SELL" ? Math.round(t.realized * t.scale * 100) / 100 : 0;
-      runningPnl += realizedScaled;
-      runningPnl = Math.round(runningPnl * 100) / 100;
-
+      const amount = Math.round(t.price * t.size * t.scale * 100) / 100;
+      const scaledShares = t.price > 0 ? amount / t.price : 0;
+      const fee = Math.round(scaledShares * Math.min(t.price, 1 - t.price) * (TAKER_FEE_BPS / 10_000) * 100) / 100;
       return {
         ts: t.ts,
         market: t.market,
         trader: t.trader,
         side: t.side,
-        amount: Math.round(t.price * t.size * t.scale * 100) / 100,
+        amount,
         price: t.price,
+        fee,
         realized: realizedScaled,
-        runningPnl,
-        pnlDelta: realizedScaled, // Change from previous trade = realized P&L
+        pnlDelta: realizedScaled,
       };
-    }).filter((t) => t.amount >= minTrade && t.amount <= maxTrade);
-  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, minTrade, maxTrade]);
+    });
+
+    // Apply size + per-hour filters BEFORE running P&L so totals add up across visible rows
+    const sized = derived.filter((t) => t.amount >= minTrade && t.amount <= maxTrade);
+    const filtered = maxTradesPerHour > 0
+      ? sized.filter((t, i, arr) => {
+          const hourMs = 3600_000;
+          const hourStart = Math.floor(t.ts / hourMs) * hourMs;
+          let count = 0;
+          for (let j = 0; j <= i; j++) {
+            if (Math.floor(arr[j].ts / hourMs) * hourMs === hourStart) count++;
+          }
+          return count <= maxTradesPerHour;
+        })
+      : sized;
+
+    // Walk forward over the *displayed* set so running P&L matches what the user sees
+    let runningPnl = 0;
+    return filtered.map((t) => {
+      runningPnl = Math.round((runningPnl + t.realized) * 100) / 100;
+      return { ...t, runningPnl };
+    });
+  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, minTrade, maxTrade, maxTradesPerHour, rebalancePeriod, rebalanceHour]);
 
   // ── Chart ↔ Trade feed hover linking ──
   const [chartHighlight, setChartHighlight] = useState<number | null>(null);
@@ -1022,8 +1104,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
         </div>
       </div>
 
-      {/* ── Trader editor panel ── */}
-      {allTraderAddrs.length > 0 && (
+      {/* ── Trader editor panel (STRATS tab only) ── */}
+      {mode === "STRATS" && allTraderAddrs.length > 0 && (
         <div className="pixel-panel px-3 py-2 space-y-1">
           {/* Toolbar: count + actions + weight sum */}
           <div className="flex items-center justify-between">
@@ -1066,9 +1148,10 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
           {/* Trader rows */}
           <div className="space-y-0">
             {traderSummaries.map((t, i) => {
-              const bt = backtests.find((b) => b.address === t.address);
-              const pnlColor = (bt?.pnlAfterCosts ?? t.totalPnl) > 0 ? "text-green-400"
-                : (bt?.pnlAfterCosts ?? t.totalPnl) < 0 ? "text-red-400" : "text-pixel-gray-light";
+              const curvePnl = traderCurvePnl.get(t.address);
+              const displayPnl = curvePnl ?? t.totalPnl;
+              const pnlColor = displayPnl > 0 ? "text-green-400"
+                : displayPnl < 0 ? "text-red-400" : "text-pixel-gray-light";
               const w = traderWeights[t.address] || 0;
               return (
                 <div key={t.address} className={`flex items-center gap-0.5 px-0.5 py-1 hover:bg-pixel-white/5 transition-colors group border-b border-pixel-border/20 last:border-b-0 ${t.enabled ? "" : "opacity-40"}`}>
@@ -1088,7 +1171,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                     {shortAddress(t.address)}
                   </button>
                   <span className={`w-16 text-right text-[11px] font-mono ${pnlColor}`}>
-                    {bt ? formatPnl(bt.pnlAfterCosts) : t.loaded ? formatPnl(t.totalPnl) : "..."}
+                    {curvePnl !== undefined ? formatPnl(curvePnl) : t.loaded ? formatPnl(t.totalPnl) : "..."}
                   </span>
                   {/* Weight slider + value */}
                   <div className="flex-1 flex items-center gap-1 px-1">
@@ -1133,33 +1216,43 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
           )}
 
           {/* ── Mode Tabs ── */}
-          {watchlist.length > 0 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setMode("TEST")}
-                className={`pixel-btn text-[10px] px-4 py-1.5 ${
-                  mode === "TEST"
-                    ? "border-pixel-white text-pixel-white"
-                    : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
-                }`}
-              >
-                TEST
-              </button>
-              <button
-                onClick={() => setMode("LIVE")}
-                className={`pixel-btn text-[10px] px-4 py-1.5 ${
-                  mode === "LIVE"
-                    ? "border-pixel-white text-pixel-white"
-                    : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
-                }`}
-              >
-                LIVE
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMode("STRATS")}
+              className={`pixel-btn text-[10px] px-4 py-1.5 ${
+                mode === "STRATS"
+                  ? "border-pixel-white text-pixel-white"
+                  : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
+              }`}
+            >
+              STRATS
+            </button>
+            <button
+              onClick={() => setMode("BACKTEST")}
+              disabled={watchlist.length === 0}
+              className={`pixel-btn text-[10px] px-4 py-1.5 ${
+                mode === "BACKTEST"
+                  ? "border-pixel-white text-pixel-white"
+                  : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
+              } disabled:opacity-30 disabled:cursor-not-allowed`}
+            >
+              BACKTEST
+            </button>
+            <button
+              onClick={() => setMode("LIVE")}
+              disabled={watchlist.length === 0}
+              className={`pixel-btn text-[10px] px-4 py-1.5 ${
+                mode === "LIVE"
+                  ? "border-pixel-white text-pixel-white"
+                  : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
+              } disabled:opacity-30 disabled:cursor-not-allowed`}
+            >
+              LIVE
+            </button>
+          </div>
 
           {/* ── Backtest panel ── */}
-          {watchlist.length > 0 && mode === "TEST" && (
+          {watchlist.length > 0 && mode === "BACKTEST" && (
             <div className="pixel-panel p-3 space-y-2">
               {/* Header: days input + capital input + stats */}
               <div className="flex items-center justify-between gap-2">
@@ -1245,6 +1338,19 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                     onFocus={(e) => e.target.select()}
                     className="pixel-input-sm w-12 text-center font-mono text-[9px] border-pixel-border"
                   />
+                  <span className="text-pixel-border">|</span>
+                  <span className="text-[8px] text-pixel-gray">MAX/HR</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={maxTradesPerHour}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value.replace(/[^0-9]/g, ""), 10);
+                      if (!isNaN(v) && v > 0) updateMaxTradesPerHour(v);
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    className="pixel-input-sm w-12 text-center font-mono text-[9px] border-pixel-border"
+                  />
                   <span className="text-[7px] text-pixel-gray/60 font-mono">{backtestDateRange.from}–{backtestDateRange.to}</span>
                 </div>
                 <div className="flex items-center gap-3 text-[9px] font-mono">
@@ -1267,6 +1373,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                   onChange={(e) => updateRebalancePeriod(Number(e.target.value))}
                   className="pixel-input-sm px-2 py-0.5 font-mono text-[8px] border-pixel-border bg-pixel-black"
                 >
+                  <option value={0}>OFF (PER-TRADE)</option>
                   <option value={1}>1H</option>
                   <option value={4}>4H</option>
                   <option value={8}>8H</option>
@@ -1300,40 +1407,54 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                 </select>
               </div>
 
-              {/* Fee/gas cost summary */}
-              <div className="flex items-center justify-between flex-wrap gap-2 text-[9px] font-mono px-1">
-                <div className="flex items-center gap-3">
-                  <span className="text-pixel-gray">FEES:</span>
-                  <span className="text-amber-400">${totalFees.toFixed(2)}</span>
-                  <span className="text-pixel-gray">GAS:</span>
-                  <span className="text-amber-400">${totalGas.toFixed(2)}</span>
-                  <span className="text-pixel-gray border-l border-pixel-border pl-3">TOTAL COST:</span>
-                  <span className="text-amber-400">${totalCosts.toFixed(2)}</span>
-                  <span className="text-pixel-gray">({totalTradeCount} TXS)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-pixel-gray">GROSS:</span>
-                  <span className={weightedBacktestPnl >= 0 ? "text-green-400/60" : "text-red-400/60"}>
-                    {formatPnl(weightedBacktestPnl)}
-                  </span>
-                </div>
-              </div>
+              {/* Fee/gas cost summary — derived from linkedTrades + chart for consistency */}
+              {(() => {
+                const feedFees = linkedTrades.reduce((s, t) => s + t.fee, 0);
+                const feedGas = linkedTrades.length * GAS_PER_TRADE_USD;
+                const feedCosts = feedFees + feedGas;
+                const chartPnl = combinedPnlCurve.length > 0 ? combinedPnlCurve[combinedPnlCurve.length - 1].pnl : 0;
+                const feedPnl = linkedTrades.length > 0 ? linkedTrades[linkedTrades.length - 1].runningPnl : 0;
+                const grossPnl = chartPnl || feedPnl;
+                const netPnl = grossPnl - feedCosts;
+                const costWarning = feedCosts > 5 && (grossPnl <= 0 || feedCosts > grossPnl * 0.5);
+                return (
+                  <>
+                    <div className="flex items-center justify-between flex-wrap gap-2 text-[9px] font-mono px-1">
+                      <div className="flex items-center gap-3">
+                        <span className="text-pixel-gray">FEES:</span>
+                        <span className="text-amber-400">${feedFees.toFixed(2)}</span>
+                        <span className="text-pixel-gray">GAS:</span>
+                        <span className="text-amber-400">${feedGas.toFixed(2)}</span>
+                        <span className="text-pixel-gray border-l border-pixel-border pl-3">TOTAL COST:</span>
+                        <span className="text-amber-400">${feedCosts.toFixed(2)}</span>
+                        <span className="text-pixel-gray">({linkedTrades.length} TXS)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-pixel-gray">GROSS:</span>
+                        <span className={grossPnl >= 0 ? "text-green-400/60" : "text-red-400/60"}>
+                          {formatPnl(grossPnl)}
+                        </span>
+                      </div>
+                    </div>
 
-              {/* Fee burden warning */}
-              {feesWarning && !loading && (
-                <div className="px-3 py-2 border border-amber-400/40 bg-amber-400/5">
-                  <div className="text-[9px] text-amber-400 font-mono">
-                    {feesExceedPnl
-                      ? `FEES ($${totalCosts.toFixed(0)}) EXCEED GROSS P&L (${formatPnl(totalBacktestPnl)}) — COPYING ${watchlist.length} TRADERS AT ${totalTradeCount} TXS IS UNPROFITABLE AFTER COSTS`
-                      : totalBacktestPnl <= 0
-                        ? `STRAT IS NEGATIVE AND INCURS $${totalCosts.toFixed(0)} IN FEES/GAS ACROSS ${totalTradeCount} TXS`
-                        : `FEES CONSUME ${Math.round(feeBurdenPct)}% OF GROSS PROFIT — CONSIDER FEWER TRADERS OR HIGHER-CONVICTION PICKS`
-                    }
-                  </div>
-                </div>
-              )}
+                    {costWarning && !loading && (
+                      <div className="px-3 py-2 border border-amber-400/40 bg-amber-400/5">
+                        <div className="text-[9px] text-amber-400 font-mono">
+                          {feedCosts > grossPnl && grossPnl > 0
+                            ? `FEES ($${feedCosts.toFixed(0)}) EXCEED GROSS P&L (${formatPnl(grossPnl)}) — COPYING ${watchlist.length} TRADERS AT ${linkedTrades.length} TXS IS UNPROFITABLE AFTER COSTS`
+                            : grossPnl <= 0
+                              ? `STRAT IS NEGATIVE AND INCURS $${feedCosts.toFixed(0)} IN FEES/GAS ACROSS ${linkedTrades.length} TXS`
+                              : `FEES CONSUME ${Math.round((feedCosts / grossPnl) * 100)}% OF GROSS PROFIT — CONSIDER FEWER TRADERS OR HIGHER-CONVICTION PICKS`
+                          }
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* PnL chart */}
+              <div ref={chartPanelRef}>
               {combinedPnlCurve.length >= 2 ? (
                 <PnlChart
                   points={combinedPnlCurve}
@@ -1341,6 +1462,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                   tradesInWindow={combinedPnlCurve.filter((p) => p.side !== "MARK").map((p) => ({ timestamp: p.ts }))}
                   highlightIndex={chartHighlight}
                   onHoverChange={handleChartHover}
+                  linkedTrades={linkedTrades}
+                  shortAddress={shortAddress}
                 />
               ) : !loading && watchlist.length > 0 ? (
                 <div className="p-6 text-center">
@@ -1351,13 +1474,13 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                   <span className="text-[9px] text-pixel-gray animate-pulse">LOADING...</span>
                 </div>
               ) : null}
+              </div>
             </div>
           )}
 
           {/* ── Trade feed — every trade with its P&L impact, linked to chart ── */}
-          {mode === "TEST" && (() => {
+          {mode === "BACKTEST" && (() => {
             const reversed = [...linkedTrades].reverse();
-            const displayed = reversed.slice(0, indexTradeLimit);
             const finalPnl = linkedTrades.length > 0 ? linkedTrades[linkedTrades.length - 1].runningPnl : 0;
             const n = linkedTrades.length;
 
@@ -1381,30 +1504,22 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                   </div>
                 ) : linkedTrades.length > 0 ? (
                   <>
-                    <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                      <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "700px" }}>
-                        <colgroup>
-                          <col style={{ width: "30%" }} />
-                          <col style={{ width: "90px" }} />
-                          <col style={{ width: "50px" }} />
-                          <col style={{ width: "11%" }} />
-                          <col style={{ width: "9%" }} />
-                          <col style={{ width: "12%" }} />
-                          <col style={{ width: "14%" }} />
-                        </colgroup>
+                    <div className="overflow-x-auto">
+                      <table className="pixel-table" style={{ minWidth: "100%", tableLayout: "auto" }}>
                         <thead className="sticky top-0 bg-pixel-black z-10">
                           <tr>
-                            <th>MARKET</th>
-                            <th>TRADER</th>
-                            <th>SIDE</th>
-                            <th className="text-right">AMOUNT</th>
-                            <th className="text-right">PRICE</th>
-                            <th className="text-right">IMPACT</th>
-                            <th className="text-right">TOTAL P&L</th>
+                            <th className="whitespace-nowrap">MARKET</th>
+                            <th className="whitespace-nowrap">TRADER</th>
+                            <th className="whitespace-nowrap">SIDE</th>
+                            <th className="text-right whitespace-nowrap">AMOUNT</th>
+                            <th className="text-right whitespace-nowrap">PRICE</th>
+                            <th className="text-right whitespace-nowrap">FEE</th>
+                            <th className="text-right whitespace-nowrap">IMPACT</th>
+                            <th className="text-right whitespace-nowrap">TOTAL P&L</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {displayed.map((t, di) => {
+                          {reversed.map((t, di) => {
                             const origIdx = n - 1 - di;
                             const isHighlighted = tradeHighlight === origIdx;
                             const d = new Date(t.ts);
@@ -1412,11 +1527,17 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                             return (
                               <tr
                                 key={`${t.trader}-${t.ts}-${di}`}
-                                className={`transition-colors cursor-default ${
+                                className={`transition-colors cursor-pointer ${
                                   isHighlighted
                                     ? "bg-pixel-white/10"
                                     : "hover:bg-pixel-white/5"
                                 }`}
+                                onClick={() => {
+                                  const idx = findCurveIdx(t.ts);
+                                  setChartHighlight(idx);
+                                  setTradeHighlight(origIdx);
+                                  chartPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                }}
                                 onMouseEnter={() => {
                                   setChartHighlight(findCurveIdx(t.ts));
                                   setTradeHighlight(origIdx);
@@ -1426,8 +1547,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                                   setTradeHighlight(null);
                                 }}
                               >
-                                <td>
-                                  <div className="text-pixel-white truncate" title={t.market}>
+                                <td style={{ overflow: "visible", textOverflow: "unset", whiteSpace: "nowrap" }}>
+                                  <div className="text-pixel-white">
                                     {t.market}
                                   </div>
                                   <div className="text-[7px] text-pixel-gray font-mono">{when}</div>
@@ -1449,7 +1570,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                                     {t.side}
                                   </span>
                                 </td>
-                                <td className="text-right text-pixel-white font-mono">
+                                <td className="text-right text-pixel-white font-mono whitespace-nowrap">
                                   {t.amount < 0.01
                                     ? `${(t.amount * 100).toFixed(2)}¢`
                                     : t.amount < 1
@@ -1457,10 +1578,13 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                                       : `$${t.amount.toFixed(0)}`
                                   }
                                 </td>
-                                <td className="text-right text-pixel-gray-light font-mono">
+                                <td className="text-right text-pixel-gray-light font-mono whitespace-nowrap">
                                   {Math.round(t.price * 100)}c
                                 </td>
-                                <td className={`text-right font-mono ${
+                                <td className="text-right text-amber-400/70 font-mono whitespace-nowrap">
+                                  ${t.fee.toFixed(2)}
+                                </td>
+                                <td className={`text-right font-mono whitespace-nowrap ${
                                   t.pnlDelta > 0.005 ? "text-green-400"
                                     : t.pnlDelta < -0.005 ? "text-red-400"
                                     : "text-pixel-gray"
@@ -1468,7 +1592,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                                   {t.pnlDelta > 0.005 ? "+" : t.pnlDelta < -0.005 ? "" : ""}
                                   {Math.abs(t.pnlDelta) >= 0.005 ? `$${t.pnlDelta.toFixed(2)}` : "—"}
                                 </td>
-                                <td className={`text-right font-mono ${
+                                <td className={`text-right font-mono whitespace-nowrap ${
                                   t.runningPnl > 0 ? "text-green-400"
                                     : t.runningPnl < 0 ? "text-red-400"
                                     : "text-pixel-gray"
@@ -1482,24 +1606,6 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                       </table>
                     </div>
 
-                    {linkedTrades.length > indexTradeLimit && (
-                      <div className="px-4 py-2 border-t border-pixel-border/40 flex items-center justify-center">
-                        <button
-                          onClick={() => setIndexTradeLimit((v) => v + 100)}
-                          className="pixel-btn text-[8px] px-3 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white"
-                        >
-                          SHOW MORE ({linkedTrades.length - indexTradeLimit} remaining)
-                        </button>
-                      </div>
-                    )}
-                    <div className="px-4 py-2 border-t-2 border-pixel-border flex items-center justify-end gap-6 text-[10px] font-mono">
-                      <span className="text-pixel-gray">TRADES</span>
-                      <span className="text-pixel-white">{linkedTrades.length}</span>
-                      <span className="text-pixel-gray">TOTAL P&L</span>
-                      <span className={finalPnl >= 0 ? "text-green-400" : "text-red-400"}>
-                        {finalPnl >= 0 ? "+" : ""}${finalPnl.toFixed(2)}
-                      </span>
-                    </div>
                   </>
                 ) : (
                   <div className="p-8 text-center">

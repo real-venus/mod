@@ -69,6 +69,7 @@ export interface SavedIndex {
   capital?: number; // simulation capital in USD (default 1000)
   minTrade?: number; // minimum trade size in USD (default 1)
   maxTrade?: number; // maximum trade size in USD (default 100)
+  maxTradesPerHour?: number; // maximum trades per hour (default 10)
   rebalancePeriod?: number; // rebalance period in hours (default 24)
   rebalanceHour?: number; // hour of day to rebalance 0-23 (default 0 = midnight)
   rebalanceMinutes?: number; // auto-rebalance period (0 = disabled)

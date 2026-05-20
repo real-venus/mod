@@ -1,27 +1,46 @@
-import os
+"""
+core/store/filecoin — Filecoin backend adapter for the store module.
+
+Thin proxy over `mod/orbit/filecoin`. Lets the store namespace expose Filecoin
+operations: `m store/filecoin/put`, `m store/filecoin/get`, etc.
+"""
 import mod as m
 
+
 class Mod:
-    description = """filecoin"""
-    path = r'/root/mod/mod/orbit/filecoin'
+    description = "Filecoin backend adapter (delegates to orbit/filecoin)."
 
-    def forward(self, **kwargs):
-        """Default entry point."""
-        return self.info()
+    expose = ['put', 'get', 'pin', 'list', 'status', 'wallet', 'deals', 'start_node', 'stop_node']
 
-    def info(self):
-        """Return module info."""
-        return {
-            'name': 'filecoin',
-            'description': self.description,
-            'path': self.path,
-            'files': os.listdir(self.path),
-        }
+    def __init__(self, **kw):
+        self._impl = m.mod('filecoin')(**kw)
 
-    def readme(self):
-        """Return the project README."""
-        for name in ['README.md', 'readme.md', 'README.rst', 'README']:
-            p = os.path.join(self.path, name)
-            if os.path.exists(p):
-                return m.get_text(p)
-        return None
+    def forward(self, **kw):
+        return self._impl.status()
+
+    def put(self, path: str, owner: str = None, deal: bool = False, **kw):
+        return self._impl.put(path=path, owner=owner, deal=deal)
+
+    def get(self, cid: str, out: str = None, **kw):
+        return self._impl.get(cid=cid, out=out)
+
+    def pin(self, cid: str, owner: str = None, **kw):
+        return self._impl.pin(cid=cid, owner=owner)
+
+    def list(self, owner: str = None, limit: int = 100, **kw):
+        return self._impl.list(owner=owner, limit=limit)
+
+    def status(self, **kw):
+        return self._impl.status()
+
+    def wallet(self, **kw):
+        return self._impl.wallet()
+
+    def deals(self, limit: int = 50, **kw):
+        return self._impl.deals(limit=limit)
+
+    def start_node(self, **kw):
+        return self._impl.start_node()
+
+    def stop_node(self, **kw):
+        return self._impl.stop_node()

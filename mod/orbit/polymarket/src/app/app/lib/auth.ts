@@ -88,10 +88,19 @@ export async function deriveClobApiKey(address: string): Promise<ClobCredentials
     message,
   });
 
-  const signature = (await window.ethereum.request({
-    method: "eth_signTypedData_v4",
-    params: [address, msgParams],
-  })) as string;
+  let signature: string;
+  try {
+    signature = (await window.ethereum.request({
+      method: "eth_signTypedData_v4",
+      params: [address, msgParams],
+    })) as string;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.toLowerCase().includes("reject") || msg.toLowerCase().includes("denied") || msg.toLowerCase().includes("cancel")) {
+      throw new Error("SIGNATURE REJECTED - Click approve in MetaMask");
+    }
+    throw new Error(`SIGNATURE FAILED: ${msg.substring(0, 100)}`);
+  }
 
   // Derive API key from CLOB
   const res = await fetch(`${CLOB_BASE}/auth/derive-api-key`, {
@@ -108,10 +117,16 @@ export async function deriveClobApiKey(address: string): Promise<ClobCredentials
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`DERIVE FAILED: ${err}`);
+    console.error("CLOB derive failed:", err);
+    throw new Error(`CLOB ERROR: ${err.substring(0, 200)}`);
   }
 
   const data = await res.json();
+  if (!data.apiKey || !data.secret || !data.passphrase) {
+    console.error("Invalid CLOB response:", data);
+    throw new Error("CLOB returned invalid credentials");
+  }
+
   return {
     apiKey: data.apiKey,
     secret: data.secret,

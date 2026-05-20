@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { loadIndexes, saveIndex, deleteIndex, updateIndex, getActiveIndexId, setActiveIndexId } from "../lib/indexStore";
 import { pushStrat, deleteServerStrat, syncStrats } from "../lib/stratSync";
 import { useAuth } from "../context/AuthContext";
@@ -38,6 +38,26 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
   const [initialSynced, setInitialSynced] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("pnl");
   const [editingRebalance, setEditingRebalance] = useState<string | null>(null);
+  const createMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!creatingNew) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (createMenuRef.current && !createMenuRef.current.contains(e.target as Node)) {
+        setCreatingNew(false);
+        setNewName("");
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setCreatingNew(false); setNewName(""); }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [creatingNew]);
 
   // Refresh indexes from localStorage periodically (backtest snapshots update there)
   useEffect(() => {
@@ -166,33 +186,60 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
             ))}
           </div>
         </div>
-        <button
-          onClick={() => setCreatingNew(!creatingNew)}
-          className="pixel-btn text-[7px] px-1.5 py-0.5 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400"
-        >
-          {creatingNew ? "CANCEL" : "+"}
-        </button>
-      </div>
-
-      {creatingNew && (
-        <div className="px-2 py-1.5 border-b border-pixel-border flex items-center gap-1.5">
-          <input
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") create(); }}
-            placeholder="STRAT NAME"
-            className="pixel-input-sm flex-1 font-mono text-[8px]"
-            autoFocus
-          />
+        <div className="relative" ref={createMenuRef}>
           <button
-            onClick={create}
-            className="pixel-btn text-[7px] px-1.5 py-0.5 border-green-400 text-green-400 hover:bg-green-400/10"
+            onClick={() => setCreatingNew(!creatingNew)}
+            className={`pixel-btn font-mono leading-none px-3 py-1.5 text-[14px] border-pixel-border transition-colors ${
+              creatingNew
+                ? "text-green-400 border-green-400 bg-green-400/10"
+                : "text-pixel-gray hover:text-green-400 hover:border-green-400"
+            }`}
+            title="New strat"
+            aria-expanded={creatingNew}
+            aria-haspopup="menu"
           >
-            CREATE
+            +
           </button>
+
+          {creatingNew && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full mt-1 z-20 min-w-[180px] pixel-panel border-2 border-pixel-border bg-pixel-black shadow-lg"
+            >
+              <div className="px-2 py-1 border-b border-pixel-border/50 text-[6px] tracking-wider text-pixel-gray">
+                NEW STRAT
+              </div>
+              <div className="p-2 flex flex-col gap-1.5">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") create();
+                  }}
+                  placeholder="NAME (OPTIONAL)"
+                  className="pixel-input-sm w-full font-mono text-[8px]"
+                  autoFocus
+                />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={create}
+                    className="pixel-btn flex-1 text-[7px] px-1.5 py-1 border-green-400 text-green-400 hover:bg-green-400/10"
+                  >
+                    CREATE
+                  </button>
+                  <button
+                    onClick={() => { setCreatingNew(false); setNewName(""); }}
+                    className="pixel-btn text-[7px] px-1.5 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white"
+                  >
+                    CANCEL
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Leaderboard header */}
       {indexes.length > 0 && (

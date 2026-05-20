@@ -1,0 +1,14 @@
+{
+    admin localhost:2096
+}
+
+:3000 {
+    @whitepaper_api path /api/whitepaper /api/whitepaper/*
+    handle @whitepaper_api {
+        uri strip_prefix /api/whitepaper
+        reverse_proxy localhost:50106
+    }
+    handle /whitepaper* {
+        reverse_proxy localhost:3106
+    }
+}

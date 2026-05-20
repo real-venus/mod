@@ -360,8 +360,33 @@ export default function CopyTrading({
   // API restarted) we filter+sort+paginate the streamed dataset on the
   // client so the FILTERS panel produces an immediate visible effect
   // instead of silently no-op'ing until the pipeline finishes.
+  // When stratFilter is on and streamedAll is empty (warm-cache path skipped
+  // streaming), fetch the full dataset so client-side filtering can show all
+  // strategy traders instead of just whoever is on the current page.
+  useEffect(() => {
+    if (!stratFilter || streamedAll.length > 0) return;
+    (async () => {
+      try {
+        const result = await fetchTradersPage({
+          days,
+          minPerDay: minTradesPerDay,
+          pool: 2000,
+          sort: "pnl",
+          order: "desc",
+          page: 0,
+          pageSize: 5000,
+        });
+        if (!result.cold && result.traders.length > 0) {
+          setStreamedAll(result.traders);
+        }
+      } catch {}
+    })();
+  }, [stratFilter, streamedAll.length, days, minTradesPerDay]);
+
   const clientView = useMemo(() => {
-    if (cacheWarm) return null;
+    // Use client-side filtering when cache is cold OR when stratFilter needs
+    // the full dataset (server pagination can't filter by address list).
+    if (cacheWarm && !stratFilter) return null;
     if (streamedAll.length === 0) return null;
     const cat = category || "";
     let list = streamedAll.filter((t) => {
@@ -735,7 +760,13 @@ export default function CopyTrading({
                       <td className="text-center !px-2 relative">
                         {onSelect ? (
                           selectedAddresses.includes(trader.address) ? (
-                            <span className="text-[8px] text-green-400">ADDED</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}
+                              className="pixel-btn text-[8px] px-2 py-0.5 border-green-400 text-green-400 bg-green-400/10 hover:border-red-400 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                            >
+                              <span className="group-hover:hidden">&#10003;</span>
+                              <span className="hidden group-hover:inline">&#10005;</span>
+                            </button>
                           ) : (
                             <button
                               onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}

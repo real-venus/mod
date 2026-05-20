@@ -8,7 +8,7 @@ const DOCKED_KEY = "poly8bit_strats_sidebar";
 const WIDTH_KEY = "poly8bit_strats_sidebar_width";
 
 export const SIDEBAR_MIN = 280;
-export const SIDEBAR_MAX = 900;
+export const SIDEBAR_MAX = 1600;
 export const SIDEBAR_DEFAULT = 420;
 
 interface SidebarContextValue {

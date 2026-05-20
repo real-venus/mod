@@ -19,13 +19,15 @@ export type CurvePoint = {
 };
 
 /* ── Pure SVG P&L Chart ── */
-export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = false, highlightIndex, onHoverChange }: {
+export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = false, highlightIndex, onHoverChange, linkedTrades, shortAddress }: {
   points: CurvePoint[];
   dayLabel: string;
   tradesInWindow: { timestamp: number }[];
   filtered?: boolean;
   highlightIndex?: number | null;
   onHoverChange?: (idx: number | null) => void;
+  linkedTrades?: any[];
+  shortAddress?: (addr: string) => string;
 }) {
   const W = 800, H = 260;
   const pad = { top: 20, right: 16, bottom: 40, left: 60 };
@@ -204,7 +206,7 @@ export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = 
           <span style={{ color: hp.pnl > 0 ? "#4ade80" : hp.pnl < 0 ? "#f87171" : "#fff" }}>
             MTM {hp.pnl >= 0 ? "+" : ""}${hp.pnl.toFixed(2)}
           </span>
-          {hp.market && <span className="text-pixel-gray truncate max-w-[200px]">{hp.market}</span>}
+          {hp.market && <span className="text-pixel-gray">{hp.market}</span>}
         </div>
       )}
     </div>
