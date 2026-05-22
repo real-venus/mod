@@ -1,0 +1,19 @@
+networks:
+  default:
+    external: true
+    name: modnet
+
+services:
+  polycopy:
+    build: .
+    container_name: polycopy
+    ports:
+      - "${GATEWAY_PORT:-3130}:${GATEWAY_PORT:-3130}"
+    restart: unless-stopped
+    environment:
+      - GATEWAY_PORT=${GATEWAY_PORT:-3130}
+    volumes:
+      - polycopy-data:/app/data
+
+volumes:
+  polycopy-data:

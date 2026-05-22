@@ -1,3 +1,8 @@
+networks:
+  default:
+    external: true
+    name: modnet
+
 services:
   claude:
     build:
@@ -8,22 +13,12 @@ services:
     container_name: claude
     image: claude:latest
     ports:
-      - "8821:8821"
+      - "8823:8823"
     restart: unless-stopped
     environment:
       - API_PORT=8820
-      - APP_PORT=8821
-      # ANTHROPIC_API_KEY is intentionally NOT inherited from host — the
-      # subscription OAuth token (mounted below) is the canonical credential
-      # and an external API key would override it. To opt in, drop a value
-      # in a .env next to this file.
+      - APP_PORT=8823
+      - CLAUDE_JOBS_LOCAL=1
     volumes:
-      # Bind-mount the host's claude OAuth credential into the container so
-      # the spawned `claude` CLI inherits the user's subscription. Read-only:
-      # token refreshes happen on a copy inside the container so the host
-      # file isn't mutated by the container runtime.
       - "${HOME}/.claude/.credentials.json:/host-claude/.credentials.json:ro"
-      # Off-chain auth state (whitelist, gate.json, owner.json). Kept on the
-      # host so secrets stay out of the committed config.json and survive
-      # image rebuilds.
       - "${HOME}/.mod/claude:/home/node/.mod/claude"

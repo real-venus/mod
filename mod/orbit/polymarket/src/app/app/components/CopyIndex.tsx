@@ -6,11 +6,15 @@ import { fetchPositions, fetchWalletTradesUntil, formatVolume, formatPnl, fetchT
 import { PolymarketPosition, PolymarketTrade, SavedIndex } from "../lib/types";
 import { shortAddress } from "@/lib/auth";
 import { useFilterParams } from "../context/FiltersContext";
+import { useAuth } from "../context/AuthContext";
 import PnlChart from "./PnlChart";
 import type { CurvePoint } from "./PnlChart";
 import { computeFifoTrades, buildPnlCurve, buildCombinedPnlCurve, aggregateToRebalanceWindows } from "../lib/pnlEngine";
 import { loadIndexes, saveIndex, deleteIndex, updateIndex, getActiveIndexId, setActiveIndexId } from "../lib/indexStore";
 import LivePanel from "./LivePanel";
+import StratPicker from "./StratPicker";
+import ProfileWalletPanel from "./ProfileWalletPanel";
+import TokenPanel from "./TokenPanel";
 
 interface TraderSummary {
   address: string;
@@ -333,11 +337,13 @@ function AddTraderBar({ watchlist, onAdd }: { watchlist: string[]; onAdd: (addr:
 interface CopyIndexProps {
   searchFilter: string;
   compact?: boolean;
+  onClose?: () => void;
 }
 
-export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
+export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexProps) {
   const router = useRouter();
   const filterQs = useFilterParams({ excludeSearch: true });
+  const { localToken } = useAuth();
 
   // ── Strategy management ──
   const [savedIndexes, setSavedIndexes] = useState<SavedIndex[]>([]);
@@ -375,8 +381,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
   // ── Weights (local state, persisted on change) ──
   const [traderWeights, setTraderWeights] = useState<Record<string, number>>({});
 
-  // ── Mode toggle (STRATS = manage, BACKTEST = test, LIVE = copy) ──
-  const [mode, setMode] = useState<"STRATS" | "BACKTEST" | "LIVE">("STRATS");
+  // ── Mode toggle (STRATS = manage, BACKTEST = test, LIVE = copy, PROFILE = wallet) ──
+  const [mode, setMode] = useState<"STRATS" | "BACKTEST" | "LIVE" | "PROFILE">("STRATS");
 
   // Derive watchlist from active strategy (only enabled traders)
   const watchlist = useMemo(
@@ -394,7 +400,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
   useEffect(() => {
     let indexes = loadIndexes();
 
-    // Auto-migrate legacy flat watchlist
+    // Auto-migrate legacy flat watchlist (first load only)
     if (indexes.length === 0) {
       try {
         const legacy = localStorage.getItem("poly8bit_watchlist");
@@ -438,7 +444,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     const active = found || indexes[0];
     setActiveIndex(active);
     setActiveIndexId(active.id);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   // Load weights + backtest days from active strategy
   useEffect(() => {
@@ -476,6 +483,9 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     updateIndex(updated.id, updated);
     setActiveIndex(updated);
     setSavedIndexes(loadIndexes());
+    // Broadcast so the /traders page (and any other listener) re-reads the
+    // active strat — keeps the +ADD/✓ toggle in sync across surfaces.
+    window.dispatchEvent(new Event("strat-updated"));
   }, []);
 
   // ── Strategy CRUD ──
@@ -840,21 +850,22 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
     }, 0);
   }, [backtests, traderWeights, totalWeight]);
 
-  // ROI per trader: pnlAfterCosts is already per $1K, so it IS the ROI
-  const roiPerTrader = (bt: TraderBacktest) => bt.pnlAfterCosts;
+  // ROI per trader as percentage of the capital allocated to this trader.
+  // pnlAfterCosts is already scaled to user capital, so ROI% = pnl / capital * 100.
+  const roiPerTrader = (bt: TraderBacktest) => capital > 0 ? (bt.pnlAfterCosts / capital) * 100 : 0;
   const tradersWithBuys = backtests.filter((bt) => bt.buyVolume > 0);
-  // Combined {capitalLabel} ROI: weighted sum of per-trader pnlAfterCosts
+  // Combined ROI (%): weighted P&L over total capital, expressed as percent
   const combinedRoi1k = useMemo(() => {
-    if (tradersWithBuys.length === 0) return 0;
+    if (tradersWithBuys.length === 0 || capital <= 0) return 0;
     if (totalWeight <= 0) {
-      // Equal weight: average of per-trader $1K returns
-      return tradersWithBuys.reduce((s, bt) => s + bt.pnlAfterCosts, 0) / tradersWithBuys.length;
+      // Equal weight: average of per-trader ROI%
+      return tradersWithBuys.reduce((s, bt) => s + (bt.pnlAfterCosts / capital) * 100, 0) / tradersWithBuys.length;
     }
     return tradersWithBuys.reduce((s, bt) => {
       const w = (traderWeights[bt.address] || 0) / totalWeight;
-      return s + bt.pnlAfterCosts * w;
+      return s + ((bt.pnlAfterCosts / capital) * 100) * w;
     }, 0);
-  }, [tradersWithBuys, traderWeights, totalWeight]);
+  }, [tradersWithBuys, traderWeights, totalWeight, capital]);
 
   // ── Persist backtest snapshot to SavedIndex for leaderboard ──
   useEffect(() => {
@@ -871,7 +882,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
 
   // ── Combined FIFO PnL curve (scaled to user's capital) ──
   const combinedCurveData = useMemo((): { combined: CurvePoint[]; perTrader: { address: string; points: CurvePoint[]; weight: number }[] } => {
-    if (watchlist.length === 0 || loading) return [];
+    if (watchlist.length === 0 || loading) return { combined: [], perTrader: [] };
     const cutoffMs = Date.now() - backtestDays * 24 * 60 * 60 * 1000;
     const traderCurves: { address: string; points: CurvePoint[]; weight: number }[] = [];
 
@@ -948,8 +959,13 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
       const replayTrades = rebalancePeriod > 0
         ? aggregateToRebalanceWindows(rawTrades, rebalancePeriod, rebalanceHour)
         : rawTrades;
-      const annotated = computeFifoTrades(replayTrades, positions, cutoffMs);
-      const windowAnnotated = annotated.filter((t) => t.timestamp >= cutoffMs);
+      // Strict-in-window FIFO: a copy-trader starting at cutoffMs has no
+      // pre-window inventory, so SELLs that would consume pre-window basis
+      // shouldn't appear in the feed (they're not actually replicable).
+      const inWindowTrades = replayTrades.filter((t) => t.timestamp >= cutoffMs);
+      if (inWindowTrades.length === 0) continue;
+      const annotated = computeFifoTrades(inWindowTrades, positions, cutoffMs);
+      const windowAnnotated = annotated.filter((t) => t.side === "BUY" || t.hasBasis);
       if (windowAnnotated.length === 0) continue;
 
       const wFrac = totalWeight > 0 ? (traderWeights[addr] || 0) / totalWeight : 1 / watchlist.length;
@@ -969,24 +985,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
 
     allEntries.sort((a, b) => a.ts - b.ts);
 
-    // Filter out SELLs without a prior BUY in the window (copy-trader wouldn't hold those)
-    const windowBook = new Map<string, number>(); // "trader:conditionId" → shares
-    const eligible = allEntries.filter((t) => {
-      const k = `${t.trader}:${t.conditionId}`;
-      if (t.side === "BUY") {
-        windowBook.set(k, (windowBook.get(k) || 0) + t.size);
-        return true;
-      }
-      const inv = windowBook.get(k) || 0;
-      if (inv <= 1e-9) return false;
-      const sold = Math.min(t.size, inv);
-      windowBook.set(k, inv - sold);
-      t.size = sold;
-      return true;
-    });
-
     // Compute derived fields per trade (no running P&L yet — that comes after filters)
-    const derived = eligible.map((t) => {
+    const derived = allEntries.map((t) => {
       const realizedScaled = t.side === "SELL" ? Math.round(t.realized * t.scale * 100) / 100 : 0;
       const amount = Math.round(t.price * t.size * t.scale * 100) / 100;
       const scaledShares = t.price > 0 ? amount / t.price : 0;
@@ -1004,32 +1004,19 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
       };
     });
 
-    // Apply size + per-hour filters BEFORE running P&L so totals add up across visible rows
-    const sized = derived.filter((t) => t.amount >= minTrade && t.amount <= maxTrade);
-    const filtered = maxTradesPerHour > 0
-      ? sized.filter((t, i, arr) => {
-          const hourMs = 3600_000;
-          const hourStart = Math.floor(t.ts / hourMs) * hourMs;
-          let count = 0;
-          for (let j = 0; j <= i; j++) {
-            if (Math.floor(arr[j].ts / hourMs) * hourMs === hourStart) count++;
-          }
-          return count <= maxTradesPerHour;
-        })
-      : sized;
-
-    // Walk forward over the *displayed* set so running P&L matches what the user sees
+    // Show every trade that contributes to the chart's P&L — no size/per-hour gating here.
     let runningPnl = 0;
-    return filtered.map((t) => {
+    return derived.map((t) => {
       runningPnl = Math.round((runningPnl + t.realized) * 100) / 100;
       return { ...t, runningPnl };
     });
-  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, minTrade, maxTrade, maxTradesPerHour, rebalancePeriod, rebalanceHour]);
+  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour]);
 
   // ── Chart ↔ Trade feed hover linking ──
   const [chartHighlight, setChartHighlight] = useState<number | null>(null);
   const [tradeHighlight, setTradeHighlight] = useState<number | null>(null);
   const [indexTradeLimit, setIndexTradeLimit] = useState(100);
+  const [feedOrder, setFeedOrder] = useState<"newest" | "oldest">("newest");
 
   const findCurveIdx = useCallback((ts: number): number | null => {
     if (combinedPnlCurve.length === 0) return null;
@@ -1088,21 +1075,112 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
 
   return (
     <div className="space-y-2">
-      {/* ── Add trader bar ── */}
-      <div className="pixel-panel px-3 py-1.5">
-        <div className="flex items-center gap-2">
-          <div className="flex-1">
-            <AddTraderBar watchlist={watchlist} onAdd={addTrader} />
-          </div>
-          <div className="flex items-center gap-2 shrink-0 text-[9px] font-mono">
-            {loading && (
-              <span className="text-[7px] text-green-400 animate-pulse">
-                {loadedCount}/{watchlist.length}
+      {/* ── Header: key + tabs + close ── */}
+      <div className="pixel-panel px-3 py-2 space-y-2">
+        {/* Key + token row */}
+        <div className="flex items-center justify-between gap-2">
+          {localToken ? (
+            <div className="flex items-center gap-3 text-[12px] font-mono min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 shrink-0 px-1.5 py-0.5 border border-green-400/40 bg-green-400/5">
+                <div className="w-1.5 h-1.5 bg-green-400" />
+                <span className="text-pixel-gray text-[10px]">TOKEN</span>
+                <span className="text-green-400">{localToken.tokenPreview}</span>
+              </div>
+              <span className="text-pixel-gray shrink-0">KEY</span>
+              <span className="text-green-400 truncate">{localToken.token}</span>
+            </div>
+          ) : (
+            <span className="text-[12px] text-pixel-gray tracking-wider font-mono">NO KEY</span>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="pixel-btn text-[11px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white shrink-0 ml-2"
+              title="Close"
+            >
+              X
+            </button>
+          )}
+        </div>
+        {/* Tabs */}
+        <div className="flex items-center gap-1 border-t border-pixel-border/40 pt-2">
+          {(
+            [
+              { id: "STRATS", label: "STRATS", disabled: false },
+              { id: "BACKTEST", label: "BACKTEST", disabled: watchlist.length === 0 },
+              { id: "LIVE", label: "LIVE", disabled: watchlist.length === 0 },
+              { id: "PROFILE", label: "PROFILE", disabled: false },
+            ] as { id: typeof mode; label: string; disabled: boolean }[]
+          ).map((t) => {
+            const active = mode === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setMode(t.id)}
+                disabled={t.disabled}
+                style={{ fontFamily: '"Press Start 2P", monospace', letterSpacing: "0.08em" }}
+                className={`relative text-[13px] px-4 py-2 transition-all uppercase ${
+                  active
+                    ? "text-green-400"
+                    : "text-pixel-gray hover:text-pixel-white"
+                } disabled:opacity-30 disabled:cursor-not-allowed`}
+              >
+                {t.label}
+                <span
+                  className={`absolute left-2 right-2 -bottom-0.5 h-[3px] transition-all ${
+                    active ? "bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]" : "bg-transparent"
+                  }`}
+                />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Strat Leaderboard (full picker on STRATS tab only) ── */}
+      {mode === "STRATS" && <StratPicker onStratChange={() => setRefreshKey((v) => v + 1)} />}
+
+      {/* ── Compact active-strat header (non-STRATS tabs) ── */}
+      {mode !== "STRATS" && activeIndex && (
+        <div className="pixel-panel px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-[10px] text-pixel-gray tracking-wider shrink-0">STRAT</span>
+            <div className="w-2 h-2 bg-green-400 shrink-0" />
+            <span className="text-[13px] font-mono text-green-400 font-bold truncate">{activeIndex.name}</span>
+            <span className="text-[11px] text-pixel-gray shrink-0">{activeIndex.traders.length}T</span>
+            {activeIndex.lastPnlAfterCosts !== undefined && (
+              <span className={`text-[11px] font-mono shrink-0 ${activeIndex.lastPnlAfterCosts >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {activeIndex.lastPnlAfterCosts >= 0 ? "+" : ""}${activeIndex.lastPnlAfterCosts.toFixed(0)}
               </span>
             )}
           </div>
+          <button
+            onClick={() => setMode("STRATS")}
+            className="text-[10px] text-pixel-gray hover:text-green-400 transition-colors px-2 py-1 border border-pixel-border hover:border-green-400 font-mono shrink-0"
+            title="Switch strat"
+          >
+            CHANGE →
+          </button>
         </div>
-      </div>
+      )}
+
+      {/* ── Add trader bar (STRATS + BACKTEST only) ── */}
+      {(mode === "STRATS" || mode === "BACKTEST") && (
+        <div className="pixel-panel px-3 py-1.5">
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <AddTraderBar watchlist={watchlist} onAdd={addTrader} />
+            </div>
+            <div className="flex items-center gap-2 shrink-0 text-[9px] font-mono">
+              {loading && (
+                <span className="text-[7px] text-green-400 animate-pulse">
+                  {loadedCount}/{watchlist.length}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Trader editor panel (STRATS tab only) ── */}
       {mode === "STRATS" && allTraderAddrs.length > 0 && (
@@ -1215,45 +1293,9 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
             </div>
           )}
 
-          {/* ── Mode Tabs ── */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMode("STRATS")}
-              className={`pixel-btn text-[10px] px-4 py-1.5 ${
-                mode === "STRATS"
-                  ? "border-pixel-white text-pixel-white"
-                  : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
-              }`}
-            >
-              STRATS
-            </button>
-            <button
-              onClick={() => setMode("BACKTEST")}
-              disabled={watchlist.length === 0}
-              className={`pixel-btn text-[10px] px-4 py-1.5 ${
-                mode === "BACKTEST"
-                  ? "border-pixel-white text-pixel-white"
-                  : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
-              } disabled:opacity-30 disabled:cursor-not-allowed`}
-            >
-              BACKTEST
-            </button>
-            <button
-              onClick={() => setMode("LIVE")}
-              disabled={watchlist.length === 0}
-              className={`pixel-btn text-[10px] px-4 py-1.5 ${
-                mode === "LIVE"
-                  ? "border-pixel-white text-pixel-white"
-                  : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
-              } disabled:opacity-30 disabled:cursor-not-allowed`}
-            >
-              LIVE
-            </button>
-          </div>
-
           {/* ── Backtest panel ── */}
           {watchlist.length > 0 && mode === "BACKTEST" && (
-            <div className="pixel-panel p-3 space-y-2">
+            <div className="pixel-panel px-3 py-1.5 space-y-2">
               {/* Header: days input + capital input + stats */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -1360,7 +1402,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                   </span>
                   <span className="text-pixel-gray">ROI:</span>
                   <span className={combinedRoi1k >= 0 ? "text-green-400" : "text-red-400"}>
-                    {formatPnl(combinedRoi1k)}
+                    {combinedRoi1k >= 0 ? "+" : ""}{combinedRoi1k.toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -1480,7 +1522,7 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
 
           {/* ── Trade feed — every trade with its P&L impact, linked to chart ── */}
           {mode === "BACKTEST" && (() => {
-            const reversed = [...linkedTrades].reverse();
+            const ordered = feedOrder === "newest" ? [...linkedTrades].reverse() : linkedTrades;
             const finalPnl = linkedTrades.length > 0 ? linkedTrades[linkedTrades.length - 1].runningPnl : 0;
             const n = linkedTrades.length;
 
@@ -1495,6 +1537,13 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                         {finalPnl >= 0 ? "+" : ""}${finalPnl.toFixed(2)}
                       </span>
                     )}
+                    <button
+                      onClick={() => setFeedOrder((o) => (o === "newest" ? "oldest" : "newest"))}
+                      className="pixel-btn text-[9px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"
+                      title="Toggle sort order"
+                    >
+                      {feedOrder === "newest" ? "NEW→OLD" : "OLD→NEW"}
+                    </button>
                   </div>
                 </div>
 
@@ -1504,11 +1553,11 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                   </div>
                 ) : linkedTrades.length > 0 ? (
                   <>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-[480px]">
                       <table className="pixel-table" style={{ minWidth: "100%", tableLayout: "auto" }}>
                         <thead className="sticky top-0 bg-pixel-black z-10">
                           <tr>
-                            <th className="whitespace-nowrap">MARKET</th>
+                            <th className="whitespace-nowrap">WHEN</th>
                             <th className="whitespace-nowrap">TRADER</th>
                             <th className="whitespace-nowrap">SIDE</th>
                             <th className="text-right whitespace-nowrap">AMOUNT</th>
@@ -1519,8 +1568,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                           </tr>
                         </thead>
                         <tbody>
-                          {reversed.map((t, di) => {
-                            const origIdx = n - 1 - di;
+                          {ordered.map((t, di) => {
+                            const origIdx = feedOrder === "newest" ? n - 1 - di : di;
                             const isHighlighted = tradeHighlight === origIdx;
                             const d = new Date(t.ts);
                             const when = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
@@ -1547,11 +1596,8 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
                                   setTradeHighlight(null);
                                 }}
                               >
-                                <td style={{ overflow: "visible", textOverflow: "unset", whiteSpace: "nowrap" }}>
-                                  <div className="text-pixel-white">
-                                    {t.market}
-                                  </div>
-                                  <div className="text-[7px] text-pixel-gray font-mono">{when}</div>
+                                <td title={t.market} className="whitespace-nowrap">
+                                  <div className="text-[9px] text-pixel-gray-light font-mono">{when}</div>
                                 </td>
                                 <td>
                                   <button
@@ -1619,6 +1665,14 @@ export default function CopyIndex({ searchFilter, compact }: CopyIndexProps) {
           {/* ── Live Panel ── */}
           {mode === "LIVE" && watchlist.length > 0 && <LivePanel />}
         </>
+      )}
+
+      {/* ── Profile Panel ── */}
+      {mode === "PROFILE" && (
+        <div className="space-y-2">
+          <ProfileWalletPanel />
+          <TokenPanel />
+        </div>
       )}
     </div>
   );

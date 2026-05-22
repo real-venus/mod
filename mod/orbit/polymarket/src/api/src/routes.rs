@@ -17,6 +17,8 @@ pub fn router() -> Router<AppState> {
         .route("/active-traders", get(active_traders))
         // Encrypted strat storage
         .merge(crate::strats::router())
+        // CLOB L1 auth proxy (derive/create api keys)
+        .merge(crate::auth::router())
         // Proxy: all other endpoints go through the cache proxy
         .fallback(get(proxy::proxy_handler).post(proxy::proxy_handler))
 }

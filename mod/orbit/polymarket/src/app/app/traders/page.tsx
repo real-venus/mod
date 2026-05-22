@@ -67,17 +67,18 @@ function TradersInner() {
   }, []);
 
   const handleToggle = useCallback((address: string) => {
+    const addr = address.toLowerCase();
     const idx = getOrCreateActiveIndex();
-    const exists = idx.traders.some((t) => t.address.toLowerCase() === address.toLowerCase());
+    const exists = idx.traders.some((t) => t.address.toLowerCase() === addr);
 
     let newTraders: IndexTrader[];
     if (exists) {
-      newTraders = idx.traders.filter((t) => t.address.toLowerCase() !== address.toLowerCase());
+      newTraders = idx.traders.filter((t) => t.address.toLowerCase() !== addr);
     } else {
       const count = idx.traders.length + 1;
       const weight = 1 / count;
       newTraders = idx.traders.map((t) => ({ ...t, weight }));
-      newTraders.push({ address, weight, enabled: true });
+      newTraders.push({ address: addr, weight, enabled: true });
     }
 
     updateIndex(idx.id, { traders: newTraders, updatedAt: Date.now() });

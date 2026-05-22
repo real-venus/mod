@@ -1,27 +1,28 @@
 {
-    "name": "uniswap",
-    "port": 50088,
-    "app_port": 3088,
-    "description": "Uniswap V3 multi-chain trader scraper",
-    "urls": {
-        "api": "http://localhost:50088",
-        "app": "http://localhost:3088"
-    },
-    "fns": [
-        "serve",
-        "kill",
-        "traders",
-        "trader",
-        "scrape",
-        "chains",
-        "health"
-    ],
-    "chains": [
-        "ethereum",
-        "arbitrum",
-        "base",
-        "polygon",
-        "optimism"
-    ],
-    "schema": "QmTXCw9sC1zbh4LPmzGEy1ZwGCdU54vfkFNL9a7wFkcqzp"
+  "name": "uniswap",
+  "port": 50088,
+  "app_port": 3088,
+  "description": "Uniswap V3 multi-chain trader scraper",
+  "urls": {
+    "api": "http://localhost:50088",
+    "app": "http://localhost:3088"
+  },
+  "fns": [
+    "serve",
+    "kill",
+    "traders",
+    "trader",
+    "scrape",
+    "chains",
+    "health"
+  ],
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "base",
+    "polygon",
+    "optimism"
+  ],
+  "schema": "QmTXCw9sC1zbh4LPmzGEy1ZwGCdU54vfkFNL9a7wFkcqzp",
+  "gateway_port": 3088
 }

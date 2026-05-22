@@ -55,6 +55,52 @@ NONCES: dict = {}   # address -> {nonce, expires}
 NONCE_TTL = 600     # 10 min
 SESSION_TTL = 86400 * 7  # 7 days
 
+# ── whitelist (mirrors orbit/claude pattern) ───────────────────
+# Private state at ~/.mod/store/{owner.json, whitelist.json}. Empty/missing
+# whitelist = open access (back-compat). Non-empty = only owner + listed
+# addresses may sign in.
+
+PRIVATE_DIR = Path(os.environ.get('STORE_PRIVATE_DIR') or os.path.expanduser('~/.mod/store'))
+PRIVATE_DIR.mkdir(parents=True, exist_ok=True)
+WHITELIST_PATH = PRIVATE_DIR / 'whitelist.json'
+OWNER_PATH = PRIVATE_DIR / 'owner.json'
+
+
+def read_owner() -> Optional[str]:
+    try:
+        return json.loads(OWNER_PATH.read_text()).get('owner', '').lower() or None
+    except Exception:
+        return None
+
+
+def read_whitelist() -> list:
+    try:
+        data = json.loads(WHITELIST_PATH.read_text())
+    except Exception:
+        return []
+    if isinstance(data, dict):
+        data = data.get('addresses', [])
+    if not isinstance(data, list):
+        return []
+    return sorted({str(a).lower() for a in data if isinstance(a, str) and a.startswith('0x')})
+
+
+def write_whitelist(addresses: list) -> None:
+    clean = sorted({str(a).lower() for a in addresses if isinstance(a, str) and a.startswith('0x')})
+    WHITELIST_PATH.write_text(json.dumps(clean, indent=2))
+
+
+def is_authorized(address: str) -> bool:
+    """Owner ∪ whitelist; if whitelist is empty AND no owner is set, allow all."""
+    addr = address.lower()
+    owner = read_owner()
+    wl = read_whitelist()
+    if not owner and not wl:
+        return True
+    if owner and addr == owner:
+        return True
+    return addr in wl
+
 
 def _b64url(b: bytes) -> str:
     import base64
@@ -100,14 +146,8 @@ def require_session(authorization: Optional[str]) -> str:
 # ── SIWE verification (no external dep — manual ecrecover via eth-utils) ─
 
 def keccak256(b: bytes) -> bytes:
-    try:
-        from eth_utils import keccak
-        return keccak(b)
-    except ImportError:
-        import sha3
-        k = sha3.keccak_256()
-        k.update(b)
-        return k.digest()
+    from eth_utils import keccak
+    return keccak(b)
 
 
 def recover_address(message: str, signature: str) -> str:
@@ -202,9 +242,56 @@ def verify(body: VerifyBody):
     if recovered.lower() != addr_lc:
         raise HTTPException(401, f'recovered {recovered} != claimed {parsed["address"]}')
 
+    if not is_authorized(addr_lc):
+        raise HTTPException(403, f'{recovered} is not on the store whitelist')
+
     NONCES.pop(addr_lc, None)
     token = issue_token(addr_lc)
     return {'address': recovered, 'token': token, 'expires_in': SESSION_TTL}
+
+
+# ── whitelist management ──
+
+def require_owner(authorization: Optional[str]) -> str:
+    addr = require_session(authorization)
+    owner = read_owner()
+    if not owner:
+        # No owner set: any authenticated address can manage the list (bootstrap).
+        return addr
+    if addr.lower() != owner.lower():
+        raise HTTPException(403, 'owner only')
+    return addr
+
+
+@app.get('/whitelist')
+def whitelist_get():
+    return {'owner': read_owner(), 'addresses': read_whitelist()}
+
+
+class WhitelistBody(BaseModel):
+    address: str
+
+
+@app.post('/whitelist')
+def whitelist_add(body: WhitelistBody, authorization: Optional[str] = Header(default=None)):
+    require_owner(authorization)
+    addr = body.address.strip().lower()
+    if not addr.startswith('0x') or len(addr) != 42:
+        raise HTTPException(400, 'address must be 0x-prefixed 42 chars')
+    wl = read_whitelist()
+    if addr not in wl:
+        wl.append(addr)
+        write_whitelist(wl)
+    return {'addresses': read_whitelist(), 'added': addr}
+
+
+@app.delete('/whitelist')
+def whitelist_rm(address: str, authorization: Optional[str] = Header(default=None)):
+    require_owner(authorization)
+    addr = address.strip().lower()
+    wl = [a for a in read_whitelist() if a != addr]
+    write_whitelist(wl)
+    return {'addresses': read_whitelist(), 'removed': addr}
 
 
 @app.get('/me')

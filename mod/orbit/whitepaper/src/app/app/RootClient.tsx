@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ThemeToggle from "./ThemeToggle";
 
 type RootInfo = { root: string | null; epoch: number | null; count?: number } | null;
 
@@ -27,25 +28,29 @@ export default function RootClient({ initialRoot }: { initialRoot: RootInfo }) {
 
   return (
     <article className="prose-paper">
-      <header className="border-b border-black/10 pb-6 mb-8">
-        <p className="text-xs uppercase tracking-widest text-modblue/70">
-          MOD Protocol · Whitepaper v0.1
-        </p>
+      <header className="border-b border-rule pb-6 mb-8">
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-xs uppercase tracking-widest text-modblue/80">
+            MOD Protocol · Whitepaper v0.1
+          </p>
+          <ThemeToggle />
+        </div>
         <h1>Scaling Off-Chain Open-Source Management</h1>
-        <p className="text-modblue/80 -mt-1">
-          Storing the tree, not the leaves: a Merkle-root registry for the MOD orbit ecosystem.
+        <p className="text-modblue/90 -mt-1">
+          Storing the tree, not the leaves: a Merkle-root registry for the MOD
+          orbit ecosystem, anchored by StakeTime priority.
         </p>
         <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
-          <div className="border border-black/10 rounded p-3 bg-white/60">
-            <div className="text-[10px] uppercase tracking-wider text-modblue/70">
+          <div className="border border-rule rounded p-3 bg-panel">
+            <div className="text-[10px] uppercase tracking-wider text-modblue/80">
               On-chain root
             </div>
             <code className="break-all text-[12px]">
               {root?.root ?? "— (no tree built)"}
             </code>
           </div>
-          <div className="border border-black/10 rounded p-3 bg-white/60">
-            <div className="text-[10px] uppercase tracking-wider text-modblue/70">
+          <div className="border border-rule rounded p-3 bg-panel">
+            <div className="text-[10px] uppercase tracking-wider text-modblue/80">
               Epoch / records
             </div>
             <code className="text-[12px]">
@@ -54,7 +59,7 @@ export default function RootClient({ initialRoot }: { initialRoot: RootInfo }) {
             <button
               onClick={refresh}
               disabled={refreshing}
-              className="ml-3 text-[10px] underline text-modblue"
+              className="ml-3 text-[10px] underline text-modcyan"
             >
               {refreshing ? "…" : "refresh"}
             </button>
@@ -108,6 +113,115 @@ root     = tree.root()              // 1 SSTORE on chain`}</pre>
     }
 }`}</pre>
 
+      <h2>Chain anchor: StakeTime as the publisher</h2>
+      <p>
+        A Merkle-tree registry shifts cost off chain, but it raises a new
+        question: <em>who is trusted to rotate the root?</em> We answer this
+        with <strong>StakeTime</strong> — the time-weighted staking and
+        validator-consensus primitive already deployed on Base.
+      </p>
+      <p>
+        StakeTime composes five independent on-chain primitives:
+      </p>
+      <ul>
+        <li>
+          <strong>Staking</strong> — delegated, lock-weighted positions that
+          mint synthetic STT proportional to{" "}
+          <code>amount × multiplier(lockBlocks)</code>.
+        </li>
+        <li>
+          <strong>Consensus</strong> — pluggable scoring layer (Yuma decay,
+          linear, stake-weighted, privacy-preserving).
+        </li>
+        <li>
+          <strong>Inflation</strong> — pluggable emission curve (halving, flat,
+          linear decay, sigmoid).
+        </li>
+        <li>
+          <strong>Subnet</strong> — emission-token-bearing partitions of the
+          validator set.
+        </li>
+        <li>
+          <strong>Registry</strong> — competitive 420-slot directory with{" "}
+          <em>weakest-replacement</em> when full.
+        </li>
+      </ul>
+      <p>
+        For our module tree, the publisher role is taken by{" "}
+        <strong>any validator</strong> selected by the active consensus
+        adapter. Their STT-weighted score determines:
+      </p>
+      <ol>
+        <li>
+          <strong>Right to rotate</strong> — only validators whose score
+          exceeds <code>minPublisherScore</code> in the current epoch can call{" "}
+          <code>rotate(newRoot, manifestCid)</code>.
+        </li>
+        <li>
+          <strong>Slashing exposure</strong> — a rotation that doesn't match
+          the published manifest is provably false and triggers{" "}
+          <code>slash(validatorId, amount)</code> against the rotator's stake.
+        </li>
+        <li>
+          <strong>Revenue share</strong> — Treasury rewards for module-call
+          fees are distributed proportional to staker STT, so honest
+          publishers earn alongside the modules they index.
+        </li>
+      </ol>
+
+      <h2>Priority mechanism</h2>
+      <p>
+        Within a single rotation, the publisher batches many pending updates
+        into one root. We use StakeTime priority to settle two questions:{" "}
+        <em>which updates land in this epoch</em>, and{" "}
+        <em>which modules occupy the 420-slot registry under contention</em>.
+      </p>
+      <h3>Per-update priority within an epoch</h3>
+      <p>
+        Each pending update is signed by the module's owner and gossiped to a
+        mempool. The publisher orders the mempool by:
+      </p>
+      <pre>{`priority(update) = bond(update) × M(lock_update) + αᵢ × age(update)`}</pre>
+      <p>
+        where <code>bond</code> is STT the submitter has locked behind the
+        update, <code>M(lock)</code> is the same piecewise-linear lock
+        multiplier StakeTime uses for stake weight (monotonic, on-chain
+        enforced), and <code>α</code> is a small fairness coefficient so old
+        updates aren't permanently starved. The publisher MUST honour this
+        ordering: any inversion is provable from the mempool log and slashable.
+      </p>
+      <h3>Slot priority for the competitive registry</h3>
+      <p>
+        The full module set is unbounded off-chain, but the on-chain{" "}
+        <em>discoverable</em> set is capped at 420 slots — the same Darwinian
+        registry StakeTime uses for subnets. When a 421st module would
+        register, the slot held by the lowest-priority current occupant is
+        forfeited:
+      </p>
+      <pre>{`slot_score(mod) = Σ_users (STT_user · usage_weight(mod, user))
+              ─ inactivity_penalty(blocksSinceLastCall)`}</pre>
+      <ul>
+        <li>
+          New entries are <strong>immune</strong> from replacement for{" "}
+          <code>immunityPeriod</code> blocks (default ≈ 1 day at 12 s).
+        </li>
+        <li>
+          Registration costs a <strong>locked bond</strong> of governance
+          tokens (default 1{","}000) that is forfeited on competitive
+          replacement and returned on voluntary deregistration.
+        </li>
+        <li>
+          The weakest occupant is found by{" "}
+          <code>Registry.getWeakestSubnet()</code> in O(1) via a heap maintained
+          on each score update.
+        </li>
+      </ul>
+      <p>
+        Modules that fall out of the on-chain set remain fully accessible{" "}
+        <em>off chain</em> via the manifest — they simply lose the gas-light
+        on-chain discoverability hint until they earn it back.
+      </p>
+
       <h2>Gas analysis</h2>
       <table>
         <thead>
@@ -159,9 +273,9 @@ POST /api/whitepaper/mod/call     { "fn": "agent/info" }`}</pre>
         <li>Sunset — legacy registry is frozen, <code>setOwnerless()</code>, mirrored into genesis manifest.</li>
       </ol>
 
-      <footer className="border-t border-black/10 mt-12 pt-6 text-xs text-modblue/70 flex justify-between">
+      <footer className="border-t border-rule mt-12 pt-6 text-xs text-muted flex justify-between">
         <span>MOD Protocol — whitepaper module · v0.1</span>
-        <a className="underline" href={`${API}/paper.tex`} target="_blank" rel="noreferrer">
+        <a className="underline text-modcyan" href={`${API}/paper.tex`} target="_blank" rel="noreferrer">
           download .tex
         </a>
       </footer>

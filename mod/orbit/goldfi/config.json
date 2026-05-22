@@ -1,1 +1,107 @@
-{"data": {"name": "goldfi", "version": "1.0.0", "description": "Quadratic reward trading competition for precious metals \u2014 tracks gold/silver PnL on Hyperliquid & Uniswap, distributes inflation rewards using x\u00b2 curve. Weekly epochs.", "default_exchange": "hyperliquid", "epoch_duration_days": 7, "default_inflation_pool": 1000, "urls": {"api": "http://localhost:50095", "app": "http://localhost:3095"}, "fns": ["forward", "start_epoch", "register", "unregister", "sync", "leaderboard", "status", "end_epoch", "rewards", "history", "get_prices", "health", "serve", "kill", "test"], "schema": "QmeJwUZ2aydNRWWFK9atmawkCqZkwtE98S2igxqzWARfXZ", "endpoints": {"/health": {"method": "GET", "auth": false, "docs": "Service health check"}, "/status": {"method": "GET", "auth": false, "docs": "Current epoch status"}, "/leaderboard": {"method": "GET", "auth": false, "docs": "Live standings with quadratic scores"}, "/assets": {"method": "GET", "auth": false, "docs": "Tracked asset registry"}, "/prices": {"method": "GET", "auth": false, "docs": "Current prices for all tracked assets"}, "/rewards": {"method": "GET", "auth": false, "docs": "Epoch reward distribution"}, "/history": {"method": "GET", "auth": false, "docs": "Completed epoch history"}, "/traders": {"method": "GET", "auth": false, "docs": "Registered traders list"}, "/register": {"method": "POST", "auth": false, "docs": "Register a trader"}, "/unregister": {"method": "POST", "auth": false, "docs": "Remove a trader"}, "/sync": {"method": "POST", "auth": false, "docs": "Refresh all trader PnL"}, "/start_epoch": {"method": "POST", "auth": false, "docs": "Begin new epoch"}, "/end_epoch": {"method": "POST", "auth": false, "docs": "Finalize epoch"}, "/epoch/{epoch_id}": {"method": "GET", "auth": false, "docs": "Load specific epoch data"}}}, "encrypted": false, "timestamp": 1776540738.958824}
+{
+  "data": {
+    "name": "goldfi",
+    "version": "1.0.0",
+    "description": "Quadratic reward trading competition for precious metals \u2014 tracks gold/silver PnL on Hyperliquid & Uniswap, distributes inflation rewards using x\u00b2 curve. Weekly epochs.",
+    "default_exchange": "hyperliquid",
+    "epoch_duration_days": 7,
+    "default_inflation_pool": 1000,
+    "urls": {
+      "api": "http://localhost:50095",
+      "app": "http://localhost:3095"
+    },
+    "fns": [
+      "forward",
+      "start_epoch",
+      "register",
+      "unregister",
+      "sync",
+      "leaderboard",
+      "status",
+      "end_epoch",
+      "rewards",
+      "history",
+      "get_prices",
+      "health",
+      "serve",
+      "kill",
+      "test"
+    ],
+    "schema": "QmeJwUZ2aydNRWWFK9atmawkCqZkwtE98S2igxqzWARfXZ",
+    "endpoints": {
+      "/health": {
+        "method": "GET",
+        "auth": false,
+        "docs": "Service health check"
+      },
+      "/status": {
+        "method": "GET",
+        "auth": false,
+        "docs": "Current epoch status"
+      },
+      "/leaderboard": {
+        "method": "GET",
+        "auth": false,
+        "docs": "Live standings with quadratic scores"
+      },
+      "/assets": {
+        "method": "GET",
+        "auth": false,
+        "docs": "Tracked asset registry"
+      },
+      "/prices": {
+        "method": "GET",
+        "auth": false,
+        "docs": "Current prices for all tracked assets"
+      },
+      "/rewards": {
+        "method": "GET",
+        "auth": false,
+        "docs": "Epoch reward distribution"
+      },
+      "/history": {
+        "method": "GET",
+        "auth": false,
+        "docs": "Completed epoch history"
+      },
+      "/traders": {
+        "method": "GET",
+        "auth": false,
+        "docs": "Registered traders list"
+      },
+      "/register": {
+        "method": "POST",
+        "auth": false,
+        "docs": "Register a trader"
+      },
+      "/unregister": {
+        "method": "POST",
+        "auth": false,
+        "docs": "Remove a trader"
+      },
+      "/sync": {
+        "method": "POST",
+        "auth": false,
+        "docs": "Refresh all trader PnL"
+      },
+      "/start_epoch": {
+        "method": "POST",
+        "auth": false,
+        "docs": "Begin new epoch"
+      },
+      "/end_epoch": {
+        "method": "POST",
+        "auth": false,
+        "docs": "Finalize epoch"
+      },
+      "/epoch/{epoch_id}": {
+        "method": "GET",
+        "auth": false,
+        "docs": "Load specific epoch data"
+      }
+    }
+  },
+  "encrypted": false,
+  "timestamp": 1776540738.958824,
+  "gateway_port": 3095
+}

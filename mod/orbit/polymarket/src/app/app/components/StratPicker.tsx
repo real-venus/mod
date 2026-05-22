@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { loadIndexes, saveIndex, deleteIndex, updateIndex, getActiveIndexId, setActiveIndexId } from "../lib/indexStore";
 import { pushStrat, deleteServerStrat, syncStrats } from "../lib/stratSync";
 import { useAuth } from "../context/AuthContext";
@@ -28,40 +28,30 @@ function formatPnlShort(v: number | undefined): string {
   return `${sign}${v.toFixed(0)}`;
 }
 
+function formatPctShort(v: number | undefined): string {
+  if (v === undefined) return "—";
+  const sign = v >= 0 ? "+" : "";
+  if (Math.abs(v) >= 1000) return `${sign}${(v / 1000).toFixed(1)}k%`;
+  return `${sign}${v.toFixed(1)}%`;
+}
+
 export default function StratPicker({ onStratChange }: StratPickerProps) {
   const { localToken } = useAuth();
   const [indexes, setIndexes] = useState<SavedIndex[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [creatingNew, setCreatingNew] = useState(false);
-  const [newName, setNewName] = useState("");
   const [syncStates, setSyncStates] = useState<Record<string, SyncState>>({});
   const [initialSynced, setInitialSynced] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("pnl");
   const [editingRebalance, setEditingRebalance] = useState<string | null>(null);
-  const createMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!creatingNew) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (createMenuRef.current && !createMenuRef.current.contains(e.target as Node)) {
-        setCreatingNew(false);
-        setNewName("");
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setCreatingNew(false); setNewName(""); }
-    };
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [creatingNew]);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   // Refresh indexes from localStorage periodically (backtest snapshots update there)
   useEffect(() => {
-    const interval = setInterval(() => setIndexes(loadIndexes()), 3000);
+    const interval = setInterval(() => {
+      setIndexes(loadIndexes());
+      setActiveId(getActiveIndexId());
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -99,11 +89,12 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
   }, [localToken]);
 
   const create = () => {
-    const name = newName.trim() || "Untitled";
+    const existing = loadIndexes();
+    const num = existing.length + 1;
     const now = Date.now();
     const idx: SavedIndex = {
       id: now.toString(36),
-      name,
+      name: `Strat ${num}`,
       traders: [],
       backtestDays: 7,
       rebalanceMinutes: 0,
@@ -114,8 +105,6 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
     setActiveIndexId(idx.id);
     setActiveId(idx.id);
     setIndexes(loadIndexes());
-    setCreatingNew(false);
-    setNewName("");
     onStratChange?.();
     pushToServer(idx);
   };
@@ -140,6 +129,23 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
     }
   };
 
+  const startRename = (id: string, currentName: string) => {
+    setRenamingId(id);
+    setRenameValue(currentName);
+  };
+
+  const commitRename = () => {
+    if (!renamingId) return;
+    const name = renameValue.trim() || "Untitled";
+    updateIndex(renamingId, { name, updatedAt: Date.now() });
+    setIndexes(loadIndexes());
+    const updated = loadIndexes().find((i) => i.id === renamingId);
+    if (updated) pushToServer(updated);
+    setRenamingId(null);
+    setRenameValue("");
+    onStratChange?.();
+  };
+
   const setRebalance = (id: string, minutes: number) => {
     updateIndex(id, { rebalanceMinutes: minutes, updatedAt: Date.now() });
     setIndexes(loadIndexes());
@@ -148,8 +154,10 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
     if (updated) pushToServer(updated);
   };
 
-  // Sort strats for leaderboard
+  // Sort strats for leaderboard — active strat always pins to top
   const sorted = [...indexes].sort((a, b) => {
+    if (a.id === activeId) return -1;
+    if (b.id === activeId) return 1;
     if (sortKey === "pnl") return (b.lastPnlAfterCosts ?? -Infinity) - (a.lastPnlAfterCosts ?? -Infinity);
     if (sortKey === "roi") return (b.lastRoi1k ?? -Infinity) - (a.lastRoi1k ?? -Infinity);
     return a.name.localeCompare(b.name);
@@ -159,9 +167,9 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
     const state = syncStates[id];
     if (!localToken) return null;
     switch (state) {
-      case "syncing": return <span className="text-[5px] text-amber-400 animate-pulse">↑</span>;
-      case "synced": return <span className="text-[5px] text-green-400">✓</span>;
-      case "error": return <span className="text-[5px] text-red-400">!</span>;
+      case "syncing": return <span className="text-[9px] text-amber-400 animate-pulse ml-1">SYNC</span>;
+      case "synced": return <span className="text-[9px] text-green-400 ml-1">OK</span>;
+      case "error": return <span className="text-[9px] text-red-400 ml-1">ERR</span>;
       default: return null;
     }
   };
@@ -169,95 +177,36 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
   return (
     <div className="pixel-panel border-2 border-pixel-border bg-pixel-black">
       {/* Header */}
-      <div className="px-2 py-1 border-b-2 border-pixel-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-[8px] text-pixel-gray tracking-wider">STRATS</span>
-          <div className="flex items-center gap-0.5">
-            {(["pnl", "roi", "name"] as SortKey[]).map((k) => (
-              <button
-                key={k}
-                onClick={() => setSortKey(k)}
-                className={`text-[6px] px-1 py-0.5 transition-colors ${
-                  sortKey === k ? "text-green-400" : "text-pixel-gray hover:text-pixel-white"
-                }`}
-              >
-                {k.toUpperCase()}
-              </button>
-            ))}
-          </div>
+      <div className="px-4 py-2.5 border-b-2 border-pixel-border flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-[13px] text-pixel-white font-bold tracking-wider">STRATS</span>
         </div>
-        <div className="relative" ref={createMenuRef}>
-          <button
-            onClick={() => setCreatingNew(!creatingNew)}
-            className={`pixel-btn font-mono leading-none px-3 py-1.5 text-[14px] border-pixel-border transition-colors ${
-              creatingNew
-                ? "text-green-400 border-green-400 bg-green-400/10"
-                : "text-pixel-gray hover:text-green-400 hover:border-green-400"
-            }`}
-            title="New strat"
-            aria-expanded={creatingNew}
-            aria-haspopup="menu"
-          >
-            +
-          </button>
-
-          {creatingNew && (
-            <div
-              role="menu"
-              className="absolute right-0 top-full mt-1 z-20 min-w-[180px] pixel-panel border-2 border-pixel-border bg-pixel-black shadow-lg"
-            >
-              <div className="px-2 py-1 border-b border-pixel-border/50 text-[6px] tracking-wider text-pixel-gray">
-                NEW STRAT
-              </div>
-              <div className="p-2 flex flex-col gap-1.5">
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") create();
-                  }}
-                  placeholder="NAME (OPTIONAL)"
-                  className="pixel-input-sm w-full font-mono text-[8px]"
-                  autoFocus
-                />
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={create}
-                    className="pixel-btn flex-1 text-[7px] px-1.5 py-1 border-green-400 text-green-400 hover:bg-green-400/10"
-                  >
-                    CREATE
-                  </button>
-                  <button
-                    onClick={() => { setCreatingNew(false); setNewName(""); }}
-                    className="pixel-btn text-[7px] px-1.5 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white"
-                  >
-                    CANCEL
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <button
+          onClick={create}
+          className="text-[13px] text-pixel-gray hover:text-green-400 transition-colors px-3 py-1.5 border border-pixel-border hover:border-green-400 font-mono"
+          title="Create new strat"
+        >
+          + NEW
+        </button>
       </div>
 
       {/* Leaderboard header */}
       {indexes.length > 0 && (
-        <div className="px-2 py-0.5 border-b border-pixel-border/50 flex items-center justify-between text-[6px] text-pixel-gray tracking-wider">
-          <span className="flex-1">NAME</span>
-          <span className="w-10 text-right">P&L</span>
-          <span className="w-10 text-right">ROI</span>
-          <span className="w-8 text-right">TXS</span>
-          <span className="w-8 text-right">REB</span>
-          <span className="w-6" />
+        <div className="px-4 py-1.5 border-b border-pixel-border/50 flex items-center text-[11px] text-pixel-gray tracking-wider">
+          <span className="flex-1 min-w-0">NAME</span>
+          <span className="w-16 text-right">P&L</span>
+          <span className="w-16 text-right">ROI</span>
+          <span className="w-12 text-right">TXS</span>
+          <span className="w-12 text-right">REB</span>
+          <span className="w-10" />
         </div>
       )}
 
       {/* Strat list / leaderboard */}
-      <div className="max-h-[200px] overflow-y-auto">
+      <div className="max-h-[300px] overflow-y-auto">
         {sorted.length === 0 ? (
-          <div className="px-2 py-3 text-center text-[8px] text-pixel-gray">
-            NO STRATS YET — CREATE ONE TO START TESTING
+          <div className="px-4 py-5 text-center text-[12px] text-pixel-gray">
+            NO STRATS — CLICK + NEW
           </div>
         ) : (
           sorted.map((idx, rank) => {
@@ -270,29 +219,49 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
             return (
               <div key={idx.id}>
                 <div
-                  className={`px-2 py-1 flex items-center justify-between border-b border-pixel-border/30 cursor-pointer hover:bg-pixel-white/5 transition-colors ${
-                    isActive ? "bg-pixel-white/10" : ""
+                  className={`px-4 py-2 flex items-center border-b border-pixel-border/30 cursor-pointer hover:bg-pixel-white/5 transition-colors ${
+                    isActive ? "bg-pixel-white/10 border-l-2 border-l-green-400" : "border-l-2 border-l-transparent"
                   }`}
                   onClick={() => select(idx.id)}
                 >
-                  <div className="flex items-center gap-1 flex-1 min-w-0">
-                    <span className="text-[6px] text-pixel-gray w-3 shrink-0">{rank + 1}.</span>
-                    {isActive && <div className="w-1 h-1 bg-green-400 shrink-0" />}
-                    <span className={`text-[8px] font-mono truncate ${isActive ? "text-green-400" : "text-pixel-white"}`}>
-                      {idx.name}
-                    </span>
-                    <span className="text-[6px] text-pixel-gray shrink-0">{idx.traders.length}T</span>
-                    {idx.liveEnabled && <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shrink-0" title="LIVE" />}
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-[11px] text-pixel-gray w-5 shrink-0 text-right">{rank + 1}.</span>
+                    {isActive && <div className="w-2 h-2 bg-green-400 shrink-0" />}
+                    {renamingId === idx.id ? (
+                      <input
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitRename();
+                          if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
+                        }}
+                        onBlur={commitRename}
+                        className="text-[13px] font-mono bg-transparent border-b border-green-400 text-green-400 outline-none w-28"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span
+                        className={`text-[13px] font-mono truncate ${isActive ? "text-green-400 font-bold" : "text-pixel-white"}`}
+                        onDoubleClick={(e) => { e.stopPropagation(); startRename(idx.id, idx.name); }}
+                        title="Double-click to rename"
+                      >
+                        {idx.name}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-pixel-gray shrink-0">{idx.traders.length}T</span>
+                    {idx.liveEnabled && <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shrink-0" title="LIVE" />}
                     {syncBadge(idx.id)}
                   </div>
                   <div className="flex items-center shrink-0">
-                    <span className={`w-10 text-right text-[8px] font-mono ${hasPnl ? pnlColor : "text-pixel-gray"}`}>
+                    <span className={`w-16 text-right text-[13px] font-mono ${hasPnl ? pnlColor : "text-pixel-gray"}`}>
                       {formatPnlShort(idx.lastPnlAfterCosts)}
                     </span>
-                    <span className={`w-10 text-right text-[8px] font-mono ${hasPnl ? roiColor : "text-pixel-gray"}`}>
-                      {formatPnlShort(idx.lastRoi1k)}
+                    <span className={`w-16 text-right text-[13px] font-mono ${hasPnl ? roiColor : "text-pixel-gray"}`}>
+                      {formatPctShort(idx.lastRoi1k)}
                     </span>
-                    <span className="w-8 text-right text-[7px] text-pixel-gray font-mono">
+                    <span className="w-12 text-right text-[12px] text-pixel-gray font-mono">
                       {idx.lastTradeCount ?? "—"}
                     </span>
                     <button
@@ -300,7 +269,7 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
                         e.stopPropagation();
                         setEditingRebalance(editingRebalance === idx.id ? null : idx.id);
                       }}
-                      className={`w-8 text-right text-[7px] font-mono transition-colors ${
+                      className={`w-12 text-right text-[12px] font-mono transition-colors ${
                         (idx.rebalanceMinutes ?? 0) > 0
                           ? "text-green-400 hover:text-amber-400"
                           : "text-pixel-gray hover:text-pixel-white"
@@ -309,11 +278,11 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
                     >
                       {rebLabel}
                     </button>
-                    <div className="w-6 flex items-center justify-end gap-0.5">
+                    <div className="w-10 flex items-center justify-end gap-1">
                       {localToken && syncStates[idx.id] !== "synced" && (
                         <button
                           onClick={(e) => { e.stopPropagation(); pushToServer(idx); }}
-                          className="text-[5px] text-amber-400 hover:text-green-400"
+                          className="text-[10px] text-amber-400 hover:text-green-400"
                           title="Save to server"
                         >
                           ↑
@@ -321,7 +290,7 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); remove(idx.id); }}
-                        className="text-[7px] text-pixel-gray hover:text-red-400"
+                        className="text-[12px] text-pixel-gray hover:text-red-400"
                       >
                         x
                       </button>
@@ -331,13 +300,13 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
 
                 {/* Rebalance period selector */}
                 {editingRebalance === idx.id && (
-                  <div className="px-2 py-1 border-b border-pixel-border/30 bg-pixel-black/80 flex items-center gap-1">
-                    <span className="text-[6px] text-pixel-gray mr-1">REBALANCE:</span>
+                  <div className="px-4 py-2 border-b border-pixel-border/30 bg-pixel-black/80 flex items-center gap-2">
+                    <span className="text-[11px] text-pixel-gray mr-1">REBALANCE:</span>
                     {REBALANCE_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         onClick={(e) => { e.stopPropagation(); setRebalance(idx.id, opt.value); }}
-                        className={`text-[7px] px-1.5 py-0.5 transition-colors ${
+                        className={`text-[11px] px-2.5 py-0.5 rounded transition-colors ${
                           (idx.rebalanceMinutes ?? 0) === opt.value
                             ? "text-green-400 bg-green-400/10"
                             : "text-pixel-gray hover:text-pixel-white"

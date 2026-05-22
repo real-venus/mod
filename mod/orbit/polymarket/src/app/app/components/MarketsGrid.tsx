@@ -40,8 +40,8 @@ export default function MarketsGrid({
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       let data: PolymarketMarket[];
@@ -64,18 +64,33 @@ export default function MarketsGrid({
           matchMarketCategory(m.category || "", category),
         );
       }
-      setAllMarkets(data);
-      setPage(0);
+      // Preserve page on silent refresh so the user doesn't lose their spot.
+      setAllMarkets((prev) => {
+        if (silent && prev.length > 0) return data;
+        return data;
+      });
+      if (!silent) setPage(0);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "LOAD FAILED");
+      if (!silent) setError(e instanceof Error ? e.message : "LOAD FAILED");
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, sort, category, reloadKey]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Quietly re-poll every 15s so price-flashes on MarketCard have data to react to.
+  // Skipped during searches (server-side filter) to avoid clobbering input UX.
+  useEffect(() => {
+    if (search.trim()) return;
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      void load({ silent: true });
+    }, 15000);
+    return () => clearInterval(t);
+  }, [load, search]);
 
   const totalPages = Math.ceil(allMarkets.length / PAGE_SIZE);
   const pageMarkets = allMarkets.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);

@@ -1,29 +1,29 @@
+networks:
+  default:
+    external: true
+    name: modnet
+
 services:
-  claude:
+  codex:
     build:
       context: .
       args:
         BUILD_CID: "${BUILD_CID:-}"
         BUILD_TIME: "${BUILD_TIME:-}"
-    container_name: claude
-    image: claude:latest
-    ports:
-      - "8821:8821"
+    container_name: codex
+    image: codex:latest
+    expose:
+      - "8830"
+      - "8831"
     restart: unless-stopped
     environment:
-      - API_PORT=8820
-      - APP_PORT=8821
-      # ANTHROPIC_API_KEY is intentionally NOT inherited from host — the
-      # subscription OAuth token (mounted below) is the canonical credential
-      # and an external API key would override it. To opt in, drop a value
-      # in a .env next to this file.
+      - API_PORT=8830
+      - APP_PORT=8831
+      # OPENAI_API_KEY is read from the encrypted-key store under
+      # /home/node/.mod/codex/keys.json when running. Setting it here
+      # (via host .env) only acts as a fallback.
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     volumes:
-      # Bind-mount the host's claude OAuth credential into the container so
-      # the spawned `claude` CLI inherits the user's subscription. Read-only:
-      # token refreshes happen on a copy inside the container so the host
-      # file isn't mutated by the container runtime.
-      - "${HOME}/.claude/.credentials.json:/host-claude/.credentials.json:ro"
-      # Off-chain auth state (whitelist, gate.json, owner.json). Kept on the
-      # host so secrets stay out of the committed config.json and survive
-      # image rebuilds.
-      - "${HOME}/.mod/claude:/home/node/.mod/claude"
+      # Owner-managed ciphertext store: wallet address → AES-GCM(key).
+      # The Rust API decrypts on demand using the caller's wallet signature.
+      - "${HOME}/.mod/codex:/home/node/.mod/codex"

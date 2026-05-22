@@ -66,5 +66,6 @@
             "docs": "Substrate peers"
         }
     },
-    "schema": "QmWpeFW5ggUki1SDu5CJk6WsSxUUYdQLnPHBHvj7qBBHQF"
+    "schema": "QmRrQbhiNRy6ofn2B1CrDs6WSztoVrxmiXjfaJ7qnug6wn",
+    "gateway_port": 50143
 }

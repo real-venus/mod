@@ -1,77 +1,78 @@
 {
-    "name": "agent",
-    "version": "3.1.0",
-    "description": "Autonomous coding agent. 21 skills for software engineering. Claude module interface with owner permissions and portal sandboxing.",
-    "fns": [
-        "forward",
-        "run_skill",
-        "skill_schema",
-        "serve",
-        "kill",
-        "status",
-        "health",
-        "test",
-        "is_owner",
-        "allowed_paths_for"
-    ],
-    "schema": "QmY6SWkptmQL6hivykDLVhDcBwpkXx1ihbd5XyDCPzozvU",
-    "skills": [
-        "bash",
-        "read",
-        "write",
-        "edit",
-        "glob",
-        "grep",
-        "search",
-        "task",
-        "fetch",
-        "patch",
-        "think",
-        "git",
-        "test",
-        "lint",
-        "symbols",
-        "diff",
-        "tree",
-        "todo",
-        "context",
-        "debug",
-        "refactor"
-    ],
-    "agent_types": [
-        {
-            "value": "default",
-            "label": "Default",
-            "icon": ">_"
-        },
-        {
-            "value": "architect",
-            "label": "Architect",
-            "icon": "\u25b3"
-        },
-        {
-            "value": "reviewer",
-            "label": "Reviewer",
-            "icon": "\u25c9"
-        },
-        {
-            "value": "debugger",
-            "label": "Debugger",
-            "icon": "\u2b21"
-        },
-        {
-            "value": "builder",
-            "label": "Builder",
-            "icon": "\u25c6"
-        },
-        {
-            "value": "refactorer",
-            "label": "Refactorer",
-            "icon": "\u27f3"
-        }
-    ],
-    "urls": {
-        "api": "http://localhost:50117",
-        "app": "http://localhost:3117"
+  "name": "agent",
+  "version": "3.1.0",
+  "description": "Autonomous coding agent. 21 skills for software engineering. Claude module interface with owner permissions and portal sandboxing.",
+  "fns": [
+    "forward",
+    "run_skill",
+    "skill_schema",
+    "serve",
+    "kill",
+    "status",
+    "health",
+    "test",
+    "is_owner",
+    "allowed_paths_for"
+  ],
+  "schema": "QmY6SWkptmQL6hivykDLVhDcBwpkXx1ihbd5XyDCPzozvU",
+  "skills": [
+    "bash",
+    "read",
+    "write",
+    "edit",
+    "glob",
+    "grep",
+    "search",
+    "task",
+    "fetch",
+    "patch",
+    "think",
+    "git",
+    "test",
+    "lint",
+    "symbols",
+    "diff",
+    "tree",
+    "todo",
+    "context",
+    "debug",
+    "refactor"
+  ],
+  "agent_types": [
+    {
+      "value": "default",
+      "label": "Default",
+      "icon": ">_"
+    },
+    {
+      "value": "architect",
+      "label": "Architect",
+      "icon": "\u25b3"
+    },
+    {
+      "value": "reviewer",
+      "label": "Reviewer",
+      "icon": "\u25c9"
+    },
+    {
+      "value": "debugger",
+      "label": "Debugger",
+      "icon": "\u2b21"
+    },
+    {
+      "value": "builder",
+      "label": "Builder",
+      "icon": "\u25c6"
+    },
+    {
+      "value": "refactorer",
+      "label": "Refactorer",
+      "icon": "\u27f3"
     }
+  ],
+  "urls": {
+    "api": "http://localhost:50117",
+    "app": "http://localhost:3117"
+  },
+  "gateway_port": 3117
 }

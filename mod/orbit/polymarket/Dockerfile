@@ -1,6 +1,11 @@
 # ── Stage 1: Build Rust API ──────────────────────────────────────
 FROM rust:slim AS api-builder
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+# Make crates.io fetches resilient to flaky networks.
+ENV CARGO_NET_RETRY=10
+ENV CARGO_HTTP_TIMEOUT=180
+ENV CARGO_HTTP_MULTIPLEXING=false
+ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 WORKDIR /build
 COPY src/api/ .
 RUN cargo build --release

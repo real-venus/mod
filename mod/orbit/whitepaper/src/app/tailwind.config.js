@@ -1,13 +1,18 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: ["./app/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        modblue: "#1E3A5F",
-        modcyan: "#0EA5E9",
-        paper: "#FAFAF7",
-        ink: "#111111",
+        // CSS variables flip between light and dark in globals.css.
+        modblue: "rgb(var(--modblue) / <alpha-value>)",
+        modcyan: "rgb(var(--modcyan) / <alpha-value>)",
+        paper:   "rgb(var(--paper) / <alpha-value>)",
+        panel:   "rgb(var(--panel) / <alpha-value>)",
+        rule:    "rgb(var(--rule) / <alpha-value>)",
+        ink:     "rgb(var(--ink) / <alpha-value>)",
+        muted:   "rgb(var(--muted) / <alpha-value>)",
       },
       fontFamily: {
         serif: ["Charter", "Georgia", "ui-serif", "serif"],

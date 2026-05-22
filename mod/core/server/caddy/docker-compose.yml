@@ -9,6 +9,7 @@ services:
     ports:
     - 80:80
     - 443:443
+    - 3000:3000
     - 2099:2099
     environment:
     - PM2_HOST=host.docker.internal
@@ -16,7 +17,7 @@ services:
     - "host.docker.internal:host-gateway"
     restart: unless-stopped
     volumes:
-    - ~/mod/mod/orbit/caddy/Caddyfile:/etc/caddy/Caddyfile
+    - ~/mod/mod/core/server/caddy/Caddyfile:/etc/caddy/Caddyfile
     - caddy_data:/data
     - caddy_config:/config
     working_dir: /srv

@@ -1,24 +1,25 @@
 {
-    "name": "neartensor",
-    "port": 50140,
-    "app_port": 50141,
-    "urls": {
-        "api": "http://localhost:50140",
-        "app": "http://localhost:50141"
-    },
-    "contracts": {
-        "near_testnet": {}
-    },
-    "schema": "QmfGBiSUqQzhAB9DaeBiSN9eo7g1MNdjyu2tV1EMyVPmq3",
-    "endpoints": {
-        "GET /status": "Deployment status",
-        "GET /subnets": "List all registered subnets",
-        "GET /subnet/:id": "Subnet details",
-        "GET /validators/:subnet_id": "Validator leaderboard",
-        "GET /consensus/:subnet_id": "Consensus state",
-        "POST /register_validator": "Register a validator on a subnet",
-        "POST /stake": "Stake NEAR on a validator",
-        "POST /checkin": "Validator checkin",
-        "POST /produce_block": "Produce a block"
-    }
+  "name": "neartensor",
+  "port": 50140,
+  "app_port": 50141,
+  "urls": {
+    "api": "http://localhost:50140",
+    "app": "http://localhost:50141"
+  },
+  "contracts": {
+    "near_testnet": {}
+  },
+  "schema": "QmfGBiSUqQzhAB9DaeBiSN9eo7g1MNdjyu2tV1EMyVPmq3",
+  "endpoints": {
+    "GET /status": "Deployment status",
+    "GET /subnets": "List all registered subnets",
+    "GET /subnet/:id": "Subnet details",
+    "GET /validators/:subnet_id": "Validator leaderboard",
+    "GET /consensus/:subnet_id": "Consensus state",
+    "POST /register_validator": "Register a validator on a subnet",
+    "POST /stake": "Stake NEAR on a validator",
+    "POST /checkin": "Validator checkin",
+    "POST /produce_block": "Produce a block"
+  },
+  "gateway_port": 50141
 }

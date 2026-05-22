@@ -5,6 +5,7 @@ import { CopyEngineProvider } from "./context/CopyEngineContext";
 import { FiltersProvider } from "./context/FiltersContext";
 import { SidebarProvider } from "./context/SidebarContext";
 import SidebarShell from "./components/SidebarShell";
+import MarketTicker from "./components/MarketTicker";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default function RootLayout({
             <SidebarProvider>
               <div className="crt-overlay" />
               <div className="crt-screen min-h-screen">
+                <MarketTicker />
                 <SidebarShell>
                   <main>{children}</main>
                 </SidebarShell>

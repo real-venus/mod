@@ -12,5 +12,6 @@
         "api_path": "/api/whitepaper",
         "app_path": "/whitepaper"
     },
-    "schema": "QmTzre3n3MtPUoT8U8Vim4cFcG2uXNaUb6js86Jjc4PceK"
+    "schema": "QmSd7oL8gpNErqaajrmGgFNBsvS1anZTbSzcEaUMLvoPYm",
+    "gateway_port": 3106
 }

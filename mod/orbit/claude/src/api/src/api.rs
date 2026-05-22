@@ -91,7 +91,11 @@ pub async fn serve(manager: AppState, port: u16) {
         .merge(public_routes)
         .layer(cors);
 
-    let addr = format!("0.0.0.0:{}", port);
+    // Bind host defaults to all interfaces (needed inside Docker so the Caddy
+    // gateway in a sibling container can reach it). For host-only single-port
+    // exposure, set BIND_HOST=127.0.0.1 so only the local Caddy can reach it.
+    let host = std::env::var("BIND_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let addr = format!("{}:{}", host, port);
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .expect("Failed to bind");
@@ -1594,15 +1598,17 @@ struct WriteBody {
     content: String,
 }
 
-async fn file_write(Json(body): Json<WriteBody>) -> impl IntoResponse {
+async fn file_write(
+    headers: axum::http::HeaderMap,
+    Json(body): Json<WriteBody>,
+) -> impl IntoResponse {
+    if let Err(e) = require_owner(&headers) { return e.into_response(); }
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
     let resolved = body.path.replacen("~", &home, 1);
     let file_path = std::path::Path::new(&resolved);
 
-    // Safety: only allow writes within ~/mod/
     let mod_dir = format!("{}/mod", home);
     let canonical_mod = std::fs::canonicalize(&mod_dir).unwrap_or_else(|_| std::path::PathBuf::from(&mod_dir));
-    // Resolve parent to check containment (file may not exist yet)
     let parent = file_path.parent().unwrap_or(file_path);
     let canonical_parent = std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
     if !canonical_parent.starts_with(&canonical_mod) {
@@ -1611,6 +1617,21 @@ async fn file_write(Json(body): Json<WriteBody>) -> impl IntoResponse {
             Json(json!({ "error": "Writes only allowed within ~/mod/" })),
         )
             .into_response();
+    }
+
+    let rel = canonical_parent
+        .strip_prefix(&canonical_mod)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let first = rel.split('/').next().unwrap_or("");
+    if matches!(first, "core" | "orbit") {
+        let caller = auth::extract_address_from_headers(&headers).unwrap_or_default();
+        if !auth::is_owner(&caller) {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({ "error": "Owner-only: core/ and orbit/ writes require the configured owner" })),
+            ).into_response();
+        }
     }
 
     // Create parent dirs if needed

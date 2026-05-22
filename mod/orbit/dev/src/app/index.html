@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>mod / dev</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { color-scheme: dark; --bg:#0a0a0a; --panel:#111; --line:#1c1c1c; --fg:#e8e8e8; --muted:#6a6a6a; --accent:#f59e0b; }
+  * { box-sizing: border-box; }
+  body { font-family: ui-monospace, "SF Mono", Menlo, monospace; background:var(--bg); color:var(--fg); margin:0; height:100vh; overflow:hidden; }
+  .app { display:grid; grid-template-columns: 1fr 280px; height:100vh; }
+  main { padding:24px 32px; overflow-y:auto; }
+  aside { background:#0c0c0c; border-left:1px solid var(--line); padding:12px 0; overflow-y:auto; }
+  h1 { font-size:14px; margin:0 0 16px; letter-spacing:-0.01em; color:var(--muted); text-transform:uppercase; font-weight:600; }
+  h2 { font-size:13px; margin:0 0 8px; color:#bbb; }
+  .row { display:flex; align-items:center; gap:8px; }
+  .gap-12 { gap:12px; }
+  .bar { display:flex; gap:8px; align-items:center; padding:8px 12px; background:#0c0c0c; border:1px solid var(--line); border-radius:8px; margin-bottom:16px; font-size:12px; }
+  .bar .sep { color:var(--muted); }
+  button { background:#1a1a1a; color:var(--fg); border:1px solid #2a2a2a; border-radius:6px; padding:6px 12px; font:inherit; font-size:12px; cursor:pointer; }
+  button:hover { background:#252525; }
+  button.primary { background:#f59e0b; border-color:#f59e0b; color:#000; font-weight:600; }
+  button.primary:hover { background:#fbbf24; }
+  button.ghost { background:transparent; }
+  button:disabled { opacity:0.4; cursor:not-allowed; }
+  input, textarea, select { background:#0f0f0f; color:var(--fg); border:1px solid #222; border-radius:6px; padding:8px 10px; font:inherit; font-size:12px; width:100%; }
+  textarea { resize:vertical; min-height:60px; font-family:inherit; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:99px; font-size:10px; background:#1f2937; color:var(--muted); }
+  .pill.ok { background:#0f3a1c; color:#4ade80; }
+  .pill.warn { background:#3a2a0a; color:var(--accent); }
+  .pill.miss { background:#3a1c0f; color:#f87171; }
+  .mod-row { display:flex; align-items:center; gap:8px; padding:6px 14px; cursor:pointer; user-select:none; border-left:2px solid transparent; }
+  .mod-row:hover { background:#141414; }
+  .mod-row.selected { background:#161616; border-left-color:var(--accent); }
+  .mod-row .icon { font-family:monospace; color:var(--muted); width:14px; text-align:center; flex-shrink:0; }
+  .mod-row.selected .icon { color:var(--accent); }
+  .mod-row .name { flex:1; font-size:13px; color:#ddd; }
+  .mod-row.selected .name { color:var(--accent); }
+  .mod-row .warn-tri { color:var(--accent); }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:12px; }
+  .panel header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .task { padding:8px 10px; background:#0a0a0a; border:1px solid var(--line); border-radius:6px; margin-bottom:6px; font-size:11px; color:var(--muted); }
+  .task .prompt { color:#bbb; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .task .meta { display:flex; gap:8px; margin-top:4px; font-size:10px; }
+  .empty { color:var(--muted); font-size:11px; padding:8px 0; font-style:italic; }
+  code, .mono { font-size:11px; color:var(--muted); }
+  .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; align-items:center; justify-content:center; z-index:10; }
+  .modal { background:#0f0f0f; border:1px solid #2a2a2a; border-radius:12px; padding:24px; max-width:520px; width:100%; }
+  .step { margin:12px 0; padding:10px; background:#0a0a0a; border:1px solid #1a1a1a; border-radius:8px; font-size:12px; }
+  .step.done { border-color:#0f3a1c; }
+  hr { border:none; border-top:1px solid var(--line); margin:16px 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="bar">
+      <strong style="color:#bbb;">mod/dev</strong>
+      <span class="sep">·</span>
+      <span class="mono" id="merkle-summary">merkle: …</span>
+      <span class="sep">·</span>
+      <button id="connect-btn">connect wallet</button>
+      <span class="mono" id="wallet-addr" style="color:var(--muted);"></span>
+      <span style="flex:1;"></span>
+      <button id="key-btn">set api key</button>
+      <button id="serve-btn">serve / refresh</button>
+    </div>
+
+    <div class="panel">
+      <header>
+        <h2>parallel prompt — sends to <span id="selected-count">0</span> selected module(s)</h2>
+        <span class="mono" id="selected-names"></span>
+      </header>
+      <textarea id="prompt" placeholder="prompt to run in parallel across selected modules…"></textarea>
+      <div class="row" style="margin-top:8px;justify-content:flex-end;">
+        <select id="model" style="width:160px;">
+          <option value="default">default model</option>
+          <option value="sonnet">sonnet</option>
+          <option value="opus">opus</option>
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+          <option value="gpt-4o">gpt-4o</option>
+        </select>
+        <button id="run-btn" class="primary">run in parallel ⏎</button>
+      </div>
+    </div>
+
+    <div id="tasks"></div>
+  </main>
+
+  <aside>
+    <h1 style="padding:0 14px;">modules</h1>
+    <div id="mod-list"></div>
+    <hr/>
+    <div style="padding:0 14px;">
+      <h1>communes</h1>
+      <div id="commune-list"></div>
+    </div>
+    <hr/>
+    <div style="padding:0 14px;">
+      <div class="mono" id="gw-info">gateway: localhost:8888</div>
+    </div>
+  </aside>
+</div>
+
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h3 style="margin:0 0 8px;color:var(--accent);">set api key — <span id="modal-provider">claude</span></h3>
+    <div class="step" id="step-1"><strong>1.</strong> connect wallet
+      <button id="modal-connect" class="primary" style="margin-left:8px;">connect</button>
+      <div class="mono" id="modal-wallet" style="margin-top:6px;"></div></div>
+    <div class="step" id="step-2"><strong>2.</strong> sign challenge
+      <button id="modal-sign" class="primary" style="margin-left:8px;" disabled>sign</button>
+      <div class="mono" id="modal-sig" style="margin-top:6px;"></div></div>
+    <div class="step" id="step-3"><strong>3.</strong> paste api key
+      <input id="modal-key" type="password" placeholder="sk-..." style="margin-top:8px;" /></div>
+    <div class="step" id="step-4"><strong>4.</strong>
+      <button id="modal-submit" class="primary" disabled>encrypt &amp; submit</button>
+      <div class="mono" id="modal-result" style="margin-top:8px;"></div></div>
+    <div style="text-align:right;margin-top:12px;"><button id="modal-close">close</button></div>
+  </div>
+</div>
+
+<script>
+const CHALLENGE = "mod-key-derivation-v1";
+const API_BASE = window.location.pathname.replace(/\/$/, "").startsWith("/dev") ? "/api/dev" : "";
+
+const state = { wallet:null, signature:null, derivedKey:null, modules:[], selected:new Set(), tasksByMod:{} };
+const $ = (id) => document.getElementById(id);
+
+async function connectWallet() {
+  if (!window.ethereum) { alert("MetaMask required for encrypted key flow."); return null; }
+  const accts = await window.ethereum.request({ method:"eth_requestAccounts" });
+  state.wallet = accts[0];
+  return state.wallet;
+}
+
+async function signChallenge() {
+  if (!state.wallet) await connectWallet();
+  state.signature = await window.ethereum.request({ method:"personal_sign", params:[CHALLENGE, state.wallet] });
+  state.derivedKey = await deriveAesKey(state.signature);
+  return state.signature;
+}
+
+async function deriveAesKey(sigHex) {
+  const raw = hexToBytes(sigHex.replace(/^0x/, ""));
+  const hash = await crypto.subtle.digest("SHA-256", raw);
+  return crypto.subtle.importKey("raw", hash, { name:"AES-GCM", length:256 }, false, ["encrypt","decrypt"]);
+}
+
+function hexToBytes(h) { const b=new Uint8Array(h.length/2); for(let i=0;i<b.length;i++) b[i]=parseInt(h.substr(i*2,2),16); return b; }
+function bytesToHex(b) { return Array.from(b).map(x=>x.toString(16).padStart(2,"0")).join(""); }
+
+async function loadModules() {
+  const r = await fetch(`${API_BASE}/modules`);
+  state.modules = await r.json();
+  renderModules();
+}
+
+function renderModules() {
+  const list = $("mod-list");
+  list.innerHTML = "";
+  state.modules.forEach((m) => {
+    const row = document.createElement("div");
+    row.className = "mod-row" + (state.selected.has(m.name) ? " selected" : "");
+    const icon = state.selected.has(m.name) ? "✓" : "›_";
+    row.innerHTML = `
+      <span class="icon">${icon}</span>
+      <span class="name">${m.name}</span>
+      ${m.warnings.length ? '<span class="warn-tri" title="'+m.warnings.join(', ')+'">⚠</span>' : ''}
+      <span class="pill ${m.alive ? 'ok' : (m.served ? 'warn' : 'miss')}">${m.alive ? 'live' : (m.served ? 'starting' : 'idle')}</span>
+    `;
+    row.onclick = (ev) => {
+      if (ev.metaKey || ev.ctrlKey || ev.shiftKey) {
+        // multi-select: toggle this one
+        state.selected.has(m.name) ? state.selected.delete(m.name) : state.selected.add(m.name);
+      } else {
+        // plain click: toggle (clean multi-select UX)
+        state.selected.has(m.name) ? state.selected.delete(m.name) : state.selected.add(m.name);
+      }
+      renderModules();
+      renderTasks();
+    };
+    list.appendChild(row);
+  });
+  $("selected-count").textContent = state.selected.size;
+  $("selected-names").textContent = [...state.selected].join(", ");
+}
+
+async function loadCommunes() {
+  const r = await fetch(`${API_BASE}/communes`);
+  const cs = await r.json();
+  const list = $("commune-list");
+  list.innerHTML = cs.length ? "" : '<div class="empty">no communes — POST /communes/{name} to create one</div>';
+  cs.forEach((c) => {
+    const row = document.createElement("div");
+    row.className = "mod-row";
+    row.innerHTML = `<span class="icon">⌖</span><span class="name">${c.name}</span><span class="pill">${c.modules.length} members</span>`;
+    row.title = `owner: ${c.owner}\nroot: ${c.root}`;
+    list.appendChild(row);
+  });
+}
+
+async function loadMerkle() {
+  const r = await fetch(`${API_BASE}/merkle`);
+  const mk = await r.json();
+  $("merkle-summary").textContent = `merkle: ${mk.root ? mk.root.slice(0,18)+'…' : '(empty)'} · ${(mk.leaves||[]).length} leaves`;
+}
+
+async function loadTasksFor(name) {
+  if (!state.signature) return [];
+  const r = await fetch(`${API_BASE}/jobs/${name}`, { headers:{ "X-Mod-Signature": state.signature } });
+  if (!r.ok) return [];
+  const data = await r.json();
+  return Array.isArray(data) ? data : (data.jobs || []);
+}
+
+function renderTasks() {
+  const container = $("tasks");
+  if (state.selected.size === 0) {
+    container.innerHTML = '<div class="panel"><div class="empty">select one or more modules from the sidebar to view tasks and send parallel prompts</div></div>';
+    return;
+  }
+  container.innerHTML = "";
+  [...state.selected].forEach((name) => {
+    const mod = state.modules.find(m => m.name === name) || {};
+    const tasks = state.tasksByMod[name] || [];
+    const panel = document.createElement("div");
+    panel.className = "panel";
+    panel.innerHTML = `
+      <header>
+        <h2>${name} <span class="pill ${mod.alive?'ok':(mod.served?'warn':'miss')}">${mod.alive?'live':(mod.served?'starting':'idle')}</span></h2>
+        <span class="mono">${mod.kind||'?'} · port ${mod.port||'?'}</span>
+      </header>
+      <div id="tasks-${name}">${tasks.length ? '' : '<div class="empty">' + (state.signature ? 'no recent tasks' : 'connect wallet to view tasks') + '</div>'}</div>
+    `;
+    container.appendChild(panel);
+    const tdiv = panel.querySelector(`#tasks-${name}`);
+    tasks.slice(0, 8).forEach((t) => {
+      const el = document.createElement("div");
+      el.className = "task";
+      const status = t.status || "?";
+      const prompt = (t.prompt || t.text || JSON.stringify(t)).slice(0, 100);
+      el.innerHTML = `<div class="prompt">${prompt}</div>
+        <div class="meta">
+          <span class="pill ${status==='completed'?'ok':status==='failed'?'miss':'warn'}">${status}</span>
+          <span>${t.model || ''}</span>
+          <span>${t.id ? t.id.slice(0,8) : ''}</span>
+        </div>`;
+      tdiv.appendChild(el);
+    });
+  });
+}
+
+async function refreshTasks() {
+  if (!state.signature) return;
+  for (const name of state.selected) {
+    state.tasksByMod[name] = await loadTasksFor(name);
+  }
+  renderTasks();
+}
+
+async function runParallel() {
+  const prompt = $("prompt").value.trim();
+  const model = $("model").value;
+  if (!prompt) { alert("enter a prompt"); return; }
+  if (!state.signature) { await signChallenge(); }
+  if (state.selected.size === 0) { alert("select at least one module"); return; }
+  const promises = [...state.selected].map(async (name) => {
+    const r = await fetch(`${API_BASE}/proxy/${name}/jobs`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "X-Mod-Signature":state.signature, "Authorization":`Bearer ${state.signature}` },
+      body: JSON.stringify({ prompt, model: model === "default" ? undefined : model, work_dir: "/Users/broski/mod" }),
+    });
+    return { name, status: r.status, body: await r.text() };
+  });
+  const results = await Promise.all(promises);
+  console.log("parallel run results:", results);
+  $("prompt").value = "";
+  setTimeout(refreshTasks, 1000);
+}
+
+// ── Key modal ─────────────────────────────────────────
+$("key-btn").onclick = () => {
+  const sel = [...state.selected][0] || "claude";
+  $("modal-provider").textContent = sel;
+  $("modal").style.display = "flex";
+};
+$("modal-close").onclick = () => $("modal").style.display = "none";
+$("modal-connect").onclick = async () => {
+  const w = await connectWallet();
+  if (w) { $("modal-wallet").textContent = w; $("step-1").classList.add("done"); $("modal-sign").disabled = false; }
+};
+$("modal-sign").onclick = async () => {
+  await signChallenge();
+  $("modal-sig").textContent = state.signature.slice(0,30)+"…";
+  $("step-2").classList.add("done");
+  $("modal-submit").disabled = false;
+};
+$("modal-submit").onclick = async () => {
+  const provider = $("modal-provider").textContent;
+  const plain = $("modal-key").value;
+  if (!plain) { alert("paste an api key"); return; }
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder().encode(plain);
+  const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, state.derivedKey, enc);
+  const body = JSON.stringify({ ciphertext: bytesToHex(new Uint8Array(ct)), iv: bytesToHex(iv) });
+  const r = await fetch(`${API_BASE}/key/${provider}`, {
+    method:"POST", headers:{ "Content-Type":"application/json", "X-Mod-Signature":state.signature }, body,
+  });
+  $("modal-result").innerHTML = r.ok ? '<span class="pill ok">stored</span>' : `<span class="pill miss">error ${r.status}</span>`;
+  if (r.ok) $("step-4").classList.add("done");
+};
+
+$("connect-btn").onclick = async () => {
+  const w = await connectWallet();
+  if (w) {
+    $("wallet-addr").textContent = w.slice(0,8)+"…"+w.slice(-4);
+    await signChallenge();
+    await refreshTasks();
+  }
+};
+
+$("run-btn").onclick = runParallel;
+$("serve-btn").onclick = async () => { await loadModules(); await refreshTasks(); await loadMerkle(); await loadCommunes(); };
+
+// ── init ──────────────────────────────────────────────
+loadModules().then(renderTasks);
+loadMerkle();
+loadCommunes();
+setInterval(() => { loadMerkle(); loadModules(); refreshTasks(); }, 5000);
+</script>
+</body>
+</html>

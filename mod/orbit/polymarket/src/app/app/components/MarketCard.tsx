@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PolymarketMarket } from "../lib/types";
 import { formatVolume } from "../lib/polymarket";
@@ -10,6 +10,8 @@ interface Props {
   onSelect?: (market: PolymarketMarket) => void;
   selected?: boolean;
 }
+
+type Flash = "" | "up" | "down";
 
 export default function MarketCard({ market, onSelect, selected }: Props) {
   const router = useRouter();
@@ -21,6 +23,25 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
   const noPrice = prices[1] || 1 - yesPrice;
   const yesPct = Math.round(yesPrice * 100);
   const noPct = Math.round(noPrice * 100);
+
+  // Detect price changes between renders and briefly flash the price chip.
+  const prevYesRef = useRef<number>(yesPrice);
+  const [flash, setFlash] = useState<Flash>("");
+  useEffect(() => {
+    const prev = prevYesRef.current;
+    if (yesPrice !== prev) {
+      const dir: Flash = yesPrice > prev ? "up" : "down";
+      setFlash(dir);
+      prevYesRef.current = yesPrice;
+      const t = setTimeout(() => setFlash(""), 700);
+      return () => clearTimeout(t);
+    }
+  }, [yesPrice]);
+
+  const flashShadow =
+    flash === "up"   ? "0 0 0 1px rgba(74,222,128,0.6), 0 0 14px rgba(74,222,128,0.45)" :
+    flash === "down" ? "0 0 0 1px rgba(248,113,113,0.6), 0 0 14px rgba(248,113,113,0.45)" :
+    "none";
 
   const endDate = market.endDate
     ? new Date(market.endDate).toLocaleDateString([], { month: "short", day: "numeric" })
@@ -69,7 +90,10 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
       {isBinary ? (
         <div className="mb-3 space-y-1.5">
           {/* YES / NO probability bar */}
-          <div className="relative h-[36px] w-full bg-[#0a0a0a] border border-[#2a2a2a] overflow-hidden">
+          <div
+            className="relative h-[36px] w-full bg-[#0a0a0a] border border-[#2a2a2a] overflow-hidden"
+            style={{ boxShadow: flashShadow, transition: "box-shadow 0.7s ease-out" }}
+          >
             <div
               className="absolute inset-y-0 left-0 transition-all duration-500"
               style={{

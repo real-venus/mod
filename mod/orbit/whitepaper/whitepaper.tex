@@ -256,6 +256,87 @@ The manifest CID is emitted in the \texttt{Rotated} event so that any indexer wi
 
 A single \texttt{rotate} transaction subsumes an arbitrary number of registrations and updates. The cost per individual update is $O(1/N)$ where $N$ is the rotation batch size.
 
+\section{Chain Anchor: StakeTime as the Publisher}
+\label{sec:chain}
+
+A Merkle-tree registry shifts cost off chain, but raises a new question: \emph{who is trusted to rotate the root?} We answer this with \textbf{StakeTime}, the time-weighted staking and validator-consensus primitive deployed on Base.
+
+\subsection{StakeTime primitives}
+
+StakeTime composes five independent on-chain primitives:
+
+\begin{itemize}
+    \item \textbf{Staking} --- delegated, lock-weighted positions that mint synthetic STT proportional to $\text{amount} \cdot M(\text{lockBlocks})$.
+    \item \textbf{Consensus} --- pluggable scoring (Yuma decay, linear, stake-weighted, privacy-preserving).
+    \item \textbf{Inflation} --- pluggable emission curve (halving, flat, linear decay, sigmoid).
+    \item \textbf{Subnet} --- emission-token-bearing partitions of the validator set.
+    \item \textbf{Registry} --- competitive 420-slot directory with weakest-replacement when full.
+\end{itemize}
+
+\subsection{Publisher election}
+
+The publisher role is taken by any validator selected by the active consensus adapter. Their STT-weighted score $\sigma_v$ determines:
+
+\begin{enumerate}
+    \item \textbf{Right to rotate}: only validators with $\sigma_v \geq \sigma_{\min}$ in the current epoch may call \texttt{rotate(newRoot, manifestCid)}.
+    \item \textbf{Slashing exposure}: a rotation whose root does not match the published manifest is provably false and triggers \texttt{slash(validatorId, amount)} against the rotator's stake.
+    \item \textbf{Revenue share}: Treasury rewards for module-call fees are distributed proportional to staker STT, so honest publishers earn alongside the modules they index.
+\end{enumerate}
+
+\section{Priority Mechanism}
+\label{sec:priority}
+
+Within a single rotation the publisher batches many pending updates into one root. StakeTime priority settles two questions: which updates land in this epoch, and which modules occupy the 420-slot on-chain registry under contention.
+
+\subsection{Per-update priority within an epoch}
+
+Each pending update is signed by the module's owner and gossiped to a mempool. The publisher orders the mempool by:
+
+\begin{equation}
+\mathrm{priority}(u) = \mathrm{bond}(u) \cdot M(\ell_u) + \alpha \cdot \mathrm{age}(u)
+\label{eq:priority}
+\end{equation}
+
+where $\mathrm{bond}(u)$ is the STT the submitter has locked behind the update, $M(\ell_u)$ is the same piecewise-linear lock multiplier StakeTime uses for stake weight (monotonic, on-chain enforced; see Equation~\ref{eq:multiplier-ref}), and $\alpha$ is a small fairness coefficient so old updates aren't permanently starved.
+
+\begin{property}[Provable ordering]
+The publisher MUST honour the priority order in Equation~\ref{eq:priority}. Any inversion is reconstructible from the mempool log---signed updates are deterministic---and triggers slashing.
+\end{property}
+
+\subsection{Slot priority for the competitive registry}
+
+The full module set is unbounded off chain, but the \emph{on-chain discoverable} set is capped at 420 slots (StakeTime's Darwinian registry). When a 421st module would register, the slot held by the lowest-priority current occupant is forfeited:
+
+\begin{equation}
+\mathrm{slot\_score}(m) = \sum_{u \in \mathrm{users}} \mathrm{STT}_u \cdot w(m, u) \;-\; \pi \cdot \Delta_{\text{lastCall}}(m)
+\label{eq:slot-score}
+\end{equation}
+
+where $w(m, u)$ is the usage weight (e.g.\ number of debit transactions a user has paid into $m$), $\pi$ is an inactivity-penalty rate, and $\Delta_{\text{lastCall}}$ is blocks since the last call.
+
+\begin{itemize}
+    \item New entries are \textbf{immune} from replacement for \texttt{immunityPeriod} blocks (default $\approx$ 1 day at 12 s).
+    \item Registration costs a \textbf{locked bond} of governance tokens (default 1{,}000), forfeited on competitive replacement, returned on voluntary deregistration.
+    \item The weakest occupant is found by \texttt{Registry.getWeakestSubnet()} in $O(1)$ via a heap maintained on each score update.
+\end{itemize}
+
+\begin{property}[Soft eviction]
+Modules that fall out of the on-chain set remain fully accessible off chain via the manifest. They lose the gas-light on-chain discoverability hint until they earn it back through usage.
+\end{property}
+
+\subsection{Multiplier curve (reused from StakeTime Staking)}
+
+\begin{equation}
+M(x) = \begin{cases}
+m_0 & x \leq b_0 \\[4pt]
+m_i + \dfrac{(m_{i+1} - m_i)(x - b_i)}{b_{i+1} - b_i} & b_i < x \leq b_{i+1} \\[6pt]
+m_{n-1} & x > b_{n-1}
+\end{cases}
+\label{eq:multiplier-ref}
+\end{equation}
+
+with strict monotonicity $b_i < b_{i+1}$ and weak monotonicity $m_i \leq m_{i+1}$ enforced on-chain to prevent arbitrage between lock durations.
+
 \section{Gas and Storage Analysis}
 
 \subsection{Per-operation gas}

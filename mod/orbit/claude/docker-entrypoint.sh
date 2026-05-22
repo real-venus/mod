@@ -43,6 +43,11 @@ set -e
 API_PORT=$API_PORT
 APP_PORT=$APP_PORT
 
+# runuser doesn't reset HOME by default — force it to node's home so the
+# claude CLI can find ~/.claude/.credentials.json (the OAuth subscription token).
+export HOME=/home/node
+export USER=node
+
 PORT=\$API_PORT /app/bin/claude-jobs &
 API_PID=\$!
 echo "claude-jobs API on :\$API_PORT (pid \$API_PID)"
@@ -56,7 +61,6 @@ for i in \$(seq 1 30); do
 done
 
 cd /app/src/app
-NEXT_PUBLIC_API_URL="http://localhost:\$API_PORT" \\
 NEXT_PUBLIC_BASE_PATH="/claude" \\
 PORT=\$APP_PORT \\
 HOSTNAME="0.0.0.0" \\
@@ -79,4 +83,4 @@ EOF
 chmod +x /tmp/run-as-claude.sh
 chown node:node /tmp/run-as-claude.sh
 
-exec gosu node /tmp/run-as-claude.sh
+exec runuser -u node -- /tmp/run-as-claude.sh

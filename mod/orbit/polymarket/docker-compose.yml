@@ -1,9 +1,15 @@
+networks:
+  default:
+    external: true
+    name: modnet
+
 services:
   polymarket:
     build: .
     container_name: polymarket
-    ports:
-      - "${GATEWAY_PORT:-3000}:${GATEWAY_PORT:-3000}"
+    expose:
+      - "3091"
+      - "50091"
     restart: unless-stopped
     volumes:
       - polymarket-strats:/tmp/polymarket-strats

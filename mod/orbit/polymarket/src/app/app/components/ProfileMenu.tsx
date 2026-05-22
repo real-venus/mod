@@ -16,7 +16,9 @@ export default function ProfileMenu() {
   const triggerLabel = (() => {
     if (auth.authenticated && auth.address) return shortAddress(auth.address);
     if (auth.connected && auth.address) return `${shortAddress(auth.address)} · UNSIGNED`;
-    if (localToken) return `TOKEN ${localToken.tokenPreview}`;
+    // When the sidebar is open, the full KEY+TOKEN is shown inside it — no
+    // need to duplicate the token preview in the topbar trigger.
+    if (localToken) return docked ? "PROFILE" : `TOKEN ${localToken.tokenPreview}`;
     return "SIGN IN";
   })();
 

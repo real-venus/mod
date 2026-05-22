@@ -276,8 +276,34 @@ class Mod:
         raise RuntimeError("Rust API binary not built. Run `m whitepaper/build_api`.")
 
     def serve(self, app: bool = True, caddy: bool = True) -> dict:
-        """Start the Rust API + Next.js app + optional Caddy proxy."""
+        """Start the Rust API + Next.js app + optional Caddy proxy.
+
+        Picks the first free proxy port from {3000, 3030, 3031, …} and threads
+        it through to Caddy as WHITEPAPER_PROXY_PORT, so the canonical :3000
+        is used when free and we degrade gracefully otherwise.
+        """
         pids: dict[str, int | None] = {"api": None, "app": None, "caddy": None}
+        warnings: list[str] = []
+
+        configured_host = (self.config.get("proxy") or {}).get("host", "localhost:3000")
+        configured_port = int(configured_host.rsplit(":", 1)[-1])
+        proxy_port = _first_free_port([configured_port, 3030, 3031, 3032, 3033, 3034])
+        if proxy_port != configured_port:
+            owner = _port_owner(configured_port)
+            warnings.append(
+                f"proxy port {configured_port} busy (pid={owner.get('pid') if owner else '?'} "
+                f"{owner.get('name') if owner else ''}); falling back to {proxy_port}"
+            )
+
+        for port, label in [
+            (self.api_port, f"api ({self.api_port})"),
+            (self.app_port, f"app ({self.app_port})"),
+        ]:
+            owner = _port_owner(port)
+            if owner:
+                warnings.append(
+                    f"port {port} for {label} already in use by pid={owner['pid']} ({owner['name']})"
+                )
 
         log_dir = Path("/tmp/whitepaper")
         log_dir.mkdir(exist_ok=True)
@@ -289,13 +315,25 @@ class Mod:
             self.build_api(release=True)
             api_bin = self._api_binary()
 
+        # Env vars shared by every child so all three know about the proxy.
+        proxy_env = {
+            "WHITEPAPER_MODULE_DIR": str(DIR),
+            "WHITEPAPER_PROXY_PORT": str(proxy_port),
+            "WHITEPAPER_API_PORT": str(self.api_port),
+            "WHITEPAPER_APP_PORT": str(self.app_port),
+            "WHITEPAPER_PROXY_URL": f"http://localhost:{proxy_port}",
+            "NEXT_PUBLIC_BASE_PATH": "/whitepaper",
+            "NEXT_PUBLIC_API_URL": "/api/whitepaper",
+            "WHITEPAPER_API_URL": f"http://localhost:{self.api_port}",
+        }
+
         api_log = open(log_dir / "api.log", "ab")
         api_proc = subprocess.Popen(
             [str(api_bin)],
             cwd=str(DIR),
             stdout=api_log,
             stderr=api_log,
-            env={**os.environ, "WHITEPAPER_MODULE_DIR": str(DIR)},
+            env={**os.environ, **proxy_env},
         )
         pids["api"] = api_proc.pid
 
@@ -304,7 +342,7 @@ class Mod:
             app_proc = subprocess.Popen(
                 ["npm", "run", "dev"],
                 cwd=str(APP_DIR), stdout=app_log, stderr=app_log,
-                env={**os.environ, "PORT": str(self.app_port)},
+                env={**os.environ, **proxy_env, "PORT": str(self.app_port)},
             )
             pids["app"] = app_proc.pid
 
@@ -312,15 +350,28 @@ class Mod:
             caddy_log = open(log_dir / "caddy.log", "ab")
             try:
                 caddy_proc = subprocess.Popen(
-                    ["caddy", "run", "--config", str(DIR / "Caddyfile")],
+                    ["caddy", "run", "--config", str(DIR / "Caddyfile"), "--adapter", "caddyfile"],
                     stdout=caddy_log, stderr=caddy_log,
+                    env={**os.environ, **proxy_env},
                 )
                 pids["caddy"] = caddy_proc.pid
             except FileNotFoundError:
                 pids["caddy"] = None
+                warnings.append("caddy binary not on PATH; proxy not started")
 
-        PID_FILE.write_text(json.dumps(pids))
-        return {"pids": pids, "urls": self.config.get("urls", {}), "api_bin": str(api_bin)}
+        PID_FILE.write_text(json.dumps({**pids, "proxy_port": proxy_port}))
+        return {
+            "pids": pids,
+            "urls": {
+                "app":   f"http://localhost:{proxy_port}/whitepaper",
+                "api":   f"http://localhost:{proxy_port}/api/whitepaper",
+                "direct_app": f"http://localhost:{self.app_port}/whitepaper",
+                "direct_api": f"http://localhost:{self.api_port}",
+            },
+            "proxy": {**(self.config.get("proxy") or {}), "active_port": proxy_port},
+            "api_bin": str(api_bin),
+            "warnings": warnings,
+        }
 
     def kill(self) -> dict:
         if not PID_FILE.exists():
@@ -342,3 +393,31 @@ class Mod:
 def _now_epoch() -> int:
     import time
     return int(time.time())
+
+
+def _port_owner(port: int) -> dict | None:
+    """Return the process listening on `port`, or None if free. macOS/Linux lsof."""
+    try:
+        out = subprocess.run(
+            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-Fpcn"],
+            capture_output=True, text=True, timeout=3,
+        ).stdout.strip()
+    except Exception:
+        return None
+    if not out:
+        return None
+    pid: str | None = None
+    name: str | None = None
+    for line in out.splitlines():
+        if line.startswith("p"):
+            pid = line[1:]
+        elif line.startswith("c"):
+            name = line[1:]
+    return {"pid": pid, "name": name} if pid else None
+
+
+def _first_free_port(candidates: list[int]) -> int:
+    for p in candidates:
+        if _port_owner(p) is None:
+            return p
+    return candidates[-1]

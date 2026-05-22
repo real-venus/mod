@@ -378,8 +378,12 @@ export default function CopyTrading({
         });
         if (!result.cold && result.traders.length > 0) {
           setStreamedAll(result.traders);
+          return;
         }
       } catch {}
+      // Cold cache (or empty paged result) — fall back to the streaming load
+      // so strat-filtered addresses have a dataset to filter against.
+      loadStreamRef.current();
     })();
   }, [stratFilter, streamedAll.length, days, minTradesPerDay]);
 
@@ -387,9 +391,29 @@ export default function CopyTrading({
     // Use client-side filtering when cache is cold OR when stratFilter needs
     // the full dataset (server pagination can't filter by address list).
     if (cacheWarm && !stratFilter) return null;
-    if (streamedAll.length === 0) return null;
+    if (!stratFilter && streamedAll.length === 0) return null;
+
+    // When STRAT is on, anchor the list to the strat's address set so traders
+    // that didn't make the leaderboard pool still show up (with placeholder
+    // zeros). Otherwise filter from the full leaderboard.
+    let baseList: TopTrader[];
+    if (stratFilter && stratAddrs.size > 0) {
+      const byAddr = new Map<string, TopTrader>();
+      for (const t of streamedAll) byAddr.set(t.address.toLowerCase(), t);
+      baseList = Array.from(stratAddrs).map((addr) =>
+        byAddr.get(addr) ?? {
+          address: addr,
+          volume: 0, buyVolume: 0, sellVolume: 0,
+          pnl: 0, winRate: 0, positions: 0,
+          marketTitles: [], recentTrades: 0,
+        },
+      );
+    } else {
+      baseList = streamedAll;
+    }
+
     const cat = category || "";
-    let list = streamedAll.filter((t) => {
+    let list = baseList.filter((t) => {
       if (search && !matchTraderSearch(t, search)) return false;
       if (cat && !matchTraderCategory(t.marketTitles, cat)) return false;
       const mv = Number(minVolume);
@@ -402,7 +426,6 @@ export default function CopyTrading({
       if (minBuyVolume !== "" && Number.isFinite(mbv) && t.buyVolume < mbv) return false;
       const msv = Number(minSellVolume);
       if (minSellVolume !== "" && Number.isFinite(msv) && t.sellVolume < msv) return false;
-      if (stratFilter && stratAddrs.size > 0 && !stratAddrs.has(t.address.toLowerCase())) return false;
       return true;
     });
     // Sort. When a category is selected, vibe-first (more in-category titles
@@ -465,10 +488,37 @@ export default function CopyTrading({
     }
   }, [stratFilter]);
 
+  // Keep stratAddrs in sync with the active strat as it mutates (add/remove
+  // from this page, the sidebar, or another tab). Without this, adding a
+  // trader while STRAT filter is on would leave the new address out of the
+  // filtered view.
+  useEffect(() => {
+    if (!stratFilter) return;
+    const refresh = () => {
+      const indexes = loadIndexes();
+      const activeId = getActiveIndexId();
+      const active = activeId ? indexes.find((i) => i.id === activeId) : indexes[0];
+      if (active) {
+        setStratAddrs(new Set(active.traders.map((t) => t.address.toLowerCase())));
+        setStratName(active.name);
+      }
+    };
+    refresh();
+    window.addEventListener("strat-updated", refresh);
+    return () => window.removeEventListener("strat-updated", refresh);
+  }, [stratFilter]);
+
   const pageTraders = useMemo(() => {
     if (!stratFilter || stratAddrs.size === 0) return sortedTraders;
     return sortedTraders.filter(t => stratAddrs.has(t.address.toLowerCase()));
   }, [sortedTraders, stratFilter, stratAddrs]);
+
+  // Pre-lowercase the selected set so the ✓ / + ADD toggle compares
+  // case-insensitively — different code paths persist addresses in mixed cases.
+  const selectedLower = useMemo(
+    () => new Set(selectedAddresses.map((a) => a.toLowerCase())),
+    [selectedAddresses],
+  );
 
   const columns: { key: TraderSort; label: string }[] = [
     { key: "score", label: "SCORE" },
@@ -757,20 +807,27 @@ export default function CopyTrading({
                       <td className="num text-right text-pixel-gray-light font-mono">
                         {trader.recentTrades || trader.positions}
                       </td>
-                      <td className="text-center !px-2 relative">
+                      <td
+                        className="text-center !px-2 relative"
+                        onClick={(e) => { e.stopPropagation(); if (onSelect) onSelect(trader.address); }}
+                      >
                         {onSelect ? (
-                          selectedAddresses.includes(trader.address) ? (
+                          selectedLower.has(trader.address.toLowerCase()) ? (
                             <button
+                              type="button"
                               onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}
-                              className="pixel-btn text-[8px] px-2 py-0.5 border-green-400 text-green-400 bg-green-400/10 hover:border-red-400 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                              className="pixel-btn text-[8px] px-2 py-0.5 border-green-400 text-green-400 bg-green-400/10 hover:border-red-400 hover:text-red-400 hover:bg-red-400/10 transition-all whitespace-nowrap"
+                              title="In strat — click to remove"
                             >
-                              <span className="group-hover:hidden">&#10003;</span>
-                              <span className="hidden group-hover:inline">&#10005;</span>
+                              <span className="group-hover:hidden">IN STRAT</span>
+                              <span className="hidden group-hover:inline">REMOVE</span>
                             </button>
                           ) : (
                             <button
+                              type="button"
                               onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}
-                              className="pixel-btn text-[8px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:border-green-400 hover:text-green-400 opacity-0 group-hover:opacity-100 transition-all"
+                              className="pixel-btn text-[8px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:border-green-400 hover:text-green-400 transition-all whitespace-nowrap"
+                              title="Add to active strat"
                             >
                               + ADD
                             </button>

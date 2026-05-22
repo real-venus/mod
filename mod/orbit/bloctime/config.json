@@ -29,5 +29,6 @@
   "urls": {
     "api": "http://localhost:8851",
     "app": "http://localhost:8852"
-  }
+  },
+  "gateway_port": 8852
 }

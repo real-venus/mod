@@ -1,8 +1,9 @@
 {
     admin localhost:2099
+    auto_https off
 }
 
-modc2.com {
+(module_routes) {
     @agent_api path /api/agent /api/agent/*
     handle @agent_api {
         uri strip_prefix /api/agent
@@ -24,11 +25,11 @@ modc2.com {
     @bridge_api path /api/bridge /api/bridge/*
     handle @bridge_api {
         uri strip_prefix /api/bridge
-        reverse_proxy {$PM2_HOST:localhost}:8840
+        reverse_proxy bridge:8840
     }
     @bridge_app path /bridge /bridge/*
     handle @bridge_app {
-        reverse_proxy {$PM2_HOST:localhost}:8841
+        reverse_proxy bridge:8841
     }
     @latexhub_api path /api/latexhub /api/latexhub/*
     handle @latexhub_api {
@@ -48,13 +49,82 @@ modc2.com {
     handle @openclaw_app {
         reverse_proxy openclaw:50121
     }
+    @polymarket_api path /api/polymarket /api/polymarket/*
+    handle @polymarket_api {
+        uri strip_prefix /api/polymarket
+        reverse_proxy polymarket:50091
+    }
+    @polymarket_app path /polymarket /polymarket/*
+    handle @polymarket_app {
+        reverse_proxy polymarket:3091
+    }
+    @copytensor_api path /api/copytensor /api/copytensor/*
+    handle @copytensor_api {
+        uri strip_prefix /api/copytensor
+        reverse_proxy copytensor:50150
+    }
+    @copytensor_app path /copytensor /copytensor/*
+    handle @copytensor_app {
+        reverse_proxy copytensor:3150
+    }
+    @chain_archive_api path /api/chain-archive /api/chain-archive/*
+    handle @chain_archive_api {
+        uri strip_prefix /api/chain-archive
+        reverse_proxy chain:50103
+    }
+    @prefi_app path /prefi /prefi/*
+    handle @prefi_app {
+        reverse_proxy prefi:3160
+    }
+    @codex_api path /api/codex /api/codex/*
+    handle @codex_api {
+        uri strip_prefix /api/codex
+        reverse_proxy codex:8830
+    }
+    @codex_app path /codex /codex/*
+    handle @codex_app {
+        reverse_proxy codex:8831
+    }
+    @dev_api path /api/dev /api/dev/*
+    handle @dev_api {
+        uri strip_prefix /api/dev
+        reverse_proxy dev:8870
+    }
+    @dev_app path /dev /dev/*
+    handle @dev_app {
+        reverse_proxy dev:8870
+    }
+    @claude path /claude /claude/* /api/claude /api/claude/*
+    handle @claude {
+        reverse_proxy claude:8823
+    }
+    @whitepaper_api path /api/whitepaper /api/whitepaper/*
+    handle @whitepaper_api {
+        uri strip_prefix /api/whitepaper
+        reverse_proxy host.docker.internal:50106
+    }
+    @whitepaper_app path /whitepaper /whitepaper/*
+    handle @whitepaper_app {
+        reverse_proxy host.docker.internal:3106
+    }
+}
+
+:3000 {
+    import module_routes
+    handle /* {
+        reverse_proxy host.docker.internal:3001
+    }
+}
+
+modc2.com {
+    import module_routes
     @main_api path /api /api/*
     handle @main_api {
         uri strip_prefix /api
         reverse_proxy {$PM2_HOST:localhost}:8000
     }
     handle /* {
-        reverse_proxy {$PM2_HOST:localhost}:3000
+        reverse_proxy host.docker.internal:3001
     }
 }
 
@@ -72,7 +142,7 @@ api.modc2.com {
 
     handle /bridge/* {
         uri strip_prefix /bridge
-        reverse_proxy {$PM2_HOST:localhost}:8840
+        reverse_proxy bridge:8840
     }
 
     handle /* {

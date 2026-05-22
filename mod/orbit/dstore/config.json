@@ -66,5 +66,6 @@
         "filecoin",
         "hippius"
     ],
-    "schema": "QmQ8qLZyK92bfWfUuf51KUguGTJ65BBYUyVjevLcgsRNQQ"
+    "schema": "Qmb4EPQ4c7cHBfF5m9rM1QA8JG1M1dDFSetzTmxd6cP7eQ",
+    "gateway_port": 50151
 }

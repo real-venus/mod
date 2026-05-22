@@ -1,130 +1,131 @@
 {
-    "name": "polycopy",
-    "port": 50130,
-    "app_port": 3130,
-    "urls": {
-        "api": "http://localhost:50130",
-        "app": "http://localhost:3130"
-    },
-    "chains": [
+  "name": "polycopy",
+  "port": 50130,
+  "app_port": 3130,
+  "urls": {
+    "api": "http://localhost:50130",
+    "app": "http://localhost:3130"
+  },
+  "chains": [
+    {
+      "chain_id": 8453,
+      "name": "base",
+      "enabled": true,
+      "rpc_urls": [
+        "https://mainnet.base.org",
+        "https://base.llamarpc.com",
+        "https://base-rpc.publicnode.com",
+        "https://base.drpc.org",
+        "https://rpc.ankr.com/base"
+      ],
+      "routers": [
         {
-            "chain_id": 8453,
-            "name": "base",
-            "enabled": true,
-            "rpc_urls": [
-                "https://mainnet.base.org",
-                "https://base.llamarpc.com",
-                "https://base-rpc.publicnode.com",
-                "https://base.drpc.org",
-                "https://rpc.ankr.com/base"
-            ],
-            "routers": [
-                {
-                    "address": "0x2626664c2603336E57B271c5C0b26F421741e481",
-                    "name": "Uniswap V3",
-                    "dex_type": "UniswapV3"
-                },
-                {
-                    "address": "0x6BDED42c6DA8FBf0d2bA55B2fa120C5e0c8D7891",
-                    "name": "SushiSwap",
-                    "dex_type": "UniswapV2"
-                }
-            ],
-            "proxy_address": null
+          "address": "0x2626664c2603336E57B271c5C0b26F421741e481",
+          "name": "Uniswap V3",
+          "dex_type": "UniswapV3"
         },
         {
-            "chain_id": 137,
-            "name": "polygon",
-            "enabled": true,
-            "rpc_urls": [
-                "https://polygon-rpc.com",
-                "https://polygon.llamarpc.com",
-                "https://polygon-bor-rpc.publicnode.com",
-                "https://polygon.drpc.org",
-                "https://rpc.ankr.com/polygon"
-            ],
-            "routers": [
-                {
-                    "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-                    "name": "Uniswap V3",
-                    "dex_type": "UniswapV3"
-                },
-                {
-                    "address": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
-                    "name": "SushiSwap",
-                    "dex_type": "UniswapV2"
-                },
-                {
-                    "address": "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
-                    "name": "QuickSwap",
-                    "dex_type": "UniswapV2"
-                }
-            ],
-            "proxy_address": null
-        },
-        {
-            "chain_id": 42161,
-            "name": "arbitrum",
-            "enabled": true,
-            "rpc_urls": [
-                "https://arb1.arbitrum.io/rpc",
-                "https://arbitrum.llamarpc.com",
-                "https://arbitrum-one-rpc.publicnode.com",
-                "https://arbitrum.drpc.org",
-                "https://rpc.ankr.com/arbitrum"
-            ],
-            "routers": [
-                {
-                    "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-                    "name": "Uniswap V3",
-                    "dex_type": "UniswapV3"
-                },
-                {
-                    "address": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
-                    "name": "SushiSwap",
-                    "dex_type": "UniswapV2"
-                },
-                {
-                    "address": "0xc873fEcbd354f5A56E00E710B90EF4201db2448d",
-                    "name": "Camelot",
-                    "dex_type": "UniswapV2"
-                }
-            ],
-            "proxy_address": null
-        },
-        {
-            "chain_id": 1,
-            "name": "ethereum",
-            "enabled": false,
-            "rpc_urls": [
-                "https://eth.llamarpc.com",
-                "https://ethereum-rpc.publicnode.com",
-                "https://eth.drpc.org",
-                "https://rpc.ankr.com/eth",
-                "https://rpc.flashbots.net"
-            ],
-            "routers": [
-                {
-                    "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-                    "name": "Uniswap V3",
-                    "dex_type": "UniswapV3"
-                },
-                {
-                    "address": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
-                    "name": "SushiSwap",
-                    "dex_type": "UniswapV2"
-                }
-            ],
-            "proxy_address": null
+          "address": "0x6BDED42c6DA8FBf0d2bA55B2fa120C5e0c8D7891",
+          "name": "SushiSwap",
+          "dex_type": "UniswapV2"
         }
-    ],
-    "wallets": [],
-    "max_trade_usd": 100,
-    "slippage_bps": 50,
-    "position_pct": 10.0,
-    "daily_limit_usd": 1000,
-    "auto_discover": false,
-    "min_score": 70.0,
-    "poll_interval_ms": 4000,
-    "schema": "QmaBZvdbWMYCMspzfPeG8zoYHmt1YN44xHi2EngpZhoi6E"
+      ],
+      "proxy_address": null
+    },
+    {
+      "chain_id": 137,
+      "name": "polygon",
+      "enabled": true,
+      "rpc_urls": [
+        "https://polygon-rpc.com",
+        "https://polygon.llamarpc.com",
+        "https://polygon-bor-rpc.publicnode.com",
+        "https://polygon.drpc.org",
+        "https://rpc.ankr.com/polygon"
+      ],
+      "routers": [
+        {
+          "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+          "name": "Uniswap V3",
+          "dex_type": "UniswapV3"
+        },
+        {
+          "address": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
+          "name": "SushiSwap",
+          "dex_type": "UniswapV2"
+        },
+        {
+          "address": "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
+          "name": "QuickSwap",
+          "dex_type": "UniswapV2"
+        }
+      ],
+      "proxy_address": null
+    },
+    {
+      "chain_id": 42161,
+      "name": "arbitrum",
+      "enabled": true,
+      "rpc_urls": [
+        "https://arb1.arbitrum.io/rpc",
+        "https://arbitrum.llamarpc.com",
+        "https://arbitrum-one-rpc.publicnode.com",
+        "https://arbitrum.drpc.org",
+        "https://rpc.ankr.com/arbitrum"
+      ],
+      "routers": [
+        {
+          "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+          "name": "Uniswap V3",
+          "dex_type": "UniswapV3"
+        },
+        {
+          "address": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
+          "name": "SushiSwap",
+          "dex_type": "UniswapV2"
+        },
+        {
+          "address": "0xc873fEcbd354f5A56E00E710B90EF4201db2448d",
+          "name": "Camelot",
+          "dex_type": "UniswapV2"
+        }
+      ],
+      "proxy_address": null
+    },
+    {
+      "chain_id": 1,
+      "name": "ethereum",
+      "enabled": false,
+      "rpc_urls": [
+        "https://eth.llamarpc.com",
+        "https://ethereum-rpc.publicnode.com",
+        "https://eth.drpc.org",
+        "https://rpc.ankr.com/eth",
+        "https://rpc.flashbots.net"
+      ],
+      "routers": [
+        {
+          "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+          "name": "Uniswap V3",
+          "dex_type": "UniswapV3"
+        },
+        {
+          "address": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
+          "name": "SushiSwap",
+          "dex_type": "UniswapV2"
+        }
+      ],
+      "proxy_address": null
+    }
+  ],
+  "wallets": [],
+  "max_trade_usd": 100,
+  "slippage_bps": 50,
+  "position_pct": 10.0,
+  "daily_limit_usd": 1000,
+  "auto_discover": false,
+  "min_score": 70.0,
+  "poll_interval_ms": 4000,
+  "schema": "QmaBZvdbWMYCMspzfPeG8zoYHmt1YN44xHi2EngpZhoi6E",
+  "gateway_port": 3130
 }

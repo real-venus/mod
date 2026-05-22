@@ -51,5 +51,6 @@
             "docs": "Proxy: price history (clob)"
         }
     },
-    "schema": "QmSnXXyvXVpiqftd4dNsieDYxCPrS4L3dkY2T9XfxDdKx4"
+    "schema": "QmPgRYnAdGiLramXzVhFz624PwUsmsT7T5vR7eWCpJHjUy",
+    "gateway_port": 3091
 }

@@ -46,7 +46,11 @@ impl PipelineState {
             match self.run_pipeline(days, min_per_day, pool, None).await {
                 Ok(payload) => {
                     tracing::info!("warmed {}D: {} traders", days, payload.count);
-                    self.cache.set(&key, payload);
+                    // Don't poison memory + disk cache with empty results — an upstream
+                    // hiccup during warmup would otherwise serve "0 traders" until TTL.
+                    if payload.count > 0 {
+                        self.cache.set(&key, payload);
+                    }
                 }
                 Err(e) => {
                     tracing::warn!("warmup {}D failed: {}", days, e);

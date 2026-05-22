@@ -13,17 +13,17 @@ import mod as m
 
 class Mod:
     """
-    Codex module — programmable AI developer interface.
+    Claude module — programmable AI developer interface.
 
     Operates in two modes:
-      - Server mode: delegates to Rust job server (port 8820) + Next.js app (8821)
-      - Standalone mode: runs Codex CLI directly, local bg jobs, IPFS versioning
+      - Server mode: delegates to Rust job server (port 8830) + Next.js app (8831)
+      - Standalone mode: runs Claude CLI directly, local bg jobs, IPFS versioning
 
     All code-writing operations require owner permission when an owner is set.
     Read-only operations (analyze, debug, modules, health) are always open.
     """
 
-    description = "Codex AI interface — jobs, code ops, IPFS versioning, and module management."
+    description = "Claude AI interface — jobs, code ops, IPFS versioning, and module management."
     endpoints = [
         'forward', 'ask', 'submit', 'jobs', 'job', 'cancel', 'tail',
         'create_module', 'edit_module', 'analyze_code', 'generate_code',
@@ -44,8 +44,8 @@ class Mod:
         cfg = self._load_config()
         servers = cfg.get('servers', {})
         name = cfg.get('name', 'codex')
-        self.api_url = api_url or servers.get(f'{name}-api', 'http://localhost:8820')
-        self.app_url = app_url or servers.get(f'{name}-app', 'http://localhost:8821')
+        self.api_url = api_url or servers.get(f'{name}-api', 'http://localhost:8830')
+        self.app_url = app_url or servers.get(f'{name}-app', 'http://localhost:8831')
         self.config = cfg
         self.default_path = default_path or cfg.get('default_path', os.path.expanduser('~/mod'))
         self._owner = cfg.get('owner') or self.key.address.lower()
@@ -300,7 +300,7 @@ class Mod:
         try:
             return int(self.api_url.rsplit(':', 1)[-1].rstrip('/'))
         except (ValueError, IndexError):
-            return 8820
+            return 8830
 
     def _start_api(self) -> bool:
         """Start the Rust API server. Returns True if started successfully."""
@@ -395,7 +395,7 @@ class Mod:
                 model: str = "sonnet", stream: bool = False,
                 key: str = None, **kwargs) -> Dict[str, Any]:
         """
-        Edit a module with the Codex agent.
+        Edit a module with the Claude agent.
 
         Args:
             query:  what to do (edit instructions)
@@ -435,22 +435,22 @@ class Mod:
         # prefer local install in module node_modules
         for candidate in [
             os.path.join(mod_dir, 'node_modules', '.bin', 'codex'),
-            os.path.join(mod_dir, 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'),
+            os.path.join(mod_dir, 'node_modules', '@openai', 'codex', 'bin', 'codex.js'),
         ]:
             if os.path.isfile(candidate):
                 return candidate
         # fall back to global
-        result = subprocess.run(["which", "claude"], capture_output=True, text=True)
+        result = subprocess.run(["which", "codex"], capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError("codex CLI not found — install with: m codex/install")
         return result.stdout.strip()
 
     def _run_cli(self, query: str, path: str = None, model: str = "sonnet",
                  output_format: str = "json", stream_output: bool = True, **kwargs) -> Union[str, Dict]:
-        """Run Codex CLI directly (blocking). Used when background=False."""
+        """Run Claude CLI directly (blocking). Used when background=False."""
         codex_bin = self._find_codex()
         work_dir = path or self.default_path
-        base = ['node', codex_bin] if claude.endswith('.js') else [codex_bin]
+        base = ['node', codex_bin] if codex_bin.endswith('.js') else [codex_bin]
         cmd = base + ["--print", "--model", model, "--output-format", output_format,
                       "--dangerously-skip-permissions", query]
                       
@@ -477,11 +477,11 @@ class Mod:
             stdout = ''.join(lines)
             if retcode != 0:
                 err = proc.stderr.read() if proc.stderr else ''
-                raise RuntimeError(f"Codex CLI error: {err}")
+                raise RuntimeError(f"Claude CLI error: {err}")
         else:
             r = subprocess.run(cmd, cwd=work_dir, capture_output=True, text=True, env=env, timeout=300)
             if r.returncode != 0:
-                raise RuntimeError(f"Codex CLI error: {r.stderr}")
+                raise RuntimeError(f"Claude CLI error: {r.stderr}")
             stdout = r.stdout
 
         if output_format == "json":
@@ -540,7 +540,7 @@ class Mod:
 
     def run_task(self, task: str, path: str = None,
                  model: str = "sonnet", **kwargs) -> str:
-        """Run an arbitrary task with Codex CLI."""
+        """Run an arbitrary task with Claude CLI."""
         work_dir = path or self.default_path
         return self._run_cli(task, path=work_dir, model=model,
                              output_format="text", stream_output=False)
@@ -599,8 +599,8 @@ class Mod:
         # No args → kill both codex services by port
         if pid is None and port is None:
             killed = []
-            api_port = self.config.get('port', 8820)
-            app_port = self.config.get('app_port', 8821)
+            api_port = self.config.get('port', 8830)
+            app_port = self.config.get('app_port', 8831)
             for svc_port in [api_port, app_port]:
                 try:
                     result = subprocess.run(
@@ -653,7 +653,7 @@ class Mod:
 
         ts = int(time.time())
         log_file = os.path.join(log_dir, f"job_{ts}.log")
-        base = ['node', codex_bin] if claude.endswith('.js') else [codex_bin]
+        base = ['node', codex_bin] if codex_bin.endswith('.js') else [codex_bin]
         cmd = base + ["--print", "--model", model, "--output-format", "text",
                       "--dangerously-skip-permissions", prompt]
 
@@ -937,7 +937,7 @@ class Mod:
 
     # ── conversational (OpenRouter) ───────────────────────────────
 
-    def ask(self, message: str, model: str = 'anthropic/claude-opus-4',
+    def ask(self, message: str, model: str = 'gpt-4o-mini',
             stream: bool = False, **kwargs) -> str:
         """Send a message via OpenRouter API."""
         router = m.mod('model.openrouter')()
@@ -973,7 +973,7 @@ class Mod:
         return f'export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; {cmd}'
 
     def install(self, host: str = None, key_path: str = None, **kwargs) -> dict:
-        """Install Codex CLI locally or on a remote host.
+        """Install Claude CLI locally or on a remote host.
 
         Without args: installs via npm and prompts for auth token.
         With host: installs on remote host over SSH.
@@ -985,7 +985,7 @@ class Mod:
         if not host:
             return self._install_local(**kwargs)
 
-        print(f'[install] installing claude on {host}...')
+        print(f'[install] installing codex on {host}...')
         ok, out, err = self._ssh(host, 'npm install -g @openai/codex',
                                  key_path=key_path, timeout=120)
         if not ok:
@@ -999,15 +999,15 @@ class Mod:
             return {'ok': False, 'error': err, 'host': host}
 
         # verify
-        ok, ver, _ = self._ssh(host, self._ssh_source_nvm('claude --version'),
+        ok, ver, _ = self._ssh(host, self._ssh_source_nvm('codex --version'),
                                key_path=key_path)
-        print(f'[install] done — claude {ver}' if ok else '[install] installed but version check failed')
+        print(f'[install] done — codex {ver}' if ok else '[install] installed but version check failed')
         return {'ok': True, 'host': host, 'version': ver if ok else None}
 
     def setup(self, host: str = None, key_path: str = None, **kwargs) -> dict:
-        """Ensure Codex CLI is installed on a remote host via SSH.
+        """Ensure Claude CLI is installed on a remote host via SSH.
 
-        Checks connectivity, node/npm, installs claude if missing,
+        Checks connectivity, node/npm, installs codex if missing,
         checks for ANTHROPIC_API_KEY.
 
         Args:
@@ -1015,11 +1015,11 @@ class Mod:
             key_path: path to SSH key (optional, uses default if omitted)
 
         Usage:
-            m claude/setup user@myserver
-            m claude/setup user@myserver key_path=~/.ssh/id_ed25519
+            m codex/setup user@myserver
+            m codex/setup user@myserver key_path=~/.ssh/id_ed25519
         """
         if not host:
-            return {'error': 'host required — e.g. m claude/setup user@myserver'}
+            return {'error': 'host required — e.g. m codex/setup user@myserver'}
 
         results = {'host': host, 'steps': []}
 
@@ -1049,14 +1049,14 @@ class Mod:
             results['steps'].append({'name': 'node', 'ok': True, 'version': node_ver})
             print(f'[setup] node {node_ver}')
 
-        # 3. claude — check, install if missing
-        ok, ver, _ = self._ssh(host, self._ssh_source_nvm('claude --version'), key_path=key_path)
+        # 3. codex — check, install if missing
+        ok, ver, _ = self._ssh(host, self._ssh_source_nvm('codex --version'), key_path=key_path)
         if ok:
-            results['steps'].append({'name': 'claude', 'ok': True, 'version': ver})
-            print(f'[setup] claude {ver}')
+            results['steps'].append({'name': 'codex', 'ok': True, 'version': ver})
+            print(f'[setup] codex {ver}')
         else:
             r = self.install(host=host, key_path=key_path)
-            results['steps'].append({'name': 'claude_install', 'ok': r.get('ok', False),
+            results['steps'].append({'name': 'codex_install', 'ok': r.get('ok', False),
                                      'version': r.get('version')})
             if not r.get('ok'):
                 return {'error': r.get('error'), 'host': host, 'steps': results['steps']}
@@ -1073,15 +1073,15 @@ class Mod:
             print(f'[setup] warning: ANTHROPIC_API_KEY not set on remote')
 
         # 5. final verify
-        ok, ver, _ = self._ssh(host, self._ssh_source_nvm('claude --version'), key_path=key_path)
-        results['claude_version'] = ver if ok else None
+        ok, ver, _ = self._ssh(host, self._ssh_source_nvm('codex --version'), key_path=key_path)
+        results['codex_version'] = ver if ok else None
         results['ready'] = ok
-        print(f'[setup] ready — claude {ver} on {host}' if ok else '[setup] not ready')
+        print(f'[setup] ready — codex {ver} on {host}' if ok else '[setup] not ready')
 
         return results
 
     def _install_local(self, **kwargs) -> dict:
-        """Install Codex Code locally into the module's node_modules."""
+        """Install Claude Code locally into the module's node_modules."""
         results = {'steps': []}
         mod_dir = self._module_dir()
 
@@ -1090,7 +1090,7 @@ class Mod:
         if os.path.isfile(local_bin) and os.access(local_bin, os.X_OK):
             r = subprocess.run([local_bin, '--version'], capture_output=True, text=True, timeout=10)
             ver = r.stdout.strip() if r.returncode == 0 else 'unknown'
-            print(f'[install] claude already installed locally: {ver}')
+            print(f'[install] codex already installed locally: {ver}')
             results['steps'].append({'name': 'check', 'ok': True, 'version': ver})
         else:
             print('[install] installing @openai/codex locally...')
@@ -1107,10 +1107,10 @@ class Mod:
                 r2 = subprocess.run([local_bin, '--version'], capture_output=True, text=True, timeout=10)
                 ver = r2.stdout.strip() if r2.returncode == 0 else 'unknown'
             else:
-                r2 = subprocess.run(['npx', 'claude', '--version'],
+                r2 = subprocess.run(['npx', 'codex', '--version'],
                                     cwd=mod_dir, capture_output=True, text=True, timeout=10)
                 ver = r2.stdout.strip() if r2.returncode == 0 else 'installed'
-            print(f'[install] installed claude {ver} → {mod_dir}/node_modules/')
+            print(f'[install] installed codex {ver} → {mod_dir}/node_modules/')
             results['steps'].append({'name': 'npm_install', 'ok': True, 'version': ver})
 
         # 2. check for existing auth
@@ -1127,12 +1127,12 @@ class Mod:
             print('[install] no credentials found. pick one:')
             print('')
             print('  1) paste auth token  — from a machine already logged in:')
-            print('     run `m claude/_authtoken` on that machine, copy the token')
+            print('     run `m codex/_authtoken` on that machine, copy the token')
             print('')
             print('  2) set API key       — paste your ANTHROPIC_API_KEY')
             print('     (get one at https://console.anthropic.com/settings/keys)')
             print('')
-            print('  3) skip              — press Enter, run `claude login` later')
+            print('  3) skip              — press Enter, run `codex login` later')
             print('')
             try:
                 choice = input('[install] enter token, API key, or press Enter to skip:\n> ').strip()
@@ -1156,24 +1156,24 @@ class Mod:
                         print('[install] auth token saved to keychain')
                         results['steps'].append({'name': 'auth', 'ok': True, 'method': 'token'})
                     else:
-                        print('[install] failed to save token — run `claude login` to authenticate')
+                        print('[install] failed to save token — run `codex login` to authenticate')
                         results['steps'].append({'name': 'auth', 'ok': False})
             else:
-                print('[install] skipped — run `claude login` to authenticate')
+                print('[install] skipped — run `codex login` to authenticate')
                 results['steps'].append({'name': 'auth', 'ok': False, 'skipped': True})
 
         results['ok'] = True
         return results
 
     def _authtoken(self, token: str = None, **kwargs) -> dict:
-        """Get or set the Codex Code auth token (macOS Keychain).
+        """Get or set the Claude Code auth token (macOS Keychain).
 
         Without args: reads and displays the current token for transfer.
         With token arg: writes the token to keychain.
 
         Usage:
-            m claude/_authtoken               # show current token
-            m claude/_authtoken <token>       # set token from another machine
+            m codex/_authtoken               # show current token
+            m codex/_authtoken <token>       # set token from another machine
         """
         if token:
             ok = self._write_keychain_token(token)
@@ -1186,7 +1186,7 @@ class Mod:
         if current:
             print(f'[authtoken] {current}')
             return {'ok': True, 'token': current}
-        print('[authtoken] no token found — run `claude login` first')
+        print('[authtoken] no token found — run `codex login` first')
         return {'ok': False, 'error': 'no token in keychain'}
 
     def _detect_shell_profile(self) -> str:
@@ -1198,11 +1198,11 @@ class Mod:
         return os.path.join(home, '.bashrc')
 
     def _read_keychain_token(self) -> Optional[str]:
-        """Read Codex Code credentials from macOS Keychain."""
+        """Read Claude Code credentials from macOS Keychain."""
         try:
             r = subprocess.run(
                 ['security', 'find-generic-password',
-                 '-s', 'Codex Code-credentials', '-w'],
+                 '-s', 'Claude Code-credentials', '-w'],
                 capture_output=True, text=True, timeout=10,
             )
             if r.returncode == 0 and r.stdout.strip():
@@ -1212,18 +1212,18 @@ class Mod:
         return None
 
     def _write_keychain_token(self, token: str) -> bool:
-        """Write Codex Code credentials to macOS Keychain."""
+        """Write Claude Code credentials to macOS Keychain."""
         try:
             # delete existing entry first (ignore errors if not found)
             subprocess.run(
                 ['security', 'delete-generic-password',
-                 '-s', 'Codex Code-credentials'],
+                 '-s', 'Claude Code-credentials'],
                 capture_output=True, text=True, timeout=10,
             )
             # add new entry
             r = subprocess.run(
                 ['security', 'add-generic-password',
-                 '-s', 'Codex Code-credentials',
+                 '-s', 'Claude Code-credentials',
                  '-a', os.environ.get('USER', 'codex'),
                  '-w', token],
                 capture_output=True, text=True, timeout=10,
@@ -1348,14 +1348,14 @@ class Mod:
     # ── serve ─────────────────────────────────────────────────────
 
     def serve(self, api_port=None, app_port=None, dev=True):
-        """Start the claude API (Rust job server) and Next.js app.
+        """Start the codex API (Rust job server) and Next.js app.
 
         Ensures dependencies are installed, starts both services,
         verifies they come up, and registers in the namespace.
         """
-        api_port = int(api_port or self.config.get('port', 8820))
-        app_port = int(app_port or self.config.get('app_port', 8821))
-        log_dir = Path('/tmp/claude')
+        api_port = int(api_port or self.config.get('port', 8830))
+        app_port = int(app_port or self.config.get('app_port', 8831))
+        log_dir = Path('/tmp/codex')
         log_dir.mkdir(parents=True, exist_ok=True)
         results = {}
 
@@ -1384,9 +1384,9 @@ class Mod:
         # ── App (Next.js) ──
         if (app_dir / 'package.json').exists():
             app_env = os.environ.copy()
-            # Frontend talks to the core gateway at /api/claude, not the API directly.
+            # Frontend talks to the core gateway at /api/codex, not the API directly.
             # NEXT_PUBLIC_API_PORT is only used for in-app start/stop service mgmt.
-            app_env['NEXT_PUBLIC_BASE_PATH'] = '/claude'
+            app_env['NEXT_PUBLIC_BASE_PATH'] = '/codex'
             app_env['NEXT_PUBLIC_API_PORT'] = str(api_port)
             app_env['PORT'] = str(app_port)
             app_log = open(log_dir / 'app.log', 'w')
@@ -1413,7 +1413,7 @@ class Mod:
                 print(f'[codex] API live on :{api_port}')
 
         if 'app' in results:
-            app_live = self._check_service(f'{app_url}/claude')
+            app_live = self._check_service(f'{app_url}/codex')
             checks['app'] = {'live': app_live}
             if not app_live:
                 tail = self._tail_log(str(log_dir / 'app.log'))
@@ -1437,7 +1437,7 @@ class Mod:
                         app_cmd, cwd=str(app_dir), env=app_env,
                         stdout=app_log2, stderr=subprocess.STDOUT,
                     )
-                    app_live = self._check_service(f'{app_url}/claude')
+                    app_live = self._check_service(f'{app_url}/codex')
                     checks['app']['retry'] = True
                     checks['app']['live'] = app_live
                     if app_live:
@@ -1451,11 +1451,11 @@ class Mod:
 
         results['checks'] = checks
 
-        # ── Register in app namespace so gateway routes /claude → here ──
+        # ── Register in app namespace so gateway routes /codex → here ──
         try:
             registry = m.mod('server.namespace')()
-            registry.reg('claude', api_url)
-            registry.reg_app('claude', app_url,
+            registry.reg('codex', api_url)
+            registry.reg_app('codex', app_url,
                              owner=self.key.address, api_url=api_url)
         except Exception as e:
             print(f'[codex] namespace registration failed: {e}')
@@ -1468,7 +1468,7 @@ class Mod:
                 cid = snap.get('cid')
                 if cid:
                     reg = m.mod('registry')()
-                    reg.register('claude', {'schema': cid, 'urls': {'api': api_url, 'app': app_url}},
+                    reg.register('codex', {'schema': cid, 'urls': {'api': api_url, 'app': app_url}},
                                  storage='ipfs')
                     results['cid'] = cid
                     print(f'[codex] CID registered: {cid[:16]}...')
@@ -1493,9 +1493,9 @@ class Mod:
     def logs(self, service='both', lines=100):
         """View logs for API/app servers or background tasks.
 
-        Usage: c claude/logs              — show server logs
-               c claude/logs fix_1234     — show background task log
-               c claude/logs api          — show API server log only
+        Usage: c codex/logs              — show server logs
+               c codex/logs fix_1234     — show background task log
+               c codex/logs api          — show API server log only
 
         Args:
             service: 'api', 'app', 'both', or a task_id (e.g. 'fix_1234567890')
@@ -1526,7 +1526,7 @@ class Mod:
             }
 
         # server logs
-        log_dir = Path('/tmp/claude')
+        log_dir = Path('/tmp/codex')
         results = {}
         for svc in (['api', 'app'] if service == 'both' else [service]):
             log_file = log_dir / f'{svc}.log'
@@ -1543,12 +1543,12 @@ class Mod:
     # ── status ─────────────────────────────────────────────────────
 
     def status(self) -> dict:
-        """Check if claude services (API + App) are running.
+        """Check if codex services (API + App) are running.
 
         Returns dict with per-service status and overall 'online' bool.
         """
-        api_port = self.config.get('port', 8820)
-        app_port = self.config.get('app_port', 8821)
+        api_port = self.config.get('port', 8830)
+        app_port = self.config.get('app_port', 8831)
         result = {'online': False, 'services': {}}
 
         for svc, port in [('api', api_port), ('app', app_port)]:
@@ -1691,16 +1691,16 @@ You MUST output ONLY a JSON object (no markdown, no explanation) with this exact
 
     def scan(self, mod=None, path=None, key=None, model='sonnet', steps=None, **kwargs):
         """
-        Run a security scan on a module or repo using Codex CLI.
+        Run a security scan on a module or repo using Claude CLI.
 
-        Usage: m claude/scan bridge
-               m claude/scan path=/some/repo
+        Usage: m codex/scan bridge
+               m codex/scan path=/some/repo
 
         Args:
             mod: module name to scan (e.g. 'bridge', 'agent')
             path: repo path to scan (defaults to ~/mod/)
             key: key name for reviewer identity
-            model: claude model (sonnet, opus, haiku)
+            model: codex model (sonnet, opus, haiku)
         """
         if mod:
             path = m.dp(mod)
@@ -1956,19 +1956,19 @@ Apply the fix now. Edit only the affected file(s).
         Fix security findings from a previous scan. Runs scan first if needed.
         Runs in background by default — returns task_id and log path.
 
-        Usage: c claude/fix bridge
-               c claude/fix path=/some/repo
-               c claude/fix bridge severity=high
-               c claude/fix bridge index=0
-               c claude/fix bridge bg=false   # run in foreground
+        Usage: c codex/fix bridge
+               c codex/fix path=/some/repo
+               c codex/fix bridge severity=high
+               c codex/fix bridge index=0
+               c codex/fix bridge bg=false   # run in foreground
 
-        View logs: c claude/logs <task_id>
+        View logs: c codex/logs <task_id>
 
         Args:
             mod: module name to fix (e.g. 'bridge', 'agent')
             path: repo path (defaults to ~/mod/)
             key: key name for reviewer identity
-            model: claude model (sonnet, opus, haiku)
+            model: codex model (sonnet, opus, haiku)
             severity: only fix findings of this severity (critical, high, medium, low)
             index: fix a single finding by index (0-based)
             bg: run in background (default True)
@@ -2069,7 +2069,7 @@ Apply the fix now. Edit only the affected file(s).
         log_file = os.path.join(log_dir, f"{task_id}.log")
 
         # build CLI args
-        cmd_parts = ['c', 'claude/fix']
+        cmd_parts = ['c', 'codex/fix']
         if mod:
             cmd_parts.append(str(mod))
         cmd_parts.append('bg=false')
@@ -2100,7 +2100,7 @@ Apply the fix now. Edit only the affected file(s).
 
         print(f'[fix] background task started: {task_id}')
         print(f'[fix] pid: {proc.pid}')
-        print(f'[fix] view logs:  c claude/logs {task_id}')
+        print(f'[fix] view logs:  c codex/logs {task_id}')
         print(f'[fix] tail live:  tail -f {log_file}')
 
         return {"task_id": task_id, "pid": proc.pid, "log_file": log_file}
@@ -2121,4 +2121,4 @@ Apply the fix now. Edit only the affected file(s).
 
     def __repr__(self):
         server = "connected" if self._server_available() else "offline"
-        return f"<Codex api={self.api_url} server={server} owner={self._owner or 'none'}>"
+        return f"<Claude api={self.api_url} server={server} owner={self._owner or 'none'}>"

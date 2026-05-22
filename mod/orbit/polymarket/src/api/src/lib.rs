@@ -5,6 +5,7 @@ pub mod cache;
 pub mod categories;
 pub mod types;
 pub mod strats;
+pub mod auth;
 
 use std::sync::Arc;
 

@@ -42,17 +42,35 @@ for i in $(seq 1 60); do
 done
 
 # ── Generate Caddyfile ──
+# Host-side sibling modules (e.g. whitepaper) are reached via host.docker.internal.
+WHITEPAPER_HOST="${WHITEPAPER_HOST:-host.docker.internal}"
+WHITEPAPER_HOST_API_PORT="${WHITEPAPER_HOST_API_PORT:-50106}"
+WHITEPAPER_HOST_APP_PORT="${WHITEPAPER_HOST_APP_PORT:-3106}"
+
 cat > /app/Caddyfile <<EOF
 {
-    admin off
+    admin localhost:2019
 }
 
 :${GATEWAY_PORT} {
+    # polymarket API
     @api path /api/polymarket /api/polymarket/*
     handle @api {
         uri strip_prefix /api/polymarket
         reverse_proxy localhost:${API_PORT}
     }
+
+    # whitepaper (sibling orbit module on the host)
+    @whitepaper_api path /api/whitepaper /api/whitepaper/*
+    handle @whitepaper_api {
+        uri strip_prefix /api/whitepaper
+        reverse_proxy ${WHITEPAPER_HOST}:${WHITEPAPER_HOST_API_PORT}
+    }
+    handle /whitepaper* {
+        reverse_proxy ${WHITEPAPER_HOST}:${WHITEPAPER_HOST_APP_PORT}
+    }
+
+    # polymarket catchall (must remain last)
     handle /* {
         reverse_proxy localhost:${APP_PORT}
     }
