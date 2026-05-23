@@ -21,11 +21,32 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
-# ── Start Next.js (dev mode with hot-reload) ──
+# ── Compute build CID over source files ──
+# Deterministic sha256 over a sorted manifest of (per-file sha256, path).
+# Exposed to the UI as NEXT_PUBLIC_BUILD_CID so visitors can verify the
+# served code by recomputing the same hash locally. Not an IPFS CID yet —
+# wire in a real `ipfs add -r` against the .next/static build output if you
+# need a `bafk...` CID.
 cd /app/src/app
+if command -v sha256sum > /dev/null 2>&1; then
+    BUILD_HASH=$(find app -type f \( -name '*.tsx' -o -name '*.ts' -o -name '*.css' \) \
+        | sort \
+        | xargs sha256sum 2>/dev/null \
+        | sha256sum \
+        | cut -d' ' -f1)
+    BUILD_CID="sha256:${BUILD_HASH}"
+else
+    BUILD_CID="dev-$(date +%s)"
+fi
+BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+echo "Build CID: $BUILD_CID"
+
+# ── Start Next.js (dev mode with hot-reload) ──
 POLYMARKET_API_URL="http://localhost:$API_PORT" \
 NEXT_PUBLIC_API_URL="/api/polymarket" \
 NEXT_PUBLIC_BASE_PATH="/polymarket" \
+NEXT_PUBLIC_BUILD_CID="$BUILD_CID" \
+NEXT_PUBLIC_BUILD_TIME="$BUILD_TIME" \
 PORT=$APP_PORT \
 npx next dev -p $APP_PORT &
 APP_PID=$!

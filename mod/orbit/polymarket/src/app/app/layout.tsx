@@ -8,6 +8,7 @@ import { SplitProvider } from "./context/SplitContext";
 import SidebarShell from "./components/SidebarShell";
 import SplitShell from "./components/SplitShell";
 import MarketTicker from "./components/MarketTicker";
+import BuildBadge from "./components/BuildBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,7 @@ export default function RootLayout({
                       <main>{children}</main>
                     </SidebarShell>
                   </SplitShell>
+                  <BuildBadge />
                 </div>
               </SplitProvider>
             </SidebarProvider>
