@@ -4,7 +4,9 @@ import { AuthProvider } from "./context/AuthContext";
 import { CopyEngineProvider } from "./context/CopyEngineContext";
 import { FiltersProvider } from "./context/FiltersContext";
 import { SidebarProvider } from "./context/SidebarContext";
+import { SplitProvider } from "./context/SplitContext";
 import SidebarShell from "./components/SidebarShell";
+import SplitShell from "./components/SplitShell";
 import MarketTicker from "./components/MarketTicker";
 
 export const dynamic = "force-dynamic";
@@ -26,13 +28,17 @@ export default function RootLayout({
           <CopyEngineProvider>
           <FiltersProvider>
             <SidebarProvider>
-              <div className="crt-overlay" />
-              <div className="crt-screen min-h-screen">
-                <MarketTicker />
-                <SidebarShell>
-                  <main>{children}</main>
-                </SidebarShell>
-              </div>
+              <SplitProvider>
+                <div className="crt-overlay" />
+                <div className="crt-screen min-h-screen">
+                  <MarketTicker />
+                  <SplitShell>
+                    <SidebarShell>
+                      <main>{children}</main>
+                    </SidebarShell>
+                  </SplitShell>
+                </div>
+              </SplitProvider>
             </SidebarProvider>
           </FiltersProvider>
           </CopyEngineProvider>

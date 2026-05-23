@@ -60,6 +60,17 @@ cat > /app/Caddyfile <<EOF
         reverse_proxy localhost:${API_PORT}
     }
 
+    # polymarket CLOB L2 passthrough (order/balance/orders/cancel).
+    # Browser can't hit clob.polymarket.com directly (no CORS), so we
+    # transparently reverse-proxy authenticated L2 calls to upstream.
+    @l2 path /api/polymarket-l2 /api/polymarket-l2/*
+    handle @l2 {
+        uri strip_prefix /api/polymarket-l2
+        reverse_proxy https://clob.polymarket.com {
+            header_up Host clob.polymarket.com
+        }
+    }
+
     # whitepaper (sibling orbit module on the host)
     @whitepaper_api path /api/whitepaper /api/whitepaper/*
     handle @whitepaper_api {

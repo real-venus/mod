@@ -13,8 +13,7 @@ import { computeFifoTrades, buildPnlCurve, buildCombinedPnlCurve, aggregateToReb
 import { loadIndexes, saveIndex, deleteIndex, updateIndex, getActiveIndexId, setActiveIndexId } from "../lib/indexStore";
 import LivePanel from "./LivePanel";
 import StratPicker from "./StratPicker";
-import ProfileWalletPanel from "./ProfileWalletPanel";
-import TokenPanel from "./TokenPanel";
+import WalletFundingPanel from "./WalletFundingPanel";
 
 interface TraderSummary {
   address: string;
@@ -274,7 +273,7 @@ function AddTraderBar({ watchlist, onAdd }: { watchlist: string[]; onAdd: (addr:
   return (
     <div ref={wrapRef} className="relative">
       <div className="flex items-center gap-2">
-        <span className="text-[8px] text-pixel-gray tracking-wider shrink-0">ADD TRADER</span>
+        <span className="text-[10px] text-pixel-gray tracking-wider shrink-0">ADD TRADER</span>
         <div className="relative flex-1">
           <input
             type="text"
@@ -283,22 +282,22 @@ function AddTraderBar({ watchlist, onAdd }: { watchlist: string[]; onAdd: (addr:
             onFocus={() => setFocused(true)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
             placeholder="0x... ADDRESS OR SEARCH NAME"
-            className="pixel-input-sm w-full font-mono text-[10px] pr-16"
+            className="pixel-input-sm w-full font-mono text-[12px] pr-16"
             spellCheck={false}
           />
           {searching && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-green-400 animate-pulse">...</span>
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-green-400 animate-pulse">...</span>
           )}
           {isAddress(input.trim()) && !alreadyAdded && (
             <button
               onClick={handleSubmit}
-              className="absolute right-1 top-1/2 -translate-y-1/2 pixel-btn text-[8px] px-2 py-0 border-green-400 text-green-400 hover:bg-green-400/10"
+              className="absolute right-1 top-1/2 -translate-y-1/2 pixel-btn text-[10px] px-2 py-0 border-green-400 text-green-400 hover:bg-green-400/10"
             >
               ADD
             </button>
           )}
           {alreadyAdded && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-pixel-gray">ALREADY ADDED</span>
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-pixel-gray">ALREADY ADDED</span>
           )}
         </div>
       </div>
@@ -312,12 +311,12 @@ function AddTraderBar({ watchlist, onAdd }: { watchlist: string[]; onAdd: (addr:
               className="w-full flex items-center justify-between px-3 py-2 hover:bg-pixel-white/5 transition-colors text-left"
             >
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono text-pixel-white">{shortAddress(t.address)}</span>
-                <span className={`text-[9px] font-mono ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                <span className="text-[12px] font-mono text-pixel-white">{shortAddress(t.address)}</span>
+                <span className={`text-[11px] font-mono ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
                   {formatPnl(t.pnl)}
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-[8px] text-pixel-gray font-mono">
+              <div className="flex items-center gap-3 text-[10px] text-pixel-gray font-mono">
                 <span>VOL {formatVolume(t.volume)}</span>
                 <span>{t.recentTrades || t.positions} trades</span>
               </div>
@@ -327,7 +326,7 @@ function AddTraderBar({ watchlist, onAdd }: { watchlist: string[]; onAdd: (addr:
       )}
       {focused && coldCache && input.trim() && !isAddress(input.trim()) && (
         <div className="absolute z-50 left-0 right-0 mt-1 pixel-panel border-2 border-pixel-border bg-pixel-black px-3 py-2">
-          <span className="text-[9px] text-pixel-gray">TRADER CACHE WARMING — PASTE 0x ADDRESS DIRECTLY</span>
+          <span className="text-[11px] text-pixel-gray">TRADER CACHE WARMING — PASTE 0x ADDRESS DIRECTLY</span>
         </div>
       )}
     </div>
@@ -343,7 +342,7 @@ interface CopyIndexProps {
 export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexProps) {
   const router = useRouter();
   const filterQs = useFilterParams({ excludeSearch: true });
-  const { localToken } = useAuth();
+  const { localToken, auth } = useAuth();
 
   // ── Strategy management ──
   const [savedIndexes, setSavedIndexes] = useState<SavedIndex[]>([]);
@@ -381,8 +380,8 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
   // ── Weights (local state, persisted on change) ──
   const [traderWeights, setTraderWeights] = useState<Record<string, number>>({});
 
-  // ── Mode toggle (STRATS = manage, BACKTEST = test, LIVE = copy, PROFILE = wallet) ──
-  const [mode, setMode] = useState<"STRATS" | "BACKTEST" | "LIVE" | "PROFILE">("STRATS");
+  // ── Mode toggle (STRATS = manage, BACKTEST = test, LIVE = copy) ──
+  const [mode, setMode] = useState<"STRATS" | "BACKTEST" | "LIVE">("STRATS");
 
   // Derive watchlist from active strategy (only enabled traders)
   const watchlist = useMemo(
@@ -1077,25 +1076,38 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
     <div className="space-y-2">
       {/* ── Header: key + tabs + close ── */}
       <div className="pixel-panel px-3 py-2 space-y-2">
-        {/* Key + token row */}
+        {/* Key + token row — KEY is the connected wallet's 0x address (the
+            identity that signs the CLOB EIP-712 auth + is recovered by the
+            backend), TOKEN is the local strat-encryption preview. */}
         <div className="flex items-center justify-between gap-2">
-          {localToken ? (
-            <div className="flex items-center gap-3 text-[12px] font-mono min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 shrink-0 px-1.5 py-0.5 border border-green-400/40 bg-green-400/5">
-                <div className="w-1.5 h-1.5 bg-green-400" />
-                <span className="text-pixel-gray text-[10px]">TOKEN</span>
-                <span className="text-green-400">{localToken.tokenPreview}</span>
-              </div>
+          {auth.address || localToken ? (
+            <div className="flex items-center gap-3 text-[14px] font-mono min-w-0 flex-1">
+              {localToken && (
+                <div className="flex items-center gap-1.5 shrink-0 px-1.5 py-0.5 border border-green-400/40 bg-green-400/5">
+                  <div className="w-1.5 h-1.5 bg-green-400" />
+                  <span className="text-pixel-gray text-[12px]">TOKEN</span>
+                  <span className="text-green-400">{localToken.tokenPreview}</span>
+                </div>
+              )}
               <span className="text-pixel-gray shrink-0">KEY</span>
-              <span className="text-green-400 truncate">{localToken.token}</span>
+              {auth.address ? (
+                <span
+                  className={`truncate ${auth.authenticated ? "text-green-400" : "text-amber-400"}`}
+                  title={auth.authenticated ? "Wallet signed for CLOB" : "Wallet connected — not yet signed for CLOB"}
+                >
+                  {auth.address}
+                </span>
+              ) : (
+                <span className="text-pixel-gray truncate">NOT CONNECTED</span>
+              )}
             </div>
           ) : (
-            <span className="text-[12px] text-pixel-gray tracking-wider font-mono">NO KEY</span>
+            <span className="text-[14px] text-pixel-gray tracking-wider font-mono">NO KEY</span>
           )}
           {onClose && (
             <button
               onClick={onClose}
-              className="pixel-btn text-[11px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white shrink-0 ml-2"
+              className="pixel-btn text-[13px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white shrink-0 ml-2"
               title="Close"
             >
               X
@@ -1109,7 +1121,6 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
               { id: "STRATS", label: "STRATS", disabled: false },
               { id: "BACKTEST", label: "BACKTEST", disabled: watchlist.length === 0 },
               { id: "LIVE", label: "LIVE", disabled: watchlist.length === 0 },
-              { id: "PROFILE", label: "PROFILE", disabled: false },
             ] as { id: typeof mode; label: string; disabled: boolean }[]
           ).map((t) => {
             const active = mode === t.id;
@@ -1119,7 +1130,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                 onClick={() => setMode(t.id)}
                 disabled={t.disabled}
                 style={{ fontFamily: '"Press Start 2P", monospace', letterSpacing: "0.08em" }}
-                className={`relative text-[13px] px-4 py-2 transition-all uppercase ${
+                className={`relative text-[15px] px-4 py-2 transition-all uppercase ${
                   active
                     ? "text-green-400"
                     : "text-pixel-gray hover:text-pixel-white"
@@ -1137,6 +1148,9 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
         </div>
       </div>
 
+      {/* ── Wallet/funding (always visible on STRATS tab) ── */}
+      {mode === "STRATS" && <WalletFundingPanel />}
+
       {/* ── Strat Leaderboard (full picker on STRATS tab only) ── */}
       {mode === "STRATS" && <StratPicker onStratChange={() => setRefreshKey((v) => v + 1)} />}
 
@@ -1144,19 +1158,19 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       {mode !== "STRATS" && activeIndex && (
         <div className="pixel-panel px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-[10px] text-pixel-gray tracking-wider shrink-0">STRAT</span>
+            <span className="text-[12px] text-pixel-gray tracking-wider shrink-0">STRAT</span>
             <div className="w-2 h-2 bg-green-400 shrink-0" />
-            <span className="text-[13px] font-mono text-green-400 font-bold truncate">{activeIndex.name}</span>
-            <span className="text-[11px] text-pixel-gray shrink-0">{activeIndex.traders.length}T</span>
+            <span className="text-[15px] font-mono text-green-400 font-bold truncate">{activeIndex.name}</span>
+            <span className="text-[13px] text-pixel-gray shrink-0">{activeIndex.traders.length}T</span>
             {activeIndex.lastPnlAfterCosts !== undefined && (
-              <span className={`text-[11px] font-mono shrink-0 ${activeIndex.lastPnlAfterCosts >= 0 ? "text-green-400" : "text-red-400"}`}>
+              <span className={`text-[13px] font-mono shrink-0 ${activeIndex.lastPnlAfterCosts >= 0 ? "text-green-400" : "text-red-400"}`}>
                 {activeIndex.lastPnlAfterCosts >= 0 ? "+" : ""}${activeIndex.lastPnlAfterCosts.toFixed(0)}
               </span>
             )}
           </div>
           <button
             onClick={() => setMode("STRATS")}
-            className="text-[10px] text-pixel-gray hover:text-green-400 transition-colors px-2 py-1 border border-pixel-border hover:border-green-400 font-mono shrink-0"
+            className="text-[12px] text-pixel-gray hover:text-green-400 transition-colors px-2 py-1 border border-pixel-border hover:border-green-400 font-mono shrink-0"
             title="Switch strat"
           >
             CHANGE →
@@ -1171,9 +1185,9 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
             <div className="flex-1">
               <AddTraderBar watchlist={watchlist} onAdd={addTrader} />
             </div>
-            <div className="flex items-center gap-2 shrink-0 text-[9px] font-mono">
+            <div className="flex items-center gap-2 shrink-0 text-[11px] font-mono">
               {loading && (
-                <span className="text-[7px] text-green-400 animate-pulse">
+                <span className="text-[9px] text-green-400 animate-pulse">
                   {loadedCount}/{watchlist.length}
                 </span>
               )}
@@ -1188,10 +1202,10 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
           {/* Toolbar: count + actions + weight sum */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-pixel-gray tracking-wider">{watchlist.length}/{allTraderAddrs.length} ACTIVE</span>
+              <span className="text-[12px] text-pixel-gray tracking-wider">{watchlist.length}/{allTraderAddrs.length} ACTIVE</span>
               <button
                 onClick={equalizeWeights}
-                className="pixel-btn text-[9px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"
+                className="pixel-btn text-[11px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"
                 title="Equalize all weights"
               >
                 EQ
@@ -1199,14 +1213,14 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
               {totalWeight !== 100 && totalWeight > 0 && (
                 <button
                   onClick={normalizeWeights}
-                  className="pixel-btn text-[9px] px-2 py-1 border-amber-400/60 text-amber-400 hover:bg-amber-400/10 transition-colors"
+                  className="pixel-btn text-[11px] px-2 py-1 border-amber-400/60 text-amber-400 hover:bg-amber-400/10 transition-colors"
                   title="Normalize weights to 100%"
                 >
                   NORM
                 </button>
               )}
             </div>
-            <span className={`text-[11px] font-mono ${
+            <span className={`text-[13px] font-mono ${
               totalWeight === 100 ? "text-pixel-gray" : totalWeight > 0 ? "text-amber-400" : "text-pixel-gray"
             }`}>
               {totalWeight}%
@@ -1214,7 +1228,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
           </div>
 
           {/* Column headers */}
-          <div className="flex items-center text-[8px] text-pixel-gray tracking-wider px-0.5 border-t border-pixel-border pt-1">
+          <div className="flex items-center text-[10px] text-pixel-gray tracking-wider px-0.5 border-t border-pixel-border pt-1">
             <span className="w-5 shrink-0" />
             <span className="w-5 shrink-0" />
             <span className="flex-1">ADDRESS</span>
@@ -1241,14 +1255,14 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                   >
                     <div className={`w-1.5 h-1.5 rounded-full transition-colors ${t.enabled ? "bg-green-400" : "bg-pixel-gray"}`} />
                   </button>
-                  <span className="text-[8px] text-pixel-gray font-mono w-5 shrink-0 text-center">{i + 1}</span>
+                  <span className="text-[10px] text-pixel-gray font-mono w-5 shrink-0 text-center">{i + 1}</span>
                   <button
                     onClick={() => goToTrader(t.address)}
-                    className="flex-1 text-left text-[11px] font-mono text-pixel-white hover:text-green-400 transition-colors truncate"
+                    className="flex-1 text-left text-[13px] font-mono text-pixel-white hover:text-green-400 transition-colors truncate"
                   >
                     {shortAddress(t.address)}
                   </button>
-                  <span className={`w-16 text-right text-[11px] font-mono ${pnlColor}`}>
+                  <span className={`w-16 text-right text-[13px] font-mono ${pnlColor}`}>
                     {curvePnl !== undefined ? formatPnl(curvePnl) : t.loaded ? formatPnl(t.totalPnl) : "..."}
                   </span>
                   {/* Weight slider + value */}
@@ -1261,11 +1275,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       onChange={(e) => updateWeight(t.address, parseInt(e.target.value, 10))}
                       className="flex-1 h-[4px] appearance-none bg-pixel-border rounded cursor-grab accent-green-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:bg-green-400 [&::-webkit-slider-thumb]:cursor-grab"
                     />
-                    <span className="text-[10px] font-mono text-pixel-gray w-9 text-right shrink-0">{w}%</span>
+                    <span className="text-[12px] font-mono text-pixel-gray w-9 text-right shrink-0">{w}%</span>
                   </div>
                   <button
                     onClick={() => removeTrader(t.address)}
-                    className="w-5 text-center text-[9px] text-pixel-gray hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                    className="w-5 text-center text-[11px] text-pixel-gray hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                     title="Remove trader"
                   >
                     x
@@ -1283,8 +1297,8 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
           {/* Empty trader state */}
           {watchlist.length === 0 && (
             <div className="pixel-panel p-4 text-center space-y-2">
-              <div className="text-[10px] text-pixel-gray">NO TRADERS YET</div>
-              <div className="text-[8px] text-pixel-gray-light">
+              <div className="text-[12px] text-pixel-gray">NO TRADERS YET</div>
+              <div className="text-[10px] text-pixel-gray-light">
                 ADD TRADERS ABOVE OR FROM THE{" "}
                 <button onClick={() => router.push("/traders")} className="text-pixel-white hover:text-green-400 transition-colors">
                   TRADERS
@@ -1299,7 +1313,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
               {/* Header: days input + capital input + stats */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-pixel-white tracking-wider">BACKTEST</span>
+                  <span className="text-[12px] text-pixel-white tracking-wider">BACKTEST</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1326,9 +1340,9 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       }
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-10 text-center font-mono text-[9px] border-pixel-border"
+                    className="pixel-input-sm w-10 text-center font-mono text-[11px] border-pixel-border"
                   />
-                  <span className="text-[8px] text-pixel-gray">DAYS</span>
+                  <span className="text-[10px] text-pixel-gray">DAYS</span>
                   <button
                     onClick={() => {
                       const v = parseInt(backtestDaysInput, 10);
@@ -1337,13 +1351,13 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       }
                       setRefreshKey((k) => k + 1);
                     }}
-                    className="pixel-btn text-[8px] px-2 py-0.5 border-green-400 text-green-400 hover:bg-green-400/10 transition-colors"
+                    className="pixel-btn text-[10px] px-2 py-0.5 border-green-400 text-green-400 hover:bg-green-400/10 transition-colors"
                     title="Run backtest with current settings"
                   >
                     RUN
                   </button>
                   <span className="text-pixel-border">|</span>
-                  <span className="text-[8px] text-pixel-gray">$</span>
+                  <span className="text-[10px] text-pixel-gray">$</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1353,10 +1367,10 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0) updateCapital(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-16 text-center font-mono text-[9px] border-pixel-border"
+                    className="pixel-input-sm w-16 text-center font-mono text-[11px] border-pixel-border"
                   />
                   <span className="text-pixel-border">|</span>
-                  <span className="text-[8px] text-pixel-gray">MIN</span>
+                  <span className="text-[10px] text-pixel-gray">MIN</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1366,9 +1380,9 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v >= 0) updateMinTrade(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-12 text-center font-mono text-[9px] border-pixel-border"
+                    className="pixel-input-sm w-12 text-center font-mono text-[11px] border-pixel-border"
                   />
-                  <span className="text-[8px] text-pixel-gray">MAX</span>
+                  <span className="text-[10px] text-pixel-gray">MAX</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1378,10 +1392,10 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0) updateMaxTrade(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-12 text-center font-mono text-[9px] border-pixel-border"
+                    className="pixel-input-sm w-12 text-center font-mono text-[11px] border-pixel-border"
                   />
                   <span className="text-pixel-border">|</span>
-                  <span className="text-[8px] text-pixel-gray">MAX/HR</span>
+                  <span className="text-[10px] text-pixel-gray">MAX/HR</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1391,11 +1405,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0) updateMaxTradesPerHour(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-12 text-center font-mono text-[9px] border-pixel-border"
+                    className="pixel-input-sm w-12 text-center font-mono text-[11px] border-pixel-border"
                   />
-                  <span className="text-[7px] text-pixel-gray/60 font-mono">{backtestDateRange.from}–{backtestDateRange.to}</span>
+                  <span className="text-[9px] text-pixel-gray/60 font-mono">{backtestDateRange.from}–{backtestDateRange.to}</span>
                 </div>
-                <div className="flex items-center gap-3 text-[9px] font-mono">
+                <div className="flex items-center gap-3 text-[11px] font-mono">
                   <span className="text-pixel-gray">P&L:</span>
                   <span className={weightedPnlAfterCosts >= 0 ? "text-green-400" : "text-red-400"}>
                     {formatPnl(weightedPnlAfterCosts)}
@@ -1408,12 +1422,12 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
               </div>
 
               {/* Rebalancing settings */}
-              <div className="flex items-center gap-3 text-[8px] border-t border-pixel-border/30 pt-2 flex-wrap">
+              <div className="flex items-center gap-3 text-[10px] border-t border-pixel-border/30 pt-2 flex-wrap">
                 <span className="text-pixel-gray tracking-wider">BACKTEST:</span>
                 <select
                   value={rebalancePeriod}
                   onChange={(e) => updateRebalancePeriod(Number(e.target.value))}
-                  className="pixel-input-sm px-2 py-0.5 font-mono text-[8px] border-pixel-border bg-pixel-black"
+                  className="pixel-input-sm px-2 py-0.5 font-mono text-[10px] border-pixel-border bg-pixel-black"
                 >
                   <option value={0}>OFF (PER-TRADE)</option>
                   <option value={1}>1H</option>
@@ -1426,7 +1440,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                 <select
                   value={rebalanceHour}
                   onChange={(e) => updateRebalanceHour(Number(e.target.value))}
-                  className="pixel-input-sm px-2 py-0.5 font-mono text-[8px] border-pixel-border bg-pixel-black"
+                  className="pixel-input-sm px-2 py-0.5 font-mono text-[10px] border-pixel-border bg-pixel-black"
                 >
                   <option value={0}>00:00 (MIDNIGHT)</option>
                   <option value={6}>06:00</option>
@@ -1440,7 +1454,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                 <select
                   value={rebalanceMinutes}
                   onChange={(e) => updateRebalanceMinutes(Number(e.target.value))}
-                  className="pixel-input-sm px-2 py-0.5 font-mono text-[8px] border-pixel-border bg-pixel-black"
+                  className="pixel-input-sm px-2 py-0.5 font-mono text-[10px] border-pixel-border bg-pixel-black"
                 >
                   <option value={15}>15MIN</option>
                   <option value={60}>1H</option>
@@ -1461,7 +1475,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                 const costWarning = feedCosts > 5 && (grossPnl <= 0 || feedCosts > grossPnl * 0.5);
                 return (
                   <>
-                    <div className="flex items-center justify-between flex-wrap gap-2 text-[9px] font-mono px-1">
+                    <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] font-mono px-1">
                       <div className="flex items-center gap-3">
                         <span className="text-pixel-gray">FEES:</span>
                         <span className="text-amber-400">${feedFees.toFixed(2)}</span>
@@ -1481,7 +1495,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
 
                     {costWarning && !loading && (
                       <div className="px-3 py-2 border border-amber-400/40 bg-amber-400/5">
-                        <div className="text-[9px] text-amber-400 font-mono">
+                        <div className="text-[11px] text-amber-400 font-mono">
                           {feedCosts > grossPnl && grossPnl > 0
                             ? `FEES ($${feedCosts.toFixed(0)}) EXCEED GROSS P&L (${formatPnl(grossPnl)}) — COPYING ${watchlist.length} TRADERS AT ${linkedTrades.length} TXS IS UNPROFITABLE AFTER COSTS`
                             : grossPnl <= 0
@@ -1509,11 +1523,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                 />
               ) : !loading && watchlist.length > 0 ? (
                 <div className="p-6 text-center">
-                  <span className="text-[9px] text-pixel-gray">NOT ENOUGH TRADE DATA FOR PNL CURVE</span>
+                  <span className="text-[11px] text-pixel-gray">NOT ENOUGH TRADE DATA FOR PNL CURVE</span>
                 </div>
               ) : loading ? (
                 <div className="p-6 text-center">
-                  <span className="text-[9px] text-pixel-gray animate-pulse">LOADING...</span>
+                  <span className="text-[11px] text-pixel-gray animate-pulse">LOADING...</span>
                 </div>
               ) : null}
               </div>
@@ -1529,8 +1543,8 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
             return (
               <div className="pixel-panel overflow-hidden">
                 <div className="px-4 py-2.5 border-b-2 border-pixel-border flex items-center justify-between">
-                  <span className="text-[10px] text-pixel-gray-light tracking-wider">TRADE FEED</span>
-                  <div className="flex items-center gap-3 text-[9px] font-mono">
+                  <span className="text-[12px] text-pixel-gray-light tracking-wider">TRADE FEED</span>
+                  <div className="flex items-center gap-3 text-[11px] font-mono">
                     <span className="text-pixel-gray">{linkedTrades.length} TRADES</span>
                     {linkedTrades.length > 0 && (
                       <span className={finalPnl >= 0 ? "text-green-400" : "text-red-400"}>
@@ -1539,7 +1553,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                     )}
                     <button
                       onClick={() => setFeedOrder((o) => (o === "newest" ? "oldest" : "newest"))}
-                      className="pixel-btn text-[9px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"
+                      className="pixel-btn text-[11px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"
                       title="Toggle sort order"
                     >
                       {feedOrder === "newest" ? "NEW→OLD" : "OLD→NEW"}
@@ -1549,7 +1563,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
 
                 {loading ? (
                   <div className="p-8 text-center">
-                    <div className="text-[10px] text-pixel-white animate-pulse">LOADING...</div>
+                    <div className="text-[12px] text-pixel-white animate-pulse">LOADING...</div>
                   </div>
                 ) : linkedTrades.length > 0 ? (
                   <>
@@ -1597,12 +1611,12 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                                 }}
                               >
                                 <td title={t.market} className="whitespace-nowrap">
-                                  <div className="text-[9px] text-pixel-gray-light font-mono">{when}</div>
+                                  <div className="text-[11px] text-pixel-gray-light font-mono">{when}</div>
                                 </td>
                                 <td>
                                   <button
                                     onClick={() => goToTrader(t.trader)}
-                                    className="text-[9px] font-mono text-pixel-gray-light hover:text-green-400 transition-colors"
+                                    className="text-[11px] font-mono text-pixel-gray-light hover:text-green-400 transition-colors"
                                   >
                                     {shortAddress(t.trader)}
                                   </button>
@@ -1655,7 +1669,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                   </>
                 ) : (
                   <div className="p-8 text-center">
-                    <div className="text-[10px] text-pixel-gray">NO TRADES IN THIS WINDOW</div>
+                    <div className="text-[12px] text-pixel-gray">NO TRADES IN THIS WINDOW</div>
                   </div>
                 )}
               </div>
@@ -1667,13 +1681,6 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
         </>
       )}
 
-      {/* ── Profile Panel ── */}
-      {mode === "PROFILE" && (
-        <div className="space-y-2">
-          <ProfileWalletPanel />
-          <TokenPanel />
-        </div>
-      )}
     </div>
   );
 }

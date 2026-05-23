@@ -48,9 +48,18 @@ async fn forward(
     method: reqwest::Method,
 ) -> axum::response::Response {
     let url = format!("{}{}", CLOB_API, path);
+    tracing::info!(
+        "[clob-auth] -> {} {} (addr={}, ts={}, nonce={}, sig_len={})",
+        method,
+        url,
+        p.address,
+        p.timestamp,
+        p.nonce,
+        p.signature.len(),
+    );
     let resp = state
         .http
-        .request(method, &url)
+        .request(method.clone(), &url)
         .header("POLY_ADDRESS", &p.address)
         .header("POLY_SIGNATURE", &p.signature)
         .header("POLY_TIMESTAMP", &p.timestamp)
@@ -61,6 +70,7 @@ async fn forward(
     let resp = match resp {
         Ok(r) => r,
         Err(e) => {
+            tracing::warn!("[clob-auth] upstream request error: {}", e);
             return (
                 StatusCode::BAD_GATEWAY,
                 Json(json!({"error": format!("upstream request failed: {}", e)})),
@@ -71,6 +81,14 @@ async fn forward(
 
     let status = resp.status();
     let body_text = resp.text().await.unwrap_or_default();
+    tracing::info!(
+        "[clob-auth] <- {} {} status={} body_len={} body_preview={:?}",
+        method,
+        url,
+        status,
+        body_text.len(),
+        body_text.chars().take(200).collect::<String>(),
+    );
     let body_json: Value =
         serde_json::from_str(&body_text).unwrap_or_else(|_| json!({"raw": body_text}));
 

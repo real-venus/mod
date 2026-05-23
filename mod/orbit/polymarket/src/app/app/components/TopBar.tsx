@@ -4,6 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useFilters, useFilterParams } from "../context/FiltersContext";
 import ProfileMenu from "./ProfileMenu";
+import WalletChip from "./WalletChip";
+import ClobChip from "./ClobChip";
+import TokenChip from "./TokenChip";
+import SplitButton from "./SplitButton";
 
 const NAV = [
   { href: "/markets", label: "MARKETS" },
@@ -51,7 +55,7 @@ export default function TopBar({
                 <Link
                   key={t.href}
                   href={tabHref(t.href)}
-                  className={`px-3 py-3 text-[11px] tracking-widest border-b-2 transition-all ${
+                  className={`px-3 py-3 text-[13px] tracking-widest border-b-2 transition-all ${
                     active
                       ? "text-pixel-white border-pixel-white"
                       : "text-pixel-gray border-transparent hover:text-pixel-white hover:border-pixel-border"
@@ -68,18 +72,18 @@ export default function TopBar({
         {showSearch ? (
           <div className="flex-1 flex justify-center">
             <div className="relative w-full max-w-[480px]">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] text-pixel-gray pointer-events-none">/</span>
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-pixel-gray pointer-events-none">/</span>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="pixel-input-sm w-full pl-6 pr-7 font-mono text-[10px]"
+                className="pixel-input-sm w-full pl-6 pr-7 font-mono text-[12px]"
               />
               {search && (
                 <button
                   onClick={() => setSearch("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-pixel-gray hover:text-pixel-white"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-pixel-gray hover:text-pixel-white"
                 >
                   x
                 </button>
@@ -90,8 +94,12 @@ export default function TopBar({
           <div className="flex-1" />
         )}
 
-        {/* ── RIGHT: expandable profile ── */}
-        <div className="shrink-0">
+        {/* ── RIGHT: wallet + CLOB + token chips + split + profile ── */}
+        <div className="shrink-0 flex items-center gap-2">
+          <WalletChip />
+          <ClobChip />
+          <TokenChip />
+          <SplitButton />
           <ProfileMenu />
         </div>
       </div>

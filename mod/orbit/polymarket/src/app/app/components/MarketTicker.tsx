@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useLiveMarkets } from "../lib/useLiveMarkets";
 import { PolymarketMarket } from "../lib/types";
+import { useEmbedded } from "../lib/embedded";
 
 /**
  * Slim live-price tape that sits above the top bar.
@@ -13,16 +14,21 @@ import { PolymarketMarket } from "../lib/types";
  */
 export default function MarketTicker() {
   const router = useRouter();
+  const embedded = useEmbedded();
   const { markets, prevPrices, loading, error } = useLiveMarkets({
     limit: 24,
     order: "volume",
     intervalMs: 8000,
   });
 
+  // Embedded panes skip the ticker — it eats vertical space and the user
+  // already has it in the main pane.
+  if (embedded) return null;
+
   if (loading && markets.length === 0) {
     return (
       <div className="h-7 border-b border-pixel-border bg-pixel-black/80 flex items-center px-4">
-        <span className="text-[9px] tracking-[3px] text-pixel-gray uppercase">live · loading…</span>
+        <span className="text-[11px] tracking-[3px] text-pixel-gray uppercase">live · loading…</span>
       </div>
     );
   }
@@ -42,7 +48,7 @@ export default function MarketTicker() {
       <div className="absolute inset-y-0 left-0 z-10 w-3 bg-gradient-to-r from-pixel-black to-transparent pointer-events-none" />
       <div className="absolute inset-y-0 right-0 z-10 w-3 bg-gradient-to-l from-pixel-black to-transparent pointer-events-none" />
       <div className="absolute left-0 top-0 z-10 h-full px-2 flex items-center bg-pixel-black border-r border-pixel-border">
-        <span className="text-[9px] tracking-[3px] text-pixel-white uppercase font-mono">
+        <span className="text-[11px] tracking-[3px] text-pixel-white uppercase font-mono">
           <span
             className="inline-block w-1.5 h-1.5 mr-1.5 bg-green-400 align-middle"
             style={{ animation: "ticker-pulse 1.4s infinite" }}
@@ -106,10 +112,10 @@ function TickerChip({
       className="flex items-center gap-2 cursor-pointer hover:bg-pixel-white/5 px-1 py-0.5 transition-colors"
       title={market.question}
     >
-      <span className="text-[10px] text-pixel-gray-light truncate max-w-[280px] font-mono">{title}</span>
-      <span className="text-[11px] font-mono font-bold" style={{ color: dirColor }}>{yesPct}¢</span>
+      <span className="text-[12px] text-pixel-gray-light truncate max-w-[280px] font-mono">{title}</span>
+      <span className="text-[13px] font-mono font-bold" style={{ color: dirColor }}>{yesPct}¢</span>
       {delta !== 0 && (
-        <span className="text-[9px] font-mono" style={{ color: dirColor }}>
+        <span className="text-[11px] font-mono" style={{ color: dirColor }}>
           {delta > 0 ? "▲" : "▼"}{Math.abs(delta)}
         </span>
       )}

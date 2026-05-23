@@ -167,9 +167,9 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
     const state = syncStates[id];
     if (!localToken) return null;
     switch (state) {
-      case "syncing": return <span className="text-[9px] text-amber-400 animate-pulse ml-1">SYNC</span>;
-      case "synced": return <span className="text-[9px] text-green-400 ml-1">OK</span>;
-      case "error": return <span className="text-[9px] text-red-400 ml-1">ERR</span>;
+      case "syncing": return <span className="text-[11px] text-amber-400 animate-pulse ml-1">SYNC</span>;
+      case "synced": return <span className="text-[11px] text-green-400 ml-1">OK</span>;
+      case "error": return <span className="text-[11px] text-red-400 ml-1">ERR</span>;
       default: return null;
     }
   };
@@ -179,11 +179,11 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
       {/* Header */}
       <div className="px-4 py-2.5 border-b-2 border-pixel-border flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-[13px] text-pixel-white font-bold tracking-wider">STRATS</span>
+          <span className="text-[15px] text-pixel-white font-bold tracking-wider">STRATS</span>
         </div>
         <button
           onClick={create}
-          className="text-[13px] text-pixel-gray hover:text-green-400 transition-colors px-3 py-1.5 border border-pixel-border hover:border-green-400 font-mono"
+          className="text-[15px] text-pixel-gray hover:text-green-400 transition-colors px-3 py-1.5 border border-pixel-border hover:border-green-400 font-mono"
           title="Create new strat"
         >
           + NEW
@@ -192,7 +192,7 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
 
       {/* Leaderboard header */}
       {indexes.length > 0 && (
-        <div className="px-4 py-1.5 border-b border-pixel-border/50 flex items-center text-[11px] text-pixel-gray tracking-wider">
+        <div className="px-4 py-1.5 border-b border-pixel-border/50 flex items-center text-[13px] text-pixel-gray tracking-wider">
           <span className="flex-1 min-w-0">NAME</span>
           <span className="w-16 text-right">P&L</span>
           <span className="w-16 text-right">ROI</span>
@@ -205,7 +205,7 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
       {/* Strat list / leaderboard */}
       <div className="max-h-[300px] overflow-y-auto">
         {sorted.length === 0 ? (
-          <div className="px-4 py-5 text-center text-[12px] text-pixel-gray">
+          <div className="px-4 py-5 text-center text-[14px] text-pixel-gray">
             NO STRATS — CLICK + NEW
           </div>
         ) : (
@@ -225,7 +225,7 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
                   onClick={() => select(idx.id)}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-[11px] text-pixel-gray w-5 shrink-0 text-right">{rank + 1}.</span>
+                    <span className="text-[13px] text-pixel-gray w-5 shrink-0 text-right">{rank + 1}.</span>
                     {isActive && <div className="w-2 h-2 bg-green-400 shrink-0" />}
                     {renamingId === idx.id ? (
                       <input
@@ -237,31 +237,31 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
                           if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
                         }}
                         onBlur={commitRename}
-                        className="text-[13px] font-mono bg-transparent border-b border-green-400 text-green-400 outline-none w-28"
+                        className="text-[15px] font-mono bg-transparent border-b border-green-400 text-green-400 outline-none w-28"
                         autoFocus
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : (
                       <span
-                        className={`text-[13px] font-mono truncate ${isActive ? "text-green-400 font-bold" : "text-pixel-white"}`}
+                        className={`text-[15px] font-mono truncate ${isActive ? "text-green-400 font-bold" : "text-pixel-white"}`}
                         onDoubleClick={(e) => { e.stopPropagation(); startRename(idx.id, idx.name); }}
                         title="Double-click to rename"
                       >
                         {idx.name}
                       </span>
                     )}
-                    <span className="text-[11px] text-pixel-gray shrink-0">{idx.traders.length}T</span>
+                    <span className="text-[13px] text-pixel-gray shrink-0">{idx.traders.length}T</span>
                     {idx.liveEnabled && <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shrink-0" title="LIVE" />}
                     {syncBadge(idx.id)}
                   </div>
                   <div className="flex items-center shrink-0">
-                    <span className={`w-16 text-right text-[13px] font-mono ${hasPnl ? pnlColor : "text-pixel-gray"}`}>
+                    <span className={`w-16 text-right text-[15px] font-mono ${hasPnl ? pnlColor : "text-pixel-gray"}`}>
                       {formatPnlShort(idx.lastPnlAfterCosts)}
                     </span>
-                    <span className={`w-16 text-right text-[13px] font-mono ${hasPnl ? roiColor : "text-pixel-gray"}`}>
+                    <span className={`w-16 text-right text-[15px] font-mono ${hasPnl ? roiColor : "text-pixel-gray"}`}>
                       {formatPctShort(idx.lastRoi1k)}
                     </span>
-                    <span className="w-12 text-right text-[12px] text-pixel-gray font-mono">
+                    <span className="w-12 text-right text-[14px] text-pixel-gray font-mono">
                       {idx.lastTradeCount ?? "—"}
                     </span>
                     <button
@@ -269,7 +269,7 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
                         e.stopPropagation();
                         setEditingRebalance(editingRebalance === idx.id ? null : idx.id);
                       }}
-                      className={`w-12 text-right text-[12px] font-mono transition-colors ${
+                      className={`w-12 text-right text-[14px] font-mono transition-colors ${
                         (idx.rebalanceMinutes ?? 0) > 0
                           ? "text-green-400 hover:text-amber-400"
                           : "text-pixel-gray hover:text-pixel-white"
@@ -282,7 +282,7 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
                       {localToken && syncStates[idx.id] !== "synced" && (
                         <button
                           onClick={(e) => { e.stopPropagation(); pushToServer(idx); }}
-                          className="text-[10px] text-amber-400 hover:text-green-400"
+                          className="text-[12px] text-amber-400 hover:text-green-400"
                           title="Save to server"
                         >
                           ↑
@@ -290,7 +290,7 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); remove(idx.id); }}
-                        className="text-[12px] text-pixel-gray hover:text-red-400"
+                        className="text-[14px] text-pixel-gray hover:text-red-400"
                       >
                         x
                       </button>
@@ -301,12 +301,12 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
                 {/* Rebalance period selector */}
                 {editingRebalance === idx.id && (
                   <div className="px-4 py-2 border-b border-pixel-border/30 bg-pixel-black/80 flex items-center gap-2">
-                    <span className="text-[11px] text-pixel-gray mr-1">REBALANCE:</span>
+                    <span className="text-[13px] text-pixel-gray mr-1">REBALANCE:</span>
                     {REBALANCE_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         onClick={(e) => { e.stopPropagation(); setRebalance(idx.id, opt.value); }}
-                        className={`text-[11px] px-2.5 py-0.5 rounded transition-colors ${
+                        className={`text-[13px] px-2.5 py-0.5 rounded transition-colors ${
                           (idx.rebalanceMinutes ?? 0) === opt.value
                             ? "text-green-400 bg-green-400/10"
                             : "text-pixel-gray hover:text-pixel-white"

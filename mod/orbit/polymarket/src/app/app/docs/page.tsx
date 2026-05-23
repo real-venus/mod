@@ -168,7 +168,7 @@ const CLI_COMMANDS = [
 function MethodBadge({ method }: { method: "GET" | "POST" }) {
   return (
     <span
-      className={`pixel-badge text-[5px] ${
+      className={`pixel-badge text-[7px] ${
         method === "GET"
           ? "border-pixel-white text-pixel-white"
           : "border-pixel-gray-light text-pixel-gray-light"
@@ -188,20 +188,20 @@ export default function DocsPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="pixel-btn text-[6px] border-pixel-border text-pixel-gray hover:text-pixel-white"
+              className="pixel-btn text-[8px] border-pixel-border text-pixel-gray hover:text-pixel-white"
             >
               BACK
             </Link>
             <div className="flex flex-col">
-              <span className="text-pixel-white text-[9px] glow-green tracking-wider leading-tight">
+              <span className="text-pixel-white text-[11px] glow-green tracking-wider leading-tight">
                 API DOCUMENTATION
               </span>
-              <span className="text-pixel-gray text-[5px] tracking-widest leading-tight">
+              <span className="text-pixel-gray text-[7px] tracking-widest leading-tight">
                 SUPER POLYMARKET BROS
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[6px] text-pixel-gray">
+          <div className="flex items-center gap-2 text-[8px] text-pixel-gray">
             <div className="w-1.5 h-1.5 bg-pixel-white animate-pulse" />
             <span className="text-pixel-white">v1.0</span>
             <span className="text-pixel-border">|</span>
@@ -213,8 +213,8 @@ export default function DocsPage() {
       <div className="p-4 space-y-6">
         {/* Overview */}
         <div className="pixel-panel p-4 space-y-3">
-          <div className="text-[8px] text-pixel-white tracking-wider">OVERVIEW</div>
-          <div className="text-[6px] text-pixel-gray-light leading-relaxed space-y-2">
+          <div className="text-[10px] text-pixel-white tracking-wider">OVERVIEW</div>
+          <div className="text-[8px] text-pixel-gray-light leading-relaxed space-y-2">
             <p>
               The Polymarket API proxy provides read access to the Gamma API (market data, events,
               search) and the Data API (positions, trades, leaderboards), plus authenticated
@@ -227,15 +227,15 @@ export default function DocsPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="pixel-panel p-3">
-              <div className="text-[6px] text-pixel-white mb-1">/api/polymarket</div>
-              <div className="text-[5px] text-pixel-gray leading-relaxed">
+              <div className="text-[8px] text-pixel-white mb-1">/api/polymarket</div>
+              <div className="text-[7px] text-pixel-gray leading-relaxed">
                 Proxies to Gamma API (gamma-api.polymarket.com) for market data, search, events.
                 Also proxies to Data API (data-api.polymarket.com) for positions, trades, leaderboards.
               </div>
             </div>
             <div className="pixel-panel p-3">
-              <div className="text-[6px] text-pixel-white mb-1">/api/clob</div>
-              <div className="text-[5px] text-pixel-gray leading-relaxed">
+              <div className="text-[8px] text-pixel-white mb-1">/api/clob</div>
+              <div className="text-[7px] text-pixel-gray leading-relaxed">
                 Proxies to CLOB API (clob.polymarket.com) for order book data, price queries,
                 and authenticated trading operations (order placement, cancellation).
               </div>
@@ -246,25 +246,25 @@ export default function DocsPage() {
         {/* Endpoints */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
-            <span className="text-[7px] text-pixel-white tracking-widest">ENDPOINTS</span>
-            <span className="text-[6px] text-pixel-gray">{ENDPOINTS.length} TOTAL</span>
+            <span className="text-[9px] text-pixel-white tracking-widest">ENDPOINTS</span>
+            <span className="text-[8px] text-pixel-gray">{ENDPOINTS.length} TOTAL</span>
           </div>
 
           {ENDPOINTS.map((ep, i) => (
             <div key={i} className="pixel-panel p-4 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <MethodBadge method={ep.method} />
-                <code className="text-[6px] text-pixel-white font-mono break-all">
+                <code className="text-[8px] text-pixel-white font-mono break-all">
                   {ep.path}
                 </code>
               </div>
-              <div className="text-[6px] text-pixel-gray-light leading-relaxed">
+              <div className="text-[8px] text-pixel-gray-light leading-relaxed">
                 {ep.description}
               </div>
 
               {ep.params && ep.params.length > 0 && (
                 <div>
-                  <div className="text-[5px] text-pixel-gray tracking-wider mb-1.5">
+                  <div className="text-[7px] text-pixel-gray tracking-wider mb-1.5">
                     QUERY PARAMETERS
                   </div>
                   <table className="pixel-table">
@@ -295,7 +295,7 @@ export default function DocsPage() {
 
               {ep.body && ep.body.length > 0 && (
                 <div>
-                  <div className="text-[5px] text-pixel-gray tracking-wider mb-1.5">
+                  <div className="text-[7px] text-pixel-gray tracking-wider mb-1.5">
                     REQUEST BODY (JSON)
                   </div>
                   <table className="pixel-table">
@@ -321,8 +321,8 @@ export default function DocsPage() {
 
               {ep.example && (
                 <div>
-                  <div className="text-[5px] text-pixel-gray tracking-wider mb-1">EXAMPLE</div>
-                  <code className="block text-[5px] text-pixel-gray-light font-mono bg-pixel-black/50 p-2 border border-pixel-border break-all">
+                  <div className="text-[7px] text-pixel-gray tracking-wider mb-1">EXAMPLE</div>
+                  <code className="block text-[7px] text-pixel-gray-light font-mono bg-pixel-black/50 p-2 border border-pixel-border break-all">
                     {ep.example}
                   </code>
                 </div>
@@ -333,8 +333,8 @@ export default function DocsPage() {
 
         {/* CLI Commands */}
         <div className="pixel-panel p-4 space-y-3">
-          <div className="text-[7px] text-pixel-white tracking-wider">CLI COMMANDS</div>
-          <div className="text-[6px] text-pixel-gray-light leading-relaxed mb-2">
+          <div className="text-[9px] text-pixel-white tracking-wider">CLI COMMANDS</div>
+          <div className="text-[8px] text-pixel-gray-light leading-relaxed mb-2">
             All functions are accessible via the mod CLI. Requires the polymarket module.
           </div>
           <table className="pixel-table">
@@ -357,11 +357,11 @@ export default function DocsPage() {
 
         {/* Data Types */}
         <div className="pixel-panel p-4 space-y-3">
-          <div className="text-[7px] text-pixel-white tracking-wider">DATA TYPES</div>
+          <div className="text-[9px] text-pixel-white tracking-wider">DATA TYPES</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="pixel-panel p-3">
-              <div className="text-[6px] text-pixel-white mb-2">PolymarketMarket</div>
-              <div className="text-[5px] text-pixel-gray font-mono space-y-0.5 leading-relaxed">
+              <div className="text-[8px] text-pixel-white mb-2">PolymarketMarket</div>
+              <div className="text-[7px] text-pixel-gray font-mono space-y-0.5 leading-relaxed">
                 <div>id: string</div>
                 <div>conditionId: string</div>
                 <div>question: string</div>
@@ -375,8 +375,8 @@ export default function DocsPage() {
               </div>
             </div>
             <div className="pixel-panel p-3">
-              <div className="text-[6px] text-pixel-white mb-2">PolymarketPosition</div>
-              <div className="text-[5px] text-pixel-gray font-mono space-y-0.5 leading-relaxed">
+              <div className="text-[8px] text-pixel-white mb-2">PolymarketPosition</div>
+              <div className="text-[7px] text-pixel-gray font-mono space-y-0.5 leading-relaxed">
                 <div>conditionId: string</div>
                 <div>market: string</div>
                 <div>outcome: string</div>
@@ -388,8 +388,8 @@ export default function DocsPage() {
               </div>
             </div>
             <div className="pixel-panel p-3">
-              <div className="text-[6px] text-pixel-white mb-2">PolymarketTrade</div>
-              <div className="text-[5px] text-pixel-gray font-mono space-y-0.5 leading-relaxed">
+              <div className="text-[8px] text-pixel-white mb-2">PolymarketTrade</div>
+              <div className="text-[7px] text-pixel-gray font-mono space-y-0.5 leading-relaxed">
                 <div>id: string</div>
                 <div>market: string</div>
                 <div>conditionId: string</div>
@@ -401,8 +401,8 @@ export default function DocsPage() {
               </div>
             </div>
             <div className="pixel-panel p-3">
-              <div className="text-[6px] text-pixel-white mb-2">AuthState</div>
-              <div className="text-[5px] text-pixel-gray font-mono space-y-0.5 leading-relaxed">
+              <div className="text-[8px] text-pixel-white mb-2">AuthState</div>
+              <div className="text-[7px] text-pixel-gray font-mono space-y-0.5 leading-relaxed">
                 <div>connected: boolean</div>
                 <div>address: string | null</div>
                 <div>chainId: number | null</div>
@@ -415,8 +415,8 @@ export default function DocsPage() {
 
         {/* Auth */}
         <div className="pixel-panel p-4 space-y-3">
-          <div className="text-[7px] text-pixel-white tracking-wider">AUTHENTICATION</div>
-          <div className="text-[6px] text-pixel-gray-light leading-relaxed space-y-2">
+          <div className="text-[9px] text-pixel-white tracking-wider">AUTHENTICATION</div>
+          <div className="text-[8px] text-pixel-gray-light leading-relaxed space-y-2">
             <p>
               Read endpoints (markets, search, events, leaderboard) require no authentication.
             </p>
@@ -435,7 +435,7 @@ export default function DocsPage() {
 
       {/* Footer */}
       <footer className="border-t-2 border-pixel-white mx-4 mt-8 pt-4 pb-8">
-        <div className="flex items-center justify-between text-[6px] text-pixel-gray">
+        <div className="flex items-center justify-between text-[8px] text-pixel-gray">
           <div className="flex items-center gap-3">
             <Link href="/" className="text-pixel-white glow-green hover:underline">
               SUPER POLYMARKET BROS

@@ -21,13 +21,13 @@ export default function TradePanel({ market, initialSide }: Props) {
   if (!market) {
     return (
       <div className="pixel-panel p-6 text-center">
-        <div className="text-[11px] text-pixel-gray mb-2">SELECT A MARKET</div>
-        <div className="text-[9px] text-pixel-gray-light">
+        <div className="text-[13px] text-pixel-gray mb-2">SELECT A MARKET</div>
+        <div className="text-[11px] text-pixel-gray-light">
           CLICK ON ANY MARKET TO START TRADING
         </div>
         <div className="mt-4 flex justify-center">
           <div className="w-12 h-12 border-2 border-pixel-border flex items-center justify-center">
-            <span className="text-pixel-gray text-[16px] animate-float">?</span>
+            <span className="text-pixel-gray text-[18px] animate-float">?</span>
           </div>
         </div>
       </div>
@@ -51,53 +51,20 @@ export default function TradePanel({ market, initialSide }: Props) {
       return;
     }
 
-    setStatus("SUBMITTING ORDER...");
-
-    try {
-      const body = {
-        tokenId: market.conditionId,
-        side: side === "YES" ? "BUY" : "SELL",
-        price: orderType === "LIMIT" ? parseFloat(limitPrice) : currentPrice,
-        size: parseFloat(amount),
-        orderType: orderType === "MARKET" ? "FOK" : "GTC",
-      };
-
-      const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
-      const res = await fetch(`${base}/api/clob?path=order`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(auth.clobCreds
-            ? {
-                POLY_API_KEY: auth.clobCreds.apiKey,
-                POLY_PASSPHRASE: auth.clobCreds.passphrase,
-              }
-            : {}),
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setStatus(`ORDER PLACED! ID: ${data.orderID || data.id || "OK"}`);
-        setAmount("");
-      } else {
-        const err = await res.text();
-        setStatus(`ERROR: ${err}`);
-      }
-    } catch (e: unknown) {
-      setStatus(`ERROR: ${e instanceof Error ? e.message : "TRADE FAILED"}`);
-    }
+    // Order placement requires EIP-712 per-order maker signing (see
+    // clobClient.placeOrder) and that infrastructure isn't wired up yet.
+    // Surface that honestly instead of POSTing to a nonexistent endpoint.
+    setStatus("ERROR: ORDER PLACEMENT NOT YET IMPLEMENTED — NEEDS EIP-712 SIGNER");
   };
 
   return (
     <div className="pixel-panel p-4 space-y-4">
       {/* Market info */}
       <div className="border-b border-pixel-border/40 pb-3">
-        <div className="text-[9px] text-pixel-white leading-relaxed mb-2">
+        <div className="text-[11px] text-pixel-white leading-relaxed mb-2">
           {market.question}
         </div>
-        <div className="flex items-center gap-3 text-[9px] font-mono">
+        <div className="flex items-center gap-3 text-[11px] font-mono">
           <span className="text-pixel-white">
             YES {Math.round(yesPrice * 100)}¢
           </span>
@@ -114,7 +81,7 @@ export default function TradePanel({ market, initialSide }: Props) {
       <div className="flex gap-2">
         <button
           onClick={() => setSide("YES")}
-          className={`pixel-btn flex-1 text-[9px] ${
+          className={`pixel-btn flex-1 text-[11px] ${
             side === "YES"
               ? "border-pixel-white text-pixel-white bg-pixel-white/10"
               : "border-pixel-border text-pixel-gray"
@@ -124,7 +91,7 @@ export default function TradePanel({ market, initialSide }: Props) {
         </button>
         <button
           onClick={() => setSide("NO")}
-          className={`pixel-btn flex-1 text-[9px] ${
+          className={`pixel-btn flex-1 text-[11px] ${
             side === "NO"
               ? "border-pixel-white text-pixel-white bg-pixel-white/10"
               : "border-pixel-border text-pixel-gray"
@@ -138,7 +105,7 @@ export default function TradePanel({ market, initialSide }: Props) {
       <div className="flex gap-2">
         <button
           onClick={() => setOrderType("MARKET")}
-          className={`pixel-btn flex-1 text-[8px] ${
+          className={`pixel-btn flex-1 text-[10px] ${
             orderType === "MARKET"
               ? "border-pixel-white text-pixel-white bg-pixel-white/10"
               : "border-pixel-border text-pixel-gray"
@@ -148,7 +115,7 @@ export default function TradePanel({ market, initialSide }: Props) {
         </button>
         <button
           onClick={() => setOrderType("LIMIT")}
-          className={`pixel-btn flex-1 text-[8px] ${
+          className={`pixel-btn flex-1 text-[10px] ${
             orderType === "LIMIT"
               ? "border-pixel-white text-pixel-white bg-pixel-white/10"
               : "border-pixel-border text-pixel-gray"
@@ -160,7 +127,7 @@ export default function TradePanel({ market, initialSide }: Props) {
 
       {/* Amount */}
       <div>
-        <label className="text-[8px] text-pixel-gray-light tracking-wider mb-1 block">
+        <label className="text-[10px] text-pixel-gray-light tracking-wider mb-1 block">
           AMOUNT (USDC)
         </label>
         <input
@@ -168,14 +135,14 @@ export default function TradePanel({ market, initialSide }: Props) {
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="0.00"
-          className="pixel-input w-full text-[9px]"
+          className="pixel-input w-full text-[11px]"
         />
       </div>
 
       {/* Limit price */}
       {orderType === "LIMIT" && (
         <div>
-          <label className="text-[8px] text-pixel-gray-light tracking-wider mb-1 block">
+          <label className="text-[10px] text-pixel-gray-light tracking-wider mb-1 block">
             LIMIT PRICE (CENTS)
           </label>
           <input
@@ -183,7 +150,7 @@ export default function TradePanel({ market, initialSide }: Props) {
             value={limitPrice}
             onChange={(e) => setLimitPrice(e.target.value)}
             placeholder={Math.round(currentPrice * 100).toString()}
-            className="pixel-input w-full text-[9px]"
+            className="pixel-input w-full text-[11px]"
           />
         </div>
       )}
@@ -194,7 +161,7 @@ export default function TradePanel({ market, initialSide }: Props) {
           <button
             key={v}
             onClick={() => setAmount(v.toString())}
-            className="pixel-btn flex-1 border-pixel-border text-pixel-gray text-[8px] hover:text-pixel-white hover:border-pixel-white"
+            className="pixel-btn flex-1 border-pixel-border text-pixel-gray text-[10px] hover:text-pixel-white hover:border-pixel-white"
           >
             ${v}
           </button>
@@ -203,7 +170,7 @@ export default function TradePanel({ market, initialSide }: Props) {
 
       {/* Trade preview */}
       {amount && parseFloat(amount) > 0 && (
-        <div className="pixel-panel-cyan p-3 space-y-1.5 text-[8px]">
+        <div className="pixel-panel-cyan p-3 space-y-1.5 text-[10px]">
           <div className="flex justify-between">
             <span className="text-pixel-gray">PRICE</span>
             <span className="text-pixel-white font-mono">{Math.round(currentPrice * 100)}¢</span>
@@ -225,7 +192,7 @@ export default function TradePanel({ market, initialSide }: Props) {
       <button
         onClick={handleTrade}
         disabled={!auth.authenticated}
-        className={`pixel-btn w-full text-[9px] py-3 ${
+        className={`pixel-btn w-full text-[11px] py-3 ${
           side === "YES"
             ? "border-pixel-green text-pixel-green bg-pixel-green/10 hover:bg-pixel-green/20"
             : "border-pixel-red text-pixel-red bg-pixel-red/10 hover:bg-pixel-red/20"
@@ -239,7 +206,7 @@ export default function TradePanel({ market, initialSide }: Props) {
       {/* Status */}
       {status && (
         <div
-          className={`text-[8px] text-center p-2 ${
+          className={`text-[10px] text-center p-2 ${
             status.startsWith("ERROR")
               ? "text-pixel-red pixel-panel-red"
               : status.includes("PLACED")
