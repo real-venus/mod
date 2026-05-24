@@ -17,6 +17,14 @@ const nextConfig = {
         destination: `${apiUrl}/:path*`,
         basePath: false,
       },
+      // L2 CLOB passthrough (order, balance-allowance, orders, cancel).
+      // Mirrors the Caddy @l2 block so the app works in dev modes where
+      // the docker-generated Caddyfile isn't in front of Next.js.
+      {
+        source: "/api/polymarket-l2/:path*",
+        destination: "https://clob.polymarket.com/:path*",
+        basePath: false,
+      },
     ];
   },
 };

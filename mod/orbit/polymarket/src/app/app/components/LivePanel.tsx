@@ -7,6 +7,7 @@ import { loadIndexes, getActiveIndexId, updateIndex } from "../lib/indexStore";
 import type { SavedIndex } from "../lib/types";
 import type { ExecutionLogEntry } from "../lib/copyEngine";
 import WalletFundingPanel from "./WalletFundingPanel";
+import LoadedBadge from "./LoadedBadge";
 
 const REBALANCE_MS: Record<number, number> = {
   15: 900_000,
@@ -130,6 +131,8 @@ export default function LivePanel() {
             )}
           </div>
           <div className="flex items-center gap-1.5">
+            {/* Polygon USDC ready-to-trade indicator — visible before GO LIVE */}
+            {auth.connected && <LoadedBadge capital={liveCapital} />}
             {isLive && status === "running" && (
               <button
                 onClick={pauseLive}

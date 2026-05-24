@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { fetchPositions, fetchWalletTradesUntil, formatVolume, formatPnl, fetchTradersPage, TopTrader } from "../lib/polymarket";
 import { PolymarketPosition, PolymarketTrade, SavedIndex } from "../lib/types";
@@ -337,6 +337,32 @@ interface CopyIndexProps {
   searchFilter: string;
   compact?: boolean;
   onClose?: () => void;
+}
+
+// Labeled input/select group used across the backtest controls. Renders a
+// small uppercase label above a bordered chip that can hold inputs, selects,
+// and adornments (prefix/suffix).
+function Field({
+  label,
+  prefix,
+  suffix,
+  children,
+}: {
+  label: string;
+  prefix?: string;
+  suffix?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[8px] text-pixel-gray tracking-[0.18em] leading-none">{label}</span>
+      <div className="inline-flex items-center gap-1 h-[28px] px-2 border border-pixel-border bg-pixel-black/60 hover:border-pixel-white/30 focus-within:border-green-400/70 transition-colors">
+        {prefix && <span className="text-[10px] text-pixel-gray font-mono">{prefix}</span>}
+        {children}
+        {suffix && <span className="text-[9px] text-pixel-gray font-mono tracking-wider ml-0.5">{suffix}</span>}
+      </div>
+    </div>
+  );
 }
 
 export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexProps) {
@@ -866,19 +892,6 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
     }, 0);
   }, [tradersWithBuys, traderWeights, totalWeight, capital]);
 
-  // ── Persist backtest snapshot to SavedIndex for leaderboard ──
-  useEffect(() => {
-    if (!activeIndex || backtests.length === 0 || loading) return;
-    const snap = {
-      lastPnl: Math.round(weightedBacktestPnl * 100) / 100,
-      lastPnlAfterCosts: Math.round(weightedPnlAfterCosts * 100) / 100,
-      lastRoi1k: Math.round(combinedRoi1k * 100) / 100,
-      lastTradeCount: totalTradeCount,
-      lastBacktestAt: Date.now(),
-    };
-    updateIndex(activeIndex.id, snap);
-  }, [activeIndex, weightedBacktestPnl, weightedPnlAfterCosts, combinedRoi1k, totalTradeCount, loading, backtests.length]);
-
   // ── Combined FIFO PnL curve (scaled to user's capital) ──
   const combinedCurveData = useMemo((): { combined: CurvePoint[]; perTrader: { address: string; points: CurvePoint[]; weight: number }[] } => {
     if (watchlist.length === 0 || loading) return { combined: [], perTrader: [] };
@@ -913,6 +926,31 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
   }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour]);
 
   const combinedPnlCurve = combinedCurveData.combined;
+
+  // Chart-derived summary numbers. `weightedPnlAfterCosts` / `combinedRoi1k`
+  // use cashflow-only `estimatedPnl = sellVol - buyVol`, which under-reports
+  // performance whenever the window has more buys than sells (those buys are
+  // open positions with MTM value that the chart picks up but the cashflow
+  // proxy doesn't). Header + snapshot now match the curve.
+  const chartGrossPnl = combinedPnlCurve.length > 0
+    ? combinedPnlCurve[combinedPnlCurve.length - 1].pnl
+    : 0;
+  const chartNetPnl = chartGrossPnl - totalCosts;
+  const chartRoi = capital > 0 ? (chartNetPnl / capital) * 100 : 0;
+
+  // ── Persist backtest snapshot to SavedIndex for leaderboard ──
+  // (Moved below combinedPnlCurve so it can reference chart-derived values.)
+  useEffect(() => {
+    if (!activeIndex || backtests.length === 0 || loading) return;
+    const snap = {
+      lastPnl: Math.round(chartGrossPnl * 100) / 100,
+      lastPnlAfterCosts: Math.round(chartNetPnl * 100) / 100,
+      lastRoi1k: Math.round(chartRoi * 100) / 100,
+      lastTradeCount: totalTradeCount,
+      lastBacktestAt: Date.now(),
+    };
+    updateIndex(activeIndex.id, snap);
+  }, [activeIndex, chartGrossPnl, chartNetPnl, chartRoi, totalTradeCount, loading, backtests.length]);
 
   // Per-trader scaled MTM P&L from curves (consistent with chart)
   const traderCurvePnl = useMemo(() => {
@@ -1309,18 +1347,50 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
 
           {/* ── Backtest panel ── */}
           {watchlist.length > 0 && mode === "BACKTEST" && (
-            <div className="pixel-panel px-3 py-1.5 space-y-2">
-              {/* Header: days input + capital input + stats */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-pixel-white tracking-wider">BACKTEST</span>
+            <div className="pixel-panel px-3 py-2.5 space-y-3">
+              {/* ── Row 1: title + date range · RUN · P&L stats ─────── */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <span className="text-[12px] text-pixel-white tracking-[0.2em]">BACKTEST</span>
+                  <span className="text-[9px] text-pixel-gray/70 font-mono tracking-wider">
+                    {backtestDateRange.from} → {backtestDateRange.to}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const v = parseInt(backtestDaysInput, 10);
+                      if (!isNaN(v) && v > 0 && v <= 365) updateBacktestDays(v);
+                      setRefreshKey((k) => k + 1);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-mono tracking-[0.15em] px-3 h-[24px] border border-green-400 text-green-400 hover:bg-green-400/10 active:bg-green-400/20 transition-colors"
+                    title="Run backtest with current settings"
+                  >
+                    ▶ RUN
+                  </button>
+                </div>
+                <div className="flex items-center gap-4 text-[11px] font-mono">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[9px] text-pixel-gray tracking-[0.15em]">P&L</span>
+                    <span className={chartNetPnl >= 0 ? "text-green-400" : "text-red-400"}>
+                      {formatPnl(chartNetPnl)}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[9px] text-pixel-gray tracking-[0.15em]">ROI</span>
+                    <span className={chartRoi >= 0 ? "text-green-400" : "text-red-400"}>
+                      {chartRoi >= 0 ? "+" : ""}{chartRoi.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Row 2: labeled field cards for parameters ───────── */}
+              <div className="flex items-end gap-2 flex-wrap">
+                <Field label="WINDOW" suffix="DAYS">
                   <input
                     type="text"
                     inputMode="numeric"
                     value={backtestDaysInput}
-                    onChange={(e) => {
-                      setBacktestDaysInput(e.target.value);
-                    }}
+                    onChange={(e) => setBacktestDaysInput(e.target.value)}
                     onBlur={() => {
                       const v = parseInt(backtestDaysInput, 10);
                       if (!isNaN(v) && v > 0 && v <= 365) {
@@ -1340,24 +1410,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       }
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-10 text-center font-mono text-[11px] border-pixel-border"
+                    className="bg-transparent w-10 text-right font-mono text-[12px] text-pixel-white outline-none"
                   />
-                  <span className="text-[10px] text-pixel-gray">DAYS</span>
-                  <button
-                    onClick={() => {
-                      const v = parseInt(backtestDaysInput, 10);
-                      if (!isNaN(v) && v > 0 && v <= 365) {
-                        updateBacktestDays(v);
-                      }
-                      setRefreshKey((k) => k + 1);
-                    }}
-                    className="pixel-btn text-[10px] px-2 py-0.5 border-green-400 text-green-400 hover:bg-green-400/10 transition-colors"
-                    title="Run backtest with current settings"
-                  >
-                    RUN
-                  </button>
-                  <span className="text-pixel-border">|</span>
-                  <span className="text-[10px] text-pixel-gray">$</span>
+                </Field>
+
+                <Field label="CAPITAL" prefix="$">
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1367,10 +1424,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0) updateCapital(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-16 text-center font-mono text-[11px] border-pixel-border"
+                    className="bg-transparent w-16 text-right font-mono text-[12px] text-pixel-white outline-none"
                   />
-                  <span className="text-pixel-border">|</span>
-                  <span className="text-[10px] text-pixel-gray">MIN</span>
+                </Field>
+
+                <Field label="TRADE SIZE" prefix="$">
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1380,9 +1438,9 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v >= 0) updateMinTrade(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-12 text-center font-mono text-[11px] border-pixel-border"
+                    className="bg-transparent w-10 text-right font-mono text-[12px] text-pixel-white outline-none"
                   />
-                  <span className="text-[10px] text-pixel-gray">MAX</span>
+                  <span className="text-pixel-gray/60 mx-0.5">–</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1392,10 +1450,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0) updateMaxTrade(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-12 text-center font-mono text-[11px] border-pixel-border"
+                    className="bg-transparent w-10 text-right font-mono text-[12px] text-pixel-white outline-none"
                   />
-                  <span className="text-pixel-border">|</span>
-                  <span className="text-[10px] text-pixel-gray">MAX/HR</span>
+                </Field>
+
+                <Field label="THROTTLE" suffix="/HR">
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1405,62 +1464,54 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0) updateMaxTradesPerHour(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="pixel-input-sm w-12 text-center font-mono text-[11px] border-pixel-border"
+                    className="bg-transparent w-8 text-right font-mono text-[12px] text-pixel-white outline-none"
                   />
-                  <span className="text-[9px] text-pixel-gray/60 font-mono">{backtestDateRange.from}–{backtestDateRange.to}</span>
-                </div>
-                <div className="flex items-center gap-3 text-[11px] font-mono">
-                  <span className="text-pixel-gray">P&L:</span>
-                  <span className={weightedPnlAfterCosts >= 0 ? "text-green-400" : "text-red-400"}>
-                    {formatPnl(weightedPnlAfterCosts)}
-                  </span>
-                  <span className="text-pixel-gray">ROI:</span>
-                  <span className={combinedRoi1k >= 0 ? "text-green-400" : "text-red-400"}>
-                    {combinedRoi1k >= 0 ? "+" : ""}{combinedRoi1k.toFixed(1)}%
-                  </span>
-                </div>
+                </Field>
               </div>
 
-              {/* Rebalancing settings */}
-              <div className="flex items-center gap-3 text-[10px] border-t border-pixel-border/30 pt-2 flex-wrap">
-                <span className="text-pixel-gray tracking-wider">BACKTEST:</span>
-                <select
-                  value={rebalancePeriod}
-                  onChange={(e) => updateRebalancePeriod(Number(e.target.value))}
-                  className="pixel-input-sm px-2 py-0.5 font-mono text-[10px] border-pixel-border bg-pixel-black"
-                >
-                  <option value={0}>OFF (PER-TRADE)</option>
-                  <option value={1}>1H</option>
-                  <option value={4}>4H</option>
-                  <option value={8}>8H</option>
-                  <option value={12}>12H</option>
-                  <option value={24}>24H (DAILY)</option>
-                </select>
-                <span className="text-pixel-gray">AT:</span>
-                <select
-                  value={rebalanceHour}
-                  onChange={(e) => updateRebalanceHour(Number(e.target.value))}
-                  className="pixel-input-sm px-2 py-0.5 font-mono text-[10px] border-pixel-border bg-pixel-black"
-                >
-                  <option value={0}>00:00 (MIDNIGHT)</option>
-                  <option value={6}>06:00</option>
-                  <option value={12}>12:00 (NOON)</option>
-                  <option value={16}>16:00 (4PM)</option>
-                  <option value={20}>20:00 (8PM)</option>
-                  <option value={23}>23:00 (11PM)</option>
-                </select>
-                <span className="text-pixel-border ml-2">|</span>
-                <span className="text-pixel-gray">LIVE INTERVAL:</span>
-                <select
-                  value={rebalanceMinutes}
-                  onChange={(e) => updateRebalanceMinutes(Number(e.target.value))}
-                  className="pixel-input-sm px-2 py-0.5 font-mono text-[10px] border-pixel-border bg-pixel-black"
-                >
-                  <option value={15}>15MIN</option>
-                  <option value={60}>1H</option>
-                  <option value={240}>4H</option>
-                  <option value={1440}>24H</option>
-                </select>
+              {/* ── Row 3: rebalance + live interval selects ────────── */}
+              <div className="flex items-end gap-2 flex-wrap">
+                <Field label="REBALANCE">
+                  <select
+                    value={rebalancePeriod}
+                    onChange={(e) => updateRebalancePeriod(Number(e.target.value))}
+                    className="bg-transparent font-mono text-[11px] text-pixel-white outline-none cursor-pointer pr-1"
+                  >
+                    <option value={0}>OFF (PER-TRADE)</option>
+                    <option value={1}>1H</option>
+                    <option value={4}>4H</option>
+                    <option value={8}>8H</option>
+                    <option value={12}>12H</option>
+                    <option value={24}>24H (DAILY)</option>
+                  </select>
+                </Field>
+                <Field label="AT">
+                  <select
+                    value={rebalanceHour}
+                    onChange={(e) => updateRebalanceHour(Number(e.target.value))}
+                    className="bg-transparent font-mono text-[11px] text-pixel-white outline-none cursor-pointer pr-1"
+                  >
+                    <option value={0}>00:00 (MIDNIGHT)</option>
+                    <option value={6}>06:00</option>
+                    <option value={12}>12:00 (NOON)</option>
+                    <option value={16}>16:00 (4PM)</option>
+                    <option value={20}>20:00 (8PM)</option>
+                    <option value={23}>23:00 (11PM)</option>
+                  </select>
+                </Field>
+                <div className="w-px h-[28px] bg-pixel-border/40 self-end mx-1" />
+                <Field label="LIVE INTERVAL">
+                  <select
+                    value={rebalanceMinutes}
+                    onChange={(e) => updateRebalanceMinutes(Number(e.target.value))}
+                    className="bg-transparent font-mono text-[11px] text-pixel-white outline-none cursor-pointer pr-1"
+                  >
+                    <option value={15}>15MIN</option>
+                    <option value={60}>1H</option>
+                    <option value={240}>4H</option>
+                    <option value={1440}>24H</option>
+                  </select>
+                </Field>
               </div>
 
               {/* Fee/gas cost summary — derived from linkedTrades + chart for consistency */}
@@ -1475,19 +1526,27 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                 const costWarning = feedCosts > 5 && (grossPnl <= 0 || feedCosts > grossPnl * 0.5);
                 return (
                   <>
-                    <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] font-mono px-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-pixel-gray">FEES:</span>
-                        <span className="text-amber-400">${feedFees.toFixed(2)}</span>
-                        <span className="text-pixel-gray">GAS:</span>
-                        <span className="text-amber-400">${feedGas.toFixed(2)}</span>
-                        <span className="text-pixel-gray border-l border-pixel-border pl-3">TOTAL COST:</span>
-                        <span className="text-amber-400">${feedCosts.toFixed(2)}</span>
-                        <span className="text-pixel-gray">({linkedTrades.length} TXS)</span>
+                    <div className="flex items-center justify-between flex-wrap gap-3 text-[11px] font-mono border-t border-pixel-border/40 pt-2">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[9px] text-pixel-gray tracking-[0.15em]">FEES</span>
+                          <span className="text-amber-400">${feedFees.toFixed(2)}</span>
+                        </div>
+                        <span className="text-pixel-border/60">·</span>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[9px] text-pixel-gray tracking-[0.15em]">GAS</span>
+                          <span className="text-amber-400">${feedGas.toFixed(2)}</span>
+                        </div>
+                        <span className="text-pixel-border/60">·</span>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[9px] text-pixel-gray tracking-[0.15em]">TOTAL</span>
+                          <span className="text-amber-400">${feedCosts.toFixed(2)}</span>
+                          <span className="text-[9px] text-pixel-gray/70">({linkedTrades.length} TXS)</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-pixel-gray">GROSS:</span>
-                        <span className={grossPnl >= 0 ? "text-green-400/60" : "text-red-400/60"}>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-[9px] text-pixel-gray tracking-[0.15em]">GROSS</span>
+                        <span className={grossPnl >= 0 ? "text-green-400/70" : "text-red-400/70"}>
                           {formatPnl(grossPnl)}
                         </span>
                       </div>

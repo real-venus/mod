@@ -13,65 +13,136 @@ export interface NetworkConfig {
   rpcUrls: string[];       // for wallet_addEthereumChain
   nativeCurrency: { name: string; symbol: string; decimals: number };
   blockExplorerUrls: string[];
+  color: string;           // brand color hex for the UI badge
+  short: string;           // 3-letter ticker shown in compact pills
+  glyph: string;           // unicode shape rendered in the chain badge
 }
+
+// LiFi/Jumper uses the all-zero address as the native-asset sentinel
+// (ETH / MATIC / etc.). Same convention as 1inch and most aggregators.
+export const NATIVE_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 export const NETWORKS: NetworkConfig[] = [
   {
     id: "polygon",
     name: "POLYGON",
+    short: "POL",
+    color: "#8247E5",
+    glyph: "⬢",
     chainId: 137,
     chainIdHex: "0x89",
     usdc: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC.e bridged (Polymarket settlement)
     rpcUrl: "https://polygon-rpc.com",
-    rpcUrls: ["https://polygon-rpc.com"],
+    rpcUrls: [
+      "https://polygon-rpc.com",
+      "https://polygon.llamarpc.com",
+      "https://polygon.drpc.org",
+      "https://rpc.ankr.com/polygon",
+      "https://polygon-bor-rpc.publicnode.com",
+      "https://1rpc.io/matic",
+    ],
     nativeCurrency: { name: "MATIC", symbol: "MATIC", decimals: 18 },
     blockExplorerUrls: ["https://polygonscan.com"],
   },
   {
     id: "base",
     name: "BASE",
+    short: "BAS",
+    color: "#0052FF",
+    glyph: "◉",
     chainId: 8453,
     chainIdHex: "0x2105",
-    usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // native USDC on Base
+    usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     rpcUrl: "https://mainnet.base.org",
-    rpcUrls: ["https://mainnet.base.org"],
+    rpcUrls: [
+      "https://mainnet.base.org",
+      "https://base.llamarpc.com",
+      "https://base.drpc.org",
+      "https://base-rpc.publicnode.com",
+      "https://1rpc.io/base",
+    ],
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     blockExplorerUrls: ["https://basescan.org"],
   },
   {
     id: "ethereum",
     name: "ETHEREUM",
+    short: "ETH",
+    color: "#627EEA",
+    glyph: "◆",
     chainId: 1,
     chainIdHex: "0x1",
-    usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // native USDC on mainnet
+    usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     rpcUrl: "https://eth.llamarpc.com",
-    rpcUrls: ["https://eth.llamarpc.com"],
+    rpcUrls: [
+      "https://eth.llamarpc.com",
+      "https://ethereum-rpc.publicnode.com",
+      "https://eth.drpc.org",
+      "https://rpc.ankr.com/eth",
+      "https://1rpc.io/eth",
+    ],
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     blockExplorerUrls: ["https://etherscan.io"],
   },
   {
     id: "arbitrum",
     name: "ARBITRUM",
+    short: "ARB",
+    color: "#28A0F0",
+    glyph: "▲",
     chainId: 42161,
     chainIdHex: "0xa4b1",
-    usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // native USDC
+    usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
     rpcUrl: "https://arb1.arbitrum.io/rpc",
-    rpcUrls: ["https://arb1.arbitrum.io/rpc"],
+    rpcUrls: [
+      "https://arb1.arbitrum.io/rpc",
+      "https://arbitrum.llamarpc.com",
+      "https://arbitrum-one-rpc.publicnode.com",
+      "https://1rpc.io/arb",
+    ],
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     blockExplorerUrls: ["https://arbiscan.io"],
   },
   {
     id: "optimism",
     name: "OPTIMISM",
+    short: "OPT",
+    color: "#FF0420",
+    glyph: "●",
     chainId: 10,
     chainIdHex: "0xa",
-    usdc: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", // native USDC
+    usdc: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
     rpcUrl: "https://mainnet.optimism.io",
-    rpcUrls: ["https://mainnet.optimism.io"],
+    rpcUrls: [
+      "https://mainnet.optimism.io",
+      "https://optimism.llamarpc.com",
+      "https://optimism-rpc.publicnode.com",
+      "https://1rpc.io/op",
+    ],
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     blockExplorerUrls: ["https://optimistic.etherscan.io"],
   },
 ];
+
+/// Try each RPC in `net.rpcUrls` until one returns successfully. Returns
+/// the result of the first RPC that doesn't throw, or throws the last
+/// error if every endpoint failed. Useful for reads where any healthy
+/// node will do.
+export async function withRpcFallback<T>(
+  net: NetworkConfig,
+  fn: (rpcUrl: string) => Promise<T>,
+): Promise<T> {
+  const urls = net.rpcUrls.length > 0 ? net.rpcUrls : [net.rpcUrl];
+  let lastErr: unknown = new Error(`no RPC URLs for ${net.id}`);
+  for (const url of urls) {
+    try {
+      return await fn(url);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
 
 export function networkByChainId(chainId: number): NetworkConfig | undefined {
   return NETWORKS.find((n) => n.chainId === chainId);
