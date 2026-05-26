@@ -296,6 +296,9 @@ export class CopyEngine {
       if (totalWeight <= 0) return;
 
       let ordersThisCycle = 0;
+      let pollFailures = 0;
+      let tradersWithNewActivity = 0;
+      let totalNewTradesSeen = 0;
 
       for (const trader of enabledTraders) {
         if (ordersThisCycle >= MAX_ORDERS_PER_CYCLE) break;
@@ -318,6 +321,8 @@ export class CopyEngine {
           );
 
           if (newTrades.length === 0) continue;
+          tradersWithNewActivity++;
+          totalNewTradesSeen += newTrades.length;
 
           // Compute trader's buy volume for sizing
           const traderBuyVol = trades
@@ -452,6 +457,7 @@ export class CopyEngine {
             this.state.traderCursors[addr] = latestTs;
           }
         } catch (e) {
+          pollFailures++;
           this.addLog({
             id: uid(),
             timestamp: Date.now(),
@@ -468,11 +474,22 @@ export class CopyEngine {
         nextCycleAt: Date.now() + this.config.intervalMs,
       });
 
+      // Build a heartbeat summary so even quiet cycles (no trader activity)
+      // produce a visible log line — otherwise the user sees long stretches
+      // of "BAL → END 0 orders" with no signal that the engine is alive.
+      const summaryParts = [
+        `polled ${enabledTraders.length} traders`,
+        `${tradersWithNewActivity} active`,
+        `${totalNewTradesSeen} new trades`,
+        `${ordersThisCycle} orders`,
+      ];
+      if (pollFailures > 0) summaryParts.push(`${pollFailures} fetch errors`);
+
       this.addLog({
         id: uid(),
         timestamp: Date.now(),
         type: "CYCLE_END",
-        reason: `${ordersThisCycle} orders`,
+        reason: summaryParts.join(" · "),
       });
 
       // Persist
