@@ -56,7 +56,7 @@ export default function ScraperStatus() {
 
   if (!status) {
     return (
-      <div className="pixel-panel p-2 text-[11px] text-pixel-gray font-mono flex items-center gap-2">
+      <div className="pixel-panel p-2 text-[13px] text-pixel-gray font-mono flex items-center gap-2">
         <div className="w-1.5 h-1.5 bg-pixel-gray animate-pulse" />
         SCRAPER ?
       </div>
@@ -65,7 +65,7 @@ export default function ScraperStatus() {
 
   const combos = Object.entries(status.perCombo).sort();
   return (
-    <div className="pixel-panel p-2 text-[11px] font-mono flex items-center gap-3 flex-wrap">
+    <div className="pixel-panel p-2 text-[13px] font-mono flex items-center gap-3 flex-wrap">
       {status.running ? (
         <div className="flex items-center gap-1.5 text-pixel-green">
           <div className="w-1.5 h-1.5 bg-pixel-green animate-pulse" />

@@ -46,14 +46,14 @@ export default function TraderFilterBar() {
     width?: string;
   }) => (
     <div className="flex items-center gap-1.5 shrink-0" title={hint}>
-      <span className="text-[11px] text-pixel-gray tracking-wider">{label}</span>
+      <span className="text-[13px] text-pixel-gray tracking-wider">{label}</span>
       <input
         type="text"
         inputMode={mode}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className={`pixel-input ${width} text-[12px] px-2 py-1.5 text-center`}
+        className={`pixel-input ${width} text-[14px] px-2 py-1.5 text-center`}
       />
     </div>
   );
@@ -116,7 +116,7 @@ export default function TraderFilterBar() {
             setMinSellVolume("");
             reload();
           }}
-          className="ml-auto pixel-btn text-[11px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white shrink-0"
+          className="ml-auto pixel-btn text-[13px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white shrink-0"
         >
           RESET FILTERS
         </button>

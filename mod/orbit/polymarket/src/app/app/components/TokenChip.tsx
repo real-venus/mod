@@ -19,7 +19,7 @@ export default function TokenChip() {
     <button
       onClick={() => generateToken()}
       title={title}
-      className={`pixel-btn text-[11px] px-2 py-1 transition-colors flex items-center gap-1.5 ${color}`}
+      className={`pixel-btn text-[13px] px-2 py-1 transition-colors flex items-center gap-1.5 ${color}`}
     >
       <div className={`w-1.5 h-1.5 ${localToken ? "bg-green-400" : "bg-pixel-gray"}`} />
       <span className="font-mono">{label}</span>

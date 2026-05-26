@@ -75,14 +75,14 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
     >
       {/* Top: category + end date */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] tracking-[2px] text-pixel-gray uppercase">
+        <span className="text-[13px] tracking-[2px] text-pixel-gray uppercase">
           {market.category ? market.category.slice(0, 14) : "\u00A0"}
         </span>
-        <span className="text-[11px] text-pixel-gray font-mono">{endDate}</span>
+        <span className="text-[13px] text-pixel-gray font-mono">{endDate}</span>
       </div>
 
       {/* Question — flex-1 so cards align */}
-      <div className="text-[14px] text-pixel-white leading-[1.7] mb-4 line-clamp-3 flex-1">
+      <div className="text-[16px] text-pixel-white leading-[1.7] mb-4 line-clamp-3 flex-1">
         {market.question}
       </div>
 
@@ -110,7 +110,7 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
             />
             <div className="absolute inset-0 flex items-center justify-between px-3">
               <div className="flex items-center gap-2">
-                <span className="text-[12px] font-mono" style={{ color: "#4ade80" }}>YES</span>
+                <span className="text-[14px] font-mono" style={{ color: "#4ade80" }}>YES</span>
                 <span className="text-[16px] font-mono" style={{
                   color: yesPct >= 50 ? "#4ade80" : "#555",
                 }}>
@@ -123,7 +123,7 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
                 }}>
                   {noPct}¢
                 </span>
-                <span className="text-[12px] font-mono" style={{ color: "#f87171" }}>NO</span>
+                <span className="text-[14px] font-mono" style={{ color: "#f87171" }}>NO</span>
               </div>
             </div>
           </div>
@@ -134,7 +134,7 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
               onClick={(e) => handleOutcomeClick(e, 0)}
               onMouseEnter={() => setHoveredOutcome(0)}
               onMouseLeave={() => setHoveredOutcome(null)}
-              className={`flex-1 py-1.5 text-[11px] font-mono border transition-all ${
+              className={`flex-1 py-1.5 text-[13px] font-mono border transition-all ${
                 hoveredOutcome === 0
                   ? "border-green-400 text-green-400 bg-green-400/10"
                   : "border-[#2a2a2a] text-pixel-gray hover:border-green-400 hover:text-green-400"
@@ -146,7 +146,7 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
               onClick={(e) => handleOutcomeClick(e, 1)}
               onMouseEnter={() => setHoveredOutcome(1)}
               onMouseLeave={() => setHoveredOutcome(null)}
-              className={`flex-1 py-1.5 text-[11px] font-mono border transition-all ${
+              className={`flex-1 py-1.5 text-[13px] font-mono border transition-all ${
                 hoveredOutcome === 1
                   ? "border-red-400 text-red-400 bg-red-400/10"
                   : "border-[#2a2a2a] text-pixel-gray hover:border-red-400 hover:text-red-400"
@@ -162,7 +162,7 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
               <div className="w-1.5 h-1.5" style={{
                 background: yesPct >= 80 ? "#4ade80" : "#f87171",
               }} />
-              <span className="text-[10px] tracking-wider" style={{
+              <span className="text-[12px] tracking-wider" style={{
                 color: yesPct >= 80 ? "#4ade80" : "#f87171",
               }}>
                 {yesPct >= 80 ? "HIGH YES" : "HIGH NO"}
@@ -182,7 +182,7 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
                 onClick={(e) => handleOutcomeClick(e, i)}
                 onMouseEnter={() => setHoveredOutcome(i)}
                 onMouseLeave={() => setHoveredOutcome(null)}
-                className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-mono border transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-1.5 text-[13px] font-mono border transition-all ${
                   hoveredOutcome === i
                     ? "border-pixel-white text-pixel-white bg-pixel-white/10"
                     : "border-[#1e1e1e] text-pixel-gray hover:border-pixel-white/40 hover:text-pixel-white"
@@ -200,12 +200,12 @@ export default function MarketCard({ market, onSelect, selected }: Props) {
       <div className="flex items-center justify-between pt-3 border-t border-[#1e1e1e]">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-pixel-gray tracking-wider">VOL</span>
-            <span className="text-[12px] text-pixel-white font-mono">{formatVolume(market.volume)}</span>
+            <span className="text-[12px] text-pixel-gray tracking-wider">VOL</span>
+            <span className="text-[14px] text-pixel-white font-mono">{formatVolume(market.volume)}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-pixel-gray tracking-wider">LIQ</span>
-            <span className="text-[12px] text-pixel-gray-light font-mono">{formatVolume(market.liquidity)}</span>
+            <span className="text-[12px] text-pixel-gray tracking-wider">LIQ</span>
+            <span className="text-[14px] text-pixel-gray-light font-mono">{formatVolume(market.liquidity)}</span>
           </div>
         </div>
         {market.image && (

@@ -4,104 +4,249 @@
 <meta charset="utf-8" />
 <title>mod / dev</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: dark; --bg:#0a0a0a; --panel:#111; --line:#1c1c1c; --fg:#e8e8e8; --muted:#6a6a6a; --accent:#f59e0b; }
-  * { box-sizing: border-box; }
-  body { font-family: ui-monospace, "SF Mono", Menlo, monospace; background:var(--bg); color:var(--fg); margin:0; height:100vh; overflow:hidden; }
-  .app { display:grid; grid-template-columns: 1fr 280px; height:100vh; }
-  main { padding:24px 32px; overflow-y:auto; }
-  aside { background:#0c0c0c; border-left:1px solid var(--line); padding:12px 0; overflow-y:auto; }
-  h1 { font-size:14px; margin:0 0 16px; letter-spacing:-0.01em; color:var(--muted); text-transform:uppercase; font-weight:600; }
-  h2 { font-size:13px; margin:0 0 8px; color:#bbb; }
-  .row { display:flex; align-items:center; gap:8px; }
-  .gap-12 { gap:12px; }
-  .bar { display:flex; gap:8px; align-items:center; padding:8px 12px; background:#0c0c0c; border:1px solid var(--line); border-radius:8px; margin-bottom:16px; font-size:12px; }
-  .bar .sep { color:var(--muted); }
-  button { background:#1a1a1a; color:var(--fg); border:1px solid #2a2a2a; border-radius:6px; padding:6px 12px; font:inherit; font-size:12px; cursor:pointer; }
-  button:hover { background:#252525; }
-  button.primary { background:#f59e0b; border-color:#f59e0b; color:#000; font-weight:600; }
-  button.primary:hover { background:#fbbf24; }
-  button.ghost { background:transparent; }
-  button:disabled { opacity:0.4; cursor:not-allowed; }
-  input, textarea, select { background:#0f0f0f; color:var(--fg); border:1px solid #222; border-radius:6px; padding:8px 10px; font:inherit; font-size:12px; width:100%; }
-  textarea { resize:vertical; min-height:60px; font-family:inherit; }
-  .pill { display:inline-block; padding:1px 7px; border-radius:99px; font-size:10px; background:#1f2937; color:var(--muted); }
-  .pill.ok { background:#0f3a1c; color:#4ade80; }
-  .pill.warn { background:#3a2a0a; color:var(--accent); }
-  .pill.miss { background:#3a1c0f; color:#f87171; }
-  /* bubbly module cards */
-  .mod-list { display:flex; flex-direction:column; gap:6px; padding:8px 12px; }
-  .mod-card {
-    display:flex; align-items:center; gap:10px;
-    padding:10px 12px;
-    background:#121212;
-    border:1px solid #1f1f1f;
-    border-radius:14px;
-    cursor:pointer; user-select:none;
-    transition: background 0.12s, transform 0.12s, border-color 0.12s, box-shadow 0.12s;
-  }
-  .mod-card:hover { background:#181818; transform:translateX(2px); border-color:#2a2a2a; }
-  .mod-card.selected {
-    background:#1a1410;
-    border-color:var(--accent);
-    box-shadow: 0 0 0 1px rgba(245,158,11,0.25), 0 6px 20px -10px rgba(245,158,11,0.4);
-  }
-  .mod-avatar {
-    width:32px; height:32px; flex-shrink:0;
-    border-radius:50%;
-    display:flex; align-items:center; justify-content:center;
-    font-size:14px; font-weight:600;
-    background: linear-gradient(135deg, var(--avatar-from, #2a2a2a), var(--avatar-to, #1a1a1a));
-    color:#fff;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.5);
-  }
-  .mod-meta { flex:1; min-width:0; }
-  .mod-name { font-size:13px; font-weight:600; color:#e8e8e8; display:flex; align-items:center; gap:6px; }
-  .mod-card.selected .mod-name { color:var(--accent); }
-  .mod-desc { font-size:10px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .mod-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
-  .mod-card .warn-tri { color:var(--accent); font-size:12px; }
-  .mod-card .check { color:var(--accent); font-size:14px; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:12px; }
-  .panel header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-  .task { padding:8px 10px; background:#0a0a0a; border:1px solid var(--line); border-radius:6px; margin-bottom:6px; font-size:11px; color:var(--muted); }
-  .task .prompt { color:#bbb; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .task .meta { display:flex; gap:8px; margin-top:4px; font-size:10px; }
-  .empty { color:var(--muted); font-size:11px; padding:8px 0; font-style:italic; }
-  code, .mono { font-size:11px; color:var(--muted); }
-  .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; align-items:center; justify-content:center; z-index:10; }
-  .modal { background:#0f0f0f; border:1px solid #2a2a2a; border-radius:12px; padding:24px; max-width:520px; width:100%; }
-  .step { margin:12px 0; padding:10px; background:#0a0a0a; border:1px solid #1a1a1a; border-radius:8px; font-size:12px; }
-  .step.done { border-color:#0f3a1c; }
-  hr { border:none; border-top:1px solid var(--line); margin:16px 0; }
+:root {
+  /* Mirrors polymarket palette so the two apps feel native to each other. */
+  --bg: #050505;
+  --bg-elev: #0a0a0a;
+  --fg: #f5f5f5;
+  --fg-muted: #999999;
+  --fg-dim: #666666;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --panel-from: #141414;
+  --panel-to: #0e0e0e;
+  --panel-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.45);
+  --input-bg: #0a0a0a;
+  --btn-bg: rgba(255, 255, 255, 0.02);
+  --btn-bg-hover: rgba(255, 255, 255, 0.06);
+
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --violet: #a78bfa;
+  --red: #ef4444;
+
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+}
+
+html[data-theme="light"] {
+  --bg: #f4f5f7;
+  --bg-elev: #ffffff;
+  --fg: #111827;
+  --fg-muted: #4b5563;
+  --fg-dim: #9ca3af;
+  --border: rgba(17, 24, 39, 0.10);
+  --border-strong: rgba(17, 24, 39, 0.22);
+  --panel-from: #ffffff;
+  --panel-to: #fafafa;
+  --panel-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 14px rgba(17,24,39,0.06);
+  --input-bg: #ffffff;
+  --btn-bg: rgba(17, 24, 39, 0.03);
+  --btn-bg-hover: rgba(17, 24, 39, 0.07);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  color: var(--fg);
+  background: var(--bg);
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: "ss01","cv11";
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.005em;
+}
+.mono, code { font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace; font-feature-settings: "tnum","ss01"; }
+.display { font-family: "Space Grotesk", "Inter", sans-serif; letter-spacing: -0.01em; }
+.label  { font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.dim    { color: var(--fg-dim); }
+.muted  { color: var(--fg-muted); }
+
+.app { display:grid; grid-template-columns: 1fr 320px; height: 100vh; }
+main { padding: 24px 28px; overflow-y: auto; }
+aside { background: var(--bg-elev); border-left: 1px solid var(--border); overflow-y: auto; }
+
+/* ── Top bar (polymarket "LIVE COPY" strip) ─────────── */
+.topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, var(--panel-from), var(--panel-to));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+.topbar .brand { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--fg); }
+.topbar .brand::before { content: "■"; color: var(--green); }
+.topbar .merkle-chip { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--btn-bg); border: 1px solid var(--border-strong); border-radius: 999px; font-size: 11px; }
+.topbar .merkle-chip::before { content: "◆"; color: var(--violet); font-size: 10px; }
+.spacer { flex: 1; }
+
+/* Day/night toggle */
+.theme-toggle { display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--btn-bg); border:1px solid var(--border-strong); border-radius:999px; }
+.theme-bubble { width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; font-size:12px; color:var(--fg-muted); background:transparent; border:none; cursor:pointer; transition:all 0.15s; }
+.theme-bubble.active { background:var(--fg); color:var(--bg); box-shadow:0 0 8px var(--border-strong); }
+
+/* Wallet / loaded chip (right side of top bar) */
+.chip {
+  display:inline-flex; align-items:center; gap:6px;
+  padding: 6px 12px; border: 1px solid var(--border-strong);
+  background: var(--btn-bg); border-radius: var(--radius-sm);
+  font-size: 11px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--fg);
+}
+.chip:hover { background: var(--btn-bg-hover); }
+.chip.amber::before { content: "■"; color: var(--amber); font-size: 10px; }
+.chip.green::before { content: "■"; color: var(--green); font-size: 10px; }
+
+button {
+  background: var(--btn-bg); color: var(--fg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  padding: 6px 12px; font: inherit; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+  cursor: pointer; transition: background 0.12s;
+}
+button:hover { background: var(--btn-bg-hover); }
+button.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button.primary:hover { opacity: 0.92; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+input, textarea, select {
+  background: var(--input-bg); color: var(--fg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 10px; font: inherit; font-size: 12px; width: 100%;
+}
+textarea { resize: vertical; min-height: 80px; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+
+/* ── Panel (polymarket-style) ────────────────────────── */
+.panel {
+  background: linear-gradient(180deg, var(--panel-from), var(--panel-to));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.panel header {
+  display:flex; align-items:center; gap:12px;
+  margin-bottom: 12px;
+}
+.panel header h2 {
+  margin: 0; font-size: 12px;
+  color: var(--fg); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  display:flex; align-items:center; gap:8px;
+}
+.panel header h2::before { content: "■"; color: var(--green); font-size: 10px; }
+
+.big-num { font-family: "JetBrains Mono", monospace; font-size: 28px; font-weight: 700; color: var(--green); letter-spacing: -0.01em; }
+.big-num.red { color: var(--red); }
+.big-num.muted { color: var(--fg-muted); }
+
+/* ── Module cards (bubbly + polymarket vibe) ─────────── */
+.mod-list { display:flex; flex-direction:column; gap:6px; padding: 12px; }
+.mod-card {
+  display:flex; align-items:center; gap:10px;
+  padding: 10px 12px;
+  background: var(--btn-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer; user-select: none;
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+}
+.mod-card:hover { background: var(--btn-bg-hover); border-color: var(--border-strong); transform: translateX(2px); }
+.mod-card.selected {
+  background: linear-gradient(180deg, rgba(34,197,94,0.06), transparent);
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px rgba(34,197,94,0.18), 0 6px 20px -10px rgba(34,197,94,0.3);
+}
+.mod-avatar {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size: 13px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--avatar-from, #2a2a2a), var(--avatar-to, #1a1a1a));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 1px 3px rgba(0,0,0,0.4);
+}
+.mod-meta { flex: 1; min-width: 0; }
+.mod-name { font-size: 12px; font-weight: 600; color: var(--fg); display:flex; align-items:center; gap:6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.mod-card.selected .mod-name { color: var(--green); }
+.mod-desc { font-size: 10px; color: var(--fg-dim); margin-top: 3px; white-space: nowrap; overflow:hidden; text-overflow: ellipsis; }
+.mod-right { display:flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+
+.pill {
+  display:inline-block; padding: 2px 7px; border-radius: 999px;
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+}
+.pill.live { background: rgba(34,197,94,0.12); color: var(--green); }
+.pill.warn { background: rgba(245,158,11,0.12); color: var(--amber); }
+.pill.idle { background: rgba(255,255,255,0.04); color: var(--fg-dim); }
+.pill.miss { background: rgba(239,68,68,0.12); color: var(--red); }
+
+.warn-tri { color: var(--amber); font-size: 12px; }
+.check    { color: var(--green); font-size: 14px; }
+
+/* Task entries */
+.task {
+  padding: 10px 12px; background: var(--input-bg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  margin-bottom: 6px; font-size: 11px;
+}
+.task .prompt { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task .meta { display:flex; gap:10px; margin-top: 5px; font-size: 10px; color: var(--fg-dim); }
+
+.empty { color: var(--fg-dim); font-size: 11px; padding: 12px; font-style: italic; }
+
+/* Modal */
+.modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:10; backdrop-filter: blur(4px); }
+.modal { background: var(--panel-from); border:1px solid var(--border-strong); border-radius: var(--radius); padding: 24px; max-width: 520px; width: 100%; }
+.step { margin: 12px 0; padding: 10px; background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; }
+.step.done { border-color: var(--green); }
+
+hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+.aside-header { padding: 12px 14px; display:flex; align-items:center; justify-content:space-between; }
+.aside-header .label::before { content: "■"; color: var(--green); margin-right: 6px; font-size: 9px; }
 </style>
+<script>
+// Avoid dark→light flash for light-mode users.
+try { if (localStorage.getItem("mod_theme") === "light") document.documentElement.setAttribute("data-theme", "light"); } catch (e) {}
+</script>
 </head>
 <body>
 <div class="app">
   <main>
-    <div class="bar">
-      <strong style="color:#bbb;">mod/dev</strong>
-      <span class="sep">·</span>
-      <span class="mono" id="merkle-summary">merkle: …</span>
-      <span class="sep">·</span>
-      <button id="connect-btn">connect wallet</button>
-      <span class="mono" id="wallet-addr" style="color:var(--muted);"></span>
-      <span style="flex:1;"></span>
-      <button id="key-btn">set api key</button>
-      <button id="serve-btn">serve / refresh</button>
+    <!-- ── Top bar (polymarket "LIVE COPY" strip) ────────── -->
+    <div class="topbar">
+      <span class="brand display">MOD/DEV</span>
+      <span class="merkle-chip mono" id="merkle-chip">merkle: …</span>
+      <span class="spacer"></span>
+      <div class="theme-toggle" role="group" aria-label="Theme">
+        <button class="theme-bubble" id="theme-dark" title="Dark mode">☾</button>
+        <button class="theme-bubble" id="theme-light" title="Light mode">☀</button>
+      </div>
+      <span class="chip amber mono" id="wallet-chip">no wallet</span>
+      <button id="connect-btn">connect</button>
+      <button id="key-btn" class="primary">set api key</button>
     </div>
 
+    <!-- ── Parallel prompt panel ─────────────────────────── -->
     <div class="panel">
       <header>
-        <h2>parallel prompt — sends to <span id="selected-count">0</span> selected module(s)</h2>
-        <span class="mono" id="selected-names"></span>
+        <h2>parallel prompt</h2>
+        <span class="muted mono" style="font-size:11px;">→ <span id="selected-count">0</span> module(s) · <span id="selected-names" class="dim"></span></span>
       </header>
-      <textarea id="prompt" placeholder="prompt to run in parallel across selected modules…"></textarea>
-      <div class="row" style="margin-top:8px;justify-content:flex-end;">
+      <textarea id="prompt" placeholder="prompt sent to every selected module in parallel…"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;justify-content:flex-end;">
         <select id="model" style="width:160px;">
           <option value="default">default model</option>
-          <option value="sonnet">sonnet</option>
-          <option value="opus">opus</option>
+          <option value="sonnet">claude sonnet</option>
+          <option value="opus">claude opus</option>
           <option value="gpt-4o-mini">gpt-4o-mini</option>
           <option value="gpt-4o">gpt-4o</option>
         </select>
@@ -109,33 +254,39 @@
       </div>
     </div>
 
+    <!-- ── Per-module task panels ────────────────────────── -->
     <div id="tasks"></div>
   </main>
 
+  <!-- ── Right rail ──────────────────────────────────────── -->
   <aside>
-    <h1 style="padding:0 14px;">modules</h1>
+    <div class="aside-header"><span class="label">modules</span><span class="muted mono" style="font-size:10px;" id="mod-count">…</span></div>
     <div id="mod-list" class="mod-list"></div>
+
     <hr/>
-    <div style="padding:0 14px;">
-      <h1>communes</h1>
-      <div id="commune-list"></div>
-    </div>
+
+    <div class="aside-header"><span class="label" style="--green:var(--violet);"><span style="color:var(--violet);">■</span> communes</span></div>
+    <div id="commune-list" class="mod-list"></div>
+
     <hr/>
-    <div style="padding:0 14px;">
-      <div class="mono" id="gw-info">gateway: localhost:8888</div>
+
+    <div style="padding: 12px 14px;">
+      <div class="label" style="margin-bottom:6px;">gateway</div>
+      <div class="mono dim" style="font-size:11px;" id="gw-info">localhost:3000</div>
     </div>
   </aside>
 </div>
 
+<!-- Key modal -->
 <div class="modal-backdrop" id="modal">
   <div class="modal">
-    <h3 style="margin:0 0 8px;color:var(--accent);">set api key — <span id="modal-provider">claude</span></h3>
+    <h3 class="display" style="margin:0 0 8px;color:var(--green);">set api key — <span id="modal-provider">claude</span></h3>
     <div class="step" id="step-1"><strong>1.</strong> connect wallet
       <button id="modal-connect" class="primary" style="margin-left:8px;">connect</button>
-      <div class="mono" id="modal-wallet" style="margin-top:6px;"></div></div>
+      <div class="mono dim" id="modal-wallet" style="margin-top:6px;"></div></div>
     <div class="step" id="step-2"><strong>2.</strong> sign challenge
       <button id="modal-sign" class="primary" style="margin-left:8px;" disabled>sign</button>
-      <div class="mono" id="modal-sig" style="margin-top:6px;"></div></div>
+      <div class="mono dim" id="modal-sig" style="margin-top:6px;"></div></div>
     <div class="step" id="step-3"><strong>3.</strong> paste api key
       <input id="modal-key" type="password" placeholder="sk-..." style="margin-top:8px;" /></div>
     <div class="step" id="step-4"><strong>4.</strong>
@@ -148,49 +299,56 @@
 <script>
 const CHALLENGE = "mod-key-derivation-v1";
 const API_BASE = window.location.pathname.replace(/\/$/, "").startsWith("/dev") ? "/api/dev" : "";
-
-const state = { wallet:null, signature:null, derivedKey:null, modules:[], selected:new Set(), tasksByMod:{} };
+const state = { wallet: null, signature: null, derivedKey: null, modules: [], selected: new Set(), tasksByMod: {} };
 const $ = (id) => document.getElementById(id);
 
+/* ── theme ─────────────────────────────────────────────── */
+function setTheme(t) {
+  if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+  else document.documentElement.removeAttribute("data-theme");
+  try { localStorage.setItem("mod_theme", t); } catch (e) {}
+  $("theme-dark").classList.toggle("active", t === "dark");
+  $("theme-light").classList.toggle("active", t === "light");
+}
+$("theme-dark").onclick = () => setTheme("dark");
+$("theme-light").onclick = () => setTheme("light");
+setTheme(localStorage.getItem("mod_theme") || "dark");
+
+/* ── wallet + sig ──────────────────────────────────────── */
 async function connectWallet() {
-  if (!window.ethereum) { alert("MetaMask required for encrypted key flow."); return null; }
+  if (!window.ethereum) { alert("MetaMask required."); return null; }
   const accts = await window.ethereum.request({ method:"eth_requestAccounts" });
   state.wallet = accts[0];
+  $("wallet-chip").textContent = state.wallet.slice(0,6) + "…" + state.wallet.slice(-4);
+  $("wallet-chip").className = "chip green mono";
   return state.wallet;
 }
-
 async function signChallenge() {
   if (!state.wallet) await connectWallet();
   state.signature = await window.ethereum.request({ method:"personal_sign", params:[CHALLENGE, state.wallet] });
   state.derivedKey = await deriveAesKey(state.signature);
   return state.signature;
 }
-
 async function deriveAesKey(sigHex) {
   const raw = hexToBytes(sigHex.replace(/^0x/, ""));
   const hash = await crypto.subtle.digest("SHA-256", raw);
   return crypto.subtle.importKey("raw", hash, { name:"AES-GCM", length:256 }, false, ["encrypt","decrypt"]);
 }
-
 function hexToBytes(h) { const b=new Uint8Array(h.length/2); for(let i=0;i<b.length;i++) b[i]=parseInt(h.substr(i*2,2),16); return b; }
 function bytesToHex(b) { return Array.from(b).map(x=>x.toString(16).padStart(2,"0")).join(""); }
 
+/* ── module list ───────────────────────────────────────── */
+function nameToGradient(name) {
+  let h = 0; for (let i = 0; i < name.length; i++) h = (h*31 + name.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return { from: `hsl(${hue}, 60%, 45%)`, to: `hsl(${(hue+40)%360}, 60%, 30%)` };
+}
 async function loadModules() {
   const r = await fetch(`${API_BASE}/modules`);
   state.modules = await r.json();
+  $("mod-count").textContent = `${state.modules.filter(m=>m.alive).length}/${state.modules.length} live`;
   renderModules();
 }
-
-// Stable per-name color from a hash of the module name.
-function nameToGradient(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  const hue = h % 360;
-  const from = `hsl(${hue}, 60%, 45%)`;
-  const to = `hsl(${(hue + 40) % 360}, 60%, 30%)`;
-  return { from, to };
-}
-
 function renderModules() {
   const list = $("mod-list");
   list.innerHTML = "";
@@ -204,6 +362,8 @@ function renderModules() {
     card.style.setProperty("--avatar-from", avatarColor);
     card.style.setProperty("--avatar-to", grad.to);
     const desc = (m.description || "").slice(0, 48);
+    const status = m.alive ? "live" : (m.served ? "warn" : "idle");
+    const statusLabel = m.alive ? "live" : (m.served ? "starting" : "idle");
     card.innerHTML = `
       <div class="mod-avatar">${avatarChar}</div>
       <div class="mod-meta">
@@ -211,10 +371,9 @@ function renderModules() {
         <div class="mod-desc">${desc || (m.kind + ' · port ' + (m.port || '?'))}</div>
       </div>
       <div class="mod-right">
-        <span class="pill ${m.alive ? 'ok' : (m.served ? 'warn' : 'miss')}">${m.alive ? 'live' : (m.served ? 'starting' : 'idle')}</span>
+        <span class="pill ${status}">${statusLabel}</span>
         ${m.warnings.length ? '<span class="warn-tri" title="'+m.warnings.join(', ')+'">⚠</span>' : ''}
-      </div>
-    `;
+      </div>`;
     card.onclick = () => {
       isSel ? state.selected.delete(m.name) : state.selected.add(m.name);
       renderModules();
@@ -223,27 +382,27 @@ function renderModules() {
     list.appendChild(card);
   });
   $("selected-count").textContent = state.selected.size;
-  $("selected-names").textContent = [...state.selected].join(", ");
+  $("selected-names").textContent = state.selected.size ? [...state.selected].join(", ") : "(none)";
 }
 
 async function loadCommunes() {
   const r = await fetch(`${API_BASE}/communes`);
   const cs = await r.json();
   const list = $("commune-list");
-  list.innerHTML = cs.length ? "" : '<div class="empty">no communes — POST /communes/{name} to create one</div>';
+  list.innerHTML = cs.length ? "" : '<div class="empty">no communes — POST /communes/{name}</div>';
   cs.forEach((c) => {
     const row = document.createElement("div");
-    row.className = "mod-row";
-    row.innerHTML = `<span class="icon">⌖</span><span class="name">${c.name}</span><span class="pill">${c.modules.length} members</span>`;
+    row.className = "mod-card";
+    row.innerHTML = `<div class="mod-avatar" style="background:linear-gradient(135deg, var(--violet), #6d28d9);">⌖</div>
+      <div class="mod-meta"><div class="mod-name">${c.name}</div><div class="mod-desc">${c.modules.length} members · ${c.owner.slice(0,8)}…</div></div>`;
     row.title = `owner: ${c.owner}\nroot: ${c.root}`;
     list.appendChild(row);
   });
 }
-
 async function loadMerkle() {
   const r = await fetch(`${API_BASE}/merkle`);
   const mk = await r.json();
-  $("merkle-summary").textContent = `merkle: ${mk.root ? mk.root.slice(0,18)+'…' : '(empty)'} · ${(mk.leaves||[]).length} leaves`;
+  $("merkle-chip").textContent = mk.root ? `merkle: ${mk.root.slice(0,12)}… · ${(mk.leaves||[]).length} leaves` : "merkle: (empty)";
 }
 
 async function loadTasksFor(name) {
@@ -253,73 +412,68 @@ async function loadTasksFor(name) {
   const data = await r.json();
   return Array.isArray(data) ? data : (data.jobs || []);
 }
-
 function renderTasks() {
-  const container = $("tasks");
+  const c = $("tasks");
   if (state.selected.size === 0) {
-    container.innerHTML = '<div class="panel"><div class="empty">select one or more modules from the sidebar to view tasks and send parallel prompts</div></div>';
+    c.innerHTML = '<div class="panel"><div class="empty">select one or more modules from the sidebar to view tasks and send parallel prompts</div></div>';
     return;
   }
-  container.innerHTML = "";
+  c.innerHTML = "";
   [...state.selected].forEach((name) => {
     const mod = state.modules.find(m => m.name === name) || {};
     const tasks = state.tasksByMod[name] || [];
     const panel = document.createElement("div");
     panel.className = "panel";
+    const status = mod.alive ? "live" : (mod.served ? "warn" : "idle");
     panel.innerHTML = `
       <header>
-        <h2>${name} <span class="pill ${mod.alive?'ok':(mod.served?'warn':'miss')}">${mod.alive?'live':(mod.served?'starting':'idle')}</span></h2>
-        <span class="mono">${mod.kind||'?'} · port ${mod.port||'?'}</span>
+        <h2>${name} <span class="pill ${status}">${mod.alive?'live':(mod.served?'starting':'idle')}</span></h2>
+        <span class="muted mono" style="font-size:11px;">${mod.kind||'?'} · port ${mod.port||'?'}</span>
       </header>
-      <div id="tasks-${name}">${tasks.length ? '' : '<div class="empty">' + (state.signature ? 'no recent tasks' : 'connect wallet to view tasks') + '</div>'}</div>
-    `;
-    container.appendChild(panel);
+      <div id="tasks-${name}">${tasks.length ? '' : '<div class="empty">' + (state.signature ? 'no recent tasks' : 'connect wallet to view tasks') + '</div>'}</div>`;
+    c.appendChild(panel);
     const tdiv = panel.querySelector(`#tasks-${name}`);
     tasks.slice(0, 8).forEach((t) => {
       const el = document.createElement("div");
       el.className = "task";
-      const status = t.status || "?";
+      const stat = t.status || "?";
+      const stp = stat === "completed" ? "live" : stat === "failed" ? "miss" : "warn";
       const prompt = (t.prompt || t.text || JSON.stringify(t)).slice(0, 100);
       el.innerHTML = `<div class="prompt">${prompt}</div>
         <div class="meta">
-          <span class="pill ${status==='completed'?'ok':status==='failed'?'miss':'warn'}">${status}</span>
-          <span>${t.model || ''}</span>
-          <span>${t.id ? t.id.slice(0,8) : ''}</span>
+          <span class="pill ${stp}">${stat}</span>
+          <span class="mono">${t.model || ''}</span>
+          <span class="mono dim">${t.id ? t.id.slice(0,8) : ''}</span>
         </div>`;
       tdiv.appendChild(el);
     });
   });
 }
-
 async function refreshTasks() {
   if (!state.signature) return;
-  for (const name of state.selected) {
-    state.tasksByMod[name] = await loadTasksFor(name);
-  }
+  for (const name of state.selected) state.tasksByMod[name] = await loadTasksFor(name);
   renderTasks();
 }
-
 async function runParallel() {
   const prompt = $("prompt").value.trim();
   const model = $("model").value;
   if (!prompt) { alert("enter a prompt"); return; }
-  if (!state.signature) { await signChallenge(); }
+  if (!state.signature) await signChallenge();
   if (state.selected.size === 0) { alert("select at least one module"); return; }
-  const promises = [...state.selected].map(async (name) => {
+  const ps = [...state.selected].map(async (name) => {
     const r = await fetch(`${API_BASE}/proxy/${name}/jobs`, {
       method:"POST",
-      headers:{ "Content-Type":"application/json", "X-Mod-Signature":state.signature, "Authorization":`Bearer ${state.signature}` },
+      headers:{ "Content-Type":"application/json", "X-Mod-Signature": state.signature, "Authorization": `Bearer ${state.signature}` },
       body: JSON.stringify({ prompt, model: model === "default" ? undefined : model, work_dir: "/Users/broski/mod" }),
     });
     return { name, status: r.status, body: await r.text() };
   });
-  const results = await Promise.all(promises);
-  console.log("parallel run results:", results);
+  await Promise.all(ps);
   $("prompt").value = "";
-  setTimeout(refreshTasks, 1000);
+  setTimeout(refreshTasks, 800);
 }
 
-// ── Key modal ─────────────────────────────────────────
+/* ── key modal ─────────────────────────────────────────── */
 $("key-btn").onclick = () => {
   const sel = [...state.selected][0] || "claude";
   $("modal-provider").textContent = sel;
@@ -345,25 +499,19 @@ $("modal-submit").onclick = async () => {
   const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, state.derivedKey, enc);
   const body = JSON.stringify({ ciphertext: bytesToHex(new Uint8Array(ct)), iv: bytesToHex(iv) });
   const r = await fetch(`${API_BASE}/key/${provider}`, {
-    method:"POST", headers:{ "Content-Type":"application/json", "X-Mod-Signature":state.signature }, body,
+    method:"POST", headers:{ "Content-Type":"application/json", "X-Mod-Signature": state.signature }, body,
   });
-  $("modal-result").innerHTML = r.ok ? '<span class="pill ok">stored</span>' : `<span class="pill miss">error ${r.status}</span>`;
+  $("modal-result").innerHTML = r.ok ? '<span class="pill live">stored ✓</span>' : `<span class="pill miss">error ${r.status}</span>`;
   if (r.ok) $("step-4").classList.add("done");
 };
 
 $("connect-btn").onclick = async () => {
   const w = await connectWallet();
-  if (w) {
-    $("wallet-addr").textContent = w.slice(0,8)+"…"+w.slice(-4);
-    await signChallenge();
-    await refreshTasks();
-  }
+  if (w) { await signChallenge(); await refreshTasks(); }
 };
-
 $("run-btn").onclick = runParallel;
-$("serve-btn").onclick = async () => { await loadModules(); await refreshTasks(); await loadMerkle(); await loadCommunes(); };
 
-// ── init ──────────────────────────────────────────────
+/* ── init ─────────────────────────────────────────────── */
 loadModules().then(renderTasks);
 loadMerkle();
 loadCommunes();

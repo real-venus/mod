@@ -145,12 +145,12 @@ export default function BuildBadge() {
     .filter(Boolean)
     .join("\n");
 
-  const btnCls = "pixel-btn text-[10px] px-2 py-1 font-mono border-pixel-border text-pixel-gray bg-pixel-black/80 hover:text-green-400 hover:border-green-400 backdrop-blur-sm";
+  const btnCls = "pixel-btn text-[12px] px-2 py-1 font-mono border-pixel-border text-pixel-gray bg-pixel-black/80 hover:text-green-400 hover:border-green-400 backdrop-blur-sm";
 
   return (
     <div className="fixed bottom-2 right-2 z-40 flex flex-col items-end gap-1">
       {status && (
-        <div className="pixel-btn text-[9px] px-2 py-0.5 font-mono border-pixel-border text-green-400 bg-pixel-black/80 backdrop-blur-sm">
+        <div className="pixel-btn text-[12px] px-2 py-0.5 font-mono border-pixel-border text-green-400 bg-pixel-black/80 backdrop-blur-sm">
           {status}
         </div>
       )}

@@ -10,8 +10,13 @@ import WalletFundingPanel from "./WalletFundingPanel";
 import LoadedBadge from "./LoadedBadge";
 import EnableTradingPanel from "./EnableTradingPanel";
 import PolymarketAccountPanel from "./PolymarketAccountPanel";
+import ThemeToggle from "./ThemeToggle";
 
+// Poll interval (minutes → ms). The engine copies each detected trade as it
+// arrives, so this is purely how often we hit Polymarket's data-api per trader.
 const REBALANCE_MS: Record<number, number> = {
+  1: 60_000,
+  2: 120_000,
   5: 300_000,
   10: 600_000,
   15: 900_000,
@@ -135,6 +140,7 @@ export default function LivePanel() {
             )}
           </div>
           <div className="flex items-center gap-1.5">
+            <ThemeToggle />
             {/* Polygon USDC ready-to-trade indicator — visible before GO LIVE */}
             {auth.connected && <LoadedBadge capital={liveCapital} />}
             {isLive && status === "running" && (

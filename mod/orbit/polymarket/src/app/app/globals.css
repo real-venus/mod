@@ -1,51 +1,166 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg: #000000;
-  --fg: #ffffff;
+  /* Dark theme is the default. Toggle by setting `data-theme="light"` on
+     the <html> element (handled by ThemeContext). Every color that flips
+     between modes goes through one of these vars so a single override
+     block below can recolor the whole UI. */
+  --bg: #050505;
+  --bg-elev: #0a0a0a;          /* page-level slight elevation (header strip etc) */
+  --fg: #f5f5f5;
+  --fg-muted: #999999;
+  --fg-dim: #666666;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --panel-from: #141414;
+  --panel-to: #0e0e0e;
+  --panel-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.45);
+  --input-bg: #0a0a0a;
+  --input-bg-focus: #0d0d0d;
+  --btn-bg: rgba(255, 255, 255, 0.02);
+  --btn-bg-hover: rgba(255, 255, 255, 0.06);
+  --btn-bg-active: rgba(255, 255, 255, 0.04);
+  --scroll-track: #050505;
+  --scroll-thumb: #2a2a2a;
+  --scroll-thumb-hover: #3a3a3a;
+  --table-stripe: #0d0d0d;
+  --table-hover: #1a1a1a;
+  --table-head: #0a0a0a;
+
+  /* Tailwind `pixel.*` palette refs — `_rgb` channel vars are what the
+     tailwind.config.js consumes via `rgb(var(--pixel-x-rgb) / <alpha>)`
+     so opacity modifiers (`text-pixel-white/50`) keep working. The hex
+     mirrors below are kept for any inline-style consumers that read the
+     plain value directly. */
+  --pixel-black-rgb: 0 0 0;
+  --pixel-bg-rgb: 10 10 10;
+  --pixel-panel-rgb: 26 26 26;
+  --pixel-border-rgb: 51 51 51;
+  --pixel-white-rgb: 255 255 255;
+  --pixel-gray-rgb: 102 102 102;
+  --pixel-gray-light-rgb: 153 153 153;
+  --pixel-black: #000000;
+  --pixel-bg: #0a0a0a;
+  --pixel-panel: #1a1a1a;
+  --pixel-border: #333333;
+  --pixel-white: #ffffff;
+  --pixel-gray: #666666;
+  --pixel-gray-light: #999999;
+
+  /* Vibey rounded radii — used by every panel/button/input. */
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+}
+
+[data-theme="light"] {
+  --bg: #f4f5f7;
+  --bg-elev: #ffffff;
+  --fg: #111827;
+  --fg-muted: #4b5563;
+  --fg-dim: #9ca3af;
+  --border: rgba(17, 24, 39, 0.10);
+  --border-strong: rgba(17, 24, 39, 0.22);
+  --panel-from: #ffffff;
+  --panel-to: #fafafa;
+  --panel-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 4px 14px rgba(17, 24, 39, 0.06);
+  --input-bg: #ffffff;
+  --input-bg-focus: #ffffff;
+  --btn-bg: rgba(17, 24, 39, 0.03);
+  --btn-bg-hover: rgba(17, 24, 39, 0.07);
+  --btn-bg-active: rgba(17, 24, 39, 0.05);
+  --scroll-track: #f4f5f7;
+  --scroll-thumb: #d1d5db;
+  --scroll-thumb-hover: #b7bcc4;
+  --table-stripe: #f3f4f6;
+  --table-hover: #e5e7eb;
+  --table-head: #ffffff;
+
+  --pixel-black-rgb: 255 255 255;
+  --pixel-bg-rgb: 244 245 247;
+  --pixel-panel-rgb: 255 255 255;
+  --pixel-border-rgb: 229 231 235;
+  --pixel-white-rgb: 17 24 39;
+  --pixel-gray-rgb: 107 114 128;
+  --pixel-gray-light-rgb: 156 163 175;
+  --pixel-black: #ffffff;
+  --pixel-bg: #f4f5f7;
+  --pixel-panel: #ffffff;
+  --pixel-border: #e5e7eb;
+  --pixel-white: #111827;
+  --pixel-gray: #6b7280;
+  --pixel-gray-light: #9ca3af;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #333333 #000000;
-  image-rendering: pixelated;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
 }
 
-*::-webkit-scrollbar { width: 8px; }
-*::-webkit-scrollbar-track { background: #000000; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--scroll-track); }
 *::-webkit-scrollbar-thumb {
-  background: #333333;
-  border: 2px solid #000000;
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+  border: 2px solid var(--scroll-track);
 }
+*::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
 
 body {
   color: var(--fg);
   background: var(--bg);
-  font-family: "Press Start 2P", monospace;
+  /* Vibey modern stack — Inter for body, JetBrains Mono for numerics */
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.005em;
 }
 
-/* Game Boy style scanline overlay */
+/* Numeric / mono-style content (prices, percents, addresses) */
+.font-mono,
+[class*="font-mono"],
+code, kbd, pre, samp {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace !important;
+  font-feature-settings: "tnum", "ss01";
+}
+
+/* Headlines / branding accents */
+.font-display {
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Subtle ambient vignette — replaces the heavy Game Boy scanline overlay. */
 .crt-overlay {
   pointer-events: none;
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  inset: 0;
   z-index: 9999;
   background:
-    repeating-linear-gradient(
-      0deg,
-      rgba(0, 0, 0, 0.1) 0px,
-      rgba(0, 0, 0, 0.1) 1px,
-      transparent 1px,
-      transparent 2px
-    );
+    radial-gradient(ellipse at top, rgba(74, 222, 128, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(125, 211, 252, 0.03) 0%, transparent 55%);
 }
 
-/* Game Boy screen effect */
+/* Universal rounding sweep — every native control + bordered div picks up the
+   vibe without per-component className edits. */
+button,
+input,
+select,
+textarea {
+  border-radius: var(--radius);
+}
+input[type="checkbox"],
+input[type="radio"] {
+  border-radius: var(--radius-sm);
+}
+
+/* Page-level inner glow */
 .crt-screen {
   position: relative;
 }
@@ -53,138 +168,157 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-xl);
   pointer-events: none;
   box-shadow:
-    inset 0 0 80px rgba(255, 255, 255, 0.02),
-    inset 0 0 200px rgba(0, 0, 0, 0.4);
+    inset 0 0 120px rgba(255, 255, 255, 0.015),
+    inset 0 0 240px rgba(0, 0, 0, 0.5);
   z-index: 1;
 }
 
-/* Pixel glow effects - Mario style */
-.glow-green { text-shadow: 2px 2px 0 #000000; }
-.glow-cyan { text-shadow: 2px 2px 0 #000000; }
-.glow-amber { text-shadow: 2px 2px 0 #000000; }
-.glow-red { text-shadow: 2px 2px 0 #666666; }
-.glow-magenta { text-shadow: 2px 2px 0 #000000; }
+/* Glow effects — softer modern variants (kept for backward compat) */
+.glow-green   { text-shadow: 0 0 14px rgba(74, 222, 128, 0.45); }
+.glow-cyan    { text-shadow: 0 0 14px rgba(125, 211, 252, 0.45); }
+.glow-amber   { text-shadow: 0 0 14px rgba(251, 191, 36, 0.45); }
+.glow-red     { text-shadow: 0 0 14px rgba(248, 113, 113, 0.45); }
+.glow-magenta { text-shadow: 0 0 14px rgba(244, 114, 182, 0.45); }
 
-/* Pixel panel border - Mario block style */
+/* Vibey rounded panel — replaces the Mario pixel block */
 .pixel-panel {
-  border: 3px solid #ffffff;
-  box-shadow: inset 3px 3px 0 #333333, inset -3px -3px 0 #000000;
-  background: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--panel-from) 0%, var(--panel-to) 100%);
+  box-shadow: var(--panel-shadow);
 }
 
 .pixel-panel-cyan {
-  border: 3px solid #cccccc;
-  box-shadow: inset 3px 3px 0 #666666, inset -3px -3px 0 #000000;
-  background: #1a1a1a;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #141414 0%, #0e0e0e 100%);
+  box-shadow: 0 0 24px rgba(125, 211, 252, 0.06), 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .pixel-panel-amber {
-  border: 3px solid #ffffff;
-  box-shadow: inset 3px 3px 0 #999999, inset -3px -3px 0 #000000;
-  background: #1a1a1a;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #141414 0%, #0e0e0e 100%);
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.06), 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .pixel-panel-red {
-  border: 3px solid #333333;
-  box-shadow: inset 3px 3px 0 #111111, inset -3px -3px 0 #000000;
-  background: #0a0a0a;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #1a0e0e 0%, #0e0808 100%);
+  box-shadow: 0 0 24px rgba(248, 113, 113, 0.08), 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
-/* Pixel button - Mario style */
+/* Vibey rounded button */
 .pixel-btn {
-  border: 3px solid #ffffff;
-  padding: 8px 16px;
-  font-family: "Press Start 2P", monospace;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.08em;
   cursor: pointer;
-  transition: all 0.1s;
-  position: relative;
-  box-shadow: inset -3px -3px 0 #000000, inset 3px 3px 0 #666666;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s, box-shadow 0.15s;
+  background: var(--btn-bg);
+  color: var(--fg);
 }
 .pixel-btn:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: inset -3px -3px 0 #000000, inset 3px 3px 0 #999999, 3px 3px 0 #333333;
+  background: var(--btn-bg-hover);
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
 }
 .pixel-btn:active {
-  transform: translate(0, 0);
-  box-shadow: inset 3px 3px 0 #000000, inset -3px -3px 0 #666666;
+  transform: translateY(1px);
+  background: var(--btn-bg-active);
 }
 
-/* Pixel input */
+/* Vibey rounded input */
 .pixel-input {
-  background: #000000;
-  border: 3px solid #666666;
+  background: var(--input-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   padding: 10px 14px;
-  font-family: "Press Start 2P", monospace;
-  font-size: 11px;
-  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--fg);
   outline: none;
-  box-shadow: inset 2px 2px 0 #000000;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 .pixel-input:focus {
-  border-color: #ffffff;
-  box-shadow: inset 2px 2px 0 #000000, 0 0 0 2px #333333;
+  border-color: rgba(74, 222, 128, 0.55);
+  background: var(--input-bg-focus);
+  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.08);
 }
 .pixel-input::placeholder {
-  color: #666666;
+  color: var(--fg-dim);
 }
 
 /* Compact filter input — smaller padding for inline filter bars */
 .pixel-input-sm {
-  background: #0a0a0a;
-  border: 2px solid #444;
-  padding: 5px 8px;
-  font-family: "Press Start 2P", monospace;
-  font-size: 9px;
-  color: #ffffff;
+  background: var(--input-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--fg);
   outline: none;
-  box-shadow: inset 1px 1px 0 #000;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 .pixel-input-sm:focus {
-  border-color: #4ade80;
-  box-shadow: inset 1px 1px 0 #000, 0 0 6px rgba(74, 222, 128, 0.15);
+  border-color: rgba(74, 222, 128, 0.55);
+  background: var(--input-bg-focus);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.08);
 }
 .pixel-input-sm::placeholder {
-  color: #555;
+  color: var(--fg-dim);
 }
 
-/* Force pixel font on native date input internals */
+/* Native date-input internals — inherit the vibey font instead of forcing the
+   retro pixel face. */
 .pixel-input[type="date"]::-webkit-datetime-edit,
 .pixel-input[type="date"]::-webkit-datetime-edit-fields-wrapper,
 .pixel-input[type="date"]::-webkit-datetime-edit-text,
 .pixel-input[type="date"]::-webkit-datetime-edit-month-field,
 .pixel-input[type="date"]::-webkit-datetime-edit-day-field,
 .pixel-input[type="date"]::-webkit-datetime-edit-year-field {
-  font-family: "Press Start 2P", monospace;
-  color: #ffffff;
+  font-family: inherit;
+  color: var(--fg);
 }
 .pixel-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
+  filter: invert(var(--cal-icon-invert, 1));
   cursor: pointer;
 }
+[data-theme="light"] .pixel-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+}
 
-/* 8-bit progress bar - Mario pipe style */
+/* Vibey progress bar */
 .pixel-bar {
-  height: 12px;
-  background: #000000;
-  border: 2px solid #666666;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
   position: relative;
   overflow: hidden;
-  box-shadow: inset 2px 2px 0 #0a0a0a;
 }
 .pixel-bar-fill {
   height: 100%;
-  transition: width 0.3s steps(20);
-  border-right: 2px solid #333333;
+  border-radius: 999px;
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Retro table */
+/* Retro table — colors thread through theme vars so the stripe doesn't
+   stay locked to dark mode (which made every other row unreadable on
+   light backgrounds). --table-* are defined in :root + [data-theme="light"]. */
 .pixel-table {
   font-size: 12px;
   width: 100%;
@@ -194,8 +328,8 @@ body {
 .pixel-table th {
   text-align: left;
   padding: 10px 12px;
-  color: #999999;
-  border-bottom: 2px solid #333333;
+  color: var(--fg-muted);
+  border-bottom: 2px solid var(--border-strong);
   letter-spacing: 1px;
   font-size: 10px;
   white-space: nowrap;
@@ -206,14 +340,14 @@ body {
   transition: color 0.1s;
 }
 .pixel-table th.sortable:hover {
-  color: #ffffff;
+  color: var(--fg);
 }
 .pixel-table th.sorted {
-  color: #ffffff;
+  color: var(--fg);
 }
 .pixel-table td {
   padding: 8px 12px;
-  border-bottom: 1px solid #1a1a1a;
+  border-bottom: 1px solid var(--border);
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -229,34 +363,38 @@ body {
   transition: background 0.1s;
 }
 .pixel-table tbody tr:nth-child(even) td {
-  background: #0d0d0d;
+  background: var(--table-stripe);
 }
 .pixel-table tbody tr:hover td {
-  background: #1a1a1a;
+  background: var(--table-hover);
 }
 .pixel-table thead.sticky th {
   position: sticky;
   top: 0;
-  background: #0a0a0a;
+  background: var(--table-head);
   z-index: 1;
 }
 
-/* 8-bit badge */
+/* Vibey rounded badge */
 .pixel-badge {
-  display: inline-block;
-  padding: 3px 8px;
-  font-family: "Press Start 2P", monospace;
-  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
   border: 1px solid;
-  letter-spacing: 1px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
 }
 
-/* Market card — sleek vertical card */
+/* Market card — vibey rounded */
 .market-card {
-  background: #111;
-  border: 2px solid #222;
-  padding: 18px;
-  transition: all 0.2s ease;
+  background: linear-gradient(180deg, #131313 0%, #0e0e0e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s, background 0.2s;
   position: relative;
   overflow: hidden;
 }
@@ -266,16 +404,18 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.4), transparent);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.5), transparent);
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.25s;
 }
 .market-card:hover {
-  border-color: #333;
-  background: #151515;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, #181818 0%, #111 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(74, 222, 128, 0.08);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(74, 222, 128, 0.10);
 }
 .market-card:hover::before {
   opacity: 1;
@@ -284,19 +424,19 @@ body {
   transform: translateY(0);
 }
 .market-card-selected {
-  border-color: #4ade80 !important;
-  box-shadow: 0 0 20px rgba(74, 222, 128, 0.1), inset 0 0 30px rgba(74, 222, 128, 0.03);
+  border-color: rgba(74, 222, 128, 0.6) !important;
+  box-shadow: 0 0 24px rgba(74, 222, 128, 0.18), inset 0 0 30px rgba(74, 222, 128, 0.04);
 }
 
-/* Recharts overrides */
+/* Recharts overrides — vibey numerics */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
-  stroke: #333333 !important;
+  stroke: rgba(255, 255, 255, 0.06) !important;
 }
 .recharts-text {
-  fill: #999999 !important;
-  font-family: "Press Start 2P", monospace !important;
-  font-size: 7px !important;
+  fill: #888 !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-size: 10px !important;
 }
 
 /* Pixel sprite decorations - Mario coin */

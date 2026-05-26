@@ -162,7 +162,7 @@ function TraderPageInner() {
           hours synced out of the total hours in the requested window. */}
       {loading && progress.pages > 0 && (
         <div className="sticky top-14 z-30 border-b-2 border-pixel-border bg-pixel-black/95 px-4 py-2">
-          <div className="max-w-[1920px] mx-auto flex items-center gap-3 font-mono text-[12px]">
+          <div className="max-w-[1920px] mx-auto flex items-center gap-3 font-mono text-[14px]">
             <span className="text-pixel-green glow-green shrink-0">SYNCING</span>
             <span className="text-pixel-white shrink-0">
               {daysCovered.toFixed(0)}D BACK

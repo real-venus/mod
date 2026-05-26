@@ -5,6 +5,7 @@ import { CopyEngineProvider } from "./context/CopyEngineContext";
 import { FiltersProvider } from "./context/FiltersContext";
 import { SidebarProvider } from "./context/SidebarContext";
 import { SplitProvider } from "./context/SplitContext";
+import { ThemeProvider, ThemeBoot } from "./context/ThemeContext";
 import SidebarShell from "./components/SidebarShell";
 import SplitShell from "./components/SplitShell";
 import MarketTicker from "./components/MarketTicker";
@@ -24,27 +25,34 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Stamp data-theme="light" before React hydrates so light-mode
+            users don't see a dark-mode flash on first paint. */}
+        <ThemeBoot />
+      </head>
       <body className="font-pixel antialiased bg-pixel-bg text-pixel-white min-h-screen">
-        <AuthProvider>
-          <CopyEngineProvider>
-          <FiltersProvider>
-            <SidebarProvider>
-              <SplitProvider>
-                <div className="crt-overlay" />
-                <div className="crt-screen min-h-screen">
-                  <MarketTicker />
-                  <SplitShell>
-                    <SidebarShell>
-                      <main>{children}</main>
-                    </SidebarShell>
-                  </SplitShell>
-                  <BuildBadge />
-                </div>
-              </SplitProvider>
-            </SidebarProvider>
-          </FiltersProvider>
-          </CopyEngineProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <CopyEngineProvider>
+            <FiltersProvider>
+              <SidebarProvider>
+                <SplitProvider>
+                  <div className="crt-overlay" />
+                  <div className="crt-screen min-h-screen">
+                    <MarketTicker />
+                    <SplitShell>
+                      <SidebarShell>
+                        <main>{children}</main>
+                      </SidebarShell>
+                    </SplitShell>
+                    <BuildBadge />
+                  </div>
+                </SplitProvider>
+              </SidebarProvider>
+            </FiltersProvider>
+            </CopyEngineProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

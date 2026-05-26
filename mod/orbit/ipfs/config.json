@@ -1,102 +1,123 @@
 {
-  "name": "ipfs",
-  "version": "1.0.0",
-  "description": "IPFS node management and content-addressed storage via Kubo",
-  "port": 50079,
-  "urls": {
-    "api": "http://localhost:50079",
-    "app": "http://localhost:50080"
-  },
-  "fns": [
-    "add",
-    "get",
-    "put",
-    "rm",
-    "cat",
-    "pin_add",
-    "pin_rm",
-    "pins",
-    "pinned",
-    "cid",
-    "id",
-    "version",
-    "test",
-    "start_node",
-    "stop_node",
-    "restart_node",
-    "node_status",
-    "install"
-  ],
-  "schema": "QmPfYAmWA54VeiKxq72ykAL4hejhcUm1v9tysqLizMVe78",
-  "endpoints": {
-    "pin": {
-      "method": "POST",
-      "auth": false,
-      "docs": "Pin content to IPFS by CID",
-      "input": [
-        {
-          "name": "cid",
-          "type": "str",
-          "value": "_empty"
-        }
-      ],
-      "output": {
-        "Pins": "list"
-      }
+    "name": "ipfs",
+    "version": "1.0.0",
+    "description": "IPFS node management and content-addressed storage via Kubo",
+    "port": 50079,
+    "urls": {
+        "api": "http://localhost:50079",
+        "app": "http://localhost:50080"
     },
-    "add_mod": {
-      "method": "POST",
-      "auth": false,
-      "docs": "Add a mod's source files to IPFS",
-      "input": [
-        {
-          "name": "mod",
-          "type": "str",
-          "value": "_empty"
+    "fns": [
+        "put",
+        "get",
+        "pins",
+        "peers",
+        "swarm_addrs",
+        "connect",
+        "sync",
+        "propose_swap",
+        "accept_swap",
+        "cancel_swap",
+        "swaps",
+        "grants",
+        "grant",
+        "revoke",
+        "quota",
+        "balance",
+        "pin_for",
+        "unpin_for",
+        "bytes_size",
+        "rm",
+        "rm_all",
+        "owner",
+        "set_owner",
+        "is_owner",
+        "id",
+        "version",
+        "node_status",
+        "disconnect",
+        "bootstrap",
+        "cat",
+        "pin_add",
+        "pin_rm",
+        "pinned",
+        "cid",
+        "test",
+        "start_node",
+        "stop_node",
+        "restart_node",
+        "install"
+    ],
+    "schema": "Qmbh7quKihwKN4xapgvcgvj7FzGDnWCnvioogh4NmXNDvn",
+    "endpoints": {
+        "pin": {
+            "method": "POST",
+            "auth": false,
+            "docs": "Pin content to IPFS by CID",
+            "input": [
+                {
+                    "name": "cid",
+                    "type": "str",
+                    "value": "_empty"
+                }
+            ],
+            "output": {
+                "Pins": "list"
+            }
+        },
+        "add_mod": {
+            "method": "POST",
+            "auth": false,
+            "docs": "Add a mod's source files to IPFS",
+            "input": [
+                {
+                    "name": "mod",
+                    "type": "str",
+                    "value": "_empty"
+                }
+            ],
+            "output": {
+                "cid": "str"
+            }
+        },
+        "reg": {
+            "method": "POST",
+            "auth": false,
+            "docs": "Register a mod on IPFS and return its CID",
+            "input": [
+                {
+                    "name": "mod",
+                    "type": "str",
+                    "value": "_empty"
+                }
+            ],
+            "output": {
+                "cid": "str"
+            }
+        },
+        "mod": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Retrieve a mod from IPFS by CID",
+            "input": [
+                {
+                    "name": "cid",
+                    "type": "str",
+                    "value": "_empty"
+                }
+            ],
+            "output": {
+                "data": "dict"
+            }
+        },
+        "pins": {
+            "method": "GET",
+            "auth": false,
+            "docs": "List all pinned content",
+            "output": {
+                "Keys": "dict"
+            }
         }
-      ],
-      "output": {
-        "cid": "str"
-      }
     },
-    "reg": {
-      "method": "POST",
-      "auth": false,
-      "docs": "Register a mod on IPFS and return its CID",
-      "input": [
-        {
-          "name": "mod",
-          "type": "str",
-          "value": "_empty"
-        }
-      ],
-      "output": {
-        "cid": "str"
-      }
-    },
-    "mod": {
-      "method": "GET",
-      "auth": false,
-      "docs": "Retrieve a mod from IPFS by CID",
-      "input": [
-        {
-          "name": "cid",
-          "type": "str",
-          "value": "_empty"
-        }
-      ],
-      "output": {
-        "data": "dict"
-      }
-    },
-    "pins": {
-      "method": "GET",
-      "auth": false,
-      "docs": "List all pinned content",
-      "output": {
-        "Keys": "dict"
-      }
-    }
-  },
-  "gateway_port": 50080
+    "gateway_port": 50080
 }

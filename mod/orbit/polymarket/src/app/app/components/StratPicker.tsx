@@ -15,6 +15,8 @@ type SortKey = "name" | "pnl" | "roi";
 
 const REBALANCE_OPTIONS = [
   { label: "OFF", value: 0 },
+  { label: "1M", value: 1 },
+  { label: "2M", value: 2 },
   { label: "5M", value: 5 },
   { label: "10M", value: 10 },
   { label: "15M", value: 15 },
@@ -99,7 +101,7 @@ export default function StratPicker({ onStratChange }: StratPickerProps) {
       name: `Strat ${num}`,
       traders: [],
       backtestDays: 7,
-      rebalanceMinutes: 0,
+      rebalanceMinutes: 1,
       createdAt: now,
       updatedAt: now,
     };

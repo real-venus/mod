@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { VersionsPanel } from "../components/VersionsPanel";
 
 const WalletModal = dynamic(() => import("../components/WalletModal"), { ssr: false });
 
@@ -239,6 +240,7 @@ export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light" | "matrix" | "cyberpunk" | "amber" | "ocean" | "ibm" | "win95">("dark");
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showUserDetails, setShowUserDetails] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
 
   // File viewer state
   const [viewingFile, setViewingFile] = useState<string | null>(null);
@@ -5854,6 +5856,60 @@ export default function Home() {
         color: "var(--text-primary)",
       }}
     >
+      {/* Versions overlay (mod-protocol, storage-agnostic) */}
+      {showVersions && selectedModule && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(7, 7, 13, 0.65)",
+            backdropFilter: "blur(8px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            padding: "48px 24px",
+            overflowY: "auto",
+          }}
+          onClick={() => setShowVersions(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 1100, width: "100%" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 16,
+                color: "var(--text-primary)",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13, color: "var(--text-tertiary)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Mod Protocol · Version Control
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 600, marginTop: 4 }}>{selectedModule}</div>
+              </div>
+              <button
+                className="glass-btn ghost"
+                onClick={() => setShowVersions(false)}
+                title="Close"
+              >
+                close
+              </button>
+            </div>
+            <VersionsPanel
+              apiBase={apiUrl}
+              module={selectedModule}
+              authHeader={token ? { Authorization: `Bearer ${token}` } : undefined}
+              onForked={(m) => { setShowVersions(false); setSelectedModule(m); }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── Compact Nav Bar ───────────────────────────────────────── */}
       <div
         className="flex items-center px-4 py-1.5 shrink-0"
@@ -6625,6 +6681,23 @@ export default function Home() {
               BACKEND: {moduleApiUrl.replace(/^https?:\/\//, "")}
             </span>
           )}
+          <span style={{ color: "var(--text-tertiary)", opacity: 0.2 }}>
+            │
+          </span>
+          {/* Versions (mod-protocol snapshot/fork/restore) */}
+          <button
+            onClick={() => setShowVersions(true)}
+            className="pixel-btn text-[13px] py-0.5 px-2"
+            style={{
+              background: "transparent",
+              color: "var(--accent-color)",
+              border: "1px solid var(--accent-color)",
+            }}
+            title="Versions · snapshot / fork / restore via mod protocol"
+            disabled={!selectedModule}
+          >
+            VERSIONS
+          </button>
           <span style={{ color: "var(--text-tertiary)", opacity: 0.2 }}>
             │
           </span>

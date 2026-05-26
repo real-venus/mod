@@ -35,7 +35,7 @@ export default function ClobChip() {
       onClick={() => { if (canSign && !loading) void authenticate(); }}
       disabled={!canSign || loading}
       title={title}
-      className={`pixel-btn text-[11px] px-2 py-1 transition-colors flex items-center gap-1.5 disabled:opacity-60 ${color}`}
+      className={`pixel-btn text-[13px] px-2 py-1 transition-colors flex items-center gap-1.5 disabled:opacity-60 ${color}`}
     >
       <div
         className={`w-1.5 h-1.5 ${

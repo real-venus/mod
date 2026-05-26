@@ -51,7 +51,7 @@ export default function LoadedBadge({ capital }: Props) {
     <button
       onClick={refresh}
       title={tooltip}
-      className={`pixel-btn font-mono text-[11px] px-2.5 py-1 transition-colors flex items-center gap-1.5 ${color}`}
+      className={`pixel-btn font-mono text-[13px] px-2.5 py-1 transition-colors flex items-center gap-1.5 ${color}`}
     >
       <div className={`w-1.5 h-1.5 shrink-0 ${
         error ? "bg-red-400" :

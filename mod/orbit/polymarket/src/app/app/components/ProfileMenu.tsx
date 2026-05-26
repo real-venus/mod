@@ -23,7 +23,7 @@ export default function ProfileMenu() {
   return (
     <button
       onClick={toggleDocked}
-      className={`pixel-btn text-[11px] px-2 py-1 transition-colors flex items-center gap-1.5 ${triggerColor}`}
+      className={`pixel-btn text-[13px] px-2 py-1 transition-colors flex items-center gap-1.5 ${triggerColor}`}
       title="Profile / sign-in"
     >
       <div
@@ -32,7 +32,7 @@ export default function ProfileMenu() {
         }`}
       />
       <span className="font-mono">PANEL</span>
-      <span className="text-[9px] opacity-60">{docked ? "◀" : "▶"}</span>
+      <span className="text-[12px] opacity-60">{docked ? "◀" : "▶"}</span>
     </button>
   );
 }

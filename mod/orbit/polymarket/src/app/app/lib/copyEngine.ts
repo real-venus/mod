@@ -107,6 +107,17 @@ function delay(ms: number): Promise<void> {
 }
 
 // ── Engine ─────────────────────────────────────────────────────
+//
+// Per-trade copy engine. Each cycle polls every enabled trader's recent
+// activity and places a mirror FOK order for any trade newer than the
+// trader's last-seen cursor. Sizing is "proportional to trader": each
+// trade is scaled by capital_alloc / trader_recent_buy_volume, so the
+// follower's $ exposure across the trader's whole book matches the
+// configured capital allocation. Identical to the backtest's per-trade
+// replay — so what you backtest is what you live-trade.
+//
+// The "rebalance" minutes config is really a poll interval; the engine
+// does not batch or net trades within a window.
 
 export class CopyEngine {
   private config: CopyEngineConfig;
@@ -324,7 +335,11 @@ export class CopyEngine {
           tradersWithNewActivity++;
           totalNewTradesSeen += newTrades.length;
 
-          // Compute trader's buy volume for sizing
+          // Per-trade sizing (proportional). copyRatio = how much of the
+          // trader's recent buy volume gets replicated with our capital
+          // allocation. Computed from the full cached trade set (hourly
+          // cache), so the ratio is stable across cycles — same as the
+          // backtest's per-trade replay.
           const traderBuyVol = trades
             .filter((t) => t.side === "BUY")
             .reduce((s, t) => s + t.price * t.size, 0);

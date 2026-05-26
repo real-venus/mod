@@ -68,12 +68,12 @@ export default function PositionsTable() {
   return (
     <div className="pixel-panel overflow-hidden">
       <div className="px-5 py-4 border-b-2 border-pixel-border flex items-center justify-between">
-        <span className="text-[14px] text-pixel-gray-light tracking-wider">MY POSITIONS</span>
+        <span className="text-[16px] text-pixel-gray-light tracking-wider">MY POSITIONS</span>
         <div className="flex items-center gap-4">
-          <span className="text-[14px] text-pixel-white">
+          <span className="text-[16px] text-pixel-white">
             VALUE: ${totalValue.toFixed(2)}
           </span>
-          <span className={`text-[14px] ${totalPnl >= 0 ? "text-pixel-white" : "text-pixel-gray"}`}>
+          <span className={`text-[16px] ${totalPnl >= 0 ? "text-pixel-white" : "text-pixel-gray"}`}>
             P&L: {totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
           </span>
         </div>

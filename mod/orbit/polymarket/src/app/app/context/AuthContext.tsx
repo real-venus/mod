@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { AuthState } from "../lib/types";
 import { detectWallet, connectWallet, deriveClobApiKey } from "../lib/auth";
 
@@ -141,6 +141,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, [auth.address]);
+
+  // Auto-initiate CLOB auth as soon as the wallet is connected. Tracks the
+  // last EOA we attempted (success OR fail) so a rejected MetaMask prompt
+  // doesn't get re-opened on every render. Re-tries only when the account
+  // changes — accountsChanged handler above clears clobCreds, which resets
+  // the precondition that auth.authenticated is false against a new addr.
+  const autoAuthAttemptedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!auth.connected || !auth.address) return;
+    if (auth.authenticated) return;
+    if (loading) return;
+    if (autoAuthAttemptedFor.current === auth.address) return;
+    autoAuthAttemptedFor.current = auth.address;
+    void authenticate();
+  }, [auth.connected, auth.address, auth.authenticated, loading, authenticate]);
 
   return (
     <AuthContext.Provider value={{ auth, connect, disconnect, authenticate, generateToken, localToken, error, loading, hasWallet }}>

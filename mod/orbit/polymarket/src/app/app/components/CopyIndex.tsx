@@ -73,6 +73,20 @@ const TAKER_FEE_BPS = 200; // 2% = 200 bps
 const GAS_PER_TRADE_USD = 0.005;
 const DEFAULT_CAPITAL = 1000;
 
+// Deterministic per-trade sample filter. Same (samplePct, key) always returns
+// the same boolean — keeps the chart + feed in lockstep without re-sampling
+// every render. Uses FNV-1a so a one-char tweak to the key reshuffles cleanly.
+function keepInSample(samplePct: number, key: string): boolean {
+  if (samplePct >= 100) return true;
+  if (samplePct <= 0) return false;
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 100) < samplePct;
+}
+
 function computeBacktest(
   trades: PolymarketTrade[],
   positions: PolymarketPosition[],
@@ -273,7 +287,7 @@ function AddTraderBar({ watchlist, onAdd }: { watchlist: string[]; onAdd: (addr:
   return (
     <div ref={wrapRef} className="relative">
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-pixel-gray tracking-wider shrink-0">ADD TRADER</span>
+        <span className="text-[12px] text-pixel-gray tracking-wider shrink-0">ADD TRADER</span>
         <div className="relative flex-1">
           <input
             type="text"
@@ -282,22 +296,22 @@ function AddTraderBar({ watchlist, onAdd }: { watchlist: string[]; onAdd: (addr:
             onFocus={() => setFocused(true)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
             placeholder="0x... ADDRESS OR SEARCH NAME"
-            className="pixel-input-sm w-full font-mono text-[12px] pr-16"
+            className="pixel-input-sm w-full font-mono text-[14px] pr-16"
             spellCheck={false}
           />
           {searching && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-green-400 animate-pulse">...</span>
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] text-green-400 animate-pulse">...</span>
           )}
           {isAddress(input.trim()) && !alreadyAdded && (
             <button
               onClick={handleSubmit}
-              className="absolute right-1 top-1/2 -translate-y-1/2 pixel-btn text-[10px] px-2 py-0 border-green-400 text-green-400 hover:bg-green-400/10"
+              className="absolute right-1 top-1/2 -translate-y-1/2 pixel-btn text-[12px] px-2 py-0 border-green-400 text-green-400 hover:bg-green-400/10"
             >
               ADD
             </button>
           )}
           {alreadyAdded && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-pixel-gray">ALREADY ADDED</span>
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] text-pixel-gray">ALREADY ADDED</span>
           )}
         </div>
       </div>
@@ -311,12 +325,12 @@ function AddTraderBar({ watchlist, onAdd }: { watchlist: string[]; onAdd: (addr:
               className="w-full flex items-center justify-between px-3 py-2 hover:bg-pixel-white/5 transition-colors text-left"
             >
               <div className="flex items-center gap-2">
-                <span className="text-[12px] font-mono text-pixel-white">{shortAddress(t.address)}</span>
-                <span className={`text-[11px] font-mono ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                <span className="text-[14px] font-mono text-pixel-white">{shortAddress(t.address)}</span>
+                <span className={`text-[13px] font-mono ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
                   {formatPnl(t.pnl)}
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-[10px] text-pixel-gray font-mono">
+              <div className="flex items-center gap-3 text-[12px] text-pixel-gray font-mono">
                 <span>VOL {formatVolume(t.volume)}</span>
                 <span>{t.recentTrades || t.positions} trades</span>
               </div>
@@ -326,7 +340,7 @@ function AddTraderBar({ watchlist, onAdd }: { watchlist: string[]; onAdd: (addr:
       )}
       {focused && coldCache && input.trim() && !isAddress(input.trim()) && (
         <div className="absolute z-50 left-0 right-0 mt-1 pixel-panel border-2 border-pixel-border bg-pixel-black px-3 py-2">
-          <span className="text-[11px] text-pixel-gray">TRADER CACHE WARMING — PASTE 0x ADDRESS DIRECTLY</span>
+          <span className="text-[13px] text-pixel-gray">TRADER CACHE WARMING — PASTE 0x ADDRESS DIRECTLY</span>
         </div>
       )}
     </div>
@@ -355,11 +369,11 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[8px] text-pixel-gray tracking-[0.18em] leading-none">{label}</span>
+      <span className="text-[11px] text-pixel-gray tracking-[0.18em] leading-none">{label}</span>
       <div className="inline-flex items-center gap-1 h-[28px] px-2 border border-pixel-border bg-pixel-black/60 hover:border-pixel-white/30 focus-within:border-green-400/70 transition-colors">
-        {prefix && <span className="text-[10px] text-pixel-gray font-mono">{prefix}</span>}
+        {prefix && <span className="text-[12px] text-pixel-gray font-mono">{prefix}</span>}
         {children}
-        {suffix && <span className="text-[9px] text-pixel-gray font-mono tracking-wider ml-0.5">{suffix}</span>}
+        {suffix && <span className="text-[12px] text-pixel-gray font-mono tracking-wider ml-0.5">{suffix}</span>}
       </div>
     </div>
   );
@@ -394,9 +408,17 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
   const [minTrade, setMinTrade] = useState(1);
   const [maxTrade, setMaxTrade] = useState(100);
   const [maxTradesPerHour, setMaxTradesPerHour] = useState(10);
-  const [rebalancePeriod, setRebalancePeriod] = useState<number>(24); // hours
-  const [rebalanceHour, setRebalanceHour] = useState<number>(0); // 0-23 (midnight default)
-  const [rebalanceMinutes, setRebalanceMinutes] = useState<number>(60); // minutes for live trading
+  // SAMPLE %: deterministically thin the in-window trades to this fraction.
+  // 100 = keep all (default), 50 = keep ~half, 10 = keep ~tenth. Curve, feed,
+  // and fee/gas/total stats all derive from the sampled set.
+  const [samplePct, setSamplePct] = useState(100);
+  // Per-trade replay is the only mode now — `rebalancePeriod`/`rebalanceHour`
+  // are kept for backwards compat with persisted SavedIndex but always loaded
+  // as 0/0 going forward. The aggregation path in computeBacktest stays no-op
+  // unless an older strat still has a non-zero value.
+  const [rebalancePeriod, setRebalancePeriod] = useState<number>(0); // hours (0 = per-trade)
+  const [rebalanceHour, setRebalanceHour] = useState<number>(0); // 0-23 (unused when per-trade)
+  const [rebalanceMinutes, setRebalanceMinutes] = useState<number>(1); // minutes between live polls
   const [customDaysInput, setCustomDaysInput] = useState("");
   const [expandedTrader, setExpandedTrader] = useState<string | null>(null);
   const [showSimTrades, setShowSimTrades] = useState<Record<string, boolean>>({});
@@ -496,9 +518,12 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
     setMinTrade(activeIndex.minTrade ?? 1);
     setMaxTrade(activeIndex.maxTrade ?? 100);
     setMaxTradesPerHour(activeIndex.maxTradesPerHour ?? 10);
-    setRebalancePeriod(activeIndex.rebalancePeriod ?? 24);
-    setRebalanceHour(activeIndex.rebalanceHour ?? 0);
-    setRebalanceMinutes(activeIndex.rebalanceMinutes ?? 60);
+    // Force per-trade replay on load — REBALANCE/AT selects were removed,
+    // and any non-zero persisted value would silently aggregate trades into
+    // windows with no way to undo from the UI.
+    setRebalancePeriod(0);
+    setRebalanceHour(0);
+    setRebalanceMinutes(activeIndex.rebalanceMinutes ?? 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex?.id]);
 
@@ -674,21 +699,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
     }
   };
 
-  // ── Rebalance settings (persist to strategy) ──
-  const updateRebalancePeriod = (hours: number) => {
-    setRebalancePeriod(hours);
-    if (activeIndex) {
-      updateIndex(activeIndex.id, { rebalancePeriod: hours, updatedAt: Date.now() });
-    }
-  };
-
-  const updateRebalanceHour = (hour: number) => {
-    setRebalanceHour(hour);
-    if (activeIndex) {
-      updateIndex(activeIndex.id, { rebalanceHour: hour, updatedAt: Date.now() });
-    }
-  };
-
+  // ── Poll interval (persist to strategy) ──
   const updateRebalanceMinutes = (minutes: number) => {
     setRebalanceMinutes(minutes);
     if (activeIndex) {
@@ -903,9 +914,17 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       const positions = traderData.get(addr) || [];
       if (rawTrades.length === 0) continue;
 
-      const replayTrades = rebalancePeriod > 0
+      const replayTradesRaw = rebalancePeriod > 0
         ? aggregateToRebalanceWindows(rawTrades, rebalancePeriod, rebalanceHour)
         : rawTrades;
+      // Apply SAMPLE % only to in-window trades — pre-window trades stay
+      // intact so FIFO basis tracking still sees the prior inventory.
+      const replayTrades = samplePct >= 100
+        ? replayTradesRaw
+        : replayTradesRaw.filter((t, i) =>
+            t.timestamp < cutoffMs ||
+            keepInSample(samplePct, `${addr}:${t.timestamp}:${i}`),
+          );
       const annotated = computeFifoTrades(replayTrades, positions, cutoffMs);
       const curve = buildPnlCurve(annotated, positions, cutoffMs);
       if (curve.length === 0) continue;
@@ -923,7 +942,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
     }
 
     return { combined: buildCombinedPnlCurve(traderCurves), perTrader: traderCurves };
-  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour]);
+  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour, samplePct]);
 
   const combinedPnlCurve = combinedCurveData.combined;
 
@@ -999,7 +1018,13 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       // Strict-in-window FIFO: a copy-trader starting at cutoffMs has no
       // pre-window inventory, so SELLs that would consume pre-window basis
       // shouldn't appear in the feed (they're not actually replicable).
-      const inWindowTrades = replayTrades.filter((t) => t.timestamp >= cutoffMs);
+      const inWindowAll = replayTrades.filter((t) => t.timestamp >= cutoffMs);
+      // Apply SAMPLE % so the feed matches the chart's sampled trade set.
+      const inWindowTrades = samplePct >= 100
+        ? inWindowAll
+        : inWindowAll.filter((t, i) =>
+            keepInSample(samplePct, `${addr}:${t.timestamp}:${i}`),
+          );
       if (inWindowTrades.length === 0) continue;
       const annotated = computeFifoTrades(inWindowTrades, positions, cutoffMs);
       const windowAnnotated = annotated.filter((t) => t.side === "BUY" || t.hasBasis);
@@ -1047,7 +1072,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       runningPnl = Math.round((runningPnl + t.realized) * 100) / 100;
       return { ...t, runningPnl };
     });
-  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour]);
+  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour, samplePct]);
 
   // ── Chart ↔ Trade feed hover linking ──
   const [chartHighlight, setChartHighlight] = useState<number | null>(null);
@@ -1119,11 +1144,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
             backend), TOKEN is the local strat-encryption preview. */}
         <div className="flex items-center justify-between gap-2">
           {auth.address || localToken ? (
-            <div className="flex items-center gap-3 text-[14px] font-mono min-w-0 flex-1">
+            <div className="flex items-center gap-3 text-[16px] font-mono min-w-0 flex-1">
               {localToken && (
                 <div className="flex items-center gap-1.5 shrink-0 px-1.5 py-0.5 border border-green-400/40 bg-green-400/5">
                   <div className="w-1.5 h-1.5 bg-green-400" />
-                  <span className="text-pixel-gray text-[12px]">TOKEN</span>
+                  <span className="text-pixel-gray text-[14px]">TOKEN</span>
                   <span className="text-green-400">{localToken.tokenPreview}</span>
                 </div>
               )}
@@ -1140,12 +1165,12 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
               )}
             </div>
           ) : (
-            <span className="text-[14px] text-pixel-gray tracking-wider font-mono">NO KEY</span>
+            <span className="text-[16px] text-pixel-gray tracking-wider font-mono">NO KEY</span>
           )}
           {onClose && (
             <button
               onClick={onClose}
-              className="pixel-btn text-[13px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white shrink-0 ml-2"
+              className="pixel-btn text-[15px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white shrink-0 ml-2"
               title="Close"
             >
               X
@@ -1196,19 +1221,19 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       {mode !== "STRATS" && activeIndex && (
         <div className="pixel-panel px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-[12px] text-pixel-gray tracking-wider shrink-0">STRAT</span>
+            <span className="text-[14px] text-pixel-gray tracking-wider shrink-0">STRAT</span>
             <div className="w-2 h-2 bg-green-400 shrink-0" />
             <span className="text-[15px] font-mono text-green-400 font-bold truncate">{activeIndex.name}</span>
-            <span className="text-[13px] text-pixel-gray shrink-0">{activeIndex.traders.length}T</span>
+            <span className="text-[15px] text-pixel-gray shrink-0">{activeIndex.traders.length}T</span>
             {activeIndex.lastPnlAfterCosts !== undefined && (
-              <span className={`text-[13px] font-mono shrink-0 ${activeIndex.lastPnlAfterCosts >= 0 ? "text-green-400" : "text-red-400"}`}>
+              <span className={`text-[15px] font-mono shrink-0 ${activeIndex.lastPnlAfterCosts >= 0 ? "text-green-400" : "text-red-400"}`}>
                 {activeIndex.lastPnlAfterCosts >= 0 ? "+" : ""}${activeIndex.lastPnlAfterCosts.toFixed(0)}
               </span>
             )}
           </div>
           <button
             onClick={() => setMode("STRATS")}
-            className="text-[12px] text-pixel-gray hover:text-green-400 transition-colors px-2 py-1 border border-pixel-border hover:border-green-400 font-mono shrink-0"
+            className="text-[14px] text-pixel-gray hover:text-green-400 transition-colors px-2 py-1 border border-pixel-border hover:border-green-400 font-mono shrink-0"
             title="Switch strat"
           >
             CHANGE →
@@ -1223,9 +1248,9 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
             <div className="flex-1">
               <AddTraderBar watchlist={watchlist} onAdd={addTrader} />
             </div>
-            <div className="flex items-center gap-2 shrink-0 text-[11px] font-mono">
+            <div className="flex items-center gap-2 shrink-0 text-[13px] font-mono">
               {loading && (
-                <span className="text-[9px] text-green-400 animate-pulse">
+                <span className="text-[12px] text-green-400 animate-pulse">
                   {loadedCount}/{watchlist.length}
                 </span>
               )}
@@ -1240,10 +1265,10 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
           {/* Toolbar: count + actions + weight sum */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-[12px] text-pixel-gray tracking-wider">{watchlist.length}/{allTraderAddrs.length} ACTIVE</span>
+              <span className="text-[14px] text-pixel-gray tracking-wider">{watchlist.length}/{allTraderAddrs.length} ACTIVE</span>
               <button
                 onClick={equalizeWeights}
-                className="pixel-btn text-[11px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"
+                className="pixel-btn text-[13px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"
                 title="Equalize all weights"
               >
                 EQ
@@ -1251,14 +1276,14 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
               {totalWeight !== 100 && totalWeight > 0 && (
                 <button
                   onClick={normalizeWeights}
-                  className="pixel-btn text-[11px] px-2 py-1 border-amber-400/60 text-amber-400 hover:bg-amber-400/10 transition-colors"
+                  className="pixel-btn text-[13px] px-2 py-1 border-amber-400/60 text-amber-400 hover:bg-amber-400/10 transition-colors"
                   title="Normalize weights to 100%"
                 >
                   NORM
                 </button>
               )}
             </div>
-            <span className={`text-[13px] font-mono ${
+            <span className={`text-[15px] font-mono ${
               totalWeight === 100 ? "text-pixel-gray" : totalWeight > 0 ? "text-amber-400" : "text-pixel-gray"
             }`}>
               {totalWeight}%
@@ -1266,7 +1291,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
           </div>
 
           {/* Column headers */}
-          <div className="flex items-center text-[10px] text-pixel-gray tracking-wider px-0.5 border-t border-pixel-border pt-1">
+          <div className="flex items-center text-[12px] text-pixel-gray tracking-wider px-0.5 border-t border-pixel-border pt-1">
             <span className="w-5 shrink-0" />
             <span className="w-5 shrink-0" />
             <span className="flex-1">ADDRESS</span>
@@ -1293,14 +1318,14 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                   >
                     <div className={`w-1.5 h-1.5 rounded-full transition-colors ${t.enabled ? "bg-green-400" : "bg-pixel-gray"}`} />
                   </button>
-                  <span className="text-[10px] text-pixel-gray font-mono w-5 shrink-0 text-center">{i + 1}</span>
+                  <span className="text-[12px] text-pixel-gray font-mono w-5 shrink-0 text-center">{i + 1}</span>
                   <button
                     onClick={() => goToTrader(t.address)}
-                    className="flex-1 text-left text-[13px] font-mono text-pixel-white hover:text-green-400 transition-colors truncate"
+                    className="flex-1 text-left text-[15px] font-mono text-pixel-white hover:text-green-400 transition-colors truncate"
                   >
                     {shortAddress(t.address)}
                   </button>
-                  <span className={`w-16 text-right text-[13px] font-mono ${pnlColor}`}>
+                  <span className={`w-16 text-right text-[15px] font-mono ${pnlColor}`}>
                     {curvePnl !== undefined ? formatPnl(curvePnl) : t.loaded ? formatPnl(t.totalPnl) : "..."}
                   </span>
                   {/* Weight slider + value */}
@@ -1313,11 +1338,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       onChange={(e) => updateWeight(t.address, parseInt(e.target.value, 10))}
                       className="flex-1 h-[4px] appearance-none bg-pixel-border rounded cursor-grab accent-green-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:bg-green-400 [&::-webkit-slider-thumb]:cursor-grab"
                     />
-                    <span className="text-[12px] font-mono text-pixel-gray w-9 text-right shrink-0">{w}%</span>
+                    <span className="text-[14px] font-mono text-pixel-gray w-9 text-right shrink-0">{w}%</span>
                   </div>
                   <button
                     onClick={() => removeTrader(t.address)}
-                    className="w-5 text-center text-[11px] text-pixel-gray hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                    className="w-5 text-center text-[13px] text-pixel-gray hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                     title="Remove trader"
                   >
                     x
@@ -1335,8 +1360,8 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
           {/* Empty trader state */}
           {watchlist.length === 0 && (
             <div className="pixel-panel p-4 text-center space-y-2">
-              <div className="text-[12px] text-pixel-gray">NO TRADERS YET</div>
-              <div className="text-[10px] text-pixel-gray-light">
+              <div className="text-[14px] text-pixel-gray">NO TRADERS YET</div>
+              <div className="text-[12px] text-pixel-gray-light">
                 ADD TRADERS ABOVE OR FROM THE{" "}
                 <button onClick={() => router.push("/traders")} className="text-pixel-white hover:text-green-400 transition-colors">
                   TRADERS
@@ -1351,8 +1376,8 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
               {/* ── Row 1: title + date range · RUN · P&L stats ─────── */}
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
-                  <span className="text-[12px] text-pixel-white tracking-[0.2em]">BACKTEST</span>
-                  <span className="text-[9px] text-pixel-gray/70 font-mono tracking-wider">
+                  <span className="text-[14px] text-pixel-white tracking-[0.2em]">BACKTEST</span>
+                  <span className="text-[12px] text-pixel-gray/70 font-mono tracking-wider">
                     {backtestDateRange.from} → {backtestDateRange.to}
                   </span>
                   <button
@@ -1361,21 +1386,21 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0 && v <= 365) updateBacktestDays(v);
                       setRefreshKey((k) => k + 1);
                     }}
-                    className="inline-flex items-center gap-1.5 text-[10px] font-mono tracking-[0.15em] px-3 h-[24px] border border-green-400 text-green-400 hover:bg-green-400/10 active:bg-green-400/20 transition-colors"
+                    className="inline-flex items-center gap-1.5 text-[12px] font-mono tracking-[0.15em] px-3 h-[24px] border border-green-400 text-green-400 hover:bg-green-400/10 active:bg-green-400/20 transition-colors"
                     title="Run backtest with current settings"
                   >
                     ▶ RUN
                   </button>
                 </div>
-                <div className="flex items-center gap-4 text-[11px] font-mono">
+                <div className="flex items-center gap-4 text-[13px] font-mono">
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-[9px] text-pixel-gray tracking-[0.15em]">P&L</span>
+                    <span className="text-[12px] text-pixel-gray tracking-[0.15em]">P&L</span>
                     <span className={chartNetPnl >= 0 ? "text-green-400" : "text-red-400"}>
                       {formatPnl(chartNetPnl)}
                     </span>
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-[9px] text-pixel-gray tracking-[0.15em]">ROI</span>
+                    <span className="text-[12px] text-pixel-gray tracking-[0.15em]">ROI</span>
                     <span className={chartRoi >= 0 ? "text-green-400" : "text-red-400"}>
                       {chartRoi >= 0 ? "+" : ""}{chartRoi.toFixed(1)}%
                     </span>
@@ -1410,7 +1435,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       }
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="bg-transparent w-10 text-right font-mono text-[12px] text-pixel-white outline-none"
+                    className="bg-transparent w-10 text-right font-mono text-[14px] text-pixel-white outline-none"
                   />
                 </Field>
 
@@ -1424,7 +1449,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0) updateCapital(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="bg-transparent w-16 text-right font-mono text-[12px] text-pixel-white outline-none"
+                    className="bg-transparent w-16 text-right font-mono text-[14px] text-pixel-white outline-none"
                   />
                 </Field>
 
@@ -1438,7 +1463,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v >= 0) updateMinTrade(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="bg-transparent w-10 text-right font-mono text-[12px] text-pixel-white outline-none"
+                    className="bg-transparent w-10 text-right font-mono text-[14px] text-pixel-white outline-none"
                   />
                   <span className="text-pixel-gray/60 mx-0.5">–</span>
                   <input
@@ -1450,7 +1475,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0) updateMaxTrade(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="bg-transparent w-10 text-right font-mono text-[12px] text-pixel-white outline-none"
+                    className="bg-transparent w-10 text-right font-mono text-[14px] text-pixel-white outline-none"
                   />
                 </Field>
 
@@ -1464,48 +1489,42 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       if (!isNaN(v) && v > 0) updateMaxTradesPerHour(v);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="bg-transparent w-8 text-right font-mono text-[12px] text-pixel-white outline-none"
+                    className="bg-transparent w-8 text-right font-mono text-[14px] text-pixel-white outline-none"
+                  />
+                </Field>
+
+                <Field label="SAMPLE" suffix="%">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={samplePct}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value.replace(/[^0-9]/g, ""), 10);
+                      if (!isNaN(v) && v >= 1 && v <= 100) setSamplePct(v);
+                      else if (e.target.value === "") setSamplePct(1);
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    title="Deterministically keep this % of in-window trades — the curve, feed, and stats all update."
+                    className="bg-transparent w-8 text-right font-mono text-[14px] text-pixel-white outline-none"
                   />
                 </Field>
               </div>
 
-              {/* ── Row 3: rebalance + live interval selects ────────── */}
+              {/* ── Row 3: live poll interval ────────────────────────
+                  Backtest is always per-trade replay now (matches live).
+                  The REBALANCE/AT selects were removed — they conflated
+                  position-rebalancing with trade-mirroring. */}
               <div className="flex items-end gap-2 flex-wrap">
-                <Field label="REBALANCE">
-                  <select
-                    value={rebalancePeriod}
-                    onChange={(e) => updateRebalancePeriod(Number(e.target.value))}
-                    className="bg-transparent font-mono text-[11px] text-pixel-white outline-none cursor-pointer pr-1"
-                  >
-                    <option value={0}>OFF (PER-TRADE)</option>
-                    <option value={1}>1H</option>
-                    <option value={4}>4H</option>
-                    <option value={8}>8H</option>
-                    <option value={12}>12H</option>
-                    <option value={24}>24H (DAILY)</option>
-                  </select>
-                </Field>
-                <Field label="AT">
-                  <select
-                    value={rebalanceHour}
-                    onChange={(e) => updateRebalanceHour(Number(e.target.value))}
-                    className="bg-transparent font-mono text-[11px] text-pixel-white outline-none cursor-pointer pr-1"
-                  >
-                    <option value={0}>00:00 (MIDNIGHT)</option>
-                    <option value={6}>06:00</option>
-                    <option value={12}>12:00 (NOON)</option>
-                    <option value={16}>16:00 (4PM)</option>
-                    <option value={20}>20:00 (8PM)</option>
-                    <option value={23}>23:00 (11PM)</option>
-                  </select>
-                </Field>
-                <div className="w-px h-[28px] bg-pixel-border/40 self-end mx-1" />
-                <Field label="LIVE INTERVAL">
+                <Field label="POLL INTERVAL">
                   <select
                     value={rebalanceMinutes}
                     onChange={(e) => updateRebalanceMinutes(Number(e.target.value))}
-                    className="bg-transparent font-mono text-[11px] text-pixel-white outline-none cursor-pointer pr-1"
+                    className="bg-transparent font-mono text-[13px] text-pixel-white outline-none cursor-pointer pr-1"
                   >
+                    <option value={1}>1MIN</option>
+                    <option value={2}>2MIN</option>
+                    <option value={5}>5MIN</option>
+                    <option value={10}>10MIN</option>
                     <option value={15}>15MIN</option>
                     <option value={60}>1H</option>
                     <option value={240}>4H</option>
@@ -1526,26 +1545,26 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                 const costWarning = feedCosts > 5 && (grossPnl <= 0 || feedCosts > grossPnl * 0.5);
                 return (
                   <>
-                    <div className="flex items-center justify-between flex-wrap gap-3 text-[11px] font-mono border-t border-pixel-border/40 pt-2">
+                    <div className="flex items-center justify-between flex-wrap gap-3 text-[13px] font-mono border-t border-pixel-border/40 pt-2">
                       <div className="flex items-center gap-4">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-[9px] text-pixel-gray tracking-[0.15em]">FEES</span>
+                          <span className="text-[12px] text-pixel-gray tracking-[0.15em]">FEES</span>
                           <span className="text-amber-400">${feedFees.toFixed(2)}</span>
                         </div>
                         <span className="text-pixel-border/60">·</span>
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-[9px] text-pixel-gray tracking-[0.15em]">GAS</span>
+                          <span className="text-[12px] text-pixel-gray tracking-[0.15em]">GAS</span>
                           <span className="text-amber-400">${feedGas.toFixed(2)}</span>
                         </div>
                         <span className="text-pixel-border/60">·</span>
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-[9px] text-pixel-gray tracking-[0.15em]">TOTAL</span>
+                          <span className="text-[12px] text-pixel-gray tracking-[0.15em]">TOTAL</span>
                           <span className="text-amber-400">${feedCosts.toFixed(2)}</span>
-                          <span className="text-[9px] text-pixel-gray/70">({linkedTrades.length} TXS)</span>
+                          <span className="text-[12px] text-pixel-gray/70">({linkedTrades.length} TXS)</span>
                         </div>
                       </div>
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-[9px] text-pixel-gray tracking-[0.15em]">GROSS</span>
+                        <span className="text-[12px] text-pixel-gray tracking-[0.15em]">GROSS</span>
                         <span className={grossPnl >= 0 ? "text-green-400/70" : "text-red-400/70"}>
                           {formatPnl(grossPnl)}
                         </span>
@@ -1554,7 +1573,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
 
                     {costWarning && !loading && (
                       <div className="px-3 py-2 border border-amber-400/40 bg-amber-400/5">
-                        <div className="text-[11px] text-amber-400 font-mono">
+                        <div className="text-[13px] text-amber-400 font-mono">
                           {feedCosts > grossPnl && grossPnl > 0
                             ? `FEES ($${feedCosts.toFixed(0)}) EXCEED GROSS P&L (${formatPnl(grossPnl)}) — COPYING ${watchlist.length} TRADERS AT ${linkedTrades.length} TXS IS UNPROFITABLE AFTER COSTS`
                             : grossPnl <= 0
@@ -1582,11 +1601,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                 />
               ) : !loading && watchlist.length > 0 ? (
                 <div className="p-6 text-center">
-                  <span className="text-[11px] text-pixel-gray">NOT ENOUGH TRADE DATA FOR PNL CURVE</span>
+                  <span className="text-[13px] text-pixel-gray">NOT ENOUGH TRADE DATA FOR PNL CURVE</span>
                 </div>
               ) : loading ? (
                 <div className="p-6 text-center">
-                  <span className="text-[11px] text-pixel-gray animate-pulse">LOADING...</span>
+                  <span className="text-[13px] text-pixel-gray animate-pulse">LOADING...</span>
                 </div>
               ) : null}
               </div>
@@ -1602,8 +1621,8 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
             return (
               <div className="pixel-panel overflow-hidden">
                 <div className="px-4 py-2.5 border-b-2 border-pixel-border flex items-center justify-between">
-                  <span className="text-[12px] text-pixel-gray-light tracking-wider">TRADE FEED</span>
-                  <div className="flex items-center gap-3 text-[11px] font-mono">
+                  <span className="text-[14px] text-pixel-gray-light tracking-wider">TRADE FEED</span>
+                  <div className="flex items-center gap-3 text-[13px] font-mono">
                     <span className="text-pixel-gray">{linkedTrades.length} TRADES</span>
                     {linkedTrades.length > 0 && (
                       <span className={finalPnl >= 0 ? "text-green-400" : "text-red-400"}>
@@ -1612,7 +1631,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                     )}
                     <button
                       onClick={() => setFeedOrder((o) => (o === "newest" ? "oldest" : "newest"))}
-                      className="pixel-btn text-[11px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"
+                      className="pixel-btn text-[13px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"
                       title="Toggle sort order"
                     >
                       {feedOrder === "newest" ? "NEW→OLD" : "OLD→NEW"}
@@ -1622,7 +1641,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
 
                 {loading ? (
                   <div className="p-8 text-center">
-                    <div className="text-[12px] text-pixel-white animate-pulse">LOADING...</div>
+                    <div className="text-[14px] text-pixel-white animate-pulse">LOADING...</div>
                   </div>
                 ) : linkedTrades.length > 0 ? (
                   <>
@@ -1670,12 +1689,12 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                                 }}
                               >
                                 <td title={t.market} className="whitespace-nowrap">
-                                  <div className="text-[11px] text-pixel-gray-light font-mono">{when}</div>
+                                  <div className="text-[13px] text-pixel-gray-light font-mono">{when}</div>
                                 </td>
                                 <td>
                                   <button
                                     onClick={() => goToTrader(t.trader)}
-                                    className="text-[11px] font-mono text-pixel-gray-light hover:text-green-400 transition-colors"
+                                    className="text-[13px] font-mono text-pixel-gray-light hover:text-green-400 transition-colors"
                                   >
                                     {shortAddress(t.trader)}
                                   </button>
@@ -1728,7 +1747,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                   </>
                 ) : (
                   <div className="p-8 text-center">
-                    <div className="text-[12px] text-pixel-gray">NO TRADES IN THIS WINDOW</div>
+                    <div className="text-[14px] text-pixel-gray">NO TRADES IN THIS WINDOW</div>
                   </div>
                 )}
               </div>

@@ -112,13 +112,13 @@ export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = 
   return (
     <div className="pixel-panel p-5">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <div className="text-[14px] text-pixel-gray-light tracking-wider">
-          {dayLabel} P&L CURVE (MTM){filtered && <span className="text-yellow-400 ml-2 text-[11px]">FILTERED</span>}
+        <div className="text-[16px] text-pixel-gray-light tracking-wider">
+          {dayLabel} P&L CURVE (MTM){filtered && <span className="text-yellow-400 ml-2 text-[13px]">FILTERED</span>}
         </div>
-        <div className={`text-[13px] font-mono`} style={{ color: finalColor }}>{formatPnl(finalPnl)}</div>
+        <div className={`text-[15px] font-mono`} style={{ color: finalColor }}>{formatPnl(finalPnl)}</div>
       </div>
       {tsList.length > 0 && (
-        <div className="text-[12px] text-pixel-gray mb-3 font-mono">
+        <div className="text-[14px] text-pixel-gray mb-3 font-mono">
           {tradesInWindow.length} TRADES · {fmt(tradeMinTs)} → {fmt(tradeMaxTs)} · SPANS {spanLabel}
         </div>
       )}
@@ -186,7 +186,7 @@ export default function PnlChart({ points, dayLabel, tradesInWindow, filtered = 
       </svg>
       {/* Tooltip */}
       {hp && (
-        <div className="pixel-panel p-2 mt-1 text-[11px] font-mono flex items-center gap-3 flex-wrap">
+        <div className="pixel-panel p-2 mt-1 text-[13px] font-mono flex items-center gap-3 flex-wrap">
           <span className="text-pixel-white font-bold">{hp.time}</span>
           {hp.side !== "MARK" && (
             <span className="text-pixel-white">{hp.side} {hp.size.toFixed(0)} @ {Math.round(hp.price * 100)}c</span>

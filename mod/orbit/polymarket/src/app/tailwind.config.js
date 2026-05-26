@@ -8,11 +8,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // The `pixel.*` keys that flip between themes go through CSS vars
+        // defined in globals.css (`--pixel-*-rgb` channels for dark in :root,
+        // light values under [data-theme="light"]). Channel-style vars keep
+        // Tailwind's opacity modifiers (`text-pixel-white/60`) working —
+        // pure `var()` colors break the alpha-value placeholder substitution.
+        // Accent keys (green/cyan/amber/etc.) stay fixed brand colors.
         pixel: {
-          black: "#000000",
-          bg: "#0a0a0a",
-          panel: "#1a1a1a",
-          border: "#333333",
+          black: "rgb(var(--pixel-black-rgb) / <alpha-value>)",
+          bg: "rgb(var(--pixel-bg-rgb) / <alpha-value>)",
+          panel: "rgb(var(--pixel-panel-rgb) / <alpha-value>)",
+          border: "rgb(var(--pixel-border-rgb) / <alpha-value>)",
+          white: "rgb(var(--pixel-white-rgb) / <alpha-value>)",
+          gray: "rgb(var(--pixel-gray-rgb) / <alpha-value>)",
+          "gray-light": "rgb(var(--pixel-gray-light-rgb) / <alpha-value>)",
           green: "#ffffff",
           "green-dim": "#cccccc",
           lime: "#eeeeee",
@@ -27,14 +36,25 @@ module.exports = {
           orange: "#ffffff",
           blue: "#cccccc",
           "blue-bright": "#ffffff",
-          white: "#ffffff",
-          gray: "#666666",
-          "gray-light": "#999999",
         },
       },
       fontFamily: {
-        pixel: ['"Press Start 2P"', "monospace"],
-        mono: ['"IBM Plex Mono"', "monospace"],
+        // Vibe overhaul: `font-pixel` (used widely across components) now
+        // resolves to Inter. `font-mono` is JetBrains Mono for numerics.
+        // `font-display` is Space Grotesk for headlines.
+        pixel: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SF Mono', 'monospace'],
+        display: ['"Space Grotesk"', 'Inter', 'sans-serif'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+      },
+      borderRadius: {
+        // Roomy radii — overrides tailwind defaults to give the whole UI
+        // a uniform vibey roundness.
+        sm:  'var(--radius-sm)',
+        DEFAULT: 'var(--radius)',
+        md:  'var(--radius)',
+        lg:  'var(--radius-lg)',
+        xl:  'var(--radius-xl)',
       },
       keyframes: {
         scanline: {

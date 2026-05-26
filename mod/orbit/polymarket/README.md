@@ -1,16 +1,42 @@
 # polymarket
 
-Polymarket prediction market interface with trading, data, scraping, and backtesting. Rust-powered engine with Python CLI and Mario-themed Next.js terminal app.
+Polymarket prediction market interface with trading, data, scraping, and backtesting. Rust-powered engine with Python CLI and a modern dark Next.js terminal app (Inter / JetBrains Mono, rounded panels, live market ticker).
 
 ## Capabilities
 
 - **Market Data**: Search, list, filter, and sort prediction markets by volume/liquidity/end date
+- **Live Price Ticker**: Slim auto-scrolling tape above every page — top 24 markets, polls every 8s, Δ since last poll with up/down arrows, paused while tab is hidden
 - **Trading**: Place limit and market orders via Polymarket CLOB (requires wallet + API credentials)
 - **Copy Trading**: Track top traders by PNL/volume, view their positions and activity
+- **Strategy Index** (`/strats`): Build/edit a basket of traders, set capital + rebalance cadence, then go live. A pre-flight `CHECKLIST` sits at the top of the page — wallet, CLOB auth, strategy, traders, rebalance, capital — and goes from `4/6 complete` → `6/6 · ready to go live` as the user fills each gap
+- **CLOB refresh-from-UI**: When the checklist's `CLOB AUTHENTICATED` row is unchecked, an amber `refresh` pill fires `authenticate()` (single MetaMask sig → derived API key) inline — no page hop
+- **Wallet Funding Panel**: Source picker (network ▾) + asset chips that each show their **live balance** so you can see what you'd be spending before clicking. Polls every 30s + manual refresh; chips wrap onto their own row in narrow sidebar mounts so they're always visible
+- **Trading-ready dot** on the wallet chip: 🟢 connected + CLOB authed · 🟡 connected · ⚪ disconnected
 - **Portfolio**: View positions, P&L, open orders
 - **Scraping**: Background price/trade history scraper with SQLite storage
 - **Backtesting**: Run threshold-based backtests on stored historical data
 - **Categories**: politics, sports, crypto, pop-culture, business, science, tech, ai
+
+## UI / Theme
+
+Moved away from the original Mario `Press Start 2P` pixel theme to a vibey modern dark stack:
+
+| Slot | Font | Used for |
+|---|---|---|
+| Body | **Inter** (`font-pixel`, `font-sans`) | UI text, labels, buttons |
+| Mono | **JetBrains Mono** (`font-mono`) — tabular nums | prices, balances, addresses, timestamps |
+| Display | **Space Grotesk** (`font-display`) | headlines, branding accents |
+
+Global tokens in `globals.css`:
+
+- `--radius-sm` 6px, `--radius` 10px, `--radius-lg` 14px, `--radius-xl` 18px — every bordered panel/button/input/chip rounds to these
+- Native `button`, `input`, `select`, `textarea` get `border-radius: var(--radius)` automatically — no per-component className edits needed
+- Pixel-era inset 3px box-shadows replaced with soft `0 8px 24px rgba(0,0,0,0.45)` panel shadows + `linear-gradient(180deg, #141414 0%, #0e0e0e 100%)` backgrounds
+- Heavy Game Boy CRT scanlines replaced with a subtle radial ambient vignette
+
+Top bar simplified from a five-chip cluster (wallet · CLOB · token · split · panel) down to **wallet chip + profile menu**. Trading readiness is communicated by the wallet chip's dot color, not by separate chips. The dropped chips (`ClobChip`, `TokenChip`, `SplitButton`) still live on disk for re-mounting inside the profile menu later.
+
+Component-size sweep: every `text-[8–14px]` across all `app/components/*.tsx` and `app/**/page.tsx` was bumped one step up (8→11, 9→12, 10→12, 11→13, 12→14, 13→15, 14→16, 18→26) so Inter has room to breathe.
 
 ## Usage
 
@@ -115,19 +141,33 @@ polymarket/
     │   ├── layout.tsx        # root layout with CRT overlay
     │   ├── globals.css       # pixel/Mario theme CSS
     │   ├── components/
-    │   │   ├── Header.tsx    # logo, search, filters, wallet connect
-    │   │   ├── MarketCard.tsx # market row (question, YES/NO bars, stats)
-    │   │   ├── MarketsGrid.tsx # paginated market list
-    │   │   ├── TradePanel.tsx # order placement (limit/market, YES/NO)
-    │   │   ├── CopyTrading.tsx # top trader leaderboard
-    │   │   ├── PositionsTable.tsx # portfolio positions
-    │   │   └── AuthPanel.tsx # wallet auth panel
+    │   │   ├── TopBar.tsx                # logo + nav + search + wallet chip + profile menu
+    │   │   ├── MarketTicker.tsx          # live-updating price tape (8s poll, marquee, Δ chips)
+    │   │   ├── MarketCard.tsx            # market row (question, YES/NO bars, price-flash on change)
+    │   │   ├── MarketsGrid.tsx           # paginated market list (silent 15s re-poll feeds flashes)
+    │   │   ├── TradePanel.tsx            # order placement (limit/market, YES/NO)
+    │   │   ├── CopyTrading.tsx           # top trader leaderboard
+    │   │   ├── CopyIndex.tsx             # strategy basket editor (right sidebar host)
+    │   │   ├── PreconditionChecklist.tsx # /strats top-of-page checklist + CLOB refresh button
+    │   │   ├── LivePanel.tsx             # go-live engine controls + per-cycle log
+    │   │   ├── WalletChip.tsx            # connect/disconnect + trading-ready dot
+    │   │   ├── WalletFundingPanel.tsx    # network ▾ + asset chips (each with live balance)
+    │   │   ├── PositionsTable.tsx        # portfolio positions
+    │   │   ├── PnlChart.tsx              # cumulative PnL chart
+    │   │   ├── ProfileMenu.tsx           # right-sidebar toggle ("PANEL ▶")
+    │   │   └── AuthPanel.tsx             # SIWE / CLOB auth panel
     │   ├── context/
     │   │   └── AuthContext.tsx # wallet + CLOB auth state
     │   ├── lib/
-    │   │   ├── types.ts      # TypeScript interfaces
-    │   │   ├── polymarket.ts # API helpers, categories, normalization
-    │   │   └── auth.ts       # EIP-712 signing, credential derivation
+    │   │   ├── types.ts            # TypeScript interfaces
+    │   │   ├── polymarket.ts       # API helpers, categories, normalization
+    │   │   ├── useLiveMarkets.ts   # hook: interval poll + prev-price diffs (powers ticker + flashes)
+    │   │   ├── networks.ts         # multi-chain network configs + RPC fallback
+    │   │   ├── lifi.ts             # LiFi bridge quote / execute
+    │   │   ├── clobClient.ts       # L2 HMAC-signed CLOB calls (balance, orders, cancel)
+    │   │   ├── copyEngine.ts       # live trading engine (rebalance loop, fills)
+    │   │   ├── stratSync.ts        # persisted strategy CRUD
+    │   │   └── auth.ts             # EIP-712 signing, credential derivation
     │   └── api/
     │       ├── polymarket/route.ts # proxy to Gamma/Data API
     │       └── clob/route.ts      # proxy to CLOB API (auth forwarding)

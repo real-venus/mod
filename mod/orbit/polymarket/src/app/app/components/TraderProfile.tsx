@@ -53,7 +53,7 @@ function DailyActivityChart({ data }: { data: { date: string; buys: number; sell
 
   return (
     <div className="pixel-panel p-5">
-      <div className="text-[14px] text-pixel-gray-light tracking-wider mb-4">DAILY TRADE ACTIVITY</div>
+      <div className="text-[16px] text-pixel-gray-light tracking-wider mb-4">DAILY TRADE ACTIVITY</div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "auto", maxHeight: 160 }}>
         {/* Grid */}
         {yTicks.map((v, i) => (
@@ -82,7 +82,7 @@ function DailyActivityChart({ data }: { data: { date: string; buys: number; sell
         <line x1={pad.left} y1={pad.top} x2={pad.left} y2={H - pad.bottom} stroke="#444" strokeWidth={1} />
         <line x1={pad.left} y1={H - pad.bottom} x2={W - pad.right} y2={H - pad.bottom} stroke="#444" strokeWidth={1} />
       </svg>
-      <div className="flex items-center gap-4 mt-1 text-[11px] text-pixel-gray">
+      <div className="flex items-center gap-4 mt-1 text-[13px] text-pixel-gray">
         <div className="flex items-center gap-1"><div className="w-2 h-2 bg-white" /> BUYS</div>
         <div className="flex items-center gap-1"><div className="w-2 h-2 bg-pixel-gray" /> SELLS</div>
       </div>
@@ -453,7 +453,7 @@ export default function TraderProfile({
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="pixel-btn border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white text-[14px]"
+          className="pixel-btn border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white text-[16px]"
         >
           BACK
         </button>
@@ -467,7 +467,7 @@ export default function TraderProfile({
             </span>
             <button
               onClick={() => navigator.clipboard.writeText(trader.address)}
-              className="text-[13px] text-pixel-gray hover:text-pixel-white"
+              className="text-[15px] text-pixel-gray hover:text-pixel-white"
             >
               [COPY]
             </button>
@@ -475,7 +475,7 @@ export default function TraderProfile({
         </div>
         <button
           onClick={onToggleWatch}
-          className={`pixel-btn text-[14px] ${
+          className={`pixel-btn text-[16px] ${
             watching
               ? "border-pixel-white text-pixel-white bg-pixel-white/10"
               : "border-pixel-border text-pixel-gray hover:border-pixel-white hover:text-pixel-white"
@@ -509,7 +509,7 @@ export default function TraderProfile({
                 "text-pixel-white glow-green";
               return (
                 <div key={stat.label} className="pixel-panel p-4 text-center">
-                  <div className="text-[12px] text-pixel-gray tracking-wider mb-2">
+                  <div className="text-[14px] text-pixel-gray tracking-wider mb-2">
                     {stat.label}
                   </div>
                   <div className={`text-sm ${valueClass}`}>
@@ -533,14 +533,14 @@ export default function TraderProfile({
                 <button
                   key={tab.id}
                   onClick={() => setProfileTab(tab.id)}
-                  className={`px-4 py-3 text-[13px] font-mono tracking-wider transition-colors border-b-2 -mb-[2px] ${
+                  className={`px-4 py-3 text-[15px] font-mono tracking-wider transition-colors border-b-2 -mb-[2px] ${
                     profileTab === tab.id
                       ? "border-pixel-white text-pixel-white"
                       : "border-transparent text-pixel-gray hover:text-pixel-white"
                   }`}
                 >
                   {tab.label}
-                  <span className="ml-1.5 text-[11px] text-pixel-gray">{tab.count}</span>
+                  <span className="ml-1.5 text-[13px] text-pixel-gray">{tab.count}</span>
                 </button>
               ))}
             </div>
@@ -552,10 +552,10 @@ export default function TraderProfile({
                   <PnlChart points={pnlCurve} dayLabel={dayLabel} tradesInWindow={filteredTrades} filtered={!!(searchFilter.trim() || categoryFilter)} />
                 ) : (
                   <div className="p-8 text-center">
-                    <div className="text-[14px] text-pixel-gray-light tracking-wider mb-2">
+                    <div className="text-[16px] text-pixel-gray-light tracking-wider mb-2">
                       {`${dayLabel} P&L CURVE`}
                     </div>
-                    <div className="text-[13px] text-pixel-gray">
+                    <div className="text-[15px] text-pixel-gray">
                       {(searchFilter.trim() || categoryFilter)
                         ? "NO MATCHING TRADES — TRY A DIFFERENT FILTER"
                         : positions.length > 0
@@ -658,7 +658,7 @@ export default function TraderProfile({
                 </div>
               ) : (
                 <div className="p-8 text-center">
-                  <div className="text-[13px] text-pixel-gray">
+                  <div className="text-[15px] text-pixel-gray">
                     {profileTab === "open" ? "NO OPEN TRADES" : profileTab === "closed" ? "NO CLOSED TRADES" : "NO TRADES"}
                   </div>
                 </div>
@@ -674,13 +674,13 @@ export default function TraderProfile({
           {/* Biggest Wins/Losses */}
           <div className="grid grid-cols-2 gap-3">
             <div className="pixel-panel p-5 text-center">
-              <div className="text-[13px] text-pixel-gray tracking-wider mb-2">BIGGEST WIN</div>
+              <div className="text-[15px] text-pixel-gray tracking-wider mb-2">BIGGEST WIN</div>
               <div className="text-base text-green-400">
                 {formatPnl(stats.biggestWin)}
               </div>
             </div>
             <div className="pixel-panel-red p-5 text-center">
-              <div className="text-[13px] text-pixel-gray tracking-wider mb-2">BIGGEST LOSS</div>
+              <div className="text-[15px] text-pixel-gray tracking-wider mb-2">BIGGEST LOSS</div>
               <div className="text-base text-red-400">
                 {formatPnl(stats.biggestLoss)}
               </div>
@@ -691,10 +691,10 @@ export default function TraderProfile({
           {closedInWindow.length > 0 && (
             <div className="pixel-panel overflow-hidden">
               <div className="px-5 py-4 border-b-2 border-pixel-border flex items-center justify-between">
-                <span className="text-[14px] text-pixel-gray-light tracking-wider">
+                <span className="text-[16px] text-pixel-gray-light tracking-wider">
                   {`${dayLabel} CLOSED RESULTS (PER MARKET)`}
                 </span>
-                <span className="text-[13px] text-pixel-gray">{closedInWindow.length} MARKETS</span>
+                <span className="text-[15px] text-pixel-gray">{closedInWindow.length} MARKETS</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="pixel-table" style={{ tableLayout: "fixed", width: "100%", minWidth: "640px" }}>
@@ -752,7 +752,7 @@ export default function TraderProfile({
           {tradesInWindow.length === 0 && positions.length === 0 && (
             <div className="pixel-panel p-12 text-center">
               <div className="text-sm text-pixel-gray mb-2">{`NO ${dayLabel} DATA`}</div>
-              <div className="text-[13px] text-pixel-gray-light">
+              <div className="text-[15px] text-pixel-gray-light">
                 THIS TRADER HAS NO RECENT ACTIVITY
               </div>
             </div>

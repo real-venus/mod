@@ -14,7 +14,7 @@ export default function SplitButton() {
     <button
       onClick={() => addPane()}
       title="Open the current page in a new split pane"
-      className="pixel-btn text-[11px] px-2 py-1 transition-colors flex items-center gap-1.5 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white"
+      className="pixel-btn text-[13px] px-2 py-1 transition-colors flex items-center gap-1.5 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white"
     >
       <span className="font-mono">SPLIT{panes.length > 0 ? ` +${panes.length}` : ""}</span>
     </button>

@@ -78,12 +78,12 @@ export default function EnableTradingPanel({ onComplete }: Props) {
       <div className="pixel-panel border-2 border-pixel-border px-3 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 bg-green-400" />
-          <span className="text-[11px] text-pixel-white tracking-wider">TRADING ENABLED</span>
-          <span className="text-[10px] text-pixel-gray">— USDC + shares approved for Polymarket</span>
+          <span className="text-[13px] text-pixel-white tracking-wider">TRADING ENABLED</span>
+          <span className="text-[12px] text-pixel-gray">— USDC + shares approved for Polymarket</span>
         </div>
         <button
           onClick={() => { void refresh(); }}
-          className="text-[10px] text-pixel-gray hover:text-pixel-white px-1"
+          className="text-[12px] text-pixel-gray hover:text-pixel-white px-1"
           title="Re-check approvals"
         >
           ↻
@@ -102,28 +102,28 @@ export default function EnableTradingPanel({ onComplete }: Props) {
       <div className="px-3 py-2 border-b border-amber-400/30">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-1.5 h-1.5 bg-amber-400 animate-pulse" />
-          <span className="text-[12px] text-amber-400 tracking-wider">ENABLE TRADING</span>
-          {loading && <span className="text-[10px] text-pixel-gray animate-pulse">checking…</span>}
+          <span className="text-[14px] text-amber-400 tracking-wider">ENABLE TRADING</span>
+          {loading && <span className="text-[12px] text-pixel-gray animate-pulse">checking…</span>}
         </div>
-        <p className="text-[11px] text-pixel-gray leading-relaxed">
+        <p className="text-[13px] text-pixel-gray leading-relaxed">
           Polymarket needs one-time approval to pull USDC.e and outcome shares from your wallet when
           orders fill. {totalMissing > 0 && `${totalMissing} approval${totalMissing === 1 ? "" : "s"} pending.`}
         </p>
       </div>
       <div className="px-3 py-2 flex items-center justify-between gap-2">
-        <span className="text-[10px] text-pixel-gray font-mono">
+        <span className="text-[12px] text-pixel-gray font-mono">
           {busy && progress ? progress : busy ? "WORKING…" : `${totalMissing} TX${totalMissing === 1 ? "" : "S"} TO SIGN`}
         </span>
         <button
           onClick={() => { void handleEnable(); }}
           disabled={busy || !status || totalMissing === 0}
-          className="pixel-btn text-[11px] px-3 py-1 border-amber-400 text-amber-400 hover:bg-amber-400/10 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="pixel-btn text-[13px] px-3 py-1 border-amber-400 text-amber-400 hover:bg-amber-400/10 disabled:opacity-30 disabled:cursor-not-allowed"
         >
           {busy ? "APPROVING…" : "ENABLE TRADING"}
         </button>
       </div>
       {error && (
-        <div className="px-3 py-1.5 border-t border-red-400/30 text-[10px] text-red-400 font-mono break-all">
+        <div className="px-3 py-1.5 border-t border-red-400/30 text-[12px] text-red-400 font-mono break-all">
           {error}
         </div>
       )}

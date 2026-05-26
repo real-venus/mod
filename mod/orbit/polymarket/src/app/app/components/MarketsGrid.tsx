@@ -98,14 +98,14 @@ export default function MarketsGrid({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="pixel-panel-red p-4 text-[13px] text-pixel-red text-center">
+        <div className="pixel-panel-red p-4 text-[15px] text-pixel-red text-center">
           ERROR: {error}
         </div>
       )}
 
       {loading ? (
         <div className="pixel-panel p-12 text-center">
-          <div className="text-[14px] text-pixel-white animate-pulse glow-green">
+          <div className="text-[16px] text-pixel-white animate-pulse glow-green">
             LOADING MARKETS...
           </div>
           <div className="mt-4 flex justify-center gap-1.5">
@@ -121,7 +121,7 @@ export default function MarketsGrid({
       ) : (
         <>
           <div className="flex items-center justify-between px-1 gap-3">
-            <span className="text-[14px] text-pixel-white tracking-widest shrink-0">
+            <span className="text-[16px] text-pixel-white tracking-widest shrink-0">
               PREDICTION MARKETS
             </span>
             <div className="flex items-center gap-1.5 ml-auto">
@@ -129,7 +129,7 @@ export default function MarketsGrid({
                 <button
                   key={opt.value}
                   onClick={() => setSort(opt.value)}
-                  className={`text-[11px] font-mono px-2 py-0.5 border transition-colors ${
+                  className={`text-[13px] font-mono px-2 py-0.5 border transition-colors ${
                     sort === opt.value
                       ? "border-pixel-white text-pixel-white bg-pixel-white/10"
                       : "border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white"
@@ -141,13 +141,13 @@ export default function MarketsGrid({
               {reload && (
                 <button
                   onClick={reload}
-                  className="text-[11px] text-pixel-gray hover:text-pixel-green transition-colors ml-1"
+                  className="text-[13px] text-pixel-gray hover:text-pixel-green transition-colors ml-1"
                   title="Reload"
                 >
                   ↻
                 </button>
               )}
-              <span className="text-[12px] text-pixel-gray font-mono ml-2 shrink-0">
+              <span className="text-[14px] text-pixel-gray font-mono ml-2 shrink-0">
                 {allMarkets.length}
                 {totalPages > 1 && ` · ${page + 1}/${totalPages}`}
               </span>
@@ -170,7 +170,7 @@ export default function MarketsGrid({
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="pixel-btn text-[12px] border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-30 disabled:cursor-not-allowed"
+                className="pixel-btn text-[14px] border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 PREV
               </button>
@@ -178,7 +178,7 @@ export default function MarketsGrid({
                 <button
                   key={i}
                   onClick={() => setPage(i)}
-                  className={`pixel-btn text-[12px] w-8 ${
+                  className={`pixel-btn text-[14px] w-8 ${
                     page === i
                       ? "border-pixel-white text-pixel-white"
                       : "border-pixel-border text-pixel-gray hover:text-pixel-white"
@@ -190,7 +190,7 @@ export default function MarketsGrid({
               <button
                 onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={page === totalPages - 1}
-                className="pixel-btn text-[12px] border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-30 disabled:cursor-not-allowed"
+                className="pixel-btn text-[14px] border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 NEXT
               </button>

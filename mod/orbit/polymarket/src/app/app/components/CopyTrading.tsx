@@ -113,10 +113,10 @@ function Sparkline({ data, width = 120, height = 28 }: { data: number[]; width?:
 
 /* ── Rank badge for top 3 ── */
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <span className="text-[11px] text-yellow-400" title="#1">&#9733;</span>;
-  if (rank === 2) return <span className="text-[11px] text-gray-300" title="#2">&#9733;</span>;
-  if (rank === 3) return <span className="text-[11px] text-amber-600" title="#3">&#9733;</span>;
-  return <span className="text-[11px] text-pixel-gray font-mono">{rank}</span>;
+  if (rank === 1) return <span className="text-[13px] text-yellow-400" title="#1">&#9733;</span>;
+  if (rank === 2) return <span className="text-[13px] text-gray-300" title="#2">&#9733;</span>;
+  if (rank === 3) return <span className="text-[13px] text-amber-600" title="#3">&#9733;</span>;
+  return <span className="text-[13px] text-pixel-gray font-mono">{rank}</span>;
 }
 
 interface CopyTradingProps {
@@ -565,17 +565,17 @@ export default function CopyTrading({
       <div className="pixel-panel px-4 py-2.5">
         <div className="flex items-center gap-3 flex-wrap">
           {/* Title + days + count */}
-          <span className="text-[13px] text-pixel-white tracking-wider shrink-0">TOP TRADERS</span>
+          <span className="text-[15px] text-pixel-white tracking-wider shrink-0">TOP TRADERS</span>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[11px] text-pixel-gray tracking-wider">DAYS</span>
+            <span className="text-[13px] text-pixel-gray tracking-wider">DAYS</span>
             <input type="text" inputMode="numeric" value={daysAgo} onChange={onInt(setDaysAgo, 365)}
               onKeyDown={onEnter} placeholder="7"
-              className="pixel-input-sm w-10 text-center font-mono text-[11px]" />
+              className="pixel-input-sm w-10 text-center font-mono text-[13px]" />
           </div>
 
           {visibleTotal > 0 && !loading && (
-            <span className="text-[11px] text-pixel-gray font-mono shrink-0">
+            <span className="text-[13px] text-pixel-gray font-mono shrink-0">
               {visibleTotal} traders
             </span>
           )}
@@ -583,17 +583,17 @@ export default function CopyTrading({
           {/* Right side: source + filters */}
           <div className="ml-auto flex items-center gap-2 shrink-0">
             {source && (
-              <span className={`text-[9px] font-mono tracking-wider px-1.5 py-0.5 border ${
+              <span className={`text-[12px] font-mono tracking-wider px-1.5 py-0.5 border ${
                 source === "fresh" ? "border-yellow-500/40 text-yellow-400" : "border-pixel-border text-pixel-gray"
               }`}>
                 {source === "memory" ? "MEM" : source === "disk" ? "DISK" : "LIVE"}
               </span>
             )}
-            {refreshing && <span className="text-[10px] text-green-400 animate-pulse">&#9679;</span>}
+            {refreshing && <span className="text-[12px] text-green-400 animate-pulse">&#9679;</span>}
 
             <button
               onClick={toggleStratFilter}
-              className={`pixel-btn text-[11px] px-2 py-0.5 shrink-0 flex items-center gap-1.5 transition-colors ${
+              className={`pixel-btn text-[13px] px-2 py-0.5 shrink-0 flex items-center gap-1.5 transition-colors ${
                 stratFilter
                   ? "border-green-400 text-green-400 bg-green-400/10"
                   : "border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white"
@@ -602,7 +602,7 @@ export default function CopyTrading({
             >
               STRAT
               {stratFilter && stratName && (
-                <span className="text-[9px] bg-green-500/20 text-green-400 px-1 py-px border border-green-500/40 max-w-[60px] truncate">
+                <span className="text-[12px] bg-green-500/20 text-green-400 px-1 py-px border border-green-500/40 max-w-[60px] truncate">
                   {stratName}
                 </span>
               )}
@@ -610,7 +610,7 @@ export default function CopyTrading({
 
             <button
               onClick={() => setShowFilters((v) => !v)}
-              className={`pixel-btn text-[11px] px-2 py-0.5 shrink-0 flex items-center gap-1.5 transition-colors ${
+              className={`pixel-btn text-[13px] px-2 py-0.5 shrink-0 flex items-center gap-1.5 transition-colors ${
                 showFilters
                   ? "border-pixel-white text-pixel-white"
                   : activeFilterCount > 0
@@ -620,7 +620,7 @@ export default function CopyTrading({
             >
               FILTERS
               {activeFilterCount > 0 && (
-                <span className="text-[9px] bg-green-500/20 text-green-400 px-1 py-px border border-green-500/40">
+                <span className="text-[12px] bg-green-500/20 text-green-400 px-1 py-px border border-green-500/40">
                   {activeFilterCount}
                 </span>
               )}
@@ -635,14 +635,14 @@ export default function CopyTrading({
                 the profile page) by topic keywords. e.g. "CRYPTO" keeps only
                 BTC/ETH/SOL markets. */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] text-pixel-gray tracking-wider shrink-0 mr-1">MARKET</span>
+              <span className="text-[12px] text-pixel-gray tracking-wider shrink-0 mr-1">MARKET</span>
               {CATEGORIES.map((c) => {
                 const active = ctxCategory === c.slug;
                 return (
                   <button
                     key={c.slug || "all"}
                     onClick={() => setCategory(c.slug)}
-                    className={`pixel-btn text-[10px] px-2 py-0.5 transition-colors ${
+                    className={`pixel-btn text-[12px] px-2 py-0.5 transition-colors ${
                       active
                         ? "border-green-400 text-green-400 bg-green-400/10"
                         : "border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white"
@@ -664,7 +664,7 @@ export default function CopyTrading({
                 { label: "MIN P&L", value: minPnl, onChange: onDec(setMinPnl), ph: "any" },
               ] as const).map((f) => (
                 <div key={f.label} className="flex flex-col gap-1">
-                  <label className="text-[10px] text-pixel-gray tracking-wider">{f.label}</label>
+                  <label className="text-[12px] text-pixel-gray tracking-wider">{f.label}</label>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -680,20 +680,20 @@ export default function CopyTrading({
 
             {/* Score formula */}
             <div className="flex items-center gap-2 flex-wrap">
-              <label className="text-[10px] text-pixel-gray tracking-wider shrink-0">SCORE =</label>
+              <label className="text-[12px] text-pixel-gray tracking-wider shrink-0">SCORE =</label>
               <input type="text" value={formula} onChange={(e) => setFormula(e.target.value)} onKeyDown={onEnter} spellCheck={false}
                 placeholder={DEFAULT_FORMULA} className="pixel-input-sm flex-1 min-w-[140px] font-mono" />
               <button onClick={() => setFormula(DEFAULT_FORMULA)}
-                className="pixel-btn text-[10px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white shrink-0">RST</button>
+                className="pixel-btn text-[12px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white shrink-0">RST</button>
               {compiled.error
-                ? <span className="text-[10px] text-red-400 shrink-0 truncate max-w-[160px]">ERR: {compiled.error.slice(0, 30)}</span>
-                : <span className="text-[10px] text-green-500 shrink-0">&#10003;</span>}
+                ? <span className="text-[12px] text-red-400 shrink-0 truncate max-w-[160px]">ERR: {compiled.error.slice(0, 30)}</span>
+                : <span className="text-[12px] text-green-500 shrink-0">&#10003;</span>}
             </div>
 
             {/* Reset all */}
             <div className="flex items-center justify-end">
               <button onClick={() => { setDaysAgo(""); setCategory(""); setMinTrades(""); setMinPerDay("0"); setMinVolume("100"); setMinBuyVolume(""); setMinSellVolume(""); setMinPnl(""); setFormula(DEFAULT_FORMULA); reload(); }}
-                className="pixel-btn text-[10px] px-3 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-red-400 hover:text-red-400 transition-colors">
+                className="pixel-btn text-[12px] px-3 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-red-400 hover:text-red-400 transition-colors">
                 RESET ALL
               </button>
             </div>
@@ -721,7 +721,7 @@ export default function CopyTrading({
         }
         return (
           <div className="pixel-panel p-2">
-            <div className="flex items-center gap-3 font-mono text-[10px]">
+            <div className="flex items-center gap-3 font-mono text-[12px]">
               <div className="w-2 h-2 bg-green-400 animate-pulse shrink-0" />
               <span className="text-pixel-white shrink-0">{label}</span>
               <div className="pixel-bar flex-1 h-2">
@@ -736,8 +736,8 @@ export default function CopyTrading({
       {/* ── Table ── */}
       {loading && traders.length === 0 ? (
         <div className="pixel-panel p-8 text-center space-y-2">
-          <div className="text-[13px] text-pixel-white">SCANNING POLYMARKET</div>
-          <div className="text-[10px] text-pixel-gray">Results are cached hourly. Subsequent loads are instant.</div>
+          <div className="text-[15px] text-pixel-white">SCANNING POLYMARKET</div>
+          <div className="text-[12px] text-pixel-gray">Results are cached hourly. Subsequent loads are instant.</div>
         </div>
       ) : traders.length > 0 ? (
         <>
@@ -785,7 +785,7 @@ export default function CopyTrading({
                       </td>
                       <td>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-pixel-white font-mono text-[12px] group-hover:text-green-400 transition-colors truncate">
+                          <span className="text-pixel-white font-mono text-[14px] group-hover:text-green-400 transition-colors truncate">
                             {shortAddress(trader.address)}
                           </span>
                         </div>
@@ -816,7 +816,7 @@ export default function CopyTrading({
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}
-                              className="pixel-btn text-[10px] px-2 py-0.5 border-green-400 text-green-400 bg-green-400/10 hover:border-red-400 hover:text-red-400 hover:bg-red-400/10 transition-all whitespace-nowrap"
+                              className="pixel-btn text-[12px] px-2 py-0.5 border-green-400 text-green-400 bg-green-400/10 hover:border-red-400 hover:text-red-400 hover:bg-red-400/10 transition-all whitespace-nowrap"
                               title="In strat — click to remove"
                             >
                               <span className="group-hover:hidden">IN STRAT</span>
@@ -826,7 +826,7 @@ export default function CopyTrading({
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}
-                              className="pixel-btn text-[10px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:border-green-400 hover:text-green-400 transition-all whitespace-nowrap"
+                              className="pixel-btn text-[12px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:border-green-400 hover:text-green-400 transition-all whitespace-nowrap"
                               title="Add to active strat"
                             >
                               + ADD
@@ -845,12 +845,12 @@ export default function CopyTrading({
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-1 px-1">
-              <span className="text-[10px] text-pixel-gray font-mono">
+              <span className="text-[12px] text-pixel-gray font-mono">
                 {safePage * PAGE_SIZE + 1}-{Math.min((safePage + 1) * PAGE_SIZE, visibleTotal)} of {visibleTotal}
               </span>
               <div className="flex items-center gap-1">
                 <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={safePage === 0}
-                  className="pixel-btn text-[10px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed">PREV</button>
+                  className="pixel-btn text-[12px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed">PREV</button>
                 {Array.from({ length: totalPages }, (_, i) => i)
                   .filter((i) => i === 0 || i === totalPages - 1 || Math.abs(i - safePage) <= 2)
                   .reduce<(number | "dots")[]>((acc, i) => {
@@ -861,10 +861,10 @@ export default function CopyTrading({
                   }, [])
                   .map((tok, idx) =>
                     tok === "dots" ? (
-                      <span key={`e${idx}`} className="text-[10px] text-pixel-gray px-0.5">...</span>
+                      <span key={`e${idx}`} className="text-[12px] text-pixel-gray px-0.5">...</span>
                     ) : (
                       <button key={tok} onClick={() => setPage(tok)}
-                        className={`pixel-btn text-[10px] w-6 py-0.5 ${
+                        className={`pixel-btn text-[12px] w-6 py-0.5 ${
                           safePage === tok
                             ? "border-pixel-white text-pixel-white"
                             : "border-pixel-border text-pixel-gray hover:text-pixel-white"
@@ -872,13 +872,13 @@ export default function CopyTrading({
                     ),
                   )}
                 <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={safePage === totalPages - 1}
-                  className="pixel-btn text-[10px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed">NEXT</button>
+                  className="pixel-btn text-[12px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed">NEXT</button>
               </div>
             </div>
           )}
         </>
       ) : hasLoaded && !loading ? (
-        <div className="pixel-panel p-8 text-center text-[12px] text-pixel-gray">
+        <div className="pixel-panel p-8 text-center text-[14px] text-pixel-gray">
           NO TRADERS MATCH CURRENT FILTERS
         </div>
       ) : null}

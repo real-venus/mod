@@ -219,13 +219,15 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
         recipient,
         parseUnits(sendAmount, 6),
       ]);
-      const tokenAddr = srcAsset === "usdt" ? src.usdt : src.usdc;
+      // Non-bridge branch is only reachable when srcAsset === "usdc" and
+      // src.id === "polygon" — USDT and any non-Polygon source force the
+      // LiFi swap path via isBridge above. So token addr is the Polygon USDC.
       const ethereum = window.ethereum as {
         request: (a: { method: string; params?: unknown[] }) => Promise<unknown>;
       };
       const txHash = (await ethereum.request({
         method: "eth_sendTransaction",
-        params: [{ from: auth.address, to: tokenAddr, data }],
+        params: [{ from: auth.address, to: src.usdc, data }],
       })) as string;
       setStatus(`SENT ${txHash.slice(0, 10)}... — WAITING CONFIRM`);
       const receipt = await provider.waitForTransaction(txHash);
@@ -247,7 +249,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
   if (!auth.address) {
     return (
       <div className="pixel-panel border-2 border-pixel-border px-3 py-3 text-center">
-        <span className="text-[11px] tracking-wider text-pixel-gray">CONNECT WALLET TO VIEW FUNDS</span>
+        <span className="text-[15px] tracking-wider text-pixel-gray">CONNECT WALLET TO VIEW FUNDS</span>
       </div>
     );
   }
@@ -272,17 +274,17 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
       {/* ── Header: address + copy + refresh ────────────────── */}
       <div className="flex items-center gap-2 px-3 py-2 bg-pixel-black/60 border-b border-pixel-border/60">
         <div className="w-1.5 h-1.5 bg-green-400 shrink-0 animate-pulse" />
-        <span className="text-[10px] text-pixel-gray tracking-wider">WALLET</span>
+        <span className="text-[14px] text-pixel-gray tracking-wider">WALLET</span>
         <span
-          className="text-[11px] text-pixel-white font-mono flex-1 truncate"
+          className="text-[15px] text-pixel-white font-mono flex-1 truncate"
           title={auth.address}
         >
           {shortAddr}
         </span>
-        <button onClick={handleCopy} title="Copy address" className="text-[11px] text-pixel-gray hover:text-green-400 px-1">
+        <button onClick={handleCopy} title="Copy address" className="text-[15px] text-pixel-gray hover:text-green-400 px-1">
           {copied ? "✓" : "⧉"}
         </button>
-        <button onClick={() => { void fetchAllBalances(); }} title="Refresh balances" className="text-[12px] text-pixel-gray hover:text-green-400 px-1">
+        <button onClick={() => { void fetchAllBalances(); }} title="Refresh balances" className="text-[16px] text-pixel-gray hover:text-green-400 px-1">
           ↻
         </button>
       </div>
@@ -295,18 +297,18 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
         <div className="flex items-center gap-2">
           <ChainBadge net={POLYGON} size={22} />
           <div className="leading-tight">
-            <div className="text-[9px] text-pixel-gray tracking-[0.15em]">WALLET · POLYGON</div>
-            <div className="text-[9px] text-pixel-gray font-mono">USDC.e · not yet tradeable</div>
+            <div className="text-[14px] text-pixel-gray tracking-[0.15em]">WALLET · POLYGON</div>
+            <div className="text-[14px] text-pixel-gray font-mono">USDC.e · not yet tradeable</div>
           </div>
         </div>
         <div className="text-right leading-tight">
-          <div className="text-[18px] font-mono text-green-400">
+          <div className="text-[28px] font-mono text-green-400">
             {loaded === null || loaded === undefined ? "..." : `$${loaded.toFixed(2)}`}
           </div>
           {loaded !== null && loaded !== undefined && loaded === 0 ? (
-            <div className="text-[8px] text-amber-400/80 tracking-wider">FUND BELOW ↓</div>
+            <div className="text-[13px] text-amber-400/80 tracking-wider">FUND BELOW ↓</div>
           ) : loaded !== null && loaded !== undefined && loaded > 0 ? (
-            <div className="text-[8px] text-purple-400/90 tracking-wider">DEPOSIT TO PROXY ↓</div>
+            <div className="text-[13px] text-purple-400/90 tracking-wider">DEPOSIT TO PROXY ↓</div>
           ) : null}
         </div>
       </div>
@@ -314,29 +316,28 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
       {/* ── Fund section ────────────────────────────────────── */}
       <div className="px-3 py-2 space-y-1.5 bg-pixel-black/40">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-pixel-white tracking-[0.15em]">FUND POLYGON USDC</span>
-          <span className={`text-[9px] font-mono ${isBridge ? "text-amber-400" : "text-pixel-gray"}`}>
+          <span className="text-[14px] text-pixel-white tracking-[0.15em]">FUND POLYGON USDC</span>
+          <span className={`text-[14px] font-mono ${isBridge ? "text-amber-400" : "text-pixel-gray"}`}>
             {isBridge ? "bridge · via li.fi" : "direct transfer"}
           </span>
         </div>
 
-        {/* Bubbly chain picker — pill of icon + name + USDC bal, native
-            <select> overlaid for accessibility/keyboard. Soft rounded corners
-            + chain-color glow on hover keeps it feeling clickable without
-            shouting. */}
+        {/* Two-row layout: network selector on one line, asset chips on the
+            next. Keeps the chips visible in narrow sidebar mounts where the
+            inline layout used to push them off-screen. */}
         <div className="flex items-center gap-2">
-          <span className="text-[8px] text-pixel-gray tracking-[0.15em] w-10 shrink-0">FROM</span>
+          <span className="text-[13px] text-pixel-gray tracking-[0.15em] w-10 shrink-0">FROM</span>
           <div className="relative flex-1 min-w-0">
             <div
               className="flex items-center gap-2 rounded-full border bg-pixel-black/80 pl-1 pr-3 h-[28px] hover:bg-pixel-black transition-colors"
               style={{ borderColor: `${src.color}66`, boxShadow: `inset 0 0 0 1px ${src.color}22` }}
             >
               <ChainBadge net={src} size={22} />
-              <span className="text-[11px] text-pixel-white font-mono flex-1 truncate">{src.name}</span>
-              <span className="text-[10px] text-green-400/80 font-mono">
+              <span className="text-[15px] text-pixel-white font-mono flex-1 truncate">{src.name}</span>
+              <span className="text-[14px] text-green-400/80 font-mono">
                 {srcUsdc === null || srcUsdc === undefined ? "..." : `$${srcUsdc.toFixed(2)}`}
               </span>
-              <span className="text-[10px] text-pixel-gray">▾</span>
+              <span className="text-[14px] text-pixel-gray">▾</span>
             </div>
             <select
               value={src.id}
@@ -358,35 +359,40 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
               })}
             </select>
           </div>
-          {/* Bubbly asset picker — three rounded chips with token icons */}
-          <div className="inline-flex items-center gap-1 shrink-0">
-            <AssetChip
-              active={srcAsset === "usdc"}
-              onClick={() => setSrcAsset("usdc")}
-              icon={<TokenBadge kind="usdc" size={14} />}
-              label="USDC"
-              tint={ASSET_META.usdc.color}
-            />
-            <AssetChip
-              active={srcAsset === "usdt"}
-              onClick={() => setSrcAsset("usdt")}
-              icon={<TokenBadge kind="usdt" size={14} />}
-              label="USDT"
-              tint={ASSET_META.usdt.color}
-            />
-            <AssetChip
-              active={srcAsset === "native"}
-              onClick={() => setSrcAsset("native")}
-              icon={<TokenBadge kind="native" sym={src.nativeCurrency.symbol} size={14} />}
-              label={src.nativeCurrency.symbol}
-              tint={src.color}
-            />
-          </div>
+        </div>
+        {/* Asset picker — three rounded chips with token icons + live balance.
+            Lives on its own row so it's always visible regardless of panel
+            width. The 10px left indent visually anchors it under "FROM". */}
+        <div className="flex items-center flex-wrap gap-2 pl-12">
+          <AssetChip
+            active={srcAsset === "usdc"}
+            onClick={() => setSrcAsset("usdc")}
+            icon={<TokenBadge kind="usdc" size={14} />}
+            label="USDC"
+            tint={ASSET_META.usdc.color}
+            balance={usdcBal[src.id]}
+          />
+          <AssetChip
+            active={srcAsset === "usdt"}
+            onClick={() => setSrcAsset("usdt")}
+            icon={<TokenBadge kind="usdt" size={14} />}
+            label="USDT"
+            tint={ASSET_META.usdt.color}
+            balance={usdtBal[src.id]}
+          />
+          <AssetChip
+            active={srcAsset === "native"}
+            onClick={() => setSrcAsset("native")}
+            icon={<TokenBadge kind="native" sym={src.nativeCurrency.symbol} size={14} />}
+            label={src.nativeCurrency.symbol}
+            tint={src.color}
+            balance={nativeBal[src.id]}
+          />
         </div>
 
         {/* AMT row with inline % chips (no longer needs its own line below). */}
         <div className="flex items-center gap-2">
-          <span className="text-[8px] text-pixel-gray tracking-[0.15em] w-10 shrink-0">AMT</span>
+          <span className="text-[13px] text-pixel-gray tracking-[0.15em] w-10 shrink-0">AMT</span>
           <div className="flex-1 relative">
             <input
               type="text"
@@ -394,9 +400,9 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
               placeholder="0.00"
               value={sendAmount}
               onChange={(e) => setSendAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-              className="pixel-input-sm w-full font-mono text-[12px] pr-12 h-[26px]"
+              className="pixel-input-sm w-full font-mono text-[16px] pr-12 h-[34px]"
             />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-pixel-gray font-mono pointer-events-none">
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[14px] text-pixel-gray font-mono pointer-events-none">
               {srcSym}
             </span>
           </div>
@@ -409,7 +415,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
                     const v = srcBal * pct;
                     setSendAmount(srcAsset === "usdc" ? v.toFixed(2) : v.toFixed(4));
                   }}
-                  className="text-[9px] px-1.5 h-[26px] inline-flex items-center justify-center border border-pixel-border bg-pixel-black text-pixel-gray hover:text-green-400 hover:border-green-400 font-mono tracking-wider transition-colors"
+                  className="text-[14px] px-1.5 h-[34px] inline-flex items-center justify-center border border-pixel-border bg-pixel-black text-pixel-gray hover:text-green-400 hover:border-green-400 font-mono tracking-wider transition-colors"
                 >
                   {pct === 1 ? "MAX" : `${pct * 100}%`}
                 </button>
@@ -422,7 +428,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
         <button
           onClick={() => { void handleSend(); }}
           disabled={busy || !sendAmount || !recipient}
-          className={`w-full pixel-btn text-[12px] py-1.5 font-mono tracking-wider disabled:opacity-30 disabled:cursor-not-allowed ${
+          className={`w-full pixel-btn text-[16px] py-1.5 font-mono tracking-wider disabled:opacity-30 disabled:cursor-not-allowed ${
             isBridge
               ? "border-amber-400 text-amber-400 hover:bg-amber-400/10"
               : "border-green-400 text-green-400 hover:bg-green-400/10"
@@ -437,7 +443,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
 
         {/* Status */}
         {status && (
-          <div className={`text-[10px] font-mono break-all px-1 py-1 border-l-2 ${
+          <div className={`text-[14px] font-mono break-all px-1 py-1 border-l-2 ${
             status.startsWith("ERROR") || status.startsWith("INVALID") || status.startsWith("INSUFFICIENT") || status.includes("REJECTED")
               ? "text-red-400 border-red-400"
               : status.startsWith("CONFIRMED") || status.startsWith("SENT") || status.startsWith("BRIDGED")
@@ -452,19 +458,19 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
         {!showRecipient && isSelfRecipient ? (
           <button
             onClick={() => setShowRecipient(true)}
-            className="text-[9px] text-pixel-gray hover:text-pixel-white font-mono tracking-[0.15em] underline-offset-2 hover:underline"
+            className="text-[14px] text-pixel-gray hover:text-pixel-white font-mono tracking-[0.15em] underline-offset-2 hover:underline"
           >
             ⌄ SEND TO A DIFFERENT ADDRESS
           </button>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="text-[8px] text-pixel-gray tracking-[0.15em] w-12 shrink-0">TO</span>
+            <span className="text-[13px] text-pixel-gray tracking-[0.15em] w-12 shrink-0">TO</span>
             <input
               type="text"
               placeholder="RECIPIENT 0x..."
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
-              className={`pixel-input-sm flex-1 font-mono text-[10px] ${
+              className={`pixel-input-sm flex-1 font-mono text-[14px] ${
                 isSelfRecipient ? "text-green-400" : ""
               }`}
               spellCheck={false}
@@ -472,7 +478,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
             <button
               onClick={() => { if (auth.address) { setRecipient(auth.address); setShowRecipient(false); } }}
               title="Send to self (collapse)"
-              className="pixel-btn text-[10px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 shrink-0"
+              className="pixel-btn text-[14px] px-2 py-1 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 shrink-0"
             >
               ME
             </button>
@@ -483,14 +489,14 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
       {/* ── Capital cap (LIVE tab only) ─────────────────────── */}
       {capital !== undefined && onCapitalChange && (
         <div className="px-3 py-1.5 border-t border-pixel-border/60 flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] text-pixel-gray tracking-wider shrink-0">CAPITAL CAP</span>
-          <span className="text-[12px] text-pixel-white font-mono shrink-0">${capital.toLocaleString()}</span>
+          <span className="text-[14px] text-pixel-gray tracking-wider shrink-0">CAPITAL CAP</span>
+          <span className="text-[16px] text-pixel-white font-mono shrink-0">${capital.toLocaleString()}</span>
           <div className="flex items-center gap-1 flex-wrap ml-auto">
             {PRESETS.map((p) => (
               <button
                 key={p}
                 onClick={() => { onCapitalChange(p); setCustomCapital(""); }}
-                className={`pixel-btn text-[10px] px-1.5 py-0.5 transition-colors ${
+                className={`pixel-btn text-[14px] px-1.5 py-0.5 transition-colors ${
                   capital === p
                     ? "border-green-400 text-green-400 bg-green-400/10"
                     : "border-pixel-border text-pixel-gray hover:text-pixel-white"
@@ -502,7 +508,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
             {loaded !== null && loaded !== undefined && loaded > 0 && (
               <button
                 onClick={() => { onCapitalChange(Math.floor(loaded)); setCustomCapital(""); }}
-                className="pixel-btn text-[10px] px-1.5 py-0.5 border-pixel-border text-pixel-gray hover:text-amber-400 hover:border-amber-400"
+                className="pixel-btn text-[14px] px-1.5 py-0.5 border-pixel-border text-pixel-gray hover:text-amber-400 hover:border-amber-400"
                 title="Use full Polygon USDC balance"
               >
                 MAX
@@ -519,7 +525,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
                 if (num > 0) onCapitalChange(num);
               }}
               placeholder="CUSTOM"
-              className="pixel-input-sm w-16 font-mono text-[10px] text-center"
+              className="pixel-input-sm w-16 font-mono text-[14px] text-center"
             />
           </div>
         </div>
@@ -559,17 +565,32 @@ function AssetChip({
   icon,
   label,
   tint,
+  balance,
 }: {
   active: boolean;
   onClick: () => void;
   icon: ReactNode;
   label: string;
   tint: string;
+  balance: number | null | undefined;
 }) {
+  // Compact balance formatting: "12.34" / "1.2K" / "3.4M". Hide entirely
+  // when we have no balance for that token (treat 0 still as a display
+  // signal so the user can tell "checked, empty" from "not yet loaded").
+  const fmt = (n: number) => {
+    if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(2)}K`;
+    if (n >= 100) return n.toFixed(0);
+    if (n >= 1)   return n.toFixed(2);
+    if (n > 0)    return n.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+    return "0";
+  };
+  const balText = balance == null ? "…" : fmt(balance);
+  const isEmpty = balance != null && balance <= 0;
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1 rounded-full h-[28px] px-2 text-[10px] font-mono tracking-wider transition-all"
+      className="inline-flex items-center gap-1.5 rounded-full h-[28px] px-2.5 text-[14px] font-mono tracking-wider transition-all"
       style={
         active
           ? {
@@ -585,9 +606,16 @@ function AssetChip({
             }
       }
       aria-pressed={active}
+      title={balance == null ? `${label} — loading balance` : `${label} balance: ${balance}`}
     >
       {icon}
       <span>{label}</span>
+      <span
+        className="text-[13px] tabular-nums"
+        style={{ opacity: active ? 0.95 : isEmpty ? 0.4 : 0.7 }}
+      >
+        {balText}
+      </span>
     </button>
   );
 }

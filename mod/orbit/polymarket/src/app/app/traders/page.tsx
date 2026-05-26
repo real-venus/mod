@@ -206,7 +206,7 @@ function TradersInner() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowBacktest((v) => !v)}
-                className={`pixel-btn text-[12px] px-4 py-1.5 ${
+                className={`pixel-btn text-[14px] px-4 py-1.5 ${
                   showBacktest
                     ? "border-green-400 text-green-400 bg-green-400/10"
                     : "border-pixel-border text-pixel-gray hover:text-pixel-white"
@@ -222,7 +222,7 @@ function TradersInner() {
                 <div className="flex items-center gap-2 overflow-x-auto pb-1">
                   <button
                     onClick={() => { setActiveTab("STRATEGY"); setTradesPage(0); }}
-                    className={`pixel-btn text-[12px] px-4 py-1.5 whitespace-nowrap ${
+                    className={`pixel-btn text-[14px] px-4 py-1.5 whitespace-nowrap ${
                       isStrategyTab ? "border-pixel-white text-pixel-white" : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
                     }`}
                   >
@@ -232,7 +232,7 @@ function TradersInner() {
                     <button
                       key={addr}
                       onClick={() => { setActiveTab(addr); setTradesPage(0); }}
-                      className={`pixel-btn text-[12px] px-4 py-1.5 whitespace-nowrap ${
+                      className={`pixel-btn text-[14px] px-4 py-1.5 whitespace-nowrap ${
                         activeTab === addr ? "border-pixel-white text-pixel-white" : "border-pixel-gray text-pixel-gray hover:text-pixel-white"
                       }`}
                     >
@@ -245,8 +245,8 @@ function TradersInner() {
                 {!isStrategyTab && currentTraderData && (
                   <div className="pixel-panel p-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-[13px] text-pixel-gray-light tracking-wider">TRADER BACKTEST</div>
-                      <div className="flex items-center gap-3 text-[12px]">
+                      <div className="text-[15px] text-pixel-gray-light tracking-wider">TRADER BACKTEST</div>
+                      <div className="flex items-center gap-3 text-[14px]">
                         <span className="font-mono text-pixel-white">{activeTab.slice(0, 6)}...{activeTab.slice(-4)}</span>
                         <span className="text-pixel-gray">WEIGHT {(currentTraderData.weight * 100).toFixed(0)}%</span>
                       </div>
@@ -257,10 +257,10 @@ function TradersInner() {
                 {/* Chart + Table */}
                 {loadingChart ? (
                   <div className="pixel-panel p-8 text-center">
-                    <div className="text-[14px] text-pixel-white animate-pulse mb-2">
+                    <div className="text-[16px] text-pixel-white animate-pulse mb-2">
                       LOADING {isStrategyTab ? "STRATEGY" : "TRADER"} DATA...
                     </div>
-                    <div className="text-[12px] text-pixel-gray">
+                    <div className="text-[14px] text-pixel-gray">
                       Fetching trades from {selectedAddresses.length} trader{selectedAddresses.length !== 1 ? "s" : ""}
                     </div>
                   </div>
@@ -327,13 +327,13 @@ function TradersInner() {
                                   onMouseEnter={() => curveIndex >= 0 && setHoveredTradeIndex(curveIndex)}
                                   onMouseLeave={() => setHoveredTradeIndex(null)}
                                 >
-                                  <td className="text-pixel-gray-light font-mono text-[11px]">{timeStr}</td>
+                                  <td className="text-pixel-gray-light font-mono text-[13px]">{timeStr}</td>
                                   {isStrategyTab && (
-                                    <td className="text-pixel-white font-mono text-[11px]">
+                                    <td className="text-pixel-white font-mono text-[13px]">
                                       {trade.traderAddress.slice(0, 6)}...{trade.traderAddress.slice(-4)}
                                     </td>
                                   )}
-                                  <td className="text-pixel-white truncate text-[11px]" title={trade.market}>{trade.market}</td>
+                                  <td className="text-pixel-white truncate text-[13px]" title={trade.market}>{trade.market}</td>
                                   <td><span className={`pixel-badge ${sideColor}`}>{trade.side}</span></td>
                                   <td className="num text-right text-pixel-white font-mono">{Math.round(trade.price * 100)}c</td>
                                   <td className="num text-right text-pixel-white font-mono">${(trade.size * trade.price).toFixed(2)}</td>
@@ -359,22 +359,22 @@ function TradersInner() {
 
                     {currentTrades.length > TRADES_PAGE_SIZE && (
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-[10px] text-pixel-gray font-mono">
+                        <span className="text-[12px] text-pixel-gray font-mono">
                           {tradesPage * TRADES_PAGE_SIZE + 1}-{Math.min((tradesPage + 1) * TRADES_PAGE_SIZE, currentTrades.length)} of {currentTrades.length}
                         </span>
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => setTradesPage((p) => Math.max(0, p - 1))}
                             disabled={tradesPage === 0}
-                            className="pixel-btn text-[10px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed"
+                            className="pixel-btn text-[12px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed"
                           >PREV</button>
-                          <span className="text-[10px] text-pixel-gray font-mono">
+                          <span className="text-[12px] text-pixel-gray font-mono">
                             PAGE {tradesPage + 1} / {Math.ceil(currentTrades.length / TRADES_PAGE_SIZE)}
                           </span>
                           <button
                             onClick={() => setTradesPage((p) => Math.min(Math.ceil(currentTrades.length / TRADES_PAGE_SIZE) - 1, p + 1))}
                             disabled={tradesPage >= Math.ceil(currentTrades.length / TRADES_PAGE_SIZE) - 1}
-                            className="pixel-btn text-[10px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed"
+                            className="pixel-btn text-[12px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed"
                           >NEXT</button>
                         </div>
                       </div>
@@ -382,8 +382,8 @@ function TradersInner() {
                   </>
                 ) : (
                   <div className="pixel-panel p-8 text-center">
-                    <div className="text-[14px] text-pixel-gray-light tracking-wider mb-2">NO DATA</div>
-                    <div className="text-[13px] text-pixel-gray">
+                    <div className="text-[16px] text-pixel-gray-light tracking-wider mb-2">NO DATA</div>
+                    <div className="text-[15px] text-pixel-gray">
                       {isStrategyTab ? "NO STRATEGY DATA AVAILABLE" : "NO TRADER DATA AVAILABLE"}
                     </div>
                   </div>

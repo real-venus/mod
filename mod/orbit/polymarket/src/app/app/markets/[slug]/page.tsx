@@ -174,7 +174,7 @@ export default function MarketPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/markets")}
-            className="pixel-btn border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white text-[13px] px-2.5 py-1.5 shrink-0"
+            className="pixel-btn border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-pixel-white text-[15px] px-2.5 py-1.5 shrink-0"
           >
             ←
           </button>
@@ -193,13 +193,13 @@ export default function MarketPage() {
           </div>
         ) : marketError || !market ? (
           <div className="pixel-panel-red p-8 text-center">
-            <div className="text-[14px] text-pixel-red">{marketError || "MARKET NOT FOUND"}</div>
+            <div className="text-[16px] text-pixel-red">{marketError || "MARKET NOT FOUND"}</div>
           </div>
         ) : (
           <>
             {/* Stats bar */}
             <div className="pixel-panel px-4 py-3">
-              <div className="flex items-center gap-5 flex-wrap text-[12px] font-mono">
+              <div className="flex items-center gap-5 flex-wrap text-[14px] font-mono">
                 {/* Outcome odds */}
                 {market.outcomes.map((outcome, i) => {
                   const px = market.outcomePrices[i] ?? 0;
@@ -209,13 +209,13 @@ export default function MarketPage() {
                     <div key={outcome + i} className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 shrink-0" style={{ background: color }} />
                       <span className="text-pixel-gray-light">{outcome}</span>
-                      <span className="text-pixel-white text-[13px]">{pct}¢</span>
+                      <span className="text-pixel-white text-[15px]">{pct}¢</span>
                     </div>
                   );
                 })}
                 <div className="ml-auto flex items-center gap-5">
                   {market.category && (
-                    <span className="pixel-badge border-pixel-border text-pixel-gray-light text-[11px]">
+                    <span className="pixel-badge border-pixel-border text-pixel-gray-light text-[13px]">
                       {market.category.toUpperCase()}
                     </span>
                   )}
@@ -246,7 +246,7 @@ export default function MarketPage() {
               {/* Chart */}
               <div className="pixel-panel p-4 flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-3 gap-2">
-                  <div className="text-[13px] text-pixel-gray-light tracking-wider">
+                  <div className="text-[15px] text-pixel-gray-light tracking-wider">
                     PRICE HISTORY
                   </div>
                   <div className="flex items-center gap-1">
@@ -254,7 +254,7 @@ export default function MarketPage() {
                       <button
                         key={iv.key}
                         onClick={() => setIntervalState(iv.key)}
-                        className={`pixel-btn text-[10px] px-2 py-0.5 ${
+                        className={`pixel-btn text-[12px] px-2 py-0.5 ${
                           interval === iv.key
                             ? "border-pixel-green text-pixel-green bg-pixel-green/10"
                             : "border-pixel-border text-pixel-gray hover:text-pixel-white"
@@ -268,13 +268,13 @@ export default function MarketPage() {
 
                 {chartLoading ? (
                   <div className="h-[280px] flex items-center justify-center">
-                    <div className="text-[12px] text-pixel-gray animate-pulse">
+                    <div className="text-[14px] text-pixel-gray animate-pulse">
                       LOADING PRICE HISTORY...
                     </div>
                   </div>
                 ) : chartData.length === 0 ? (
                   <div className="h-[280px] flex items-center justify-center">
-                    <div className="text-[12px] text-pixel-gray">NO PRICE DATA</div>
+                    <div className="text-[14px] text-pixel-gray">NO PRICE DATA</div>
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={280}>
@@ -392,7 +392,7 @@ export default function MarketPage() {
                 )}
 
                 {/* Outcome legend */}
-                <div className="mt-3 flex items-center gap-4 text-[12px] text-pixel-gray flex-wrap">
+                <div className="mt-3 flex items-center gap-4 text-[14px] text-pixel-gray flex-wrap">
                   {market.outcomes.map((outcome, i) => (
                     <div key={outcome + i} className="flex items-center gap-1.5">
                       <div
@@ -409,8 +409,8 @@ export default function MarketPage() {
                   <>
                     <div className="mt-4 border-t border-pixel-border pt-3">
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-[12px] text-pixel-gray-light tracking-wider">VOLUME</div>
-                        <div className="flex items-center gap-4 text-[11px] font-mono">
+                        <div className="text-[14px] text-pixel-gray-light tracking-wider">VOLUME</div>
+                        <div className="flex items-center gap-4 text-[13px] font-mono">
                           <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 bg-green-500" />
                             <span className="text-green-400">BUY {formatVolume(volStats.totalBuy)}</span>
@@ -486,10 +486,10 @@ export default function MarketPage() {
             {/* Description */}
             {market.description && (
               <div className="pixel-panel p-4">
-                <div className="text-[13px] text-pixel-gray-light tracking-wider mb-3">
+                <div className="text-[15px] text-pixel-gray-light tracking-wider mb-3">
                   DESCRIPTION
                 </div>
-                <div className="text-[13px] text-pixel-gray leading-[1.8] whitespace-pre-wrap">
+                <div className="text-[15px] text-pixel-gray leading-[1.8] whitespace-pre-wrap">
                   {market.description}
                 </div>
               </div>

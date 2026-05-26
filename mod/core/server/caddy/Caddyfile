@@ -91,11 +91,20 @@
     @codex_api path /api/codex /api/codex/*
     handle @codex_api {
         uri strip_prefix /api/codex
-        reverse_proxy codex:8830
+        reverse_proxy host.docker.internal:8830
     }
     @codex_app path /codex /codex/*
     handle @codex_app {
-        reverse_proxy codex:8831
+        reverse_proxy host.docker.internal:8831
+    }
+    @tether_api path /api/tether /api/tether/*
+    handle @tether_api {
+        uri strip_prefix /api/tether
+        reverse_proxy host.docker.internal:8850
+    }
+    @tether_app path /tether /tether/*
+    handle @tether_app {
+        reverse_proxy host.docker.internal:8851
     }
     @dev_api path /api/dev /api/dev/*
     handle @dev_api {

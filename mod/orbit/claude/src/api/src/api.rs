@@ -2,6 +2,9 @@
 
 use crate::auth;
 use crate::jobs::{ClaudeJobManager, SubmitRequest};
+use crate::snapshots::{
+    append_version, default_store, read_versions, restore_into, snapshot_dir, VersionRecord,
+};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -44,6 +47,9 @@ pub async fn serve(manager: AppState, port: u16) {
             .route("/jobs/:id/stream", get(stream_job))
             .route("/modules/:name", delete(delete_module))
             .route("/modules/:name/rename", put(rename_module))
+            .route("/modules/:name/snapshot", post(snapshot_module))
+            .route("/modules/:name/fork", post(fork_module))
+            .route("/modules/:name/restore", post(restore_module))
             .route("/files/write", post(file_write))
             .route("/kill", post(kill_process))
             .route("/whitelist", post(add_to_whitelist))
@@ -74,6 +80,7 @@ pub async fn serve(manager: AppState, port: u16) {
         .route("/files/grep", get(file_grep))
         .route("/changelog", get(get_changelog))
         .route("/versions/:version", get(get_version))
+        .route("/modules/:name/versions", get(list_module_versions))
         .route("/owner", get(get_owner))
         .route("/whitelist", get(get_whitelist))
         .route("/auth/role", get(get_role))
@@ -1774,4 +1781,267 @@ fn find_pids_by_port(port: u16) -> Result<Vec<u32>, String> {
         .filter_map(|line| line.trim().parse::<u32>().ok())
         .collect();
     Ok(pids)
+}
+
+// ── Snapshots / Versions / Fork / Restore ────────────────────────────
+//
+// Content-addressed via the Store trait (default: LocalFsStore). Any future
+// backend (ipfs/bitstore/dstore) is a one-line swap in snapshots::default_store.
+// Versions log lives at ~/.mod/claude/versions/{module}.json — append-only.
+
+fn module_root_for(name: &str) -> Option<std::path::PathBuf> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let candidates = [
+        format!("{home}/mod/mod/orbit/{name}"),
+        format!("{home}/mod/mod/core/{name}"),
+    ];
+    for c in &candidates {
+        let p = std::path::PathBuf::from(c);
+        if p.is_dir() {
+            return Some(p);
+        }
+    }
+    None
+}
+
+#[derive(Deserialize)]
+struct SnapshotBody {
+    #[serde(default)]
+    message: String,
+}
+
+async fn snapshot_module(
+    headers: axum::http::HeaderMap,
+    Path(name): Path<String>,
+    Json(body): Json<SnapshotBody>,
+) -> impl IntoResponse {
+    let caller = auth::extract_address_from_headers(&headers).unwrap_or_default();
+    let local_mode = std::env::var("CLAUDE_JOBS_LOCAL").unwrap_or_default() == "1";
+    if caller.is_empty() && !local_mode {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "auth required" })),
+        )
+            .into_response();
+    }
+    let Some(root) = module_root_for(&name) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": format!("module '{name}' not found") })),
+        )
+            .into_response();
+    };
+    let store = default_store();
+    let (cid, manifest) = match snapshot_dir(&root, &store) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": e })),
+            )
+                .into_response();
+        }
+    };
+    let history = read_versions(&name);
+    let parent = history.last().map(|v| v.cid.clone());
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let record = VersionRecord {
+        cid: cid.clone(),
+        message: body.message.clone(),
+        author: caller.clone(),
+        timestamp: ts,
+        parent: parent.clone(),
+    };
+    if let Err(e) = append_version(&name, record) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e })),
+        )
+            .into_response();
+    }
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "ok": true,
+            "module": name,
+            "cid": cid,
+            "store": store.name(),
+            "file_count": manifest.files.len(),
+            "parent": parent,
+            "author": caller,
+        })),
+    )
+        .into_response()
+}
+
+async fn list_module_versions(Path(name): Path<String>) -> impl IntoResponse {
+    let history = read_versions(&name);
+    Json(json!({
+        "module": name,
+        "count": history.len(),
+        "versions": history,
+    }))
+}
+
+#[derive(Deserialize)]
+struct ForkBody {
+    cid: String,
+    #[serde(default)]
+    target_name: Option<String>,
+}
+
+async fn fork_module(
+    headers: axum::http::HeaderMap,
+    Path(name): Path<String>,
+    Json(body): Json<ForkBody>,
+) -> impl IntoResponse {
+    let caller = auth::extract_address_from_headers(&headers).unwrap_or_default();
+    let local_mode = std::env::var("CLAUDE_JOBS_LOCAL").unwrap_or_default() == "1";
+    if caller.is_empty() && !local_mode {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "auth required to fork" })),
+        )
+            .into_response();
+    }
+    let owner_for_path = if caller.is_empty() {
+        "local".to_string()
+    } else {
+        caller.to_lowercase()
+    };
+    let target_name = body.target_name.unwrap_or_else(|| name.clone());
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let target = std::path::PathBuf::from(format!(
+        "{home}/mod/mod/orbit/portal/{owner_for_path}/{target_name}"
+    ));
+    if target.exists() {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": format!("fork target already exists: {}", target.display())
+            })),
+        )
+            .into_response();
+    }
+    let store = default_store();
+    let written = match restore_into(&target, &body.cid, &store) {
+        Ok(n) => n,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": e })),
+            )
+                .into_response();
+        }
+    };
+    // Seed a fork version record so the new module starts with history
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let fork_record = VersionRecord {
+        cid: body.cid.clone(),
+        message: format!("forked from {name}"),
+        author: caller.clone(),
+        timestamp: ts,
+        parent: None,
+    };
+    let _ = append_version(&format!("portal/{owner_for_path}/{target_name}"), fork_record);
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "ok": true,
+            "from_module": name,
+            "from_cid": body.cid,
+            "target_module": format!("portal/{owner_for_path}/{target_name}"),
+            "target_path": target.display().to_string(),
+            "file_count": written,
+            "store": store.name(),
+        })),
+    )
+        .into_response()
+}
+
+#[derive(Deserialize)]
+struct RestoreBody {
+    cid: String,
+}
+
+async fn restore_module(
+    headers: axum::http::HeaderMap,
+    Path(name): Path<String>,
+    Json(body): Json<RestoreBody>,
+) -> impl IntoResponse {
+    let caller = auth::extract_address_from_headers(&headers).unwrap_or_default();
+    let local_mode = std::env::var("CLAUDE_JOBS_LOCAL").unwrap_or_default() == "1";
+    if caller.is_empty() && !local_mode {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "auth required to restore" })),
+        )
+            .into_response();
+    }
+    let Some(root) = module_root_for(&name) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": format!("module '{name}' not found") })),
+        )
+            .into_response();
+    };
+    // Snapshot current state as a safety net before overwriting
+    let store = default_store();
+    if let Ok((auto_cid, _)) = snapshot_dir(&root, &store) {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let _ = append_version(
+            &name,
+            VersionRecord {
+                cid: auto_cid,
+                message: format!("auto-snapshot before restore to {}", body.cid),
+                author: caller.clone(),
+                timestamp: ts,
+                parent: None,
+            },
+        );
+    }
+    let written = match restore_into(&root, &body.cid, &store) {
+        Ok(n) => n,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": e })),
+            )
+                .into_response();
+        }
+    };
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let _ = append_version(
+        &name,
+        VersionRecord {
+            cid: body.cid.clone(),
+            message: format!("restored to {}", body.cid),
+            author: caller.clone(),
+            timestamp: ts,
+            parent: None,
+        },
+    );
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "module": name,
+            "restored_to": body.cid,
+            "file_count": written,
+            "store": store.name(),
+        })),
+    )
+        .into_response()
 }

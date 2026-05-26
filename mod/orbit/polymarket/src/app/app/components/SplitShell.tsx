@@ -124,13 +124,13 @@ function SplitPaneFragment({ width, url, displayUrl, onUrlChange, onClose, onSep
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") onUrlChange(draft); }}
             onBlur={() => { if (draft !== displayUrl) onUrlChange(draft); }}
-            className="pixel-input-sm flex-1 font-mono text-[10px]"
+            className="pixel-input-sm flex-1 font-mono text-[12px]"
             spellCheck={false}
           />
           <button
             onClick={onClose}
             title="Close pane"
-            className="pixel-btn text-[10px] px-1.5 py-0.5 border-red-400 text-red-400 hover:bg-red-400/10"
+            className="pixel-btn text-[12px] px-1.5 py-0.5 border-red-400 text-red-400 hover:bg-red-400/10"
           >
             X
           </button>
