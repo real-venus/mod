@@ -12,6 +12,8 @@ import EnableTradingPanel from "./EnableTradingPanel";
 import PolymarketAccountPanel from "./PolymarketAccountPanel";
 
 const REBALANCE_MS: Record<number, number> = {
+  5: 300_000,
+  10: 600_000,
   15: 900_000,
   60: 3_600_000,
   240: 14_400_000,
@@ -46,7 +48,7 @@ function LogIcon({ type }: { type: ExecutionLogEntry["type"] }) {
 }
 
 export default function LivePanel() {
-  const { auth } = useAuth();
+  const { auth, authenticate, loading: authLoading } = useAuth();
   const { engineState, isLive, startLive, stopLive, pauseLive, resumeLive } = useCopyEngine();
   const [confirmed, setConfirmed] = useState(false);
   const [liveCapital, setLiveCapital] = useState(100);
@@ -120,9 +122,9 @@ export default function LivePanel() {
               isLive && status === "error" ? "bg-red-400 animate-pulse" :
               "bg-pixel-gray"
             }`} />
-            <span className="text-[14px] text-pixel-white tracking-wider">LIVE COPY</span>
+            <span className="text-[16px] text-pixel-white tracking-wider">LIVE COPY</span>
             {isLive && (
-              <span className={`text-[11px] font-mono px-1 py-0.5 border ${
+              <span className={`text-[13px] font-mono px-1 py-0.5 border ${
                 status === "running" ? "border-green-400/40 text-green-400" :
                 status === "paused" ? "border-amber-400/40 text-amber-400" :
                 status === "error" ? "border-red-400/40 text-red-400" :
@@ -138,7 +140,7 @@ export default function LivePanel() {
             {isLive && status === "running" && (
               <button
                 onClick={pauseLive}
-                className="pixel-btn text-[11px] px-1.5 py-0.5 border-amber-400/60 text-amber-400 hover:bg-amber-400/10"
+                className="pixel-btn text-[13px] px-1.5 py-0.5 border-amber-400/60 text-amber-400 hover:bg-amber-400/10"
               >
                 PAUSE
               </button>
@@ -146,7 +148,7 @@ export default function LivePanel() {
             {isLive && status === "paused" && (
               <button
                 onClick={resumeLive}
-                className="pixel-btn text-[11px] px-1.5 py-0.5 border-green-400/60 text-green-400 hover:bg-green-400/10"
+                className="pixel-btn text-[13px] px-1.5 py-0.5 border-green-400/60 text-green-400 hover:bg-green-400/10"
               >
                 RESUME
               </button>
@@ -154,7 +156,7 @@ export default function LivePanel() {
             <button
               onClick={confirmed && !isLive ? handleToggle : isLive ? handleToggle : handleToggle}
               disabled={!isLive && !canStart && !confirmed}
-              className={`pixel-btn text-[12px] px-2.5 py-1 transition-colors ${
+              className={`pixel-btn text-[14px] px-2.5 py-1 transition-colors ${
                 isLive
                   ? "border-red-400 text-red-400 hover:bg-red-400/10"
                   : "border-green-400 text-green-400 hover:bg-green-400/10 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -168,7 +170,7 @@ export default function LivePanel() {
         {/* Confirmation warning */}
         {confirmed && !isLive && (
           <div className="px-3 py-2 border-t border-red-400/30 bg-red-400/5">
-            <p className="text-[12px] text-red-400 mb-2">
+            <p className="text-[14px] text-red-400 mb-2">
               THIS WILL PLACE REAL ORDERS ON POLYGON MAINNET WITH YOUR CONNECTED WALLET.
               REAL USDC WILL BE USED. PROCEED?
             </p>
@@ -176,13 +178,13 @@ export default function LivePanel() {
               <button
                 onClick={handleToggle}
                 disabled={!canStart}
-                className="pixel-btn text-[12px] px-3 py-1 border-red-400 text-red-400 hover:bg-red-400/10 disabled:opacity-30"
+                className="pixel-btn text-[14px] px-3 py-1 border-red-400 text-red-400 hover:bg-red-400/10 disabled:opacity-30"
               >
                 CONFIRM START
               </button>
               <button
                 onClick={handleCancel}
-                className="pixel-btn text-[12px] px-3 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white"
+                className="pixel-btn text-[14px] px-3 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white"
               >
                 CANCEL
               </button>
@@ -204,22 +206,43 @@ export default function LivePanel() {
       {/* ── Preconditions ── */}
       {!isLive && (
         <div className="pixel-panel border-2 border-pixel-border px-3 py-1.5">
-          <span className="text-[11px] text-pixel-gray tracking-wider block mb-1">CHECKLIST</span>
-          {[
+          <span className="text-[13px] text-pixel-gray tracking-wider block mb-1">CHECKLIST</span>
+          {([
             { ok: hasWallet, label: "WALLET CONNECTED" },
-            { ok: hasCreds, label: "CLOB AUTHENTICATED" },
+            {
+              ok: hasCreds,
+              label: "CLOB AUTHENTICATED",
+              // When CLOB isn't authed (and a wallet IS connected) expose a
+              // refresh action so the user can sign again without leaving
+              // the live panel.
+              action: !hasCreds && hasWallet ? {
+                label: authLoading ? "signing…" : "refresh",
+                disabled: authLoading,
+                onClick: () => { void authenticate(); },
+              } : null,
+            },
             { ok: !!activeStrat, label: "STRATEGY SELECTED" },
             { ok: hasTraders, label: "TRADERS IN STRATEGY" },
             { ok: hasRebalance, label: "REBALANCE PERIOD SET" },
             { ok: hasCapital, label: "CAPITAL > $0" },
-          ].map((item) => (
+          ] as const).map((item) => (
             <div key={item.label} className="flex items-center gap-1.5 py-0.5">
-              <span className={`text-[12px] ${item.ok ? "text-green-400" : "text-red-400/60"}`}>
+              <span className={`text-[14px] ${item.ok ? "text-green-400" : "text-red-400/60"}`}>
                 {item.ok ? "[x]" : "[ ]"}
               </span>
-              <span className={`text-[12px] font-mono ${item.ok ? "text-pixel-white" : "text-pixel-gray"}`}>
+              <span className={`text-[14px] font-mono ${item.ok ? "text-pixel-white" : "text-pixel-gray"}`}>
                 {item.label}
               </span>
+              {"action" in item && item.action && (
+                <button
+                  onClick={item.action.onClick}
+                  disabled={item.action.disabled}
+                  className="ml-2 text-[13px] font-mono tracking-wider px-2 py-0.5 rounded-full border border-amber-400/50 text-amber-400 hover:text-amber-300 hover:border-amber-300 hover:bg-amber-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Sign a MetaMask message to derive your Polymarket CLOB API key"
+                >
+                  {item.action.label}
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -230,18 +253,18 @@ export default function LivePanel() {
         <div className="pixel-panel border-2 border-pixel-border px-3 py-2">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1">
             <div className="flex justify-between">
-              <span className="text-[11px] text-pixel-gray">BALANCE</span>
-              <span className="text-[12px] text-pixel-white font-mono">
+              <span className="text-[13px] text-pixel-gray">BALANCE</span>
+              <span className="text-[14px] text-pixel-white font-mono">
                 {engineState.balance !== null ? `$${engineState.balance.toFixed(2)}` : "---"}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[11px] text-pixel-gray">CAPITAL</span>
-              <span className="text-[12px] text-pixel-white font-mono">${liveCapital.toLocaleString()}</span>
+              <span className="text-[13px] text-pixel-gray">CAPITAL</span>
+              <span className="text-[14px] text-pixel-white font-mono">${liveCapital.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[11px] text-pixel-gray">ORDERS</span>
-              <span className="text-[12px] font-mono">
+              <span className="text-[13px] text-pixel-gray">ORDERS</span>
+              <span className="text-[14px] font-mono">
                 <span className="text-green-400">{engineState.totalOrdersPlaced}</span>
                 {engineState.totalOrdersFailed > 0 && (
                   <span className="text-red-400"> / {engineState.totalOrdersFailed}F</span>
@@ -249,22 +272,22 @@ export default function LivePanel() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[11px] text-pixel-gray">VOLUME</span>
-              <span className="text-[12px] text-pixel-white font-mono">
+              <span className="text-[13px] text-pixel-gray">VOLUME</span>
+              <span className="text-[14px] text-pixel-white font-mono">
                 ${engineState.totalVolumeMirrored.toFixed(0)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[11px] text-pixel-gray">CYCLES</span>
-              <span className="text-[12px] text-pixel-white font-mono">{engineState.cycleCount}</span>
+              <span className="text-[13px] text-pixel-gray">CYCLES</span>
+              <span className="text-[14px] text-pixel-white font-mono">{engineState.cycleCount}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[11px] text-pixel-gray">NEXT IN</span>
-              <span className="text-[12px] text-green-400 font-mono">{formatCountdown(nextIn)}</span>
+              <span className="text-[13px] text-pixel-gray">NEXT IN</span>
+              <span className="text-[14px] text-green-400 font-mono">{formatCountdown(nextIn)}</span>
             </div>
           </div>
           {engineState.error && (
-            <div className="mt-2 px-2 py-1 border border-red-400/40 bg-red-400/5 text-[12px] text-red-400 font-mono">
+            <div className="mt-2 px-2 py-1 border border-red-400/40 bg-red-400/5 text-[14px] text-red-400 font-mono">
               {engineState.error}
             </div>
           )}
@@ -275,14 +298,14 @@ export default function LivePanel() {
       {isLive && engineState && engineState.log.length > 0 && (
         <div className="pixel-panel border-2 border-pixel-border">
           <div className="px-3 py-1.5 border-b border-pixel-border flex items-center justify-between">
-            <span className="text-[12px] text-pixel-gray tracking-wider">EXECUTION LOG</span>
-            <span className="text-[11px] text-pixel-gray font-mono">{engineState.log.length} entries</span>
+            <span className="text-[14px] text-pixel-gray tracking-wider">EXECUTION LOG</span>
+            <span className="text-[13px] text-pixel-gray font-mono">{engineState.log.length} entries</span>
           </div>
           <div className="max-h-[300px] overflow-y-auto">
             {engineState.log.map((entry) => (
               <div
                 key={entry.id}
-                className="px-3 py-1 border-b border-pixel-border/20 flex items-start gap-2 text-[12px] font-mono hover:bg-pixel-white/5"
+                className="px-3 py-1 border-b border-pixel-border/20 flex items-start gap-2 text-[14px] font-mono hover:bg-pixel-white/5"
               >
                 <span className="text-pixel-gray shrink-0 w-[52px]">{formatTime(entry.timestamp)}</span>
                 <span className="shrink-0 w-[28px]"><LogIcon type={entry.type} /></span>
@@ -311,7 +334,7 @@ export default function LivePanel() {
       {/* ── Empty state when live but no log ── */}
       {isLive && engineState && engineState.log.length === 0 && (
         <div className="pixel-panel border-2 border-pixel-border px-3 py-4 text-center">
-          <span className="text-[13px] text-pixel-gray">WAITING FOR FIRST CYCLE...</span>
+          <span className="text-[15px] text-pixel-gray">WAITING FOR FIRST CYCLE...</span>
         </div>
       )}
     </div>
