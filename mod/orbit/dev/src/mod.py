@@ -81,7 +81,7 @@ class Mod:
 
     def _bundle_paths(self) -> List[Path]:
         orbit = self._orbit_dir()
-        return [orbit / "dev", orbit / "claude", orbit / "codex"]
+        return [orbit / "dev", orbit / "claude", orbit / "codex", orbit / "localfs"]
 
     def bundle(self, key: Optional[str] = None) -> dict:
         """Snapshot dev+claude+codex trees to localfs and return per-module CIDs.
@@ -149,7 +149,7 @@ class Mod:
 
     PIDFILE = "/tmp/mod-dev-served.json"
     DEFAULT_GATEWAY_PORT = 8888
-    DEFAULT_MODULES = ("claude", "codex", "dev")
+    DEFAULT_MODULES = ("claude", "codex", "dev", "localfs")
 
     def _read_pidfile(self) -> dict:
         p = Path(self.PIDFILE)
@@ -278,52 +278,36 @@ class Mod:
                 time.sleep(0.2)
         return False
 
-    def serve(self, modules=None, build: bool = False, push_chain: bool = False, key=None) -> dict:
-        """Bring up the dev module behind the main caddy gateway at :3000.
+    def serve(self, port: int = None, push_chain: bool = False, key=None) -> dict:
+        """Serve the dev FastAPI from the local filesystem and wire it into
+        the main caddy gateway at http://localhost:3000/dev.
 
-        Runs `docker compose up -d` so the `dev` container joins modnet at
-        hostname `dev:8870`. The main caddy already routes `/dev` and
-        `/api/dev` to that host, so http://localhost:3000/dev just works.
-
-        Args:
-            modules: list/csv of additional modules to bring up alongside dev.
-            build: rebuild docker image before starting.
-            push_chain: also push the deployment merkle root on-chain.
-
-        Idempotent — `docker compose up -d` is a no-op if already running.
+        Uvicorn binds to 0.0.0.0 so the caddy container can reach the host
+        via `host.docker.internal`. The main Caddyfile already routes both
+        `/dev` and `/api/dev` to that host. Reloads caddy so edits take effect.
+        Idempotent — if uvicorn is already alive on the port, reuses it.
         """
-        # Default = just dev; extra modules (e.g. "claude,codex") can be passed.
-        extra: List[str] = []
-        if isinstance(modules, str):
-            extra = [s.strip() for s in modules.split(",") if s.strip() and s.strip() != "dev"]
-        elif isinstance(modules, list):
-            extra = [s for s in modules if s != "dev"]
+        api_port = port or self._cfg.get("port", 8870)
+        api_dir = Path(self.path) / "src" / "api"
+        if not (api_dir / "main.py").exists():
+            raise FileNotFoundError(f"dev: missing FastAPI entry at {api_dir / 'main.py'}")
 
-        served = {"dev": self._docker_up("dev", build=build)}
-        errors = {}
-        for name in extra:
-            try:
-                served[name] = self._docker_up(name, build=build)
-            except Exception as e:
-                errors[name] = f"{type(e).__name__}: {e}"
-
-        # Reload the main caddy so any Caddyfile edits take effect.
+        served = self._start_local_api(api_port, api_dir)
+        ready_local = self._wait_healthy_url(f"http://127.0.0.1:{api_port}/health", timeout=10.0)
         caddy_reload = self._reload_main_caddy()
-
-        # Wait for dev to be reachable via the public gateway, not localhost,
-        # so we exercise the same path the user will hit.
         gateway_url = "http://localhost:3000"
-        ready = self._wait_healthy_url(f"{gateway_url}/api/dev/health", timeout=15.0)
+        ready_gw = self._wait_healthy_url(f"{gateway_url}/api/dev/health", timeout=10.0)
 
-        merkle = self.merkle(modules=["dev", *extra])
+        merkle = self.merkle(modules=["dev"])
         result = {
             "gateway": gateway_url,
             "url": f"{gateway_url}/dev",
             "api": f"{gateway_url}/api/dev",
-            "modules": served,
-            "errors": errors,
+            "local_api": f"http://127.0.0.1:{api_port}",
+            "served": served,
+            "ready_local": ready_local,
+            "ready_gateway": ready_gw,
             "caddy_reload": caddy_reload,
-            "ready": ready,
             "merkle_root": merkle["root"],
             "merkle_leaves": merkle["leaves"],
         }
@@ -331,36 +315,35 @@ class Mod:
             result["chain"] = self.sync(push=True, key=key)
         return result
 
-    def _docker_up(self, name: str, build: bool = False) -> dict:
-        """`docker compose up -d` in the orbit/<name> dir. Idempotent.
+    def _start_local_api(self, api_port: int, api_dir: Path) -> dict:
+        """Run uvicorn on 0.0.0.0:api_port from the local filesystem. Idempotent."""
+        state = self._read_pidfile()
+        existing = (state.get("modules") or {}).get("dev")
+        if existing and self._pid_alive(existing.get("pid")):
+            # Verify it's actually answering on the expected port.
+            if self._wait_healthy_url(f"http://127.0.0.1:{api_port}/health", timeout=2.0):
+                return {**existing, "already_running": True}
 
-        Auto-builds when the named image is missing locally — docker compose's
-        default behavior is to *pull* an image with both `image:` and `build:`
-        specified, which fails for orbit images that only exist locally.
-        """
-        mod_dir = self._orbit_dir() / name
-        compose = mod_dir / "docker-compose.yml"
-        if not compose.exists():
-            raise FileNotFoundError(f"{name}: docker-compose.yml missing at {compose}")
-        # Ensure modnet exists so the external network reference resolves.
-        subprocess.run(["docker", "network", "create", "modnet"],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if not build:
-            img = subprocess.run(["docker", "image", "inspect", f"{name}:latest"],
-                                 capture_output=True)
-            if img.returncode != 0:
-                build = True
-        cmd = ["docker", "compose", "up", "-d"]
-        if build:
-            cmd.append("--build")
-        proc = subprocess.run(cmd, cwd=str(mod_dir), capture_output=True, text=True)
-        ok = proc.returncode == 0
-        return {"container": name, "ok": ok,
-                "built": build,
-                "stderr": proc.stderr.strip() if not ok else ""}
+        env = os.environ.copy()
+        env.setdefault("DEV_KEY_DIR", os.path.expanduser("~/.mod/dev"))
+        for prov in self.providers():
+            env.setdefault(f"{prov.upper()}_API",
+                           f"http://host.docker.internal:{self._provider_port(prov)}")
+        proc = subprocess.Popen(
+            ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(api_port)],
+            cwd=str(api_dir), env=env,
+            stdout=open("/tmp/mod-dev.log", "ab"),
+            stderr=subprocess.STDOUT,
+        )
+        record = {"pid": proc.pid, "port": api_port, "kind": "fastapi",
+                  "url": f"http://0.0.0.0:{api_port}"}
+        state = self._read_pidfile()
+        state.setdefault("modules", {})["dev"] = record
+        state["started_at"] = int(time.time())
+        self._write_pidfile(state)
+        return record
 
     def _reload_main_caddy(self) -> dict:
-        """Reload the caddy container so Caddyfile edits take effect."""
         proc = subprocess.run(
             ["docker", "exec", "caddy", "caddy", "reload", "--config", "/etc/caddy/Caddyfile"],
             capture_output=True, text=True,
@@ -379,28 +362,22 @@ class Mod:
                 time.sleep(0.3)
         return False
 
-    def unserve(self, modules=None) -> dict:
-        """`docker compose down` for dev (and any extras passed). Symmetric with serve()."""
-        if isinstance(modules, str):
-            extra = [s.strip() for s in modules.split(",") if s.strip() and s.strip() != "dev"]
-        elif isinstance(modules, list):
-            extra = [s for s in modules if s != "dev"]
-        else:
-            extra = []
-        stopped = {}
-        for name in ["dev", *extra]:
-            mod_dir = self._orbit_dir() / name
-            if not (mod_dir / "docker-compose.yml").exists():
-                stopped[name] = {"ok": False, "reason": "no docker-compose.yml"}
-                continue
-            proc = subprocess.run(["docker", "compose", "down"],
-                                  cwd=str(mod_dir), capture_output=True, text=True)
-            stopped[name] = {"ok": proc.returncode == 0,
-                             "stderr": proc.stderr.strip() if proc.returncode != 0 else ""}
-        # Also clean up any legacy local pidfile from the old serve() implementation.
+
+    def unserve(self) -> dict:
+        """Kill the local uvicorn started by serve()."""
+        state = self._read_pidfile()
+        killed = []
+        for name, info in (state.get("modules") or {}).items():
+            pid = info.get("pid")
+            if pid and self._pid_alive(pid):
+                try:
+                    os.kill(pid, 15)
+                    killed.append({"name": name, "pid": pid})
+                except ProcessLookupError:
+                    pass
         if Path(self.PIDFILE).exists():
             Path(self.PIDFILE).unlink()
-        return {"stopped": stopped}
+        return {"killed": killed}
 
     def status(self) -> dict:
         """Report what's currently served + gateway state."""

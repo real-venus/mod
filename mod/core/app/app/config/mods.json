@@ -1,94 +1,94 @@
 [
   {
-    "cid": "QmZkUVgNQ8GZi6mCvm1FZ8dxmTDcMrefST24SMgHMMd4tu",
+    "cid": "QmZw7yoXBPnyjAptGXFWZ86Y28JuamWKKSKoUhuKyM6arL",
     "content": "QmVyNa3oVFgmMYHGXpVWiTdsdS5Hf9Cg1xXpNaMvGeVQKf",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "uniswap",
     "prev": null,
-    "schema": "Qmazc6DYX44W53d846JcU8KAt3zaFipfknFTdz4zMTGPz8",
-    "updated": 1777327296.863111,
+    "schema": "QmTXCw9sC1zbh4LPmzGEy1ZwGCdU54vfkFNL9a7wFkcqzp",
+    "updated": 1778054658.259246,
     "url": {
       "api": "http://localhost:50088",
       "app": "http://localhost:3088"
     }
   },
   {
-    "cid": "Qmb7TaCNTH4iF2GHBwT2hJJs7xPgse9cbr4sLZya5K6nss",
+    "cid": "QmVuhMfLaJXeW3DsMpneFwh3DdYqt6ezDCkfuwLBpq5vaf",
     "content": "QmXm3sf2GieS4Ecwtq6Ksp6Y6mBjxhMFJAAXRUqZauBaDy",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "claude",
     "prev": null,
-    "schema": "QmatjabAaFtYjFkNpLM5qyYXp5wAwPxdJ7UC1wn7oSrLoD",
-    "updated": 1777354087.2739148,
+    "schema": "QmRcEYWnsAATCJT2id2fHZCmBs5whwi1ZU1FVYWTxKmYRG",
+    "updated": 1778054657.024048,
     "url": {
       "api": "http://localhost:8820",
       "app": "http://localhost:8821"
     }
   },
   {
-    "cid": "QmWH9VigtLCEkpEkV6gpyvYMHmsv6dhbrZqKztiSgjaVVu",
+    "cid": "QmZ6A3b9vqWbMWb67UksQFSqMh7VzJM9b7kc21QuueGGME",
     "content": "QmSEAWVpiP71SBiSbGFJT9HSESW4NRgVhMcdXcyjS69nyc",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "bridge",
     "prev": null,
-    "schema": "QmVNVffEGvo9f6RLtwV8RU8NBQLRD91nuFAiSL9tB3ZYmk",
-    "updated": 1777057308.446729,
+    "schema": "QmU2hkC3qD5Ac1HLwQt2P15hCRX1uSXvfnCCLzehBxzmoe",
+    "updated": 1778376327.9639769,
     "url": {
       "api": "http://localhost:8840",
       "app": "http://localhost:8841"
     }
   },
   {
-    "cid": "QmZ3SXFDWSe5V2v6WhzkHEhrFcLQ6TbwvFqorGQ3w7ku1n",
-    "content": "QmTp9KjLF8MBK9rK3iGz86VG2FDeYueW94GYfNH2BQqMud",
+    "cid": "QmZaJaUYa9xhTSFoRuKVTCJn43Pc1ZD42RBCGUvBrBd3yd",
+    "content": "QmXA2EdpmBogV4Y6DjrYNS1Mf6TDARfbqH5F328HcpLWjW",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "api",
-    "prev": "QmcT1vRQxovf1tJp2tCsYv98QTU7Wn3jgo9wwyGEmTdUh5",
-    "schema": "QmR3dZuhn5YHPYVEUv1CVqLatk4HT5zPy5B4bNoN9TvebG",
-    "updated": 1777159303.660903,
+    "prev": null,
+    "schema": "QmNvcEMmsc5kx1LwUd4WEVUmz5Xo96TkkLK38bWeKxCFbt",
+    "updated": 1777892304.307465,
     "url": "http://0.0.0.0:8000"
   },
   {
-    "cid": "QmdiWQTMW1cmdeRwvBRB2HUu84tb8LX1cyPZ6ixhNAw9gj",
+    "cid": "QmTB34Xc5T7uTnmy6NMeTKXBYEhkU5q8Y47eSqLLLQfiJq",
     "content": "QmRSJCkQF9WF5ZTwXvcUH8chMEN4AwmRMEoiv4MN5ze1Ko",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "app",
     "prev": null,
-    "schema": "QmTyJitzsuEnSmeNQw16wtWyVNBwvAJVmVmvLzAHBKodR8",
-    "updated": 1776960121.257696,
+    "schema": "QmVSYL2Rp3aM5EXhfvJsbLfwZuDG13JKH3FXUAhr5x24nH",
+    "updated": 1778376281.653118,
     "url": {
       "api": "http://localhost:8000",
       "app": "http://localhost:3000"
     }
   },
   {
-    "cid": "QmXZk6gysxQAdgnqzkyN5QHoW54KdeQMdsbWnDLwQtVFz9",
+    "cid": "QmfQVAmCedkJ7AWwPNRTrgprVac6mCfmYt2i6qLu5pgPkg",
     "content": "QmYXYKZRwrBcTaDyecg1FcuxS4HPrS8BhbpCuDCh364k1y",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "polymarket",
     "prev": null,
-    "schema": "QmPT29aqyW9hmBB7Dbrtw4bpYDv32HJd5Q6hGS1hMuebhx",
-    "updated": 1777390225.4703581,
+    "schema": "QmPgRYnAdGiLramXzVhFz624PwUsmsT7T5vR7eWCpJHjUy",
+    "updated": 1779311070.9576828,
     "url": {
       "api": "http://localhost:50091",
       "app": "http://localhost:3091"
     }
   },
   {
-    "cid": "QmQH3Y2WtCU6ghg8XyswhKwzYymi4CqYANhRf891JmAXDW",
+    "cid": "QmYDaiTye17JrbZoosKECpTD75rXhuivzwfWmwGawqJ2oC",
     "content": "QmVftpWyKsmUeUbAyh2cagnf3D4xov3ownzi5xqR7DC1W9",
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "name": "mod",
     "prev": null,
-    "schema": "QmcHks3XxFSTD8Kyh2Uzgcuq6iJfdqBTPuiNv1hWdix66w",
-    "updated": 1777390220.665714,
+    "schema": "QmThx9Yh3s94B4KSt4jxvhkAipWNdYJ8tfgKrZixWMrNEn",
+    "updated": 1777813014.7894819,
     "url": null
   },
   {
@@ -100,18 +100,25 @@
     "prev": null,
     "schema": "QmaBZvdbWMYCMspzfPeG8zoYHmt1YN44xHi2EngpZhoi6E",
     "updated": 1777160316.7695072,
-    "url": "http://0.0.0.0:50073"
+    "url": {
+      "api": "http://localhost:50130",
+      "app": "http://localhost:3130"
+    }
   },
   {
-    "cid": "QmTwYmNdrPWDDVwLVvrMKkYCSM25pEJk3itb8XMXrYNvKt",
-    "content": "QmWhwKabx75BKFduoBjNekpzBghyjUxV6Rm3aycepZ6a1b",
+    "cid": null,
+    "content": null,
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
     "name": "store",
-    "prev": null,
-    "schema": "QmbWyGDgZpegQU2BraEPK2SCUWreaN4Cw3GKbfqDsKGyQu",
-    "updated": 1776806310.280297,
-    "url": null
+    "path": "/Users/broski/mod/mod/core/store",
+    "schema": null,
+    "updated": null,
+    "url": {
+      "api": "http://localhost:50150",
+      "app": "http://localhost:50151"
+    }
   },
   {
     "cid": "QmWfUx2gh9QNu2xHFh4yUmZVaFhxBDZRrV87XLp5CUjq1h",
@@ -139,6 +146,42 @@
     "url": {
       "api": "http://localhost:50200",
       "app": "http://localhost:3200"
+    }
+  },
+  {
+    "cid": "QmW7o619Zh9aJS9UbXRgKfTkcDpZJBVgJiTDGnsayYYKyw",
+    "content": "QmPuNe3oxrmHrNsXJovU1eLS3RwbpyPtveMQPvCetT4G5G",
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "name": "git",
+    "prev": null,
+    "schema": "QmR3MKnUvishvraGQjWLptc2wGGZieN7U1R3uCqyeMM1Ug",
+    "updated": 1777541758.9118469,
+    "url": null
+  },
+  {
+    "cid": "QmbSXWzYCkRGSD3ktePVH83EPxKqY49qmGRuYoJSoVf7Ay",
+    "content": "QmcgRUZ7TQvR7bCFjsbED1zM3r44qePkhmJCF8ZtFSTckM",
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "name": "gitbot",
+    "prev": null,
+    "schema": "QmPe6jhAnkSJwpESqRcKUqTAbMUKGFgS9xX6AZBUgwfne1",
+    "updated": 1777813023.051986,
+    "url": null
+  },
+  {
+    "cid": "QmfVo7WqB1ZtUmydLou5DnpJZSAyQD1tjLtrwYAzobqY5e",
+    "content": "QmY7GPw7tSbhVAwRTzXenE81orZWVkRt7B8BhwTosNxAL9",
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "name": "openhouse",
+    "prev": null,
+    "schema": "QmdFJYgd5cBZy67pesoDtHF5mJetiZkTLetCGZHmyrsp7J",
+    "updated": 1777542128.702865,
+    "url": {
+      "api": "http://localhost:50130",
+      "app": "http://localhost:50131"
     }
   },
   {
@@ -195,6 +238,18 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
+    "name": "3m",
+    "path": "/Users/broski/mod/mod/orbit/3m",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
     "name": "bt",
     "path": "/Users/broski/mod/mod/orbit/bt",
     "schema": null,
@@ -233,18 +288,6 @@
     "local": true,
     "name": "l2",
     "path": "/Users/broski/mod/mod/orbit/l2",
-    "schema": null,
-    "updated": null,
-    "url": null
-  },
-  {
-    "cid": null,
-    "content": null,
-    "created": null,
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
-    "name": "pm",
-    "path": "/Users/broski/mod/mod/orbit/pm",
     "schema": null,
     "updated": null,
     "url": null
@@ -328,13 +371,17 @@
     "cid": null,
     "content": null,
     "created": null,
+    "desc": "Unified developer console — switches between claude and codex orchestrators, prompts for API keys with wallet-signature encryption, bundles tree as one CID",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "dev",
     "path": "/Users/broski/mod/mod/orbit/dev",
     "schema": null,
     "updated": null,
-    "url": null
+    "url": {
+      "api": "http://localhost:8870",
+      "app": "http://localhost:8871"
+    }
   },
   {
     "cid": null,
@@ -372,18 +419,6 @@
     "local": true,
     "name": "evm",
     "path": "/Users/broski/mod/mod/orbit/evm",
-    "schema": null,
-    "updated": null,
-    "url": null
-  },
-  {
-    "cid": null,
-    "content": null,
-    "created": null,
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
-    "name": "git",
-    "path": "/Users/broski/mod/mod/orbit/git",
     "schema": null,
     "updated": null,
     "url": null
@@ -690,7 +725,10 @@
     "path": "/Users/broski/mod/mod/orbit/qbit",
     "schema": null,
     "updated": null,
-    "url": null
+    "url": {
+      "api": "http://localhost:50100",
+      "app": "http://localhost:50101"
+    }
   },
   {
     "cid": null,
@@ -916,13 +954,17 @@
     "cid": null,
     "content": null,
     "created": null,
+    "desc": "Programmable AI developer interface (OpenAI codex backend) — mirror of claude module",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "codex",
     "path": "/Users/broski/mod/mod/orbit/codex",
     "schema": null,
     "updated": null,
-    "url": null
+    "url": {
+      "api": "http://localhost:8830",
+      "app": "http://localhost:8831"
+    }
   },
   {
     "cid": null,
@@ -1048,13 +1090,17 @@
     "cid": null,
     "content": null,
     "created": null,
+    "desc": "Unified BYOK model gateway — chat any model from openrouter / chutes / targon / venice in one app.",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "model",
     "path": "/Users/broski/mod/mod/orbit/model",
     "schema": null,
     "updated": null,
-    "url": null
+    "url": {
+      "api": "http://localhost:50110",
+      "app": "http://localhost:50110"
+    }
   },
   {
     "cid": null,
@@ -1288,6 +1334,30 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
+    "name": "3world",
+    "path": "/Users/broski/mod/mod/orbit/3world",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "_outer",
+    "path": "/Users/broski/mod/mod/orbit/_outer",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
     "name": "addmod",
     "path": "/Users/broski/mod/mod/orbit/addmod",
     "schema": null,
@@ -1377,18 +1447,6 @@
     "cid": null,
     "content": null,
     "created": null,
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
-    "name": "config",
-    "path": "/Users/broski/mod/mod/orbit/config",
-    "schema": null,
-    "updated": null,
-    "url": null
-  },
-  {
-    "cid": null,
-    "content": null,
-    "created": null,
     "desc": "Organize pickup games with crypto entry fees via smart contract",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
@@ -1412,6 +1470,22 @@
     "schema": null,
     "updated": null,
     "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "desc": "Decentralized storage over filecoin + hippius with MetaMask SIWE auth. Exposed via mod/core/store backends as well.",
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "dstore",
+    "path": "/Users/broski/mod/mod/orbit/dstore",
+    "schema": null,
+    "updated": null,
+    "url": {
+      "api": "http://localhost:50150",
+      "app": "http://localhost:50151"
+    }
   },
   {
     "cid": null,
@@ -1441,18 +1515,6 @@
     "cid": null,
     "content": null,
     "created": null,
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
-    "name": "gitbot",
-    "path": "/Users/broski/mod/mod/orbit/gitbot",
-    "schema": null,
-    "updated": null,
-    "url": null
-  },
-  {
-    "cid": null,
-    "content": null,
-    "created": null,
     "desc": "Quadratic reward trading competition for precious metals — tracks gold/silver PnL on Hyperliquid & Uniswap, distributes inflation rewards using x² curve. Weekly epochs.",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
@@ -1464,6 +1526,19 @@
       "api": "http://localhost:50095",
       "app": "http://localhost:3095"
     }
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "desc": "Local-only Hermes agent — on-device inference via llama-cpp, no cloud APIs",
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "hermes",
+    "path": "/Users/broski/mod/mod/orbit/hermes",
+    "schema": null,
+    "updated": null,
+    "url": null
   },
   {
     "cid": null,
@@ -1700,8 +1775,32 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
+    "name": "zkashi",
+    "path": "/Users/broski/mod/mod/orbit/zkashi",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
     "name": "zstash",
     "path": "/Users/broski/mod/mod/orbit/zstash",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "3market",
+    "path": "/Users/broski/mod/mod/orbit/3market",
     "schema": null,
     "updated": null,
     "url": null
@@ -1774,6 +1873,18 @@
     "local": true,
     "name": "circuit",
     "path": "/Users/broski/mod/mod/orbit/circuit",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "commune",
+    "path": "/Users/broski/mod/mod/orbit/commune",
     "schema": null,
     "updated": null,
     "url": null
@@ -1902,13 +2013,17 @@
     "cid": null,
     "content": null,
     "created": null,
+    "desc": "Hippius substrate node + S3-compatible decentralized storage",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "hippius",
     "path": "/Users/broski/mod/mod/orbit/hippius",
     "schema": null,
     "updated": null,
-    "url": null
+    "url": {
+      "api": "http://localhost:50142",
+      "app": "http://localhost:50143"
+    }
   },
   {
     "cid": null,
@@ -1938,13 +2053,17 @@
     "cid": null,
     "content": null,
     "created": null,
+    "desc": "Content-addressable local filesystem — IPFS-compatible CIDs without a daemon.",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
-    "name": "polaris",
-    "path": "/Users/broski/mod/mod/orbit/polaris",
+    "name": "localfs",
+    "path": "/Users/broski/mod/mod/orbit/localfs",
     "schema": null,
     "updated": null,
-    "url": null
+    "url": {
+      "api": "http://localhost:8860",
+      "app": "http://localhost:8861"
+    }
   },
   {
     "cid": null,
@@ -1952,8 +2071,8 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
-    "name": "raydium",
-    "path": "/Users/broski/mod/mod/orbit/raydium",
+    "name": "polaris",
+    "path": "/Users/broski/mod/mod/orbit/polaris",
     "schema": null,
     "updated": null,
     "url": null
@@ -2013,6 +2132,18 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
+    "name": "zmarket",
+    "path": "/Users/broski/mod/mod/orbit/zmarket",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
     "name": "zstable",
     "path": "/Users/broski/mod/mod/orbit/zstable",
     "schema": null,
@@ -2042,7 +2173,10 @@
     "path": "/Users/broski/mod/mod/orbit/bitstore",
     "schema": null,
     "updated": null,
-    "url": {}
+    "url": {
+      "api": "http://localhost:50130",
+      "app": "http://localhost:50131"
+    }
   },
   {
     "cid": null,
@@ -2058,6 +2192,18 @@
       "api": "http://localhost:8851",
       "app": "http://localhost:8852"
     }
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "broskibi",
+    "path": "/Users/broski/mod/mod/orbit/broskibi",
+    "schema": null,
+    "updated": null,
+    "url": null
   },
   {
     "cid": null,
@@ -2089,11 +2235,27 @@
     "created": null,
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
+    "name": "coinsure",
+    "path": "/Users/broski/mod/mod/orbit/coinsure",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "desc": "Lotus daemon + Filecoin storage deals with HTTP gateway fallback",
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
     "name": "filecoin",
     "path": "/Users/broski/mod/mod/orbit/filecoin",
     "schema": null,
     "updated": null,
-    "url": null
+    "url": {
+      "api": "http://localhost:50140",
+      "app": "http://localhost:50141"
+    }
   },
   {
     "cid": null,
@@ -2139,6 +2301,18 @@
     "local": true,
     "name": "localgov",
     "path": "/Users/broski/mod/mod/orbit/localgov",
+    "schema": null,
+    "updated": null,
+    "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "modchain",
+    "path": "/Users/broski/mod/mod/orbit/modchain",
     "schema": null,
     "updated": null,
     "url": null
@@ -2403,7 +2577,6 @@
     "cid": null,
     "content": null,
     "created": null,
-    "desc": "Local LLM inference via llama.cpp — CPU and Metal (Apple Silicon GPU/ANE)",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "llama-cpp",
@@ -2472,22 +2645,6 @@
     "schema": null,
     "updated": null,
     "url": null
-  },
-  {
-    "cid": null,
-    "content": null,
-    "created": null,
-    "desc": "Collective asset ownership platform — fractional property ownership via smart contracts",
-    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
-    "local": true,
-    "name": "openhouse",
-    "path": "/Users/broski/mod/mod/orbit/openhouse",
-    "schema": null,
-    "updated": null,
-    "url": {
-      "api": "http://localhost:50130",
-      "app": "http://localhost:50131"
-    }
   },
   {
     "cid": null,
@@ -2588,6 +2745,22 @@
     "schema": null,
     "updated": null,
     "url": null
+  },
+  {
+    "cid": null,
+    "content": null,
+    "created": null,
+    "desc": "Bittensor dTAO copy trading — mirror subnet allocations of top performers",
+    "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
+    "local": true,
+    "name": "copytensor",
+    "path": "/Users/broski/mod/mod/orbit/copytensor",
+    "schema": null,
+    "updated": null,
+    "url": {
+      "api": "http://localhost:50150",
+      "app": "http://localhost:3150"
+    }
   },
   {
     "cid": null,
@@ -2705,13 +2878,17 @@
     "cid": null,
     "content": null,
     "created": null,
+    "desc": "MOD whitepaper module: serves the off-chain Merkle-tree open-source management whitepaper as a Next.js app behind the protocol proxy.",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "whitepaper",
     "path": "/Users/broski/mod/mod/orbit/whitepaper",
     "schema": null,
     "updated": null,
-    "url": null
+    "url": {
+      "api": "http://localhost:50106",
+      "app": "http://localhost:3106"
+    }
   },
   {
     "cid": null,
@@ -2781,7 +2958,7 @@
     "cid": null,
     "content": null,
     "created": null,
-    "desc": "Hyperliquid DEX - market data, trading, vaults, and trader analytics",
+    "desc": "Hyperliquid copy-trading + indexes — Rust API, Next.js app, mod.py orchestrator",
     "key": "0xaf3e0796042af79ea1642c919ac0ea6d165bc6db",
     "local": true,
     "name": "hyperliquid",

@@ -29,14 +29,39 @@
   .pill.ok { background:#0f3a1c; color:#4ade80; }
   .pill.warn { background:#3a2a0a; color:var(--accent); }
   .pill.miss { background:#3a1c0f; color:#f87171; }
-  .mod-row { display:flex; align-items:center; gap:8px; padding:6px 14px; cursor:pointer; user-select:none; border-left:2px solid transparent; }
-  .mod-row:hover { background:#141414; }
-  .mod-row.selected { background:#161616; border-left-color:var(--accent); }
-  .mod-row .icon { font-family:monospace; color:var(--muted); width:14px; text-align:center; flex-shrink:0; }
-  .mod-row.selected .icon { color:var(--accent); }
-  .mod-row .name { flex:1; font-size:13px; color:#ddd; }
-  .mod-row.selected .name { color:var(--accent); }
-  .mod-row .warn-tri { color:var(--accent); }
+  /* bubbly module cards */
+  .mod-list { display:flex; flex-direction:column; gap:6px; padding:8px 12px; }
+  .mod-card {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px;
+    background:#121212;
+    border:1px solid #1f1f1f;
+    border-radius:14px;
+    cursor:pointer; user-select:none;
+    transition: background 0.12s, transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+  }
+  .mod-card:hover { background:#181818; transform:translateX(2px); border-color:#2a2a2a; }
+  .mod-card.selected {
+    background:#1a1410;
+    border-color:var(--accent);
+    box-shadow: 0 0 0 1px rgba(245,158,11,0.25), 0 6px 20px -10px rgba(245,158,11,0.4);
+  }
+  .mod-avatar {
+    width:32px; height:32px; flex-shrink:0;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; font-weight:600;
+    background: linear-gradient(135deg, var(--avatar-from, #2a2a2a), var(--avatar-to, #1a1a1a));
+    color:#fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .mod-meta { flex:1; min-width:0; }
+  .mod-name { font-size:13px; font-weight:600; color:#e8e8e8; display:flex; align-items:center; gap:6px; }
+  .mod-card.selected .mod-name { color:var(--accent); }
+  .mod-desc { font-size:10px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mod-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+  .mod-card .warn-tri { color:var(--accent); font-size:12px; }
+  .mod-card .check { color:var(--accent); font-size:14px; }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:12px; }
   .panel header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
   .task { padding:8px 10px; background:#0a0a0a; border:1px solid var(--line); border-radius:6px; margin-bottom:6px; font-size:11px; color:var(--muted); }
@@ -89,7 +114,7 @@
 
   <aside>
     <h1 style="padding:0 14px;">modules</h1>
-    <div id="mod-list"></div>
+    <div id="mod-list" class="mod-list"></div>
     <hr/>
     <div style="padding:0 14px;">
       <h1>communes</h1>
@@ -156,31 +181,46 @@ async function loadModules() {
   renderModules();
 }
 
+// Stable per-name color from a hash of the module name.
+function nameToGradient(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  const from = `hsl(${hue}, 60%, 45%)`;
+  const to = `hsl(${(hue + 40) % 360}, 60%, 30%)`;
+  return { from, to };
+}
+
 function renderModules() {
   const list = $("mod-list");
   list.innerHTML = "";
   state.modules.forEach((m) => {
-    const row = document.createElement("div");
-    row.className = "mod-row" + (state.selected.has(m.name) ? " selected" : "");
-    const icon = state.selected.has(m.name) ? "✓" : "›_";
-    row.innerHTML = `
-      <span class="icon">${icon}</span>
-      <span class="name">${m.name}</span>
-      ${m.warnings.length ? '<span class="warn-tri" title="'+m.warnings.join(', ')+'">⚠</span>' : ''}
-      <span class="pill ${m.alive ? 'ok' : (m.served ? 'warn' : 'miss')}">${m.alive ? 'live' : (m.served ? 'starting' : 'idle')}</span>
+    const isSel = state.selected.has(m.name);
+    const grad = nameToGradient(m.name);
+    const avatarChar = m.icon || m.name[0].toUpperCase();
+    const avatarColor = m.color || grad.from;
+    const card = document.createElement("div");
+    card.className = "mod-card" + (isSel ? " selected" : "");
+    card.style.setProperty("--avatar-from", avatarColor);
+    card.style.setProperty("--avatar-to", grad.to);
+    const desc = (m.description || "").slice(0, 48);
+    card.innerHTML = `
+      <div class="mod-avatar">${avatarChar}</div>
+      <div class="mod-meta">
+        <div class="mod-name">${m.name}${isSel ? ' <span class="check">✓</span>' : ''}</div>
+        <div class="mod-desc">${desc || (m.kind + ' · port ' + (m.port || '?'))}</div>
+      </div>
+      <div class="mod-right">
+        <span class="pill ${m.alive ? 'ok' : (m.served ? 'warn' : 'miss')}">${m.alive ? 'live' : (m.served ? 'starting' : 'idle')}</span>
+        ${m.warnings.length ? '<span class="warn-tri" title="'+m.warnings.join(', ')+'">⚠</span>' : ''}
+      </div>
     `;
-    row.onclick = (ev) => {
-      if (ev.metaKey || ev.ctrlKey || ev.shiftKey) {
-        // multi-select: toggle this one
-        state.selected.has(m.name) ? state.selected.delete(m.name) : state.selected.add(m.name);
-      } else {
-        // plain click: toggle (clean multi-select UX)
-        state.selected.has(m.name) ? state.selected.delete(m.name) : state.selected.add(m.name);
-      }
+    card.onclick = () => {
+      isSel ? state.selected.delete(m.name) : state.selected.add(m.name);
       renderModules();
       renderTasks();
     };
-    list.appendChild(row);
+    list.appendChild(card);
   });
   $("selected-count").textContent = state.selected.size;
   $("selected-names").textContent = [...state.selected].join(", ");

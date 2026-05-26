@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import {
   BrowserProvider,
   Contract,
@@ -24,7 +24,38 @@ const PRESETS = [10, 100, 1000, 5000, 10000];
 
 const POLYGON = networkById("polygon")!;
 
-type SrcAsset = "usdc" | "native";
+type SrcAsset = "usdc" | "usdt" | "native";
+
+// Tailwind-safe per-asset accents for the bubbly chip selector. USDC stays
+// green (matches site primary), USDT teal (Tether brand), native gets the
+// chain's own color via inline style — handled in the chip below.
+const ASSET_META: Record<"usdc" | "usdt", { label: string; color: string; ring: string; bg: string }> = {
+  usdc: { label: "USDC", color: "#2775CA", ring: "ring-[#2775CA]", bg: "bg-[#2775CA]" },
+  usdt: { label: "USDT", color: "#26A17B", ring: "ring-[#26A17B]", bg: "bg-[#26A17B]" },
+};
+
+// Tiny circular token mark — colored disc with the ticker stamped on it.
+// Lighter than shipping a 1x1 image asset and stays sharp at any DPI.
+function TokenBadge({ kind, sym, size = 16 }: { kind: "usdc" | "usdt" | "native"; sym?: string; size?: number }) {
+  const fill = kind === "usdc" ? "#2775CA" : kind === "usdt" ? "#26A17B" : "#9CA3AF";
+  const label = kind === "usdc" ? "$" : kind === "usdt" ? "₮" : (sym || "Ξ").slice(0, 1);
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full font-mono leading-none shrink-0"
+      style={{
+        width: size,
+        height: size,
+        background: fill,
+        color: "#fff",
+        fontSize: Math.floor(size * 0.6),
+        boxShadow: `0 0 6px ${fill}66`,
+      }}
+      aria-label={kind.toUpperCase()}
+    >
+      {label}
+    </span>
+  );
+}
 
 interface Props {
   capital?: number;
@@ -36,6 +67,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
   const [srcId, setSrcId] = useState<string>("polygon");
   const [srcAsset, setSrcAsset] = useState<SrcAsset>("usdc");
   const [usdcBal, setUsdcBal] = useState<Record<string, number | null>>({});
+  const [usdtBal, setUsdtBal] = useState<Record<string, number | null>>({});
   const [nativeBal, setNativeBal] = useState<Record<string, number | null>>({});
   const [recipient, setRecipient] = useState("");
   const [showRecipient, setShowRecipient] = useState(false);
@@ -66,6 +98,16 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
           setUsdcBal((p) => ({ ...p, [net.id]: Number(formatUnits(raw, 6)) }));
         } catch {
           setUsdcBal((p) => ({ ...p, [net.id]: null }));
+        }
+        try {
+          const raw: bigint = await withRpcFallback(net, async (url) => {
+            const provider = new JsonRpcProvider(url);
+            const usdt = new Contract(net.usdt, USDC_ABI, provider);
+            return usdt.balanceOf(auth.address!);
+          });
+          setUsdtBal((p) => ({ ...p, [net.id]: Number(formatUnits(raw, 6)) }));
+        } catch {
+          setUsdtBal((p) => ({ ...p, [net.id]: null }));
         }
         try {
           const raw: bigint = await withRpcFallback(net, async (url) => {
@@ -117,11 +159,18 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
       setStatus("ENTER AMOUNT > 0");
       return;
     }
-    const srcBalances = srcAsset === "usdc" ? usdcBal : nativeBal;
+    const srcBalances =
+      srcAsset === "usdc" ? usdcBal :
+      srcAsset === "usdt" ? usdtBal :
+      nativeBal;
     const bal = srcBalances[src.id];
     if (bal !== null && bal !== undefined && n > bal) {
-      const sym = srcAsset === "usdc" ? "USDC" : src.nativeCurrency.symbol;
-      setStatus(`INSUFFICIENT ${sym} — BAL ${bal.toFixed(srcAsset === "usdc" ? 2 : 4)}`);
+      const sym =
+        srcAsset === "usdc" ? "USDC" :
+        srcAsset === "usdt" ? "USDT" :
+        src.nativeCurrency.symbol;
+      const dec = srcAsset === "native" ? 4 : 2;
+      setStatus(`INSUFFICIENT ${sym} — BAL ${bal.toFixed(dec)}`);
       return;
     }
 
@@ -134,7 +183,10 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
 
       if (isBridge) {
         setStatus("FETCHING LIFI QUOTE...");
-        const fromToken = srcAsset === "native" ? NATIVE_TOKEN_ADDRESS : src.usdc;
+        const fromToken =
+          srcAsset === "native" ? NATIVE_TOKEN_ADDRESS :
+          srcAsset === "usdt" ? src.usdt :
+          src.usdc;
         const fromDecimals = srcAsset === "native" ? 18 : 6;
         const fromAmountUnits = parseUnits(sendAmount, fromDecimals).toString();
         const quote = await getLifiQuote({
@@ -167,12 +219,13 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
         recipient,
         parseUnits(sendAmount, 6),
       ]);
+      const tokenAddr = srcAsset === "usdt" ? src.usdt : src.usdc;
       const ethereum = window.ethereum as {
         request: (a: { method: string; params?: unknown[] }) => Promise<unknown>;
       };
       const txHash = (await ethereum.request({
         method: "eth_sendTransaction",
-        params: [{ from: auth.address, to: src.usdc, data }],
+        params: [{ from: auth.address, to: tokenAddr, data }],
       })) as string;
       setStatus(`SENT ${txHash.slice(0, 10)}... — WAITING CONFIRM`);
       const receipt = await provider.waitForTransaction(txHash);
@@ -202,9 +255,16 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
   const shortAddr = `${auth.address.slice(0, 6)}...${auth.address.slice(-4)}`;
   const loaded = usdcBal["polygon"];
   const srcUsdc = usdcBal[src.id];
+  const srcUsdt = usdtBal[src.id];
   const srcNative = nativeBal[src.id];
-  const srcBal = srcAsset === "usdc" ? srcUsdc : srcNative;
-  const srcSym = srcAsset === "usdc" ? "USDC" : src.nativeCurrency.symbol;
+  const srcBal =
+    srcAsset === "usdc" ? srcUsdc :
+    srcAsset === "usdt" ? srcUsdt :
+    srcNative;
+  const srcSym =
+    srcAsset === "usdc" ? "USDC" :
+    srcAsset === "usdt" ? "USDT" :
+    src.nativeCurrency.symbol;
   const isSelfRecipient = auth.address && recipient.toLowerCase() === auth.address.toLowerCase();
 
   return (
@@ -227,27 +287,32 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
         </button>
       </div>
 
-      {/* ── LOADED: tradeable Polygon USDC ──────────────────── */}
-      <div className="px-4 py-4 flex items-center justify-between border-b border-pixel-border/60 bg-gradient-to-r from-green-400/[0.03] to-transparent">
-        <div className="flex items-center gap-3">
-          <ChainBadge net={POLYGON} size={32} />
-          <div>
-            <div className="text-[9px] text-pixel-gray tracking-[0.15em]">LOADED · POLYGON</div>
-            <div className="text-[10px] text-pixel-gray font-mono">USDC.e · Polymarket</div>
+      {/* ── WALLET balance on Polygon. Note: this is NOT tradeable on
+           Polymarket yet — funds must be DEPOSITed from this EOA to the
+           Polymarket proxy (see POLYMARKET ACCOUNT panel below) before the
+           CLOB sees them. ───────────────────────────────────── */}
+      <div className="px-3 py-2 flex items-center justify-between border-b border-pixel-border/60 bg-gradient-to-r from-green-400/[0.03] to-transparent">
+        <div className="flex items-center gap-2">
+          <ChainBadge net={POLYGON} size={22} />
+          <div className="leading-tight">
+            <div className="text-[9px] text-pixel-gray tracking-[0.15em]">WALLET · POLYGON</div>
+            <div className="text-[9px] text-pixel-gray font-mono">USDC.e · not yet tradeable</div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-[22px] font-mono text-green-400 leading-none">
+        <div className="text-right leading-tight">
+          <div className="text-[18px] font-mono text-green-400">
             {loaded === null || loaded === undefined ? "..." : `$${loaded.toFixed(2)}`}
           </div>
-          {loaded !== null && loaded !== undefined && loaded === 0 && (
-            <div className="text-[8px] text-amber-400/80 tracking-wider mt-1">FUND BELOW ↓</div>
-          )}
+          {loaded !== null && loaded !== undefined && loaded === 0 ? (
+            <div className="text-[8px] text-amber-400/80 tracking-wider">FUND BELOW ↓</div>
+          ) : loaded !== null && loaded !== undefined && loaded > 0 ? (
+            <div className="text-[8px] text-purple-400/90 tracking-wider">DEPOSIT TO PROXY ↓</div>
+          ) : null}
         </div>
       </div>
 
       {/* ── Fund section ────────────────────────────────────── */}
-      <div className="px-3 py-3 space-y-2.5 bg-pixel-black/40">
+      <div className="px-3 py-2 space-y-1.5 bg-pixel-black/40">
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-pixel-white tracking-[0.15em]">FUND POLYGON USDC</span>
           <span className={`text-[9px] font-mono ${isBridge ? "text-amber-400" : "text-pixel-gray"}`}>
@@ -255,17 +320,23 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
           </span>
         </div>
 
-        {/* FROM row */}
+        {/* Bubbly chain picker — pill of icon + name + USDC bal, native
+            <select> overlaid for accessibility/keyboard. Soft rounded corners
+            + chain-color glow on hover keeps it feeling clickable without
+            shouting. */}
         <div className="flex items-center gap-2">
-          <span className="text-[8px] text-pixel-gray tracking-[0.15em] w-12 shrink-0">FROM</span>
-          <div className="relative flex-1">
-            <div className="flex items-center gap-2 border border-pixel-border bg-pixel-black px-2.5 h-[30px] hover:border-pixel-white/40 transition-colors">
-              <ChainBadge net={src} size={18} />
+          <span className="text-[8px] text-pixel-gray tracking-[0.15em] w-10 shrink-0">FROM</span>
+          <div className="relative flex-1 min-w-0">
+            <div
+              className="flex items-center gap-2 rounded-full border bg-pixel-black/80 pl-1 pr-3 h-[28px] hover:bg-pixel-black transition-colors"
+              style={{ borderColor: `${src.color}66`, boxShadow: `inset 0 0 0 1px ${src.color}22` }}
+            >
+              <ChainBadge net={src} size={22} />
               <span className="text-[11px] text-pixel-white font-mono flex-1 truncate">{src.name}</span>
-              <span className="text-[10px] text-green-400/70 font-mono">
+              <span className="text-[10px] text-green-400/80 font-mono">
                 {srcUsdc === null || srcUsdc === undefined ? "..." : `$${srcUsdc.toFixed(2)}`}
               </span>
-              <span className="text-[10px] text-pixel-gray ml-0.5">▼</span>
+              <span className="text-[10px] text-pixel-gray">▾</span>
             </div>
             <select
               value={src.id}
@@ -274,86 +345,71 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
             >
               {NETWORKS.map((n) => {
                 const u = usdcBal[n.id];
+                const t = usdtBal[n.id];
                 const v = nativeBal[n.id];
                 const uS = u === null || u === undefined ? "..." : `$${u.toFixed(2)}`;
+                const tS = t === null || t === undefined ? "..." : `$${t.toFixed(2)}`;
                 const vS = v === null || v === undefined ? "..." : `${v.toFixed(3)} ${n.nativeCurrency.symbol}`;
                 return (
                   <option key={n.id} value={n.id}>
-                    {n.glyph} {n.name} — {uS} USDC / {vS}
+                    {n.glyph} {n.name} — {uS} USDC / {tS} USDT / {vS}
                   </option>
                 );
               })}
             </select>
           </div>
-        </div>
-
-        {/* ASSET row */}
-        <div className="flex items-center gap-2">
-          <span className="text-[8px] text-pixel-gray tracking-[0.15em] w-12 shrink-0">ASSET</span>
-          <div className="inline-flex border border-pixel-border bg-pixel-black h-[28px]">
-            <button
+          {/* Bubbly asset picker — three rounded chips with token icons */}
+          <div className="inline-flex items-center gap-1 shrink-0">
+            <AssetChip
+              active={srcAsset === "usdc"}
               onClick={() => setSrcAsset("usdc")}
-              className={`px-3 text-[10px] font-mono transition-colors ${
-                srcAsset === "usdc"
-                  ? "bg-green-400/15 text-green-400"
-                  : "text-pixel-gray hover:text-pixel-white"
-              }`}
-            >
-              USDC
-            </button>
-            <button
+              icon={<TokenBadge kind="usdc" size={14} />}
+              label="USDC"
+              tint={ASSET_META.usdc.color}
+            />
+            <AssetChip
+              active={srcAsset === "usdt"}
+              onClick={() => setSrcAsset("usdt")}
+              icon={<TokenBadge kind="usdt" size={14} />}
+              label="USDT"
+              tint={ASSET_META.usdt.color}
+            />
+            <AssetChip
+              active={srcAsset === "native"}
               onClick={() => setSrcAsset("native")}
-              className={`px-3 text-[10px] font-mono transition-colors border-l border-pixel-border ${
-                srcAsset === "native"
-                  ? "bg-green-400/15 text-green-400"
-                  : "text-pixel-gray hover:text-pixel-white"
-              }`}
-            >
-              {src.nativeCurrency.symbol}
-            </button>
+              icon={<TokenBadge kind="native" sym={src.nativeCurrency.symbol} size={14} />}
+              label={src.nativeCurrency.symbol}
+              tint={src.color}
+            />
           </div>
-          <span className="text-[10px] text-pixel-gray font-mono flex-1 text-right">
-            balance{" "}
-            <span className={(srcBal ?? 0) > 0 ? "text-pixel-white" : "text-pixel-gray"}>
-              {srcBal === null || srcBal === undefined
-                ? "..."
-                : srcAsset === "usdc"
-                  ? `$${srcBal.toFixed(2)}`
-                  : `${srcBal.toFixed(4)} ${src.nativeCurrency.symbol}`}
-            </span>
-          </span>
         </div>
 
-        {/* AMOUNT row */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-[8px] text-pixel-gray tracking-[0.15em] w-12 shrink-0">AMT</span>
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={sendAmount}
-                onChange={(e) => setSendAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                className="pixel-input-sm w-full font-mono text-[13px] pr-14 h-[30px]"
-              />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-pixel-gray font-mono pointer-events-none">
-                {srcSym}
-              </span>
-            </div>
+        {/* AMT row with inline % chips (no longer needs its own line below). */}
+        <div className="flex items-center gap-2">
+          <span className="text-[8px] text-pixel-gray tracking-[0.15em] w-10 shrink-0">AMT</span>
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={sendAmount}
+              onChange={(e) => setSendAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              className="pixel-input-sm w-full font-mono text-[12px] pr-12 h-[26px]"
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-pixel-gray font-mono pointer-events-none">
+              {srcSym}
+            </span>
           </div>
-          {/* Quick-amount chips (% of source balance) */}
           {srcBal !== null && srcBal !== undefined && srcBal > 0 && (
-            <div className="flex items-center gap-1 pl-14">
+            <div className="flex items-center gap-0.5 shrink-0">
               {[0.25, 0.5, 0.75, 1].map((pct) => (
                 <button
                   key={pct}
                   onClick={() => {
                     const v = srcBal * pct;
-                    // 4 decimals for native (ETH), 2 for USDC.
                     setSendAmount(srcAsset === "usdc" ? v.toFixed(2) : v.toFixed(4));
                   }}
-                  className="text-[9px] px-2 h-[20px] inline-flex items-center justify-center border border-pixel-border bg-pixel-black text-pixel-gray hover:text-green-400 hover:border-green-400 font-mono tracking-wider transition-colors"
+                  className="text-[9px] px-1.5 h-[26px] inline-flex items-center justify-center border border-pixel-border bg-pixel-black text-pixel-gray hover:text-green-400 hover:border-green-400 font-mono tracking-wider transition-colors"
                 >
                   {pct === 1 ? "MAX" : `${pct * 100}%`}
                 </button>
@@ -366,7 +422,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
         <button
           onClick={() => { void handleSend(); }}
           disabled={busy || !sendAmount || !recipient}
-          className={`w-full pixel-btn text-[12px] py-2 font-mono tracking-wider disabled:opacity-30 disabled:cursor-not-allowed ${
+          className={`w-full pixel-btn text-[12px] py-1.5 font-mono tracking-wider disabled:opacity-30 disabled:cursor-not-allowed ${
             isBridge
               ? "border-amber-400 text-amber-400 hover:bg-amber-400/10"
               : "border-green-400 text-green-400 hover:bg-green-400/10"
@@ -426,12 +482,10 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
 
       {/* ── Capital cap (LIVE tab only) ─────────────────────── */}
       {capital !== undefined && onCapitalChange && (
-        <div className="px-3 py-2 border-t border-pixel-border/60">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-pixel-gray tracking-wider">CAPITAL CAP</span>
-            <span className="text-[12px] text-pixel-white font-mono">${capital.toLocaleString()}</span>
-          </div>
-          <div className="flex items-center gap-1 flex-wrap">
+        <div className="px-3 py-1.5 border-t border-pixel-border/60 flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-pixel-gray tracking-wider shrink-0">CAPITAL CAP</span>
+          <span className="text-[12px] text-pixel-white font-mono shrink-0">${capital.toLocaleString()}</span>
+          <div className="flex items-center gap-1 flex-wrap ml-auto">
             {PRESETS.map((p) => (
               <button
                 key={p}
@@ -479,7 +533,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
 function ChainBadge({ net, size = 22 }: { net: NetworkConfig; size?: number }) {
   return (
     <div
-      className="shrink-0 flex items-center justify-center font-mono leading-none"
+      className="shrink-0 flex items-center justify-center font-mono leading-none rounded-full"
       style={{
         width: size,
         height: size,
@@ -493,5 +547,47 @@ function ChainBadge({ net, size = 22 }: { net: NetworkConfig; size?: number }) {
     >
       {net.glyph}
     </div>
+  );
+}
+
+// Rounded "bubble" asset toggle. Filled when active (tinted glow), outline
+// only otherwise. Inline icon + label keeps the row dense without losing
+// the visual hint of which token is selected.
+function AssetChip({
+  active,
+  onClick,
+  icon,
+  label,
+  tint,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  label: string;
+  tint: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1 rounded-full h-[28px] px-2 text-[10px] font-mono tracking-wider transition-all"
+      style={
+        active
+          ? {
+              background: `${tint}26`,
+              border: `1px solid ${tint}`,
+              color: tint,
+              boxShadow: `0 0 8px ${tint}55`,
+            }
+          : {
+              background: "rgba(0,0,0,0.4)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "#9CA3AF",
+            }
+      }
+      aria-pressed={active}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
   );
 }

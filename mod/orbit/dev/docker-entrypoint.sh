@@ -15,7 +15,7 @@ APP_DIR=/app/src/app
 
 if [ -f "$API_DIR/main.py" ]; then
     cd "$API_DIR"
-    PORT=$API_PORT uvicorn main:app --host 0.0.0.0 --port "$API_PORT" &
+    PORT=$API_PORT python3 -m uvicorn main:app --host 0.0.0.0 --port "$API_PORT" &
     API_PID=$!
     echo "dev proxy API on :$API_PORT (pid $API_PID)"
 fi

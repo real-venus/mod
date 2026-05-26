@@ -5,6 +5,8 @@
   "port": 8820,
   "app_port": 8821,
   "owner": "0x70f1DB27c2A64cabDd9888dD6C6F27cCBdE6D7C2",
+  "icon": "C",
+  "color": "#cc785c",
   "fns": [
     "forward",
     "ask",

@@ -8,6 +8,8 @@ import type { SavedIndex } from "../lib/types";
 import type { ExecutionLogEntry } from "../lib/copyEngine";
 import WalletFundingPanel from "./WalletFundingPanel";
 import LoadedBadge from "./LoadedBadge";
+import EnableTradingPanel from "./EnableTradingPanel";
+import PolymarketAccountPanel from "./PolymarketAccountPanel";
 
 const REBALANCE_MS: Record<number, number> = {
   15: 900_000,
@@ -107,10 +109,10 @@ export default function LivePanel() {
   const nextIn = engineState?.nextCycleAt ? engineState.nextCycleAt - now : 0;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {/* ── Header ── */}
       <div className="pixel-panel border-2 border-pixel-border">
-        <div className="px-3 py-2 flex items-center justify-between">
+        <div className="px-3 py-1.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 shrink-0 ${
               isLive && status === "running" ? "bg-green-400 animate-pulse" :
@@ -194,10 +196,15 @@ export default function LivePanel() {
         <WalletFundingPanel capital={liveCapital} onCapitalChange={setLiveCapital} />
       )}
 
+      {/* ── Polymarket proxy account (trading address) ──
+          Shown even when live so the user can top up the proxy without
+          stopping the engine. */}
+      {auth.connected && <PolymarketAccountPanel />}
+
       {/* ── Preconditions ── */}
       {!isLive && (
-        <div className="pixel-panel border-2 border-pixel-border px-3 py-2">
-          <span className="text-[11px] text-pixel-gray tracking-wider block mb-1.5">CHECKLIST</span>
+        <div className="pixel-panel border-2 border-pixel-border px-3 py-1.5">
+          <span className="text-[11px] text-pixel-gray tracking-wider block mb-1">CHECKLIST</span>
           {[
             { ok: hasWallet, label: "WALLET CONNECTED" },
             { ok: hasCreds, label: "CLOB AUTHENTICATED" },

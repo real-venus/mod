@@ -20,5 +20,6 @@ services:
       - APP_PORT=8823
       - CLAUDE_JOBS_LOCAL=1
     volumes:
-      - "${HOME}/.claude/.credentials.json:/host-claude/.credentials.json:ro"
+      - "${HOME}/.claude:/host-claude"
       - "${HOME}/.mod/claude:/home/node/.mod/claude"
+      - "./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro"

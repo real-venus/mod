@@ -53,6 +53,17 @@ cat > /app/Caddyfile <<EOF
         uri strip_prefix /api/polymarket
         reverse_proxy localhost:${API_PORT}
     }
+
+    # CLOB L2 passthrough (order/balance-allowance/orders/cancel). Browser
+    # can't hit clob.polymarket.com directly (no CORS on L2), so proxy here.
+    @l2 path /api/polymarket-l2 /api/polymarket-l2/*
+    handle @l2 {
+        uri strip_prefix /api/polymarket-l2
+        reverse_proxy https://clob.polymarket.com {
+            header_up Host clob.polymarket.com
+        }
+    }
+
     handle /* {
         reverse_proxy localhost:${APP_PORT}
     }

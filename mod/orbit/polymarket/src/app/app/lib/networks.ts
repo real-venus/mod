@@ -9,6 +9,7 @@ export interface NetworkConfig {
   chainId: number;
   chainIdHex: string;
   usdc: string;            // USDC ERC-20 address on this chain (6 decimals)
+  usdt: string;            // USDT ERC-20 address on this chain (6 decimals)
   rpcUrl: string;          // public RPC for read-only balance lookups
   rpcUrls: string[];       // for wallet_addEthereumChain
   nativeCurrency: { name: string; symbol: string; decimals: number };
@@ -32,6 +33,7 @@ export const NETWORKS: NetworkConfig[] = [
     chainId: 137,
     chainIdHex: "0x89",
     usdc: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC.e bridged (Polymarket settlement)
+    usdt: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     rpcUrl: "https://polygon-rpc.com",
     rpcUrls: [
       "https://polygon-rpc.com",
@@ -53,6 +55,7 @@ export const NETWORKS: NetworkConfig[] = [
     chainId: 8453,
     chainIdHex: "0x2105",
     usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    usdt: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
     rpcUrl: "https://mainnet.base.org",
     rpcUrls: [
       "https://mainnet.base.org",
@@ -73,6 +76,7 @@ export const NETWORKS: NetworkConfig[] = [
     chainId: 1,
     chainIdHex: "0x1",
     usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    usdt: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
     rpcUrl: "https://eth.llamarpc.com",
     rpcUrls: [
       "https://eth.llamarpc.com",
@@ -93,6 +97,7 @@ export const NETWORKS: NetworkConfig[] = [
     chainId: 42161,
     chainIdHex: "0xa4b1",
     usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    usdt: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
     rpcUrl: "https://arb1.arbitrum.io/rpc",
     rpcUrls: [
       "https://arb1.arbitrum.io/rpc",
@@ -112,6 +117,7 @@ export const NETWORKS: NetworkConfig[] = [
     chainId: 10,
     chainIdHex: "0xa",
     usdc: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+    usdt: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
     rpcUrl: "https://mainnet.optimism.io",
     rpcUrls: [
       "https://mainnet.optimism.io",

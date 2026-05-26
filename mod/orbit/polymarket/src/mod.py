@@ -44,6 +44,7 @@ class Polymarket(m.Mod):
         "serve", "kill", "status", "build", "logs", "test",
         "search", "markets", "trending", "events",
         "active_traders", "forward",
+        "build_cid", "publish_build", "build_onchain",
     ]
 
     api_port = 50091
@@ -320,6 +321,143 @@ class Polymarket(m.Mod):
             return pm2.logs(f"polymarket-{target}", lines=lines)
         except Exception as e:
             return f"<no logs: {e}>"
+
+    # ── build CID + onchain publish ──────────────────────────────
+
+    # Folders that don't belong in the build hash — generated, vendored, or
+    # otherwise non-source. Keeps the CID stable across `npm install`,
+    # `cargo build`, and Next.js dev rebuilds.
+    _BUILD_IGNORE = [
+        "node_modules", "target", ".next", "__pycache__",
+        ".git", "artifacts", "cache",
+    ]
+
+    # Polygon mainnet — RPC fallbacks chosen because polygon-rpc.com and
+    # rpc.ankr.com gate-keep with API keys / 401s.
+    _POLYGON_RPCS = [
+        "https://polygon.drpc.org",
+        "https://polygon-bor-rpc.publicnode.com",
+        "https://polygon.llamarpc.com",
+    ]
+    _POLYGON_CHAIN_ID = 137
+    _POLYGON_SCAN = "https://polygonscan.com/tx/"
+
+    def build_cid(self, mod: str = "polymarket") -> str:
+        """Localfs CID over the module's source files.
+
+        IPFS-compatible (CIDv0 Qm...) — recompute locally via
+        `m.mod('localfs')().cid(m.content('<mod>', ignore_folders=[...]))`
+        with the same ignore list.
+        """
+        lfs = m.mod("localfs")()
+        content = m.content(mod, ignore_folders=self._BUILD_IGNORE)
+        return lfs.cid(content)
+
+    def _polygon_w3(self):
+        from web3 import Web3
+        last_err = None
+        for url in self._POLYGON_RPCS:
+            try:
+                w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 8}))
+                if w3.is_connected() and w3.eth.chain_id == self._POLYGON_CHAIN_ID:
+                    return w3, url
+            except Exception as e:
+                last_err = e
+        raise RuntimeError(f"no Polygon RPC reachable; last error: {last_err}")
+
+    def publish_build(self, mod: str = "polymarket", key: str = None,
+                      tag: str = "mod-cid:", dry_run: bool = False) -> Dict[str, Any]:
+        """Send a Polygon tx whose calldata records the build CID.
+
+        Self-transfer with `tag + cid` as calldata — no contract required.
+        The CID lands in the tx's `input` field, verifiable on Polygonscan.
+        Persists the result under `build_onchain` in config.json so the
+        docker entrypoint can expose it to the UI.
+        """
+        from web3 import Web3
+
+        cid = self.build_cid(mod=mod)
+        signer = m.key(key) if key else m.key()
+        addr = Web3.to_checksum_address(signer.address)
+        data = "0x" + (tag.encode() + cid.encode()).hex()
+
+        w3, rpc = self._polygon_w3()
+        bal = w3.eth.get_balance(addr)
+
+        # 21000 base + 16 gas / non-zero calldata byte. Polygon's effective
+        # gas price floats — we bump by 20% to keep the tx from getting
+        # silently dropped by the public RPCs' mempools.
+        gas_price = int(w3.eth.gas_price * 12 / 10)
+        gas_limit = 21000 + 16 * len(tag + cid) + 4096  # padding for safety
+        cost = gas_price * gas_limit
+
+        if dry_run or bal < cost:
+            return {
+                "ok": False if bal < cost else True,
+                "dry_run": dry_run,
+                "cid": cid,
+                "mod": mod,
+                "from": addr,
+                "rpc": rpc,
+                "data": data,
+                "gas_price_gwei": float(w3.from_wei(gas_price, "gwei")),
+                "estimated_cost_matic": float(w3.from_wei(cost, "ether")),
+                "balance_matic": float(w3.from_wei(bal, "ether")),
+                "funded": bal >= cost,
+                "needed_matic": float(w3.from_wei(max(cost - bal, 0), "ether")),
+            }
+
+        nonce = w3.eth.get_transaction_count(addr)
+        tx = {
+            "to": addr,
+            "value": 0,
+            "data": data,
+            "nonce": nonce,
+            "gas": gas_limit,
+            "gasPrice": gas_price,
+            "chainId": self._POLYGON_CHAIN_ID,
+        }
+        signed = w3.eth.account.sign_transaction(tx, signer.private_key)
+        raw = getattr(signed, "raw_transaction", None) or signed.rawTransaction
+        tx_hash = w3.eth.send_raw_transaction(raw)
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=180)
+
+        record = {
+            "cid": cid,
+            "mod": mod,
+            "network": "polygon",
+            "chain_id": self._POLYGON_CHAIN_ID,
+            "tx_hash": tx_hash.hex() if hasattr(tx_hash, "hex") else str(tx_hash),
+            "block": receipt.blockNumber,
+            "from": addr,
+            "to": addr,
+            "scan": self._POLYGON_SCAN + (tx_hash.hex() if hasattr(tx_hash, "hex") else str(tx_hash)),
+            "at": int(time.time()),
+        }
+        self._save_build_onchain(record)
+        return {"ok": receipt.status == 1, **record}
+
+    def _save_build_onchain(self, record: Dict[str, Any]):
+        cfg_path = os.path.join(ROOT_DIR, "config.json")
+        try:
+            with open(cfg_path) as f:
+                cfg = json.load(f)
+        except Exception:
+            cfg = {}
+        cfg["build_onchain"] = record
+        with open(cfg_path, "w") as f:
+            json.dump(cfg, f, indent=4)
+            f.write("\n")
+
+    def build_onchain(self) -> Dict[str, Any]:
+        """Return the last published build record (cid, tx, polygonscan link)."""
+        cfg_path = os.path.join(ROOT_DIR, "config.json")
+        try:
+            with open(cfg_path) as f:
+                cfg = json.load(f)
+            return cfg.get("build_onchain", {})
+        except Exception:
+            return {}
 
     # ── data passthroughs ────────────────────────────────────────
 

@@ -1,0 +1,22 @@
+{
+    "name": "tether",
+    "version": "0.1.0",
+    "description": "Tether (USDT) on-chain integration — balance, transfers, allowances",
+    "port": 8850,
+    "app_port": 8851,
+    "owner": "0x70f1DB27c2A64cabDd9888dD6C6F27cCBdE6D7C2",
+    "icon": "💵",
+    "color": "#16a34a",
+    "fns": [
+        "forward",
+        "info",
+        "balance",
+        "transfer",
+        "approve",
+        "health"
+    ],
+    "urls": {
+        "api": "http://localhost:8850",
+        "app": "http://localhost:8851"
+    }
+}

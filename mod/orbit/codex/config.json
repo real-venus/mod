@@ -5,6 +5,8 @@
     "port": 8830,
     "app_port": 8831,
     "owner": "0x70f1DB27c2A64cabDd9888dD6C6F27cCBdE6D7C2",
+    "icon": "X",
+    "color": "#10a37f",
     "provider": "openai",
     "binary": "codex",
     "default_model": "gpt-4o-mini",

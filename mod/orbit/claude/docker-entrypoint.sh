@@ -15,12 +15,12 @@ CRED_DST="$CRED_DIR/.credentials.json"
 mkdir -p "$CRED_DIR"
 
 if [ -f "$CRED_SRC" ]; then
-    cp "$CRED_SRC" "$CRED_DST"
-    chmod 600 "$CRED_DST"
+    # Symlink so the CLI reads the live host file and can write refreshed tokens
+    ln -sf "$CRED_SRC" "$CRED_DST"
     # When OAuth creds are present, unset any inherited ANTHROPIC_API_KEY so
     # claude doesn't prefer a stale/external key over the subscription token.
     unset ANTHROPIC_API_KEY
-    echo "credentials: copied from host mount (OAuth subscription, ANTHROPIC_API_KEY ignored)"
+    echo "credentials: linked from host mount (OAuth subscription, ANTHROPIC_API_KEY ignored)"
 elif [ -n "$ANTHROPIC_API_KEY" ]; then
     echo "credentials: using ANTHROPIC_API_KEY env (no host mount)"
 else

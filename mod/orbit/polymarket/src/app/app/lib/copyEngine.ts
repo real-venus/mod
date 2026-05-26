@@ -1,6 +1,10 @@
+import { BrowserProvider, Contract, JsonRpcProvider, formatUnits, type JsonRpcSigner } from "ethers";
 import { ClobCredentials, IndexTrader } from "./types";
-import { placeOrder, getBalance, ClobOrderResult } from "./clobClient";
+import { placeOrder, detectSigType, ClobOrderResult } from "./clobClient";
 import { fetchWalletTradesUntil } from "./polymarket";
+import { networkById, ensureChain, withRpcFallback } from "./networks";
+import { getProxyAddress } from "./polymarketProxy";
+import { USDC_E } from "./polymarketContracts";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -56,6 +60,7 @@ const TAKER_FEE_BPS = 200;
 // ── Token ID Cache ─────────────────────────────────────────────
 
 const TOKEN_MAP_KEY = "poly_copy_tokenmap";
+const NEG_RISK_MAP_KEY = "poly_copy_negriskmap";
 
 function loadTokenMap(): Map<string, string[]> {
   try {
@@ -72,6 +77,22 @@ function saveTokenMap(map: Map<string, string[]>): void {
   try {
     const obj = Object.fromEntries(map);
     localStorage.setItem(TOKEN_MAP_KEY, JSON.stringify(obj));
+  } catch {}
+}
+
+function loadNegRiskMap(): Map<string, boolean> {
+  try {
+    const raw = localStorage.getItem(NEG_RISK_MAP_KEY);
+    if (!raw) return new Map();
+    return new Map(Object.entries(JSON.parse(raw)));
+  } catch {
+    return new Map();
+  }
+}
+
+function saveNegRiskMap(map: Map<string, boolean>): void {
+  try {
+    localStorage.setItem(NEG_RISK_MAP_KEY, JSON.stringify(Object.fromEntries(map)));
   } catch {}
 }
 
@@ -94,11 +115,21 @@ export class CopyEngine {
   private listeners = new Set<(s: CopyEngineState) => void>();
   private copiedIds = new Set<string>();
   private tokenMap: Map<string, string[]>;
+  private negRiskMap: Map<string, boolean>;
   private running = false;
+  // Cached signer; refreshed if the user switches account/chain in MetaMask.
+  private signer: JsonRpcSigner | null = null;
+  // Polymarket Proxy address for this user's EOA. Resolved lazily on first
+  // cycle; persists for the engine's lifetime.
+  private proxyAddress: string | null = null;
+  // Auto-detected sigType for this user's apiKey binding. Resolved once
+  // per engine session via detectSigType().
+  private sigType: 0 | 1 | 2 = 2;
 
   constructor(config: CopyEngineConfig) {
     this.config = config;
     this.tokenMap = loadTokenMap();
+    this.negRiskMap = loadNegRiskMap();
     this.state = {
       status: "stopped",
       lastCycleAt: null,
@@ -153,6 +184,7 @@ export class CopyEngine {
       clearInterval(this.timer);
       this.timer = null;
     }
+    this.signer = null;
     this.setState({ status: "stopped", nextCycleAt: null });
     this.saveLog();
     this.saveCursors();
@@ -187,22 +219,73 @@ export class CopyEngine {
     });
 
     try {
-      // Check balance
-      const bal = await getBalance(this.config.creds, this.config.address);
-      this.setState({ balance: bal.balance });
+      // Resolve the user's Polymarket Proxy address once. Polymarket binds
+      // every newly-minted apiKey to this proxy — that's the address that
+      // holds funds and signs orders, not the connected EOA.
+      if (!this.proxyAddress) {
+        this.proxyAddress = await getProxyAddress(this.config.address);
+      }
+
+      // Probe all three sig_types and pick whichever Polymarket reports a
+      // non-zero balance for. The CLOB's apiKey binding is opaque from the
+      // client side — best we can do is try and use the winner.
+      const detected = await detectSigType(this.config.creds, this.config.address);
+      this.sigType = detected.sigType;
+      const bal = detected.bal;
+
+      // Cross-check against the real on-chain USDC.e balance at the proxy.
+      // Polymarket's CLOB only counts funds at a *deployed + approved*
+      // proxy — for a brand-new user with USDC sitting at an undeployed
+      // Safe address, this will be 0 even though funds exist. The proxy
+      // deploys atomically on first order settlement, so we let the engine
+      // try the trade as long as on-chain funds clear the capital gate.
+      const polygon = networkById("polygon")!;
+      let onchainProxyBal = 0;
+      try {
+        const raw = await withRpcFallback(polygon, async (url) => {
+          const provider = new JsonRpcProvider(url);
+          const c = new Contract(USDC_E, ["function balanceOf(address) view returns (uint256)"], provider);
+          return (await c.balanceOf(this.proxyAddress!)) as bigint;
+        });
+        onchainProxyBal = Number(formatUnits(raw, 6));
+      } catch {}
+
+      // Trust whichever is larger — typically on-chain pre-deployment,
+      // CLOB post-deployment once funds are "live."
+      const effective = Math.max(bal.balance, onchainProxyBal);
+      this.setState({ balance: effective });
+      const balDetail =
+        `$${effective.toFixed(2)} usable · proxy $${onchainProxyBal.toFixed(2)} on-chain · CLOB $${bal.balance.toFixed(2)} (sigType=${this.sigType})`;
       this.addLog({
         id: uid(),
         timestamp: Date.now(),
         type: "BALANCE",
-        reason: `$${bal.balance.toFixed(2)} USDC`,
+        reason: balDetail,
       });
 
-      if (bal.balance < this.config.capital * 0.05) {
+      if (effective < this.config.capital * 0.05) {
+        const proxy = this.proxyAddress!;
+        const proxyShort = `${proxy.slice(0, 6)}…${proxy.slice(-4)}`;
+        const need = this.config.capital * 0.05;
+        // Read the EOA balance so we can give a precise next-step in the
+        // common case where the user funded the EOA but never deposited.
+        let eoaBal = 0;
+        try {
+          const raw = await withRpcFallback(polygon, async (url) => {
+            const provider = new JsonRpcProvider(url);
+            const c = new Contract(USDC_E, ["function balanceOf(address) view returns (uint256)"], provider);
+            return (await c.balanceOf(this.config.address)) as bigint;
+          });
+          eoaBal = Number(formatUnits(raw, 6));
+        } catch {}
+        const reason = eoaBal >= need
+          ? `Polymarket trades from a proxy address, not your wallet. Your wallet has $${eoaBal.toFixed(2)} USDC.e but proxy ${proxyShort} has only $${onchainProxyBal.toFixed(2)}. Open POLYMARKET ACCOUNT → DEPOSIT to move at least $${need.toFixed(2)} from wallet → proxy, then press RUN.`
+          : `Proxy ${proxyShort} has $${onchainProxyBal.toFixed(2)} (need ≥$${need.toFixed(2)} = 5% of capital). Wallet also has only $${eoaBal.toFixed(2)} — fund USDC.e to your wallet first, then DEPOSIT to proxy.`;
         this.addLog({
           id: uid(),
           timestamp: Date.now(),
           type: "ERROR",
-          reason: `Balance $${bal.balance.toFixed(2)} below 5% of capital $${this.config.capital}`,
+          reason,
         });
         this.setState({ status: "error", error: "INSUFFICIENT_BALANCE" });
         return;
@@ -290,16 +373,30 @@ export class CopyEngine {
               continue;
             }
 
-            // Place order
+            // Place order — maker is the Polymarket Proxy (funds live
+            // there), signer is the connected EOA, signatureType matches
+            // what Polymarket's apiKey is bound to (auto-detected above).
             try {
-              const result = await placeOrder(this.config.creds, this.config.address, {
-                tokenID: tokenId,
-                price: trade.price,
-                size: Math.round(mirrorSize * 100) / 100,
-                side: trade.side,
-                type: "FOK",
-                feeRateBps: TAKER_FEE_BPS,
-              });
+              const signer = await this.getSigner();
+              const negRisk = await this.resolveNegRisk(trade.conditionId);
+              const proxy = this.proxyAddress ?? (this.proxyAddress = await getProxyAddress(this.config.address));
+              // For sigType=0 (EOA), maker = EOA. For 1/2, maker = proxy.
+              const maker = this.sigType === 0 ? this.config.address : proxy;
+              const result = await placeOrder(
+                this.config.creds,
+                signer,
+                maker,
+                {
+                  tokenID: tokenId,
+                  price: trade.price,
+                  size: Math.round(mirrorSize * 100) / 100,
+                  side: trade.side,
+                  type: "FOK",
+                  feeRateBps: TAKER_FEE_BPS,
+                },
+                negRisk,
+                this.sigType,
+              );
 
               const logType = result.success
                 ? (trade.side === "BUY" ? "COPY_BUY" : "COPY_SELL")
@@ -383,12 +480,22 @@ export class CopyEngine {
       this.saveLog();
       this.pruneDedup();
     } catch (e) {
-      this.setState({ status: "error", error: e instanceof Error ? e.message : String(e) });
+      const raw = e instanceof Error ? e.message : String(e);
+      // 401 from balance-allowance almost always means the in-memory CLOB
+      // creds no longer match the active wallet (account switched in
+      // MetaMask, or page was reloaded and only partial state restored).
+      // Surface a clear "click AUTHENTICATE again" prompt instead of the
+      // raw HTTP error, which doesn't tell the user what to do.
+      const is401 = /HTTP 401|Unauthorized|Invalid api key/i.test(raw);
+      const reason = is401
+        ? `CLOB rejected the request (401). Your saved API key doesn't match the active wallet — disconnect & reconnect in MetaMask, then click AUTHENTICATE again to mint fresh creds.`
+        : raw;
+      this.setState({ status: "error", error: is401 ? "UNAUTHENTICATED" : raw });
       this.addLog({
         id: uid(),
         timestamp: Date.now(),
         type: "ERROR",
-        reason: e instanceof Error ? e.message : String(e),
+        reason,
       });
     }
   }
@@ -416,6 +523,11 @@ export class CopyEngine {
         } else if (typeof m.clobTokenIds === "string") {
           try { tokenIds = JSON.parse(m.clobTokenIds).map(String); } catch {}
         }
+        // Stash negRisk alongside tokenIds — saves a refetch when signing
+        // each order against the right exchange contract.
+        const negRisk = Boolean(m.negRisk ?? m.neg_risk);
+        this.negRiskMap.set(conditionId, negRisk);
+        saveNegRiskMap(this.negRiskMap);
         if (tokenIds.length >= 2) {
           this.tokenMap.set(conditionId, tokenIds);
           saveTokenMap(this.tokenMap);
@@ -426,6 +538,32 @@ export class CopyEngine {
     } catch {}
 
     return null;
+  }
+
+  /** Negative-risk flag for a market, with localStorage cache. Defaults to
+   *  false if unknown — a wrong default just produces a "bad signature"
+   *  error on the order, which we surface in the log. */
+  private async resolveNegRisk(conditionId: string): Promise<boolean> {
+    const cached = this.negRiskMap.get(conditionId);
+    if (cached !== undefined) return cached;
+    // resolveTokenId populates negRiskMap as a side effect; reuse it.
+    await this.resolveTokenId(conditionId, "Yes");
+    return this.negRiskMap.get(conditionId) ?? false;
+  }
+
+  /** Lazily create (and cache) a JsonRpcSigner from window.ethereum,
+   *  ensuring the wallet is on Polygon first. Re-created on every cycle
+   *  start to handle account/chain changes in MetaMask. */
+  private async getSigner(): Promise<JsonRpcSigner> {
+    if (this.signer) return this.signer;
+    if (typeof window === "undefined" || !window.ethereum) {
+      throw new Error("NO_WALLET — window.ethereum unavailable");
+    }
+    const polygon = networkById("polygon")!;
+    await ensureChain(window.ethereum as never, polygon);
+    const provider = new BrowserProvider(window.ethereum as never);
+    this.signer = await provider.getSigner(this.config.address);
+    return this.signer;
   }
 
   // ── State Management ─────────────────────────────────────────

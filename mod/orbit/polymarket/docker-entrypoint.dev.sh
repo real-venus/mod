@@ -21,25 +21,34 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
-# ── Compute build CID over source files ──
-# Deterministic sha256 over a sorted manifest of (per-file sha256, path).
-# Exposed to the UI as NEXT_PUBLIC_BUILD_CID so visitors can verify the
-# served code by recomputing the same hash locally. Not an IPFS CID yet —
-# wire in a real `ipfs add -r` against the .next/static build output if you
-# need a `bafk...` CID.
+# ── Build CID + onchain pin ──
+# Prefer the localfs/IPFS CID published onchain via
+# `m polymarket/publish_build` (recorded in /app/config.json under
+# build_onchain). Falls back to a deterministic sha256 manifest so a
+# never-published build still has a verifiable hash.
+BUILD_CID=""
+BUILD_TX=""
+BUILD_SCAN=""
+if [ -f /app/config.json ]; then
+    BUILD_CID=$(python3 -c "import json; print(json.load(open('/app/config.json')).get('build_onchain',{}).get('cid',''))" 2>/dev/null || echo "")
+    BUILD_TX=$(python3 -c "import json; print(json.load(open('/app/config.json')).get('build_onchain',{}).get('tx_hash',''))" 2>/dev/null || echo "")
+    BUILD_SCAN=$(python3 -c "import json; print(json.load(open('/app/config.json')).get('build_onchain',{}).get('scan',''))" 2>/dev/null || echo "")
+fi
 cd /app/src/app
-if command -v sha256sum > /dev/null 2>&1; then
-    BUILD_HASH=$(find app -type f \( -name '*.tsx' -o -name '*.ts' -o -name '*.css' \) \
-        | sort \
-        | xargs sha256sum 2>/dev/null \
-        | sha256sum \
-        | cut -d' ' -f1)
-    BUILD_CID="sha256:${BUILD_HASH}"
-else
-    BUILD_CID="dev-$(date +%s)"
+if [ -z "$BUILD_CID" ]; then
+    if command -v sha256sum > /dev/null 2>&1; then
+        BUILD_HASH=$(find app -type f \( -name '*.tsx' -o -name '*.ts' -o -name '*.css' \) \
+            | sort \
+            | xargs sha256sum 2>/dev/null \
+            | sha256sum \
+            | cut -d' ' -f1)
+        BUILD_CID="sha256:${BUILD_HASH}"
+    else
+        BUILD_CID="dev-$(date +%s)"
+    fi
 fi
 BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-echo "Build CID: $BUILD_CID"
+echo "Build CID: $BUILD_CID${BUILD_TX:+ (tx: $BUILD_TX)}"
 
 # ── Start Next.js (dev mode with hot-reload) ──
 POLYMARKET_API_URL="http://localhost:$API_PORT" \
@@ -47,6 +56,8 @@ NEXT_PUBLIC_API_URL="/api/polymarket" \
 NEXT_PUBLIC_BASE_PATH="/polymarket" \
 NEXT_PUBLIC_BUILD_CID="$BUILD_CID" \
 NEXT_PUBLIC_BUILD_TIME="$BUILD_TIME" \
+NEXT_PUBLIC_BUILD_TX="$BUILD_TX" \
+NEXT_PUBLIC_BUILD_SCAN="$BUILD_SCAN" \
 PORT=$APP_PORT \
 npx next dev -p $APP_PORT &
 APP_PID=$!

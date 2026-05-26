@@ -54,6 +54,18 @@
         uri strip_prefix /api/polymarket
         reverse_proxy polymarket:50091
     }
+    # CLOB L2 passthrough (order, balance-allowance, orders, cancel).
+    # Browser can't hit clob.polymarket.com directly (no CORS on L2), so we
+    # reverse-proxy authenticated L2 calls straight through. Must come BEFORE
+    # the polymarket_app handler so it isn't shadowed by /api/polymarket-l2
+    # falling into a catch-all.
+    @polymarket_l2 path /api/polymarket-l2 /api/polymarket-l2/*
+    handle @polymarket_l2 {
+        uri strip_prefix /api/polymarket-l2
+        reverse_proxy https://clob.polymarket.com {
+            header_up Host clob.polymarket.com
+        }
+    }
     @polymarket_app path /polymarket /polymarket/*
     handle @polymarket_app {
         reverse_proxy polymarket:3091
@@ -88,11 +100,11 @@
     @dev_api path /api/dev /api/dev/*
     handle @dev_api {
         uri strip_prefix /api/dev
-        reverse_proxy dev:8870
+        reverse_proxy host.docker.internal:8870
     }
     @dev_app path /dev /dev/*
     handle @dev_app {
-        reverse_proxy dev:8870
+        reverse_proxy host.docker.internal:8870
     }
     @claude path /claude /claude/* /api/claude /api/claude/*
     handle @claude {
@@ -106,6 +118,16 @@
     @whitepaper_app path /whitepaper /whitepaper/*
     handle @whitepaper_app {
         reverse_proxy host.docker.internal:3106
+    }
+    @localfs_api path /api/localfs /api/localfs/*
+    handle @localfs_api {
+        uri strip_prefix /api/localfs
+        reverse_proxy host.docker.internal:8860
+    }
+    @localfs_app path /localfs /localfs/*
+    handle @localfs_app {
+        uri strip_prefix /localfs
+        reverse_proxy host.docker.internal:8861
     }
 }
 

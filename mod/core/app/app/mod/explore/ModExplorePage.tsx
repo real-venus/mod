@@ -127,10 +127,6 @@ export default function ModExplorePage() {
   }, [sort])
 
   const fetchAll = useCallback(async () => {
-    if (!client) {
-      setError('Client not initialized')
-      return
-    }
     setError(null)
     setLoading(true)
     try {
@@ -143,7 +139,7 @@ export default function ModExplorePage() {
         res = await fetch('/api/mods', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: client.token || '' }),
+          body: JSON.stringify({ token: client?.token || '' }),
         })
         data = (await res.json()) as ModuleType[]
       }

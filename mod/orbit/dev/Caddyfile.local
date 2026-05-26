@@ -40,11 +40,23 @@
         reverse_proxy localhost:8821
     }
 
+    # ── /localfs → content-addressable storage ─────────────────
+    @localfs_api path /api/localfs /api/localfs/*
+    handle @localfs_api {
+        uri strip_prefix /api/localfs
+        reverse_proxy localhost:8860
+    }
+    @localfs_app path /localfs /localfs/*
+    handle @localfs_app {
+        uri strip_prefix /localfs
+        reverse_proxy localhost:8861
+    }
+
     # Root → redirect to /dev
     handle / {
         redir /dev permanent
     }
     handle /* {
-        respond "mod local gateway — try /dev, /codex, /claude" 200
+        respond "mod local gateway — try /dev, /codex, /claude, /localfs" 200
     }
 }
