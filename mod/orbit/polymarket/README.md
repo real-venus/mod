@@ -36,6 +36,8 @@ Global tokens in `globals.css`:
 
 Top bar simplified from a five-chip cluster (wallet · CLOB · token · split · panel) down to **wallet chip + profile menu**. Trading readiness is communicated by the wallet chip's dot color, not by separate chips. The dropped chips (`ClobChip`, `TokenChip`, `SplitButton`) still live on disk for re-mounting inside the profile menu later.
 
+**Theming**: dark is the default; setting `data-theme="light"` on `<html>` flips every color through a single set of CSS vars (`--bg`, `--fg`, `--panel-from/to`, `--border`, etc., plus channel-style `--pixel-*-rgb` vars so Tailwind opacity modifiers like `text-pixel-white/60` keep working).
+
 Component-size sweep: every `text-[8–14px]` across all `app/components/*.tsx` and `app/**/page.tsx` was bumped one step up (8→11, 9→12, 10→12, 11→13, 12→14, 13→15, 14→16, 18→26) so Inter has room to breathe.
 
 ## Usage
