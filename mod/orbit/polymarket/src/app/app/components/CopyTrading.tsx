@@ -62,6 +62,19 @@ function formatScore(v: number): string {
 type SortDir = "asc" | "desc";
 const PAGE_SIZE = 50;
 
+// "12s ago" / "3m ago" / "1h 4m ago" — drops sub-5s precision (the staleness
+// ticker re-renders every 5s anyway, so finer granularity is just noise).
+function formatAgo(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "just now";
+  const sec = Math.floor(ms / 1000);
+  if (sec < 5) return "just now";
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  return `${hr}h ${min % 60}m ago`;
+}
+
 function SortArrow({ active, dir }: { active: boolean; dir: SortDir }) {
   return (
     <span className="inline-block w-3 ml-0.5 text-center">
@@ -196,6 +209,10 @@ export default function CopyTrading({
 
   const [refreshing, setRefreshing] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  // Track when the trader payload last landed so we can show a "5s ago"
+  // indicator and auto-refresh in the background past MAX_STALENESS_MS.
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now()); // for "Xs ago" rerender
   const [stratFilter, setStratFilter] = useState(false);
   const [stratAddrs, setStratAddrs] = useState<Set<string>>(new Set());
   const [stratName, setStratName] = useState<string | null>(null);
@@ -238,6 +255,7 @@ export default function CopyTrading({
         setCacheWarm(true);
         setHasLoaded(true);
         setLoading(false);
+        setLastUpdated(Date.now());
         return true;
       } catch {
         return false;
@@ -286,6 +304,7 @@ export default function CopyTrading({
         // Show all results (first page) — totalTraders reflects full dataset
         setTraders(data.slice(0, PAGE_SIZE));
         setTotalTraders(data.length);
+        setLastUpdated(Date.now());
       } catch {
         setTraders([]);
       } finally {
@@ -335,12 +354,28 @@ export default function CopyTrading({
   }, [cacheWarm, page, traderSort, sortDir, search, category,
       minVolume, minPnl, minTrades, minBuyVolume, minSellVolume]);
 
-  // Silent refresh every 60s (just re-fetch current page)
+  // Background staleness check. Re-fetches current page silently once data
+  // crosses MAX_STALENESS_MS so the leaderboard never gets older than this
+  // without the user feeling a load. STALENESS_TICK_MS is just the polling
+  // cadence; the actual fetch only fires when lastUpdated is past the budget.
   useEffect(() => {
     if (!cacheWarm) return;
-    const t = setInterval(() => { void loadPage({ pg: pageRef.current, silent: true }); }, 60_000);
+    const MAX_STALENESS_MS = 60_000;
+    const STALENESS_TICK_MS = 10_000;
+    const t = setInterval(() => {
+      const age = lastUpdated ? Date.now() - lastUpdated : Infinity;
+      if (age >= MAX_STALENESS_MS) {
+        void loadPage({ pg: pageRef.current, silent: true });
+      }
+    }, STALENESS_TICK_MS);
     return () => clearInterval(t);
-  }, [loadPage, cacheWarm]);
+  }, [loadPage, cacheWarm, lastUpdated]);
+
+  // 5-second tick so the "Xs ago" label re-renders even when nothing else changes.
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 5_000);
+    return () => clearInterval(t);
+  }, []);
 
   const handleSort = (col: TraderSort) => {
     if (traderSort === col) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -587,6 +622,14 @@ export default function CopyTrading({
                 source === "fresh" ? "border-yellow-500/40 text-yellow-400" : "border-pixel-border text-pixel-gray"
               }`}>
                 {source === "memory" ? "MEM" : source === "disk" ? "DISK" : "LIVE"}
+              </span>
+            )}
+            {lastUpdated && (
+              <span
+                className="text-[11px] font-mono text-pixel-gray tracking-wider"
+                title={`Last updated ${new Date(lastUpdated).toLocaleTimeString()} · auto-refreshes every 60s`}
+              >
+                {formatAgo(nowTick - lastUpdated)}
               </span>
             )}
             {refreshing && <span className="text-[12px] text-green-400 animate-pulse">&#9679;</span>}

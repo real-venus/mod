@@ -1,146 +1,151 @@
 {
-  "name": "claude",
-  "version": "2.0.0",
-  "description": "Programmable AI developer interface \u2014 Python SDK, Rust Job Server, Next.js Terminal UI, IPFS versioning",
-  "port": 8820,
-  "app_port": 8821,
-  "owner": "0x70f1DB27c2A64cabDd9888dD6C6F27cCBdE6D7C2",
-  "icon": "C",
-  "color": "#cc785c",
-  "fns": [
-    "forward",
-    "ask",
-    "analyze_code",
-    "generate_code",
-    "refactor",
-    "debug",
-    "edit_file",
-    "run_task",
-    "batch_process",
-    "bg",
-    "bg_status",
-    "bg_list",
-    "submit",
-    "create_module",
-    "edit_module",
-    "jobs",
-    "job",
-    "cancel",
-    "kill",
-    "kill_port",
-    "delete_job",
-    "tail",
-    "snapshot",
-    "changelog",
-    "show_changelog",
-    "get_version",
-    "restore_version",
-    "get_owner",
-    "set_owner",
-    "is_owner",
-    "health",
-    "modules",
-    "folders",
-    "suggest_folders",
-    "repos",
-    "files",
-    "owner",
-    "models",
-    "serve",
-    "test",
-    "logs",
-    "install",
-    "setup",
-    "scan",
-    "fix"
-  ],
-  "schema": "QmRcEYWnsAATCJT2id2fHZCmBs5whwi1ZU1FVYWTxKmYRG",
-  "endpoints": {
-    "/health": {
-      "method": "GET",
-      "auth": false,
-      "docs": "Health check"
+    "name": "claude",
+    "version": "2.0.0",
+    "description": "Programmable AI developer interface \u2014 Python SDK, Rust Job Server, Next.js Terminal UI, IPFS versioning",
+    "port": 8820,
+    "app_port": 8821,
+    "owner": "0x70f1DB27c2A64cabDd9888dD6C6F27cCBdE6D7C2",
+    "icon": "C",
+    "color": "#cc785c",
+    "fns": [
+        "forward",
+        "ask",
+        "analyze_code",
+        "generate_code",
+        "refactor",
+        "debug",
+        "edit_file",
+        "run_task",
+        "batch_process",
+        "bg",
+        "bg_status",
+        "bg_list",
+        "submit",
+        "create_module",
+        "edit_module",
+        "jobs",
+        "job",
+        "cancel",
+        "kill",
+        "kill_port",
+        "delete_job",
+        "tail",
+        "snapshot",
+        "changelog",
+        "show_changelog",
+        "get_version",
+        "restore_version",
+        "get_owner",
+        "set_owner",
+        "is_owner",
+        "health",
+        "modules",
+        "folders",
+        "suggest_folders",
+        "repos",
+        "files",
+        "owner",
+        "models",
+        "serve",
+        "test",
+        "logs",
+        "install",
+        "setup",
+        "scan",
+        "fix"
+    ],
+    "schema": "QmSkNWmS9WRMRNgg7LGmJWj1rqnXXhFMsjRKuErvPYPRK2",
+    "endpoints": {
+        "/health": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Health check"
+        },
+        "/config": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Get module config.json"
+        },
+        "/owner": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Get owner address and status"
+        },
+        "/repos": {
+            "method": "GET",
+            "auth": false,
+            "docs": "List git repositories"
+        },
+        "/modules": {
+            "method": "GET",
+            "auth": false,
+            "docs": "List orbit and core modules"
+        },
+        "/folders": {
+            "method": "GET",
+            "auth": false,
+            "docs": "List folders under a path with optional search filter"
+        },
+        "/suggest_folders": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Suggest folders using embedcode similarity search"
+        },
+        "/files/tree": {
+            "method": "GET",
+            "auth": false,
+            "docs": "File tree browser"
+        },
+        "/jobs": {
+            "method": [
+                "POST",
+                "GET"
+            ],
+            "auth": true,
+            "docs": "Submit or list jobs"
+        },
+        "/jobs/{id}": {
+            "method": [
+                "GET",
+                "DELETE"
+            ],
+            "auth": true,
+            "docs": "Get or delete job"
+        },
+        "/jobs/{id}/cancel": {
+            "method": "POST",
+            "auth": true,
+            "docs": "Cancel a running job"
+        },
+        "/jobs/{id}/stream": {
+            "method": "GET",
+            "auth": true,
+            "docs": "SSE live stream of job output"
+        },
+        "/kill": {
+            "method": "POST",
+            "auth": true,
+            "docs": "Kill a process by PID or port (owner-only)"
+        },
+        "/auth/claude": {
+            "method": "POST",
+            "auth": false,
+            "docs": "Sign in with a Claude.ai OAuth token (sk-ant-oat01-...) \u2014 requires active Pro or Max membership"
+        },
+        "/changelog": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Get version changelog"
+        },
+        "/versions/{version}": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Get a specific version entry"
+        }
     },
-    "/config": {
-      "method": "GET",
-      "auth": false,
-      "docs": "Get module config.json"
+    "urls": {
+        "api": "http://localhost:8820",
+        "app": "http://localhost:8821"
     },
-    "/owner": {
-      "method": "GET",
-      "auth": false,
-      "docs": "Get owner address and status"
-    },
-    "/repos": {
-      "method": "GET",
-      "auth": false,
-      "docs": "List git repositories"
-    },
-    "/modules": {
-      "method": "GET",
-      "auth": false,
-      "docs": "List orbit and core modules"
-    },
-    "/folders": {
-      "method": "GET",
-      "auth": false,
-      "docs": "List folders under a path with optional search filter"
-    },
-    "/suggest_folders": {
-      "method": "GET",
-      "auth": false,
-      "docs": "Suggest folders using embedcode similarity search"
-    },
-    "/files/tree": {
-      "method": "GET",
-      "auth": false,
-      "docs": "File tree browser"
-    },
-    "/jobs": {
-      "method": [
-        "POST",
-        "GET"
-      ],
-      "auth": true,
-      "docs": "Submit or list jobs"
-    },
-    "/jobs/{id}": {
-      "method": [
-        "GET",
-        "DELETE"
-      ],
-      "auth": true,
-      "docs": "Get or delete job"
-    },
-    "/jobs/{id}/cancel": {
-      "method": "POST",
-      "auth": true,
-      "docs": "Cancel a running job"
-    },
-    "/jobs/{id}/stream": {
-      "method": "GET",
-      "auth": true,
-      "docs": "SSE live stream of job output"
-    },
-    "/kill": {
-      "method": "POST",
-      "auth": true,
-      "docs": "Kill a process by PID or port (owner-only)"
-    },
-    "/changelog": {
-      "method": "GET",
-      "auth": false,
-      "docs": "Get version changelog"
-    },
-    "/versions/{version}": {
-      "method": "GET",
-      "auth": false,
-      "docs": "Get a specific version entry"
-    }
-  },
-  "urls": {
-    "api": "http://localhost:8820",
-    "app": "http://localhost:8821"
-  },
-  "gateway_port": 8821
+    "gateway_port": 8821
 }

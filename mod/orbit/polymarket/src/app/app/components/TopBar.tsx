@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useFilters, useFilterParams } from "../context/FiltersContext";
 import ProfileMenu from "./ProfileMenu";
 import WalletChip from "./WalletChip";
+
+// Lower-cased 40-hex-char Ethereum address pattern — what Polymarket's trader
+// URLs accept. Matching here lets the search box double as a "jump to trader"
+// teleport: type any 0x address + Enter and we route to the profile page.
+const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
 // Top bar intentionally minimal — the wallet chip's dot conveys CLOB / trading
 // readiness, and ProfileMenu (the right-side panel toggle) holds split-screen,
 // token gen, and other power-user controls.
@@ -25,8 +30,10 @@ export default function TopBar({
   searchPlaceholder = "SEARCH...",
 }: TopBarProps) {
   const pathname = usePathname() || "";
+  const router = useRouter();
   const { search, setSearch } = useFilters();
   const filterQs = useFilterParams();
+  const isAddrSearch = ADDR_RE.test(search.trim());
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -68,7 +75,10 @@ export default function TopBar({
           </nav>
         </div>
 
-        {/* ── CENTER: search ── */}
+        {/* ── CENTER: search ──
+            Doubles as a "jump to trader" teleport — paste any 0x address +
+            press Enter (or click ↵) and we route straight to the trader page
+            instead of filtering the current list. */}
         {showSearch ? (
           <div className="flex-1 flex justify-center">
             <div className="relative w-full max-w-[480px]">
@@ -77,9 +87,31 @@ export default function TopBar({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={searchPlaceholder}
-                className="pixel-input-sm w-full pl-6 pr-7 font-mono text-[14px]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && isAddrSearch) {
+                    const addr = search.trim().toLowerCase();
+                    setSearch("");
+                    router.push(`/traders/${addr}${filterQs ? `?${filterQs}` : ""}`);
+                  }
+                }}
+                placeholder={isAddrSearch ? "press ENTER to view this trader →" : searchPlaceholder}
+                className={`pixel-input-sm w-full pl-6 pr-20 font-mono text-[14px] ${
+                  isAddrSearch ? "border-green-400 text-green-400" : ""
+                }`}
               />
+              {isAddrSearch && (
+                <button
+                  onClick={() => {
+                    const addr = search.trim().toLowerCase();
+                    setSearch("");
+                    router.push(`/traders/${addr}${filterQs ? `?${filterQs}` : ""}`);
+                  }}
+                  title="Open trader profile"
+                  className="absolute right-7 top-1/2 -translate-y-1/2 text-[11px] text-green-400 font-mono px-1.5 py-0.5 border border-green-400 rounded-[4px] hover:bg-green-400/10"
+                >
+                  ↵ GO
+                </button>
+              )}
               {search && (
                 <button
                   onClick={() => setSearch("")}

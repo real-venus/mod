@@ -12,18 +12,20 @@ import EnableTradingPanel from "./EnableTradingPanel";
 import PolymarketAccountPanel from "./PolymarketAccountPanel";
 import ThemeToggle from "./ThemeToggle";
 
-// Poll interval (minutes → ms). The engine copies each detected trade as it
-// arrives, so this is purely how often we hit Polymarket's data-api per trader.
-const REBALANCE_MS: Record<number, number> = {
-  1: 60_000,
-  2: 120_000,
-  5: 300_000,
-  10: 600_000,
-  15: 900_000,
-  60: 3_600_000,
-  240: 14_400_000,
-  1440: 86_400_000,
-};
+// Live monitoring poll cadence — configurable per-strat via `livePollMinutes`.
+// Defaults to 1 minute. The BACKTEST tab has its own `rebalanceMinutes` field
+// for historical-simulation aggregation; the two are decoupled so a slow
+// backtest cadence doesn't silently throttle real-time copy.
+const LIVE_POLL_OPTIONS: { minutes: number; label: string }[] = [
+  { minutes: 1, label: "1MIN" },
+  { minutes: 2, label: "2MIN" },
+  { minutes: 5, label: "5MIN" },
+  { minutes: 10, label: "10MIN" },
+  { minutes: 15, label: "15MIN" },
+  { minutes: 30, label: "30MIN" },
+  { minutes: 60, label: "1H" },
+];
+const DEFAULT_LIVE_POLL_MIN = 1;
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -57,12 +59,21 @@ export default function LivePanel() {
   const { engineState, isLive, startLive, stopLive, pauseLive, resumeLive } = useCopyEngine();
   const [confirmed, setConfirmed] = useState(false);
   const [liveCapital, setLiveCapital] = useState(100);
+  const [livePollMin, setLivePollMin] = useState(DEFAULT_LIVE_POLL_MIN);
   const [now, setNow] = useState(Date.now());
 
   // Tick for countdown
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  // Load persisted live poll interval from the active strat (or default 1).
+  useEffect(() => {
+    const id = getActiveIndexId();
+    if (!id) return;
+    const strat = loadIndexes().find((s) => s.id === id);
+    if (strat?.livePollMinutes) setLivePollMin(strat.livePollMinutes);
   }, []);
 
   const activeStrat = useMemo((): SavedIndex | null => {
@@ -75,7 +86,9 @@ export default function LivePanel() {
   const hasWallet = auth.connected && !!auth.address;
   const hasCreds = auth.authenticated && !!auth.clobCreds;
   const hasTraders = (activeStrat?.traders.filter((t) => t.enabled !== false).length ?? 0) > 0;
-  const hasRebalance = (activeStrat?.rebalanceMinutes ?? 0) > 0;
+  // Always true now — LIVE is hard-pinned to 1-minute polling. The strat's
+  // rebalanceMinutes only affects BACKTEST cadence and isn't a live precondition.
+  const hasRebalance = true;
   const hasCapital = liveCapital > 0;
   const canStart = hasWallet && hasCreds && hasTraders && hasRebalance && hasCapital;
 
@@ -93,22 +106,24 @@ export default function LivePanel() {
 
     if (!auth.clobCreds || !auth.address || !activeStrat) return;
 
-    const intervalMs = REBALANCE_MS[activeStrat.rebalanceMinutes ?? 0];
-    if (!intervalMs) return;
-
     startLive({
       strategyId: activeStrat.id,
       traders: activeStrat.traders.filter((t) => t.enabled !== false),
       capital: liveCapital,
-      intervalMs,
+      intervalMs: livePollMin * 60_000,
       creds: auth.clobCreds,
       address: auth.address,
       minOrderSize: 1,
       maxSlippageBps: 300,
     });
 
-    updateIndex(activeStrat.id, { liveEnabled: true, capital: liveCapital, updatedAt: Date.now() });
-  }, [isLive, confirmed, auth, activeStrat, liveCapital, startLive, stopLive]);
+    updateIndex(activeStrat.id, {
+      liveEnabled: true,
+      capital: liveCapital,
+      livePollMinutes: livePollMin,
+      updatedAt: Date.now(),
+    });
+  }, [isLive, confirmed, auth, activeStrat, liveCapital, livePollMin, startLive, stopLive]);
 
   const handleCancel = useCallback(() => setConfirmed(false), []);
 
@@ -141,6 +156,22 @@ export default function LivePanel() {
           </div>
           <div className="flex items-center gap-1.5">
             <ThemeToggle />
+            {/* SCAN EVERY — how often the engine hits Polymarket per trader.
+                Disabled mid-run since changing intervals requires a stop/start. */}
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-pixel-gray tracking-wider">
+              SCAN
+              <select
+                value={livePollMin}
+                disabled={isLive}
+                onChange={(e) => setLivePollMin(Number(e.target.value))}
+                className="bg-pixel-black/60 border border-pixel-border rounded-[6px] font-mono text-[12px] text-pixel-white px-1.5 py-0.5 outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title="How often the engine polls each trader. Lower = more real-time, more API hits."
+              >
+                {LIVE_POLL_OPTIONS.map((o) => (
+                  <option key={o.minutes} value={o.minutes}>{o.label}</option>
+                ))}
+              </select>
+            </label>
             {/* Polygon USDC ready-to-trade indicator — visible before GO LIVE */}
             {auth.connected && <LoadedBadge capital={liveCapital} />}
             {isLive && status === "running" && (

@@ -1165,6 +1165,52 @@ class Mod:
         results['ok'] = True
         return results
 
+    def login(self, token: str = None, **kwargs) -> dict:
+        """Sign in to the claude API using a Claude.ai OAuth token.
+
+        Reads the local Claude CLI keychain token by default — the same
+        sk-ant-oat01-… token `claude login` stores — and exchanges it at
+        /auth/claude for a bearer scoped to a pseudo-address derived from
+        the Anthropic account UUID. Requires Pro or Max membership.
+
+        Usage:
+            m claude/login                    # use keychain token
+            m claude/login <sk-ant-oat01-...> # explicit token
+        """
+        oauth_token = token or self._read_keychain_token()
+        if not oauth_token:
+            print('[login] no Claude OAuth token — run `claude login` first or pass one explicitly')
+            return {'ok': False, 'error': 'no oauth token'}
+        # _read_keychain_token returns raw keychain JSON; extract accessToken if needed
+        if oauth_token.startswith('{'):
+            try:
+                oauth_token = json.loads(oauth_token)['claudeAiOauth']['accessToken']
+            except Exception as e:
+                return {'ok': False, 'error': f'bad keychain payload: {e}'}
+
+        url = f'{self.api_url}/auth/claude'
+        body = json.dumps({'token': oauth_token}).encode()
+        req = urllib.request.Request(url, data=body,
+                                     headers={'Content-Type': 'application/json'},
+                                     method='POST')
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()
+            print(f'[login] HTTP {e.code}: {body}')
+            return {'ok': False, 'status': e.code, 'error': body}
+        except Exception as e:
+            return {'ok': False, 'error': str(e)}
+
+        bearer = data.get('token')
+        cache_dir = Path(os.path.expanduser('~/.mod/claude'))
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        (cache_dir / 'bearer.json').write_text(json.dumps(data, indent=2))
+        print(f'[login] ✓ {data.get("email")} ({data.get("membership")}) → {data.get("address")}')
+        print(f'[login] bearer cached at {cache_dir / "bearer.json"}')
+        return {'ok': True, **data, 'bearer': bearer}
+
     def _authtoken(self, token: str = None, **kwargs) -> dict:
         """Get or set the Claude Code auth token (macOS Keychain).
 

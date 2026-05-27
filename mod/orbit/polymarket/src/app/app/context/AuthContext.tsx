@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { AuthState } from "../lib/types";
 import { detectWallet, connectWallet, deriveClobApiKey } from "../lib/auth";
+import type { ClobCredentials } from "../lib/types";
 
 interface LocalToken {
   token: string;
@@ -31,6 +32,36 @@ const defaultAuth: AuthState = {
 };
 
 const LOCAL_TOKEN_KEY = "poly8bit_local_token";
+// CLOB creds are bound to a specific EOA (HMAC secret + apiKey are minted
+// against the recovered signer). Cache per-address so users don't re-sign
+// the EIP-712 ClobAuth on every page load. localStorage is the same trust
+// boundary as the wallet's permission — anyone with browser access already
+// has account-level reach, so this doesn't widen the attack surface.
+const CLOB_CREDS_PREFIX = "poly_clob_creds:";
+
+function loadCachedClobCreds(addr: string): ClobCredentials | null {
+  try {
+    const raw = localStorage.getItem(CLOB_CREDS_PREFIX + addr.toLowerCase());
+    if (!raw) return null;
+    const obj = JSON.parse(raw) as ClobCredentials;
+    if (!obj.apiKey || !obj.secret || !obj.passphrase) return null;
+    return obj;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedClobCreds(addr: string, creds: ClobCredentials): void {
+  try {
+    localStorage.setItem(CLOB_CREDS_PREFIX + addr.toLowerCase(), JSON.stringify(creds));
+  } catch {}
+}
+
+function clearCachedClobCreds(addr: string): void {
+  try {
+    localStorage.removeItem(CLOB_CREDS_PREFIX + addr.toLowerCase());
+  } catch {}
+}
 
 const AuthContext = createContext<AuthContextValue>({
   auth: defaultAuth,
@@ -67,6 +98,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setHasWallet(detectWallet());
     setLocalToken(loadStoredToken());
+    // Silent reconnect: if the wallet still reports an authorized account
+    // for this origin, rehydrate it + cached CLOB creds without prompting.
+    // eth_accounts (vs eth_requestAccounts) returns [] on no-permission,
+    // so the user never sees a popup just by opening the page.
+    if (typeof window === "undefined" || !window.ethereum) return;
+    const eth = window.ethereum as {
+      request: (a: { method: string; params?: unknown[] }) => Promise<unknown>;
+    };
+    (async () => {
+      try {
+        const accts = (await eth.request({ method: "eth_accounts" })) as string[];
+        const addr = accts?.[0];
+        if (!addr) return;
+        const chainIdHex = (await eth.request({ method: "eth_chainId" })) as string;
+        const chainId = parseInt(chainIdHex, 16);
+        const cached = loadCachedClobCreds(addr);
+        setAuth((prev) => ({
+          ...prev,
+          connected: true,
+          address: addr,
+          chainId,
+          clobCreds: cached,
+          authenticated: !!cached,
+        }));
+      } catch {}
+    })();
   }, []);
 
   // Clear CLOB creds when the active wallet account changes. The HMAC
@@ -114,7 +171,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const { address, chainId } = await connectWallet();
-      setAuth((prev) => ({ ...prev, connected: true, address, chainId }));
+      // Try to hydrate cached CLOB creds for this EOA — saves the EIP-712
+      // sign prompt on every reload. Cache is invalidated by disconnect()
+      // or by the user clicking the CLOB chip to force a re-derive.
+      const cached = loadCachedClobCreds(address);
+      setAuth((prev) => ({
+        ...prev,
+        connected: true,
+        address,
+        chainId,
+        clobCreds: cached,
+        authenticated: !!cached,
+      }));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "CONNECTION FAILED");
     } finally {
@@ -123,9 +191,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const disconnect = useCallback(() => {
+    // Explicit disconnect wipes the cached creds too — leaving them behind
+    // would re-authenticate silently on the next reload and surprise the user.
+    if (auth.address) clearCachedClobCreds(auth.address);
     setAuth(defaultAuth);
     setError(null);
-  }, []);
+  }, [auth.address]);
 
   const authenticate = useCallback(async () => {
     if (!auth.address) return;
@@ -133,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const creds = await deriveClobApiKey(auth.address);
+      saveCachedClobCreds(auth.address, creds);
       setAuth((prev) => ({ ...prev, clobCreds: creds, authenticated: true }));
     } catch (e: unknown) {
       console.error("CLOB auth error:", e);

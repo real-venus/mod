@@ -498,6 +498,112 @@ pub fn run_gate_command(address: &str) -> bool {
     }
 }
 
+// ── Claude OAuth Membership ──────────────────────────────────────────
+
+/// Subset of Anthropic's /api/oauth/profile response.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ClaudeProfile {
+    pub uuid: String,
+    pub email: String,
+    pub full_name: String,
+    pub has_max: bool,
+    pub has_pro: bool,
+    pub organization_uuid: String,
+    pub organization_type: String,
+}
+
+impl ClaudeProfile {
+    pub fn membership(&self) -> Option<&'static str> {
+        if self.has_max { Some("max") }
+        else if self.has_pro { Some("pro") }
+        else { None }
+    }
+}
+
+/// Validate a Claude OAuth access token (sk-ant-oat01-…) by calling Anthropic's
+/// profile endpoint. The same endpoint the Claude CLI uses to identify the
+/// signed-in account.
+pub async fn verify_claude_membership(oauth_token: &str) -> Result<ClaudeProfile, String> {
+    if !oauth_token.starts_with("sk-ant-oat01-") {
+        return Err("Not a Claude OAuth token (expected sk-ant-oat01- prefix)".to_string());
+    }
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("https://api.anthropic.com/api/oauth/profile")
+        .header("Authorization", format!("Bearer {}", oauth_token))
+        .send()
+        .await
+        .map_err(|e| format!("Anthropic profile request failed: {}", e))?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(format!("Anthropic rejected token (HTTP {})", status));
+    }
+
+    let data: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("Bad JSON from Anthropic: {}", e))?;
+
+    let account = data.get("account").ok_or("Missing account in profile")?;
+    let org = data.get("organization");
+
+    let uuid = account
+        .get("uuid")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing account.uuid")?
+        .to_string();
+    let email = account.get("email").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let full_name = account.get("full_name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let has_max = account.get("has_claude_max").and_then(|v| v.as_bool()).unwrap_or(false);
+    let has_pro = account.get("has_claude_pro").and_then(|v| v.as_bool()).unwrap_or(false);
+    let organization_uuid = org
+        .and_then(|v| v.get("uuid"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let organization_type = org
+        .and_then(|v| v.get("organization_type"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    Ok(ClaudeProfile {
+        uuid,
+        email,
+        full_name,
+        has_max,
+        has_pro,
+        organization_uuid,
+        organization_type,
+    })
+}
+
+/// Derive a deterministic 0x-prefixed 20-byte pseudo-address from a Claude
+/// account UUID. The 0xc1a1de prefix tags these as Claude-OAuth-derived so they
+/// are visually distinguishable from real wallet addresses.
+pub fn claude_pseudo_address(uuid: &str) -> String {
+    let clean = uuid.replace('-', "");
+    let mut hasher = sha3::Keccak256::new();
+    hasher.update(b"claude-oauth:");
+    hasher.update(clean.as_bytes());
+    let hash = hasher.finalize();
+    // tag (3 bytes "c1a1de") + 17 bytes of hash = 20 bytes = 40 hex chars
+    format!("0xc1a1de{}", hex::encode(&hash[..17]))
+}
+
+/// Mint an internal HMAC bearer token for an address. Same format as
+/// `verify`: address:timestamp:hmac.
+pub fn mint_bearer(address: &str) -> String {
+    let addr = address.to_lowercase();
+    let timestamp = chrono::Utc::now().timestamp();
+    let payload = format!("{}:{}", addr, timestamp);
+    let mut mac = HmacSha256::new_from_slice(get_secret()).unwrap();
+    mac.update(payload.as_bytes());
+    let sig = hex::encode(mac.finalize().into_bytes());
+    format!("{}:{}", payload, sig)
+}
+
 // ── Ethereum Signature Recovery ──────────────────────────────────────
 
 fn recover_eth_address(message: &str, signature: &str) -> Result<String, String> {

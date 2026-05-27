@@ -14,6 +14,7 @@ import { loadIndexes, saveIndex, deleteIndex, updateIndex, getActiveIndexId, set
 import LivePanel from "./LivePanel";
 import StratPicker from "./StratPicker";
 import WalletFundingPanel from "./WalletFundingPanel";
+import ThemeToggle from "./ThemeToggle";
 
 interface TraderSummary {
   address: string;
@@ -429,7 +430,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
   const [traderWeights, setTraderWeights] = useState<Record<string, number>>({});
 
   // ── Mode toggle (STRATS = manage, BACKTEST = test, LIVE = copy) ──
-  const [mode, setMode] = useState<"STRATS" | "BACKTEST" | "LIVE">("STRATS");
+  // Default to LIVE so a returning user lands directly on their copy engine
+  // rather than the strategy-management screen. The LIVE tab is itself
+  // disabled until a watchlist exists, so first-time-no-strat users still
+  // see STRATS through the disabled-tab fallback in the tabs render block.
+  const [mode, setMode] = useState<"STRATS" | "BACKTEST" | "LIVE">("LIVE");
 
   // Derive watchlist from active strategy (only enabled traders)
   const watchlist = useMemo(
@@ -1508,6 +1513,33 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                     className="bg-transparent w-8 text-right font-mono text-[14px] text-pixel-white outline-none"
                   />
                 </Field>
+              </div>
+
+              {/* SAMPLE quick-presets — one-click % flips for stress-testing
+                  thin participation against the full mirror. Active chip
+                  picks up the green ring; others stay quiet. */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                <span className="text-[10px] text-pixel-gray tracking-[0.15em] mr-1">SAMPLE</span>
+                {[10, 25, 50, 75, 100].map((p) => {
+                  const active = samplePct === p;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setSamplePct(p)}
+                      className={`pixel-btn text-[11px] px-2 py-0.5 ${
+                        active
+                          ? "border-green-400 text-green-400 bg-green-400/10"
+                          : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+                      }`}
+                      title={`Sample ${p}% of in-window trades`}
+                    >
+                      {p}%
+                    </button>
+                  );
+                })}
+                <span className="text-[10px] text-pixel-gray/70 ml-1">
+                  · deterministic, same % gives same sample
+                </span>
               </div>
 
               {/* ── Row 3: live poll interval ────────────────────────

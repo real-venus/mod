@@ -72,7 +72,8 @@ export interface SavedIndex {
   maxTradesPerHour?: number; // maximum trades per hour (default 10)
   rebalancePeriod?: number; // rebalance period in hours (default 24)
   rebalanceHour?: number; // hour of day to rebalance 0-23 (default 0 = midnight)
-  rebalanceMinutes?: number; // auto-rebalance period (0 = disabled)
+  rebalanceMinutes?: number; // BACKTEST-only poll cadence (historical sim aggregation)
+  livePollMinutes?: number; // LIVE engine scan interval in minutes (default 1)
   liveEnabled?: boolean; // whether live copy-trading is active
   createdAt: number;
   updatedAt: number;

@@ -91,7 +91,8 @@ pub async fn serve(manager: AppState, port: u16) {
         .route(
             "/auth/verify",
             post(auth::verify).with_state(challenge_store),
-        );
+        )
+        .route("/auth/claude", post(auth_claude));
 
     let app = Router::new()
         .merge(job_routes)
@@ -244,6 +245,76 @@ fn read_config_owner() -> Option<String> {
     let data: serde_json::Value = serde_json::from_str(&content).ok()?;
     let owner = data.get("owner").and_then(|v| v.as_str())?.to_lowercase();
     if owner.is_empty() { None } else { Some(owner) }
+}
+
+#[derive(Deserialize)]
+struct ClaudeAuthRequest {
+    token: String,
+}
+
+/// Sign in with a Claude.ai OAuth access token (sk-ant-oat01-…) — the same
+/// token the Claude CLI stores in the user's keychain. Requires an active
+/// Claude Pro or Max membership.
+async fn auth_claude(Json(req): Json<ClaudeAuthRequest>) -> impl IntoResponse {
+    let profile = match auth::verify_claude_membership(&req.token).await {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "error": format!("Claude OAuth verification failed: {}", e) })),
+            )
+                .into_response();
+        }
+    };
+
+    let membership = match profile.membership() {
+        Some(m) => m,
+        None => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "error": "Claude.ai Pro or Max membership required",
+                    "email": profile.email,
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let address = auth::claude_pseudo_address(&profile.uuid);
+    let bearer = auth::mint_bearer(&address);
+
+    // If no owner has been set yet, the first Claude-member to sign in claims
+    // ownership — mirrors the existing wallet-verify flow.
+    if auth::get_owner_address().is_none() {
+        let owner_path = dirs::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join(".mod")
+            .join("claude")
+            .join("owner.json");
+        if let Some(parent) = owner_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let owner_data = serde_json::json!({ "owner": address });
+        if let Ok(json_str) = serde_json::to_string_pretty(&owner_data) {
+            let _ = std::fs::write(&owner_path, json_str);
+            println!("✓ First Claude member authenticated — set as owner: {} ({})", address, profile.email);
+        }
+    }
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "token": bearer,
+            "address": address,
+            "email": profile.email,
+            "full_name": profile.full_name,
+            "membership": membership,
+            "organization": profile.organization_uuid,
+            "organization_type": profile.organization_type,
+        })),
+    )
+        .into_response()
 }
 
 /// Returns the role for the given address: "owner" or "user"
