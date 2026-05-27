@@ -30,7 +30,7 @@
         "providers",
         "health"
     ],
-    "schema": "QmYJcTt4SVcDoV4fFLJMU4hT4NFMiN7Tcxje2yz8cCzfj9",
+    "schema": "QmR4fvU6VNRvSzP8ef2MWuRM2qZyqM7zSdsC3wYBo7wTWm",
     "endpoints": {
         "/health": {
             "method": "GET",

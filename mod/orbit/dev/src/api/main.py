@@ -245,6 +245,30 @@ def list_modules():
     return results
 
 
+@api.get("/logs/{module}")
+def get_logs(module: str, lines: int = 100, since: int = 0):
+    """Tail the last `lines` of /tmp/mod-{module}.log. `since` is a byte offset
+    for incremental polling — the response includes the new offset so the
+    client can fetch only what's new on the next call.
+    """
+    log_path = Path(f"/tmp/mod-{module}.log")
+    if not log_path.exists():
+        return {"module": module, "lines": [], "offset": 0, "exists": False}
+    size = log_path.stat().st_size
+    with log_path.open("rb") as f:
+        if since and since < size:
+            f.seek(since)
+            chunk = f.read().decode("utf-8", errors="replace")
+            new_lines = chunk.splitlines()
+        else:
+            # Initial load — read the tail.
+            tail_bytes = min(size, 64 * 1024)
+            f.seek(max(0, size - tail_bytes))
+            chunk = f.read().decode("utf-8", errors="replace")
+            new_lines = chunk.splitlines()[-lines:]
+    return {"module": module, "lines": new_lines, "offset": size, "exists": True, "bytes": size}
+
+
 @api.get("/jobs/{module}")
 def get_jobs(module: str, x_mod_signature: Optional[str] = Header(default=None, alias="X-Mod-Signature")):
     """List recent jobs for a module — proxies through with the caller's

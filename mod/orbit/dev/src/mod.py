@@ -143,6 +143,81 @@ class Mod:
             results[mod_name] = self.register(name=mod_name, key=key)
         return results
 
+    def register_per_key(self, modules=None, fund_eth: float = 0.0005, key=None) -> dict:
+        """Register each module under its own deterministic key, with gas
+        sponsored by the funded chain relayer on Base Sepolia.
+
+        For each module N:
+          1. derive deterministic key via m.key(N)  → address A_N
+          2. if A_N balance < fund_eth: relayer transfers `fund_eth` ETH
+             (default 0.0005 ETH — enough for ~10 registerMod calls)
+          3. sign + broadcast registerMod(N, cid) using A_N's key
+          4. on-chain entry is owned by A_N (distinct per module)
+        """
+        self._require_owner(key, "register_per_key")
+        if modules is None:
+            modules = list(self.DEFAULT_MODULES)
+        elif isinstance(modules, str):
+            modules = [s.strip() for s in modules.split(",") if s.strip()]
+
+        chain = m.mod("chain")()
+        relayer = chain.key.address
+        fund_wei = int(fund_eth * 10 ** 18)
+        results = {}
+        for name in modules:
+            addr = None
+            try:
+                mod_key = m.key(name)
+                addr = mod_key.address
+                cid = m.cid(name)
+                bal = chain.w3.eth.get_balance(addr)
+                topup = None
+                if bal < fund_wei:
+                    topup = chain.transfer(addr, fund_eth, token="eth")
+                prior_key = chain.key
+                chain.key = mod_key
+                try:
+                    tx = chain.reg(name, cid)
+                finally:
+                    chain.key = prior_key
+                tx_hash = tx.get("transactionHash") if isinstance(tx, dict) else None
+                results[name] = {
+                    "ok": True,
+                    "key": addr,
+                    "cid": cid,
+                    "funded_from": relayer if topup else None,
+                    "tx": tx_hash.hex() if hasattr(tx_hash, "hex") else str(tx_hash),
+                }
+            except Exception as e:
+                results[name] = {"ok": False, "key": addr, "error": f"{type(e).__name__}: {e}"}
+        return results
+
+    def module_keys(self, modules=None) -> dict:
+        """Show the deterministic per-module key addresses + their ETH balance.
+
+        Use before register_per_key() to see what needs funding.
+        """
+        if modules is None:
+            modules = list(self.DEFAULT_MODULES) + ["tether"]
+        elif isinstance(modules, str):
+            modules = [s.strip() for s in modules.split(",") if s.strip()]
+        chain = None
+        try:
+            chain = m.mod("chain")()
+        except Exception:
+            pass
+        result = {}
+        for name in modules:
+            mod_key = m.key(name)
+            entry = {"address": mod_key.address}
+            if chain is not None:
+                try:
+                    entry["balance_wei"] = int(chain.w3.eth.get_balance(mod_key.address))
+                except Exception as e:
+                    entry["balance_error"] = str(e)
+            result[name] = entry
+        return result
+
     # ── Serve ─────────────────────────────────────────────────────────
 
     # ── Serve / Gateway orchestration ─────────────────────────────────

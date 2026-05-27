@@ -856,20 +856,26 @@ export default function CopyTrading({
                       >
                         {onSelect ? (
                           selectedLower.has(trader.address.toLowerCase()) ? (
+                            // IN STRAT: filled purple (matches the proxy
+                            // brand color used elsewhere for "your account").
+                            // Hover morphs to RED so the destructive action
+                            // is obvious before clicking.
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}
-                              className="pixel-btn text-[12px] px-2 py-0.5 border-green-400 text-green-400 bg-green-400/10 hover:border-red-400 hover:text-red-400 hover:bg-red-400/10 transition-all whitespace-nowrap"
+                              className="pixel-btn text-[12px] px-2 py-0.5 border-purple-400 text-purple-400 bg-purple-400/15 hover:border-red-400 hover:text-red-400 hover:bg-red-400/15 transition-all whitespace-nowrap"
                               title="In strat — click to remove"
                             >
                               <span className="group-hover:hidden">IN STRAT</span>
                               <span className="hidden group-hover:inline">REMOVE</span>
                             </button>
                           ) : (
+                            // + ADD: green-tinted outline so the constructive
+                            // action reads at a glance even when scrolling.
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}
-                              className="pixel-btn text-[12px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:border-green-400 hover:text-green-400 transition-all whitespace-nowrap"
+                              className="pixel-btn text-[12px] px-2 py-0.5 border-green-400/60 text-green-400 bg-green-400/5 hover:border-green-400 hover:bg-green-400/15 transition-all whitespace-nowrap"
                               title="Add to active strat"
                             >
                               + ADD

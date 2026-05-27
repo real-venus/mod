@@ -200,6 +200,28 @@ textarea { resize: vertical; min-height: 80px; font-family: "JetBrains Mono", mo
 .task .prompt { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .task .meta { display:flex; gap:10px; margin-top: 5px; font-size: 10px; color: var(--fg-dim); }
 
+/* Per-agent execution log panel */
+.log-box {
+  background: #000; color: #c8d3c4;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px; line-height: 1.5;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  max-height: 220px; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+html[data-theme="light"] .log-box { background: #0a0a0a; color: #c8d3c4; }
+.log-box .err { color: var(--red); }
+.log-box .warn { color: var(--amber); }
+.log-box .info { color: var(--green); }
+.tabs { display:flex; gap:6px; margin-bottom: 8px; }
+.tab {
+  padding: 4px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  background: transparent; color: var(--fg-muted); border: 1px solid var(--border);
+  border-radius: 999px; cursor: pointer;
+}
+.tab.active { background: var(--btn-bg-hover); color: var(--fg); border-color: var(--border-strong); }
+
 .empty { color: var(--fg-dim); font-size: 11px; padding: 12px; font-style: italic; }
 
 /* Modal */
@@ -299,7 +321,7 @@ try { if (localStorage.getItem("mod_theme") === "light") document.documentElemen
 <script>
 const CHALLENGE = "mod-key-derivation-v1";
 const API_BASE = window.location.pathname.replace(/\/$/, "").startsWith("/dev") ? "/api/dev" : "";
-const state = { wallet: null, signature: null, derivedKey: null, modules: [], selected: new Set(), tasksByMod: {} };
+const state = { wallet: null, signature: null, derivedKey: null, modules: [], selected: new Set(), tasksByMod: {}, logsByMod: {}, logOffsets: {}, viewByMod: {} };
 const $ = (id) => document.getElementById(id);
 
 /* ── theme ─────────────────────────────────────────────── */
@@ -412,46 +434,105 @@ async function loadTasksFor(name) {
   const data = await r.json();
   return Array.isArray(data) ? data : (data.jobs || []);
 }
+async function loadLogsFor(name) {
+  const offset = state.logOffsets[name] || 0;
+  const r = await fetch(`${API_BASE}/logs/${name}?lines=80&since=${offset}`);
+  if (!r.ok) return;
+  const data = await r.json();
+  state.logOffsets[name] = data.offset || 0;
+  if (offset === 0) {
+    state.logsByMod[name] = data.lines || [];
+  } else if (data.lines && data.lines.length) {
+    state.logsByMod[name] = (state.logsByMod[name] || []).concat(data.lines);
+    state.logsByMod[name] = state.logsByMod[name].slice(-500);
+  }
+}
+
+function classifyLine(l) {
+  const ll = l.toLowerCase();
+  if (ll.includes("error") || ll.includes("traceback") || ll.includes("failed")) return "err";
+  if (ll.includes("warn") || ll.includes("⚠")) return "warn";
+  if (ll.includes("ok") || ll.includes("listening") || ll.includes("started")) return "info";
+  return "";
+}
+
 function renderTasks() {
   const c = $("tasks");
   if (state.selected.size === 0) {
-    c.innerHTML = '<div class="panel"><div class="empty">select one or more modules from the sidebar to view tasks and send parallel prompts</div></div>';
+    c.innerHTML = '<div class="panel"><div class="empty">select one or more modules from the sidebar to view tasks, execution logs, and send parallel prompts</div></div>';
     return;
   }
   c.innerHTML = "";
   [...state.selected].forEach((name) => {
     const mod = state.modules.find(m => m.name === name) || {};
     const tasks = state.tasksByMod[name] || [];
+    const logs = state.logsByMod[name] || [];
+    const view = state.viewByMod[name] || "log";
+    const status = mod.alive ? "live" : (mod.served ? "warn" : "idle");
     const panel = document.createElement("div");
     panel.className = "panel";
-    const status = mod.alive ? "live" : (mod.served ? "warn" : "idle");
     panel.innerHTML = `
       <header>
         <h2>${name} <span class="pill ${status}">${mod.alive?'live':(mod.served?'starting':'idle')}</span></h2>
         <span class="muted mono" style="font-size:11px;">${mod.kind||'?'} · port ${mod.port||'?'}</span>
       </header>
-      <div id="tasks-${name}">${tasks.length ? '' : '<div class="empty">' + (state.signature ? 'no recent tasks' : 'connect wallet to view tasks') + '</div>'}</div>`;
+      <div class="tabs">
+        <button class="tab ${view==='log'?'active':''}" data-view="log" data-mod="${name}">execution log</button>
+        <button class="tab ${view==='tasks'?'active':''}" data-view="tasks" data-mod="${name}">tasks (${tasks.length})</button>
+      </div>
+      <div id="body-${name}"></div>`;
     c.appendChild(panel);
-    const tdiv = panel.querySelector(`#tasks-${name}`);
-    tasks.slice(0, 8).forEach((t) => {
-      const el = document.createElement("div");
-      el.className = "task";
-      const stat = t.status || "?";
-      const stp = stat === "completed" ? "live" : stat === "failed" ? "miss" : "warn";
-      const prompt = (t.prompt || t.text || JSON.stringify(t)).slice(0, 100);
-      el.innerHTML = `<div class="prompt">${prompt}</div>
-        <div class="meta">
-          <span class="pill ${stp}">${stat}</span>
-          <span class="mono">${t.model || ''}</span>
-          <span class="mono dim">${t.id ? t.id.slice(0,8) : ''}</span>
-        </div>`;
-      tdiv.appendChild(el);
-    });
+    const body = panel.querySelector(`#body-${name}`);
+    if (view === "log") {
+      if (!logs.length) {
+        body.innerHTML = '<div class="empty">no log yet — module hasn\'t started, or /tmp/mod-' + name + '.log is empty</div>';
+      } else {
+        const box = document.createElement("div");
+        box.className = "log-box";
+        box.innerHTML = logs.map(l => {
+          const cls = classifyLine(l);
+          const safe = l.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+          return cls ? `<span class="${cls}">${safe}</span>` : safe;
+        }).join("\n");
+        body.appendChild(box);
+        // auto-scroll to bottom
+        box.scrollTop = box.scrollHeight;
+      }
+    } else {
+      if (!tasks.length) {
+        body.innerHTML = '<div class="empty">' + (state.signature ? 'no recent tasks' : 'connect wallet to view tasks') + '</div>';
+      } else {
+        tasks.slice(0, 8).forEach((t) => {
+          const el = document.createElement("div");
+          el.className = "task";
+          const stat = t.status || "?";
+          const stp = stat === "completed" ? "live" : stat === "failed" ? "miss" : "warn";
+          const prompt = (t.prompt || t.text || JSON.stringify(t)).slice(0, 100);
+          el.innerHTML = `<div class="prompt">${prompt}</div>
+            <div class="meta">
+              <span class="pill ${stp}">${stat}</span>
+              <span class="mono">${t.model || ''}</span>
+              <span class="mono dim">${t.id ? t.id.slice(0,8) : ''}</span>
+            </div>`;
+          body.appendChild(el);
+        });
+      }
+    }
+  });
+  // Wire tab clicks
+  c.querySelectorAll(".tab").forEach((btn) => {
+    btn.onclick = () => {
+      state.viewByMod[btn.dataset.mod] = btn.dataset.view;
+      renderTasks();
+    };
   });
 }
+
 async function refreshTasks() {
-  if (!state.signature) return;
-  for (const name of state.selected) state.tasksByMod[name] = await loadTasksFor(name);
+  for (const name of state.selected) {
+    if (state.signature) state.tasksByMod[name] = await loadTasksFor(name);
+    await loadLogsFor(name);
+  }
   renderTasks();
 }
 async function runParallel() {
