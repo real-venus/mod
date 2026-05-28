@@ -187,6 +187,20 @@ def get_merkle():
     return _dev_mod().merkle()
 
 
+# Brand image overrides — kept here (not in config.json) so a config linter
+# stripping unknown fields can't break the avatars. iconify CDN.
+KNOWN_IMAGES = {
+    "claude":  "https://api.iconify.design/simple-icons:anthropic.svg?color=%23ffffff",
+    "codex":   "https://api.iconify.design/simple-icons:openai.svg?color=%23ffffff",
+    "cursor":  "https://api.iconify.design/simple-icons:cursor.svg?color=%23ffffff",
+    "tether":  "https://api.iconify.design/simple-icons:tether.svg?color=%23ffffff",
+    "dev":     "https://api.iconify.design/mdi:code-tags.svg?color=%23ffffff",
+    "bridge":  "https://api.iconify.design/mdi:bridge.svg?color=%23ffffff",
+    "model":   "https://api.iconify.design/mdi:brain.svg?color=%23ffffff",
+    "localfs": "https://api.iconify.design/mdi:folder-cog.svg?color=%23ffffff",
+}
+
+
 @api.get("/modules")
 def list_modules():
     """List orbit modules with status info for the sidebar.
@@ -234,7 +248,7 @@ def list_modules():
             "description": cfg.get("description"),
             "icon": cfg.get("icon"),
             "color": cfg.get("color"),
-            "image": cfg.get("image"),
+            "image": KNOWN_IMAGES.get(name) or cfg.get("image"),
             "port": port,
             "app_port": cfg.get("app_port"),
             "kind": "fastapi" if name == "dev" else ("rust" if port else "static"),
