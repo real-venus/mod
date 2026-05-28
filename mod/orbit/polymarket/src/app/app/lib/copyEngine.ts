@@ -355,7 +355,10 @@ export class CopyEngine {
             const mirrorNotional = traderNotional * copyRatio;
             const mirrorSize = trade.size * copyRatio;
 
-            // Skip if below minimum
+            // Skip if below minimum. Include both the actual mirror size and
+            // the configured floor in the reason so the UI can show *how
+            // close* the skip was — "$0.0026 < $1 floor" vs the previous
+            // bare BELOW_MIN_SIZE which made every skip look identical.
             if (mirrorNotional < this.config.minOrderSize) {
               this.addLog({
                 id: uid(),
@@ -367,7 +370,7 @@ export class CopyEngine {
                 side: trade.side,
                 traderSize: trade.size,
                 mirrorNotional,
-                reason: "BELOW_MIN_SIZE",
+                reason: `BELOW_MIN_SIZE · mirror $${mirrorNotional < 0.01 ? mirrorNotional.toExponential(2) : mirrorNotional.toFixed(2)} < floor $${this.config.minOrderSize.toFixed(2)}`,
               });
               this.copiedIds.add(trade.id);
               continue;

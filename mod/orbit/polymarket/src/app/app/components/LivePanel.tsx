@@ -163,7 +163,10 @@ export default function LivePanel() {
       intervalMs: livePollMin * 60_000,
       creds: auth.clobCreds,
       address: auth.address,
-      minOrderSize: 1,
+      // Honor the strat's TRADE SIZE floor — was hardcoded to $1 before, which
+      // caused every dust mirror to skip with BELOW_MIN_SIZE even when the
+      // user had set MIN TRADE to 0.1 in BACKTEST. Falls back to $1.
+      minOrderSize: activeStrat.minTrade ?? 1,
       maxSlippageBps: 300,
     });
 
@@ -420,6 +423,80 @@ export default function LivePanel() {
               fullWidth
             />
           </div>
+
+          {/* ── Skip-floor banner ──
+              Pops up when most of what the engine sees is dust. Surfaces
+              the exact floor and a one-click "drop to N" action that hot-
+              restarts the engine with a lower min so orders start flowing
+              without leaving this tab. Threshold tuned to "more than 3
+              skips with zero orders" so it never appears for healthy runs. */}
+          {(() => {
+            const skipCount = engineState.log.filter((e) => e.type === "SKIP").length;
+            const ordersCount = engineState.totalOrdersPlaced;
+            const noOrdersButSkipping = skipCount > 3 && ordersCount === 0;
+            if (!noOrdersButSkipping) return null;
+            // Suggest the largest skipped mirror as the new floor — that's
+            // the smallest value that would have placed *at least one* order.
+            const skippedSizes = engineState.log
+              .filter((e) => e.type === "SKIP" && typeof e.mirrorNotional === "number")
+              .map((e) => Math.abs(e.mirrorNotional as number));
+            const maxSkipped = skippedSizes.length > 0 ? Math.max(...skippedSizes) : 0.1;
+            // Round down to a tidy chip value (0.01 / 0.05 / 0.10 / 0.50).
+            const tidyFloors = [0.01, 0.05, 0.10, 0.25, 0.5, 1];
+            const suggested = tidyFloors.find((f) => f >= maxSkipped) ?? 1;
+            const currentFloor = activeStrat?.minTrade ?? 1;
+            const applyFloor = (newFloor: number) => {
+              if (!activeStrat) return;
+              updateIndex(activeStrat.id, { minTrade: newFloor, updatedAt: Date.now() });
+              // Re-trigger startLive with the fresh config so the running
+              // engine picks up the new floor. handleToggle skips the
+              // confirm step when already confirmed/live; we have to stop
+              // first then start to swap config cleanly.
+              stopLive();
+              setTimeout(() => {
+                if (!auth.clobCreds || !auth.address) return;
+                startLive({
+                  strategyId: activeStrat.id,
+                  traders: activeStrat.traders.filter((t) => t.enabled !== false),
+                  capital: liveCapital,
+                  intervalMs: livePollMin * 60_000,
+                  creds: auth.clobCreds,
+                  address: auth.address,
+                  minOrderSize: newFloor,
+                  maxSlippageBps: 300,
+                });
+              }, 100);
+            };
+            return (
+              <div className="mt-2 px-3 py-2 border border-amber-400/40 bg-amber-400/5 rounded">
+                <div className="text-[12px] text-amber-400 font-mono mb-1.5">
+                  {skipCount} skipped · 0 orders · mirrors averaging $
+                  {(skippedSizes.reduce((s, v) => s + v, 0) / Math.max(skippedSizes.length, 1)).toFixed(2)}
+                  {" "}vs floor ${currentFloor.toFixed(2)}
+                </div>
+                <div className="text-[11px] text-pixel-gray font-mono mb-1.5">
+                  Your capital is too thin OR the floor is too high. Drop the floor to start filling:
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[0.01, 0.05, 0.10, 0.25, 0.50].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => applyFloor(f)}
+                      className={`pixel-btn text-[11px] px-2 py-0.5 ${
+                        f === suggested
+                          ? "border-green-400 text-green-400 bg-green-400/10"
+                          : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+                      }`}
+                      title={f === suggested ? "Recommended — clears the largest skipped mirror" : `Drop floor to $${f.toFixed(2)} and restart`}
+                    >
+                      ${f.toFixed(2)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {engineState.error && (
             <div className="mt-2 px-2 py-1 border border-red-400/40 bg-red-400/5 text-[14px] text-red-400 font-mono rounded">
               {engineState.error}
