@@ -54,7 +54,7 @@
         "scan",
         "fix"
     ],
-    "schema": "QmSkNWmS9WRMRNgg7LGmJWj1rqnXXhFMsjRKuErvPYPRK2",
+    "schema": "QmRcEYWnsAATCJT2id2fHZCmBs5whwi1ZU1FVYWTxKmYRG",
     "endpoints": {
         "/health": {
             "method": "GET",
@@ -126,11 +126,6 @@
             "method": "POST",
             "auth": true,
             "docs": "Kill a process by PID or port (owner-only)"
-        },
-        "/auth/claude": {
-            "method": "POST",
-            "auth": false,
-            "docs": "Sign in with a Claude.ai OAuth token (sk-ant-oat01-...) \u2014 requires active Pro or Max membership"
         },
         "/changelog": {
             "method": "GET",

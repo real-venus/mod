@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { fetchPositions, fetchWalletTradesUntil, formatVolume, formatPnl, fetchTradersPage, TopTrader } from "../lib/polymarket";
+import { fetchPositions, fetchWalletTradesUntil, fetchWalletTradesIncremental, formatVolume, formatPnl, fetchTradersPage, TopTrader } from "../lib/polymarket";
 import { PolymarketPosition, PolymarketTrade, SavedIndex } from "../lib/types";
 import { shortAddress } from "@/lib/auth";
 import { useFilterParams } from "../context/FiltersContext";
@@ -713,28 +713,44 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
   };
 
   // ── Data fetching ──
-  const fetchAll = useCallback(async (addresses: string[]) => {
+  // `silent=true` skips the loading spinner — used by the background refresh
+  // so the curve top-up doesn't flash the empty state on every interval tick.
+  // Mirror traderTrades into a ref so the silent-refresh path can read the
+  // current map without retriggering fetchAll's useCallback identity on every
+  // state change. The ref is updated below in a tiny useEffect.
+  const traderTradesRef = useRef<Map<string, PolymarketTrade[]>>(new Map());
+
+  const fetchAll = useCallback(async (addresses: string[], silent = false) => {
     if (addresses.length === 0) {
       setLoading(false);
       return;
     }
-    setLoading(true);
-    setLoadedCount(0);
+    if (!silent) {
+      setLoading(true);
+      setLoadedCount(0);
+    }
 
     const cutoffSec = Math.floor((Date.now() - 90 * 86400_000) / 1000);
     let done = 0;
     const promises = addresses.map(async (addr) => {
       try {
+        // Silent refreshes ride the incremental path — fetches /activity
+        // backwards from "now" until it hits a trade we've already seen,
+        // then merges. Avoids re-pulling the same 90-day history every 60s.
+        const existing = traderTradesRef.current.get(addr) || [];
+        const tradesFetcher = silent && existing.length > 0
+          ? fetchWalletTradesIncremental(addr, existing, cutoffSec)
+          : fetchWalletTradesUntil(addr, cutoffSec, undefined, 2000);
         const [positions, trades] = await Promise.all([
           fetchPositions(addr),
-          fetchWalletTradesUntil(addr, cutoffSec, undefined, 2000),
+          tradesFetcher,
         ]);
         done++;
-        setLoadedCount(done);
+        if (!silent) setLoadedCount(done);
         return { addr, positions, trades };
       } catch {
         done++;
-        setLoadedCount(done);
+        if (!silent) setLoadedCount(done);
         return { addr, positions: [] as PolymarketPosition[], trades: [] as PolymarketTrade[] };
       }
     });
@@ -756,8 +772,14 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       }),
     );
 
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
+
+  // Mirror traderTrades into the ref so the silent-refresh path sees the
+  // latest cached series when picking a baseline for incremental fetching.
+  useEffect(() => {
+    traderTradesRef.current = traderTrades;
+  }, [traderTrades]);
 
   // Re-fetch when watchlist addresses actually change or when manually refreshed
   useEffect(() => {
@@ -768,6 +790,25 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
     fetchAll(watchlist);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchlistKey, refreshKey]);
+
+  // Background refresh — re-poll every BACKTEST_REFRESH_MS so the curve's
+  // right edge keeps catching new trades. Without this the chart looks
+  // sparse near "now" because data was only pulled once on mount. Guards:
+  //   • only runs when there's a watchlist (no point polling 0 addrs)
+  //   • only when the user is on a tab that uses traderTrades (STRATS hides
+  //     the curve so polling is wasted; LIVE has its own copy engine on a
+  //     1-min cadence already)
+  useEffect(() => {
+    if (watchlist.length === 0) return;
+    if (mode === "STRATS") return;
+    const BACKTEST_REFRESH_MS = 60_000;
+    const t = setInterval(() => {
+      // Re-fetch the whole watchlist silently. Reuses the same setTraderTrades
+      // path so the curve + linked feed rebuild via their existing useMemos.
+      fetchAll(watchlist, true);
+    }, BACKTEST_REFRESH_MS);
+    return () => clearInterval(t);
+  }, [watchlistKey, mode, fetchAll]);
 
   // Listen for external strategy updates (e.g. trader added from the leaderboard)
   useEffect(() => {
@@ -830,6 +871,50 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
     }
     setTraderData((prev) => { const m = new Map(prev); m.delete(addr); return m; });
     setTraderTrades((prev) => { const m = new Map(prev); m.delete(addr); return m; });
+  };
+
+  // Wipe the active strat back to a clean slate — empties the watchlist,
+  // clears weights, drops cached trader trades/positions, and resets the
+  // tuning knobs to defaults. Asks for confirmation since this is one-click
+  // away from the live engine (a running strat with no traders would just
+  // sit there doing nothing — still worth a prompt).
+  const resetStrat = () => {
+    if (!activeIndex) return;
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        `Reset "${activeIndex.name}"? This removes all ${activeIndex.traders.length} traders, weights, and saved tuning. The strat itself stays — only its contents are cleared.`,
+      );
+      if (!ok) return;
+    }
+    setTraderWeights({});
+    setTraderData(new Map());
+    setTraderTrades(new Map());
+    setCapital(DEFAULT_CAPITAL);
+    setMinTrade(1);
+    setMaxTrade(100);
+    setMaxTradesPerHour(10);
+    setSamplePct(100);
+    setRebalancePeriod(0);
+    setRebalanceHour(0);
+    setRebalanceMinutes(1);
+    persistIndex({
+      ...activeIndex,
+      traders: [],
+      capital: DEFAULT_CAPITAL,
+      minTrade: 1,
+      maxTrade: 100,
+      maxTradesPerHour: 10,
+      rebalancePeriod: 0,
+      rebalanceHour: 0,
+      rebalanceMinutes: 1,
+      // Drop the cached backtest snapshot so the leaderboard doesn't show
+      // stale +145 / +1.4% next to an empty strat.
+      lastPnl: undefined,
+      lastPnlAfterCosts: undefined,
+      lastRoi1k: undefined,
+      lastTradeCount: undefined,
+      lastBacktestAt: undefined,
+    });
   };
 
   const toggleTrader = (addr: string) => {
@@ -1052,13 +1137,32 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
 
     allEntries.sort((a, b) => a.ts - b.ts);
 
-    // Compute derived fields per trade (no running P&L yet — that comes after filters)
-    const derived = allEntries.map((t) => {
-      const realizedScaled = t.side === "SELL" ? Math.round(t.realized * t.scale * 100) / 100 : 0;
-      const amount = Math.round(t.price * t.size * t.scale * 100) / 100;
+    // Compute derived fields per trade. Apply TRADE SIZE constraints so the
+    // displayed feed matches what the LIVE engine would actually do:
+    //   • amount < minTrade → skip entirely (dust order, no place)
+    //   • amount > maxTrade → clamp amount to maxTrade; SELL's realized P&L
+    //     scales down proportionally (capped trade ≠ free capped P&L)
+    // Then accumulate running P&L only over surviving trades, so the curve
+    // value at any row matches the column shown.
+    const derived: {
+      ts: number; market: string; trader: string; side: "BUY" | "SELL";
+      amount: number; price: number; fee: number; realized: number; pnlDelta: number;
+    }[] = [];
+    for (const t of allEntries) {
+      const rawAmount = t.price * t.size * t.scale;
+      // Skip dust trades — below the user-configured min size they wouldn't
+      // be placed by the live engine; showing them in the feed misleads.
+      if (rawAmount < minTrade) continue;
+      // Cap at max size; SELL realized P&L scales down because the smaller
+      // clamped position can only return a smaller absolute gain/loss.
+      const clampRatio = rawAmount > maxTrade ? maxTrade / rawAmount : 1;
+      const amount = Math.round(Math.min(rawAmount, maxTrade) * 100) / 100;
+      const realizedScaled = t.side === "SELL"
+        ? Math.round(t.realized * t.scale * clampRatio * 100) / 100
+        : 0;
       const scaledShares = t.price > 0 ? amount / t.price : 0;
       const fee = Math.round(scaledShares * Math.min(t.price, 1 - t.price) * (TAKER_FEE_BPS / 10_000) * 100) / 100;
-      return {
+      derived.push({
         ts: t.ts,
         market: t.market,
         trader: t.trader,
@@ -1068,20 +1172,23 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
         fee,
         realized: realizedScaled,
         pnlDelta: realizedScaled,
-      };
-    });
+      });
+    }
 
-    // Show every trade that contributes to the chart's P&L — no size/per-hour gating here.
     let runningPnl = 0;
     return derived.map((t) => {
       runningPnl = Math.round((runningPnl + t.realized) * 100) / 100;
       return { ...t, runningPnl };
     });
-  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour, samplePct]);
+  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour, samplePct, minTrade, maxTrade]);
 
   // ── Chart ↔ Trade feed hover linking ──
   const [chartHighlight, setChartHighlight] = useState<number | null>(null);
   const [tradeHighlight, setTradeHighlight] = useState<number | null>(null);
+  // Lowercase trader address → isolate the feed to just this trader's trades.
+  // `null` shows everyone (the default). Click a trader chip or a trader cell
+  // in the feed to set; click again or the ALL chip to clear.
+  const [feedTraderFilter, setFeedTraderFilter] = useState<string | null>(null);
   const [indexTradeLimit, setIndexTradeLimit] = useState(100);
   const [feedOrder, setFeedOrder] = useState<"newest" | "oldest">("newest");
 
@@ -1134,6 +1241,23 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       };
     });
   }, [allTraderAddrs, traderData, searchFilter, activeIndex]);
+
+  // Per-trader 24h activity count — surfaces dormant traders so the user
+  // knows which ones in the watchlist actually contribute trades to copy.
+  // Derived live from the already-fetched traderTrades map (no extra fetch);
+  // re-runs whenever the 60s background refresh swaps in new traderTrades.
+  const trades24hByAddr = useMemo(() => {
+    const cutoffMs = Date.now() - 86_400_000;
+    const m = new Map<string, number>();
+    for (const addr of allTraderAddrs) {
+      const trades = traderTrades.get(addr);
+      if (!trades) continue;
+      let c = 0;
+      for (const t of trades) if (t.timestamp >= cutoffMs) c++;
+      m.set(addr, c);
+    }
+    return m;
+  }, [allTraderAddrs, traderTrades]);
 
 
   // ══════════════════════════════════════════
@@ -1287,6 +1411,13 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                   NORM
                 </button>
               )}
+              <button
+                onClick={resetStrat}
+                className="pixel-btn text-[13px] px-2 py-1 border-red-400/60 text-red-400 hover:bg-red-400/10 transition-colors"
+                title="Reset strat — clears traders, weights, and tuning back to defaults"
+              >
+                RESET
+              </button>
             </div>
             <span className={`text-[15px] font-mono ${
               totalWeight === 100 ? "text-pixel-gray" : totalWeight > 0 ? "text-amber-400" : "text-pixel-gray"
@@ -1300,6 +1431,7 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
             <span className="w-5 shrink-0" />
             <span className="w-5 shrink-0" />
             <span className="flex-1">ADDRESS</span>
+            <span className="w-10 text-right" title="Trades by this trader in the last 24h — 0 means dormant">24H</span>
             <span className="w-16 text-right">P&L</span>
             <span className="flex-1 text-center">WEIGHT</span>
             <span className="w-5" />
@@ -1330,6 +1462,31 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                   >
                     {shortAddress(t.address)}
                   </button>
+                  {/* 24H activity — red when dormant, amber when thin,
+                      green when active. Pure visual cue, no filtering. */}
+                  {(() => {
+                    const c24 = trades24hByAddr.get(t.address);
+                    const activityCls = c24 === undefined
+                      ? "text-pixel-gray"
+                      : c24 === 0
+                        ? "text-red-400"
+                        : c24 < 3
+                          ? "text-amber-400"
+                          : "text-green-400";
+                    const title = c24 === undefined
+                      ? "Loading trade history…"
+                      : c24 === 0
+                        ? "No trades in last 24h — trader may be dormant"
+                        : `${c24} trade${c24 === 1 ? "" : "s"} in last 24h`;
+                    return (
+                      <span
+                        className={`w-10 text-right text-[13px] font-mono ${activityCls}`}
+                        title={title}
+                      >
+                        {c24 === undefined ? "…" : c24}
+                      </span>
+                    );
+                  })()}
                   <span className={`w-16 text-right text-[15px] font-mono ${pnlColor}`}>
                     {curvePnl !== undefined ? formatPnl(curvePnl) : t.loaded ? formatPnl(t.totalPnl) : "..."}
                   </span>
@@ -1646,17 +1803,32 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
 
           {/* ── Trade feed — every trade with its P&L impact, linked to chart ── */}
           {mode === "BACKTEST" && (() => {
-            const ordered = feedOrder === "newest" ? [...linkedTrades].reverse() : linkedTrades;
-            const finalPnl = linkedTrades.length > 0 ? linkedTrades[linkedTrades.length - 1].runningPnl : 0;
-            const n = linkedTrades.length;
+            // Apply the trader filter BEFORE ordering so the running-P&L
+            // values stay consistent with what's shown — feedTraderFilter
+            // pre-trims linkedTrades to a single trader's contribution path.
+            const filtered = feedTraderFilter
+              ? linkedTrades.filter((t) => t.trader.toLowerCase() === feedTraderFilter)
+              : linkedTrades;
+            const ordered = feedOrder === "newest" ? [...filtered].reverse() : filtered;
+            const finalPnl = filtered.length > 0 ? filtered[filtered.length - 1].runningPnl : 0;
+            const n = filtered.length;
+
+            // Build per-trader counts for the chip row labels.
+            const tradesByTrader = new Map<string, number>();
+            for (const t of linkedTrades) {
+              const k = t.trader.toLowerCase();
+              tradesByTrader.set(k, (tradesByTrader.get(k) || 0) + 1);
+            }
 
             return (
               <div className="pixel-panel overflow-hidden">
-                <div className="px-4 py-2.5 border-b-2 border-pixel-border flex items-center justify-between">
+                <div className="px-4 py-2.5 border-b-2 border-pixel-border flex items-center justify-between flex-wrap gap-2">
                   <span className="text-[14px] text-pixel-gray-light tracking-wider">TRADE FEED</span>
                   <div className="flex items-center gap-3 text-[13px] font-mono">
-                    <span className="text-pixel-gray">{linkedTrades.length} TRADES</span>
-                    {linkedTrades.length > 0 && (
+                    <span className="text-pixel-gray">
+                      {filtered.length} {feedTraderFilter ? `of ${linkedTrades.length} ` : ""}TRADES
+                    </span>
+                    {filtered.length > 0 && (
                       <span className={finalPnl >= 0 ? "text-green-400" : "text-red-400"}>
                         {finalPnl >= 0 ? "+" : ""}${finalPnl.toFixed(2)}
                       </span>
@@ -1670,6 +1842,44 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                     </button>
                   </div>
                 </div>
+
+                {/* Per-trader filter chips — click any trader to isolate their
+                    contribution to the feed. ALL clears the filter. Only shown
+                    when there's more than one trader contributing trades. */}
+                {tradesByTrader.size > 1 && (
+                  <div className="px-3 py-1.5 border-b border-pixel-border/40 bg-pixel-black/30 flex items-center gap-1 flex-wrap">
+                    <span className="text-[10px] text-pixel-gray tracking-[0.15em] mr-1">SHOW</span>
+                    <button
+                      onClick={() => setFeedTraderFilter(null)}
+                      className={`pixel-btn text-[11px] px-2 py-0.5 ${
+                        feedTraderFilter === null
+                          ? "border-green-400 text-green-400 bg-green-400/10"
+                          : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+                      }`}
+                    >
+                      ALL ({linkedTrades.length})
+                    </button>
+                    {Array.from(tradesByTrader.entries())
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([addr, count]) => {
+                        const active = feedTraderFilter === addr;
+                        return (
+                          <button
+                            key={addr}
+                            onClick={() => setFeedTraderFilter(active ? null : addr)}
+                            className={`pixel-btn text-[11px] px-2 py-0.5 font-mono ${
+                              active
+                                ? "border-green-400 text-green-400 bg-green-400/10"
+                                : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+                            }`}
+                            title={`Isolate ${addr}'s trades (${count})`}
+                          >
+                            {shortAddress(addr)} <span className="text-pixel-gray-light">({count})</span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
 
                 {loading ? (
                   <div className="p-8 text-center">
@@ -1724,9 +1934,25 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                                   <div className="text-[13px] text-pixel-gray-light font-mono">{when}</div>
                                 </td>
                                 <td>
+                                  {/* Click trader: isolate the feed to just
+                                      their trades. Shift+click: jump to the
+                                      trader's profile page (old behavior). */}
                                   <button
-                                    onClick={() => goToTrader(t.trader)}
-                                    className="text-[13px] font-mono text-pixel-gray-light hover:text-green-400 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (e.shiftKey) {
+                                        goToTrader(t.trader);
+                                        return;
+                                      }
+                                      const lc = t.trader.toLowerCase();
+                                      setFeedTraderFilter((cur) => (cur === lc ? null : lc));
+                                    }}
+                                    className={`text-[13px] font-mono transition-colors ${
+                                      feedTraderFilter === t.trader.toLowerCase()
+                                        ? "text-green-400"
+                                        : "text-pixel-gray-light hover:text-green-400"
+                                    }`}
+                                    title="Click: isolate this trader's trades. Shift+Click: open profile."
                                   >
                                     {shortAddress(t.trader)}
                                   </button>

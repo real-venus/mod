@@ -9,6 +9,16 @@ type VersionRecord = {
   author: string;
   timestamp: number;
   parent: string | null;
+  registry_cid?: string | null;
+  registry_prev?: string | null;
+  action?: "snapshot" | "restore" | "auto-snapshot" | "fork" | string;
+};
+
+const ACTION_GLYPH: Record<string, { color: string; label: string }> = {
+  snapshot:        { color: "var(--accent-color)",  label: "snapshot" },
+  restore:         { color: "var(--crt-amber)",     label: "rollback" },
+  "auto-snapshot": { color: "var(--text-tertiary)", label: "auto"     },
+  fork:            { color: "var(--crt-blue)",      label: "fork"     },
 };
 
 type Props = {
@@ -138,6 +148,31 @@ export function VersionsPanel({ apiBase, module, authHeader, onForked }: Props) 
         <div className="bento-sub">~/.mod/claude/blobs · pluggable</div>
       </Bento>
 
+      <Bento title="mod registry" span={3}>
+        {latest?.registry_cid ? (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>head →</span>
+              <CidChip cid={latest.registry_cid} />
+              {latest.registry_prev && (
+                <>
+                  <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>prev →</span>
+                  <CidChip cid={latest.registry_prev} />
+                </>
+              )}
+            </div>
+            <div className="bento-sub" style={{ marginTop: 8 }}>
+              every change pushed through <code style={{ color: "var(--accent-color)" }}>api/reg</code> on :8000 ·
+              git-like linked-list via <code>prev</code>
+            </div>
+          </>
+        ) : (
+          <div className="bento-sub" style={{ color: "var(--text-tertiary)" }}>
+            not yet registered — snapshot to push through <code>api/reg</code>
+          </div>
+        )}
+      </Bento>
+
       <Bento title="snapshot now" span={3}>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <input
@@ -181,27 +216,46 @@ export function VersionsPanel({ apiBase, module, authHeader, onForked }: Props) 
           <div className="bento-sub">no versions yet — snapshot above to start a history</div>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {[...versions].reverse().map((v) => (
-            <div key={v.cid + v.timestamp} className="version-row">
-              <span className="dot" />
-              <div style={{ minWidth: 0 }}>
-                <div className="msg">{v.message || "(no message)"}</div>
-                <div className="meta">
-                  {timeAgo(v.timestamp)} ·{" "}
-                  {v.author ? `${v.author.slice(0, 8)}…` : "local"}
+          {[...versions].reverse().map((v) => {
+            const glyph = ACTION_GLYPH[v.action || "snapshot"] || ACTION_GLYPH.snapshot;
+            return (
+              <div key={v.cid + v.timestamp} className="version-row">
+                <span
+                  className="dot"
+                  title={glyph.label}
+                  style={{ background: glyph.color, boxShadow: `0 0 0 3px ${glyph.color}1a` }}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <div className="msg" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: glyph.color, fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                      {glyph.label}
+                    </span>
+                    <span>{v.message || "(no message)"}</span>
+                  </div>
+                  <div className="meta">
+                    {timeAgo(v.timestamp)} ·{" "}
+                    {v.author ? `${v.author.slice(0, 8)}…` : "local"}
+                    {v.registry_cid && (
+                      <> · registry <span style={{ color: "var(--accent-color)" }}>{v.registry_cid.slice(0, 10)}…</span></>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <CidChip cid={v.cid} />
+                  <GlassButton variant="ghost" onClick={() => fork(v.cid)} title="Fork this version into your portal">
+                    fork
+                  </GlassButton>
+                  <GlassButton
+                    variant="ghost"
+                    onClick={() => restore(v.cid)}
+                    title="Rollback the module tree to this version (auto-snapshots current state first)"
+                  >
+                    rollback
+                  </GlassButton>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <CidChip cid={v.cid} />
-                <GlassButton variant="ghost" onClick={() => fork(v.cid)} title="Fork this version into your portal">
-                  fork
-                </GlassButton>
-                <GlassButton variant="ghost" onClick={() => restore(v.cid)} title="Restore the module tree to this version">
-                  restore
-                </GlassButton>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Bento>
     </BentoGrid>

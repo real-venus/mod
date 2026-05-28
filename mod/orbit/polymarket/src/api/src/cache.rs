@@ -65,10 +65,17 @@ impl ProxyCache {
                 if entries.len() >= self.max_entries {
                     self.evict_one(&mut entries);
                 }
+                // Match the same freshness rule the writer uses — disk-loaded
+                // trader entries also expire after 1h so they re-fetch.
+                let ttl = if Self::is_freshness_critical(endpoint) {
+                    Duration::from_secs(3600)
+                } else {
+                    Duration::from_secs(86400)
+                };
                 entries.insert(key.to_string(), CacheEntry {
                     data: data.clone(),
                     inserted_at: Instant::now(),
-                    ttl: Duration::from_secs(86400), // 24h in memory
+                    ttl,
                 });
                 return Some((data, true));
             }
@@ -76,10 +83,28 @@ impl ProxyCache {
         None
     }
 
+    /// Trader trade/activity endpoints persist to disk (survive restarts) but
+    /// memory-cache for only 1 hour, not 24h. Without this an entry written at
+    /// 9 AM serves stale "no recent trades" responses until 9 AM the next day,
+    /// which hides newly-active traders from the leaderboard. Markets/holders/
+    /// historical data still cache for 24h — those don't churn meaningfully.
+    fn is_freshness_critical(endpoint: &str) -> bool {
+        let ep = endpoint.to_lowercase();
+        ep.starts_with("activity") || ep.starts_with("trades")
+    }
+
     pub fn set(&self, key: String, data: Value, ttl: Duration, endpoint: &str) {
         let persist = Self::is_persistent(endpoint);
-        // Use longer memory TTL for persistent data
-        let mem_ttl = if persist { Duration::from_secs(86400) } else { ttl };
+        // Trader trade/activity entries get a 1-hour memory TTL so the next
+        // warmup tick re-fetches them — without this, a 9 AM cache hides
+        // dormant→active transitions until 9 AM the next day.
+        let mem_ttl = if Self::is_freshness_critical(endpoint) {
+            Duration::from_secs(3600)
+        } else if persist {
+            Duration::from_secs(86400)
+        } else {
+            ttl
+        };
 
         let mut entries = self.entries.write();
         if entries.len() >= self.max_entries && !entries.contains_key(&key) {
@@ -142,12 +167,28 @@ impl ProxyCache {
 
     fn load_from_disk(&self, key: &str) -> Option<Value> {
         let path = self.disk_path(key);
-        if path.exists() {
-            let raw = std::fs::read_to_string(&path).ok()?;
-            serde_json::from_str(&raw).ok()
-        } else {
-            None
+        if !path.exists() { return None; }
+        // Freshness gate: trader activity/trades on disk older than 1h are
+        // considered stale. Without this, a 48h-old cache file gets loaded
+        // as if fresh and propagates "0 trades in last 24h" everywhere.
+        // The endpoint prefix lives in the filename (proxy_endpoint_<ep>_…).
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let is_freshness_critical = name.contains("endpoint_activity")
+            || name.contains("endpoint_trades");
+        if is_freshness_critical {
+            if let Ok(meta) = std::fs::metadata(&path) {
+                if let Ok(modified) = meta.modified() {
+                    if modified.elapsed().unwrap_or(Duration::ZERO) > Duration::from_secs(3600) {
+                        // Delete the stale file so next save_to_disk doesn't
+                        // bump mtime on a stale payload by accident.
+                        let _ = std::fs::remove_file(&path);
+                        return None;
+                    }
+                }
+            }
         }
+        let raw = std::fs::read_to_string(&path).ok()?;
+        serde_json::from_str(&raw).ok()
     }
 }
 
@@ -231,15 +272,26 @@ impl PipelineCache {
         let path = self.disk_path(key);
         if path.exists() {
             // Skip if file is older than DISK_MAX_AGE
+            let mut mtime_secs: i64 = 0;
             if let Ok(meta) = std::fs::metadata(&path) {
                 if let Ok(modified) = meta.modified() {
                     if modified.elapsed().unwrap_or(Duration::ZERO) > DISK_MAX_AGE {
                         return None;
                     }
+                    if let Ok(dur) = modified.duration_since(std::time::UNIX_EPOCH) {
+                        mtime_secs = dur.as_secs() as i64;
+                    }
                 }
             }
             let data = std::fs::read_to_string(&path).ok()?;
-            serde_json::from_str(&data).ok()
+            let mut payload: AggPayload = serde_json::from_str(&data).ok()?;
+            // Old disk payloads (before synced_at existed) deserialize with
+            // synced_at=0. Fall back to the file's mtime so the client still
+            // sees a sensible "last sync" instead of 1970.
+            if payload.synced_at == 0 {
+                payload.synced_at = mtime_secs;
+            }
+            Some(payload)
         } else {
             None
         }

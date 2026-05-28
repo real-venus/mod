@@ -34,11 +34,20 @@ from typing import Any, Dict, List, Optional
 
 import mod as m
 
+from .backend import StorageBackend, LegacyAdapter
+
 DIR = Path(__file__).resolve().parent.parent
 STORE = Path(os.path.expanduser('~/.multistore'))
 
 # Every backend we know how to talk to. Order matters for `get` fallback:
 # we try whatever is recorded in our index first, then walk this list.
+#
+# Adding a new backend:
+#   1. Build your module at mod/orbit/<name>/ with a Mod class that
+#      either inherits from multistore.backend.StorageBackend or simply
+#      exposes put/get/list/rm — LegacyAdapter wraps the latter.
+#   2. Append the name here (or to multistore/config.json `backends`).
+#   3. That's it — backends(), health(), put(), get(), replicate() pick it up.
 BACKEND_NAMES = ['ipfs', 'filecoin', 'hippius', 'arweave', 'localfs']
 
 
@@ -101,19 +110,27 @@ class Mod:
     # ── backend resolution ────────────────────────────────────────
 
     def _impl(self, backend: str):
-        """Lazy-resolve a backend module. Returns None if it can't be loaded
-        (so an offline backend never crashes the facade)."""
+        """Lazy-resolve a backend module + wrap in a StorageBackend-shaped
+        adapter so every call site has the same surface. Returns None if
+        the underlying module can't be loaded (offline backend never
+        crashes the facade)."""
         if backend in self._impl_cache:
             return self._impl_cache[backend]
         try:
             if backend == 'localfs':
-                impl = m.mod('store')()
+                raw = m.mod('store')()
             else:
-                impl = m.mod(backend)()
+                raw = m.mod(backend)()
         except Exception:
-            impl = None
-        self._impl_cache[backend] = impl
-        return impl
+            self._impl_cache[backend] = None
+            return None
+        # If the module already inherits StorageBackend, use it as-is —
+        # otherwise wrap it so put/get/list/rm have consistent semantics.
+        adapter: StorageBackend = (
+            raw if isinstance(raw, StorageBackend) else LegacyAdapter(raw, name=backend)
+        )
+        self._impl_cache[backend] = adapter
+        return adapter
 
     def _alive(self, backend: str) -> bool:
         return self._impl(backend) is not None

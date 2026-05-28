@@ -76,6 +76,11 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Cross-chain bridge / asset-swap form is a first-time setup path. Most
+  // sessions land here with USDC already on Polygon, so keep the whole
+  // FUND POLYGON USDC block collapsed and surface a single + ADD FUNDS
+  // toggle behind the balance row.
+  const [showFund, setShowFund] = useState(false);
 
   const src = useMemo<NetworkConfig>(
     () => NETWORKS.find((n) => n.id === srcId) || NETWORKS[0],
@@ -271,49 +276,69 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
 
   return (
     <div className="pixel-panel border-2 border-pixel-border overflow-hidden">
-      {/* ── Header: address + copy + refresh ────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-pixel-black/60 border-b border-pixel-border/60">
-        <div className="w-1.5 h-1.5 bg-green-400 shrink-0 animate-pulse" />
-        <span className="text-[14px] text-pixel-gray tracking-wider">WALLET</span>
-        <span
-          className="text-[15px] text-pixel-white font-mono flex-1 truncate"
-          title={auth.address}
-        >
-          {shortAddr}
-        </span>
-        <button onClick={handleCopy} title="Copy address" className="text-[15px] text-pixel-gray hover:text-green-400 px-1">
-          {copied ? "✓" : "⧉"}
-        </button>
-        <button onClick={() => { void fetchAllBalances(); }} title="Refresh balances" className="text-[16px] text-pixel-gray hover:text-green-400 px-1">
-          ↻
-        </button>
-      </div>
+      {/* Dropped the standalone WALLET header bar — the address is already
+          visible in the TOKEN/KEY row at the top of the page. Refresh moved
+          into the balance row to keep one-click access without a header. */}
 
       {/* ── WALLET balance on Polygon. Note: this is NOT tradeable on
            Polymarket yet — funds must be DEPOSITed from this EOA to the
            Polymarket proxy (see POLYMARKET ACCOUNT panel below) before the
            CLOB sees them. ───────────────────────────────────── */}
       <div className="px-3 py-2 flex items-center justify-between border-b border-pixel-border/60 bg-gradient-to-r from-green-400/[0.03] to-transparent">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <ChainBadge net={POLYGON} size={22} />
-          <div className="leading-tight">
-            <div className="text-[14px] text-pixel-gray tracking-[0.15em]">WALLET · POLYGON</div>
-            <div className="text-[14px] text-pixel-gray font-mono">USDC.e · not yet tradeable</div>
+          <div className="leading-tight min-w-0">
+            <div className="text-[13px] text-pixel-gray tracking-[0.15em]">WALLET · POLYGON</div>
+            {/* Inline truncated address as a click-to-copy chip — replaces
+                the standalone WALLET header bar that duplicated the KEY row. */}
+            <button
+              onClick={handleCopy}
+              className="text-[12px] text-pixel-gray/80 font-mono hover:text-green-400 transition-colors truncate max-w-[180px] block"
+              title={copied ? "Copied!" : `Click to copy ${auth.address}`}
+            >
+              {shortAddr} {copied ? "✓" : ""}
+            </button>
           </div>
         </div>
-        <div className="text-right leading-tight">
-          <div className="text-[28px] font-mono text-green-400">
-            {loaded === null || loaded === undefined ? "..." : `$${loaded.toFixed(2)}`}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { void fetchAllBalances(); }}
+            title="Refresh balances"
+            className="text-[16px] text-pixel-gray hover:text-green-400 px-1"
+          >
+            ↻
+          </button>
+          <div className="text-right leading-tight">
+            <div className="text-[28px] font-mono text-green-400">
+              {loaded === null || loaded === undefined ? "..." : `$${loaded.toFixed(2)}`}
+            </div>
+            {loaded !== null && loaded !== undefined && loaded === 0 ? (
+              <div className="text-[13px] text-amber-400/80 tracking-wider">FUND BELOW ↓</div>
+            ) : loaded !== null && loaded !== undefined && loaded > 0 ? (
+              <div className="text-[13px] text-purple-400/90 tracking-wider">DEPOSIT TO PROXY ↓</div>
+            ) : null}
           </div>
-          {loaded !== null && loaded !== undefined && loaded === 0 ? (
-            <div className="text-[13px] text-amber-400/80 tracking-wider">FUND BELOW ↓</div>
-          ) : loaded !== null && loaded !== undefined && loaded > 0 ? (
-            <div className="text-[13px] text-purple-400/90 tracking-wider">DEPOSIT TO PROXY ↓</div>
-          ) : null}
         </div>
       </div>
 
+      {/* ── + ADD FUNDS toggle ──
+          Collapses the cross-chain bridge / swap form by default. Click to
+          expand the full FROM / asset chips / AMT / SEND form when funding
+          for the first time or bridging from another chain. */}
+      <button
+        onClick={() => setShowFund((v) => !v)}
+        className="w-full px-3 py-1.5 border-b border-pixel-border/40 flex items-center justify-between text-[13px] tracking-[0.18em] hover:bg-pixel-white/5 transition-colors"
+      >
+        <span className={showFund ? "text-green-400" : "text-pixel-gray"}>
+          {showFund ? "− HIDE FUND" : "+ ADD FUNDS"}
+        </span>
+        <span className="text-[11px] text-pixel-gray font-mono">
+          {showFund ? "bridge / swap / send" : "bridge or send USDC into Polygon"}
+        </span>
+      </button>
+
       {/* ── Fund section ────────────────────────────────────── */}
+      {showFund && (
       <div className="px-3 py-2 space-y-1.5 bg-pixel-black/40">
         <div className="flex items-center justify-between">
           <span className="text-[14px] text-pixel-white tracking-[0.15em]">FUND POLYGON USDC</span>
@@ -485,6 +510,7 @@ export default function WalletFundingPanel({ capital, onCapitalChange }: Props) 
           </div>
         )}
       </div>
+      )}
 
       {/* ── Capital cap (LIVE tab only) ─────────────────────── */}
       {capital !== undefined && onCapitalChange && (

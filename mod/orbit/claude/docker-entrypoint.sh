@@ -27,14 +27,17 @@ else
     echo "credentials: NONE — claude CLI will fail until you mount ~/.claude/.credentials.json or set ANTHROPIC_API_KEY" >&2
 fi
 
-chown -R node:node "$CRED_DIR"
+# -h so we don't follow the credentials symlink into the RO host mount —
+# under `set -e` chowning the RO file would silently kill the entrypoint.
+chown -h node:node "$CRED_DIR" "$CRED_DST" 2>/dev/null || true
 
-# Off-chain auth state (whitelist.json, gate.json, owner.json). Host-mounted at
-# /home/node/.mod/claude — ensure it exists and is owned by `node` so the API
-# (running as node) can read+write it.
+# Off-chain auth state (whitelist.json, gate.json, owner.json) — host-mounted.
+# Only chown the top-level dir; `chown -R` over the blob store (~12k files on
+# slow virtiofs) hangs the entrypoint for minutes. Files are written as `node`
+# anyway, so recursive ownership isn't needed.
 PRIVATE_DIR="/home/node/.mod/claude"
 mkdir -p "$PRIVATE_DIR"
-chown -R node:node "$PRIVATE_DIR" 2>/dev/null || true
+chown node:node "$PRIVATE_DIR" 2>/dev/null || true
 
 # Inner script runs as non-root: starts Rust API + Next.js, traps shutdown.
 cat > /tmp/run-as-claude.sh <<EOF

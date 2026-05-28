@@ -36,6 +36,17 @@ pub struct VersionRecord {
     pub author: String,
     pub timestamp: u64,
     pub parent: Option<String>,
+    /// The mod-protocol api registry CID — `None` if api module unreachable
+    /// at the time of the change (we degrade gracefully). When present, every
+    /// change in claude's local log is also a node in the global registry chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registry_cid: Option<String>,
+    /// The previous registry CID (for git-like linked-list traversal).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registry_prev: Option<String>,
+    /// What kind of action created this record: snapshot, restore, fork, auto-snapshot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
 }
 
 /// Storage backend. Add a variant per backend (ipfs, bitstore, dstore…).
@@ -106,7 +117,6 @@ fn should_skip_dir(name: &str) -> bool {
         name,
         "node_modules"
             | "target"
-            | "vendor"
             | "__pycache__"
             | ".git"
             | ".next"
@@ -115,8 +125,6 @@ fn should_skip_dir(name: &str) -> bool {
             | ".venv"
             | "venv"
             | "blobs"
-            | ".cargo"
-            | "tsconfig.tsbuildinfo"
     ) || name.starts_with('.')
 }
 

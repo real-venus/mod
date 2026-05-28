@@ -143,7 +143,7 @@ class Mod:
             results[mod_name] = self.register(name=mod_name, key=key)
         return results
 
-    def register_per_key(self, modules=None, fund_eth: float = 0.0005, key=None) -> dict:
+    def register_per_key(self, modules=None, fund_eth: float = 0.0005, cids: Optional[dict] = None, key=None) -> dict:
         """Register each module under its own deterministic key, with gas
         sponsored by the funded chain relayer on Base Sepolia.
 
@@ -160,33 +160,63 @@ class Mod:
         elif isinstance(modules, str):
             modules = [s.strip() for s in modules.split(",") if s.strip()]
 
+        from eth_account import Account
         chain = m.mod("chain")()
-        relayer = chain.key.address
+        relayer = chain.account.address
         fund_wei = int(fund_eth * 10 ** 18)
         results = {}
         for name in modules:
             addr = None
             try:
                 mod_key = m.key(name)
-                addr = mod_key.address
-                cid = m.cid(name)
+                # Build an eth_account.Account from the deterministic mod_key
+                # so chain.send_tx (which signs with self.account.key) actually
+                # uses the per-module identity.
+                privkey = getattr(mod_key, "private_key", None) or getattr(mod_key, "key", None)
+                mod_acct = Account.from_key(privkey)
+                addr = mod_acct.address
+                # Try the orbit-dir content CID first; fall back to a manifest
+                # CID built from the name (for placeholder/derived modules).
+                if cids and name in cids:
+                    cid = cids[name]
+                else:
+                    try:
+                        cid = m.cid(name)
+                    except Exception:
+                        manifest = json.dumps({"name": name, "owner": addr,
+                                               "registered_at": int(time.time())},
+                                              separators=(",", ":"))
+                        cid = m.fn("api/put")(manifest)
+
+                # Top up the module's address from the relayer so it can pay gas.
                 bal = chain.w3.eth.get_balance(addr)
                 topup = None
                 if bal < fund_wei:
                     topup = chain.transfer(addr, fund_eth, token="eth")
-                prior_key = chain.key
-                chain.key = mod_key
+
+                # Swap chain.account → mod_acct so send_tx signs with mod key.
+                # chain.reg's mod-lookup path is brittle; call send_tx directly.
+                prior_acct = chain.account
+                chain.account = mod_acct
                 try:
-                    tx = chain.reg(name, cid)
+                    if chain.mod_exists(name):
+                        mod_id = chain.name2id(name)
+                        tx = chain.send_tx('registry', 'updateMod', [mod_id, cid])
+                        op = "updateMod"
+                    else:
+                        tx = chain.send_tx('registry', 'registerMod', [name, cid])
+                        op = "registerMod"
                 finally:
-                    chain.key = prior_key
+                    chain.account = prior_acct
                 tx_hash = tx.get("transactionHash") if isinstance(tx, dict) else None
                 results[name] = {
-                    "ok": True,
+                    "ok": tx.get("status") == 1,
+                    "op": op,
                     "key": addr,
                     "cid": cid,
                     "funded_from": relayer if topup else None,
                     "tx": tx_hash.hex() if hasattr(tx_hash, "hex") else str(tx_hash),
+                    "block": tx.get("blockNumber"),
                 }
             except Exception as e:
                 results[name] = {"ok": False, "key": addr, "error": f"{type(e).__name__}: {e}"}

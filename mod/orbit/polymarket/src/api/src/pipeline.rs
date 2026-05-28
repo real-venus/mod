@@ -158,6 +158,7 @@ impl PipelineState {
                     positions: 0,
                     market_titles: vec![],
                     recent_trades: 0,
+                    trades_24h: 0,
                     pnl_curve: None,
                     market_metrics: None,
                 });
@@ -251,6 +252,9 @@ impl PipelineState {
             candidate_pool: enrich_total,
             days_window: days,
             min_trades_per_day: min_per_day,
+            // Stamp the actual sync time so the client can show "data is N
+            // minutes old" instead of "cache was hit N seconds ago".
+            synced_at: chrono::Utc::now().timestamp(),
             traders: out,
         })
     }
@@ -324,6 +328,17 @@ async fn enrich_trader_with_url(
     }
 
     trader.recent_trades = metrics.count;
+    // 24h trade count — separate from window count so a 7D-window leaderboard
+    // can still distinguish a trader who fired 50 trades in the last day from
+    // one who hasn't traded all week. Reuses the same `all_trades` already
+    // pulled per trader so this adds zero network cost.
+    let now_sec = chrono::Utc::now().timestamp() as u64;
+    let cutoff_24h = now_sec.saturating_sub(86_400);
+    trader.trades_24h = all_trades
+        .iter()
+        .filter_map(|t| t.get("timestamp").and_then(|v| v.as_u64()))
+        .filter(|&ts| ts >= cutoff_24h)
+        .count() as u32;
     trader.volume = metrics.volume;
     trader.buy_volume = metrics.buy_volume;
     trader.sell_volume = metrics.sell_volume;
@@ -993,7 +1008,7 @@ mod tests {
             address: "0xtest".to_string(),
             volume: 0.0, buy_volume: 0.0, sell_volume: 0.0,
             pnl: 0.0, win_rate: 0.0, positions: 0,
-            market_titles: vec![], recent_trades: 0, pnl_curve: None, market_metrics: None,
+            market_titles: vec![], recent_trades: 0, trades_24h: 0, pnl_curve: None, market_metrics: None,
         };
 
         // Call with the mock server URL (override DATA_API)
@@ -1024,7 +1039,7 @@ mod tests {
             address: "0xtest".to_string(),
             volume: 0.0, buy_volume: 0.0, sell_volume: 0.0,
             pnl: 0.0, win_rate: 0.0, positions: 0,
-            market_titles: vec![], recent_trades: 0, pnl_curve: None, market_metrics: None,
+            market_titles: vec![], recent_trades: 0, trades_24h: 0, pnl_curve: None, market_metrics: None,
         };
 
         let cutoff = now - 86400;
@@ -1062,7 +1077,7 @@ mod tests {
             address: "0xtest".to_string(),
             volume: 0.0, buy_volume: 0.0, sell_volume: 0.0,
             pnl: 0.0, win_rate: 0.0, positions: 0,
-            market_titles: vec![], recent_trades: 0, pnl_curve: None, market_metrics: None,
+            market_titles: vec![], recent_trades: 0, trades_24h: 0, pnl_curve: None, market_metrics: None,
         };
 
         let cutoff = now - 86400;
@@ -1081,19 +1096,20 @@ mod tests {
             candidate_pool: 100,
             days_window: 7,
             min_trades_per_day: 1.0,
+            synced_at: 0,
             traders: vec![
                 Trader {
                     address: "0xaaa".to_string(),
                     volume: 5000.0, buy_volume: 3000.0, sell_volume: 2000.0,
                     pnl: 150.0, win_rate: 65.0, positions: 10,
-                    market_titles: vec!["Market A".into()], recent_trades: 10,
+                    market_titles: vec!["Market A".into()], recent_trades: 10, trades_24h: 0,
                     pnl_curve: Some(vec![0.0; 12]), market_metrics: None,
                 },
                 Trader {
                     address: "0xbbb".to_string(),
                     volume: 3000.0, buy_volume: 1500.0, sell_volume: 1500.0,
                     pnl: -50.0, win_rate: 40.0, positions: 5,
-                    market_titles: vec![], recent_trades: 5,
+                    market_titles: vec![], recent_trades: 5, trades_24h: 0,
                     pnl_curve: None, market_metrics: None,
                 },
             ],
@@ -1127,11 +1143,12 @@ mod tests {
         let cache = PipelineCache::new();
         let payload = AggPayload {
             count: 1, candidate_pool: 10, days_window: 1, min_trades_per_day: 0.0,
+            synced_at: 0,
             traders: vec![Trader {
                 address: "0xccc".to_string(),
                 volume: 100.0, buy_volume: 60.0, sell_volume: 40.0,
                 pnl: 5.0, win_rate: 50.0, positions: 2,
-                market_titles: vec!["Test".into()], recent_trades: 2,
+                market_titles: vec!["Test".into()], recent_trades: 2, trades_24h: 0,
                 pnl_curve: Some(vec![1.0, 2.0, 3.0]), market_metrics: None,
             }],
         };
@@ -1172,6 +1189,7 @@ mod tests {
             positions: 42,
             market_titles: vec!["Will BTC hit 100k?".into(), "US Election".into()],
             recent_trades: 42,
+            trades_24h: 7,
             pnl_curve: Some(vec![0.0, 5.0, 10.0, 8.0, 12.0, 15.0, 14.0, 18.0, 20.0, 22.0, 25.0, 30.0]),
             market_metrics: None,
         };
@@ -1197,7 +1215,7 @@ mod tests {
             address: "0x".to_string(),
             volume: 0.0, buy_volume: 0.0, sell_volume: 0.0,
             pnl: 0.0, win_rate: 0.0, positions: 0,
-            market_titles: vec![], recent_trades: 0,
+            market_titles: vec![], recent_trades: 0, trades_24h: 0,
             pnl_curve: None, market_metrics: None,
         };
         let json = serde_json::to_string(&trader).unwrap();

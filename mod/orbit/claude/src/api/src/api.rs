@@ -81,6 +81,7 @@ pub async fn serve(manager: AppState, port: u16) {
         .route("/changelog", get(get_changelog))
         .route("/versions/:version", get(get_version))
         .route("/modules/:name/versions", get(list_module_versions))
+        .route("/modules/:name/registry", get(module_registry))
         .route("/owner", get(get_owner))
         .route("/whitelist", get(get_whitelist))
         .route("/auth/role", get(get_role))
@@ -91,8 +92,7 @@ pub async fn serve(manager: AppState, port: u16) {
         .route(
             "/auth/verify",
             post(auth::verify).with_state(challenge_store),
-        )
-        .route("/auth/claude", post(auth_claude));
+        );
 
     let app = Router::new()
         .merge(job_routes)
@@ -245,76 +245,6 @@ fn read_config_owner() -> Option<String> {
     let data: serde_json::Value = serde_json::from_str(&content).ok()?;
     let owner = data.get("owner").and_then(|v| v.as_str())?.to_lowercase();
     if owner.is_empty() { None } else { Some(owner) }
-}
-
-#[derive(Deserialize)]
-struct ClaudeAuthRequest {
-    token: String,
-}
-
-/// Sign in with a Claude.ai OAuth access token (sk-ant-oat01-…) — the same
-/// token the Claude CLI stores in the user's keychain. Requires an active
-/// Claude Pro or Max membership.
-async fn auth_claude(Json(req): Json<ClaudeAuthRequest>) -> impl IntoResponse {
-    let profile = match auth::verify_claude_membership(&req.token).await {
-        Ok(p) => p,
-        Err(e) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({ "error": format!("Claude OAuth verification failed: {}", e) })),
-            )
-                .into_response();
-        }
-    };
-
-    let membership = match profile.membership() {
-        Some(m) => m,
-        None => {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(json!({
-                    "error": "Claude.ai Pro or Max membership required",
-                    "email": profile.email,
-                })),
-            )
-                .into_response();
-        }
-    };
-
-    let address = auth::claude_pseudo_address(&profile.uuid);
-    let bearer = auth::mint_bearer(&address);
-
-    // If no owner has been set yet, the first Claude-member to sign in claims
-    // ownership — mirrors the existing wallet-verify flow.
-    if auth::get_owner_address().is_none() {
-        let owner_path = dirs::home_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join(".mod")
-            .join("claude")
-            .join("owner.json");
-        if let Some(parent) = owner_path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        let owner_data = serde_json::json!({ "owner": address });
-        if let Ok(json_str) = serde_json::to_string_pretty(&owner_data) {
-            let _ = std::fs::write(&owner_path, json_str);
-            println!("✓ First Claude member authenticated — set as owner: {} ({})", address, profile.email);
-        }
-    }
-
-    (
-        StatusCode::OK,
-        Json(json!({
-            "token": bearer,
-            "address": address,
-            "email": profile.email,
-            "full_name": profile.full_name,
-            "membership": membership,
-            "organization": profile.organization_uuid,
-            "organization_type": profile.organization_type,
-        })),
-    )
-        .into_response()
 }
 
 /// Returns the role for the given address: "owner" or "user"
@@ -1856,9 +1786,60 @@ fn find_pids_by_port(port: u16) -> Result<Vec<u32>, String> {
 
 // ── Snapshots / Versions / Fork / Restore ────────────────────────────
 //
-// Content-addressed via the Store trait (default: LocalFsStore). Any future
-// backend (ipfs/bitstore/dstore) is a one-line swap in snapshots::default_store.
+// Content-addressed via the Store enum (default: LocalFs). Any future backend
+// (ipfs/bitstore/dstore) is a one-line variant + match arm; nothing else moves.
 // Versions log lives at ~/.mod/claude/versions/{module}.json — append-only.
+//
+// Each change is also pushed to the mod-protocol api module (FastAPI on :8000)
+// via /api/reg — that gives us a git-like linked list of registry CIDs (each
+// entry has a `prev` pointer to the previous one). Rollback = restoring an old
+// localfs CID then re-registering it so the api module's "latest" pointer
+// moves backwards along the chain.
+
+const API_MODULE_URL: &str = "http://host.docker.internal:8000";
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ApiRegResult {
+    cid: Option<String>,
+    prev: Option<String>,
+    #[allow(dead_code)]
+    key: Option<String>,
+    #[allow(dead_code)]
+    name: Option<String>,
+    #[allow(dead_code)]
+    updated: Option<f64>,
+}
+
+/// Push a change through the mod-protocol api module. `comment` distinguishes
+/// snapshots, restores, forks etc. — useful when browsing registry history.
+/// 30s timeout: api/reg locally takes ~15-20s for non-cached snapshots.
+async fn mod_protocol_register(
+    module: &str,
+    comment: &str,
+) -> Result<ApiRegResult, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("http client: {e}"))?;
+    let resp = client
+        .post(format!("{API_MODULE_URL}/api/reg"))
+        .json(&serde_json::json!({ "mod": module, "comment": comment }))
+        .send()
+        .await
+        .map_err(|e| format!("api/reg POST failed: {e}"))?;
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("api/reg parse: {e}"))?;
+    if let Some(err) = body.get("error").and_then(|v| v.as_str()) {
+        return Err(format!("api/reg error: {err}"));
+    }
+    let result = body
+        .get("result")
+        .ok_or_else(|| "api/reg missing 'result'".to_string())?;
+    serde_json::from_value::<ApiRegResult>(result.clone())
+        .map_err(|e| format!("api/reg shape: {e}"))
+}
 
 fn module_root_for(name: &str) -> Option<std::path::PathBuf> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
@@ -1919,12 +1900,30 @@ async fn snapshot_module(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
+
+    // Push through the mod-protocol api module so this change is also a node
+    // in the global registry chain. Failure non-fatal — local snapshot still
+    // succeeds even if api is down; UI flags it.
+    let reg_comment = if body.message.is_empty() {
+        format!("snapshot: cid={}", &cid[..16])
+    } else {
+        format!("snapshot: {}", body.message)
+    };
+    let (registry_cid, registry_prev, registry_err) =
+        match mod_protocol_register(&name, &reg_comment).await {
+            Ok(r) => (r.cid, r.prev, None),
+            Err(e) => (None, None, Some(e)),
+        };
+
     let record = VersionRecord {
         cid: cid.clone(),
         message: body.message.clone(),
         author: caller.clone(),
         timestamp: ts,
         parent: parent.clone(),
+        registry_cid: registry_cid.clone(),
+        registry_prev: registry_prev.clone(),
+        action: Some("snapshot".to_string()),
     };
     if let Err(e) = append_version(&name, record) {
         return (
@@ -1943,6 +1942,9 @@ async fn snapshot_module(
             "file_count": manifest.files.len(),
             "parent": parent,
             "author": caller,
+            "registry_cid": registry_cid,
+            "registry_prev": registry_prev,
+            "registry_error": registry_err,
         })),
     )
         .into_response()
@@ -1955,6 +1957,47 @@ async fn list_module_versions(Path(name): Path<String>) -> impl IntoResponse {
         "count": history.len(),
         "versions": history,
     }))
+}
+
+/// Fetch the global mod-protocol api registry entry for a module so the UI
+/// can show "the registry currently points at CID X" next to the local log.
+async fn module_registry(Path(name): Path<String>) -> impl IntoResponse {
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": format!("http client: {e}") })),
+            )
+                .into_response();
+        }
+    };
+    let resp = client
+        .post(format!("{API_MODULE_URL}/api/mod"))
+        .json(&json!({ "key": name }))
+        .send()
+        .await;
+    match resp {
+        Ok(r) => match r.json::<serde_json::Value>().await {
+            Ok(body) => (StatusCode::OK, Json(body)).into_response(),
+            Err(e) => (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "error": format!("parse api/mod: {e}") })),
+            )
+                .into_response(),
+        },
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "error": format!("api module unreachable at {API_MODULE_URL}: {e}"),
+                "hint": "is `m api/serve` running on port 8000?"
+            })),
+        )
+            .into_response(),
+    }
 }
 
 #[derive(Deserialize)]
@@ -2013,24 +2056,37 @@ async fn fork_module(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
+    let target_module = format!("portal/{owner_for_path}/{target_name}");
+    let fork_msg = format!("forked from {name}@{}", &body.cid[..16]);
+    let (registry_cid, registry_prev, registry_err) =
+        match mod_protocol_register(&target_module, &fork_msg).await {
+            Ok(r) => (r.cid, r.prev, None),
+            Err(e) => (None, None, Some(e)),
+        };
     let fork_record = VersionRecord {
         cid: body.cid.clone(),
-        message: format!("forked from {name}"),
+        message: fork_msg,
         author: caller.clone(),
         timestamp: ts,
         parent: None,
+        registry_cid: registry_cid.clone(),
+        registry_prev: registry_prev.clone(),
+        action: Some("fork".to_string()),
     };
-    let _ = append_version(&format!("portal/{owner_for_path}/{target_name}"), fork_record);
+    let _ = append_version(&target_module, fork_record);
     (
         StatusCode::CREATED,
         Json(json!({
             "ok": true,
             "from_module": name,
             "from_cid": body.cid,
-            "target_module": format!("portal/{owner_for_path}/{target_name}"),
+            "target_module": target_module,
             "target_path": target.display().to_string(),
             "file_count": written,
             "store": store.name(),
+            "registry_cid": registry_cid,
+            "registry_prev": registry_prev,
+            "registry_error": registry_err,
         })),
     )
         .into_response()
@@ -2062,21 +2118,29 @@ async fn restore_module(
         )
             .into_response();
     };
-    // Snapshot current state as a safety net before overwriting
+    // Auto-snapshot current state first so the rollback is itself reversible.
     let store = default_store();
     if let Ok((auto_cid, _)) = snapshot_dir(&root, &store) {
         let ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
+        let auto_msg = format!("auto-snapshot before rollback to {}", &body.cid[..16]);
+        let (rcid, rprev, _) = match mod_protocol_register(&name, &auto_msg).await {
+            Ok(r) => (r.cid, r.prev, None),
+            Err(e) => (None, None, Some(e)),
+        };
         let _ = append_version(
             &name,
             VersionRecord {
                 cid: auto_cid,
-                message: format!("auto-snapshot before restore to {}", body.cid),
+                message: auto_msg,
                 author: caller.clone(),
                 timestamp: ts,
                 parent: None,
+                registry_cid: rcid,
+                registry_prev: rprev,
+                action: Some("auto-snapshot".to_string()),
             },
         );
     }
@@ -2094,14 +2158,25 @@ async fn restore_module(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
+    // Re-register through the api module so the global registry's "latest"
+    // pointer moves backwards along the chain to reflect the rollback.
+    let restore_msg = format!("rollback to {}", &body.cid[..16]);
+    let (registry_cid, registry_prev, registry_err) =
+        match mod_protocol_register(&name, &restore_msg).await {
+            Ok(r) => (r.cid, r.prev, None),
+            Err(e) => (None, None, Some(e)),
+        };
     let _ = append_version(
         &name,
         VersionRecord {
             cid: body.cid.clone(),
-            message: format!("restored to {}", body.cid),
+            message: restore_msg,
             author: caller.clone(),
             timestamp: ts,
             parent: None,
+            registry_cid: registry_cid.clone(),
+            registry_prev: registry_prev.clone(),
+            action: Some("restore".to_string()),
         },
     );
     (
@@ -2112,6 +2187,9 @@ async fn restore_module(
             "restored_to": body.cid,
             "file_count": written,
             "store": store.name(),
+            "registry_cid": registry_cid,
+            "registry_prev": registry_prev,
+            "registry_error": registry_err,
         })),
     )
         .into_response()

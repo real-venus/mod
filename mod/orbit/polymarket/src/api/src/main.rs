@@ -39,13 +39,16 @@ async fn main() -> anyhow::Result<()> {
         strat_store,
     };
 
-    // Background warmup: traders pipeline
+    // Background warmup: traders pipeline. 15-minute cadence pairs with the
+    // 1-hour cache TTL on activity/trades endpoints so the leaderboard is
+    // never more than ~1h behind real activity. Each cycle only re-fetches
+    // entries that have expired, so the steady-state cost stays bounded.
     let warmup_pipeline = pipeline.clone();
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         loop {
             warmup_pipeline.warmup_cycle().await;
-            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(900)).await;
         }
     });
 

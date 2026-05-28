@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useCopyEngine } from "../context/CopyEngineContext";
 import { loadIndexes, getActiveIndexId, updateIndex } from "../lib/indexStore";
@@ -41,6 +41,50 @@ function formatCountdown(ms: number): string {
   return `${Math.floor(min / 60)}h ${min % 60}m`;
 }
 
+// Past-tense friend of formatCountdown — "5s ago" / "3m ago" / "1h 2m ago".
+function formatAgo(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "just now";
+  const sec = Math.floor(ms / 1000);
+  if (sec < 5) return "just now";
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  return `${hr}h ${min % 60}m ago`;
+}
+
+// Compact rounded stat card — used in the LIVE stats grid. The `tone` knob
+// recolors the value (white default, green for "good", amber for "watching",
+// red for "warning"). Label stays muted so the number reads first.
+function StatCard({
+  label,
+  value,
+  tone = "white",
+  title,
+  fullWidth,
+}: {
+  label: string;
+  value: ReactNode;
+  tone?: "white" | "green" | "amber" | "red";
+  title?: string;
+  fullWidth?: boolean;
+}) {
+  const valueCls =
+    tone === "green" ? "text-green-400" :
+    tone === "amber" ? "text-amber-400" :
+    tone === "red" ? "text-red-400" :
+    "text-pixel-white";
+  return (
+    <div
+      title={title}
+      className={`rounded-md border border-pixel-border/60 bg-pixel-black/40 px-2.5 py-1.5 flex items-baseline justify-between gap-2 ${fullWidth ? "col-span-2 md:col-span-3" : ""}`}
+    >
+      <span className="text-[11px] text-pixel-gray tracking-[0.18em] uppercase">{label}</span>
+      <span className={`text-[15px] font-mono ${valueCls}`}>{value}</span>
+    </div>
+  );
+}
+
 function LogIcon({ type }: { type: ExecutionLogEntry["type"] }) {
   switch (type) {
     case "COPY_BUY": return <span className="text-red-400">BUY</span>;
@@ -61,6 +105,12 @@ export default function LivePanel() {
   const [liveCapital, setLiveCapital] = useState(100);
   const [livePollMin, setLivePollMin] = useState(DEFAULT_LIVE_POLL_MIN);
   const [now, setNow] = useState(Date.now());
+  // Paginated trade view (under the EXECUTION LOG). Toggle filter shows
+  // only actual trade events (COPY_BUY / COPY_SELL / SKIP) instead of the
+  // CYCLE_START/END heartbeat noise that dominates a healthy log.
+  const [tradesPage, setTradesPage] = useState(0);
+  const [tradesFilter, setTradesFilter] = useState<"trades" | "all">("trades");
+  const TRADES_PAGE_SIZE = 25;
 
   // Tick for countdown
   useEffect(() => {
@@ -230,6 +280,71 @@ export default function LivePanel() {
         )}
       </div>
 
+      {/* ── Preconditions ──
+          Moved to the TOP so the user knows what's blocking GO LIVE before
+          scrolling through funding panels. Compact pill row: each step is
+          green-filled when satisfied, amber-outline when actionable, muted
+          when stale. The summary count tells you "5/6 ready" at a glance. */}
+      {!isLive && (() => {
+        const items = [
+          { ok: hasWallet, label: "WALLET", action: null as null | { label: string; disabled: boolean; onClick: () => void } },
+          {
+            ok: hasCreds,
+            label: "CLOB",
+            // When CLOB isn't authed (and a wallet IS connected) expose a
+            // refresh action so the user can sign again without leaving
+            // the live panel.
+            action: !hasCreds && hasWallet ? {
+              label: authLoading ? "signing…" : "sign",
+              disabled: authLoading,
+              onClick: () => { void authenticate(); },
+            } : null,
+          },
+          { ok: !!activeStrat, label: "STRAT", action: null },
+          { ok: hasTraders, label: "TRADERS", action: null },
+          { ok: hasRebalance, label: "REBALANCE", action: null },
+          { ok: hasCapital, label: "CAPITAL", action: null },
+        ];
+        const okCount = items.filter((i) => i.ok).length;
+        return (
+          <div className="pixel-panel border-2 border-pixel-border px-3 py-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-pixel-gray tracking-[0.18em] shrink-0">CHECKLIST</span>
+              <span className={`text-[12px] font-mono tracking-wider shrink-0 ${
+                okCount === items.length ? "text-green-400" : "text-amber-400"
+              }`}>
+                {okCount}/{items.length} {okCount === items.length ? "· ready to go live" : "· not ready"}
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                {items.map((item) => (
+                  <span
+                    key={item.label}
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-mono tracking-wider border ${
+                      item.ok
+                        ? "border-green-400/60 text-green-400 bg-green-400/10"
+                        : "border-pixel-border/60 text-pixel-gray bg-pixel-black/40"
+                    }`}
+                  >
+                    <span className="text-[10px]">{item.ok ? "✓" : "○"}</span>
+                    <span>{item.label}</span>
+                    {item.action && (
+                      <button
+                        onClick={item.action.onClick}
+                        disabled={item.action.disabled}
+                        className="ml-0.5 text-[10px] font-mono text-amber-400 hover:text-amber-300 disabled:opacity-50 disabled:cursor-not-allowed underline-offset-2 hover:underline"
+                        title="Sign a MetaMask message to derive your Polymarket CLOB API key"
+                      >
+                        {item.action.label}
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Wallet + Funds + Capital ── */}
       {!isLive && (
         <WalletFundingPanel capital={liveCapital} onCapitalChange={setLiveCapital} />
@@ -240,133 +355,191 @@ export default function LivePanel() {
           stopping the engine. */}
       {auth.connected && <PolymarketAccountPanel />}
 
-      {/* ── Preconditions ── */}
-      {!isLive && (
-        <div className="pixel-panel border-2 border-pixel-border px-3 py-1.5">
-          <span className="text-[13px] text-pixel-gray tracking-wider block mb-1">CHECKLIST</span>
-          {([
-            { ok: hasWallet, label: "WALLET CONNECTED" },
-            {
-              ok: hasCreds,
-              label: "CLOB AUTHENTICATED",
-              // When CLOB isn't authed (and a wallet IS connected) expose a
-              // refresh action so the user can sign again without leaving
-              // the live panel.
-              action: !hasCreds && hasWallet ? {
-                label: authLoading ? "signing…" : "refresh",
-                disabled: authLoading,
-                onClick: () => { void authenticate(); },
-              } : null,
-            },
-            { ok: !!activeStrat, label: "STRATEGY SELECTED" },
-            { ok: hasTraders, label: "TRADERS IN STRATEGY" },
-            { ok: hasRebalance, label: "REBALANCE PERIOD SET" },
-            { ok: hasCapital, label: "CAPITAL > $0" },
-          ] as const).map((item) => (
-            <div key={item.label} className="flex items-center gap-1.5 py-0.5">
-              <span className={`text-[14px] ${item.ok ? "text-green-400" : "text-red-400/60"}`}>
-                {item.ok ? "[x]" : "[ ]"}
-              </span>
-              <span className={`text-[14px] font-mono ${item.ok ? "text-pixel-white" : "text-pixel-gray"}`}>
-                {item.label}
-              </span>
-              {"action" in item && item.action && (
-                <button
-                  onClick={item.action.onClick}
-                  disabled={item.action.disabled}
-                  className="ml-2 text-[13px] font-mono tracking-wider px-2 py-0.5 rounded-full border border-amber-400/50 text-amber-400 hover:text-amber-300 hover:border-amber-300 hover:bg-amber-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title="Sign a MetaMask message to derive your Polymarket CLOB API key"
-                >
-                  {item.action.label}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Stats (when live) ── */}
+      {/* ── Stats (when live) ──
+          Card grid replaces the old text-only flex rows. Each stat now has
+          its own rounded mini-panel with a label + big mono value so the
+          eye lands on numbers, not labels. LAST SYNC is the most recent
+          successful Polymarket data-api pull (engine `lastCycleAt`) —
+          tracks freshness directly instead of the cache snapshot age. */}
       {isLive && engineState && (
-        <div className="pixel-panel border-2 border-pixel-border px-3 py-2">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-            <div className="flex justify-between">
-              <span className="text-[13px] text-pixel-gray">BALANCE</span>
-              <span className="text-[14px] text-pixel-white font-mono">
-                {engineState.balance !== null ? `$${engineState.balance.toFixed(2)}` : "---"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[13px] text-pixel-gray">CAPITAL</span>
-              <span className="text-[14px] text-pixel-white font-mono">${liveCapital.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[13px] text-pixel-gray">ORDERS</span>
-              <span className="text-[14px] font-mono">
-                <span className="text-green-400">{engineState.totalOrdersPlaced}</span>
-                {engineState.totalOrdersFailed > 0 && (
-                  <span className="text-red-400"> / {engineState.totalOrdersFailed}F</span>
-                )}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[13px] text-pixel-gray">VOLUME</span>
-              <span className="text-[14px] text-pixel-white font-mono">
-                ${engineState.totalVolumeMirrored.toFixed(0)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[13px] text-pixel-gray">CYCLES</span>
-              <span className="text-[14px] text-pixel-white font-mono">{engineState.cycleCount}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[13px] text-pixel-gray">NEXT IN</span>
-              <span className="text-[14px] text-green-400 font-mono">{formatCountdown(nextIn)}</span>
-            </div>
+        <div className="pixel-panel border-2 border-pixel-border p-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+            <StatCard
+              label="BALANCE"
+              value={engineState.balance !== null ? `$${engineState.balance.toFixed(2)}` : "—"}
+              tone="white"
+            />
+            <StatCard
+              label="CAPITAL"
+              value={`$${liveCapital.toLocaleString()}`}
+              tone="white"
+            />
+            <StatCard
+              label="ORDERS"
+              value={
+                <>
+                  <span className="text-green-400">{engineState.totalOrdersPlaced}</span>
+                  {engineState.totalOrdersFailed > 0 && (
+                    <span className="text-red-400"> / {engineState.totalOrdersFailed}F</span>
+                  )}
+                </>
+              }
+            />
+            <StatCard
+              label="VOLUME"
+              value={`$${engineState.totalVolumeMirrored.toFixed(0)}`}
+              tone="white"
+            />
+            <StatCard
+              label="CYCLES"
+              value={String(engineState.cycleCount)}
+              tone="white"
+            />
+            <StatCard
+              label="NEXT IN"
+              value={formatCountdown(nextIn)}
+              tone="green"
+            />
+            <StatCard
+              label="LAST SYNC"
+              value={engineState.lastCycleAt
+                ? formatAgo(now - engineState.lastCycleAt)
+                : "never"}
+              tone={
+                engineState.lastCycleAt && (now - engineState.lastCycleAt) < 90_000
+                  ? "green"
+                  : engineState.lastCycleAt && (now - engineState.lastCycleAt) < 300_000
+                    ? "amber"
+                    : "red"
+              }
+              title={
+                engineState.lastCycleAt
+                  ? `Most recent successful Polymarket data-api fetch at ${new Date(engineState.lastCycleAt).toLocaleTimeString()}`
+                  : "No sync yet — first cycle pending"
+              }
+              fullWidth
+            />
           </div>
           {engineState.error && (
-            <div className="mt-2 px-2 py-1 border border-red-400/40 bg-red-400/5 text-[14px] text-red-400 font-mono">
+            <div className="mt-2 px-2 py-1 border border-red-400/40 bg-red-400/5 text-[14px] text-red-400 font-mono rounded">
               {engineState.error}
             </div>
           )}
         </div>
       )}
 
-      {/* ── Execution Log ── */}
-      {isLive && engineState && engineState.log.length > 0 && (
-        <div className="pixel-panel border-2 border-pixel-border">
-          <div className="px-3 py-1.5 border-b border-pixel-border flex items-center justify-between">
-            <span className="text-[14px] text-pixel-gray tracking-wider">EXECUTION LOG</span>
-            <span className="text-[13px] text-pixel-gray font-mono">{engineState.log.length} entries</span>
-          </div>
-          <div className="max-h-[300px] overflow-y-auto">
-            {engineState.log.map((entry) => (
-              <div
-                key={entry.id}
-                className="px-3 py-1 border-b border-pixel-border/20 flex items-start gap-2 text-[14px] font-mono hover:bg-pixel-white/5"
-              >
-                <span className="text-pixel-gray shrink-0 w-[52px]">{formatTime(entry.timestamp)}</span>
-                <span className="shrink-0 w-[28px]"><LogIcon type={entry.type} /></span>
-                <div className="min-w-0 flex-1">
-                  {entry.market && (
-                    <span className="text-pixel-white truncate block">{entry.market}</span>
-                  )}
-                  {entry.mirrorNotional !== undefined && entry.mirrorNotional > 0 && (
-                    <span className={entry.side === "BUY" ? "text-red-400" : "text-green-400"}>
-                      {entry.side === "BUY" ? "-" : "+"}${entry.mirrorNotional.toFixed(2)}
-                    </span>
-                  )}
-                  {entry.reason && (
-                    <span className="text-pixel-gray"> {entry.reason}</span>
-                  )}
-                  {entry.orderResult && !entry.orderResult.success && entry.orderResult.errorMsg && (
-                    <span className="text-red-400/70 block truncate">{entry.orderResult.errorMsg}</span>
-                  )}
+      {/* ── Trades / Execution Log (filterable + paginated) ──
+          The full engine log is dominated by CYCLE_START/END heartbeats — the
+          "TRADES" view filters to just the entries you actually copy or skip,
+          which is what the user usually wants when monitoring. Pagination
+          keeps the panel a fixed height instead of growing across the page. */}
+      {isLive && engineState && engineState.log.length > 0 && (() => {
+        const filtered = engineState.log.filter((e) =>
+          tradesFilter === "trades"
+            ? e.type === "COPY_BUY" || e.type === "COPY_SELL" || e.type === "SKIP"
+            : true,
+        );
+        // Newest-first so the latest mirror lands at the top.
+        const sorted = [...filtered].sort((a, b) => b.timestamp - a.timestamp);
+        const totalPages = Math.max(1, Math.ceil(sorted.length / TRADES_PAGE_SIZE));
+        const safePage = Math.min(tradesPage, totalPages - 1);
+        const start = safePage * TRADES_PAGE_SIZE;
+        const pageEntries = sorted.slice(start, start + TRADES_PAGE_SIZE);
+        return (
+          <div className="pixel-panel border-2 border-pixel-border">
+            <div className="px-3 py-1.5 border-b border-pixel-border flex items-center gap-2 flex-wrap">
+              <span className="text-[14px] text-pixel-gray tracking-wider shrink-0">
+                {tradesFilter === "trades" ? "TRADES" : "EXECUTION LOG"}
+              </span>
+              <span className="text-[12px] text-pixel-gray font-mono shrink-0">
+                {sorted.length} {tradesFilter === "trades" ? "trade events" : "entries"}
+              </span>
+              <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => { setTradesFilter("trades"); setTradesPage(0); }}
+                  className={`pixel-btn text-[11px] px-2 py-0.5 ${
+                    tradesFilter === "trades"
+                      ? "border-green-400 text-green-400 bg-green-400/10"
+                      : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+                  }`}
+                  title="Show only copy events (BUY / SELL / SKIP)"
+                >
+                  TRADES
+                </button>
+                <button
+                  onClick={() => { setTradesFilter("all"); setTradesPage(0); }}
+                  className={`pixel-btn text-[11px] px-2 py-0.5 ${
+                    tradesFilter === "all"
+                      ? "border-green-400 text-green-400 bg-green-400/10"
+                      : "border-pixel-border text-pixel-gray hover:text-pixel-white"
+                  }`}
+                  title="Show every log entry, including cycle heartbeats"
+                >
+                  ALL
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[300px] overflow-y-auto">
+              {pageEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="px-3 py-1 border-b border-pixel-border/20 flex items-start gap-2 text-[14px] font-mono hover:bg-pixel-white/5"
+                >
+                  <span className="text-pixel-gray shrink-0 w-[52px]">{formatTime(entry.timestamp)}</span>
+                  <span className="shrink-0 w-[28px]"><LogIcon type={entry.type} /></span>
+                  <div className="min-w-0 flex-1">
+                    {entry.market && (
+                      <span className="text-pixel-white truncate block">{entry.market}</span>
+                    )}
+                    {entry.mirrorNotional !== undefined && entry.mirrorNotional > 0 && (
+                      <span className={entry.side === "BUY" ? "text-red-400" : "text-green-400"}>
+                        {entry.side === "BUY" ? "-" : "+"}${entry.mirrorNotional.toFixed(2)}
+                      </span>
+                    )}
+                    {entry.reason && (
+                      <span className="text-pixel-gray"> {entry.reason}</span>
+                    )}
+                    {entry.orderResult && !entry.orderResult.success && entry.orderResult.errorMsg && (
+                      <span className="text-red-400/70 block truncate">{entry.orderResult.errorMsg}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {pageEntries.length === 0 && (
+                <div className="px-3 py-3 text-center text-[12px] text-pixel-gray">
+                  No {tradesFilter === "trades" ? "trade events" : "log entries"} yet.
+                </div>
+              )}
+            </div>
+            {totalPages > 1 && (
+              <div className="px-3 py-1.5 border-t border-pixel-border/40 flex items-center justify-between">
+                <span className="text-[11px] text-pixel-gray font-mono">
+                  {start + 1}-{Math.min(start + TRADES_PAGE_SIZE, sorted.length)} of {sorted.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setTradesPage((p) => Math.max(0, p - 1))}
+                    disabled={safePage === 0}
+                    className="pixel-btn text-[11px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed"
+                  >
+                    PREV
+                  </button>
+                  <span className="text-[11px] text-pixel-gray font-mono px-1">
+                    {safePage + 1} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setTradesPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={safePage >= totalPages - 1}
+                    className="pixel-btn text-[11px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-pixel-white disabled:opacity-20 disabled:cursor-not-allowed"
+                  >
+                    NEXT
+                  </button>
                 </div>
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Empty state when live but no log ── */}
       {isLive && engineState && engineState.log.length === 0 && (

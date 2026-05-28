@@ -434,14 +434,15 @@ export default function PolymarketAccountPanel() {
 
   return (
     <div className="pixel-panel border-2 border-pixel-border">
+      {/* Header — dropped the "smart-contract proxy on Polygon" tagline
+          (info already conveyed by the panel title and address format). */}
       <div className="px-3 py-1.5 border-b border-pixel-border/60 flex items-center gap-2 bg-pixel-black/40">
         <div className="w-1.5 h-1.5 bg-purple-400 shrink-0" />
-        <span className="text-[13px] text-pixel-white tracking-[0.18em]">POLYMARKET ACCOUNT</span>
-        <span className="text-[12px] text-pixel-gray ml-auto">smart-contract proxy on Polygon</span>
+        <span className="text-[13px] text-pixel-white tracking-[0.18em]">PROXY</span>
         <button
           onClick={() => { void resolveProxy(); void refresh(); }}
           disabled={proxyResolving}
-          className="text-[14px] text-pixel-gray hover:text-green-400 px-1 disabled:opacity-40"
+          className="text-[14px] text-pixel-gray hover:text-green-400 px-1 disabled:opacity-40 ml-auto"
           title="Re-resolve proxy + balances"
         >
           {proxyResolving ? "…" : "↻"}
@@ -500,20 +501,14 @@ export default function PolymarketAccountPanel() {
         )}
       </div>
 
-      {/* Balances row — inline two-column to save vertical space. */}
-      <div className="px-3 py-1.5 border-b border-pixel-border/30 flex items-center gap-4">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-[12px] text-pixel-gray tracking-[0.15em]">YOUR WALLET</span>
-          <span className="text-[15px] font-mono text-pixel-white">
-            {bal.eoa === null ? "..." : `$${bal.eoa.toFixed(2)}`}
-          </span>
-        </div>
-        <div className="flex items-baseline gap-1.5 ml-auto">
-          <span className="text-[12px] text-purple-400 tracking-[0.15em]">PROXY</span>
-          <span className="text-[15px] font-mono text-purple-400">
-            {bal.proxy === null ? "..." : `$${bal.proxy.toFixed(2)}`}
-          </span>
-        </div>
+      {/* Balance row — PROXY only. Dropped the "YOUR WALLET $X" pair because
+          the same number is already rendered big-and-green in the WALLET ·
+          POLYGON row above. The proxy balance is the meaningful one here. */}
+      <div className="px-3 py-1.5 border-b border-pixel-border/30 flex items-baseline justify-between">
+        <span className="text-[12px] text-purple-400 tracking-[0.15em]">BALANCE</span>
+        <span className="text-[20px] font-mono text-purple-400">
+          {bal.proxy === null ? "..." : `$${bal.proxy.toFixed(2)}`}
+        </span>
       </div>
 
       {/* Deposit + Withdraw rows */}

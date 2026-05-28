@@ -16,6 +16,9 @@ export interface TopTrader {
   positions: number;
   marketTitles: string[];
   recentTrades: number;
+  /** Trades in the last 24h — distinct from `recentTrades` (whole window).
+      Lets the UI flag dormant traders even on a 30d-window leaderboard. */
+  trades24h?: number;
   pnlCurve?: number[];   // ~12-point cumulative PnL over the window
 }
 
@@ -359,6 +362,9 @@ export interface PagedTradersResult {
   count: number;
   cold?: boolean;
   source: "memory" | "disk" | "fresh" | null;
+  /** Unix seconds when the underlying data was last refreshed from
+      Polymarket — true source age, NOT cache hit age. 0 means unknown. */
+  syncedAt?: number;
 }
 
 export async function fetchTradersPage(opts: {
@@ -424,7 +430,7 @@ export async function fetchTopTradersStream(
   options: { daysWindow?: number; minTradesPerDay?: number },
   onProgress: (p: ActiveTradersProgress) => void,
   onPartial?: (traders: TopTrader[]) => void,
-): Promise<{ traders: TopTrader[]; source: "memory" | "disk" | "fresh" }> {
+): Promise<{ traders: TopTrader[]; source: "memory" | "disk" | "fresh"; syncedAt: number }> {
   const { daysWindow = 7, minTradesPerDay = 1 } = options;
   const qs = new URLSearchParams({
     days: String(daysWindow),
@@ -440,6 +446,7 @@ export async function fetchTopTradersStream(
   let buf = "";
   let traders: TopTrader[] = [];
   let source: "memory" | "disk" | "fresh" = "fresh";
+  let syncedAt = 0;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -466,6 +473,7 @@ export async function fetchTopTradersStream(
           positions: Number(t.positions || 0),
           marketTitles: Array.isArray(t.marketTitles) ? (t.marketTitles as string[]) : [],
           recentTrades: Number(t.recentTrades || 0),
+          trades24h: Number(t.trades24h || 0),
           pnlCurve: Array.isArray(t.pnlCurve) ? (t.pnlCurve as number[]) : undefined,
         }));
         if (evt.type === "partial") {
@@ -475,13 +483,14 @@ export async function fetchTopTradersStream(
           if (typeof evt.source === "string") {
             source = evt.source as "memory" | "disk" | "fresh";
           }
+          if (typeof evt.syncedAt === "number") syncedAt = evt.syncedAt;
         }
       } else if (evt.type === "error") {
         throw new Error(String(evt.message || "stream error"));
       }
     }
   }
-  return { traders, source };
+  return { traders, source, syncedAt };
 }
 
 export async function fetchTopTraders(
@@ -509,6 +518,8 @@ export async function fetchTopTraders(
     winRate: Number(t.winRate || 0),
     positions: Number(t.positions || 0),
     marketTitles: Array.isArray(t.marketTitles) ? (t.marketTitles as string[]) : [],
+    recentTrades: Number(t.recentTrades || 0),
+    trades24h: Number(t.trades24h || 0),
     pnlCurve: Array.isArray(t.pnlCurve) ? (t.pnlCurve as number[]) : undefined,
   }));
 }
@@ -626,6 +637,104 @@ export async function fetchWalletTradesUntil(
   }
 
   return out;
+}
+
+// Parse a single /activity row into a PolymarketTrade or null. Shared by the
+// full-fetch and incremental-fetch paths so they normalize identically.
+function parseActivityTrade(t: Record<string, unknown>): PolymarketTrade | null {
+  if (t.type !== "TRADE") return null;
+  const price = Number(t.price || 0);
+  const size = Number(t.size || 0);
+  if (!Number.isFinite(price) || !Number.isFinite(size) || size <= 0) return null;
+  const side = String(t.side || "BUY").toUpperCase() as "BUY" | "SELL";
+  let timestamp = 0;
+  if (typeof t.timestamp === "number") {
+    timestamp = (t.timestamp as number) > 1e12
+      ? (t.timestamp as number)
+      : (t.timestamp as number) * 1000;
+  }
+  if (timestamp <= 0) return null;
+  return {
+    id: String(t.transactionHash || ""),
+    market: String(t.title || t.slug || ""),
+    conditionId: String(t.conditionId || t.asset || ""),
+    side,
+    price,
+    size,
+    pnl: Number(t.pnl || 0),
+    timestamp,
+    outcome: t.outcome as string | undefined,
+  };
+}
+
+// Incremental refresh — paginates /activity from the newest trade backwards
+// and stops as soon as it hits a trade we already have cached, then merges
+// the fresh window with the existing array (dedupe by tx hash). Avoids the
+// 90-day full refetch the live engine was doing every minute, and prevents
+// older trades from being silently dropped if Polymarket trims the activity
+// feed. `existing` is whatever's already in memory or trade cache; pass `[]`
+// to force a full backfill (delegates to fetchWalletTradesUntil).
+export async function fetchWalletTradesIncremental(
+  address: string,
+  existing: PolymarketTrade[],
+  windowUntilTsSec: number,
+  maxPages = 5,
+): Promise<PolymarketTrade[]> {
+  if (existing.length === 0) {
+    // No baseline — incremental can't do better than the full fetch.
+    return fetchWalletTradesUntil(address, windowUntilTsSec);
+  }
+  let newestMs = 0;
+  for (const t of existing) if (t.timestamp > newestMs) newestMs = t.timestamp;
+  const newestSec = Math.floor(newestMs / 1000);
+  // If cached newest is already older than the window's left edge, we'd
+  // miss data — bail to a full refetch.
+  if (newestSec < windowUntilTsSec) {
+    return fetchWalletTradesUntil(address, windowUntilTsSec);
+  }
+
+  const seenIds = new Set(existing.map((t) => t.id));
+  const fresh: PolymarketTrade[] = [];
+  const PAGE = 500;
+
+  for (let page = 0; page < maxPages; page++) {
+    const raw = await polyApi("activity", {
+      user: address,
+      limit: String(PAGE),
+      offset: String(page * PAGE),
+    }) as unknown;
+    if (!Array.isArray(raw) || raw.length === 0) break;
+    const items = raw as Record<string, unknown>[];
+
+    let oldestSec = Number.POSITIVE_INFINITY;
+    let hitKnown = false;
+    for (const t of items) {
+      const ts = Number(t.timestamp || 0);
+      if (ts > 0 && ts < oldestSec) oldestSec = ts;
+      const parsed = parseActivityTrade(t);
+      if (!parsed) continue;
+      if (seenIds.has(parsed.id)) {
+        hitKnown = true;
+        continue;
+      }
+      fresh.push(parsed);
+      seenIds.add(parsed.id);
+    }
+    // Stop once we've paged into already-cached territory (we have everything
+    // newer) or once the API returned a short page (no more data upstream).
+    if (hitKnown || items.length < PAGE) break;
+    // Belt-and-suspenders: if oldest item in the page is already older than
+    // our newest cached trade, we're definitely in known territory.
+    if (Number.isFinite(oldestSec) && oldestSec * 1000 < newestMs) break;
+  }
+
+  if (fresh.length === 0) return existing;
+
+  // Merge + persist. Newest-first ordering matches what the rest of the app
+  // expects from the bulk fetch path.
+  const merged = [...fresh, ...existing].sort((a, b) => b.timestamp - a.timestamp);
+  setTradeCache(address, merged);
+  return merged;
 }
 
 export async function fetchWalletTrades(address: string, limit: number = 200): Promise<PolymarketTrade[]> {

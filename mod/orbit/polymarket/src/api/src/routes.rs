@@ -73,6 +73,7 @@ async fn active_traders(
             "minTradesPerDay": payload.min_trades_per_day,
             "traders": payload.traders,
             "source": source,
+            "syncedAt": payload.synced_at,
         })).into_response();
     }
 
@@ -109,6 +110,7 @@ async fn active_traders(
                         "daysWindow": payload.days_window,
                         "minTradesPerDay": payload.min_trades_per_day,
                         "traders": payload.traders,
+                        "syncedAt": payload.synced_at,
                     });
                     tx.send(evt).await.ok();
                 }
@@ -145,6 +147,7 @@ async fn active_traders(
                 "minTradesPerDay": payload.min_trades_per_day,
                 "traders": payload.traders,
                 "source": "fresh",
+                "syncedAt": payload.synced_at,
             })).into_response()
         }
         Err(e) => {
@@ -281,5 +284,9 @@ fn apply_pagination(payload: &crate::types::AggPayload, q: &ActiveTradersQuery, 
         "daysWindow": payload.days_window,
         "minTradesPerDay": payload.min_trades_per_day,
         "source": source,
+        // Wall-clock unix-seconds when the underlying data was last refreshed.
+        // Distinct from "when the client hit the cache" — drives the LIVE
+        // staleness label so users see real source age, not cache hit age.
+        "syncedAt": payload.synced_at,
     })
 }

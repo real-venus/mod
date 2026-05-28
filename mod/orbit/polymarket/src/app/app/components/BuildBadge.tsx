@@ -119,7 +119,16 @@ export default function BuildBadge() {
       setStatus(`PINNED ${txHash.slice(0, 10)}...`);
       setTimeout(() => setStatus(null), 4000);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      // Wallet RPC errors are plain objects with {code, message, data}, not
+      // Error instances — String(e) on them yields "[object Object]". Pull
+      // the message out of whatever shape we got.
+      const errObj = e as { message?: string; data?: { message?: string }; reason?: string };
+      const msg =
+        e instanceof Error ? e.message :
+        errObj?.data?.message ||
+        errObj?.reason ||
+        errObj?.message ||
+        (typeof e === "string" ? e : JSON.stringify(e).slice(0, 200));
       setStatus(`ERROR: ${msg.slice(0, 120)}`);
     } finally {
       setBusy(false);

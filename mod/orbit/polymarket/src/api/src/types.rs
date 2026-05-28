@@ -32,6 +32,11 @@ pub struct Trader {
     pub market_titles: Vec<String>,
     #[serde(rename = "recentTrades")]
     pub recent_trades: u32,
+    /// Count of trades in the last 24h — surfaces "still active" traders
+    /// vs. those who looked good in week 1 but went dark afterward.
+    /// `#[serde(default)]` keeps older cached payloads loadable.
+    #[serde(rename = "trades24h", default)]
+    pub trades_24h: u32,
     #[serde(rename = "pnlCurve", skip_serializing_if = "Option::is_none")]
     pub pnl_curve: Option<Vec<f64>>,
     /// Per-market metrics — memory-only, not serialized to JSON / disk cache.
@@ -48,6 +53,12 @@ pub struct AggPayload {
     pub days_window: u32,
     #[serde(rename = "minTradesPerDay")]
     pub min_trades_per_day: f64,
+    /// Wall-clock unix-seconds when this aggregate was last (re)computed from
+    /// Polymarket source data. Distinct from the cache hit time the client
+    /// sees — gives the user a true "data is N minutes old" reading.
+    /// `#[serde(default)]` keeps old disk payloads loadable.
+    #[serde(rename = "syncedAt", default)]
+    pub synced_at: i64,
     pub traders: Vec<Trader>,
 }
 

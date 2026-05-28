@@ -172,7 +172,9 @@ textarea { resize: vertical; min-height: 80px; font-family: "JetBrains Mono", mo
   font-size: 13px; font-weight: 700; color: #fff;
   background: linear-gradient(135deg, var(--avatar-from, #2a2a2a), var(--avatar-to, #1a1a1a));
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 1px 3px rgba(0,0,0,0.4);
+  overflow: hidden;
 }
+.mod-avatar img { width: 60%; height: 60%; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); }
 .mod-meta { flex: 1; min-width: 0; }
 .mod-name { font-size: 12px; font-weight: 600; color: var(--fg); display:flex; align-items:center; gap:6px; text-transform: uppercase; letter-spacing: 0.04em; }
 .mod-card.selected .mod-name { color: var(--green); }
@@ -379,6 +381,9 @@ function renderModules() {
     const grad = nameToGradient(m.name);
     const avatarChar = m.icon || m.name[0].toUpperCase();
     const avatarColor = m.color || grad.from;
+    const avatarInner = m.image
+      ? `<img src="${m.image}" alt="${m.name}" loading="lazy" onerror="this.replaceWith(document.createTextNode('${avatarChar}'))"/>`
+      : avatarChar;
     const card = document.createElement("div");
     card.className = "mod-card" + (isSel ? " selected" : "");
     card.style.setProperty("--avatar-from", avatarColor);
@@ -387,7 +392,7 @@ function renderModules() {
     const status = m.alive ? "live" : (m.served ? "warn" : "idle");
     const statusLabel = m.alive ? "live" : (m.served ? "starting" : "idle");
     card.innerHTML = `
-      <div class="mod-avatar">${avatarChar}</div>
+      <div class="mod-avatar">${avatarInner}</div>
       <div class="mod-meta">
         <div class="mod-name">${m.name}${isSel ? ' <span class="check">✓</span>' : ''}</div>
         <div class="mod-desc">${desc || (m.kind + ' · port ' + (m.port || '?'))}</div>

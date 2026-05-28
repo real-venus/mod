@@ -234,6 +234,7 @@ def list_modules():
             "description": cfg.get("description"),
             "icon": cfg.get("icon"),
             "color": cfg.get("color"),
+            "image": cfg.get("image"),
             "port": port,
             "app_port": cfg.get("app_port"),
             "kind": "fastapi" if name == "dev" else ("rust" if port else "static"),

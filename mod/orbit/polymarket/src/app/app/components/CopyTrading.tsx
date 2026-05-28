@@ -212,8 +212,17 @@ export default function CopyTrading({
   // Track when the trader payload last landed so we can show a "5s ago"
   // indicator and auto-refresh in the background past MAX_STALENESS_MS.
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  // Wall-clock ms of when the SERVER last refreshed the payload from Polymarket.
+  // Distinct from `lastUpdated` (client fetch time) so the user sees real source
+  // age — a 5h-old cache hit doesn't look like a fresh "5s ago".
+  const [syncedAt, setSyncedAt] = useState<number | null>(null);
   const [nowTick, setNowTick] = useState(Date.now()); // for "Xs ago" rerender
   const [stratFilter, setStratFilter] = useState(false);
+  // MIN TRADES 24H — drops traders below this 24h activity floor. Defaults
+  // to "1" so the leaderboard hides dormants by default (matches the spirit
+  // of "don't pick inactive traders"). Lives outside FiltersContext because
+  // trades24h ships per-row and filtering is pure client-side.
+  const [minTrades24h, setMinTrades24h] = useState("1");
   const [stratAddrs, setStratAddrs] = useState<Set<string>>(new Set());
   const [stratName, setStratName] = useState<string | null>(null);
   const inFlightRef = useRef(false);
@@ -256,6 +265,9 @@ export default function CopyTrading({
         setHasLoaded(true);
         setLoading(false);
         setLastUpdated(Date.now());
+        if (typeof result.syncedAt === "number" && result.syncedAt > 0) {
+          setSyncedAt(result.syncedAt * 1000);
+        }
         return true;
       } catch {
         return false;
@@ -276,7 +288,7 @@ export default function CopyTrading({
       setProgress(null);
       setSource(null);
       try {
-        const { traders: data, source: src } = await fetchTopTradersStream(
+        const { traders: data, source: src, syncedAt: streamSyncedAt } = await fetchTopTradersStream(
           2000,
           { daysWindow: days, minTradesPerDay },
           (p) => {
@@ -305,6 +317,7 @@ export default function CopyTrading({
         setTraders(data.slice(0, PAGE_SIZE));
         setTotalTraders(data.length);
         setLastUpdated(Date.now());
+        if (streamSyncedAt > 0) setSyncedAt(streamSyncedAt * 1000);
       } catch {
         setTraders([]);
       } finally {
@@ -425,7 +438,11 @@ export default function CopyTrading({
   const clientView = useMemo(() => {
     // Use client-side filtering when cache is cold OR when stratFilter needs
     // the full dataset (server pagination can't filter by address list).
-    if (cacheWarm && !stratFilter) return null;
+    // Also force client-side when MIN TRADES 24H is active — server pagination
+    // doesn't know about trades24h, so the only way to honor it is to filter
+    // the in-memory streamed dataset.
+    const needs24hFilter = minTrades24h !== "" && Number(minTrades24h) > 0;
+    if (cacheWarm && !stratFilter && !needs24hFilter) return null;
     if (!stratFilter && streamedAll.length === 0) return null;
 
     // When STRAT is on, anchor the list to the strat's address set so traders
@@ -457,6 +474,10 @@ export default function CopyTrading({
       if (minPnl !== "" && Number.isFinite(mp) && t.pnl < mp) return false;
       const mt = Number(minTrades);
       if (minTrades !== "" && Number.isFinite(mt) && t.recentTrades < mt) return false;
+      // Activity floor — drop traders below the 24h trade threshold so
+      // dormants don't surface even when their week-long stats look great.
+      const m24 = Number(minTrades24h);
+      if (minTrades24h !== "" && Number.isFinite(m24) && (t.trades24h ?? 0) < m24) return false;
       const mbv = Number(minBuyVolume);
       if (minBuyVolume !== "" && Number.isFinite(mbv) && t.buyVolume < mbv) return false;
       const msv = Number(minSellVolume);
@@ -479,7 +500,7 @@ export default function CopyTrading({
     });
     return list;
   }, [cacheWarm, streamedAll, search, category, minVolume, minPnl,
-      minTrades, minBuyVolume, minSellVolume, sortDir, traderSort, scoreFor,
+      minTrades, minTrades24h, minBuyVolume, minSellVolume, sortDir, traderSort, scoreFor,
       stratFilter, stratAddrs]);
 
   const sortedTraders = useMemo(() => {
@@ -544,9 +565,19 @@ export default function CopyTrading({
   }, [stratFilter]);
 
   const pageTraders = useMemo(() => {
-    if (!stratFilter || stratAddrs.size === 0) return sortedTraders;
-    return sortedTraders.filter(t => stratAddrs.has(t.address.toLowerCase()));
-  }, [sortedTraders, stratFilter, stratAddrs]);
+    // Apply MIN TRADES 24H here as a final filter so it works regardless of
+    // which load path (warm-paged or streamed) produced sortedTraders. The
+    // alternative — pushing it server-side — requires pipeline changes;
+    // client-side filter on a 50-row page is cheap enough to ship today.
+    const m24 = Number(minTrades24h);
+    const apply24h = minTrades24h !== "" && Number.isFinite(m24) && m24 > 0;
+    let list = sortedTraders;
+    if (apply24h) {
+      list = list.filter((t) => (t.trades24h ?? 0) >= m24);
+    }
+    if (!stratFilter || stratAddrs.size === 0) return list;
+    return list.filter(t => stratAddrs.has(t.address.toLowerCase()));
+  }, [sortedTraders, stratFilter, stratAddrs, minTrades24h]);
 
   // Pre-lowercase the selected set so the ✓ / + ADD toggle compares
   // case-insensitively — different code paths persist addresses in mixed cases.
@@ -624,14 +655,29 @@ export default function CopyTrading({
                 {source === "memory" ? "MEM" : source === "disk" ? "DISK" : "LIVE"}
               </span>
             )}
-            {lastUpdated && (
-              <span
-                className="text-[11px] font-mono text-pixel-gray tracking-wider"
-                title={`Last updated ${new Date(lastUpdated).toLocaleTimeString()} · auto-refreshes every 60s`}
-              >
-                {formatAgo(nowTick - lastUpdated)}
-              </span>
-            )}
+            {(syncedAt ?? lastUpdated) && (() => {
+              // Prefer the server's syncedAt — it tells the user when the data
+              // was last actually pulled from Polymarket, not when the client
+              // hit the cache. Falls back to lastUpdated if the server didn't
+              // expose one (old binary).
+              const stamp = syncedAt ?? lastUpdated!;
+              const age = nowTick - stamp;
+              const color =
+                age < 5 * 60_000 ? "text-green-400" :
+                age < 30 * 60_000 ? "text-amber-400" :
+                "text-red-400";
+              const tooltip = syncedAt
+                ? `Source data last synced ${new Date(stamp).toLocaleTimeString()} (Polymarket data-api)`
+                : `Client cache fetched ${new Date(stamp).toLocaleTimeString()} — server didn't expose source sync time`;
+              return (
+                <span
+                  className={`text-[11px] font-mono tracking-wider ${color}`}
+                  title={tooltip}
+                >
+                  sync {formatAgo(age)}
+                </span>
+              );
+            })()}
             {refreshing && <span className="text-[12px] text-green-400 animate-pulse">&#9679;</span>}
 
             <button
@@ -702,6 +748,10 @@ export default function CopyTrading({
                 { label: "MIN VOLUME", value: minVolume, onChange: onDec(setMinVolume), ph: "100" },
                 { label: "MIN TRADES", value: minTrades, onChange: onDec(setMinTrades), ph: "any" },
                 { label: "MIN TRADES/DAY", value: minPerDay, onChange: onDec(setMinPerDay), ph: "0" },
+                // Activity floor — 1 = at least one trade in last 24h, 0 = no
+                // filter, blank = no filter. Defaults to 1 so dormants are
+                // hidden out of the box (user explicitly asked to not see them).
+                { label: "MIN TRADES 24H", value: minTrades24h, onChange: onDec(setMinTrades24h), ph: "1" },
                 { label: "MIN BUY VOL", value: minBuyVolume, onChange: onDec(setMinBuyVolume), ph: "any" },
                 { label: "MIN SELL VOL", value: minSellVolume, onChange: onDec(setMinSellVolume), ph: "any" },
                 { label: "MIN P&L", value: minPnl, onChange: onDec(setMinPnl), ph: "any" },
@@ -735,7 +785,7 @@ export default function CopyTrading({
 
             {/* Reset all */}
             <div className="flex items-center justify-end">
-              <button onClick={() => { setDaysAgo(""); setCategory(""); setMinTrades(""); setMinPerDay("0"); setMinVolume("100"); setMinBuyVolume(""); setMinSellVolume(""); setMinPnl(""); setFormula(DEFAULT_FORMULA); reload(); }}
+              <button onClick={() => { setDaysAgo(""); setCategory(""); setMinTrades(""); setMinTrades24h("1"); setMinPerDay("0"); setMinVolume("100"); setMinBuyVolume(""); setMinSellVolume(""); setMinPnl(""); setFormula(DEFAULT_FORMULA); reload(); }}
                 className="pixel-btn text-[12px] px-3 py-1 border-pixel-border text-pixel-gray hover:text-pixel-white hover:border-red-400 hover:text-red-400 transition-colors">
                 RESET ALL
               </button>
@@ -810,6 +860,7 @@ export default function CopyTrading({
                       <SortArrow active={traderSort === col.key} dir={sortDir} />
                     </th>
                   ))}
+                  <th className="num text-right" title="Trades in last 24h — flags dormant traders">24H</th>
                   <th className="text-center"></th>
                 </tr>
               </thead>
@@ -850,32 +901,60 @@ export default function CopyTrading({
                       <td className="num text-right text-pixel-gray-light font-mono">
                         {trader.recentTrades || trader.positions}
                       </td>
+                      {/* 24H column — color-coded so active traders pop:
+                          0 = red (dormant), 1-2 = amber, 3+ = green. */}
+                      {(() => {
+                        const c24 = trader.trades24h ?? 0;
+                        const cls = c24 === 0
+                          ? "text-red-400"
+                          : c24 < 3
+                            ? "text-amber-400"
+                            : "text-green-400";
+                        const title = c24 === 0
+                          ? "No trades in last 24h — likely dormant"
+                          : `${c24} trade${c24 === 1 ? "" : "s"} in last 24h`;
+                        return (
+                          <td className={`num text-right font-mono ${cls}`} title={title}>
+                            {c24}
+                          </td>
+                        );
+                      })()}
                       <td
                         className="text-center !px-2 relative"
                         onClick={(e) => { e.stopPropagation(); if (onSelect) onSelect(trader.address); }}
                       >
                         {onSelect ? (
                           selectedLower.has(trader.address.toLowerCase()) ? (
-                            // IN STRAT: filled purple (matches the proxy
-                            // brand color used elsewhere for "your account").
-                            // Hover morphs to RED so the destructive action
-                            // is obvious before clicking.
+                            // IN STRAT: bright filled GREEN — selection
+                            // status reads at a glance. Hover swaps to RED
+                            // (with REMOVE label) so the destructive action
+                            // signals before the click.
+                            // Notes:
+                            //  - `group` on the button itself anchors the
+                            //    `group-hover:` label swap; without it the
+                            //    REMOVE text would never appear.
+                            //  - `!` prefix is required because `.pixel-btn`
+                            //    in globals.css sets border/color/background
+                            //    after `@tailwind utilities;` and would
+                            //    otherwise win the cascade and flatten every
+                            //    state to neutral grey.
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}
-                              className="pixel-btn text-[12px] px-2 py-0.5 border-purple-400 text-purple-400 bg-purple-400/15 hover:border-red-400 hover:text-red-400 hover:bg-red-400/15 transition-all whitespace-nowrap"
+                              className="pixel-btn group text-[12px] px-2 py-0.5 !border-green-400 !text-green-300 !bg-green-500/25 font-semibold hover:!border-red-400 hover:!text-red-200 hover:!bg-red-500/40 transition-all whitespace-nowrap"
                               title="In strat — click to remove"
                             >
-                              <span className="group-hover:hidden">IN STRAT</span>
-                              <span className="hidden group-hover:inline">REMOVE</span>
+                              <span className="group-hover:hidden">✓ IN STRAT</span>
+                              <span className="hidden group-hover:inline">✕ REMOVE</span>
                             </button>
                           ) : (
-                            // + ADD: green-tinted outline so the constructive
-                            // action reads at a glance even when scrolling.
+                            // + ADD: dashed amber outline — visually distinct
+                            // from the filled IN STRAT state without competing
+                            // for attention. Hover brightens to solid.
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); onSelect(trader.address); }}
-                              className="pixel-btn text-[12px] px-2 py-0.5 border-green-400/60 text-green-400 bg-green-400/5 hover:border-green-400 hover:bg-green-400/15 transition-all whitespace-nowrap"
+                              className="pixel-btn text-[12px] px-2 py-0.5 !border !border-dashed !border-amber-400/50 !text-amber-300/80 !bg-transparent hover:!border-solid hover:!border-amber-400 hover:!text-amber-200 hover:!bg-amber-500/15 transition-all whitespace-nowrap"
                               title="Add to active strat"
                             >
                               + ADD
