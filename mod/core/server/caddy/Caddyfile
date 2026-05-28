@@ -115,8 +115,13 @@
     handle @dev_app {
         reverse_proxy host.docker.internal:8870
     }
-    @claude path /claude /claude/* /api/claude /api/claude/*
-    handle @claude {
+    @claude_api path /api/claude /api/claude/*
+    handle @claude_api {
+        uri strip_prefix /api/claude
+        reverse_proxy claude:8820
+    }
+    @claude_app path /claude /claude/*
+    handle @claude_app {
         reverse_proxy claude:8823
     }
     @whitepaper_api path /api/whitepaper /api/whitepaper/*

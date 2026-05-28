@@ -41,57 +41,96 @@ export default function PreconditionChecklist() {
   const hasRebalance = (activeStrat?.rebalanceMinutes ?? 0) > 0;
   const hasCapital = (activeStrat?.capital ?? 0) > 0;
 
-  const items = [
-    { ok: hasWallet, label: "WALLET CONNECTED" },
+  // Short pill labels + a longer `desc` shown on hover so newcomers can
+  // still figure out what each step means. Previous full-sentence labels
+  // ("REBALANCE PERIOD SET") broke onto two lines inside the 3-column
+  // grid; one-word chips wrap cleanly on any width.
+  type Action = {
+    label: string;
+    disabled: boolean;
+    onClick: () => void;
+  };
+  type Item = {
+    ok: boolean;
+    label: string;
+    desc: string;
+    action: Action | null;
+  };
+  const items: Item[] = [
+    { ok: hasWallet, label: "WALLET", desc: "Polygon wallet connected", action: null },
     {
       ok: hasCreds,
-      label: "CLOB AUTHENTICATED",
+      label: "CLOB",
+      desc: "Polymarket CLOB API key derived from a MetaMask signature",
       action: !hasCreds && hasWallet ? {
-        label: authLoading ? "signing…" : "refresh",
+        label: authLoading ? "signing…" : "sign",
         disabled: authLoading,
         onClick: () => { void authenticate(); },
       } : null,
     },
-    { ok: !!activeStrat, label: "STRATEGY SELECTED" },
-    { ok: hasTraders, label: "TRADERS IN STRATEGY" },
-    { ok: hasRebalance, label: "REBALANCE PERIOD SET" },
-    { ok: hasCapital, label: "CAPITAL > $0" },
-  ] as const;
+    { ok: !!activeStrat, label: "STRATEGY", desc: "A strat is selected as active", action: null },
+    { ok: hasTraders, label: "TRADERS", desc: "At least one enabled trader to mirror", action: null },
+    { ok: hasRebalance, label: "INTERVAL", desc: "Poll cadence set (see PARAMETERS → POLL EVERY)", action: null },
+    { ok: hasCapital, label: "CAPITAL", desc: "Capital cap > $0 (see WALLET FUNDS panel)", action: null },
+  ];
 
   const completed = items.filter((i) => i.ok).length;
-  const allDone = completed === items.length;
+  const total = items.length;
+  const allDone = completed === total;
+  const pct = (completed / total) * 100;
 
   return (
-    <div className="pixel-panel px-4 py-3 mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[15px] text-pixel-gray tracking-[0.15em]">CHECKLIST</span>
-        <span
-          className={`text-[14px] font-mono ${allDone ? "text-green-400" : "text-pixel-gray"}`}
-        >
-          {completed}/{items.length} {allDone ? "· ready to go live" : "complete"}
+    <div className="pixel-panel px-3 py-2 mb-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-[12px] text-pixel-gray tracking-[0.18em] shrink-0">
+          CHECKLIST
         </span>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
-        {items.map((item) => (
-          <div key={item.label} className="flex items-center gap-2 py-0.5">
-            <span className={`text-[15px] ${item.ok ? "text-green-400" : "text-red-400/60"}`}>
-              {item.ok ? "[x]" : "[ ]"}
+        <span
+          className={`text-[12px] font-mono tracking-wider shrink-0 ${
+            allDone ? "text-green-400" : "text-amber-400"
+          }`}
+        >
+          {completed}/{total} {allDone ? "· ready to go live" : "· not ready"}
+        </span>
+        {/* Thin progress bar — same color as the ratio label so the eye
+            picks up completion state without reading the digits. */}
+        <div className="flex-1 min-w-[80px] h-1 bg-pixel-border/40 overflow-hidden rounded-sm">
+          <div
+            className={`h-full transition-all duration-300 ${
+              allDone ? "bg-green-400" : "bg-amber-400/70"
+            }`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {/* Pill chips, one per step. Flex-wraps cleanly on any screen
+            width so we never get the 2-line truncation the old 3-col
+            grid produced. */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {items.map((item) => (
+            <span
+              key={item.label}
+              title={item.desc}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-mono tracking-wider border whitespace-nowrap ${
+                item.ok
+                  ? "border-green-400/60 text-green-400 bg-green-400/10"
+                  : "border-pixel-border/60 text-pixel-gray bg-pixel-black/40"
+              }`}
+            >
+              <span className="text-[10px]">{item.ok ? "✓" : "○"}</span>
+              <span>{item.label}</span>
+              {item.action && (
+                <button
+                  onClick={item.action.onClick}
+                  disabled={item.action.disabled}
+                  className="ml-0.5 text-[10px] font-mono text-amber-400 hover:text-amber-300 disabled:opacity-50 disabled:cursor-not-allowed underline-offset-2 hover:underline"
+                  title="Sign a MetaMask message to derive your Polymarket CLOB API key"
+                >
+                  {item.action.label}
+                </button>
+              )}
             </span>
-            <span className={`text-[15px] font-mono ${item.ok ? "text-pixel-white" : "text-pixel-gray"}`}>
-              {item.label}
-            </span>
-            {"action" in item && item.action && (
-              <button
-                onClick={item.action.onClick}
-                disabled={item.action.disabled}
-                className="ml-1 text-[13px] font-mono tracking-wider px-2 py-0.5 rounded-full border border-amber-400/50 text-amber-400 hover:text-amber-300 hover:border-amber-300 hover:bg-amber-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Sign a MetaMask message to derive your Polymarket CLOB API key"
-              >
-                {item.action.label}
-              </button>
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

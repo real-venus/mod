@@ -2,8 +2,9 @@ use axum::body::Body;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
+use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio_stream::StreamExt;
 
@@ -15,12 +16,185 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/health", get(health))
         .route("/active-traders", get(active_traders))
+        // Backend signer endpoints — see signer.rs.
+        // /signer/sign-order is the ONLY signing endpoint exposed. The
+        // generic /signer/sign that took an arbitrary digest was removed
+        // for safety: a malicious caller could otherwise hand the backend
+        // a digest of a USDC.transfer execTransaction and get a valid
+        // signature for it. sign-order reconstructs the digest server-side
+        // from a typed Polymarket Order struct, so the backend never signs
+        // anything that isn't structurally a Polymarket CLOB order.
+        .route("/signer/address", get(signer_address))
+        .route("/signer/sign-order", post(signer_sign_order))
+        // Place an order on Polymarket CLOB end-to-end: backend builds the
+        // Order struct, signs it with the per-EOA stored key, HMAC-auths
+        // the L2 call, POSTs to clob.polymarket.com/order. Returns CLOB's
+        // raw response so the caller can read order id / status / fills.
+        .route("/order/place", post(order_place_handler))
+        // Long-running copy engine — see live_engine.rs.
+        //   POST /live/start  — body: EngineConfig. Spawns a tokio task
+        //                       keyed by `eoa`. Persists config to disk so
+        //                       the session survives API restarts.
+        //   POST /live/stop   — body: {eoa}. Aborts the task, deletes the
+        //                       persisted config (next boot won't resume).
+        //   GET  /live/status — query: eoa. Returns the current EngineState
+        //                       JSON. 404 when no engine is running for eoa.
+        .route("/live/start", post(live_start))
+        .route("/live/stop", post(live_stop))
+        .route("/live/status", get(live_status))
+        // Recycle the api process — container runs with
+        // restart: unless-stopped so Docker auto-respawns it. Useful when
+        // an engine task is wedged or after a deploy; persisted live
+        // configs in /tmp/polymarket-live-engine survive the restart and
+        // resume_persisted re-spawns the tasks on boot.
+        .route("/admin/restart", post(admin_restart))
         // Encrypted strat storage
         .merge(crate::strats::router())
         // CLOB L1 auth proxy (derive/create api keys)
         .merge(crate::auth::router())
         // Proxy: all other endpoints go through the cache proxy
         .fallback(get(proxy::proxy_handler).post(proxy::proxy_handler))
+}
+
+// ─── Signer endpoints ────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct SignerAddressQuery {
+    eoa: String,
+}
+
+async fn signer_address(
+    State(state): State<AppState>,
+    Query(q): Query<SignerAddressQuery>,
+) -> impl IntoResponse {
+    match state.signer_store.signer_address(&q.eoa) {
+        Ok(addr) => Json(json!({"eoa": q.eoa.to_lowercase(), "signer": addr})).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": format!("signer address: {}", e)})),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct SignOrderRequest {
+    /// EOA that owns the proxy / Safe that this backend signer is registered
+    /// against. Used to look up which stored key to sign with.
+    eoa: String,
+    /// Fully structured Polymarket order. Server reconstructs the EIP-712
+    /// digest from these fields against Polymarket's known CTFExchange
+    /// domain (hard-coded). Caller can't influence the digest beyond these
+    /// fields, so they can't trick the backend into signing arbitrary calls.
+    order: crate::order_signing::OrderInput,
+}
+
+// ─── Live engine endpoints ──────────────────────────────────────────────
+
+async fn live_start(
+    State(state): State<AppState>,
+    Json(cfg): Json<crate::live_engine::EngineConfig>,
+) -> impl IntoResponse {
+    state.engines.start(cfg);
+    Json(json!({"ok": true})).into_response()
+}
+
+#[derive(Deserialize)]
+struct LiveEoaBody {
+    eoa: String,
+}
+
+async fn live_stop(
+    State(state): State<AppState>,
+    Json(body): Json<LiveEoaBody>,
+) -> impl IntoResponse {
+    let stopped = state.engines.stop(&body.eoa);
+    Json(json!({"ok": stopped})).into_response()
+}
+
+#[derive(Deserialize)]
+struct LiveStatusQuery {
+    eoa: String,
+}
+
+async fn live_status(
+    State(state): State<AppState>,
+    Query(q): Query<LiveStatusQuery>,
+) -> impl IntoResponse {
+    match state.engines.status_of(&q.eoa) {
+        Some(s) => Json(json!({
+            "running": true,
+            "config": state.engines.config_of(&q.eoa),
+            "state": s,
+        }))
+            .into_response(),
+        None => Json(json!({"running": false})).into_response(),
+    }
+}
+
+// ─── Admin ──────────────────────────────────────────────────────────────
+
+async fn admin_restart() -> impl IntoResponse {
+    // Reply first, then exit. The 200 lands before the process dies so the
+    // caller sees a clean "ok" instead of a connection reset. Docker's
+    // restart policy brings the container back within a couple of seconds.
+    tokio::spawn(async {
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        // exit(0) is graceful enough for our needs — tokio drops in-flight
+        // tasks, but the live engine's state was already persisted to disk
+        // after the most recent cycle, so resume_persisted picks up where
+        // we left off on the next boot.
+        std::process::exit(0);
+    });
+    Json(json!({"ok": true, "restarting": true}))
+}
+
+async fn order_place_handler(
+    State(state): State<AppState>,
+    Json(req): Json<crate::order_place::PlaceOrderRequest>,
+) -> impl IntoResponse {
+    match crate::order_place::place_order(&state.http, &state.signer_store, req).await {
+        Ok(resp) => Json(resp).into_response(),
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({"error": format!("place order: {}", e)})),
+        )
+            .into_response(),
+    }
+}
+
+async fn signer_sign_order(
+    State(state): State<AppState>,
+    Json(req): Json<SignOrderRequest>,
+) -> impl IntoResponse {
+    let digest = match crate::order_signing::order_digest(&req.order) {
+        Ok(d) => d,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": format!("digest build: {}", e)})),
+            )
+                .into_response();
+        }
+    };
+    match state.signer_store.sign_digest(&req.eoa, &digest) {
+        Ok(sig) => {
+            let sig_hex = format!("0x{}", hex::encode(sig));
+            let digest_hex = format!("0x{}", hex::encode(digest));
+            Json(json!({
+                "signature": sig_hex,
+                // Echo the digest so the caller can verify it matches what
+                // they'd have computed locally before sending the order out.
+                "digest": digest_hex,
+            }))
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": format!("sign: {}", e)})),
+        )
+            .into_response(),
+    }
 }
 
 async fn health() -> Json<Value> {
@@ -36,6 +210,7 @@ async fn active_traders(
     let pool = q.pool.unwrap_or(1000).clamp(50, 2000);
     let stream = q.stream.as_deref() == Some("1");
     let paged = q.paged.as_deref() == Some("1");
+    let force = q.force.as_deref() == Some("1");
     let cache_key = format!("{}:{}:{}", days, min_per_day, pool);
 
     // Status probe
@@ -43,7 +218,10 @@ async fn active_traders(
         return Json(json!({"ok": true})).into_response();
     }
 
-    // Check cache (memory + disk)
+    // Check cache (memory + disk). `force=1` skips this so the SYNC button
+    // can guarantee a fresh re-aggregation from Polymarket regardless of
+    // how recent the cache is.
+    if !force {
     if let Some((payload, source)) = state.pipeline.cache.get_or_disk(&cache_key) {
         if paged {
             let result = apply_pagination(&payload, &q, source);
@@ -76,9 +254,12 @@ async fn active_traders(
             "syncedAt": payload.synced_at,
         })).into_response();
     }
+    }
 
-    // Paged but cold cache
-    if paged {
+    // Paged but cold cache. force=1 skips this "cold" early return so the
+    // request falls through to run_pipeline below and the client gets the
+    // freshly-aggregated paged result instead of an empty COLD payload.
+    if paged && !force {
         return Json(json!({
             "traders": [],
             "total": 0,
@@ -134,11 +315,18 @@ async fn active_traders(
             .into_response();
     }
 
-    // Non-streaming cold miss: run pipeline synchronously
+    // Non-streaming cold miss (or force=1 refresh): run the pipeline now.
     match state.pipeline.run_pipeline(days, min_per_day, pool, None).await {
         Ok(payload) => {
             if payload.count > 0 {
                 state.pipeline.cache.set(&cache_key, payload.clone());
+            }
+            // If the client wants paged shape (SYNC button hits force=1
+            // with paged=1 to get a drop-in replacement for the normal
+            // paged response), return the paginated slice.
+            if paged {
+                let result = apply_pagination(&payload, &q, "fresh");
+                return Json(result).into_response();
             }
             Json(json!({
                 "count": payload.count,

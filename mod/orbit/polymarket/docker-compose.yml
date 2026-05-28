@@ -13,6 +13,12 @@ services:
     restart: unless-stopped
     volumes:
       - polymarket-strats:/tmp/polymarket-strats
+      # Persistent data dir for backend signer keys + live engine state.
+      # Survives `docker compose down/up` so once a user turns on auto-
+      # trading they don't have to re-do the MetaMask popup after every
+      # rebuild. The dir holds: .master (master key, chmod 600), per-EOA
+      # encrypted signer keys, per-EOA live engine configs + last state.
+      - polymarket-data:/data
       - ./src/app/app:/app/src/app/app:delegated
       - ./src/app/tsconfig.json:/app/src/app/tsconfig.json:ro
       - ./src/app/tailwind.config.js:/app/src/app/tailwind.config.js:ro
@@ -21,6 +27,13 @@ services:
     environment:
       - GATEWAY_PORT=${GATEWAY_PORT:-3000}
       - STRAT_HMAC_SECRET=${STRAT_HMAC_SECRET:-polymarket_strats_default_hmac_key_2024}
+      # Tells signer.rs + live_engine.rs to persist to the mounted volume
+      # instead of /tmp (which is wiped on container recreate).
+      - POLYMARKET_DATA_DIR=/data
+      # Optional pin — leave unset to let the api auto-generate + persist
+      # a master key at /data/polymarket-signer-store/.master on first boot.
+      - POLYMARKET_SIGNER_MASTER_KEY=${POLYMARKET_SIGNER_MASTER_KEY:-}
 
 volumes:
   polymarket-strats:
+  polymarket-data:

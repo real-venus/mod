@@ -6,12 +6,18 @@ pub mod categories;
 pub mod types;
 pub mod strats;
 pub mod auth;
+pub mod signer;
+pub mod order_signing;
+pub mod order_place;
+pub mod live_engine;
 
 use std::sync::Arc;
 
 pub use cache::ProxyCache;
 pub use pipeline::PipelineState;
 pub use strats::StratStore;
+pub use signer::SignerStore;
+pub use live_engine::EngineRegistry;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -19,6 +25,8 @@ pub struct AppState {
     pub proxy_cache: Arc<ProxyCache>,
     pub pipeline: Arc<PipelineState>,
     pub strat_store: Arc<StratStore>,
+    pub signer_store: Arc<SignerStore>,
+    pub engines: Arc<EngineRegistry>,
 }
 
 pub fn router() -> axum::Router<AppState> {

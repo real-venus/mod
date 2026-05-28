@@ -132,11 +132,23 @@ export interface ClobOpenOrder {
 
 // ── API Methods ────────────────────────────────────────────────
 
-// Place a CLOB order. The signed Order struct is built and EIP-712 signed
-// via the connected wallet (one signature prompt per order), then POSTed to
-// /order with HMAC headers for L2 auth. negRisk flips which exchange the
-// order is signed against — using the wrong domain produces "invalid
-// signature" rejections from the matcher.
+// Place a CLOB order.
+//
+// Two code paths:
+//
+//   sigType=2 (POLY_GNOSIS_SAFE — the AUTO-TRADING toggle path):
+//     Order args are shipped to /api/polymarket/order/place. The backend
+//     signs with a per-EOA key registered as a Safe co-owner (one-time
+//     MetaMask popup in BackendSignerPanel) and forwards to CLOB. ZERO
+//     MetaMask prompts per trade — this is what makes long-running copy
+//     trading actually work.
+//
+//   sigType=0/1 (EOA / POLY_PROXY — legacy path):
+//     Wallet signs each order via EIP-712 signTypedData. Kept for users
+//     who haven't enabled backend trading.
+//
+// negRisk flips which exchange the order is signed against — using the
+// wrong domain produces "invalid signature" rejections from the matcher.
 export async function placeOrder(
   creds: ClobCredentials,
   signer: JsonRpcSigner,
@@ -145,6 +157,24 @@ export async function placeOrder(
   negRisk: boolean,
   sigType: 0 | 1 | 2 = 2,
 ): Promise<ClobOrderResult> {
+  if (sigType === 2) {
+    // We don't fall back to wallet signing on backend failure — that would
+    // re-introduce the MetaMask popup behind the user's back, defeating
+    // the whole AUTO-TRADING toggle. Surface the error so the user can
+    // either retry the toggle or pick a different path.
+    try {
+      const eoa = await signer.getAddress();
+      return await placeOrderViaBackend(creds, eoa, maker, order, negRisk);
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      const lower = raw.toLowerCase();
+      const friendly = lower.includes("invalid_signature") || lower.includes("invalid signature")
+        ? "BACKEND_SIGNER_NOT_AUTHORIZED — open AUTO-TRADING panel and click TURN ON"
+        : `BACKEND_PLACE_FAILED: ${raw.slice(0, 200)}`;
+      return { success: false, errorMsg: friendly };
+    }
+  }
+
   let signed;
   try {
     signed = await signOrder(
@@ -196,6 +226,74 @@ export async function placeOrder(
     orderID: typeof data.orderID === "string" ? data.orderID : undefined,
     status: typeof data.status === "string" ? data.status : undefined,
     errorMsg: typeof data.errorMsg === "string" ? data.errorMsg : (success ? undefined : "REJECTED"),
+    transactionsHashes: Array.isArray(data.transactionsHashes)
+      ? (data.transactionsHashes as string[])
+      : undefined,
+  };
+}
+
+// Backend-signed placement. Ships {eoa, creds, args} to polymarket-api;
+// the backend builds the EIP-712 digest server-side from the typed args
+// (it never accepts a raw digest from the client — see signer.rs comment),
+// signs with the per-EOA backend key, HMAC-authes the L2 call, and POSTs
+// to CLOB. Returns CLOB's response verbatim so we can read order id and
+// fills the same way as the wallet-signed path.
+async function placeOrderViaBackend(
+  creds: ClobCredentials,
+  eoa: string,
+  maker: string,
+  order: ClobOrder,
+  negRisk: boolean,
+): Promise<ClobOrderResult> {
+  const body = JSON.stringify({
+    eoa,
+    creds: {
+      apiKey: creds.apiKey,
+      secret: creds.secret,
+      passphrase: creds.passphrase,
+    },
+    args: {
+      tokenId: order.tokenID,
+      side: order.side,
+      price: order.price,
+      size: order.size,
+      feeRateBps: order.feeRateBps ?? 0,
+      expiration: 0,
+      signatureType: 2,
+      orderType: order.type,
+      negRisk,
+      maker,
+    },
+  });
+  const res = await fetch("/api/polymarket/order/place", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+  });
+  const text = await res.text().catch(() => "");
+  if (!res.ok) {
+    let detail = text.slice(0, 200);
+    try {
+      const j = JSON.parse(text) as { error?: string };
+      if (j.error) detail = j.error.slice(0, 200);
+    } catch {}
+    throw new Error(`HTTP ${res.status}: ${detail}`);
+  }
+  let data: Record<string, unknown> = {};
+  try {
+    data = JSON.parse(text);
+  } catch {}
+  const success = data.success !== false && !data.errorMsg;
+  return {
+    success,
+    orderID: typeof data.orderID === "string" ? data.orderID : undefined,
+    status: typeof data.status === "string" ? data.status : undefined,
+    errorMsg:
+      typeof data.errorMsg === "string"
+        ? data.errorMsg
+        : success
+        ? undefined
+        : "REJECTED",
     transactionsHashes: Array.isArray(data.transactionsHashes)
       ? (data.transactionsHashes as string[])
       : undefined,

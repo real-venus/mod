@@ -10,6 +10,7 @@ import SidebarShell from "./components/SidebarShell";
 import SplitShell from "./components/SplitShell";
 import MarketTicker from "./components/MarketTicker";
 import BuildBadge from "./components/BuildBadge";
+import LiveAutoResume from "./components/LiveAutoResume";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,13 @@ export default function RootLayout({
             <FiltersProvider>
               <SidebarProvider>
                 <SplitProvider>
+                  {/* Auto-restart the copy engine if the user reloaded the
+                      page while a live session was running. Reads the
+                      poly_live_session localStorage record + AuthContext's
+                      rehydrated CLOB creds; no-op if either is missing.
+                      Explicit STOP clears the record, so accidental reloads
+                      auto-resume but deliberate stops stay stopped. */}
+                  <LiveAutoResume />
                   <div className="crt-overlay" />
                   <div className="crt-screen min-h-screen">
                     <MarketTicker />

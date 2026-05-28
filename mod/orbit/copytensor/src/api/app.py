@@ -81,11 +81,19 @@ async def lifespan(app: FastAPI):
     snapshot_interval = _config.get("snapshot_interval_sec", 1800)
     _snapshot_mgr = SnapshotManager(_client, _db, interval_sec=snapshot_interval)
 
-    # Load watched accounts from config into DB
-    for ss58 in _config.get("watched_accounts", []):
-        _db.add_account(ss58)
+    # Seed watchlist: user-watched + seeded validators (well-known coldkeys).
+    # The seed pool lets the leaderboard render on first boot without anyone
+    # adding accounts manually. Users can `unwatch` to clean them up.
+    seeded = list(_config.get("watched_accounts", [])) + \
+             list(_config.get("seed_validators", []))
+    for entry in seeded:
+        if isinstance(entry, dict):
+            _db.add_account(entry.get("ss58"), label=entry.get("label"))
+        elif isinstance(entry, str):
+            _db.add_account(entry)
 
-    log.info("copytensor API started (network=%s)", network)
+    log.info("copytensor API started (network=%s, watched=%d)",
+             network, len(seeded))
     yield
     if _snapshot_mgr:
         _snapshot_mgr.stop()

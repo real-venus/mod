@@ -1,27 +1,19 @@
 """
-cursor — agent backend powered by the cursor-agent CLI.
+cursor — agent contract powered by the cursor-agent CLI.
 
-Demonstrates the AgentBase template at ~/mod/mod/orbit/dev/src/agent_base.py.
-Add your own agent by copying this file, swapping NAME/ICON/COLOR/BINARY/
-DEFAULT_MODEL/ENV_KEY, and overriding build_args() if your CLI takes
-different flags.
-
-Install the CLI:
-    npm install -g @cursor/cursor-agent      # (verify the actual package name)
-Then set your API key via the dev console encrypted-key flow, and `submit()`
-will spawn cursor-agent under the dev's Rust job server.
+Mirror of claude/codex but routed to Cursor's CLI. The class IS the
+contract: declared methods, persistent state at ~/.mod/cursor/state.json,
+events at ~/.mod/cursor/events.jsonl, code_hash = sha3 of this source.
 """
-
 import os
 import sys
 
-# Reach the dev module's agent_base regardless of how this is loaded
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "dev", "src"))
 
-from agent_base import AgentBase  # noqa: E402
+from agent_base import AgentContract, tx, owner_only  # noqa: E402
 
 
-class Mod(AgentBase):
+class Mod(AgentContract):
     NAME = "cursor"
     ICON = "▶"
     COLOR = "#7c3aed"
@@ -31,10 +23,23 @@ class Mod(AgentBase):
     DESCRIPTION = "Cursor agent backend (cursor-agent CLI)"
 
     def build_args(self, prompt, model, work_dir):
-        # cursor-agent flags — adjust when you have the real CLI doc handy.
+        # cursor-agent flag set — adjust when the real CLI lands.
         return [
             "--print",
             "--model", model or self.DEFAULT_MODEL,
             "--workdir", work_dir,
             prompt,
         ]
+
+    @tx
+    @owner_only
+    def install(self, key=None) -> dict:
+        """Install cursor-agent globally via npm (owner-only)."""
+        import subprocess
+        result = subprocess.run(
+            ["npm", "install", "-g", "@cursor/cursor-agent"],
+            capture_output=True, text=True, timeout=120,
+        )
+        self.emit("install_attempted", returncode=result.returncode, stderr=result.stderr[:200])
+        self._save_state()
+        return {"ok": result.returncode == 0, "stdout": result.stdout[-500:], "stderr": result.stderr[-500:]}

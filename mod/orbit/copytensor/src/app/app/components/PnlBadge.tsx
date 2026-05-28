@@ -11,14 +11,17 @@ export default function PnlBadge({
   pct: number;
   size?: "sm" | "md" | "lg";
 }) {
-  const color = tao >= 0 ? "text-positive" : "text-negative";
+  const positive = tao >= 0;
+  const color = positive ? "text-green-400" : "text-red-400";
   const fontSize =
-    size === "sm" ? "text-xs" : size === "lg" ? "text-lg font-bold" : "text-sm";
+    size === "sm" ? "text-[11px]" :
+    size === "lg" ? "text-lg font-bold" :
+    "text-[13px]";
 
   return (
-    <span className={`${color} ${fontSize} font-mono`}>
-      {fmtPnl(tao)}{" "}
-      <span className="opacity-70">({fmtPct(pct)})</span>
+    <span className={`${color} ${fontSize} font-mono tabular-nums whitespace-nowrap`}>
+      {fmtPnl(tao)}
+      <span className="opacity-60 ml-1">({fmtPct(pct)})</span>
     </span>
   );
 }

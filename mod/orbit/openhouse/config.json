@@ -1,52 +1,52 @@
 {
-  "name": "openhouse",
-  "description": "Collective asset ownership platform \u2014 fractional property ownership via smart contracts",
-  "version": "2.0.0",
-  "port": 50130,
-  "app_port": 50131,
-  "urls": {
-    "api": "http://localhost:50130",
-    "app": "http://localhost:50131"
-  },
-  "network": "testnet",
-  "contracts": {
-    "testnet": {
-      "chainId": "84532",
-      "url": "https://sepolia.base.org",
-      "contracts": {
-        "OpenHouse": {
-          "address": "",
-          "contract": "OpenHouse"
+    "name": "openhouse",
+    "description": "Collective asset ownership platform \u2014 fractional property ownership via smart contracts",
+    "version": "2.0.0",
+    "port": 50130,
+    "app_port": 50131,
+    "urls": {
+        "api": "http://localhost:50130",
+        "app": "http://localhost:50131"
+    },
+    "network": "testnet",
+    "contracts": {
+        "testnet": {
+            "chainId": "84532",
+            "url": "https://sepolia.base.org",
+            "contracts": {
+                "OpenHouse": {
+                    "address": "",
+                    "contract": "OpenHouse"
+                }
+            }
         }
-      }
-    }
-  },
-  "fns": [
-    "forward",
-    "health",
-    "status",
-    "property",
-    "shareholders",
-    "shareholder",
-    "portfolio",
-    "available_shares",
-    "share_price",
-    "dividends",
-    "purchase",
-    "distribute",
-    "record_action",
-    "transfer_authority",
-    "toggle_active",
-    "balance",
-    "compile",
-    "deploy",
-    "serve",
-    "kill",
-    "serve_api",
-    "kill_api",
-    "serve_app",
-    "kill_app"
-  ],
-  "schema": "QmdFJYgd5cBZy67pesoDtHF5mJetiZkTLetCGZHmyrsp7J",
-  "gateway_port": 50131
+    },
+    "fns": [
+        "forward",
+        "health",
+        "status",
+        "property",
+        "shareholders",
+        "shareholder",
+        "portfolio",
+        "available_shares",
+        "share_price",
+        "dividends",
+        "purchase",
+        "distribute",
+        "record_action",
+        "transfer_authority",
+        "toggle_active",
+        "balance",
+        "compile",
+        "deploy",
+        "serve",
+        "kill",
+        "serve_api",
+        "kill_api",
+        "serve_app",
+        "kill_app"
+    ],
+    "schema": "QmUdjNFSYkWRa3WzorTp8ifG42NMCembJ43pFWJTknubjA",
+    "gateway_port": 50131
 }

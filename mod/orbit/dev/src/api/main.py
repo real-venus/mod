@@ -284,6 +284,451 @@ def get_logs(module: str, lines: int = 100, since: int = 0):
     return {"module": module, "lines": new_lines, "offset": size, "exists": True, "bytes": size}
 
 
+ORBIT_DIR = Path("/Users/broski/mod/mod/orbit")
+
+
+def _detect_runtime(name: str):
+    """Return (lang, dispatcher_fn) for an agent — looks for contract files
+    in three languages and picks the first match: Rust binary > JS > Python."""
+    base = ORBIT_DIR / name
+    rust_bin = base / "target" / "release" / f"{name}-contract"
+    if rust_bin.exists() and os.access(rust_bin, os.X_OK):
+        return ("rust", lambda cmd, *args: _shell_dispatch([str(rust_bin), cmd, *args]))
+    for js_file in (base / "contract.js", base / "src" / "contract.js"):
+        if js_file.exists():
+            return ("javascript", lambda cmd, *args: _shell_dispatch(["node", str(js_file), cmd, *args]))
+    py_file = next((p for p in (base / "contract.py", base / "src" / "mod.py") if p.exists()), None)
+    if py_file is not None:
+        return ("python", lambda cmd, *args: _python_dispatch(name, py_file, cmd, args))
+    return (None, None)
+
+
+def _shell_dispatch(argv: list) -> dict:
+    import subprocess
+    r = subprocess.run(argv, capture_output=True, text=True, timeout=30)
+    if r.returncode != 0:
+        return {"error": (r.stderr or r.stdout or "no output").strip()}
+    try:
+        return json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return {"raw": r.stdout.strip()}
+
+
+def _python_dispatch(name: str, py_file: Path, cmd: str, args: tuple) -> dict:
+    import importlib.util as iu
+    import sys as _sys
+    agent_base_dir = str(ORBIT_DIR / "dev" / "src")
+    if agent_base_dir not in _sys.path:
+        _sys.path.insert(0, agent_base_dir)
+    spec = iu.spec_from_file_location(f"_agent_{name}", py_file)
+    mod = iu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    cls = getattr(mod, "Mod", None)
+    if cls is None:
+        return {"error": f"no Mod class in {py_file}"}
+    # File-based code_hash since dynamically loaded classes lose inspect.getsource.
+    try:
+        cls._sourceFile = str(py_file)
+        # Patch class method to use known file path
+        import hashlib as _h
+        cls.code_hash = classmethod(lambda c: "0x" + _h.sha3_256(py_file.read_bytes()).hexdigest())
+    except Exception:
+        pass
+    if cmd == "manifest":
+        return {
+            "name": name, "lang": "python",
+            "code_hash": cls.code_hash(),
+            "abi": cls.abi() if hasattr(cls, "abi") else [],
+            "icon": getattr(cls, "ICON", ""), "color": getattr(cls, "COLOR", ""),
+            "binary": getattr(cls, "BINARY", ""), "default_model": getattr(cls, "DEFAULT_MODEL", ""),
+            "env_key": getattr(cls, "ENV_KEY", ""), "description": getattr(cls, "DESCRIPTION", ""),
+        }
+    if cmd == "abi":
+        return cls.abi() if hasattr(cls, "abi") else []
+    if cmd == "call":
+        method, json_args = (args + ("", "{}"))[:2]
+        try:
+            kwargs = json.loads(json_args) if json_args else {}
+        except json.JSONDecodeError:
+            kwargs = {}
+        inst = cls()
+        fn = getattr(inst, method, None)
+        if fn is None:
+            return {"error": f"no method {method}"}
+        return fn(**kwargs) if callable(fn) else {"error": f"{method} not callable"}
+    return {"error": f"unknown cmd: {cmd}"}
+
+
+@api.post("/agent/from-repo")
+async def add_agent_from_repo(request: Request,
+                               x_mod_signature: Optional[str] = Header(default=None, alias="X-Mod-Signature")):
+    """Clone a GitHub repo and scaffold it as a new agent module.
+
+    Body: { url: "https://github.com/owner/repo", name?: "...", lang?: "python"|"javascript"|"rust" }
+
+    Detects the language from the repo layout (Cargo.toml → Rust,
+    package.json → JS, *.py → Python), then writes:
+      - orbit/<name>/repo/           — the cloned source
+      - orbit/<name>/config.json     — module config with port/owner/icon
+      - orbit/<name>/contract.<ext>  — AgentContract stub wrapping the repo
+
+    Requires X-Mod-Signature to bind the new agent's owner to the caller.
+    """
+    import subprocess, tempfile, shutil, re
+    body = await request.json()
+    url = (body.get("url") or "").strip()
+    if not url:
+        raise HTTPException(400, "url required")
+    if not re.match(r"^https?://(www\.)?(github\.com|gitlab\.com|bitbucket\.org)/[^/]+/[^/]+/?$", url.rstrip("/").split("?")[0] + "/"):
+        raise HTTPException(400, "url must be a public github/gitlab/bitbucket repo")
+
+    repo_name = re.sub(r"\.git$", "", url.rstrip("/").split("/")[-1])
+    name = (body.get("name") or repo_name).lower()
+    name = re.sub(r"[^a-z0-9_-]", "-", name)
+    if not name or name in ("dev", "core"):
+        raise HTTPException(400, f"invalid module name: {name!r}")
+
+    # Resolve owner from the caller's signature (if provided), else fall back
+    # to the dev module's configured owner.
+    owner = None
+    if x_mod_signature:
+        try:
+            msg = encode_defunct(text=SIGNATURE_CHALLENGE)
+            owner = Account.recover_message(msg, signature=x_mod_signature).lower()
+        except Exception:
+            pass
+    owner = owner or (CONFIG.get("owner") or "").lower()
+
+    target = ORBIT_DIR / name
+    if target.exists():
+        raise HTTPException(409, f"module {name!r} already exists at {target}")
+
+    # Clone shallowly into a temp dir, then move into orbit/.
+    with tempfile.TemporaryDirectory() as tmp:
+        clone_dst = Path(tmp) / "src"
+        r = subprocess.run(
+            ["git", "clone", "--depth", "1", url, str(clone_dst)],
+            capture_output=True, text=True, timeout=120,
+        )
+        if r.returncode != 0:
+            raise HTTPException(500, f"clone failed: {(r.stderr or r.stdout)[-300:]}")
+
+        # Language detection — prefer hint, else inspect files.
+        lang = (body.get("lang") or "").lower() or None
+        if lang is None:
+            if (clone_dst / "Cargo.toml").exists():
+                lang = "rust"
+            elif (clone_dst / "package.json").exists():
+                lang = "javascript"
+            elif any((clone_dst / x).exists() for x in ("pyproject.toml", "setup.py", "requirements.txt")) \
+                 or list(clone_dst.glob("*.py")):
+                lang = "python"
+            else:
+                lang = "python"  # default
+
+        # Try to guess a CLI binary name from package.json/Cargo.toml/setup.py.
+        binary = name
+        try:
+            if (clone_dst / "package.json").exists():
+                pkg = json.loads((clone_dst / "package.json").read_text())
+                if isinstance(pkg.get("bin"), dict):
+                    binary = next(iter(pkg["bin"]), name)
+                elif isinstance(pkg.get("bin"), str):
+                    binary = Path(pkg["bin"]).stem
+                else:
+                    binary = pkg.get("name", name).split("/")[-1]
+            elif (clone_dst / "Cargo.toml").exists():
+                cargo = (clone_dst / "Cargo.toml").read_text()
+                m_match = re.search(r'name\s*=\s*"([^"]+)"', cargo)
+                if m_match: binary = m_match.group(1)
+        except Exception:
+            pass
+
+        target.mkdir(parents=True)
+        shutil.move(str(clone_dst), str(target / "repo"))
+
+    # Choose a free port (8870 + offset, avoiding collisions).
+    used_ports = set()
+    for d in ORBIT_DIR.iterdir():
+        cp = d / "config.json"
+        if cp.exists():
+            try:
+                used_ports.add(json.loads(cp.read_text()).get("port"))
+            except Exception:
+                pass
+    port = next(p for p in range(8900, 9000) if p not in used_ports)
+
+    # Write the config.json.
+    new_cfg = {
+        "name": name,
+        "version": "0.1.0",
+        "description": f"{name} (cloned from {url})",
+        "lang": lang,
+        "port": port,
+        "app_port": port + 1,
+        "owner": owner,
+        "icon": name[0].upper(),
+        "color": "#" + hex(abs(hash(name)) % 0xFFFFFF)[2:].rjust(6, "0"),
+        "binary": binary,
+        "default_model": "",
+        "env_key": f"{name.upper().replace('-','_')}_API_KEY",
+        "source_repo": url,
+    }
+    (target / "config.json").write_text(json.dumps(new_cfg, indent=4))
+
+    # Write the contract stub in the chosen language.
+    stub = _agent_stub_for(lang, name, binary)
+    ext = {"python": "contract.py", "javascript": "contract.js", "rust": "src/main.rs"}[lang]
+    stub_path = target / ext
+    stub_path.parent.mkdir(parents=True, exist_ok=True)
+    stub_path.write_text(stub)
+
+    if lang == "rust":
+        # Also drop a minimal Cargo.toml so the contract binary can be built.
+        (target / "Cargo.toml").write_text(_rust_cargo_toml(name))
+
+    code_cid = _push_code_cid(name)
+    return {
+        "ok": True,
+        "name": name,
+        "lang": lang,
+        "path": str(target),
+        "config": new_cfg,
+        "contract": str(stub_path),
+        "code_cid": code_cid,
+        "owner": owner,
+        "build_hint": "cargo build --release" if lang == "rust" else None,
+    }
+
+
+def _agent_stub_for(lang: str, name: str, binary: str) -> str:
+    if lang == "python":
+        return f'''"""{name} — cloned agent module.
+
+Wraps the cloned repo at ./repo/ as an AgentContract. Edit build_args()
+to match the CLI's actual flags.
+"""
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "dev", "src"))
+from agent_base import AgentContract, tx, view
+
+
+class Mod(AgentContract):
+    NAME = "{name}"
+    BINARY = "{binary}"
+    DEFAULT_MODEL = ""
+    DESCRIPTION = "{name} agent (auto-scaffolded from repo)"
+
+    def build_args(self, prompt, model, work_dir):
+        return [prompt]
+'''
+    if lang == "javascript":
+        return f'''// {name} — cloned agent module.
+// Edit buildArgs() to match the CLI's actual flags.
+
+const {{ AgentContract, runCli }} = require("../dev/src/agent_base.js");
+
+class Mod extends AgentContract {{
+  static NAME = "{name}";
+  static BINARY = "{binary}";
+  static DEFAULT_MODEL = "";
+  static DESCRIPTION = "{name} agent (auto-scaffolded)";
+  static ABI = {{
+    info:   {{ kind: "view", ownerOnly: false, doc: "Return info" }},
+    submit: {{ kind: "tx",   ownerOnly: false, doc: "Queue a prompt" }},
+  }};
+
+  buildArgs(prompt, _model, _workDir) {{
+    return [prompt];
+  }}
+}}
+
+if (require.main === module) runCli(Mod);
+module.exports = Mod;
+'''
+    # rust
+    return f'''//! {name} — cloned agent module.
+use agent_base::{{run_cli, AbiEntry, Contract}};
+use serde_json::{{json, Value}};
+
+struct Mod;
+impl Contract for Mod {{
+    const NAME: &'static str = "{name}";
+    const BINARY: &'static str = "{binary}";
+    const DESCRIPTION: &'static str = "{name} agent (auto-scaffolded)";
+
+    fn abi() -> Vec<AbiEntry> {{
+        vec![
+            AbiEntry {{ name: "info".into(),   kind: "view".into(), owner_only: false, inputs: vec![], doc: "Return info".into() }},
+            AbiEntry {{ name: "submit".into(), kind: "tx".into(),   owner_only: false, inputs: vec![], doc: "Queue a prompt".into() }},
+        ]
+    }}
+    fn call(method: &str, args: Value) -> Value {{
+        match method {{
+            "info" => json!({{ "name": Self::NAME, "binary": Self::BINARY, "lang": "rust" }}),
+            "submit" => json!({{ "queued": true, "prompt": args.get("prompt") }}),
+            _ => json!({{ "error": format!("unknown method: {{}}", method) }}),
+        }}
+    }}
+}}
+
+fn main() {{ run_cli::<Mod>(); }}
+'''
+
+
+def _rust_cargo_toml(name: str) -> str:
+    return f'''[package]
+name = "{name}"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "{name}-contract"
+path = "src/main.rs"
+
+[dependencies]
+agent_base = {{ path = "../dev/src/agent_base_rs" }}
+serde = {{ version = "1", features = ["derive"] }}
+serde_json = "1"
+'''
+
+
+@api.get("/proxy/wallet")
+def get_proxy_wallet():
+    """Return the funded relayer wallet info — address, balance, network.
+
+    This is the wallet that pays gas for per-module-key registrations.
+    Users top it up with the FUND button in the dev UI.
+    """
+    try:
+        import sys as _sys
+        if "/Users/broski/mod" not in _sys.path:
+            _sys.path.insert(0, "/Users/broski/mod")
+        import mod as _m
+        chain = _m.mod("chain")()
+        addr = chain.account.address
+        bal_wei = int(chain.w3.eth.get_balance(addr))
+        chain_id = chain.w3.eth.chain_id
+        return {
+            "address": addr,
+            "balance_wei": bal_wei,
+            "balance_eth": bal_wei / 1e18,
+            "chain_id": chain_id,
+            "network": "base-sepolia" if chain_id == 84532 else f"chain {chain_id}",
+            "explorer": f"https://sepolia.basescan.org/address/{addr}" if chain_id == 84532 else None,
+        }
+    except Exception as e:
+        raise HTTPException(500, f"{type(e).__name__}: {e}")
+
+
+@api.get("/agent/{name}/manifest")
+def get_agent_manifest(name: str):
+    """Universal manifest for an agent in any supported language.
+
+    Includes `code_hash` (sha3 of source) and `code_cid` (content-addressed
+    pointer in localfs) so the contract source can be retrieved by anyone.
+    """
+    lang, dispatch = _detect_runtime(name)
+    if dispatch is None:
+        raise HTTPException(404, f"no contract found for {name!r}")
+    result = dispatch("manifest")
+    if isinstance(result, dict):
+        if "lang" not in result:
+            result["lang"] = lang
+        result["code_cid"] = _push_code_cid(name)
+        src = _agent_source_path(name)
+        result["source_path"] = str(src) if src else None
+    return result
+
+
+@api.get("/agent/{name}/abi")
+def get_agent_abi(name: str):
+    """Return the agent's ABI — works across Python / JavaScript / Rust."""
+    lang, dispatch = _detect_runtime(name)
+    if dispatch is None:
+        raise HTTPException(404, f"no contract found for {name!r}")
+    result = dispatch("abi")
+    return {"name": name, "lang": lang, "abi": result if isinstance(result, list) else result.get("abi", [])}
+
+
+@api.post("/agent/{name}/call/{method}")
+async def call_agent_method(name: str, method: str, request: Request):
+    """Invoke a method on the agent contract. Body = JSON object of args.
+    Works uniformly across Python / JS / Rust contracts.
+    """
+    lang, dispatch = _detect_runtime(name)
+    if dispatch is None:
+        raise HTTPException(404, f"no contract found for {name!r}")
+    try:
+        args = await request.json()
+    except Exception:
+        args = {}
+    result = dispatch("call", method, json.dumps(args))
+    return {"name": name, "lang": lang, "method": method, "result": result}
+
+
+@api.get("/agent/{name}/state")
+def get_agent_state(name: str):
+    """Return persistent storage + recent events for the agent."""
+    state_path = Path(os.path.expanduser(f"~/.mod/{name}/state.json"))
+    events_path = Path(os.path.expanduser(f"~/.mod/{name}/events.jsonl"))
+    state = {}
+    events = []
+    if state_path.exists():
+        try:
+            state = json.loads(state_path.read_text())
+        except json.JSONDecodeError:
+            pass
+    if events_path.exists():
+        with events_path.open() as f:
+            tail = f.readlines()[-30:]
+        events = []
+        for l in tail:
+            try:
+                events.append(json.loads(l))
+            except json.JSONDecodeError:
+                pass
+    return {"name": name, "state": state, "events": events}
+
+
+def _agent_source_path(name: str) -> Optional[Path]:
+    """Return the canonical source path for an agent's contract code.
+    For Rust contracts we return src/main.rs (the source, not the binary)
+    so the CID is deterministic across builds.
+    """
+    base = ORBIT_DIR / name
+    for cand in (
+        base / "contract.py",
+        base / "contract.js",
+        base / "src" / "contract.js",
+        base / "src" / "main.rs",
+        base / "src" / "mod.py",
+    ):
+        if cand.exists():
+            return cand
+    return None
+
+
+def _push_code_cid(name: str) -> Optional[str]:
+    """Read the agent's contract source and push it to localfs, returning
+    the CID. Idempotent — localfs is content-addressable, so calling this
+    repeatedly on unchanged source returns the same CID.
+    """
+    src = _agent_source_path(name)
+    if src is None:
+        return None
+    try:
+        import sys as _sys
+        if "/Users/broski/mod" not in _sys.path:
+            _sys.path.insert(0, "/Users/broski/mod")
+        import mod as _m
+        text = src.read_text(encoding="utf-8", errors="replace")
+        cid = _m.fn("api/put")(text)
+        return cid
+    except Exception:
+        return None
+
+
 @api.get("/jobs/{module}")
 def get_jobs(module: str, x_mod_signature: Optional[str] = Header(default=None, alias="X-Mod-Signature")):
     """List recent jobs for a module — proxies through with the caller's

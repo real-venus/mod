@@ -99,6 +99,10 @@ pub struct ActiveTradersQuery {
     pub pool: Option<u32>,
     pub stream: Option<String>,
     pub paged: Option<String>,
+    /// When "1", bypass the agg + per-trader trade caches and re-fetch from
+    /// Polymarket. Used by the SYNC button so the user can force a refresh
+    /// without waiting for the 60s warmup cycle.
+    pub force: Option<String>,
     pub sort: Option<String>,
     pub order: Option<String>,
     pub page: Option<u32>,

@@ -70,6 +70,28 @@ class Mod:
     def cid(self, data: Any) -> str:
         return self.fs.cid(data)
 
+    def iscid(self, text: Any) -> bool:
+        """True iff `text` looks like a content identifier (IPFS Qm... or CIDv1
+        baf...). Used by core/registry to decide whether to resolve a string
+        as a CID URL or treat it as a raw module name."""
+        if not isinstance(text, str):
+            return False
+        s = text.strip()
+        # Strip any provider prefix (ipfs/Qm..., lighthouse/baf..., etc.)
+        if '/' in s and not s.startswith('/'):
+            s = s.split('/', 1)[1]
+        if s.startswith('Qm') and len(s) == 46:
+            return True
+        if s.startswith(('baf', 'bafy', 'bafk', 'bafq')) and len(s) >= 50:
+            return True
+        return False
+
+    def valid_cid(self, cid: str) -> bool:
+        """Stronger check — `iscid` + we actually have it locally (or can
+        fetch it). Default to shape check; backends that index CIDs locally
+        can override to also confirm presence."""
+        return self.iscid(cid)
+
     def rm(self, cid: str) -> Dict[str, Any]:
         return self.fs.rm(cid)
 

@@ -1,17 +1,43 @@
 """
 Subtensor chain client — all on-chain reads/writes for copytensor.
 
-Uses the open-source bittensor SDK to talk directly to the Bittensor
-blockchain. No third-party APIs.
+Talks directly to the Bittensor blockchain via the open-source bittensor SDK
+against a rotating pool of public RPC endpoints — no third-party APIs, no
+single host of failure. Reads work without any wallet; only stake/unstake
+operations require a wallet.
 """
 
+import logging
+import random
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import bittensor as bt
 
+log = logging.getLogger("copytensor.chain")
+
 BLOCKS_PER_DAY = 7200  # ~12s per block
+
+# Public, free Bittensor RPC endpoints. We rotate across these so no single
+# provider becomes a SPOF. Add community-run endpoints here as they appear.
+PUBLIC_RPCS_FINNEY: List[str] = [
+    "wss://entrypoint-finney.opentensor.ai:443",
+    "wss://archive.chain.opentensor.ai:443",
+    "wss://lite.chain.opentensor.ai:443",
+    "wss://bittensor-finney.api.onfinality.io/public-ws",
+]
+PUBLIC_RPCS_TEST: List[str] = [
+    "wss://test.finney.opentensor.ai:443",
+]
+
+
+def _endpoints_for(network: str, override: Optional[str] = None) -> List[str]:
+    if override:
+        return [override]
+    if network == "test":
+        return list(PUBLIC_RPCS_TEST)
+    return list(PUBLIC_RPCS_FINNEY)
 
 
 @dataclass
@@ -42,40 +68,88 @@ class AccountPositions:
 
 
 class SubtensorClient:
-    """Wraps bt.subtensor() for all chain queries needed by copytensor."""
+    """Wraps bt.subtensor() with round-robin failover across public RPCs.
 
-    def __init__(self, network: str = "finney", endpoint: Optional[str] = None):
+    Every call to `.sub` returns a connected subtensor; if a call fails we
+    rotate to the next endpoint automatically via `_with_failover()`. The
+    pool shuffles on init so different processes pin different primaries —
+    no single provider sees all our traffic.
+    """
+
+    def __init__(self, network: str = "finney", endpoint: Optional[str] = None,
+                 endpoints: Optional[List[str]] = None):
         self.network = network
         self.endpoint = endpoint
+        pool = endpoints if endpoints else _endpoints_for(network, endpoint)
+        random.shuffle(pool)
+        self.endpoints: List[str] = pool
+        self._idx = 0
         self._sub: Optional[bt.subtensor] = None
+        self._current: Optional[str] = None
 
     @property
     def sub(self) -> bt.subtensor:
         if self._sub is None:
-            if self.endpoint:
-                self._sub = bt.subtensor(network=self.endpoint)
-            else:
-                self._sub = bt.subtensor(network=self.network)
+            self._connect()
         return self._sub
+
+    def _connect(self) -> bt.subtensor:
+        """Try endpoints in rotation until one connects."""
+        last_err: Optional[Exception] = None
+        for _ in range(len(self.endpoints)):
+            url = self.endpoints[self._idx]
+            try:
+                self._sub = bt.subtensor(network=url)
+                _ = self._sub.block  # sanity probe
+                self._current = url
+                log.info("subtensor connected via %s", url)
+                return self._sub
+            except Exception as e:
+                last_err = e
+                log.warning("subtensor connect failed (%s): %s", url, e)
+                self._idx = (self._idx + 1) % len(self.endpoints)
+                self._sub = None
+        raise RuntimeError(f"no Bittensor RPC reachable; last error: {last_err}")
+
+    def _rotate(self):
+        self._idx = (self._idx + 1) % len(self.endpoints)
+        self._sub = None
+        self._current = None
+
+    def _with_failover(self, fn: Callable[[], Any], retries: Optional[int] = None) -> Any:
+        """Run a callable that uses self.sub; rotate + retry on failure."""
+        n = retries if retries is not None else max(1, len(self.endpoints))
+        last_err: Optional[Exception] = None
+        for _ in range(n):
+            try:
+                return fn()
+            except Exception as e:
+                last_err = e
+                log.warning("rpc call failed on %s: %s — rotating", self._current, e)
+                self._rotate()
+        raise RuntimeError(f"all RPCs failed; last error: {last_err}")
 
     def reconnect(self):
         self._sub = None
         return self.sub
 
+    def current_endpoint(self) -> Optional[str]:
+        return self._current
+
     def get_block(self) -> int:
-        return self.sub.block
+        return self._with_failover(lambda: self.sub.block)
 
     def block_at_days_ago(self, days: int) -> int:
         current = self.get_block()
         return max(0, current - (days * BLOCKS_PER_DAY))
 
     def get_block_hash(self, block: int) -> str:
-        return self.sub.substrate.get_block_hash(block)
+        return self._with_failover(lambda: self.sub.substrate.get_block_hash(block))
 
     # ── subnets ──────────────────────────────────────────────────────
 
     def get_all_netuids(self) -> List[int]:
-        return self.sub.get_subnets()
+        return self._with_failover(lambda: self.sub.get_subnets())
 
     def get_subnet_info(self, netuid: int, block: Optional[int] = None) -> SubnetInfo:
         block_hash = self.get_block_hash(block) if block else None
@@ -187,8 +261,10 @@ class SubtensorClient:
     # ── balances ─────────────────────────────────────────────────────
 
     def get_balance(self, ss58: str) -> float:
-        bal = self.sub.get_balance(ss58)
-        return float(bal.tao) if hasattr(bal, "tao") else float(bal) / 1e9
+        def _go():
+            bal = self.sub.get_balance(ss58)
+            return float(bal.tao) if hasattr(bal, "tao") else float(bal) / 1e9
+        return self._with_failover(_go)
 
     # ── staking operations ───────────────────────────────────────────
 
@@ -224,13 +300,15 @@ class SubtensorClient:
 
     def _query(self, storage_fn: str, params: list,
                block_hash: Optional[str] = None) -> Any:
-        try:
+        def _go():
             return self.sub.substrate.query(
                 module="SubtensorModule",
                 storage_function=storage_fn,
                 params=params,
                 block_hash=block_hash,
             )
+        try:
+            return self._with_failover(_go)
         except Exception:
             return None
 
@@ -250,7 +328,15 @@ class SubtensorClient:
                 "connected": True,
                 "network": self.network,
                 "block": block,
-                "endpoint": self.endpoint,
+                "endpoint": self._current,
+                "pool_size": len(self.endpoints),
+                "pool": self.endpoints,
             }
         except Exception as e:
-            return {"connected": False, "error": str(e)}
+            return {
+                "connected": False,
+                "error": str(e),
+                "network": self.network,
+                "pool_size": len(self.endpoints),
+                "pool": self.endpoints,
+            }

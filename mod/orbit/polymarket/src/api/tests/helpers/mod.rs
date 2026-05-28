@@ -16,11 +16,17 @@ pub fn test_app() -> Router {
 
     let proxy_cache = Arc::new(ProxyCache::new(100));
     let pipeline = Arc::new(PipelineState::new(http.clone()));
+    let strat_store = Arc::new(polymarket_api::StratStore::new());
+    let signer_store = Arc::new(polymarket_api::SignerStore::new());
+    let engines = Arc::new(polymarket_api::EngineRegistry::new(http.clone()));
 
     let state = AppState {
         http,
         proxy_cache,
         pipeline,
+        strat_store,
+        signer_store,
+        engines,
     };
 
     let cors = CorsLayer::new()

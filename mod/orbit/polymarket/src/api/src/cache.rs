@@ -68,7 +68,7 @@ impl ProxyCache {
                 // Match the same freshness rule the writer uses — disk-loaded
                 // trader entries also expire after 1h so they re-fetch.
                 let ttl = if Self::is_freshness_critical(endpoint) {
-                    Duration::from_secs(3600)
+                    Duration::from_secs(60)
                 } else {
                     Duration::from_secs(86400)
                 };
@@ -99,7 +99,7 @@ impl ProxyCache {
         // warmup tick re-fetches them — without this, a 9 AM cache hides
         // dormant→active transitions until 9 AM the next day.
         let mem_ttl = if Self::is_freshness_critical(endpoint) {
-            Duration::from_secs(3600)
+            Duration::from_secs(60)
         } else if persist {
             Duration::from_secs(86400)
         } else {
@@ -178,7 +178,7 @@ impl ProxyCache {
         if is_freshness_critical {
             if let Ok(meta) = std::fs::metadata(&path) {
                 if let Ok(modified) = meta.modified() {
-                    if modified.elapsed().unwrap_or(Duration::ZERO) > Duration::from_secs(3600) {
+                    if modified.elapsed().unwrap_or(Duration::ZERO) > Duration::from_secs(60) {
                         // Delete the stale file so next save_to_disk doesn't
                         // bump mtime on a stale payload by accident.
                         let _ = std::fs::remove_file(&path);
@@ -194,7 +194,7 @@ impl ProxyCache {
 
 // ─── Pipeline Cache (Memory + Disk, hourly) ───
 
-const AGG_TTL: Duration = Duration::from_secs(3600);
+const AGG_TTL: Duration = Duration::from_secs(60);
 const DISK_MAX_AGE: Duration = Duration::from_secs(86400); // 24h — keep disk cache across restarts
 
 struct PipelineCacheEntry {

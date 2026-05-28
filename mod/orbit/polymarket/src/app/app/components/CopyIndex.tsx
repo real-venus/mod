@@ -7,6 +7,7 @@ import { PolymarketPosition, PolymarketTrade, SavedIndex } from "../lib/types";
 import { shortAddress } from "@/lib/auth";
 import { useFilterParams } from "../context/FiltersContext";
 import { useAuth } from "../context/AuthContext";
+import { useCopyEngine } from "../context/CopyEngineContext";
 import PnlChart from "./PnlChart";
 import type { CurvePoint } from "./PnlChart";
 import { computeFifoTrades, buildPnlCurve, buildCombinedPnlCurve, aggregateToRebalanceWindows } from "../lib/pnlEngine";
@@ -384,6 +385,10 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
   const router = useRouter();
   const filterQs = useFilterParams({ excludeSearch: true });
   const { localToken, auth } = useAuth();
+  // Pull the live engine state so the chart can switch its data source to
+  // the engine's actual order log when mode === "LIVE" — historical replay
+  // is meaningless when the user is monitoring real-time trading.
+  const { isLive, engineState } = useCopyEngine();
 
   // ── Strategy management ──
   const [savedIndexes, setSavedIndexes] = useState<SavedIndex[]>([]);
@@ -408,6 +413,11 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
   const [capital, setCapital] = useState(DEFAULT_CAPITAL);
   const [minTrade, setMinTrade] = useState(1);
   const [maxTrade, setMaxTrade] = useState(100);
+  // SHOW ALL TRADES — when true, the linkedTrades pipeline skips the TRADE
+  // SIZE filter and surfaces every upstream trade regardless of mirror
+  // amount. Declared here (not next to feedOrder) so it's available to the
+  // linkedTrades useMemo that fires earlier in the render.
+  const [showAllTrades, setShowAllTrades] = useState(false);
   const [maxTradesPerHour, setMaxTradesPerHour] = useState(10);
   // SAMPLE %: deterministically thin the in-window trades to this fraction.
   // 100 = keep all (default), 50 = keep ~half, 10 = keep ~tenth. Curve, feed,
@@ -1152,11 +1162,13 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       const rawAmount = t.price * t.size * t.scale;
       // Skip dust trades — below the user-configured min size they wouldn't
       // be placed by the live engine; showing them in the feed misleads.
-      if (rawAmount < minTrade) continue;
+      if (!showAllTrades && rawAmount < minTrade) continue;
       // Cap at max size; SELL realized P&L scales down because the smaller
       // clamped position can only return a smaller absolute gain/loss.
-      const clampRatio = rawAmount > maxTrade ? maxTrade / rawAmount : 1;
-      const amount = Math.round(Math.min(rawAmount, maxTrade) * 100) / 100;
+      // SHOW ALL skips both gates so the displayed amount is whatever the
+      // raw scaled mirror would be (no floor, no ceiling).
+      const clampRatio = showAllTrades || rawAmount <= maxTrade ? 1 : maxTrade / rawAmount;
+      const amount = Math.round((showAllTrades ? rawAmount : Math.min(rawAmount, maxTrade)) * 100) / 100;
       const realizedScaled = t.side === "SELL"
         ? Math.round(t.realized * t.scale * clampRatio * 100) / 100
         : 0;
@@ -1180,7 +1192,94 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       runningPnl = Math.round((runningPnl + t.realized) * 100) / 100;
       return { ...t, runningPnl };
     });
-  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour, samplePct, minTrade, maxTrade]);
+  }, [watchlist, traderTrades, traderData, backtestDays, traderWeights, totalWeight, capital, loading, rebalancePeriod, rebalanceHour, samplePct, minTrade, maxTrade, showAllTrades]);
+
+  // liveCurve — built from the engine's actual order log. Each successful
+  // COPY_BUY / COPY_SELL becomes a point. P&L is a FIFO-realized running
+  // total: BUYs add to per-token basis queues, SELLs pop the oldest BUY at
+  // its filled price and compute (sell - buy) × shares. Only what actually
+  // executed on Polymarket is plotted — no historical replay.
+  const liveCurve = useMemo((): CurvePoint[] => {
+    if (!engineState) return [];
+    const trades = engineState.log
+      .filter((e) => (e.type === "COPY_BUY" || e.type === "COPY_SELL") && e.orderResult?.success)
+      .sort((a, b) => a.timestamp - b.timestamp);
+    if (trades.length === 0) return [];
+
+    // Per-token FIFO basis. Each entry is (price, shares).
+    const basis: Map<string, Array<[number, number]>> = new Map();
+    let running = 0;
+    const out: CurvePoint[] = [];
+    for (let i = 0; i < trades.length; i++) {
+      const t = trades[i];
+      const side = t.side ?? "BUY";
+      const price = t.price ?? 0;
+      const notional = t.mirrorNotional ?? 0;
+      const shares = price > 0 ? notional / price : 0;
+      const tokenId = t.tokenId ?? t.conditionId ?? t.market ?? "";
+      let realized = 0;
+      if (side === "BUY") {
+        const q = basis.get(tokenId) ?? [];
+        q.push([price, shares]);
+        basis.set(tokenId, q);
+      } else {
+        // Pop earliest BUYs to realize PnL.
+        let remaining = shares;
+        const q = basis.get(tokenId) ?? [];
+        while (remaining > 0 && q.length > 0) {
+          const [bp, bs] = q[0];
+          const consumed = Math.min(bs, remaining);
+          realized += (price - bp) * consumed;
+          remaining -= consumed;
+          if (consumed >= bs) q.shift();
+          else q[0] = [bp, bs - consumed];
+        }
+        basis.set(tokenId, q);
+      }
+      running = Math.round((running + realized) * 100) / 100;
+      const d = new Date(t.timestamp);
+      out.push({
+        i,
+        ts: t.timestamp,
+        date: `${d.getMonth() + 1}/${d.getDate()}`,
+        time: `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`,
+        pnl: running,
+        side,
+        realized,
+        market: t.market ?? "",
+        size: notional,
+        price,
+      });
+    }
+    return out;
+  }, [engineState]);
+
+  // chartCurve — what PnlChart actually plots.
+  //   LIVE mode  → liveCurve (engine's real executed orders)
+  //   BACKTEST   → linkedTrades-derived curve (constrained replay) or
+  //                combinedPnlCurve when SHOW ALL is on
+  // The two modes never share a series — historical replay is meaningless
+  // when monitoring live, and the live order log doesn't exist on BACKTEST.
+  const chartCurve = useMemo((): CurvePoint[] => {
+    if (mode === "LIVE") return liveCurve;
+    if (showAllTrades) return combinedPnlCurve;
+    if (linkedTrades.length === 0) return combinedPnlCurve;
+    return linkedTrades.map((t, i) => {
+      const d = new Date(t.ts);
+      return {
+        i,
+        ts: t.ts,
+        date: `${d.getMonth() + 1}/${d.getDate()}`,
+        time: `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`,
+        pnl: t.runningPnl,
+        side: t.side,
+        realized: t.realized,
+        market: t.market,
+        size: t.amount,
+        price: t.price,
+      };
+    });
+  }, [mode, liveCurve, linkedTrades, combinedPnlCurve, showAllTrades]);
 
   // ── Chart ↔ Trade feed hover linking ──
   const [chartHighlight, setChartHighlight] = useState<number | null>(null);
@@ -1192,29 +1291,35 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
   const [indexTradeLimit, setIndexTradeLimit] = useState(100);
   const [feedOrder, setFeedOrder] = useState<"newest" | "oldest">("newest");
 
+  // Both hover-linking helpers index into the SAME series PnlChart plots
+  // (chartCurve), not the unfiltered combinedPnlCurve. Mixing the two
+  // crashes when the chart plots N points but combinedPnlCurve has fewer
+  // — clicking a chart dot tries combinedPnlCurve[idx] which is undefined.
   const findCurveIdx = useCallback((ts: number): number | null => {
-    if (combinedPnlCurve.length === 0) return null;
+    if (chartCurve.length === 0) return null;
     let best = 0, bestDist = Infinity;
-    for (let i = 0; i < combinedPnlCurve.length; i++) {
-      const d = Math.abs(combinedPnlCurve[i].ts - ts);
+    for (let i = 0; i < chartCurve.length; i++) {
+      const d = Math.abs(chartCurve[i].ts - ts);
       if (d < bestDist) { bestDist = d; best = i; }
     }
     return best;
-  }, [combinedPnlCurve]);
+  }, [chartCurve]);
 
   const handleChartHover = useCallback((idx: number | null) => {
-    if (idx === null || combinedPnlCurve.length === 0 || linkedTrades.length === 0) {
+    if (idx === null || chartCurve.length === 0 || linkedTrades.length === 0) {
       setTradeHighlight(null);
       return;
     }
-    const ts = combinedPnlCurve[idx].ts;
+    const point = chartCurve[idx];
+    if (!point) { setTradeHighlight(null); return; }
+    const ts = point.ts;
     let best = 0, bestDist = Infinity;
     for (let i = 0; i < linkedTrades.length; i++) {
       const d = Math.abs(linkedTrades[i].ts - ts);
       if (d < bestDist) { bestDist = d; best = i; }
     }
     setTradeHighlight(best);
-  }, [combinedPnlCurve, linkedTrades]);
+  }, [chartCurve, linkedTrades]);
 
   // ── Backtest date range ──
   const backtestDateRange = useMemo(() => {
@@ -1255,6 +1360,21 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
       let c = 0;
       for (const t of trades) if (t.timestamp >= cutoffMs) c++;
       m.set(addr, c);
+    }
+    return m;
+  }, [allTraderAddrs, traderTrades]);
+
+  // Per-trader total trade count (across the loaded history window) +
+  // timestamp of their most recent trade. Surfaces "this trader is very
+  // active but went dormant 3h ago" patterns the 24h count alone can't show.
+  const traderTradeStatsByAddr = useMemo(() => {
+    const m = new Map<string, { total: number; lastTs: number }>();
+    for (const addr of allTraderAddrs) {
+      const trades = traderTrades.get(addr);
+      if (!trades || trades.length === 0) continue;
+      let lastTs = 0;
+      for (const t of trades) if (t.timestamp > lastTs) lastTs = t.timestamp;
+      m.set(addr, { total: trades.length, lastTs });
     }
     return m;
   }, [allTraderAddrs, traderTrades]);
@@ -1431,6 +1551,8 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
             <span className="w-5 shrink-0" />
             <span className="w-5 shrink-0" />
             <span className="flex-1">ADDRESS</span>
+            <span className="w-12 text-right" title="Total trades observed in the loaded history window">TXS</span>
+            <span className="w-14 text-right" title="Time since this trader's most recent trade">LAST</span>
             <span className="w-10 text-right" title="Trades by this trader in the last 24h — 0 means dormant">24H</span>
             <span className="w-16 text-right">P&L</span>
             <span className="flex-1 text-center">WEIGHT</span>
@@ -1462,6 +1584,54 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                   >
                     {shortAddress(t.address)}
                   </button>
+                  {/* TXS — total trade count in the loaded history window.
+                      Tooltips show the absolute number; cell rendered with
+                      a "K" suffix for large counts to keep the column tight. */}
+                  {(() => {
+                    const stats = traderTradeStatsByAddr.get(t.address);
+                    const total = stats?.total ?? null;
+                    return (
+                      <span
+                        className="w-12 text-right text-[13px] font-mono text-pixel-gray-light"
+                        title={total === null ? "Loading…" : `${total.toLocaleString()} total trades observed`}
+                      >
+                        {total === null ? "…" : total >= 1000 ? `${(total / 1000).toFixed(1)}k` : String(total)}
+                      </span>
+                    );
+                  })()}
+                  {/* LAST — short-form "5m" / "3h" / "2d" since the most
+                      recent trade. Red when stale (>24h), amber when warming
+                      (>1h), green when fresh. */}
+                  {(() => {
+                    const stats = traderTradeStatsByAddr.get(t.address);
+                    if (!stats) {
+                      return (
+                        <span className="w-14 text-right text-[13px] font-mono text-pixel-gray">…</span>
+                      );
+                    }
+                    const ageMs = Date.now() - stats.lastTs;
+                    const cls =
+                      ageMs < 3_600_000 ? "text-green-400" :
+                      ageMs < 86_400_000 ? "text-amber-400" :
+                      "text-red-400";
+                    const short = (() => {
+                      const sec = Math.floor(ageMs / 1000);
+                      if (sec < 60) return `${sec}s`;
+                      const m = Math.floor(sec / 60);
+                      if (m < 60) return `${m}m`;
+                      const h = Math.floor(m / 60);
+                      if (h < 24) return `${h}h`;
+                      return `${Math.floor(h / 24)}d`;
+                    })();
+                    return (
+                      <span
+                        className={`w-14 text-right text-[13px] font-mono ${cls}`}
+                        title={`Last trade ${new Date(stats.lastTs).toLocaleString()}`}
+                      >
+                        {short}
+                      </span>
+                    );
+                  })()}
                   {/* 24H activity — red when dormant, amber when thin,
                       green when active. Pure visual cue, no filtering. */}
                   {(() => {
@@ -1532,42 +1702,58 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
             </div>
           )}
 
-          {/* ── Backtest panel ── */}
-          {watchlist.length > 0 && mode === "BACKTEST" && (
+          {/* ── Params panel — visible on BOTH BACKTEST and LIVE so the user
+              can tune WINDOW / CAPITAL / TRADE SIZE / THROTTLE / SAMPLE /
+              POLL INTERVAL from either view. BACKTEST-only bits (RUN, P&L
+              summary, chart, fee row) are wrapped in their own conditional
+              inside. STRATS still hides the whole panel — params are
+              meaningless without a chart or running engine to apply them. */}
+          {watchlist.length > 0 && (mode === "BACKTEST" || mode === "LIVE") && (
             <div className="pixel-panel px-3 py-2.5 space-y-3">
               {/* ── Row 1: title + date range · RUN · P&L stats ─────── */}
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
-                  <span className="text-[14px] text-pixel-white tracking-[0.2em]">BACKTEST</span>
+                  <span className="text-[14px] text-pixel-white tracking-[0.2em]">
+                    {mode === "BACKTEST" ? "BACKTEST" : "PARAMETERS"}
+                  </span>
                   <span className="text-[12px] text-pixel-gray/70 font-mono tracking-wider">
                     {backtestDateRange.from} → {backtestDateRange.to}
                   </span>
-                  <button
-                    onClick={() => {
-                      const v = parseInt(backtestDaysInput, 10);
-                      if (!isNaN(v) && v > 0 && v <= 365) updateBacktestDays(v);
-                      setRefreshKey((k) => k + 1);
-                    }}
-                    className="inline-flex items-center gap-1.5 text-[12px] font-mono tracking-[0.15em] px-3 h-[24px] border border-green-400 text-green-400 hover:bg-green-400/10 active:bg-green-400/20 transition-colors"
-                    title="Run backtest with current settings"
-                  >
-                    ▶ RUN
-                  </button>
-                </div>
-                <div className="flex items-center gap-4 text-[13px] font-mono">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-[12px] text-pixel-gray tracking-[0.15em]">P&L</span>
-                    <span className={chartNetPnl >= 0 ? "text-green-400" : "text-red-400"}>
-                      {formatPnl(chartNetPnl)}
+                  {mode === "BACKTEST" && (
+                    <button
+                      onClick={() => {
+                        const v = parseInt(backtestDaysInput, 10);
+                        if (!isNaN(v) && v > 0 && v <= 365) updateBacktestDays(v);
+                        setRefreshKey((k) => k + 1);
+                      }}
+                      className="inline-flex items-center gap-1.5 text-[12px] font-mono tracking-[0.15em] px-3 h-[24px] border border-green-400 text-green-400 hover:bg-green-400/10 active:bg-green-400/20 transition-colors"
+                      title="Run backtest with current settings"
+                    >
+                      ▶ RUN
+                    </button>
+                  )}
+                  {mode === "LIVE" && (
+                    <span className="text-[11px] text-amber-400/80 tracking-wider">
+                      · live changes restart the engine on next cycle
                     </span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-[12px] text-pixel-gray tracking-[0.15em]">ROI</span>
-                    <span className={chartRoi >= 0 ? "text-green-400" : "text-red-400"}>
-                      {chartRoi >= 0 ? "+" : ""}{chartRoi.toFixed(1)}%
-                    </span>
-                  </div>
+                  )}
                 </div>
+                {mode === "BACKTEST" && (
+                  <div className="flex items-center gap-4 text-[13px] font-mono">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-[12px] text-pixel-gray tracking-[0.15em]">P&L</span>
+                      <span className={chartNetPnl >= 0 ? "text-green-400" : "text-red-400"}>
+                        {formatPnl(chartNetPnl)}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-[12px] text-pixel-gray tracking-[0.15em]">ROI</span>
+                      <span className={chartRoi >= 0 ? "text-green-400" : "text-red-400"}>
+                        {chartRoi >= 0 ? "+" : ""}{chartRoi.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* ── Row 2: labeled field cards for parameters ───────── */}
@@ -1666,64 +1852,44 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                       else if (e.target.value === "") setSamplePct(1);
                     }}
                     onFocus={(e) => e.target.select()}
-                    title="Deterministically keep this % of in-window trades — the curve, feed, and stats all update."
+                    title="Deterministically keep this % of in-window trades — the curve, feed, and stats all update. Quick chips below set 10/25/50/75/100%."
                     className="bg-transparent w-8 text-right font-mono text-[14px] text-pixel-white outline-none"
                   />
                 </Field>
-              </div>
 
-              {/* SAMPLE quick-presets — one-click % flips for stress-testing
-                  thin participation against the full mirror. Active chip
-                  picks up the green ring; others stay quiet. */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                <span className="text-[10px] text-pixel-gray tracking-[0.15em] mr-1">SAMPLE</span>
-                {[10, 25, 50, 75, 100].map((p) => {
-                  const active = samplePct === p;
-                  return (
-                    <button
-                      key={p}
-                      onClick={() => setSamplePct(p)}
-                      className={`pixel-btn text-[11px] px-2 py-0.5 ${
-                        active
-                          ? "border-green-400 text-green-400 bg-green-400/10"
-                          : "border-pixel-border text-pixel-gray hover:text-pixel-white"
-                      }`}
-                      title={`Sample ${p}% of in-window trades`}
-                    >
-                      {p}%
-                    </button>
-                  );
-                })}
-                <span className="text-[10px] text-pixel-gray/70 ml-1">
-                  · deterministic, same % gives same sample
-                </span>
-              </div>
-
-              {/* ── Row 3: live poll interval ────────────────────────
-                  Backtest is always per-trade replay now (matches live).
-                  The REBALANCE/AT selects were removed — they conflated
-                  position-rebalancing with trade-mirroring. */}
-              <div className="flex items-end gap-2 flex-wrap">
-                <Field label="POLL INTERVAL">
+                {/* POLL INTERVAL inlined into the field row — used to live
+                    in its own row plus a duplicate SAMPLE label row. With
+                    fractional-minute values we can offer SECONDS options
+                    (5s = 0.0833min) without changing the stored shape —
+                    intervalMs = livePollMinutes * 60_000 still resolves
+                    to the right ms for sub-minute selections. */}
+                <Field label="POLL EVERY">
                   <select
                     value={rebalanceMinutes}
                     onChange={(e) => updateRebalanceMinutes(Number(e.target.value))}
                     className="bg-transparent font-mono text-[13px] text-pixel-white outline-none cursor-pointer pr-1"
                   >
-                    <option value={1}>1MIN</option>
-                    <option value={2}>2MIN</option>
-                    <option value={5}>5MIN</option>
-                    <option value={10}>10MIN</option>
-                    <option value={15}>15MIN</option>
-                    <option value={60}>1H</option>
-                    <option value={240}>4H</option>
-                    <option value={1440}>24H</option>
+                    <option value={5 / 60}>5s</option>
+                    <option value={10 / 60}>10s</option>
+                    <option value={15 / 60}>15s</option>
+                    <option value={30 / 60}>30s</option>
+                    <option value={1}>1m</option>
+                    <option value={2}>2m</option>
+                    <option value={5}>5m</option>
+                    <option value={10}>10m</option>
+                    <option value={15}>15m</option>
+                    <option value={30}>30m</option>
+                    <option value={60}>1h</option>
+                    <option value={240}>4h</option>
+                    <option value={1440}>24h</option>
                   </select>
                 </Field>
               </div>
 
-              {/* Fee/gas cost summary — derived from linkedTrades + chart for consistency */}
-              {(() => {
+              {/* Fee/gas cost summary + chart are BACKTEST-only — they're
+                  derived from the historical replay and have no meaning on
+                  LIVE (which has its own real-time stats card in LivePanel). */}
+              {mode === "BACKTEST" && (() => {
                 const feedFees = linkedTrades.reduce((s, t) => s + t.fee, 0);
                 const feedGas = linkedTrades.length * GAS_PER_TRADE_USD;
                 const feedCosts = feedFees + feedGas;
@@ -1776,13 +1942,46 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                 );
               })()}
 
-              {/* PnL chart */}
+              {/* PnL chart.
+                  LIVE  → plots only the engine's actually-executed orders
+                          (liveCurve). Historical replay is HIDDEN — user
+                          explicitly does not want past trades shown there.
+                  BACKTEST → constrained replay curve from linkedTrades. */}
               <div ref={chartPanelRef}>
-              {combinedPnlCurve.length >= 2 ? (
+              {mode === "LIVE" ? (
+                liveCurve.length >= 2 ? (
+                  <PnlChart
+                    points={liveCurve}
+                    dayLabel="LIVE TRADING"
+                    tradesInWindow={liveCurve.map((p) => ({ timestamp: p.ts }))}
+                    highlightIndex={chartHighlight}
+                    onHoverChange={handleChartHover}
+                    linkedTrades={[]}
+                    shortAddress={shortAddress}
+                  />
+                ) : (
+                  <div className="p-8 text-center border border-dashed border-pixel-border/40 rounded">
+                    <div className="text-[13px] text-pixel-gray mb-1">
+                      {isLive
+                        ? engineState && engineState.totalOrdersPlaced === 0
+                          ? "Engine is running but hasn't placed any orders yet"
+                          : "Waiting for the next executed order…"
+                        : "Live engine not running — hit GO LIVE above to start"}
+                    </div>
+                    <div className="text-[11px] text-pixel-gray/70 font-mono">
+                      LIVE CHART ONLY PLOTS ORDERS PLACED IN THE CURRENT SESSION ·
+                      {" "}{engineState?.totalOrdersPlaced ?? 0} ORDERS ·
+                      {" "}LAST SYNC {engineState?.lastCycleAt
+                        ? `${Math.max(0, Math.floor((Date.now() - engineState.lastCycleAt) / 1000))}s ago`
+                        : "—"}
+                    </div>
+                  </div>
+                )
+              ) : chartCurve.length >= 2 ? (
                 <PnlChart
-                  points={combinedPnlCurve}
+                  points={chartCurve}
                   dayLabel={`${backtestDays}D INDEX`}
-                  tradesInWindow={combinedPnlCurve.filter((p) => p.side !== "MARK").map((p) => ({ timestamp: p.ts }))}
+                  tradesInWindow={chartCurve.filter((p) => p.side !== "MARK").map((p) => ({ timestamp: p.ts }))}
                   highlightIndex={chartHighlight}
                   onHoverChange={handleChartHover}
                   linkedTrades={linkedTrades}
@@ -1833,6 +2032,21 @@ export default function CopyIndex({ searchFilter, compact, onClose }: CopyIndexP
                         {finalPnl >= 0 ? "+" : ""}${finalPnl.toFixed(2)}
                       </span>
                     )}
+                    <button
+                      onClick={() => setShowAllTrades((v) => !v)}
+                      className={`pixel-btn text-[13px] px-2 py-0.5 transition-colors ${
+                        showAllTrades
+                          ? "border-amber-400 text-amber-400 bg-amber-400/10"
+                          : "border-pixel-border text-pixel-gray hover:text-amber-400 hover:border-amber-400"
+                      }`}
+                      title={
+                        showAllTrades
+                          ? `Showing every upstream trade — ignoring MIN ${minTrade}/MAX ${maxTrade} constraints.`
+                          : `Hiding trades outside MIN ${minTrade}/MAX ${maxTrade}. Click to show all upstream activity.`
+                      }
+                    >
+                      {showAllTrades ? "SHOW ALL ✓" : "SHOW ALL"}
+                    </button>
                     <button
                       onClick={() => setFeedOrder((o) => (o === "newest" ? "oldest" : "newest"))}
                       className="pixel-btn text-[13px] px-2 py-0.5 border-pixel-border text-pixel-gray hover:text-green-400 hover:border-green-400 transition-colors"

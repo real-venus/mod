@@ -382,8 +382,12 @@ export async function fetchTradersPage(opts: {
   minTrades?: number;
   minBuyVolume?: number;
   minSellVolume?: number;
+  /** When true, server bypasses agg + per-trader caches and runs
+      a full re-aggregation from Polymarket. Used by the SYNC button. */
+  force?: boolean;
 }): Promise<PagedTradersResult> {
   const params = new URLSearchParams({ paged: "1" });
+  if (opts.force) params.set("force", "1");
   if (opts.days) params.set("days", String(opts.days));
   if (opts.minPerDay) params.set("minPerDay", String(opts.minPerDay));
   if (opts.pool) params.set("pool", String(opts.pool));

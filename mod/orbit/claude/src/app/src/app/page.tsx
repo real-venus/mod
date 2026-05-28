@@ -519,7 +519,9 @@ export default function Home() {
     return () => timers.forEach(clearTimeout);
   }, []);
 
-  // Routy gateway: fetch services + stats
+  // Gateway probe: caddy on :3000 already proxies /claude (app) AND /api/claude
+  // (api). Try routy's native API first for the rich service list, fall back
+  // to a same-origin HEAD on /claude — if anything answers, the gateway is up.
   const refreshRouty = useCallback(async () => {
     try {
       const [ws, st] = await Promise.all([
@@ -530,7 +532,20 @@ export default function Home() {
       setRoutyApis(ws.apis || []);
       setRoutyStats(st);
       setRoutyConnected(true);
+      return;
     } catch {
+      // Routy not running — but caddy may still be proxying. Probe with a
+      // same-origin HEAD; if /claude is reachable, the gateway is up.
+      try {
+        const r = await fetch(`${ROUTY_API}/claude`, { method: "GET", redirect: "manual" });
+        if (r.status > 0 && r.status < 500) {
+          setRoutyApps([]);
+          setRoutyApis([]);
+          setRoutyStats({ apps: 0, apis: 0, total_requests: 0 } as any);
+          setRoutyConnected(true);
+          return;
+        }
+      } catch {}
       setRoutyConnected(false);
     }
   }, []);
@@ -4986,11 +5001,15 @@ export default function Home() {
                 {/* Services list */}
                 <div className="px-3 pb-3 flex flex-col gap-1.5" style={{ maxHeight: 360, overflowY: "auto" }}>
                   {!routyConnected ? (
-                    <div className="text-center py-6 text-[12px]" style={{ color: "var(--text-tertiary)" }}>
-                      routy gateway not reachable on :3000
+                    <div className="text-center py-6 text-[13px]" style={{ color: "var(--text-tertiary)" }}>
+                      no gateway on :3000 — start caddy or routy
+                    </div>
+                  ) : routyApps.length === 0 && routyApis.length === 0 ? (
+                    <div className="text-center py-6 text-[13px]" style={{ color: "var(--text-tertiary)" }}>
+                      caddy proxy live on :3000 · routy not running (service list unavailable, routing still works)
                     </div>
                   ) : routyFiltered.length === 0 ? (
-                    <div className="text-center py-6 text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+                    <div className="text-center py-6 text-[13px]" style={{ color: "var(--text-tertiary)" }}>
                       {routySearch ? `no services match "${routySearch}"` : "no services registered"}
                     </div>
                   ) : (

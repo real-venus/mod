@@ -31,24 +31,33 @@ async fn main() -> anyhow::Result<()> {
     let pipeline = Arc::new(PipelineState::new(http.clone()));
 
     let strat_store = Arc::new(StratStore::new());
+    let signer_store = Arc::new(polymarket_api::SignerStore::new());
+    let engines = Arc::new(polymarket_api::EngineRegistry::new(http.clone()));
+    // Resume any live sessions that were running before the previous restart.
+    // resume_persisted scans the persist dir and re-spawns tokio tasks for
+    // every <eoa>.config.json present (explicit STOP deletes those files).
+    engines.resume_persisted();
 
     let state = AppState {
         http: http.clone(),
         proxy_cache: proxy_cache.clone(),
         pipeline: pipeline.clone(),
         strat_store,
+        signer_store,
+        engines,
     };
 
-    // Background warmup: traders pipeline. 15-minute cadence pairs with the
-    // 1-hour cache TTL on activity/trades endpoints so the leaderboard is
-    // never more than ~1h behind real activity. Each cycle only re-fetches
-    // entries that have expired, so the steady-state cost stays bounded.
+    // Background warmup: traders pipeline. 60-second cadence pairs with the
+    // 60s cache TTL on activity/trades so the leaderboard is never more than
+    // ~1 minute behind real activity. Each cycle only re-fetches entries
+    // that have expired, so steady-state load remains proportional to the
+    // candidate pool size (default 2000 traders).
     let warmup_pipeline = pipeline.clone();
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         loop {
             warmup_pipeline.warmup_cycle().await;
-            tokio::time::sleep(std::time::Duration::from_secs(900)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         }
     });
 

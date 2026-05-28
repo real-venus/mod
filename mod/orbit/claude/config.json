@@ -3,7 +3,7 @@
     "version": "2.0.0",
     "description": "Programmable AI developer interface \u2014 Python SDK, Rust Job Server, Next.js Terminal UI, IPFS versioning",
     "port": 8820,
-    "app_port": 8821,
+    "app_port": 8823,
     "owner": "0x70f1DB27c2A64cabDd9888dD6C6F27cCBdE6D7C2",
     "icon": "C",
     "color": "#cc785c",
@@ -54,7 +54,7 @@
         "scan",
         "fix"
     ],
-    "schema": "QmRcEYWnsAATCJT2id2fHZCmBs5whwi1ZU1FVYWTxKmYRG",
+    "schema": "Qmcre8h8jAssioVrDu45RKWrYqpikLnyU5Znav8nCEAAt5",
     "endpoints": {
         "/health": {
             "method": "GET",
@@ -140,7 +140,7 @@
     },
     "urls": {
         "api": "http://localhost:8820",
-        "app": "http://localhost:8821"
+        "app": "http://localhost:8823"
     },
-    "gateway_port": 8821
+    "gateway_port": 3000
 }

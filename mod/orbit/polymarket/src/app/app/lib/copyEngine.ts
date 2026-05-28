@@ -25,6 +25,28 @@ export interface ExecutionLogEntry {
   price?: number;
   orderResult?: ClobOrderResult;
   reason?: string;
+  /// ObservedTrade.id this log entry corresponds to. Set on every per-
+  /// trade outcome (COPY_BUY / COPY_SELL / SKIP / ERROR) so the UI can
+  /// look up the mirror outcome for any upstream trade by id. Without
+  /// this the user can only see a separate "execution log" feed and
+  /// can't tell which upstream trade each error refers to.
+  upstreamTradeId?: string;
+}
+
+/** A single upstream trade the engine observed during a sync cycle. Distinct
+    from the execution log (which is the engine's decisions) — this is the
+    raw real-time stream of what watched traders did, regardless of whether
+    the engine mirrored / skipped / errored. */
+export interface ObservedTrade {
+  id: string;
+  timestamp: number;
+  trader: string;
+  market: string;
+  conditionId: string;
+  side: "BUY" | "SELL";
+  size: number;
+  price: number;
+  notional: number;
 }
 
 export interface CopyEngineState {
@@ -37,8 +59,15 @@ export interface CopyEngineState {
   totalVolumeMirrored: number;
   balance: number | null;
   log: ExecutionLogEntry[];
+  /** Ring buffer of upstream trades observed in recent cycles. Capped to
+      RECENT_TRADES_LIMIT so memory stays bounded. Newest-first ordering. */
+  observedTrades: ObservedTrade[];
   error: string | null;
   traderCursors: Record<string, number>;
+  /** Per-trader timestamp of last successful Polymarket data-api response
+      (ms epoch). Lets the UI flag traders the engine hasn't synced in a
+      while (rate-limited, network blip, etc.) without waiting for an error. */
+  traderLastSync: Record<string, number>;
 }
 
 export interface CopyEngineConfig {
@@ -151,8 +180,10 @@ export class CopyEngine {
       totalVolumeMirrored: 0,
       balance: null,
       log: [],
+      observedTrades: [],
       error: null,
       traderCursors: {},
+      traderLastSync: {},
     };
     this.loadPersisted();
   }
@@ -229,6 +260,12 @@ export class CopyEngine {
       type: "CYCLE_START",
     });
 
+    // Outer try/finally guarantees the cycle counters advance even when the
+    // body early-returns (INSUFFICIENT_BALANCE, zero-weight) or throws.
+    // Previously these paths left lastCycleAt: null and cycleCount: 0
+    // forever, so the LIVE panel looked permanently frozen at "CYCLES 0 ·
+    // LAST SYNC never · NEXT IN NOW" with no visible cause. The user
+    // assumed the engine was stalled when it had actually run + failed.
     try {
       // Resolve the user's Polymarket Proxy address once. Polymarket binds
       // every newly-minted apiKey to this proxy — that's the address that
@@ -316,7 +353,13 @@ export class CopyEngine {
         if (!this.running) break;
 
         const addr = trader.address.toLowerCase();
-        const cursor = this.state.traderCursors[addr] || Date.now();
+        // First-cycle cursor defaults to one poll interval ago (NOT now —
+        // a `Date.now()` default makes `t.timestamp > cursor` reject every
+        // trade in the lookup window, so the engine sees nothing until the
+        // SECOND cycle. The 60s overlap below additionally guards against
+        // boundary races where a trade lands microseconds before sync.
+        const cursor = this.state.traderCursors[addr]
+          || Date.now() - this.config.intervalMs;
         // Fetch trades since cursor with 60s overlap
         const untilTs = Math.floor((cursor - 60_000) / 1000);
 
@@ -325,6 +368,16 @@ export class CopyEngine {
             trader.address,
             untilTs,
           );
+          // Stamp the per-trader last-sync time the moment the fetch resolves
+          // — even if zero new trades came back. Empty result = "they're not
+          // trading", which is still a successful sync. Without this stamp,
+          // a quiet trader would look perpetually stale in the UI.
+          this.setState({
+            traderLastSync: {
+              ...this.state.traderLastSync,
+              [addr]: Date.now(),
+            },
+          });
 
           // Filter to new trades only
           const newTrades = trades.filter(
@@ -334,6 +387,28 @@ export class CopyEngine {
           if (newTrades.length === 0) continue;
           tradersWithNewActivity++;
           totalNewTradesSeen += newTrades.length;
+
+          // Push every observed upstream trade into the ring buffer BEFORE
+          // we filter/clamp/place — so users see the raw real-time feed of
+          // what their watched traders are doing, regardless of whether the
+          // engine acts on it. Buffer caps at RECENT_TRADES_LIMIT to keep
+          // memory bounded over long live sessions.
+          const observed: ObservedTrade[] = newTrades.map((t) => ({
+            id: t.id,
+            timestamp: t.timestamp,
+            trader: trader.address,
+            market: t.market,
+            conditionId: t.conditionId,
+            side: t.side,
+            size: t.size,
+            price: t.price,
+            notional: t.price * t.size,
+          }));
+          const RECENT_TRADES_LIMIT = 500;
+          const merged = [...observed, ...this.state.observedTrades]
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .slice(0, RECENT_TRADES_LIMIT);
+          this.setState({ observedTrades: merged });
 
           // Per-trade sizing (proportional). copyRatio = how much of the
           // trader's recent buy volume gets replicated with our capital
@@ -371,6 +446,7 @@ export class CopyEngine {
                 traderSize: trade.size,
                 mirrorNotional,
                 reason: `BELOW_MIN_SIZE · mirror $${mirrorNotional < 0.01 ? mirrorNotional.toExponential(2) : mirrorNotional.toFixed(2)} < floor $${this.config.minOrderSize.toFixed(2)}`,
+                upstreamTradeId: trade.id,
               });
               this.copiedIds.add(trade.id);
               continue;
@@ -391,6 +467,7 @@ export class CopyEngine {
                 conditionId: trade.conditionId,
                 side: trade.side,
                 reason: "TOKEN_ID_NOT_FOUND",
+                upstreamTradeId: trade.id,
               });
               this.copiedIds.add(trade.id);
               continue;
@@ -439,6 +516,10 @@ export class CopyEngine {
                 mirrorNotional: Math.round(mirrorNotional * 100) / 100,
                 price: trade.price,
                 orderResult: result,
+                reason: !result.success
+                  ? (result.errorMsg ?? "REJECTED")
+                  : undefined,
+                upstreamTradeId: trade.id,
               });
 
               if (result.success) {
@@ -464,8 +545,16 @@ export class CopyEngine {
                 type: "ERROR",
                 traderAddress: trader.address,
                 market: trade.market,
+                conditionId: trade.conditionId,
+                side: trade.side,
                 reason: e instanceof Error ? e.message : String(e),
+                upstreamTradeId: trade.id,
               });
+              // Count the failure so the ORDERS stat shows it.
+              this.setState({
+                totalOrdersFailed: this.state.totalOrdersFailed + 1,
+              });
+              this.copiedIds.add(trade.id);
             }
           }
 
@@ -525,12 +614,28 @@ export class CopyEngine {
       const reason = is401
         ? `CLOB rejected the request (401). Your saved API key doesn't match the active wallet — disconnect & reconnect in MetaMask, then click AUTHENTICATE again to mint fresh creds.`
         : raw;
-      this.setState({ status: "error", error: is401 ? "UNAUTHENTICATED" : raw });
+      // Don't transition to status="error" — that halts the setInterval
+      // (LivePanel only fires cycles while status === "running"). For a
+      // transient cycle failure we want the engine to keep retrying and
+      // the user to see the most recent error inline. INSUFFICIENT_BALANCE
+      // / UNAUTHENTICATED still need surfacing, but as state.error rather
+      // than a hard stop.
+      this.setState({ error: is401 ? "UNAUTHENTICATED" : raw });
       this.addLog({
         id: uid(),
         timestamp: Date.now(),
         type: "ERROR",
         reason,
+      });
+    } finally {
+      // Always advance the cycle counters, even on early return or throw,
+      // so the UI shows the engine IS firing. Without this the LIVE panel
+      // shows "CYCLES 0 · LAST SYNC never · NEXT IN NOW" forever and the
+      // user can't tell whether the engine is running or wedged.
+      this.setState({
+        lastCycleAt: Date.now(),
+        cycleCount: this.state.cycleCount + 1,
+        nextCycleAt: Date.now() + this.config.intervalMs,
       });
     }
   }

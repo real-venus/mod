@@ -70,7 +70,11 @@ body {
 
 .app { display:grid; grid-template-columns: 1fr 320px; height: 100vh; }
 main { padding: 24px 28px; overflow-y: auto; }
-aside { background: var(--bg-elev); border-left: 1px solid var(--border); overflow-y: auto; }
+aside { background: var(--bg-elev); border-left: 1px solid var(--border); overflow-y: auto; display:flex; flex-direction:column; }
+aside hr { margin: 12px 0 0 0; }
+aside .aside-section { padding: 0; }
+.mod-list { padding: 8px 10px 4px 10px; }
+.empty.center { text-align: center; padding: 32px 12px; }
 
 /* ── Top bar (polymarket "LIVE COPY" strip) ─────────── */
 .topbar {
@@ -278,13 +282,47 @@ try { if (localStorage.getItem("mod_theme") === "light") document.documentElemen
       </div>
     </div>
 
+    <!-- ── Proxy backend wallet (polymarket-style PROXY strip) ── -->
+    <div class="panel" id="proxy-panel">
+      <header>
+        <h2 style="--accent: var(--violet);">proxy</h2>
+        <span class="muted mono" style="font-size:11px;" id="proxy-net">…</span>
+      </header>
+      <div class="row" style="gap:8px;margin-bottom:8px;align-items:center;">
+        <span class="label">address</span>
+        <span class="mono" id="proxy-addr" style="font-size:11px;color:var(--fg);"></span>
+        <button id="proxy-copy" class="ghost" style="font-size:10px;padding:2px 6px;">copy</button>
+        <a id="proxy-explorer" target="_blank" style="color:var(--violet);font-size:11px;text-decoration:none;">↗ explorer</a>
+      </div>
+      <div class="row" style="gap:8px;align-items:center;justify-content:space-between;">
+        <span class="label" style="color:var(--violet);">balance</span>
+        <span class="big-num" id="proxy-balance" style="color:var(--violet);">…</span>
+      </div>
+      <hr style="margin:12px 0;"/>
+      <div class="row" style="gap:8px;align-items:center;">
+        <input id="fund-amount" type="number" step="0.001" min="0" placeholder="0.001" style="max-width:140px;" />
+        <span class="muted mono" style="font-size:11px;">ETH</span>
+        <button id="fund-max" style="font-size:10px;">balance</button>
+        <span style="flex:1;"></span>
+        <button id="fund-btn" class="primary">fund proxy →</button>
+      </div>
+      <div class="mono" id="fund-status" style="font-size:11px;margin-top:8px;min-height:16px;color:var(--fg-dim);"></div>
+    </div>
+
     <!-- ── Per-module task panels ────────────────────────── -->
     <div id="tasks"></div>
   </main>
 
   <!-- ── Right rail ──────────────────────────────────────── -->
   <aside>
-    <div class="aside-header"><span class="label">modules</span><span class="muted mono" style="font-size:10px;" id="mod-count">…</span></div>
+    <div class="aside-header">
+      <span class="label">modules</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span class="muted mono" style="font-size:10px;" id="mod-count">…</span>
+        <button id="add-agent-btn" class="ghost" title="add agent from github repo"
+                style="font-size:12px;padding:2px 9px;border-color:var(--border-strong);">+</button>
+      </div>
+    </div>
     <div id="mod-list" class="mod-list"></div>
 
     <hr/>
@@ -299,6 +337,45 @@ try { if (localStorage.getItem("mod_theme") === "light") document.documentElemen
       <div class="mono dim" style="font-size:11px;" id="gw-info">localhost:3000</div>
     </div>
   </aside>
+</div>
+
+<!-- ── Add Agent from GitHub modal ───────────────────────── -->
+<div class="modal-backdrop" id="add-modal">
+  <div class="modal">
+    <h3 class="display" style="margin:0 0 6px;color:var(--green);">add agent from github</h3>
+    <div class="muted" style="font-size:11px;margin-bottom:14px;">clones a repo, detects language, scaffolds an <code>AgentContract</code> stub, and wires it into the dev console — no restart needed.</div>
+
+    <div style="margin:10px 0;">
+      <label class="label" style="display:block;margin-bottom:4px;">repo url</label>
+      <input id="repo-url" type="url" placeholder="https://github.com/owner/repo" />
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 140px;gap:8px;margin:10px 0;">
+      <div>
+        <label class="label" style="display:block;margin-bottom:4px;">name <span class="muted" style="text-transform:lowercase;">(optional, default: repo name)</span></label>
+        <input id="repo-name" type="text" placeholder="my-agent" />
+      </div>
+      <div>
+        <label class="label" style="display:block;margin-bottom:4px;">language</label>
+        <select id="repo-lang">
+          <option value="">auto-detect</option>
+          <option value="python">python</option>
+          <option value="javascript">javascript</option>
+          <option value="rust">rust</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="repo-status" class="mono" style="font-size:11px;margin:12px 0;min-height:18px;color:var(--fg-dim);"></div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
+      <span class="muted mono" style="font-size:10px;">requires X-Mod-Signature (sign with wallet)</span>
+      <div style="display:flex;gap:6px;">
+        <button id="repo-cancel">cancel</button>
+        <button id="repo-add" class="primary">clone + scaffold →</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Key modal -->
@@ -597,11 +674,141 @@ $("connect-btn").onclick = async () => {
 };
 $("run-btn").onclick = runParallel;
 
+/* ── proxy backend wallet (FUND button) ───────────────── */
+async function loadProxy() {
+  try {
+    const r = await fetch(`${API_BASE}/proxy/wallet`);
+    if (!r.ok) return;
+    const w = await r.json();
+    $("proxy-addr").textContent = w.address;
+    $("proxy-net").textContent  = w.network;
+    $("proxy-balance").textContent = w.balance_eth.toFixed(6) + " ETH";
+    if (w.explorer) $("proxy-explorer").href = w.explorer; else $("proxy-explorer").style.display = "none";
+    return w;
+  } catch (e) {}
+}
+
+$("proxy-copy").onclick = async () => {
+  await navigator.clipboard.writeText($("proxy-addr").textContent);
+  $("proxy-copy").textContent = "copied"; setTimeout(() => $("proxy-copy").textContent = "copy", 1200);
+};
+
+$("fund-max").onclick = async () => {
+  if (!state.wallet) await connectWallet();
+  if (!window.ethereum) return;
+  const bal = await window.ethereum.request({ method: "eth_getBalance", params: [state.wallet, "latest"] });
+  const eth = parseInt(bal, 16) / 1e18;
+  $("fund-amount").value = (eth - 0.0001).toFixed(6); // leave gas headroom
+};
+
+$("fund-btn").onclick = async () => {
+  if (!window.ethereum) { alert("MetaMask required."); return; }
+  if (!state.wallet) await connectWallet();
+  const proxy = await loadProxy();
+  if (!proxy) { alert("proxy address unavailable"); return; }
+  const amt = parseFloat($("fund-amount").value || "0");
+  if (!(amt > 0)) { alert("enter an ETH amount"); return; }
+
+  // Make sure we're on Base Sepolia (chainId 84532 = 0x14a34)
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x14a34" }] });
+  } catch (e) {
+    if (e.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: "0x14a34", chainName: "Base Sepolia",
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          rpcUrls: ["https://sepolia.base.org"],
+          blockExplorerUrls: ["https://sepolia.basescan.org"],
+        }],
+      });
+    }
+  }
+
+  const valueHex = "0x" + BigInt(Math.floor(amt * 1e18)).toString(16);
+  $("fund-status").innerHTML = '<span style="color:var(--amber);">sending…</span>';
+  try {
+    const txHash = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [{ from: state.wallet, to: proxy.address, value: valueHex }],
+    });
+    $("fund-status").innerHTML = `<span style="color:var(--amber);">SENT ${txHash.slice(0,10)}… WAITING CONFIRM</span>`;
+    // poll for receipt
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const r = await window.ethereum.request({ method: "eth_getTransactionReceipt", params: [txHash] });
+      if (r && r.status === "0x1") {
+        $("fund-status").innerHTML = `<span style="color:var(--green);">✓ CONFIRMED in block ${parseInt(r.blockNumber, 16)}</span>`;
+        await loadProxy();
+        return;
+      } else if (r && r.status === "0x0") {
+        $("fund-status").innerHTML = `<span style="color:var(--red);">✗ REVERTED ${txHash.slice(0,10)}…</span>`;
+        return;
+      }
+    }
+    $("fund-status").innerHTML = `<span style="color:var(--amber);">tx ${txHash.slice(0,10)}… pending (>2 min)</span>`;
+  } catch (e) {
+    $("fund-status").innerHTML = `<span style="color:var(--red);">error: ${e.message || e}</span>`;
+  }
+};
+
+/* ── add agent from github repo ───────────────────────── */
+$("add-agent-btn").onclick = () => {
+  $("repo-url").value = "";
+  $("repo-name").value = "";
+  $("repo-lang").value = "";
+  $("repo-status").textContent = "";
+  $("add-modal").style.display = "flex";
+};
+$("repo-cancel").onclick = () => $("add-modal").style.display = "none";
+
+$("repo-add").onclick = async () => {
+  const url = $("repo-url").value.trim();
+  if (!url) { $("repo-status").innerHTML = '<span style="color:var(--red);">repo url required</span>'; return; }
+  if (!state.signature) {
+    $("repo-status").innerHTML = '<span style="color:var(--amber);">signing challenge…</span>';
+    try { await signChallenge(); } catch (e) { $("repo-status").innerHTML = `<span style="color:var(--red);">sign failed: ${e.message}</span>`; return; }
+  }
+  $("repo-status").innerHTML = '<span style="color:var(--amber);">cloning repo and scaffolding contract…</span>';
+  try {
+    const r = await fetch(`${API_BASE}/agent/from-repo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Mod-Signature": state.signature },
+      body: JSON.stringify({
+        url,
+        name: $("repo-name").value.trim() || undefined,
+        lang: $("repo-lang").value || undefined,
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.text();
+      $("repo-status").innerHTML = `<span style="color:var(--red);">HTTP ${r.status} — ${err.slice(0, 200)}</span>`;
+      return;
+    }
+    const res = await r.json();
+    $("repo-status").innerHTML = `
+      <span style="color:var(--green);">✓ added <strong>${res.name}</strong> (${res.lang})</span><br/>
+      <span class="dim">contract:</span> <code>${res.contract}</code><br/>
+      <span class="dim">code_cid:</span> <code>${res.code_cid || '(none)'}</code>
+      ${res.build_hint ? '<br/><span class="dim">build:</span> <code>' + res.build_hint + '</code>' : ''}
+    `;
+    await loadModules();
+    state.selected.add(res.name);
+    renderModules();
+    renderTasks();
+    setTimeout(() => $("add-modal").style.display = "none", 2500);
+  } catch (e) {
+    $("repo-status").innerHTML = `<span style="color:var(--red);">error: ${e.message}</span>`;
+  }
+};
+
 /* ── init ─────────────────────────────────────────────── */
 loadModules().then(renderTasks);
 loadMerkle();
 loadCommunes();
-setInterval(() => { loadMerkle(); loadModules(); refreshTasks(); }, 5000);
+loadProxy();
+setInterval(() => { loadMerkle(); loadModules(); refreshTasks(); loadProxy(); }, 5000);
 </script>
 </body>
 </html>

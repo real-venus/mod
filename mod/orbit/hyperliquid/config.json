@@ -1,52 +1,52 @@
 {
-  "name": "hyperliquid",
-  "version": "0.2.0",
-  "description": "Hyperliquid copy-trading + indexes \u2014 Rust API, Next.js app, mod.py orchestrator",
-  "anchor": "src/mod.py",
-  "fns": [
-    "forward",
-    "serve",
-    "app",
-    "api",
-    "kill",
-    "status",
-    "build",
-    "logs",
-    "top_traders",
-    "analyze_trader",
-    "leaderboard",
-    "list_indexes",
-    "get_index",
-    "create_index",
-    "update_index",
-    "delete_index",
-    "index_perf",
-    "auto_index",
-    "list_follows",
-    "create_follow",
-    "update_follow",
-    "delete_follow",
-    "pause_follow",
-    "resume_follow",
-    "list_signals",
-    "list_vaults",
-    "vault_details",
-    "vault_perf",
-    "vault_intent"
-  ],
-  "ports": {
-    "api": 8919,
-    "app": 3919
-  },
-  "urls": {
-    "api": "http://localhost:8919",
-    "app": "http://localhost:3919"
-  },
-  "layout": {
-    "src/mod.py": "Python orchestrator (serve/kill/status/forward, calls Rust API)",
-    "src/api/": "Rust REST API (axum, tokio) \u2014 fast hot path",
-    "src/app/": "Next.js 14 app (copy-trade UI, indexes, vaults)"
-  },
-  "schema": "QmVU9vPVxYmmSRgRiDH8P3fFfW9UpBKbWsvvb3AyhsRpYL",
-  "gateway_port": 3919
+    "name": "hyperliquid",
+    "version": "0.2.0",
+    "description": "Hyperliquid copy-trading + indexes \u2014 Rust API, Next.js app, mod.py orchestrator",
+    "anchor": "src/mod.py",
+    "fns": [
+        "forward",
+        "serve",
+        "app",
+        "api",
+        "kill",
+        "status",
+        "build",
+        "logs",
+        "top_traders",
+        "analyze_trader",
+        "leaderboard",
+        "list_indexes",
+        "get_index",
+        "create_index",
+        "update_index",
+        "delete_index",
+        "index_perf",
+        "auto_index",
+        "list_follows",
+        "create_follow",
+        "update_follow",
+        "delete_follow",
+        "pause_follow",
+        "resume_follow",
+        "list_signals",
+        "list_vaults",
+        "vault_details",
+        "vault_perf",
+        "vault_intent"
+    ],
+    "ports": {
+        "api": 8919,
+        "app": 3919
+    },
+    "urls": {
+        "api": "http://localhost:8919",
+        "app": "http://localhost:3919"
+    },
+    "layout": {
+        "src/mod.py": "Python orchestrator (serve/kill/status/forward, calls Rust API)",
+        "src/api/": "Rust REST API (axum, tokio) \u2014 fast hot path",
+        "src/app/": "Next.js 14 app (copy-trade UI, indexes, vaults)"
+    },
+    "schema": "QmbB2vpLDM7Rz8Ad1qxbY1Mfk3gMdE3nuktA5jUzRWApRr",
+    "gateway_port": 3919
 }

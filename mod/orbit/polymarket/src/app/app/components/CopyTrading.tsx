@@ -231,7 +231,7 @@ export default function CopyTrading({
   // Server-side paginated fetch — used when cache is warm
   const loadPage = useCallback(
     async (opts: {
-      pg?: number; sort?: string; order?: string; silent?: boolean;
+      pg?: number; sort?: string; order?: string; silent?: boolean; force?: boolean;
     } = {}) => {
       const pg = opts.pg ?? pageRef.current;
       const sortKey = opts.sort || (traderSort === "score" ? "pnl" : traderSort);
@@ -253,6 +253,7 @@ export default function CopyTrading({
           minTrades: Number(minTrades) || undefined,
           minBuyVolume: Number(minBuyVolume) || undefined,
           minSellVolume: Number(minSellVolume) || undefined,
+          force: opts.force,
         });
         if (result.cold) {
           // Cache is cold — fall back to streaming
@@ -655,6 +656,16 @@ export default function CopyTrading({
                 {source === "memory" ? "MEM" : source === "disk" ? "DISK" : "LIVE"}
               </span>
             )}
+            {/* Manual SYNC button — forces a re-aggregation from Polymarket,
+                bypassing the 60s cache. Use when the staleness label is red. */}
+            <button
+              onClick={() => { void loadPage({ pg: pageRef.current, force: true }); }}
+              disabled={refreshing}
+              className="pixel-btn text-[11px] px-2 py-0.5 border-green-400/60 text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Force a fresh pull from Polymarket — bypasses the 60s server cache"
+            >
+              {refreshing ? "SYNCING…" : "↻ SYNC"}
+            </button>
             {(syncedAt ?? lastUpdated) && (() => {
               // Prefer the server's syncedAt — it tells the user when the data
               // was last actually pulled from Polymarket, not when the client
